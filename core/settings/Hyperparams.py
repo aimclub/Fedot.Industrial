@@ -1,5 +1,8 @@
 import numpy as np
 
+def quantile(column, q:str):
+    return np.quantile(a=column,q=q)
+
 radius_near_bus_stop = 0.0003
 stat_methods = {'mean_': np.mean,
                 'median_': np.median,
@@ -7,10 +10,10 @@ stat_methods = {'mean_': np.mean,
                 'var_': np.var,
                 'max': np.max,
                 'min': np.min,
-                'q5_': np.quantile(0.05),
-                'q25_': np.quantile(0.25),
-                'q75_': np.quantile(0.75),
-                'q95_': np.quantile(0.95),
+                'q5_': quantile,
+                'q25_': quantile,
+                'q75_': quantile,
+                'q95_': quantile,
                 'sum_': np.sum
                 }
 

@@ -24,10 +24,10 @@ def plot_2d(m, title=""):
     plt.title(title)
 
 
-class SSA:
+class Spectrum:
 
     def __init__(self,
-                 time_series: Union[pd.DataFrame, np.ndarray, list],
+                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  window_length: int = None,
                  save_memory: bool = True):
         """
@@ -47,8 +47,8 @@ class SSA:
         self.__window_length = window_length
         self.__save_memory = save_memory
         object_type = type(time_series)
-        self.__check_windows_length()
         self.__set_dimensions()
+        self.__check_windows_length()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
     def __check_windows_length(self):
@@ -81,77 +81,83 @@ class SSA:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
-    @type_check_decorator(object_type=pd.DataFrame,types_list=supported_types)
-    def decompose(self):
+    # @type_check_decorator(object_type=pd.Series, types_list=supported_types)
+    def decompose(self, return_df=True, correlation_flag=False):
         # Embed the time series in a trajectory matrix
-        self.U, self.Sigma, VT = np.linalg.svd(self.X)
-        self.d = np.linalg.matrix_rank(self.X)
+        Components_df = None
+        Wcorr = None
+        U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
+        rank = np.linalg.matrix_rank(self.__trajectory_matrix)
         # Decompose the trajectory matrix
-        self.TS_comps = np.zeros((self.N, self.d))
+        TS_comps = np.zeros((self.__ts_length, rank))
 
         if not self.__save_memory:
             # Construct and save all the elementary matrices
-            self.X_elem = np.array([self.Sigma[i] * np.outer(self.U[:, i], VT[i, :]) for i in range(self.d)])
+            X_elem = np.array([Sigma[i] * np.outer(U[:, i], VT[i, :]) for i in range(rank)])
 
             # Diagonally average the elementary matrices, store them as columns in array.
-            for i in range(self.d):
-                X_rev = self.X_elem[i, ::-1]
-                self.TS_comps[:, i] = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+            for i in range(rank):
+                X_rev = X_elem[i, ::-1]
+                TS_comps[:, i] = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
 
-            self.V = VT.T
+            V = VT.T
         else:
             # Reconstruct the elementary matrices without storing them
-            for i in range(self.d):
-                X_elem = self.Sigma[i] * np.outer(self.U[:, i], VT[i, :])
+            for i in range(rank):
+                X_elem = Sigma[i] * np.outer(U[:, i], VT[i, :])
                 X_rev = X_elem[::-1]
-                self.TS_comps[:, i] = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+                TS_comps[:, i] = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
 
-            self.X_elem = "Re-run with save_mem=False to retain the elementary matrices."
+            X_elem = "Re-run with save_mem=False to retain the elementary matrices."
 
             # The V array may also be very large under these circumstances, so we won't keep it.
-            self.V = "Re-run with save_mem=False to retain the V matrix."
+            V = "Re-run with save_mem=False to retain the V matrix."
 
         # Calculate the w-correlation matrix.
-        self.calc_wcorr()
+        if correlation_flag:
+            Wcorr = self.calc_wcorr(TS_comps, rank)
+        if return_df:
+            Components_df = self.components_to_df(TS_comps, rank)
 
-        return
+        return TS_comps, X_elem, V, Components_df, Wcorr
 
-    def calc_wcorr(self):
+    def calc_wcorr(self, TS_comps, rank):
         """
         Calculates the w-correlation matrix for the time series.
         """
 
         # Calculate the weights
-        w = np.array(list(np.arange(self.L) + 1) + [self.L] * (self.K - self.L - 1) + list(np.arange(self.L) + 1)[::-1])
+        w = np.array(list(np.arange(self.__ts_length) + 1) + [self.__ts_length] * (
+                    self.__subseq_length - self.__ts_length - 1) + list(np.arange(self.__ts_length) + 1)[::-1])
 
         def w_inner(F_i, F_j):
             return w.dot(F_i * F_j)
 
         # Calculated weighted norms, ||F_i||_w, then invert.
-        F_wnorms = np.array([w_inner(self.TS_comps[:, i], self.TS_comps[:, i]) for i in range(self.d)])
+        F_wnorms = np.array([w_inner(TS_comps[:, i], TS_comps[:, i]) for i in range(rank)])
         F_wnorms = F_wnorms ** -0.5
 
         # Calculate Wcorr.
-        self.Wcorr = np.identity(self.d)
-        for i in range(self.d):
-            for j in range(i + 1, self.d):
-                self.Wcorr[i, j] = abs(w_inner(self.TS_comps[:, i], self.TS_comps[:, j]) * F_wnorms[i] * F_wnorms[j])
-                self.Wcorr[j, i] = self.Wcorr[i, j]
+        Wcorr = np.identity(rank)
+        for i in range(rank):
+            for j in range(i + 1, rank):
+                Wcorr[i, j] = abs(w_inner(TS_comps[:, i], TS_comps[:, j]) * F_wnorms[i] * F_wnorms[j])
+                Wcorr[j, i] = Wcorr[i, j]
 
-        return
+        return Wcorr
 
-    def components_to_df(self, n=0):
+    def components_to_df(self, TS_comps, rank, n=0):
         """
         Returns all the time series components in a single Pandas DataFrame object.
         """
         if n > 0:
-            n = min(n, self.d)
+            n = min(n, rank)
         else:
-            n = self.d
+            n = rank
 
         # Create list of columns - call them F0, F1, F2, ...
         cols = ["F{}".format(i) for i in range(n)]
-        return pd.DataFrame(self.TS_comps[:, :n], columns=cols, index=self.orig_TS.index)
+        return pd.DataFrame(TS_comps[:, :n], columns=cols, index=self.__time_series.index)
 
     def reconstruct(self, indices):
         """
