@@ -19,9 +19,10 @@ class AggregationFeatures:
     # @type_check_decorator(types_list=supported_types)
     def create_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
-
+        column_name = []
         for method_name, method_func in stat_methods.items():
             tmp = feature_to_aggregation.copy(deep=True)
+
             if method_name.startswith('q'):
                 for col in tmp.columns:
                     tmp[col] = method_func(tmp[col], q=quantile_dict[method_name])
@@ -29,12 +30,14 @@ class AggregationFeatures:
             else:
                 tmp = pd.DataFrame(tmp.apply(method_func))
                 tmp = tmp.T
-            tmp.columns = [method_name + x for x in feature_to_aggregation.columns]
 
-            stat_list.append(tmp)
+            for feature in feature_to_aggregation.columns:
+                column_name.append(method_name + feature)
 
-        df_points_stat = pd.concat(stat_list, axis=1)
+            stat_list.append(tmp.values)
 
+        df_points_stat = pd.DataFrame(np.concatenate(stat_list, axis=1))
+        df_points_stat.columns = column_name
         return df_points_stat
 
     def _transform(X, intervals):

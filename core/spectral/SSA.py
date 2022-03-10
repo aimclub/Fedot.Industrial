@@ -63,7 +63,7 @@ class Spectrum:
 
     def __get_trajectory_matrix(self):
         return np.array(
-            [self.__time_series.values[i:self.__window_length + i] for i in range(0, self.__subseq_length)]).T
+            [self.__time_series[i:self.__window_length + i] for i in range(0, self.__subseq_length)]).T
 
     @property
     def window_length(self):
@@ -113,11 +113,8 @@ class Spectrum:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        # Calculate the w-correlation matrix.
-        if correlation_flag:
-            Wcorr = self.calc_wcorr(TS_comps, rank)
-        if return_df:
-            Components_df = self.components_to_df(TS_comps, rank)
+        combined_components = self.calc_wcorr(TS_comps, rank)
+        Components_df = self.components_to_df(combined_components, len(combined_components))
 
         return TS_comps, X_elem, V, Components_df, Wcorr
 
@@ -127,8 +124,10 @@ class Spectrum:
         """
 
         # Calculate the weights
-        w = np.array(list(np.arange(self.__ts_length) + 1) + [self.__ts_length] * (
-                    self.__subseq_length - self.__ts_length - 1) + list(np.arange(self.__ts_length) + 1)[::-1])
+        first = list(np.arange(self.__window_length) + 1)
+        second = [self.__ts_length] * (self.__subseq_length - self.__window_length - 1)
+        third = list(np.arange(self.__window_length) + 1)[::-1]
+        w = np.array(first + second + third)
 
         def w_inner(F_i, F_j):
             return w.dot(F_i * F_j)
@@ -139,12 +138,31 @@ class Spectrum:
 
         # Calculate Wcorr.
         Wcorr = np.identity(rank)
-        for i in range(rank):
+        components = [i for i in range(rank)]
+        for i in components:
             for j in range(i + 1, rank):
                 Wcorr[i, j] = abs(w_inner(TS_comps[:, i], TS_comps[:, j]) * F_wnorms[i] * F_wnorms[j])
                 Wcorr[j, i] = Wcorr[i, j]
 
-        return Wcorr
+        combined_components = []
+
+        for i in components:
+            corellated_comp = [i for i, v in enumerate(Wcorr[i,]) if v > 0.5]
+
+            if len(corellated_comp) < 2:
+                final_component = TS_comps[corellated_comp[0],]
+            else:
+                final_component = np.sum(TS_comps[corellated_comp,], axis=0)
+
+            for elem in corellated_comp:
+                try:
+                    components.remove(elem)
+                except Exception:
+                    _ = 1
+
+            combined_components.append(final_component)
+
+        return combined_components
 
     def components_to_df(self, TS_comps, rank, n=0):
         """
@@ -157,7 +175,9 @@ class Spectrum:
 
         # Create list of columns - call them F0, F1, F2, ...
         cols = ["F{}".format(i) for i in range(n)]
-        return pd.DataFrame(TS_comps[:, :n], columns=cols, index=self.__time_series.index)
+        df = pd.DataFrame(TS_comps).T
+        df.columns = cols
+        return df
 
     def reconstruct(self, indices):
         """
@@ -171,7 +191,7 @@ class Spectrum:
         if isinstance(indices, int): indices = [indices]
 
         ts_vals = self.TS_comps[:, indices].sum(axis=1)
-        return pd.Series(ts_vals, index=self.orig_TS.index)
+        return pd.Series(ts_vals)
 
     def plot_wcorr(self, min=None, max=None):
         """
