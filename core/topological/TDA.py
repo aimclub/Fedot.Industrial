@@ -2,22 +2,15 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from ripser import Rips
-import matplotlib.pyplot as plt
-import random
-import itertools
-from functools import reduce
-
-
-# rips = Rips()
-# data = np.random.random((100, 2))
-# diagrams = rips.fit_transform(data)
-# rips.plot(diagrams)
+from ripser import Rips, ripser
+import matplotlib
+matplotlib.use('TkAgg')
+from scipy import sparse
 
 
 class Topological:
     def __init__(self,
-                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
+                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list] = None,
                  max_simplex_dim: int = None,
                  epsilon: int = None,
                  persistance_params: dict = None,
@@ -31,11 +24,11 @@ class Topological:
         time_series : The original time series, in the form of a Pandas Series, NumPy array or list.
         window_length : integer that will be the length of the window.
         """
-        self.__time_series = time_series
+        self.time_series = time_series
 
         # time series to float type
-        self.__time_series = np.array(self.__time_series)
-        self.__time_series = self.__time_series.astype(float)
+        self.time_series = np.array(self.time_series)
+        self.time_series = self.time_series.astype(float)
 
         self.max_simplex_dim = max_simplex_dim
 
@@ -43,18 +36,43 @@ class Topological:
 
         self.persistance_params = persistance_params
         if self.persistance_params is None:
-            self.persistance_params = {'maxdim': 2,
-                                       'thresh': -1,
-                                       'coeff': 2,
-                                       'do_cocycles': False,
-                                       'verbose': False}
+            self.persistance_params = {
+                'coeff': 2,
+                'do_cocycles': False,
+                'verbose': True}
 
         self.__window_length = window_length
 
     def __create_epsilon_range(self, epsilon):
         return np.array([y * float(1 / epsilon) for y in range(epsilon)])
 
-    def rolling_window(self, array):
+    def __compute_persistnace_landscapes(self, ts):
+
+        N = len(ts)
+        I = np.arange(N - 1)
+        J = np.arange(1, N)
+        V = np.maximum(ts[0:-1], ts[1::])
+
+        # Add vertex birth times along the diagonal of the distance matrix
+        I = np.concatenate((I, np.arange(N)))
+        J = np.concatenate((J, np.arange(N)))
+        V = np.concatenate((V, ts))
+
+        # Create the sparse distance matrix
+        D = sparse.coo_matrix((V, (I, J)), shape=(N, N)).tocsr()
+        dgm0 = ripser(D, maxdim=0, distance_matrix=True)['dgms'][0]
+        dgm0 = dgm0[dgm0[:, 1] - dgm0[:, 0] > 1e-3, :]
+
+        allgrid = np.unique(dgm0.flatten())
+        allgrid = allgrid[allgrid < np.inf]
+
+        xs = np.unique(dgm0[:, 0])
+        ys = np.unique(dgm0[:, 1])
+        ys = ys[ys < np.inf]
+
+        return
+
+    def rolling_window(self, array, window):
         """
         Take in an array and return array of rolling windows of specified length
 
@@ -65,12 +83,12 @@ class Topological:
         Returns:
         - a_windowed: array where each entry is an array of length window
         """
-        shape = array.shape[:-1] + (array.shape[-1] - self.__window_length + 1, self.__window_length)
+        shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
         strides = array.strides + (array.strides[-1],)
         a_windowed = np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
         return a_windowed
 
-    def time_series_to_point_cloud(self, dimension_embed=2):
+    def time_series_to_point_cloud(self, array: np.array = None, dimension_embed=2):
         """
         Convert a time series into a point cloud in the dimension specified by dimension_embed
 
@@ -84,13 +102,16 @@ class Topological:
         in the manner explained above
         """
 
-        assert len(self.__time_series) >= dimension_embed, 'dimension_embed larger than length of time_series'
+        assert len(self.time_series) >= dimension_embed, 'dimension_embed larger than length of time_series'
 
         if self.__window_length is None:
             self.__window_length = dimension_embed
 
         # compute point cloud
-        point_cloud = self.rolling_window(array=self.__time_series)
+        if array is None:
+            array = self.time_series
+
+        point_cloud = self.rolling_window(array=array, window=dimension_embed)
 
         return np.array(point_cloud)
 
@@ -102,6 +123,7 @@ class Topological:
         epsilon_range = self.epsilon_range
 
         # build filtration
+        self.persistance_params['maxdim'] = max_simplex_dim
         filtration = Rips(**self.persistance_params)
 
         if point_cloud is None:
@@ -109,6 +131,8 @@ class Topological:
 
         # initialize persistence diagrams
         diagrams = filtration.fit_transform(point_cloud)
+        # Instantiate persistence landscape transformer
+        # plot_diagrams(diagrams)
 
         # normalize epsilon distance in diagrams so max is 1
         diagrams = [np.array([dg for dg in diag if np.isfinite(dg).all()]) for diag in diagrams]
@@ -128,7 +152,9 @@ class Topological:
 
         return homology
 
-    def time_series_to_persistent_cohomology_ripser(self):
+    def time_series_to_persistent_cohomology_ripser(self,
+                                                    time_series,
+                                                    max_simplex_dim):
         """
         Wrapper function that takes in a time series and outputs
         the persistent homology object, along with other
@@ -136,7 +162,6 @@ class Topological:
 
         Parameters:
         - time_series: Numpy array of time series values
-        - epsilon_range: Numpy array of epsilon values between 0 and 1 at which to extract betti numbers.
         - max_simplex_dim: Integer denoting the maximum dimension of simplexes to create in filtration
 
         Returns:
@@ -144,33 +169,24 @@ class Topological:
         equal to len(epsilon_range) containing the betti numbers of the i-th homology groups for the Rips filtration
         """
 
-        # create point cloud from time series
-        point_cloud = self.time_series_to_point_cloud(dimension_embed=self.max_simplex_dim)
-
-        homology = self.point_cloud_to_persistent_cohomology_ripser(point_cloud=point_cloud,
-                                                                    max_simplex_dim=self.max_simplex_dim - 1)
+        homology = self.point_cloud_to_persistent_cohomology_ripser(point_cloud=time_series,
+                                                                    max_simplex_dim=max_simplex_dim)
         return homology
 
-    def time_series_rolling_betti_ripser(self, df, channels, max_simplex_dim, window):
-        betti_channels = {}
-        for channel in channels:
-            betti_channels[channel] = [
-                self.time_series_to_persistent_cohomology_ripser()
-                for wdw in self.rolling_window(df[channel].values)
-            ]
-
-            betti_channels[channel] = pd.concat(
-                objs=[
-                    pd.Series(df[channel].index[window - 1:], index=df[channel].index[window - 1:], name='index'),
-                    df[channel][window - 1:],
-                    pd.DataFrame(
-                        data=betti_channels[channel],
-                        index=df[channel].index[window - 1:]
-                    ).rename(columns={n: '{CHANNEL}_betti_'.format(CHANNEL=channel) + str(n) for n in
-                                      range(max_simplex_dim + 1)})
-                ],
-                axis=1
-            )
-
-        return reduce(lambda left, right: pd.merge(left, right, on='index'),
-                      [betti_channels[channel] for channel in channels])
+    def time_series_rolling_betti_ripser(self, ts):
+        # homology_list = []
+        # # self.__compute_persistnace_landscapes(ts)
+        # window_list = [x for x in self.rolling_window(array=ts, window=self.__window_length)]
+        #
+        # for window_ts in window_list:
+        #     homology = self.time_series_to_persistent_cohomology_ripser(window_ts,
+        #                                                                 max_simplex_dim=self.max_simplex_dim)
+        # homology_list.append(homology)
+        point_cloud = self.rolling_window(array=ts, window=self.__window_length)
+        homology = self.time_series_to_persistent_cohomology_ripser(point_cloud,
+                                                                    max_simplex_dim=self.max_simplex_dim)
+        df_features = pd.DataFrame(data=homology)
+        cols = ["Betti_{}".format(i) for i in range(df_features.shape[1])]
+        df_features.columns = cols
+        df_features['Betti_sum'] = df_features.sum(axis=1)
+        return df_features['Betti_sum'].values.tolist()

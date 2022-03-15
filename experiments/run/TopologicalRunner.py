@@ -8,31 +8,22 @@ import timeit
 
 class TopologicalRunner(ExperimentRunner):
     def __init__(self,
+                 topological_params: dict,
                  list_of_dataset: list = None,
                  launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']):
+                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
+                 ):
 
         super().__init__(list_of_dataset, launches, metrics_name)
-        self.topological_extractor = Topological
-
-    def _ts_chunk_function(self, ts):
-
-        self.logger.info(f'8 CPU on working. '
-                         f'Total ts samples - {self.ts_samples_count}. '
-                         f'Current sample - {self.count}')
-        spectr = self.spectrum_extractor(time_series=ts,
-                                         window_length=self.window_length)
-        TS_comps, X_elem, V, Components_df, _ = spectr.decompose()
-        aggregation_df = self.aggregator.create_features(feature_to_aggregation=Components_df.iloc[:, :10])
-        self.count += 1
-        return aggregation_df
+        self.topological_extractor = Topological(**topological_params)
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         pool = Pool(8)
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        aggregation_df = pool.map(self._ts_chunk_function, ts_frame.values)
-        feats = pd.concat(aggregation_df)
+        self.topological_extractor.time_series = ts_frame
+        aggregation_df = pool.map(self.topological_extractor.time_series_rolling_betti_ripser, ts_frame.values)
+        feats = pd.DataFrame(aggregation_df)
         pool.close()
         pool.join()
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
