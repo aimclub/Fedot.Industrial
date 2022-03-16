@@ -39,7 +39,7 @@ class Topological:
             self.persistance_params = {
                 'coeff': 2,
                 'do_cocycles': False,
-                'verbose': True}
+                'verbose': False}
 
         self.__window_length = window_length
 
@@ -189,4 +189,4 @@ class Topological:
         cols = ["Betti_{}".format(i) for i in range(df_features.shape[1])]
         df_features.columns = cols
         df_features['Betti_sum'] = df_features.sum(axis=1)
-        return df_features['Betti_sum'].values.tolist()
+        return df_features

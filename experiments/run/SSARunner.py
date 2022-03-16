@@ -11,8 +11,11 @@ class SSARunner(ExperimentRunner):
     def __init__(self,
                  list_of_dataset: list = None,
                  launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']):
-        super().__init__(list_of_dataset, launches, metrics_name)
+                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
+                 fedot_params: dict = None
+                 ):
+
+        super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
 
@@ -59,12 +62,7 @@ class SSARunner(ExperimentRunner):
         self.window_length = window_length
         train_feats = self.generate_features_from_ts(X_train)
         self.logger.info('Start fitting FEDOT model')
-        predictor = Fedot(problem='classification',
-                          seed=42,
-                          timeout=10,
-                          composer_params={'max_depth': 10,
-                                           'max_arity': 4},
-                          verbose_level=1)
+        predictor = Fedot(**self.fedot_params)
         predictor.fit(features=train_feats, target=y_train)
         return predictor
 

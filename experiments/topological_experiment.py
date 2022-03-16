@@ -36,7 +36,7 @@ if __name__ == '__main__':
                        # 'Herring',
                        # 'Haptics',
                        # 'DodgerLoopDay',
-                       #'Earthquakes',
+                       # 'Earthquakes',
                        # 'FordA',
                        # 'FordB',
                        # 'Plane',
@@ -49,9 +49,19 @@ if __name__ == '__main__':
         'epsilon': 100,
         'persistance_params': None,
         'window_length': 6}
-
+    fedot_params = {'problem': 'classification',
+                    'seed': 42,
+                    'timeout': 30,
+                    'composer_params': {'max_depth': 10,
+                                        'max_arity': 4,
+                                        'avialible_operations': ['resample', 'scaling', 'simple_imputation', 'rf',
+                                                                  'isolation_forest_class', 'lgbm',
+                                                                  'pca', 'logit', 'qda', 'normalization', 'mlp', 'dt',
+                                                                  'one_hot_encoding', 'knn', 'poly_features']},
+                    'verbose_level': 1}
     runner = TopologicalRunner(topological_params=topological_params,
                                list_of_dataset=list_of_dataset,
-                               launches=1)
+                               launches=1,
+                               fedot_params=fedot_params)
     models = runner.run_experiment(dict_of_dataset,
                                    dict_of_win_list)

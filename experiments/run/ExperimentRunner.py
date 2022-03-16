@@ -14,13 +14,20 @@ class ExperimentRunner:
     def __init__(self,
                  list_of_dataset: list = None,
                  launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']):
+                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
+                 fedot_params: dict = {'problem': 'classification',
+                                       'seed': 42,
+                                       'timeout': 10,
+                                       'composer_params': {'max_depth': 10,
+                                                           'max_arity': 4},
+                                       'verbose_level': 1}):
         self.analyzer = PerfomanceAnalyzer()
         self.list_of_dataset = list_of_dataset
         self.launches = launches
         self.metrics_name = metrics_name
         self.count = 0
         self.logger = get_logger()
+        self.fedot_params = fedot_params
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         """  Method responsible for  experiment pipeline """
@@ -38,7 +45,7 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
-    def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None):
+    def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
         """  Method responsible for  experiment pipeline """
         return
 
@@ -63,7 +70,8 @@ class ExperimentRunner:
 
                     predictions, predictions_proba, inference = self.predict(predictor=predictor,
                                                                              X_test=X_test,
-                                                                             window_length=dict_of_win_list[dataset])
+                                                                             window_length=dict_of_win_list[dataset],
+                                                                             y_test=None)
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=path_to_save)
                     best_pipeline, fitted_operation = predictor.current_pipeline.save()
