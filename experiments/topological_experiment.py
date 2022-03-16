@@ -51,14 +51,15 @@ if __name__ == '__main__':
         'window_length': 6}
     fedot_params = {'problem': 'classification',
                     'seed': 42,
-                    'timeout': 30,
+                    'timeout': 5,
                     'composer_params': {'max_depth': 10,
                                         'max_arity': 4,
-                                        'avialible_operations': ['resample', 'scaling', 'simple_imputation', 'rf',
-                                                                  'isolation_forest_class', 'lgbm',
-                                                                  'pca', 'logit', 'qda', 'normalization', 'mlp', 'dt',
-                                                                  'one_hot_encoding', 'knn', 'poly_features']},
-                    'verbose_level': 1}
+                                        'available_operations': ['resample', 'scaling', 'simple_imputation', 'rf',
+                                                                 'isolation_forest_class', 'lgbm',
+                                                                 'pca', 'logit', 'normalization', 'mlp',
+                                                                 'one_hot_encoding', 'knn']},
+                    'verbose_level': 1,
+                    'n_jobs': 4}
     runner = TopologicalRunner(topological_params=topological_params,
                                list_of_dataset=list_of_dataset,
                                launches=1,

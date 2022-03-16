@@ -6,7 +6,8 @@ from fedot.core.data.supplementary_data import SupplementaryData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 from sklearn.model_selection import train_test_split
-
+from core.topological.external.TFE import *
+from core.topological.external import *
 from core.topological.TDA import Topological
 from experiments.run.ExperimentRunner import ExperimentRunner
 from utils.utils import *
@@ -52,6 +53,27 @@ class TopologicalRunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return feats, aggregation_df
 
+    def generate_topological_features(self, X_train, X_test, tokens_embedding_delay):
+        feature_extractor = TopologicalFeaturesExtractor(
+            persistence_diagram_extractor=PersistenceDiagramsExtractor(tokens_embedding_dim=2,
+                                                                       tokens_embedding_delay=tokens_embedding_delay,
+                                                                       homology_dimensions=(0, 1),
+                                                                       parallel=True),
+            persistence_diagram_features=[HolesNumberFeature(),
+                                          MaxHoleLifeTimeFeature(),
+                                          RelevantHolesNumber(),
+                                          AverageHoleLifetimeFeature(),
+                                          SumHoleLifetimeFeature(),
+                                          PersistenceEntropyFeature(),
+                                          SimultaneousAliveHolesFeatue(),
+                                          AveragePersistenceLandscapeFeature(),
+                                          BettiNumbersSumFeature(),
+                                          RadiusAtMaxBNFeature()])
+
+        X_train_transformed = feature_extractor.fit_transform(X_train.values)
+        X_test_transformed = feature_extractor.fit_transform(X_test.values)
+        return X_train_transformed, X_test_transformed
+
     def _generate_fit_time(self, predictor):
         fit_time = []
         if predictor.best_models is None:
@@ -70,11 +92,13 @@ class TopologicalRunner(ExperimentRunner):
 
         self.logger.info('Generating features for fit model')
         self.window_length = window_length
-        train_feats, betti_df_train = self.generate_features_from_ts(X_train)
+        # train_feats, betti_df_train = self.generate_features_from_ts(X_train)
+
         self.logger.info('Start fitting FEDOT model')
-        converted_features = self.__convert_to_input_data(features=train_feats.values,
+
+        converted_features = self.__convert_to_input_data(features=X_train,
                                                           target=y_train,
-                                                          col_numbers=train_feats.shape[1])
+                                                          col_numbers=X_train.shape[1])
 
         predictor = Fedot(**self.fedot_params)
         predictor.fit(converted_features)
@@ -85,14 +109,18 @@ class TopologicalRunner(ExperimentRunner):
                 window_length: int = None,
                 y_test: np.array = None):
         self.logger.info('Generating features for prediction')
-        test_feats, betti_df_test = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
-        converted_features = self.__convert_to_input_data(features=test_feats.values,
+
+        #test_feats, betti_df_test = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
+
+        converted_features = self.__convert_to_input_data(features=X_test,
                                                           target=y_test,
-                                                          col_numbers=test_feats.shape[1])
+                                                          col_numbers=X_test.shape[1])
+
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=converted_features)
         inference = timeit.default_timer() - start_time
         predictions_proba = predictor.predict_proba(features=converted_features)
+
         return predictions, predictions_proba, inference
 
     def run_experiment(self,
@@ -103,24 +131,30 @@ class TopologicalRunner(ExperimentRunner):
                 try:
                     path_to_save = self._create_path_to_save(dataset, launch)
                     X, y = dict_of_dataset[dataset]
+
                     if type(X) is tuple:
                         X_train, X_test, y_train, y_test = X[0], X[1], y[0], y[1]
                     else:
                         X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=np.random.randint(100))
 
-                    predictor = self.fit(X_train=X_train,
+                    X_train_converted, X_test_converted = self.generate_topological_features(X_train,
+                                                                                             X_test,
+                                                                                             dict_of_win_list[dataset])
+                    predictor = self.fit(X_train=X_train_converted,
                                          y_train=y_train,
                                          window_length=dict_of_win_list[dataset])
 
                     self.count = 0
 
                     predictions, predictions_proba, inference = self.predict(predictor=predictor,
-                                                                             X_test=X_test,
+                                                                             X_test=X_test_converted,
                                                                              window_length=dict_of_win_list[dataset],
                                                                              y_test=y_test)
+
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=path_to_save)
                     best_pipeline, fitted_operation = predictor.current_pipeline.save()
+
                     try:
                         opt_history = predictor.history.save()
                         with open(os.path.join(path_to_save, 'history', 'opt_history.json'), 'w') as f:

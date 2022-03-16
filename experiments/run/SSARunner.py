@@ -66,7 +66,7 @@ class SSARunner(ExperimentRunner):
         predictor.fit(features=train_feats, target=y_train)
         return predictor
 
-    def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None):
+    def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
         self.logger.info('Generating features for prediction')
         test_feats = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
         start_time = timeit.default_timer()
@@ -74,4 +74,3 @@ class SSARunner(ExperimentRunner):
         inference = timeit.default_timer() - start_time
         predictions_proba = predictor.predict_proba(features=test_feats)
         return predictions, predictions_proba, inference
-

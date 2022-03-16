@@ -43,6 +43,19 @@ if __name__ == '__main__':
                        'Trace',
                        'Lightning7'
                        ]
-    runner = SSARunner(list_of_dataset, launches=1)
+    fedot_params = {'problem': 'classification',
+                    'seed': 42,
+                    'timeout': 30,
+                    'composer_params': {'max_depth': 10,
+                                        'max_arity': 4,
+                                        'available_operations': ['resample', 'scaling', 'simple_imputation', 'rf',
+                                                                 'isolation_forest_class', 'lgbm',
+                                                                 'pca', 'logit', 'normalization', 'mlp',
+                                                                 'one_hot_encoding', 'knn']},
+                    'verbose_level': 1,
+                    'n_jobs': -1}
+    runner = SSARunner(list_of_dataset,
+                       launches=1,
+                       fedot_params=fedot_params)
     models = runner.run_experiment(dict_of_dataset,
                                    dict_of_win_list)
