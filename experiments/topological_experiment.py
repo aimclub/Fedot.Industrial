@@ -20,7 +20,7 @@ if __name__ == '__main__':
                         'arrow_head': 50,
                         'osuleaf': 90,
                         'ItalyPowerDemand': 3,
-                        'unit_test': 3,
+                        'unit_test': 6,
                         'Herring': 170,
                         'Haptics': 300,
                         'DodgerLoopDay': 80,
@@ -33,15 +33,15 @@ if __name__ == '__main__':
                         }
 
     list_of_dataset = ['ItalyPowerDemand',
-                       # 'Herring',
-                       # 'Haptics',
+                       'Herring',
+                       'Haptics',
                        # 'DodgerLoopDay',
-                       # 'Earthquakes',
-                       # 'FordA',
-                       # 'FordB',
-                       # 'Plane',
-                       # 'Trace',
-                       # 'Lightning7'
+                       'Earthquakes',
+                       'FordA',
+                       'FordB',
+                       'Plane',
+                       'Trace',
+                       'Lightning7'
                        ]
 
     topological_params = {
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         'window_length': 6}
     fedot_params = {'problem': 'classification',
                     'seed': 42,
-                    'timeout': 5,
+                    'timeout': 15,
                     'composer_params': {'max_depth': 10,
                                         'max_arity': 4,
                                         'available_operations': ['resample', 'scaling', 'simple_imputation', 'rf',
