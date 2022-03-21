@@ -1,4 +1,11 @@
 import json
+import os
+from metrics.metrics_implementation import *
+from fedot.core.data.data import InputData
+from fedot.core.pipelines.node import PrimaryNode
+from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import TaskTypesEnum, Task
 from sklearn.model_selection import train_test_split
 from experiments.analyzer import PerfomanceAnalyzer
 from core.spectral.SSA import Spectrum
@@ -26,6 +33,7 @@ class ExperimentRunner:
         self.launches = launches
         self.metrics_name = metrics_name
         self.count = 0
+        self.window_length = None
         self.logger = get_logger()
         self.fedot_params = fedot_params
 
@@ -41,7 +49,7 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
-    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length: int = None):
+    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
         """  Method responsible for  experiment pipeline """
         return
 
@@ -49,13 +57,42 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
+    def _validate_window_length(self, features, target):
+
+        node = PrimaryNode('rf')
+        pipeline = Pipeline(node)
+        n_samples = round(features.shape[0] * 0.7)
+
+        train_data = InputData(features=features.values[:n_samples, :], target=target[:n_samples],
+                               idx=np.arange(0, len(target[:n_samples])),
+                               task=Task(TaskTypesEnum('classification')), data_type=DataTypesEnum.table)
+        test_data = InputData(features=features.values[n_samples:, :], target=target[n_samples:],
+                              idx=np.arange(0, len(target[n_samples:])),
+                              task=Task(TaskTypesEnum('classification')), data_type=DataTypesEnum.table)
+
+        fitted = pipeline.fit(input_data=train_data)
+        prediction = pipeline.predict(input_data=test_data, output_mode='labels')
+
+        metric_f1 = F1()
+        metric_roc = ROCAUC()
+
+        score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
+        score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+
+        return score_f1, score_roc_auc
+
     def run_experiment(self,
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
         for dataset in self.list_of_dataset:
             for launch in range(self.launches):
                 try:
-                    path_to_save = self._create_path_to_save(dataset, launch)
+                    self.path_to_save = self._create_path_to_save(dataset, launch)
+                    self.path_to_save_png = os.path.join(self.path_to_save, 'pictures')
+
+                    if not os.path.exists(self.path_to_save_png):
+                        os.makedirs(self.path_to_save_png)
+
                     X, y = dict_of_dataset[dataset]
                     if type(X) is tuple:
                         X_train, X_test, y_train, y_test = X[0], X[1], y[0], y[1]
@@ -64,20 +101,20 @@ class ExperimentRunner:
 
                     predictor = self.fit(X_train=X_train,
                                          y_train=y_train,
-                                         window_length=dict_of_win_list[dataset])
+                                         window_length_list=dict_of_win_list[dataset])
 
                     self.count = 0
 
                     predictions, predictions_proba, inference = self.predict(predictor=predictor,
                                                                              X_test=X_test,
-                                                                             window_length=dict_of_win_list[dataset],
+                                                                             window_length=self.window_length,
                                                                              y_test=None)
                     self.logger.info('Saving model')
-                    predictor.current_pipeline.save(path=path_to_save)
+                    predictor.current_pipeline.save(path=self.path_to_save)
                     best_pipeline, fitted_operation = predictor.current_pipeline.save()
                     try:
                         opt_history = predictor.history.save()
-                        with open(os.path.join(path_to_save, 'history', 'opt_history.json'), 'w') as f:
+                        with open(os.path.join(self.path_to_save, 'history', 'opt_history.json'), 'w') as f:
                             json.dump(json.loads(opt_history), f)
                     except Exception as ex:
                         ex = 1
@@ -97,7 +134,7 @@ class ExperimentRunner:
                                  metrics=metrics,
                                  inference=inference,
                                  fit_time=np.mean(self._generate_fit_time(predictor)),
-                                 path_to_save=path_to_save)
+                                 path_to_save=self.path_to_save)
                     self.count = 0
 
                 except Exception as ex:

@@ -1,9 +1,12 @@
 from multiprocessing.dummy import Pool
+
+import numpy as np
 from fedot.api.main import Fedot
 from core.spectral.SSA import Spectrum
 from core.statistical.Stat_features import AggregationFeatures
 from experiments.run.ExperimentRunner import ExperimentRunner
 from utils.utils import *
+import matplotlib.pyplot as plt
 import timeit
 
 
@@ -18,15 +21,56 @@ class SSARunner(ExperimentRunner):
         super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
+        self.vis_flag = True
+
+    def __vis_and_save_components(self, Components_df):
+        n_rows = round(Components_df.shape[1] / 5)
+
+        if n_rows < 4:
+            plot_area = 'small'
+        elif 5 < n_rows < 9:
+            plot_area = 'mid'
+        else:
+            plot_area = 'big'
+
+        plot_dict = {'small': (20, 10),
+                     'mid': (20, 10),
+                     'big': (40, 20)}
+
+        figsize = plot_dict[plot_area]
+        layout = (n_rows + 1, 5)
+
+        Components_df.plot(subplots=True,
+                           figsize=figsize,
+                           legend=None,
+                           layout=(n_rows + 1, 5))
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.path_to_save_png, f'components_for_ts_{self.count}.png'))
+
+    def __check_Nan(self, ts):
+        if any(np.isnan(ts)):
+            ts = np.nan_to_num(ts, nan=0)
+        return ts
 
     def _ts_chunk_function(self, ts):
 
         self.logger.info(f'8 CPU on working. '
                          f'Total ts samples - {self.ts_samples_count}. '
                          f'Current sample - {self.count}')
+
+        ts = self.__check_Nan(ts)
+
         spectr = self.spectrum_extractor(time_series=ts,
                                          window_length=self.window_length)
         TS_comps, X_elem, V, Components_df, _ = spectr.decompose()
+
+        if self.vis_flag:
+            try:
+                self.__vis_and_save_components(Components_df=Components_df)
+            except Exception:
+                self.logger.info('Vis problem')
+
         aggregation_df = self.aggregator.create_features(feature_to_aggregation=Components_df.iloc[:, :10])
         self.count += 1
         return aggregation_df
@@ -56,11 +100,39 @@ class SSARunner(ExperimentRunner):
         save_path = os.path.join(path_to_save_results(), dataset, str(launch))
         return save_path
 
-    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length: int = None):
+    def _choose_best_window_size(self, X_train, y_train, window_length_list):
+        metric_list = []
+        feature_list = []
+
+        for window_length in window_length_list:
+            self.logger.info(f'Generate features for window length - {window_length}')
+            self.window_length = window_length
+
+            train_feats = self.generate_features_from_ts(X_train)
+
+            self.logger.info(f'Validate model for window length  - {window_length}')
+
+            metrics = self._validate_window_length(features=train_feats, target=y_train)
+
+            self.logger.info(f'Obtained metric for window length {window_length}  - F1, ROC_AUC - {metrics}')
+
+            metric_list.append(metrics)
+            feature_list.append(train_feats)
+
+            self.count = 0
+
+        max_score = [sum(x) for x in metric_list]
+        index_of_window = int(max(max_score))
+        train_feats = feature_list[index_of_window]
+        self.window_length = window_length_list[index_of_window]
+        self.logger.info(f'Was choosen window length -  {self.window_length} ')
+
+        return train_feats
+
+    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
 
         self.logger.info('Generating features for fit model')
-        self.window_length = window_length
-        train_feats = self.generate_features_from_ts(X_train)
+        train_feats = self._choose_best_window_size(X_train, y_train, window_length_list)
         self.logger.info('Start fitting FEDOT model')
         predictor = Fedot(**self.fedot_params)
         predictor.fit(features=train_feats, target=y_train)

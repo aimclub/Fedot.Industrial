@@ -48,7 +48,7 @@ class F1(QualityMetric):
         if n_classes.shape[0] > 2:
             additional_params = {'average': 'weighted'}
         else:
-            additional_params = {'average': 'micro'}
+            additional_params = {'average': 'binary'}
         return f1_score(y_true=target, y_pred=prediction,
                         **additional_params)
 

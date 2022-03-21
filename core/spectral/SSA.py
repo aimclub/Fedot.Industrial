@@ -113,7 +113,7 @@ class Spectrum:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        if rank > 10:
+        if rank > 100000:
             combined_components = self.calc_wcorr(TS_comps, rank)
             Components_df = self.components_to_df(combined_components, len(combined_components))
         else:
