@@ -21,29 +21,30 @@ if __name__ == '__main__':
                         'osuleaf': 90,
                         'ItalyPowerDemand': [3, 6, 9],
                         'unit_test': 3,
-                        'Herring': 170,
-                        'Haptics': 300,
-                        'DodgerLoopDay': 80,
+                        'Herring': [48, 128, 170],
+                        'Haptics': [110, 220, 330],
+                        'DodgerLoopDay': [28, 56, 84],
                         'Earthquakes': [48, 128, 170],
-                        'FordA': 125,
-                        'FordB': 125,
-                        'Plane': 48,
-                        'Trace': 90,
-                        'Lightning7': 100
+                        'FordA': [50, 100, 150],
+                        'FordB': [50, 100, 150],
+                        'Plane': [14, 28, 42],
+                        'Trace': [27, 54, 81],
+                        'Lightning7': [32, 64, 96]
                         }
 
     list_of_dataset = [
-         'ItalyPowerDemand',
-        # 'Herring',
-        # 'Haptics',
-        # 'DodgerLoopDay',
-        #'Earthquakes',
-        # 'FordA',
-        # 'FordB',
-        # 'Plane',
-        # 'Trace',
-        # 'Lightning7'
+        'ItalyPowerDemand',
+        'Herring',
+        'Haptics',
+        'DodgerLoopDay',
+        'Earthquakes',
+        'FordA',
+        'FordB',
+        'Plane',
+        'Trace',
+        'Lightning7'
     ]
+
     fedot_params = {'problem': 'classification',
                     'seed': 42,
                     'timeout': 20,
@@ -55,8 +56,10 @@ if __name__ == '__main__':
                                                                  'one_hot_encoding', 'knn']},
                     'verbose_level': 2,
                     'n_jobs': 4}
+
     runner = SSARunner(list_of_dataset,
-                       launches=1,
+                       launches=3,
                        fedot_params=fedot_params)
+
     models = runner.run_experiment(dict_of_dataset,
                                    dict_of_win_list)
