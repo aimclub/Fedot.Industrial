@@ -37,6 +37,7 @@ class ExperimentRunner:
         self.logger = get_logger()
         self.fedot_params = fedot_params
 
+
     def generate_features_from_ts(self, ts_frame, window_length=None):
         """  Method responsible for  experiment pipeline """
         return
@@ -85,6 +86,8 @@ class ExperimentRunner:
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
         for dataset in self.list_of_dataset:
+            self.train_feats = None
+            self.test_feats = None
             for launch in range(self.launches):
                 try:
                     self.path_to_save = self._create_path_to_save(dataset, launch)
