@@ -124,7 +124,7 @@ class SSARunner(ExperimentRunner):
             self.count = 0
 
         max_score = [sum(x) for x in metric_list]
-        index_of_window = int(max(max_score))
+        index_of_window = int(max_score.index(max(max_score)))
         train_feats = feature_list[index_of_window]
         self.window_length = window_length_list[index_of_window]
         self.logger.info(f'Was choosen window length -  {self.window_length} ')

@@ -33,7 +33,7 @@ if __name__ == '__main__':
                         }
 
     list_of_dataset = [
-        'ItalyPowerDemand',
+        #'ItalyPowerDemand',
         'Herring',
         'Haptics',
         'DodgerLoopDay',
