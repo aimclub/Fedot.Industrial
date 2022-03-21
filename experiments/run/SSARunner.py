@@ -21,7 +21,9 @@ class SSARunner(ExperimentRunner):
         super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
-        self.vis_flag = True
+        self.vis_flag = False
+        self.train_feats = None
+        self.test_feats = None
 
     def __vis_and_save_components(self, Components_df):
         n_rows = round(Components_df.shape[1] / 5)
@@ -65,11 +67,11 @@ class SSARunner(ExperimentRunner):
                                          window_length=self.window_length)
         TS_comps, X_elem, V, Components_df, _ = spectr.decompose()
 
-        if self.vis_flag:
-            try:
-                self.__vis_and_save_components(Components_df=Components_df)
-            except Exception:
-                self.logger.info('Vis problem')
+        # if self.vis_flag:
+        #     try:
+        #         self.__vis_and_save_components(Components_df=Components_df)
+        #     except Exception:
+        #         self.logger.info('Vis problem')
 
         aggregation_df = self.aggregator.create_features(feature_to_aggregation=Components_df.iloc[:, :10])
         self.count += 1
@@ -126,23 +128,26 @@ class SSARunner(ExperimentRunner):
         train_feats = feature_list[index_of_window]
         self.window_length = window_length_list[index_of_window]
         self.logger.info(f'Was choosen window length -  {self.window_length} ')
-
         return train_feats
 
     def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
 
         self.logger.info('Generating features for fit model')
-        train_feats = self._choose_best_window_size(X_train, y_train, window_length_list)
+        if self.train_feats is None:
+            self.train_feats = self._choose_best_window_size(X_train, y_train, window_length_list)
         self.logger.info('Start fitting FEDOT model')
         predictor = Fedot(**self.fedot_params)
-        predictor.fit(features=train_feats, target=y_train)
+        predictor.fit(features=self.train_feats, target=y_train)
         return predictor
 
     def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
         self.logger.info('Generating features for prediction')
-        test_feats = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
+
+        if self.test_feats_feats is None:
+            self.test_feats = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
+
         start_time = timeit.default_timer()
-        predictions = predictor.predict(features=test_feats)
+        predictions = predictor.predict(features=self.test_feats)
         inference = timeit.default_timer() - start_time
-        predictions_proba = predictor.predict_proba(features=test_feats)
+        predictions_proba = predictor.predict_proba(features=self.test_feats)
         return predictions, predictions_proba, inference
