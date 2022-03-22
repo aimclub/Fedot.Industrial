@@ -10,6 +10,7 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
                  path_to_save: str,
                  inference: float,
                  fit_time: float,
+                 window: int,
                  metrics: dict = None):
     path_results = os.path.join(path_to_save, 'test_results')
     if not os.path.exists(path_results):
@@ -29,6 +30,7 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
         df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
     df_metrics['Inference'] = inference
     df_metrics['Fit_time'] = fit_time
+    df_metrics['window'] = window
     for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
                     [df_preds, df_metrics]):
         full_path = os.path.join(path_results, p)

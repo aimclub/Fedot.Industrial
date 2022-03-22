@@ -137,7 +137,8 @@ class ExperimentRunner:
                                  metrics=metrics,
                                  inference=inference,
                                  fit_time=np.mean(self._generate_fit_time(predictor)),
-                                 path_to_save=self.path_to_save)
+                                 path_to_save=self.path_to_save,
+                                 window=self.window_length)
                     self.count = 0
 
                 except Exception as ex:

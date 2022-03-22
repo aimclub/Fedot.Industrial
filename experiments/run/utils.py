@@ -4,13 +4,13 @@ import logging
 
 def read_tsv(file_name: str):
     df_train = pd.read_csv(
-        'D:\РАБОТЫ РЕПОЗИТОРИИ\Репозитории\IndustrialTS\data\{}\{}_TRAIN.tsv'.format(file_name, file_name),
+        r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\data\{}\{}_TRAIN.tsv'.format(file_name, file_name).format(file_name, file_name),
         sep='\t',
         header=None)
     X_train = df_train.iloc[:, 1:]
     y_train = df_train[0].values
     df_test = pd.read_csv(
-        'D:\РАБОТЫ РЕПОЗИТОРИИ\Репозитории\IndustrialTS\data\{}\{}_TEST.tsv'.format(file_name, file_name),
+        r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\data\{}\{}_TEST.tsv'.format(file_name, file_name).format(file_name, file_name),
         sep='\t',
         header=None)
     X_test = df_test.iloc[:, 1:]
