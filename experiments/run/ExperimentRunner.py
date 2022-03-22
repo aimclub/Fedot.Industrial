@@ -81,10 +81,13 @@ class ExperimentRunner:
         score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
 
         try:
-            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            try:
+                score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            except Exception:
+                prediction = pipeline.predict(input_data=test_data, output_mode='probs')
+                score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
         except Exception:
-            prediction = pipeline.predict(input_data=test_data, output_mode='probs')
-            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            score_roc_auc = 0.5
 
         return score_f1, score_roc_auc
 
