@@ -73,12 +73,15 @@ class ExperimentRunner:
 
         fitted = pipeline.fit(input_data=train_data)
         prediction = pipeline.predict(input_data=test_data, output_mode='labels')
-
         metric_f1 = F1()
         metric_roc = ROCAUC()
 
         score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
-        score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+        try:
+            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+        except Exception:
+            prediction = pipeline.predict(input_data=test_data, output_mode='probs')
+            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
 
         return score_f1, score_roc_auc
 
