@@ -1,5 +1,8 @@
 import json
 import os
+
+import numpy as np
+
 from metrics.metrics_implementation import *
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
@@ -36,7 +39,6 @@ class ExperimentRunner:
         self.window_length = None
         self.logger = get_logger()
         self.fedot_params = fedot_params
-
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         """  Method responsible for  experiment pipeline """
@@ -77,6 +79,7 @@ class ExperimentRunner:
         metric_roc = ROCAUC()
 
         score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
+
         try:
             score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
         except Exception:
@@ -89,8 +92,10 @@ class ExperimentRunner:
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
         for dataset in self.list_of_dataset:
+
             self.train_feats = None
             self.test_feats = None
+
             for launch in range(self.launches):
                 try:
                     self.path_to_save = self._create_path_to_save(dataset, launch)
@@ -104,6 +109,11 @@ class ExperimentRunner:
                         X_train, X_test, y_train, y_test = X[0], X[1], y[0], y[1]
                     else:
                         X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=np.random.randint(100))
+
+                    n_classes = np.unique(y_train)
+
+                    if n_classes.shape[0] > 2:
+                        self.fedot_params['composer_params']['metric'] = 'f1'
 
                     predictor = self.fit(X_train=X_train,
                                          y_train=y_train,
