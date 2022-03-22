@@ -45,7 +45,8 @@ class F1(QualityMetric):
     def metric(self, target, prediction) -> float:
         self.default_value = 0
         n_classes = np.unique(target)
-        if n_classes.shape[0] > 2:
+        n_classes_pred = np.unique(prediction)
+        if n_classes.shape[0] > 2 or n_classes_pred.shape[0] > 2:
             additional_params = {'average': 'weighted'}
         else:
             additional_params = {'average': 'binary'}

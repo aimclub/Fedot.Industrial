@@ -1,5 +1,5 @@
 from multiprocessing.dummy import Pool
-
+from sklearn.metrics import f1_score, log_loss
 import numpy as np
 from fedot.api.main import Fedot
 from core.spectral.SSA import Spectrum
@@ -137,6 +137,10 @@ class SSARunner(ExperimentRunner):
             self.train_feats = self._choose_best_window_size(X_train, y_train, window_length_list)
         self.logger.info('Start fitting FEDOT model')
         predictor = Fedot(**self.fedot_params)
+
+        if self.fedot_params['composer_params']['metric'] == 'f1':
+            predictor.params.api_params['tuner_metric'] = f1_score
+
         predictor.fit(features=self.train_feats, target=y_train)
         return predictor
 
