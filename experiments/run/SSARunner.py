@@ -143,7 +143,7 @@ class SSARunner(ExperimentRunner):
     def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
         self.logger.info('Generating features for prediction')
 
-        if self.test_feats_feats is None:
+        if self.test_feats is None:
             self.test_feats = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
 
         start_time = timeit.default_timer()
