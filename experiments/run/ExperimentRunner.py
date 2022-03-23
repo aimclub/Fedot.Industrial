@@ -81,10 +81,13 @@ class ExperimentRunner:
         score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
 
         try:
-            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            try:
+                score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            except Exception:
+                prediction = pipeline.predict(input_data=test_data, output_mode='probs')
+                score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
         except Exception:
-            prediction = pipeline.predict(input_data=test_data, output_mode='probs')
-            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            score_roc_auc = 0.5
 
         return score_f1, score_roc_auc
 
@@ -114,6 +117,8 @@ class ExperimentRunner:
 
                     if n_classes.shape[0] > 2:
                         self.fedot_params['composer_params']['metric'] = 'f1'
+                    else:
+                        self.fedot_params['composer_params']['metric'] = 'roc_auc'
 
                     predictor = self.fit(X_train=X_train,
                                          y_train=y_train,
