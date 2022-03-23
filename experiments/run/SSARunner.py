@@ -24,6 +24,7 @@ class SSARunner(ExperimentRunner):
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
+        self.n_components = None
 
     def __vis_and_save_components(self, Components_df):
         n_rows = round(Components_df.shape[1] / 5)
@@ -65,7 +66,7 @@ class SSARunner(ExperimentRunner):
 
         spectr = self.spectrum_extractor(time_series=ts,
                                          window_length=self.window_length)
-        TS_comps, X_elem, V, Components_df, _ = spectr.decompose()
+        TS_comps, X_elem, V, Components_df, _, n_components, explained_dispersion = spectr.decompose()
 
         # if self.vis_flag:
         #     try:
@@ -73,20 +74,28 @@ class SSARunner(ExperimentRunner):
         #     except Exception:
         #         self.logger.info('Vis problem')
 
-        aggregation_df = self.aggregator.create_features(feature_to_aggregation=Components_df.iloc[:, :10])
         self.count += 1
-        return aggregation_df
+        return [Components_df, n_components, explained_dispersion]
 
-    def generate_features_from_ts(self, ts_frame, window_length=None):
+    def generate_vector_from_ts(self, ts_frame):
         pool = Pool(8)
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        aggregation_df = pool.map(self._ts_chunk_function, ts_frame.values)
-        feats = pd.concat(aggregation_df)
+        components_and_vectors = pool.map(self._ts_chunk_function, ts_frame.values)
+        pool.close()
+        pool.join()
+        self.logger.info(f'Time spent on eigenvectors extraction - {timeit.default_timer() - start}')
+        return components_and_vectors
+
+    def generate_features_from_ts(self, eigenvectors_list):
+        pool = Pool(8)
+        start = timeit.default_timer()
+        aggregation_df = pool.map(self.aggregator.create_features,
+                                  eigenvectors_list)
         pool.close()
         pool.join()
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
-        return feats
+        return aggregation_df
 
     def _generate_fit_time(self, predictor):
         fit_time = []
@@ -103,14 +112,32 @@ class SSARunner(ExperimentRunner):
         return save_path
 
     def _choose_best_window_size(self, X_train, y_train, window_length_list):
+
         metric_list = []
         feature_list = []
+        n_comp_list = []
+        disp_list = []
 
         for window_length in window_length_list:
             self.logger.info(f'Generate features for window length - {window_length}')
             self.window_length = window_length
 
-            train_feats = self.generate_features_from_ts(X_train)
+            eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
+
+            rank_list = [x[1] for x in eigenvectors_and_rank]
+            explained_dispersion = [x[2] for x in eigenvectors_and_rank]
+
+            self.explained_dispersion = round(np.mean(explained_dispersion))
+            self.n_components = round(np.mean(rank_list))
+
+            eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
+
+            self.logger.info(f'Every eigenvector with impact less then 1 % percent was eliminated. '
+                             f'{self.explained_dispersion} % of explained dispersion '
+                             f'obtained by first - {self.n_components} components.')
+
+            train_feats = self.generate_features_from_ts(eigenvectors_list)
+            train_feats = pd.concat(train_feats)
 
             self.logger.info(f'Validate model for window length  - {window_length}')
 
@@ -120,14 +147,18 @@ class SSARunner(ExperimentRunner):
 
             metric_list.append(metrics)
             feature_list.append(train_feats)
-
+            n_comp_list.append(self.n_components)
+            disp_list.append(self.explained_dispersion)
             self.count = 0
 
         max_score = [sum(x) for x in metric_list]
         index_of_window = int(max_score.index(max(max_score)))
         train_feats = feature_list[index_of_window]
+
         self.window_length = window_length_list[index_of_window]
+        self.n_components = n_comp_list[index_of_window]
         self.logger.info(f'Was choosen window length -  {self.window_length} ')
+
         return train_feats
 
     def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
@@ -148,7 +179,10 @@ class SSARunner(ExperimentRunner):
         self.logger.info('Generating features for prediction')
 
         if self.test_feats is None:
-            self.test_feats = self.generate_features_from_ts(ts_frame=X_test, window_length=window_length)
+            eigenvectors_and_rank = self.generate_vector_from_ts(X_test)
+            eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
+            self.test_feats = self.generate_features_from_ts(eigenvectors_list)
+            self.train_feats = pd.concat(self.train_feats)
 
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=self.test_feats)

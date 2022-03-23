@@ -119,7 +119,25 @@ class Spectrum:
         else:
             Components_df = self.components_to_df(TS_comps.T, rank)
 
-        return TS_comps, X_elem, V, Components_df, Wcorr
+        n_components = [x / sum(Sigma) * 100 for x in Sigma]
+        n_components = list(filter(lambda s: s > 1.0, n_components))
+        explained_dispersion = sum(n_components)
+
+        if explained_dispersion > 95:
+            dispersion = 0
+            for index, elem in enumerate(n_components):
+                if dispersion < 95:
+                    dispersion += elem
+                else:
+                    break
+        else:
+            n_components = len(n_components)
+
+        if type(n_components) is list:
+            explained_dispersion = 95.0
+            n_components = index
+
+        return TS_comps, X_elem, V, Components_df, Wcorr, n_components, explained_dispersion
 
     def calc_wcorr(self, TS_comps, rank):
         """
