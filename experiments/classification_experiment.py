@@ -3,16 +3,17 @@ from experiments.run.utils import read_tsv
 
 if __name__ == '__main__':
     dict_of_dataset = {
-        'Beef': read_tsv('Beef'),
-        'DodgerLoopDay': read_tsv('DodgerLoopDay'),
-        'ElectricDevices': read_tsv('ElectricDevices'),
+        # 'Beef': read_tsv('Beef'),
+        # 'DodgerLoopDay': read_tsv('DodgerLoopDay'),
+        # 'ElectricDevices': read_tsv('ElectricDevices'),
         'EthanolLevel': read_tsv('EthanolLevel'),
-        'Lightning7': read_tsv('Lightning7'),
-        'Plane': read_tsv('Plane'),
+        # 'Lightning7': read_tsv('Lightning7'),
+        # 'Plane': read_tsv('Plane'),
         'PowerCons': read_tsv('PowerCons'),
         'Rock': read_tsv('Rock'),
         'ShapesAll': read_tsv('ShapesAll'),
-        'Trace': read_tsv('Trace'),
+        # 'Trace': read_tsv('Trace'),
+
         # 'LSST': read_tsv('LSST'),
         # 'ScreenType': read_tsv('ScreenType'),
         # 'EigenWorms': read_tsv('EigenWorms'),
@@ -22,19 +23,21 @@ if __name__ == '__main__':
     }
     if __name__ == '__main__':
         dict_of_win_list = {
-            'Beef': [47, 94, 141],
-            'DodgerLoopDay': [29, 58, 86],
-            'ElectricDevices': [10, 19, 29],
+            # 'Beef': [47, 94, 141],
+            # 'DodgerLoopDay': [29, 58, 86],
+            # 'ElectricDevices': [10, 19, 29],
             'EthanolLevel': [175, 350, 525],
-            'Lightning7': [32, 64, 96],
-            'Plane': [14, 29, 43],
+            # 'Lightning7': [32, 64, 96],
+            # 'Plane': [14, 29, 43],
             'PowerCons': [14, 29, 43],
             'Rock': [284, 569, 853],
             'ShapesAll': [51, 102, 154],
-            'Trace': [28, 55, 83],
+            # 'Trace': [28, 55, 83],
 
             # test dataset
-            # 'Herring': [51, 102, 154],
+            # 'Herring': [51
+            #     # , 102, 154
+            #             ],
 
             # NOT READY YET
             # 'LSST': 4,
@@ -47,16 +50,16 @@ if __name__ == '__main__':
             # 'Beef',
             # 'DodgerLoopDay',
             # 'ElectricDevices',
-            # 'EthanolLevel',
+            'EthanolLevel',
             # 'Lightning7',
             # 'Plane',
-            # 'PowerCons',
-            # 'Rock',
-            # 'ShapesAll',
+            'PowerCons',
+            'Rock',
+            'ShapesAll',
             # 'Trace',
 
-            # test dataset
-            'Herring',
+            # # test dataset
+            # 'Herring',
 
             # NOT READY YET
             # 'LSST',
@@ -75,7 +78,7 @@ if __name__ == '__main__':
                                                                  'pca', 'logit', 'normalization', 'mlp',
                                                                  'one_hot_encoding', 'knn']},
                     'verbose_level': 2,
-                    'n_jobs': 6}
+                    'n_jobs': 7}
 
     runner = SSARunner(list_of_dataset,
                        launches=3,
