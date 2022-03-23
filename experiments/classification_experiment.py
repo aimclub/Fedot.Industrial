@@ -33,7 +33,7 @@ if __name__ == '__main__':
                         }
 
     list_of_dataset = [
-        #'ItalyPowerDemand',
+        'ItalyPowerDemand',
         'Herring',
         'Haptics',
         'DodgerLoopDay',
@@ -50,10 +50,8 @@ if __name__ == '__main__':
                     'timeout': 20,
                     'composer_params': {'max_depth': 10,
                                         'max_arity': 4,
-                                        'available_operations': ['resample', 'scaling', 'simple_imputation', 'rf',
-                                                                 'isolation_forest_class', 'lgbm',
-                                                                 'pca', 'logit', 'normalization', 'mlp',
-                                                                 'one_hot_encoding', 'knn']},
+                                        'cv_folds': 3
+                                        },
                     'verbose_level': 2,
                     'n_jobs': 4}
 
