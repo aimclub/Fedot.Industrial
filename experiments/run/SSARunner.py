@@ -182,7 +182,7 @@ class SSARunner(ExperimentRunner):
             eigenvectors_and_rank = self.generate_vector_from_ts(X_test)
             eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
             self.test_feats = self.generate_features_from_ts(eigenvectors_list)
-            self.train_feats = pd.concat(self.train_feats)
+            self.test_feats = pd.concat(self.test_feats)
 
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=self.test_feats)
