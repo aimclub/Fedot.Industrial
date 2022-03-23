@@ -117,6 +117,8 @@ class ExperimentRunner:
 
                     if n_classes.shape[0] > 2:
                         self.fedot_params['composer_params']['metric'] = 'f1'
+                    else:
+                        self.fedot_params['composer_params']['metric'] = 'roc_auc'
 
                     predictor = self.fit(X_train=X_train,
                                          y_train=y_train,
