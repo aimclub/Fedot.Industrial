@@ -160,5 +160,6 @@ class ExperimentRunner:
                     self.count = 0
 
                 except Exception as ex:
+                    self.count = 0
                     print(ex)
                     print(str(dataset))
