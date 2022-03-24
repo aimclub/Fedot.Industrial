@@ -14,8 +14,8 @@ class ResultsParser:
                         'precision',
                         ]
 
-        self.root_path = '5min'
-        self.comparision_path = '.'
+        self.root_path = '../results_of_experiments/5min'
+        self.comparision_path = '../results_of_experiments/'
 
         self.table = pd.DataFrame(columns=['dataset', 'run'] + self.metrics)
         self.fill_table()
@@ -77,8 +77,9 @@ class ResultsParser:
 
                 mega_table.loc[index] = [name] + [np.NaN for _ in range(length - 4)] + [metric_value] + [np.NaN, np.NaN]
 
-        # ONLY WHERE FEDOT
+        # get comparison table where fedot is
         mega_table = mega_table[~mega_table['fedot'].isna()]
+
         # LOOSE and RANK CALCULATION
         for row in mega_table.iterrows():
             dataset_name = row[1][0]
@@ -88,12 +89,18 @@ class ResultsParser:
             loose = round(100 - fedot_metric * 100 / max_metric, 2)
             mega_table.loc[mega_table[help_dict[metric]] == dataset_name, ['loose_percent']] = loose
 
-        #             metrics = [i for i in row[1] if type(i) != str]
-        #             low = []
-        #             for i in metrics:
-        #                 if i < fedot_metric:
-        #                     low.append(i)
-        #             rank = str(len(low)) +'/'+str(len(metrics))
+        for row in mega_table.iterrows():
+            dataset_name = row[1][0]
+            metrics = [i for i in row[1] if type(i) != str]
+            fedot_metric = float(mega_table.loc[mega_table[help_dict[metric]] == dataset_name]['fedot'])
+
+            lower_fedot = []
+            for i in metrics:
+                if i < fedot_metric and i != fedot_metric:
+                    lower_fedot.append(i)
+
+            rank = str(len(lower_fedot)) + '/' + str(len(metrics))
+            mega_table.loc[mega_table[help_dict[metric]] == dataset_name, ['outperformed_by_fedot']] = rank
 
         return mega_table
 
