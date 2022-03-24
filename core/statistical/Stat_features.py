@@ -7,20 +7,77 @@ from core.utils.Decorators import type_check_decorator
 
 stat_methods = ParamSelector('statistical_methods')
 supported_types = (pd.Series, np.ndarray, list)
+quantile_dict = {'q5_': 0.05,
+                 'q25_': 0.25,
+                 'q75_': 0.75,
+                 'q95_': 0.95
+                 }
 
 
 class AggregationFeatures:
 
-    @type_check_decorator(types_list=supported_types)
+    # @type_check_decorator(types_list=supported_types)
     def create_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
-
+        column_name = []
         for method_name, method_func in stat_methods.items():
             tmp = feature_to_aggregation.copy(deep=True)
-            tmp = tmp.apply(method_func)
-            tmp.columns = [method_name + x for x in tmp.columns]
-            stat_list.append(tmp)
 
-        df_points_stat = pd.concat(stat_list, axis=1)
+            if method_name.startswith('q'):
+                for col in tmp.columns:
+                    tmp[col] = method_func(tmp[col], q=quantile_dict[method_name])
+                    tmp = tmp.drop_duplicates()
+            else:
+                tmp = pd.DataFrame(tmp.apply(method_func))
+                tmp = tmp.T
 
+            for feature in feature_to_aggregation.columns:
+                column_name.append(method_name + feature)
+
+            stat_list.append(tmp.values)
+
+        df_points_stat = pd.DataFrame(np.concatenate(stat_list, axis=1))
+        df_points_stat.columns = column_name
         return df_points_stat
+
+    def _transform(X, intervals):
+        """Transform X for given intervals.
+
+        Compute the mean, standard deviation and slope for given intervals of input data X.
+
+        Parameters
+        ----------
+        Xt: np.ndarray or pd.DataFrame
+            Panel data to transform.
+        intervals : np.ndarray
+            Intervals containing start and end values.
+
+        Returns
+        -------
+        Xt: np.ndarray or pd.DataFrame
+         Transformed X, containing the mean, std and slope for each interval
+        """
+        n_instances, _ = X.shape
+        n_intervals, _ = intervals.shape
+        transformed_x = np.empty(shape=(3 * n_intervals, n_instances), dtype=np.float32)
+        for j in range(n_intervals):
+            X_slice = X[:, intervals[j][0]: intervals[j][1]]
+            means = np.mean(X_slice, axis=1)
+            std_dev = np.std(X_slice, axis=1)
+            slope = _slope(X_slice, axis=1)
+            transformed_x[3 * j] = means
+            transformed_x[3 * j + 1] = std_dev
+            transformed_x[3 * j + 2] = slope
+
+        return transformed_x.T
+
+    def _get_intervals(n_intervals, min_interval, series_length, rng):
+        """Generate random intervals for given parameters."""
+        intervals = np.zeros((n_intervals, 2), dtype=int)
+        for j in range(n_intervals):
+            intervals[j][0] = rng.randint(series_length - min_interval)
+            length = rng.randint(series_length - intervals[j][0] - 1)
+            if length < min_interval:
+                length = min_interval
+            intervals[j][1] = intervals[j][0] + length
+        return intervals
