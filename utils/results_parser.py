@@ -55,8 +55,11 @@ class ResultsParser:
 
     def read_result(self, dataset, version):
         """ Function to parse a single result """
-        result = pd.read_csv(f'{self.root_path}/{dataset}/{version}/test_results/metrics.csv')['1']
-        return result
+        try:
+            result = pd.read_csv(f'{self.root_path}/{dataset}/{version}/test_results/metrics.csv')['1']
+            return result
+        except Exception:
+            return None
 
     def save_to_csv(self, table, name):
         table.to_csv(f'{self.root_path}/{name}.csv')
