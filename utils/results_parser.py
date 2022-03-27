@@ -1,6 +1,7 @@
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 dataset_types = {
     'equal': ['Trace', 'ShapesAll', 'Beef', 'DodgerLoopDay', 'ScreenType', 'Lightning7', 'EigenWorms', 'Rock',
@@ -25,8 +26,8 @@ class ResultsParser:
                         'precision',
                         ]
 
-        self.root_path = '../results_of_experiments/20_min'
-        self.comparision_path = '../results_of_experiments/'
+        self.root_path = '../experiments/results_of_experiments/5_min'
+        self.comparision_path = '../experiments'
 
         self.table = pd.DataFrame(columns=['dataset', 'run'] + self.metrics)
         self.fill_table()
@@ -102,7 +103,8 @@ class ResultsParser:
                      }
 
         mega_table = results_mega_table.copy()
-        mega_table[['fedot', 'outperformed_by_fedot', 'loose_percent']] = np.NaN
+        for name in ['fedot', 'outperformed_by_fedot', 'loose_percent']:
+            mega_table.insert(len(mega_table.loc[0]), name, np.NaN)
 
         for row in mean_results.iterrows():
             name = row[0]
@@ -187,7 +189,10 @@ class ResultsParser:
 
 # EXAMPLE
 
-ls = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
+ls = [
+    'f1',
+    # 'roc_auc', 'accuracy', 'logloss', 'precision'
+]
 c = ResultsParser()
 
 for metr in ls:
