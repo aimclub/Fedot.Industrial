@@ -2,6 +2,9 @@ import os
 from utils import project_path
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 dataset_types = {
     'equal': ['Trace', 'ShapesAll', 'Beef', 'DodgerLoopDay', 'ScreenType', 'Lightning7', 'EigenWorms',
@@ -21,17 +24,16 @@ class ResultsParser:
     """ Class for experiment results parsing """
 
     def __init__(self):
-
         self.metrics_dict = {'f1': 'TESTF1',
                              'roc_auc': 'TESTAUROC',
                              'accuracy': 'TESTACC',
                              'logloss': 'TESTNLL',
                              'precision': 'TESTPrec'
                              }
-
+        self.timeout = '5_min'
         self.results_path = os.path.join(project_path(),
                                          'results_of_experiments',
-                                         '5_min')
+                                         self.timeout)
         self.comparison_path = os.path.join(project_path(), 'results_of_experiments')
         self.table = pd.DataFrame(columns=['dataset', 'run'] + list(self.metrics_dict.keys()))
         self.fill_table()
@@ -83,9 +85,10 @@ class ResultsParser:
         table_name = 'MegaComparisonResultsSheet.xls'
         return pd.read_excel(os.path.join(self.comparison_path, table_name), sheet_name=sheet_lists[metric])
 
-    def get_comparison(self, metric: str):
+    def get_comparison(self, metric: str, full_table: bool = True):
         """ Function for comparison FEDOT results with other algorithms by chosen metric
 
+        :param full_table: True (default) returns full table with all datasets. False returns shortened version
         :param metric: name of metric to compare by (e.g. f1, roc_auc)
         :return: slice of mega table where FEDOT result is present
         """
@@ -155,7 +158,30 @@ class ResultsParser:
         mega_table['max_metric'] = best_metrics
         mega_table['dataset_types'] = dataset_type_list
 
-        return mega_table
+        if full_table:
+            return mega_table
+        return mega_table[[f'{self.metrics_dict[metric]}', 'fedot', 'outperformed_by_fedot',
+                           'loose_percent', 'dataset_types', 'best_algo', 'max_metric']]
+
+    def get_compare_boxplots(self, metrics: list = ('f1', 'roc_auc')):
+        for metric in metrics:
+            sns.set(font_scale=1.5)
+            fig, ax = plt.subplots(figsize=(12, 6))
+            y = 'dataset'
+            x = metric
+            ax = sns.boxplot(data=self.table,
+                             y=y,
+                             x=x,
+                             palette="pastel",
+                             width=0.7,
+                             showmeans=False
+                             )
+            ax = sns.swarmplot(data=self.table, y=y, x=x, color=".25")
+            plt.xlabel(f'{metric.upper()} Metric', fontsize=20)
+            plt.ylabel('', fontsize=20)
+
+            save_path = os.path.join(self.results_path, f'{metric}_boxplot_{self.timeout}.png')
+            plt.savefig(fname=save_path, dpi=320, bbox_inches='tight')
 
     @staticmethod
     def list_dir(path):
@@ -179,6 +205,6 @@ ls = ['f1', 'roc_auc'
 c = ResultsParser()
 
 for metr in ls:
-    table = c.get_comparison(metr)
-
-    c.save_to_csv(table, f'{metr}_mega_compare_5min')
+    table = c.get_comparison(metr, full_table=False)
+    c.get_compare_boxplots(['f1'])
+    # c.save_to_csv(table, f'{metr}_mega_compare_5min')
