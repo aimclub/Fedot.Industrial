@@ -30,7 +30,7 @@ class ResultsParser:
                              'logloss': 'TESTNLL',
                              'precision': 'TESTPrec'
                              }
-        self.timeout = '5_min'
+        self.timeout = '1_hour'
         self.results_path = os.path.join(project_path(),
                                          'results_of_experiments',
                                          self.timeout)
@@ -199,12 +199,10 @@ class ResultsParser:
 
 # EXAMPLE
 
-ls = ['f1', 'roc_auc'
-      # , 'accuracy', 'logloss', 'precision'
-      ]
+ls = ['f1', 'roc_auc']
 c = ResultsParser()
 
 for metr in ls:
     table = c.get_comparison(metr, full_table=False)
-    c.get_compare_boxplots(['f1'])
-    # c.save_to_csv(table, f'{metr}_mega_compare_5min')
+    c.get_compare_boxplots()
+    c.save_to_csv(table, f'{metr}_mega_compare_{c.timeout}')
