@@ -4,8 +4,10 @@ import pandas as pd
 from pipe import *
 from core.settings.Hyperparams import *
 from core.utils.Decorators import type_check_decorator
+import copy
 
 stat_methods = ParamSelector('statistical_methods')
+stat_methods_extra = ParamSelector('statistical_methods_extra')
 supported_types = (pd.Series, np.ndarray, list)
 quantile_dict = {'q5_': 0.05,
                  'q25_': 0.25,
@@ -15,6 +17,38 @@ quantile_dict = {'q5_': 0.05,
 
 
 class AggregationFeatures:
+
+    def create_baseline_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
+        stat_list = []
+        column_name = []
+        for method_name, method_func in stat_methods_extra.items():
+            tmp = feature_to_aggregation.copy(deep=True)
+
+            if method_name.startswith('q'):
+                _ = []
+                for idx, row in tmp.iterrows():
+                    _.append(method_func(row, q=quantile_dict[method_name]))
+                tmp = np.array(_)
+                stat_list.append(tmp)
+            elif method_name.startswith('l'):
+                tmp = tmp.apply(method_func, axis=1)
+                tmp = tmp.astype(int)
+                stat_list.append(tmp.sum(axis=1).values)
+            else:
+                stat_list.append(tmp.apply(method_func, axis=1).values)
+
+            column_name.append(method_name)
+
+        df_points_stat = pd.DataFrame(stat_list)
+        df_points_stat = df_points_stat.T
+        df_points_stat.columns = column_name
+        feature_disp = df_points_stat.var()
+
+        for col in feature_disp.index.values:
+            if feature_disp[col] < 0.001:
+                del df_points_stat[col]
+
+        return df_points_stat
 
     # @type_check_decorator(types_list=supported_types)
     def create_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):

@@ -17,7 +17,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_sc
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from torch.utils.data import Dataset, DataLoader
 
-from core.topological.external.ae.vcae import vae_loss
+from core.models.topological.external.ae.vcae import vae_loss
 
 DATA_PATH = './Univariate_arff/'
 

@@ -6,7 +6,7 @@ from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLand
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
 
-from core.topological.external.TFE.base import PersistenceDiagramFeatureExtractor
+from core.models.topological.external.TFE.base import PersistenceDiagramFeatureExtractor
 
 
 class PersistenceDiagramsExtractor:
