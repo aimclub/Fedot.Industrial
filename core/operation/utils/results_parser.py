@@ -5,10 +5,9 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-
 dataset_types = {
     'equal': ['Trace', 'ShapesAll', 'Beef', 'DodgerLoopDay', 'ScreenType', 'Lightning7', 'EigenWorms',
-              'Plane', 'EthanolLevel', 'AsphaltRegulatiry', 'ElectricDevices', 'PowerCons', 'Herring'],
+              'Plane', 'EthanolLevel', 'AsphaltRegularity', 'ElectricDevices', 'PowerCons', 'Herring'],
 
     'high_train': ['Worms', 'CounterMovementJump', 'FordA', 'DistalPhalanxOutlineCorrect', 'DistalPhalanxTW',
                    'FingerMovements', 'HandOutLines', 'FordB', 'SpokenArabicDigits', 'DistalPhalanxOutlineAgGroup',
@@ -30,7 +29,7 @@ class ResultsParser:
                              'logloss': 'TESTNLL',
                              'precision': 'TESTPrec'
                              }
-        self.timeout = '5_min'
+        self.timeout = '1_hour'
         self.results_path = os.path.join(project_path(),
                                          'results_of_experiments',
                                          self.timeout)
@@ -67,8 +66,8 @@ class ResultsParser:
         except Exception:
             return None
 
-    def save_to_csv(self, table, name):
-        table.to_csv(f'{self.results_path}/{name}.csv')
+    def save_to_csv(self, table_object, name):
+        table_object.to_csv(f'{self.results_path}/{name}.csv')
 
     def read_mega_table(self, metric: str):
         """ Function for parsing table with results of cases with different algorithms
@@ -109,7 +108,7 @@ class ResultsParser:
             else:
                 index = len(mega_table)
                 length = len(mega_table.loc[0])
-                mega_table.loc[index] = [ds_name] + [np.NaN for _ in range(length - 4)] + [metric_value] + [np.NaN]*2
+                mega_table.loc[index] = [ds_name] + [np.NaN for _ in range(length - 4)] + [metric_value] + [np.NaN] * 2
 
         # get comparison table where fedot is
         mega_table = mega_table[~mega_table['fedot'].isna()]
@@ -144,15 +143,14 @@ class ResultsParser:
             rank = str(len(lower_fedot)) + '/' + str(len(metrics))
             mega_table.loc[mega_table[metric_name_in_megatable] == dataset_name, ['outperformed_by_fedot']] = rank
 
-
         dataset_type_list = []
         for row in mega_table.iterrows():
             dataset_name = row[1][0]
 
             types = dataset_types.keys()
-            for type in types:
-                if dataset_name in dataset_types[type]:
-                    dataset_type_list.append(type)
+            for ds_type in types:
+                if dataset_name in dataset_types[ds_type]:
+                    dataset_type_list.append(ds_type)
 
         mega_table['best_algo'] = best_algos
         mega_table['max_metric'] = best_metrics
@@ -169,14 +167,14 @@ class ResultsParser:
             fig, ax = plt.subplots(figsize=(12, 6))
             y = 'dataset'
             x = metric
-            ax = sns.boxplot(data=self.table,
-                             y=y,
-                             x=x,
-                             palette="pastel",
-                             width=0.7,
-                             showmeans=False
-                             )
-            ax = sns.swarmplot(data=self.table, y=y, x=x, color=".25")
+            sns.boxplot(data=self.table,
+                        y=y,
+                        x=x,
+                        palette="pastel",
+                        width=0.7,
+                        showmeans=False
+                        )
+            sns.swarmplot(data=self.table, y=y, x=x, color=".25")
             plt.xlabel(f'{metric.upper()} Metric', fontsize=20)
             plt.ylabel('', fontsize=20)
 
@@ -192,19 +190,17 @@ class ResultsParser:
         """
         path_list = []
         for f in os.listdir(path):
-            if not f.startswith('.'):
+            if '.' not in f:
                 path_list.append(f)
         return path_list
 
 
 # EXAMPLE
 
-ls = ['f1', 'roc_auc'
-      # , 'accuracy', 'logloss', 'precision'
-      ]
+ls = ['f1', 'roc_auc']
 c = ResultsParser()
 
 for metr in ls:
     table = c.get_comparison(metr, full_table=False)
-    c.get_compare_boxplots(['f1'])
-    # c.save_to_csv(table, f'{metr}_mega_compare_5min')
+    c.get_compare_boxplots()
+    c.save_to_csv(table, f'{metr}_mega_compare_{c.timeout}')
