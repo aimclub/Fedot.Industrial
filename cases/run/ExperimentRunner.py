@@ -6,6 +6,7 @@ from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
+from core.operation.utils.booster import Booster
 from sklearn.model_selection import train_test_split
 from cases.analyzer import PerfomanceAnalyzer
 from core.operation.utils.utils import *
@@ -25,7 +26,8 @@ class ExperimentRunner:
                                        'timeout': 10,
                                        'composer_params': {'max_depth': 10,
                                                            'max_arity': 4},
-                                       'verbose_level': 1}):
+                                       'verbose_level': 1},
+                 boost_mode: bool = True):
         self.analyzer = PerfomanceAnalyzer()
         self.list_of_dataset = list_of_dataset
         self.launches = launches
@@ -34,6 +36,7 @@ class ExperimentRunner:
         self.window_length = None
         self.logger = get_logger()
         self.fedot_params = fedot_params
+        self.boost_mode = boost_mode
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         """  Method responsible for  experiment pipeline """
@@ -129,16 +132,47 @@ class ExperimentRunner:
                     else:
                         self.fedot_params['composer_params']['metric'] = 'roc_auc'
 
-                    predictor = self.fit(X_train=X_train,
-                                         y_train=y_train,
+                    #  SPLIT TRAIN into mini trains
+                    X_train_mini, n, y_train_mini, m = train_test_split(X_train,
+                                                                        y_train,
+                                                                        random_state=np.random.randint(100))
+
+                    predictor = self.fit(X_train=X_train_mini,
+                                         y_train=y_train_mini,
                                          window_length_list=dict_of_win_list[dataset])
 
                     self.count = 0
 
+                    # Predict on whole TRAIN
                     predictions, predictions_proba, inference = self.predict(predictor=predictor,
-                                                                             X_test=X_test,
+                                                                             X_test=X_train,
                                                                              window_length=self.window_length,
                                                                              y_test=None)
+
+                    # GEt metrics
+
+                    try:
+                        metrics = self.analyzer.calculate_metrics(self.metrics_name,
+                                                                  target=y_train,
+                                                                  predicted_labels=predictions,
+                                                                  predicted_probs=predictions_proba
+                                                                  )
+                    except Exception as ex:
+                        metrics = 'empty'
+
+                    self.logger.info(f'Without Boosting metrics are: {metrics}')
+
+                    if self.boost_mode:
+                        corr = predictions.shape[0]
+                        diff = y_train - predictions.reshape(corr, )
+
+                        booster = Booster(new_target=diff,
+                                          input_data=(X_train, y_train),
+                                          previous_predict=predictions
+                                          )
+                        booster.get_boost_model()
+
+
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=self.path_to_save)
                     best_pipeline, fitted_operation = predictor.current_pipeline.save()
@@ -150,17 +184,10 @@ class ExperimentRunner:
                         ex = 1
 
                     self.logger.info('Saving results')
-                    try:
-                        metrics = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                  target=y_test,
-                                                                  predicted_labels=predictions,
-                                                                  predicted_probs=predictions_proba)
-                    except Exception as ex:
-                        metrics = 'empty'
 
                     save_results(predictions=predictions,
                                  prediction_proba=predictions_proba,
-                                 target=y_test,
+                                 target=y_train,
                                  metrics=metrics,
                                  inference=inference,
                                  fit_time=np.mean(self._generate_fit_time(predictor)),
