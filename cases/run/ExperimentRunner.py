@@ -133,7 +133,7 @@ class ExperimentRunner:
                         self.fedot_params['composer_params']['metric'] = 'roc_auc'
 
                     #  SPLIT TRAIN into mini trains
-                    X_train_mini, n, y_train_mini, m = train_test_split(X_train,
+                    X_train_mini, _, y_train_mini, _ = train_test_split(X_train,
                                                                         y_train,
                                                                         random_state=np.random.randint(100))
 
@@ -150,7 +150,6 @@ class ExperimentRunner:
                                                                              y_test=None)
 
                     # GEt metrics
-
                     try:
                         metrics = self.analyzer.calculate_metrics(self.metrics_name,
                                                                   target=y_train,
@@ -160,18 +159,17 @@ class ExperimentRunner:
                     except Exception as ex:
                         metrics = 'empty'
 
-                    self.logger.info(f'Without Boosting metrics are: {metrics}')
+                    self.logger.info(f'-------Without Boosting metrics are: {metrics}')
 
                     if self.boost_mode:
-                        corr = predictions.shape[0]
-                        diff = y_train - predictions.reshape(corr, )
 
-                        booster = Booster(new_target=diff,
-                                          input_data=(X_train, y_train),
+                        self.logger.info('-------initialize booster')
+                        booster = Booster(input_data=(X_train, y_train),
                                           previous_predict=predictions
                                           )
-                        booster.get_boost_model()
 
+                        predictions, inference = booster.run_boosting()
+                        self.logger.info('-----Finished boosting')
 
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=self.path_to_save)
