@@ -1,3 +1,7 @@
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score
@@ -10,86 +14,123 @@ import timeit
 
 
 class Booster:
-    CYCLES = 0
+    CYCLES = 1
 
-    def __init__(self,
-                 previous_predict,
-                 input_data: tuple = None,
-                 metrics_name: list = ('f1',
-                                       'roc_auc',
-                                       'accuracy',
-                                       'logloss',
-                                       'precision'),
-                 ):
-        self.previous_predict = previous_predict.reshape(previous_predict.shape[0],)
+    # def __init__(self,
+    #              metrics_name: list = ('f1',
+    #                                    'roc_auc',
+    #                                    'accuracy',
+    #                                    'logloss',
+    #                                    'precision'),
+    #              ):
+    #     self.metrics_name = metrics_name
 
-        self.boost_predictions = pd.DataFrame({'0': self.previous_predict})
+    def __init__(self, X_train, X_test, y_train, y_test, base_predict, threshold):
+        self.X_train = X_train
+        self.X_test = X_test
+        self.y_train = y_train
+        self.y_test = y_test
+        self.base_predict = base_predict
+        self.threshold = threshold
 
-        self.features = input_data[0]
-        self.target = input_data[1]
-        self.metrics_name = metrics_name
-
-        self.accuracy_base = accuracy_score(self.target, self.previous_predict)
-        self.f1_base = f1_score(self.target, self.previous_predict, average='weighted')
+        self.booster_features = {}
+        self.check_table = pd.DataFrame()
 
         self.logger = get_logger()
 
-    def get_sum(self):
-        columns = self.boost_predictions.columns
-        self.boost_predictions.columns['sum'] = 0
-        for col in columns:
-            self.boost_predictions.columns['sum'] += self.boost_predictions.columns[col]
-
-        return self.boost_predictions.columns['sum'].values
-
     def run_boosting(self):
-        last_predict = self.previous_predict
-        self.logger.info('start cycle')
-        predictions, inference = self.run_cycle(last_predict)
-        predictions, inference = self.run_cycle(last_predict)
+        self.logger.info('Started boosting')
+        accu_before_boost, f1_before_boost = self.evaluate_results(self.y_test, self.base_predict)
+        self.logger.info(f'Before boosting: Accuracy={accu_before_boost}, F1={f1_before_boost}')
 
-        return predictions, inference
+        target_diff_1 = self.decompose_target(previous_predict=self.base_predict,
+                                              previous_target=self.y_test.reshape(-1))
+        prediction_1 = self.api_model(target_diff=target_diff_1).reshape(-1)
 
-    def run_cycle(self, last_predict):
+        target_diff_2 = self.decompose_target(previous_predict=prediction_1,
+                                              previous_target=target_diff_1)
+        prediction_2 = self.api_model(target_diff=target_diff_2).reshape(-1)
+
+        target_diff_3 = self.decompose_target(previous_predict=prediction_2,
+                                              previous_target=target_diff_2)
+        prediction_3 = self.api_model(target_diff=target_diff_3).reshape(-1)
+
+        final_prediction = self.ensemble()
+
+        # accu_after_boost, f1_after_boost = self.evaluate_results(self.y_test, final_prediction)
+        # self.logger.info(f'Before boosting: Accuracy={accu_after_boost}, F1={f1_after_boost}')
+
+        self.check_table['target'] = self.y_test
+        self.check_table['final_predict'] = final_prediction
+        self.check_table['base_pred'] = self.base_predict
+        print('3 hundred bucks')
+        return final_prediction
+
+    def evaluate_results(self, target, prediction):
+        self.logger.info('Evaluation results')
+        accuracy = accuracy_score(y_true=target,
+                                  y_pred=prediction)
+        f1 = f1_score(y_true=target,
+                      y_pred=prediction)
+
+        return accuracy, f1
+
+    def api_model(self, target_diff):
+        self.logger.info(f'Starting cycle {self.CYCLES} of boosting')
+
+        fedot_model = Fedot(problem='regression',
+                            timeout=5,
+                            seed=20,
+                            verbose_level=2,
+                            n_jobs=-1)
+
+        fedot_model.fit(self.X_test, target_diff)
+        prediction = fedot_model.predict(self.X_test).reshape(-1)
+
+        self.booster_features[self.CYCLES] = prediction
         self.CYCLES += 1
-        self.logger.info('-------calculate diff')
-        diff = self.target - last_predict
 
-        predictor = Fedot(problem='regression',
-                          timeout=2,
-                          seed=20,
-                          verbose_level=1,
-                          n_jobs=-1)
-        X, y = self.features, self.target
+        return prediction
 
-        self.logger.info('-------splitting set')
-        X_train, _, y_train, _ = train_test_split(X,
-                                                  diff,
-                                                  test_size=0.2,
-                                                  random_state=np.random.randint(100))
-        self.logger.info('-------fitting model')
+    def decompose_target(self, previous_predict, previous_target):
+        return previous_target - previous_predict
 
-        predictor.fit(X_train, y_train)
-        self.logger.info('-------prediction model')
-        start_time = timeit.default_timer()
-        predictions = predictor.predict(X)
-        inference = timeit.default_timer() - start_time
-        # predictions_proba = predictor.predict_proba(self.features)
-        self.logger.info('-------filling dataframe')
-        self.boost_predictions[self.CYCLES] = predictions
-        self.logger.info('-------getting sum of predictions')
-        result_prediction = self.get_sum()
+    def ensemble(self):
+        fedot_model = Fedot(problem='regression',
+                            timeout=2,
+                            seed=20,
+                            verbose_level=2,
+                            n_jobs=-1)
 
-        self.logger.info('-------calc accuracy model')
-        accuracy_before_boosting = accuracy_score(y, self.previous_predict)
-        accuracy_after_boosting = accuracy_score(y, result_prediction)
-        acc_boost = 100 * accuracy_after_boosting / accuracy_before_boosting
-        self.logger.info('-------calc F1 metric model')
-        f1_before_boosting = f1_score(y, self.previous_predict, average='weighted')
-        f1_after_boosting = f1_score(y, result_prediction, average='weighted')
-        f1_boost = 100 * f1_after_boosting / f1_before_boosting
+        features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
+        target = self.y_test
 
-        self.logger.info(f'{self.CYCLES} cycles of boosting increased accuracy to {acc_boost}%')
-        self.logger.info(f'{self.CYCLES} cycles of boosting increased F1 to {f1_boost}%')
+        fedot_model.fit(features, target)
+        ensemble_prediction = fedot_model.predict(features).reshape(-1)
 
-        return predictions, inference
+        return ensemble_prediction
+
+    def custom_round(self, num):
+        thr = self.threshold
+        if num - int(num) >= thr:
+            return int(num) + 1
+        return int(num)
+
+
+if __name__ == '__main__':
+    dataset = 'Earthquakes'
+    X_test_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_test_feats.csv'
+    X_train_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_train_feats.csv'
+    y_train_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_y_train.csv'
+    y_test_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_y_test.csv'
+    base_predict_path = r"C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock" \
+                        r"\probs_preds_target_Earthquakes.csv "
+
+    booster = Booster(X_train=pd.read_csv(X_train_path, index_col=0),
+                      X_test=pd.read_csv(X_test_path, index_col=0),
+                      y_train=pd.read_csv(y_train_path, index_col=0).values.reshape(-1),
+                      y_test=pd.read_csv(y_test_path, index_col=0).values.reshape(-1),
+                      base_predict=pd.read_csv(base_predict_path, index_col=0)['Preds'].values.reshape(-1)
+                      )
+
+    booster.run_boosting()
