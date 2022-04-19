@@ -37,6 +37,7 @@ class ExperimentRunner:
         self.logger = get_logger()
         self.fedot_params = fedot_params
         self.boost_mode = boost_mode
+        self.y_test = None
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         """  Method responsible for  experiment pipeline """
@@ -103,6 +104,9 @@ class ExperimentRunner:
 
         return score_f1, score_roc_auc
 
+    def divide_train_set(self, X_train, y_train):
+        return train_test_split(X_train, y_train, random_state=52, test_size=0.2)
+
     def run_experiment(self,
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
@@ -127,18 +131,16 @@ class ExperimentRunner:
 
                     n_classes = np.unique(y_train)
 
+
                     if n_classes.shape[0] > 2:
                         self.fedot_params['composer_params']['metric'] = 'f1'
                     else:
                         self.fedot_params['composer_params']['metric'] = 'roc_auc'
 
-                    #  SPLIT TRAIN into mini trains
-                    X_train_mini, _, y_train_mini, _ = train_test_split(X_train,
-                                                                        y_train,
-                                                                        random_state=np.random.randint(100))
+                    # self.train_feats
 
-                    predictor = self.fit(X_train=X_train_mini,
-                                         y_train=y_train_mini,
+                    predictor = self.fit(X_train=X_train,
+                                         y_train=y_train,
                                          window_length_list=dict_of_win_list[dataset])
 
                     self.count = 0
@@ -147,7 +149,7 @@ class ExperimentRunner:
                     predictions, predictions_proba, inference = self.predict(predictor=predictor,
                                                                              X_test=X_train,
                                                                              window_length=self.window_length,
-                                                                             y_test=None)
+                                                                             y_test=y_train)
 
                     # GEt metrics
                     try:
@@ -159,17 +161,12 @@ class ExperimentRunner:
                     except Exception as ex:
                         metrics = 'empty'
 
-                    self.logger.info(f'-------Without Boosting metrics are: {metrics}')
+                    self.logger.info(f'Without Boosting metrics are: {metrics}')
+                    booster = Booster(X_train=self.train_feats,
+                                      y_train=y_train,
+                                      base_predict=predictions.reshape(-1))
 
-                    if self.boost_mode:
-
-                        self.logger.info('-------initialize booster')
-                        booster = Booster(input_data=(X_train, y_train),
-                                          previous_predict=predictions
-                                          )
-
-                        predictions, inference = booster.run_boosting()
-                        self.logger.info('-----Finished boosting')
+                    predictions = booster.run_boosting()
 
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=self.path_to_save)
