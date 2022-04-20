@@ -3,7 +3,7 @@ from multiprocessing.dummy import Pool
 from sklearn.metrics import f1_score
 from fedot.api.main import Fedot
 
-from core.signal.wavelet import WaveletExtractor
+from core.models.signal.wavelet import WaveletExtractor
 from core.models.statistical.Stat_features import AggregationFeatures
 from cases.run.ExperimentRunner import ExperimentRunner
 from core.operation.utils.utils import *
