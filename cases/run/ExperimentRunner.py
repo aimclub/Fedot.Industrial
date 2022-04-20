@@ -172,7 +172,8 @@ class ExperimentRunner:
 
                     booster = Booster(X_train=self.train_feats,
                                       y_train=y_train,
-                                      base_predict=base_predict)
+                                      base_predict=base_predict,
+                                      timeout=round(self.fedot_params['timeout']/2))
 
                     predictions_boosting_train, model_list,ensemble_model = booster.run_boosting()
                     # Predict on whole TEST and generate self.test_features

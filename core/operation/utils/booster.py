@@ -32,13 +32,14 @@ class Booster:
                  y_train,
                  # y_test,
                  base_predict,
+                 timeout,
                  threshold=0):
 
         self.X_train = X_train
         self.y_train = y_train
         self.base_predict = base_predict
         self.threshold = threshold
-        self.timeout = 1
+        self.timeout = round(timeout/4)
         self.booster_features = {}
         self.check_table = pd.DataFrame()
 
