@@ -9,6 +9,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from cases.run.utils import get_logger
 from fedot.api.main import Fedot
 
+
 # import numpy as np
 # import timeit
 
@@ -45,22 +46,22 @@ class Booster:
 
     def run_boosting(self):
         self.logger.info('Started boosting')
-        accu_before_boost, f1_before_boost = self.evaluate_results(self.y_train, self.base_predict)
-        self.logger.info(f'Before boosting: Accuracy={accu_before_boost}, F1={f1_before_boost}')
+        # accu_before_boost, f1_before_boost = self.evaluate_results(self.y_train, self.base_predict)
+        # self.logger.info(f'Before boosting: Accuracy={accu_before_boost}, F1={f1_before_boost}')
 
         target_diff_1 = self.decompose_target(previous_predict=self.base_predict,
                                               previous_target=self.y_train.reshape(-1))
-        prediction_1 = self.api_model(target_diff=target_diff_1).reshape(-1)
+        prediction_1, model_1 = self.api_model(target_diff=target_diff_1)
 
         target_diff_2 = self.decompose_target(previous_predict=prediction_1,
                                               previous_target=target_diff_1)
-        prediction_2 = self.api_model(target_diff=target_diff_2).reshape(-1)
+        prediction_2, model_2 = self.api_model(target_diff=target_diff_2)
 
         target_diff_3 = self.decompose_target(previous_predict=prediction_2,
                                               previous_target=target_diff_2)
-        prediction_3 = self.api_model(target_diff=target_diff_3).reshape(-1)
+        prediction_3, model_3 = self.api_model(target_diff=target_diff_3)
 
-        final_prediction = self.ensemble()
+        final_prediction, model_ensemble = self.ensemble()
 
         # accu_after_boost, f1_after_boost = self.evaluate_results(self.y_test, final_prediction)
         # self.logger.info(f'Before boosting: Accuracy={accu_after_boost}, F1={f1_after_boost}')
@@ -69,16 +70,17 @@ class Booster:
         self.check_table['final_predict'] = final_prediction
         self.check_table['base_pred'] = self.base_predict
         print('3 hundred bucks')
+        model_list = [model_1, model_2, model_3]
+        final_prediction_round = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
 
-        final_prediction = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
-
-        return final_prediction
+        return final_prediction, model_list, model_ensemble
 
     def evaluate_results(self, target, prediction):
 
         if target.shape[0] > 2:
             average = 'weighted'
-        else: average = 'binary'
+        else:
+            average = 'binary'
 
         self.logger.info('Evaluation results')
         accuracy = accuracy_score(y_true=target,
@@ -104,7 +106,7 @@ class Booster:
         self.booster_features[self.CYCLES] = prediction
         self.CYCLES += 1
 
-        return prediction
+        return prediction.reshape(-1), fedot_model
 
     def decompose_target(self, previous_predict, previous_target):
         return previous_target - previous_predict
@@ -112,7 +114,7 @@ class Booster:
     def ensemble(self):
         self.logger.info('Starting to ensembling boosting results')
         fedot_model = Fedot(problem='regression',
-                            timeout=5,
+                            timeout=self.timeout,
                             seed=20,
                             verbose_level=2,
                             n_jobs=-1)
@@ -123,14 +125,13 @@ class Booster:
         fedot_model.fit(features, target)
         ensemble_prediction = fedot_model.predict(features).reshape(-1)
 
-        return ensemble_prediction
+        return ensemble_prediction, fedot_model
 
     def custom_round(self, num):
         thr = self.threshold
         if num - int(num) >= thr:
             return int(num) + 1
         return int(num)
-
 
 # if __name__ == '__main__':
 #     dataset = 'Earthquakes'

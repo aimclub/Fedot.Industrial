@@ -15,15 +15,16 @@ if __name__ == '__main__':
                             'Beef': ['db5', 'sym5', 'coif5', 'bior2.4']
                             }
 
-    list_of_dataset = ['Beef',
-                       'ElectricDevices',
+    list_of_dataset = [
+        #'Beef',
+                       #'ElectricDevices',
                        'Earthquakes',
-                       'Lightning7'
+                       #'Lightning7'
                        ]
 
     fedot_params = {'problem': 'classification',
                     'seed': 42,
-                    'timeout': 15,
+                    'timeout': 5,
                     'composer_params': {'max_depth': 10,
                                         'max_arity': 4,
                                         'cv_folds': 3,
@@ -33,7 +34,7 @@ if __name__ == '__main__':
                     'n_jobs': 4}
 
     runner = SignalRunner(list_of_dataset,
-                          launches=3,
+                          launches=1,
                           fedot_params=fedot_params)
 
     models = runner.run_experiment(dict_of_dataset,

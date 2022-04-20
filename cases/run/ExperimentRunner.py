@@ -1,5 +1,7 @@
 import json
 
+import pandas as pd
+
 from core.metrics.metrics_implementation import *
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
@@ -131,7 +133,6 @@ class ExperimentRunner:
 
                     n_classes = np.unique(y_train)
 
-
                     if n_classes.shape[0] > 2:
                         self.fedot_params['composer_params']['metric'] = 'f1'
                     else:
@@ -144,29 +145,74 @@ class ExperimentRunner:
                                          window_length_list=dict_of_win_list[dataset])
 
                     self.count = 0
+                    self.test_feats = self.train_feats
 
                     # Predict on whole TRAIN
-                    predictions, predictions_proba, inference = self.predict(predictor=predictor,
-                                                                             X_test=X_train,
-                                                                             window_length=self.window_length,
-                                                                             y_test=y_train)
+                    predictions_train, predictions_proba_train, _ = self.predict(predictor=predictor,
+                                                                                 X_test=X_train,
+                                                                                 window_length=self.window_length,
+                                                                                 y_test=y_train)
 
-                    # GEt metrics
+                    # GEt metrics on whole TRAIN
                     try:
                         metrics = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                  target=y_train,
-                                                                  predicted_labels=predictions,
-                                                                  predicted_probs=predictions_proba
+                                                                  target=y_test,
+                                                                  predicted_labels=predictions_train,
+                                                                  predicted_probs=predictions_proba_train
                                                                   )
                     except Exception as ex:
                         metrics = 'empty'
 
                     self.logger.info(f'Without Boosting metrics are: {metrics}')
+
+                    if n_classes.shape[0] > 2:
+                        base_predict = predictions_train.reshape(-1)
+                    else:
+                        base_predict = predictions_proba_train.reshape(-1)
+
                     booster = Booster(X_train=self.train_feats,
                                       y_train=y_train,
-                                      base_predict=predictions.reshape(-1))
+                                      base_predict=base_predict)
 
-                    predictions = booster.run_boosting()
+                    predictions_boosting_train, model_list,ensemble_model = booster.run_boosting()
+                    # Predict on whole TEST and generate self.test_features
+
+                    self.test_feats = None
+
+                    predictions, predictions_proba, inference = self.predict(predictor=predictor,
+                                                                             X_test=X_test,
+                                                                             window_length=self.window_length,
+                                                                             y_test=y_test)
+
+                    boosting_test = []
+
+                    for model in model_list:
+                        boosting_test.append(model.predict(self.test_feats))
+                    boosting_test = [x.reshape(-1) for x in boosting_test]
+                    error_correction = ensemble_model.predict(pd.DataFrame(data=boosting_test).T)
+                    corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
+                    corrected_probs = corrected_probs.reshape(-1)
+                    corrected_labels = abs(np.round(corrected_probs))
+                    # f = pd.DataFrame()
+                    # f['target'] = y_test
+                    # f['base_prediction'] = predictions
+                    # f['corrected_labels'] = corrected_labels
+                    # f['base_probs'] = predictions_proba
+                    # f['corrected_probs'] = corrected_probs
+                    # GEt metrics on whole TEST
+                    try:
+                        metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
+                                                                           target=y_test,
+                                                                           predicted_labels=corrected_labels,
+                                                                           predicted_probs=corrected_probs
+                                                                           )
+                        metrics_without_boosting = self.analyzer.calculate_metrics(self.metrics_name,
+                                                                                   target=y_test,
+                                                                                   predicted_labels=predictions,
+                                                                                   predicted_probs=predictions_proba
+                                                                                   )
+                    except Exception as ex:
+                        metrics_boosting = 'empty'
 
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=self.path_to_save)
@@ -182,8 +228,8 @@ class ExperimentRunner:
 
                     save_results(predictions=predictions,
                                  prediction_proba=predictions_proba,
-                                 target=y_train,
-                                 metrics=metrics,
+                                 target=y_test,
+                                 metrics=metrics_boosting,
                                  inference=inference,
                                  fit_time=np.mean(self._generate_fit_time(predictor)),
                                  path_to_save=self.path_to_save,
