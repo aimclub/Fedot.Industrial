@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     fedot_params = {'problem': 'classification',
                     'seed': 42,
-                    'timeout': 10,
+                    'timeout': 20,
                     'composer_params': {'max_depth': 10,
                                         'max_arity': 4,
                                         'cv_folds': 3,
