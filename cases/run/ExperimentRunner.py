@@ -1,4 +1,5 @@
 import json
+import os.path
 
 import pandas as pd
 
@@ -9,6 +10,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 from core.operation.utils.booster import Booster
+from core.operation.utils.static_booster import StaticBooster
 from sklearn.model_selection import train_test_split
 from cases.analyzer import PerfomanceAnalyzer
 from core.operation.utils.utils import *
@@ -25,7 +27,7 @@ class ExperimentRunner:
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = {'problem': 'classification',
                                        'seed': 42,
-                                       'timeout': 10,
+                                       'timeout': 1,
                                        'composer_params': {'max_depth': 10,
                                                            'max_arity': 4},
                                        'verbose_level': 1},
@@ -112,6 +114,10 @@ class ExperimentRunner:
     def run_experiment(self,
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
+
+        solution_table = pd.DataFrame()
+        # metrics_table = pd.DataFrame()
+
         for dataset in self.list_of_dataset:
 
             self.train_feats = None
@@ -173,9 +179,10 @@ class ExperimentRunner:
                     booster = Booster(X_train=self.train_feats,
                                       y_train=y_train,
                                       base_predict=base_predict,
-                                      timeout=round(self.fedot_params['timeout']/2))
+                                      # timeout=round(self.fedot_params['timeout']/2),
+                                      timeout=4)
 
-                    predictions_boosting_train, model_list,ensemble_model = booster.run_boosting()
+                    predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
                     # Predict on whole TEST and generate self.test_features
 
                     self.test_feats = None
@@ -194,12 +201,14 @@ class ExperimentRunner:
                     corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
                     corrected_probs = corrected_probs.reshape(-1)
                     corrected_labels = abs(np.round(corrected_probs))
-                    # f = pd.DataFrame()
-                    # f['target'] = y_test
-                    # f['base_prediction'] = predictions
-                    # f['corrected_labels'] = corrected_labels
-                    # f['base_probs'] = predictions_proba
-                    # f['corrected_probs'] = corrected_probs
+
+                    solution_table['target'] = y_test
+                    solution_table['base_probs'] = predictions_proba.reshape(-1)
+                    for index, data in enumerate(boosting_test):
+                        solution_table[f'boost_{index + 1}'] = data.reshape(-1)
+                    solution_table['ensemble'] = error_correction.reshape(-1)
+                    solution_table['corrected_probs'] = corrected_probs
+                    solution_table['corrected_labels'] = corrected_labels
                     # GEt metrics on whole TEST
                     try:
                         metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
@@ -212,8 +221,30 @@ class ExperimentRunner:
                                                                                    predicted_labels=predictions,
                                                                                    predicted_probs=predictions_proba
                                                                                    )
+                        metrics_list = list(metrics_without_boosting.keys())
+                        metrics_before = list(metrics_without_boosting.values())
+                        metrics_after = list(metrics_boosting.values())
+                        metrics_table = pd.DataFrame({'metric': metrics_list,
+                                                      'before_boosting': metrics_before,
+                                                      'after_boosting': metrics_after})
+
                     except Exception as ex:
                         metrics_boosting = 'empty'
+
+                    location = os.path.join(project_path(), 'results_of_experiments', dataset, 'boosting')
+                    if not os.path.exists(location):
+                        os.makedirs(location)
+                    solution_table.to_csv(os.path.join(location, 'solution_table.csv'))
+                    metrics_table.to_csv(os.path.join(location, 'metrics_table.csv'))
+
+                    models_path = os.path.join(location, 'boosting_pipelines')
+                    if not os.path.exists(models_path):
+                        os.makedirs(models_path)
+                    for index, model in enumerate(model_list):
+                        model.current_pipeline.save(path=os.path.join(models_path, f'boost_{index}'),
+                                                    datetime_in_path=False)
+                    ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                                    datetime_in_path=False)
 
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=self.path_to_save)
