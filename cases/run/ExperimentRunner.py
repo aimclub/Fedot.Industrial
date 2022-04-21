@@ -1,8 +1,6 @@
 import json
 import os.path
-
-import pandas as pd
-
+# import pandas as pd
 from core.metrics.metrics_implementation import *
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
@@ -108,15 +106,9 @@ class ExperimentRunner:
 
         return score_f1, score_roc_auc
 
-    def divide_train_set(self, X_train, y_train):
-        return train_test_split(X_train, y_train, random_state=52, test_size=0.2)
-
     def run_experiment(self,
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
-
-        solution_table = pd.DataFrame()
-        # metrics_table = pd.DataFrame()
 
         for dataset in self.list_of_dataset:
 
@@ -202,14 +194,16 @@ class ExperimentRunner:
                     corrected_probs = corrected_probs.reshape(-1)
                     corrected_labels = abs(np.round(corrected_probs))
 
-                    solution_table['target'] = y_test
-                    solution_table['base_probs'] = predictions_proba.reshape(-1)
+                    solution_table = pd.DataFrame({'target': y_test,
+                                                   'base_probs': predictions_proba.reshape(-1),
+                                                   'ensemble': error_correction.reshape(-1),
+                                                   'corrected_probs': corrected_probs,
+                                                   'corrected_labels': corrected_labels})
                     for index, data in enumerate(boosting_test):
                         solution_table[f'boost_{index + 1}'] = data.reshape(-1)
-                    solution_table['ensemble'] = error_correction.reshape(-1)
-                    solution_table['corrected_probs'] = corrected_probs
-                    solution_table['corrected_labels'] = corrected_labels
+
                     # GEt metrics on whole TEST
+
                     try:
                         metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
                                                                            target=y_test,
@@ -221,30 +215,20 @@ class ExperimentRunner:
                                                                                    predicted_labels=predictions,
                                                                                    predicted_probs=predictions_proba
                                                                                    )
-                        metrics_list = list(metrics_without_boosting.keys())
-                        metrics_before = list(metrics_without_boosting.values())
-                        metrics_after = list(metrics_boosting.values())
-                        metrics_table = pd.DataFrame({'metric': metrics_list,
-                                                      'before_boosting': metrics_before,
-                                                      'after_boosting': metrics_after})
+
+                        no_boost = pd.Series(metrics_without_boosting)
+                        boost = pd.Series(metrics_boosting)
+                        metrics_table = pd.concat([no_boost, boost], axis=1).reset_index()
+                        metrics_table.columns = ['metric', 'before_boosting', 'after_boosting']
 
                     except Exception as ex:
                         metrics_boosting = 'empty'
 
-                    location = os.path.join(project_path(), 'results_of_experiments', dataset, 'boosting')
-                    if not os.path.exists(location):
-                        os.makedirs(location)
-                    solution_table.to_csv(os.path.join(location, 'solution_table.csv'))
-                    metrics_table.to_csv(os.path.join(location, 'metrics_table.csv'))
-
-                    models_path = os.path.join(location, 'boosting_pipelines')
-                    if not os.path.exists(models_path):
-                        os.makedirs(models_path)
-                    for index, model in enumerate(model_list):
-                        model.current_pipeline.save(path=os.path.join(models_path, f'boost_{index}'),
-                                                    datetime_in_path=False)
-                    ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
-                                                    datetime_in_path=False)
+                    self.save_boosting_results(dataset=dataset,
+                                               solution_table=solution_table,
+                                               metrics_table=metrics_table,
+                                               model_list=model_list,
+                                               ensemble_model=ensemble_model)
 
                     self.logger.info('Saving model')
                     predictor.current_pipeline.save(path=self.path_to_save)
@@ -272,3 +256,20 @@ class ExperimentRunner:
                     self.count = 0
                     print(ex)
                     print(str(dataset))
+
+    @staticmethod
+    def save_boosting_results(dataset, solution_table, metrics_table, model_list, ensemble_model):
+        location = os.path.join(project_path(), 'results_of_experiments', dataset, 'boosting')
+        if not os.path.exists(location):
+            os.makedirs(location)
+        solution_table.to_csv(os.path.join(location, 'solution_table.csv'))
+        metrics_table.to_csv(os.path.join(location, 'metrics_table.csv'))
+
+        models_path = os.path.join(location, 'boosting_pipelines')
+        if not os.path.exists(models_path):
+            os.makedirs(models_path)
+        for index, model in enumerate(model_list):
+            model.current_pipeline.save(path=os.path.join(models_path, f'boost_{index}'),
+                                        datetime_in_path=False)
+        ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                             datetime_in_path=False)
