@@ -1,6 +1,5 @@
 import json
 import os.path
-# import pandas as pd
 from core.metrics.metrics_implementation import *
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
@@ -29,7 +28,8 @@ class ExperimentRunner:
                                        'composer_params': {'max_depth': 10,
                                                            'max_arity': 4},
                                        'verbose_level': 1},
-                 boost_mode: bool = True):
+                 boost_mode: bool = True,
+                 static_booster: bool = False):
         self.analyzer = PerfomanceAnalyzer()
         self.list_of_dataset = list_of_dataset
         self.launches = launches
@@ -39,6 +39,8 @@ class ExperimentRunner:
         self.logger = get_logger()
         self.fedot_params = fedot_params
         self.boost_mode = boost_mode
+
+        self.static_booster = static_booster
         self.y_test = None
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
@@ -154,7 +156,7 @@ class ExperimentRunner:
                     # GEt metrics on whole TRAIN
                     try:
                         metrics = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                  target=y_test,
+                                                                  target=y_train,
                                                                   predicted_labels=predictions_train,
                                                                   predicted_probs=predictions_proba_train
                                                                   )
@@ -168,11 +170,20 @@ class ExperimentRunner:
                     else:
                         base_predict = predictions_proba_train.reshape(-1)
 
-                    booster = Booster(X_train=self.train_feats,
-                                      y_train=y_train,
-                                      base_predict=base_predict,
-                                      # timeout=round(self.fedot_params['timeout']/2),
-                                      timeout=4)
+                    if self.static_booster:
+                        booster = StaticBooster(X_train=self.train_feats,
+                                                y_train=y_train,
+                                                base_predict=base_predict,
+                                                timeout=round(self.fedot_params['timeout']/2),
+                                                # timeout=4
+                                                )
+                    else:
+                        booster = Booster(X_train=self.train_feats,
+                                          y_train=y_train,
+                                          base_predict=base_predict,
+                                          timeout=round(self.fedot_params['timeout']/2),
+                                          # timeout=4
+                                          )
 
                     predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
                     # Predict on whole TEST and generate self.test_features
@@ -187,10 +198,32 @@ class ExperimentRunner:
                     boosting_test = []
 
                     for model in model_list:
-                        boosting_test.append(model.predict(self.test_feats))
-                    boosting_test = [x.reshape(-1) for x in boosting_test]
-                    error_correction = ensemble_model.predict(pd.DataFrame(data=boosting_test).T)
-                    corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
+                        if self.static_booster:
+                            task = Task(TaskTypesEnum.regression)
+                            input_data_test = InputData(idx=np.arange(0, len(self.test_feats)),
+                                                        features=self.test_feats,
+                                                        target=self.y_test,
+                                                        task=task,
+                                                        data_type=DataTypesEnum.table)
+                            boost_predict = model.predict(input_data=input_data_test).predict.reshape(-1)
+                            boosting_test.append(boost_predict)
+                        else:
+                            boosting_test.append(model.predict(input_data=self.test_feats))
+
+                    boosting_test = pd.DataFrame([x.reshape(-1) for x in boosting_test]).T
+
+                    if self.static_booster:
+                        task = Task(TaskTypesEnum.regression)
+                        input_data = InputData(idx=np.arange(0, len(boosting_test)),
+                                               features=boosting_test,
+                                               target=self.y_test,
+                                               task=task,
+                                               data_type=DataTypesEnum.table)
+                        error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
+                    else:
+                        error_correction = ensemble_model.predict(boosting_test).predict.reshape(-1)
+
+                    corrected_probs = error_correction + predictions_proba.reshape(-1)
                     corrected_probs = corrected_probs.reshape(-1)
                     corrected_labels = abs(np.round(corrected_probs))
 
@@ -199,8 +232,8 @@ class ExperimentRunner:
                                                    'ensemble': error_correction.reshape(-1),
                                                    'corrected_probs': corrected_probs,
                                                    'corrected_labels': corrected_labels})
-                    for index, data in enumerate(boosting_test):
-                        solution_table[f'boost_{index + 1}'] = data.reshape(-1)
+                    for index in boosting_test.columns:
+                        solution_table[f'boost_{index + 1}'] = boosting_test[index]
 
                     # GEt metrics on whole TEST
 
@@ -269,7 +302,13 @@ class ExperimentRunner:
         if not os.path.exists(models_path):
             os.makedirs(models_path)
         for index, model in enumerate(model_list):
-            model.current_pipeline.save(path=os.path.join(models_path, f'boost_{index}'),
-                                        datetime_in_path=False)
-        ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
-                                             datetime_in_path=False)
+            try:
+                model.current_pipeline.save(path=os.path.join(models_path, f'boost_{index}'),
+                                            datetime_in_path=False)
+                ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                                     datetime_in_path=False)
+            except Exception:
+                model.save(path=os.path.join(models_path, f'boost_{index}'),
+                           datetime_in_path=False)
+                ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                    datetime_in_path=False)
