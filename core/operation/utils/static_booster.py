@@ -55,9 +55,9 @@ class StaticBooster:
         self.check_table['target'] = self.y_train
         self.check_table['final_predict'] = final_prediction
         self.check_table['base_pred'] = self.base_predict
-        print('3 hundred bucks')
+
         model_list = [model_1, model_2, model_3]
-        final_prediction_round = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
+        final_prediction_round = self.check_table['final_predict'].apply(func=np.round).values.reshape(-1)
 
         return final_prediction, model_list, model_ensemble
 
@@ -96,7 +96,7 @@ class StaticBooster:
         fedot_model.fit(input_data=input_data)
         prediction = fedot_model.predict(input_data=input_data)
 
-        self.booster_features[self.CYCLES] = prediction.predict
+        self.booster_features[self.CYCLES] = prediction.predict.reshape(-1)
         self.CYCLES += 1
 
         return prediction.predict.reshape(-1), fedot_model

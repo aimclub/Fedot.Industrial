@@ -11,10 +11,11 @@ class StatsRunner(ExperimentRunner):
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
-                 fedot_params: dict = None
+                 fedot_params: dict = None,
+                 static_booster: bool = False
                  ):
 
-        super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(list_of_dataset, launches, metrics_name, fedot_params, static_booster=static_booster)
         self.aggregator = AggregationFeatures()
         self.vis_flag = False
         self.train_feats = None
