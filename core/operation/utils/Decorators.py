@@ -1,10 +1,20 @@
-def exception_decorator(function_to_decorate):
+class DecoratorObject:
+    def __init__(self, deco_type: str):
+        self.deco_type = deco_type
+
+    def __call__(self, function):
+        def wrapper():
+            value = function()
+            return value
+        return wrapper
+
+
+def exception_decorator(function_to_decorate, exception_return=None):
     def exception_wrapper():
         try:
             function_to_decorate()
         except Exception:
-            return None
-
+            return exception_return
         return exception_wrapper
 
 
