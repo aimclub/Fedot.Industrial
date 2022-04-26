@@ -77,6 +77,47 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
+    def _get_clf_params(self):
+        self.n_classes = np.unique(self.y_train)
+
+        if self.n_classes.shape[0] > 2:
+            self.fedot_params['composer_params']['metric'] = 'f1'
+        else:
+            self.fedot_params['composer_params']['metric'] = 'roc_auc'
+
+    def _get_dimension_params(self, predictions_proba_train):
+        if self.n_classes.shape[0] > 2:
+            self.base_predict = predictions_proba_train
+            y_train_multi = pd.get_dummies(self.y_train, sparse=True)
+            self.y_train = y_train_multi.values
+            self.reshape_flag = False
+        else:
+            self.base_predict = predictions_proba_train.reshape(-1)
+            self.reshape_flag = True
+
+    def _convert_boosting_prediction(self, boosting_test, ensemble_model, predictions_proba):
+        if self.reshape_flag:
+            boosting_test = [x.reshape(-1) for x in boosting_test]
+            error_correction = ensemble_model.predict(pd.DataFrame(data=boosting_test).T)
+            corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
+            corrected_probs = corrected_probs.reshape(-1)
+            corrected_labels = abs(np.round(corrected_probs))
+
+        else:
+            # error_correction = ensemble_model.predict(np.hstack(boosting_test))
+            dictlist = []
+            for value in boosting_test:
+                dictlist.append(value)
+            error_correction = sum(dictlist)
+            corrected_probs = error_correction + predictions_proba
+            corrected_labels = np.array([x.argmax() + min(self.y_test) for x in corrected_probs])
+            corrected_probs = pd.get_dummies(corrected_labels, sparse=True).values
+            corrected_labels = corrected_labels.reshape(len(corrected_labels), 1)
+
+        return dict(corrected_labels=corrected_labels,
+                    corrected_probs=corrected_probs,
+                    error_correction=error_correction)
+
     def _validate_window_length(self, features, target):
 
         node = PrimaryNode('rf')
@@ -108,6 +149,182 @@ class ExperimentRunner:
 
         return score_f1, score_roc_auc
 
+    def _predict_on_train(self, predictor):
+
+        self.count = 0
+        self.test_feats = self.train_feats
+
+        # Predict on whole TRAIN
+        predictions, predictions_proba, inference = self.predict(predictor=predictor,
+                                                                 X_test=self.X_train,
+                                                                 window_length=self.window_length,
+                                                                 y_test=self.y_train)
+
+        # GEt metrics on whole TRAIN
+
+        metrics = self.analyzer.calculate_metrics(self.metrics_name,
+                                                  target=self.y_train,
+                                                  predicted_labels=predictions,
+                                                  predicted_probs=predictions_proba
+                                                  )
+
+        self.logger.info(f'Without Boosting metrics are: {metrics}')
+
+        return dict(predictions=predictions,
+                    predictions_proba=predictions_proba,
+                    inference=inference,
+                    metrics=metrics)
+
+    def _predict_on_test(self, predictor):
+
+        self.test_feats = None
+        predictions, predictions_proba, inference = self.predict(predictor=predictor,
+                                                                 X_test=self.X_test,
+                                                                 window_length=self.window_length,
+                                                                 y_test=self.y_test)
+
+        metrics = self.analyzer.calculate_metrics(self.metrics_name,
+                                                  target=self.y_test,
+                                                  predicted_labels=predictions,
+                                                  predicted_probs=predictions_proba
+                                                  )
+
+        return dict(predictions=predictions,
+                    predictions_proba=predictions_proba,
+                    inference=inference,
+                    metrics=metrics)
+
+    def static_boosting_pipeline(self, predictions_proba, model_list, ensemble_model):
+        boosting_test = []
+        task = Task(TaskTypesEnum.regression)
+        input_data_test = InputData(idx=np.arange(0, len(self.test_feats)),
+                                    features=self.test_feats,
+                                    target=self.y_test,
+                                    task=task,
+                                    data_type=DataTypesEnum.table)
+
+        for model in model_list:
+            boost_predict = model.predict(input_data=input_data_test).predict.reshape(-1)
+            boosting_test.append(boost_predict)
+
+        boosting_test = pd.DataFrame([x.reshape(-1) for x in boosting_test]).T
+
+        input_data = InputData(idx=np.arange(0, len(boosting_test)),
+                               features=boosting_test,
+                               target=self.y_test,
+                               task=task,
+                               data_type=DataTypesEnum.table)
+        error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
+        boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
+                                                            ensemble_model=ensemble_model,
+                                                            predictions_proba=predictions_proba)
+        return boosting_result
+
+    def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model):
+
+        pass
+
+    def _predict_witn_boosting(self,
+                               predictions,
+                               predictions_proba,
+                               metrics_without_boosting):
+
+        if self.static_booster:
+            booster = StaticBooster(X_train=self.train_feats,
+                                    y_train=self.y_train,
+                                    base_predict=self.base_predict,
+                                    timeout=round(self.fedot_params['timeout'] / 2),
+                                    )
+            boosting_pipeline = self.static_boosting_pipeline
+        else:
+            booster = Booster(X_train=self.train_feats,
+                              y_train=self.y_train,
+                              base_predict=self.base_predict,
+                              timeout=round(self.fedot_params['timeout'] / 2),
+                              )
+            boosting_pipeline = self.genetic_boosting_pipeline
+
+        predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
+        results = boosting_pipeline(predictions_proba, model_list, ensemble_model)
+        results['base_probs'] = predictions_proba
+        results['true_labels'] = predictions
+
+        solution_table = pd.DataFrame({'target': self.y_test,
+                                       'base_probs': results['base_probs'].reshape(-1),
+                                       'ensemble': results['ensemble'].reshape(-1),
+                                       'corrected_probs': results['corrected_probs'],
+                                       'corrected_labels': results['corrected_labels'],
+                                       'true_labels': results['true_labels']})
+
+        boosting_test = []
+        for model in model_list:
+            if self.static_booster:
+                task = Task(TaskTypesEnum.regression)
+                input_data_test = InputData(idx=np.arange(0, len(self.test_feats)),
+                                            features=self.test_feats,
+                                            target=self.y_test,
+                                            task=task,
+                                            data_type=DataTypesEnum.table)
+                boost_predict = model.predict(input_data=input_data_test).predict.reshape(-1)
+                boosting_test.append(boost_predict)
+            else:
+                boosting_test.append(model.predict(input_data=self.test_feats))
+
+        boosting_test = pd.DataFrame([x.reshape(-1) for x in boosting_test]).T
+
+        if self.static_booster:
+            task = Task(TaskTypesEnum.regression)
+            input_data = InputData(idx=np.arange(0, len(boosting_test)),
+                                   features=boosting_test,
+                                   target=self.y_test,
+                                   task=task,
+                                   data_type=DataTypesEnum.table)
+            error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
+        else:
+            error_correction = ensemble_model.predict(boosting_test).predict.reshape(-1)
+
+        corrected_probs = error_correction + predictions_proba.reshape(-1)
+        corrected_probs = corrected_probs.reshape(-1)
+        corrected_labels = abs(np.round(corrected_probs))
+
+        for index in boosting_test.columns:
+            solution_table[f'boost_{index + 1}'] = boosting_test[index]
+
+            boosting_test.append(model.predict(self.test_feats))
+
+        metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
+                                                           target=self.y_test,
+                                                           predicted_labels=corrected_labels,
+                                                           predicted_probs=corrected_probs
+                                                           )
+
+        no_boost = pd.Series(metrics_without_boosting)
+        boost = pd.Series(metrics_boosting)
+        metrics_table = pd.concat([no_boost, boost], axis=1).reset_index()
+        metrics_table.columns = ['metric', 'before_boosting', 'after_boosting']
+
+        return dict(solution_table=solution_table,
+                    metrics_table=metrics_table,
+                    model_list=model_list,
+                    ensemble_model=ensemble_model)
+
+    def _save_all_results(self, predictor, boosting_results, normal_results):
+
+        self.logger.info('Saving model')
+        predictor.current_pipeline.save(path=self.path_to_save)
+        best_pipeline, fitted_operation = predictor.current_pipeline.save()
+
+        try:
+            opt_history = predictor.history.save()
+            with open(os.path.join(self.path_to_save, 'history', 'opt_history.json'), 'w') as f:
+                json.dump(json.loads(opt_history), f)
+        except Exception as ex:
+            ex = 1
+
+        self.logger.info('Saving results')
+        self.save_boosting_results(**boosting_results)
+        save_results(**normal_results)
+
     def run_experiment(self,
                        dict_of_dataset: dict,
                        dict_of_win_list: dict):
@@ -126,169 +343,32 @@ class ExperimentRunner:
                         os.makedirs(self.path_to_save_png)
 
                     X, y = dict_of_dataset[dataset]
-                    if type(X) is tuple:
-                        X_train, X_test, y_train, y_test = X[0], X[1], y[0], y[1]
-                    else:
-                        X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=np.random.randint(100))
+                    self.X_train, self.X_test, self.y_train, self.y_test = X[0], X[1], y[0], y[1]
 
-                    n_classes = np.unique(y_train)
+                    self._get_clf_params()
 
-                    if n_classes.shape[0] > 2:
-                        self.fedot_params['composer_params']['metric'] = 'f1'
-                    else:
-                        self.fedot_params['composer_params']['metric'] = 'roc_auc'
-
-                    # self.train_feats
-
-                    predictor = self.fit(X_train=X_train,
-                                         y_train=y_train,
+                    predictor = self.fit(X_train=self.X_train,
+                                         y_train=self.y_train,
                                          window_length_list=dict_of_win_list[dataset])
 
-                    self.count = 0
-                    self.test_feats = self.train_feats
+                    result_on_train = self._predict_on_train(predictor=predictor)
 
-                    # Predict on whole TRAIN
-                    predictions_train, predictions_proba_train, _ = self.predict(predictor=predictor,
-                                                                                 X_test=X_train,
-                                                                                 window_length=self.window_length,
-                                                                                 y_test=y_train)
+                    self._get_dimension_params(predictions_proba_train=result_on_train['prediction_proba'])
 
-                    # GEt metrics on whole TRAIN
-                    try:
-                        metrics = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                  target=y_train,
-                                                                  predicted_labels=predictions_train,
-                                                                  predicted_probs=predictions_proba_train
-                                                                  )
-                    except Exception as ex:
-                        metrics = 'empty'
+                    result_on_test = self._predict_on_test(predictor=predictor)
 
-                    self.logger.info(f'Without Boosting metrics are: {metrics}')
+                    result_with_boosting = self._predict_witn_boosting(predictions=result_on_train['predictions'],
+                                                                       predictions_proba=result_on_train[
+                                                                           'predictions_proba'],
+                                                                       metrics_without_boosting=result_on_test[
+                                                                           'metrics'])
+                    result_with_boosting['dataset'] = dataset
 
-                    if n_classes.shape[0] > 2:
-                        base_predict = predictions_train.reshape(-1)
-                    else:
-                        base_predict = predictions_proba_train.reshape(-1)
-
-                    if self.static_booster:
-                        booster = StaticBooster(X_train=self.train_feats,
-                                                y_train=y_train,
-                                                base_predict=base_predict,
-                                                timeout=round(self.fedot_params['timeout']/2),
-                                                # timeout=4
-                                                )
-                    else:
-                        booster = Booster(X_train=self.train_feats,
-                                          y_train=y_train,
-                                          base_predict=base_predict,
-                                          timeout=round(self.fedot_params['timeout']/2),
-                                          # timeout=4
-                                          )
-
-                    predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
-                    # Predict on whole TEST and generate self.test_features
-
-                    self.test_feats = None
-
-                    predictions, predictions_proba, inference = self.predict(predictor=predictor,
-                                                                             X_test=X_test,
-                                                                             window_length=self.window_length,
-                                                                             y_test=y_test)
-
-                    boosting_test = []
-
-                    for model in model_list:
-                        if self.static_booster:
-                            task = Task(TaskTypesEnum.regression)
-                            input_data_test = InputData(idx=np.arange(0, len(self.test_feats)),
-                                                        features=self.test_feats,
-                                                        target=self.y_test,
-                                                        task=task,
-                                                        data_type=DataTypesEnum.table)
-                            boost_predict = model.predict(input_data=input_data_test).predict.reshape(-1)
-                            boosting_test.append(boost_predict)
-                        else:
-                            boosting_test.append(model.predict(input_data=self.test_feats))
-
-                    boosting_test = pd.DataFrame([x.reshape(-1) for x in boosting_test]).T
-
-                    if self.static_booster:
-                        task = Task(TaskTypesEnum.regression)
-                        input_data = InputData(idx=np.arange(0, len(boosting_test)),
-                                               features=boosting_test,
-                                               target=self.y_test,
-                                               task=task,
-                                               data_type=DataTypesEnum.table)
-                        error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
-                    else:
-                        error_correction = ensemble_model.predict(boosting_test).predict.reshape(-1)
-
-                    corrected_probs = error_correction + predictions_proba.reshape(-1)
-                    corrected_probs = corrected_probs.reshape(-1)
-                    corrected_labels = abs(np.round(corrected_probs))
-
-                    solution_table = pd.DataFrame({'target': y_test,
-                                                   'base_probs': predictions_proba.reshape(-1),
-                                                   'ensemble': error_correction.reshape(-1),
-                                                   'corrected_probs': corrected_probs,
-                                                   'corrected_labels': corrected_labels})
-                    for index in boosting_test.columns:
-                        solution_table[f'boost_{index + 1}'] = boosting_test[index]
-
-                    # GEt metrics on whole TEST
-
-                    try:
-                        metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                           target=y_test,
-                                                                           predicted_labels=corrected_labels,
-                                                                           predicted_probs=corrected_probs
-                                                                           )
-                        metrics_without_boosting = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                                   target=y_test,
-                                                                                   predicted_labels=predictions,
-                                                                                   predicted_probs=predictions_proba
-                                                                                   )
-
-                        no_boost = pd.Series(metrics_without_boosting)
-                        boost = pd.Series(metrics_boosting)
-                        metrics_table = pd.concat([no_boost, boost], axis=1).reset_index()
-                        metrics_table.columns = ['metric', 'before_boosting', 'after_boosting']
-
-                    except Exception as ex:
-                        metrics_boosting = 'empty'
-
-                    self.save_boosting_results(dataset=dataset,
-                                               solution_table=solution_table,
-                                               metrics_table=metrics_table,
-                                               model_list=model_list,
-                                               ensemble_model=ensemble_model)
-
-                    self.logger.info('Saving model')
-                    predictor.current_pipeline.save(path=self.path_to_save)
-                    best_pipeline, fitted_operation = predictor.current_pipeline.save()
-                    try:
-                        opt_history = predictor.history.save()
-                        with open(os.path.join(self.path_to_save, 'history', 'opt_history.json'), 'w') as f:
-                            json.dump(json.loads(opt_history), f)
-                    except Exception as ex:
-                        ex = 1
-
-                    self.logger.info('Saving results')
-
-                    save_results(predictions=predictions,
-                                 prediction_proba=predictions_proba,
-                                 target=y_test,
-                                 metrics=metrics_boosting,
-                                 inference=inference,
-                                 fit_time=np.mean(self._generate_fit_time(predictor)),
-                                 path_to_save=self.path_to_save,
-                                 window=self.window_length)
-                    self.count = 0
-
-                except Exception as ex:
-                    self.count = 0
-                    print(ex)
-                    print(str(dataset))
+                    self._save_all_results(predictor=predictor,
+                                           boosting_results=result_with_boosting,
+                                           normal_results=result_on_test)
+                except Exception:
+                    print('Problem')
 
     @staticmethod
     def save_boosting_results(dataset, solution_table, metrics_table, model_list, ensemble_model):

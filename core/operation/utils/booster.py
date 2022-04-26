@@ -1,5 +1,7 @@
 import warnings
 
+import numpy as np
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import pandas as pd
@@ -33,46 +35,54 @@ class Booster:
                  # y_test,
                  base_predict,
                  timeout,
-                 threshold=0):
+                 threshold=0,
+                 reshape_flag=True):
 
         self.X_train = X_train
         self.y_train = y_train
         self.base_predict = base_predict
         self.threshold = threshold
-        self.timeout = round(timeout/4)
+        self.timeout = max(3, round(timeout / 4))
         self.booster_features = {}
         self.check_table = pd.DataFrame()
-
+        self.reshape_flag = reshape_flag
         self.logger = get_logger()
+        if self.reshape_flag:
+            self.y_train = self.y_train.reshape(-1)
 
     def run_boosting(self):
         self.logger.info('Started boosting')
         # accu_before_boost, f1_before_boost = self.evaluate_results(self.y_train, self.base_predict)
         # self.logger.info(f'Before boosting: Accuracy={accu_before_boost}, F1={f1_before_boost}')
-
+        self.logger.info('Started boosting 1 cycle')
         target_diff_1 = self.decompose_target(previous_predict=self.base_predict,
-                                              previous_target=self.y_train.reshape(-1))
+                                              previous_target=self.y_train)
         prediction_1, model_1 = self.api_model(target_diff=target_diff_1)
-
+        self.logger.info('Started boosting 2 cycle')
         target_diff_2 = self.decompose_target(previous_predict=prediction_1,
                                               previous_target=target_diff_1)
         prediction_2, model_2 = self.api_model(target_diff=target_diff_2)
-
+        self.logger.info('Started boosting 3 cycle')
         target_diff_3 = self.decompose_target(previous_predict=prediction_2,
                                               previous_target=target_diff_2)
         prediction_3, model_3 = self.api_model(target_diff=target_diff_3)
-
+        self.logger.info('Started boosting ensemble')
         final_prediction, model_ensemble = self.ensemble()
 
         # accu_after_boost, f1_after_boost = self.evaluate_results(self.y_test, final_prediction)
         # self.logger.info(f'Before boosting: Accuracy={accu_after_boost}, F1={f1_after_boost}')
-
-        self.check_table['target'] = self.y_train
-        self.check_table['final_predict'] = final_prediction
-        self.check_table['base_pred'] = self.base_predict
-        print('3 hundred bucks')
+        try:
+            self.check_table['target'] = self.y_train
+            self.check_table['final_predict'] = final_prediction
+            self.check_table['1_stage_predict'] = prediction_1
+            self.check_table['2_stage_predict'] = prediction_2
+            self.check_table['3_stage_predict'] = prediction_3
+            self.check_table['base_pred'] = self.base_predict
+        except Exception:
+            self.logger.info('Problem with check table')
+        self.logger.info('Finish boosting process')
         model_list = [model_1, model_2, model_3]
-        final_prediction_round = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
+        # final_prediction_round = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
 
         return final_prediction, model_list, model_ensemble
 
@@ -102,12 +112,15 @@ class Booster:
                             n_jobs=-1)
 
         fedot_model.fit(self.X_train, target_diff)
-        prediction = fedot_model.predict(self.X_train).reshape(-1)
+        prediction = fedot_model.predict(self.X_train)
+
+        if self.reshape_flag:
+            prediction = prediction.reshape(-1)
 
         self.booster_features[self.CYCLES] = prediction
         self.CYCLES += 1
 
-        return prediction.reshape(-1), fedot_model
+        return prediction, fedot_model
 
     def decompose_target(self, previous_predict, previous_target):
         return previous_target - previous_predict
@@ -119,12 +132,20 @@ class Booster:
                             seed=20,
                             verbose_level=2,
                             n_jobs=-1)
+        if self.reshape_flag:
+            features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
+            target = self.y_train
 
-        features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
-        target = self.y_train
-
-        fedot_model.fit(features, target)
-        ensemble_prediction = fedot_model.predict(features).reshape(-1)
+            fedot_model.fit(features, target)
+            ensemble_prediction = fedot_model.predict(features)
+            ensemble_prediction = ensemble_prediction.reshape(-1)
+        else:
+            dictlist = []
+            for key, value in self.booster_features.items():
+                dictlist.append(value)
+            ensemble_prediction = sum(dictlist)
+            features = np.hstack(self.booster_features.values())
+            fedot_model = ensemble_prediction
 
         return ensemble_prediction, fedot_model
 
