@@ -1,6 +1,7 @@
 import json
 import os.path
 from core.metrics.metrics_implementation import *
+from core.operation.utils.Decorators import exception_decorator
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -308,18 +309,16 @@ class ExperimentRunner:
                     model_list=model_list,
                     ensemble_model=ensemble_model)
 
+    @exception_decorator(exception_return=1)
     def _save_all_results(self, predictor, boosting_results, normal_results):
 
         self.logger.info('Saving model')
         predictor.current_pipeline.save(path=self.path_to_save)
         best_pipeline, fitted_operation = predictor.current_pipeline.save()
 
-        try:
-            opt_history = predictor.history.save()
-            with open(os.path.join(self.path_to_save, 'history', 'opt_history.json'), 'w') as f:
-                json.dump(json.loads(opt_history), f)
-        except Exception as ex:
-            ex = 1
+        opt_history = predictor.history.save()
+        with open(os.path.join(self.path_to_save, 'history', 'opt_history.json'), 'w') as f:
+            json.dump(json.loads(opt_history), f)
 
         self.logger.info('Saving results')
         self.save_boosting_results(**boosting_results)
@@ -330,45 +329,45 @@ class ExperimentRunner:
                        dict_of_win_list: dict):
 
         for dataset in self.list_of_dataset:
-
             self.train_feats = None
             self.test_feats = None
 
-            for launch in range(self.launches):
-                try:
-                    self.path_to_save = self._create_path_to_save(dataset, launch)
-                    self.path_to_save_png = os.path.join(self.path_to_save, 'pictures')
+            self.launches_run(dataset, dict_of_dataset, dict_of_win_list)
 
-                    if not os.path.exists(self.path_to_save_png):
-                        os.makedirs(self.path_to_save_png)
+    @exception_decorator(exception_return='Problem')
+    def launches_run(self, dataset, dict_of_dataset, dict_of_win_list):
+        for launch in range(self.launches):
+            self.path_to_save = self._create_path_to_save(dataset, launch)
+            self.path_to_save_png = os.path.join(self.path_to_save, 'pictures')
 
-                    X, y = dict_of_dataset[dataset]
-                    self.X_train, self.X_test, self.y_train, self.y_test = X[0], X[1], y[0], y[1]
+            if not os.path.exists(self.path_to_save_png):
+                os.makedirs(self.path_to_save_png)
 
-                    self._get_clf_params()
+            X, y = dict_of_dataset[dataset]
+            self.X_train, self.X_test, self.y_train, self.y_test = X[0], X[1], y[0], y[1]
 
-                    predictor = self.fit(X_train=self.X_train,
-                                         y_train=self.y_train,
-                                         window_length_list=dict_of_win_list[dataset])
+            self._get_clf_params()
 
-                    result_on_train = self._predict_on_train(predictor=predictor)
+            predictor = self.fit(X_train=self.X_train,
+                                 y_train=self.y_train,
+                                 window_length_list=dict_of_win_list[dataset])
 
-                    self._get_dimension_params(predictions_proba_train=result_on_train['prediction_proba'])
+            result_on_train = self._predict_on_train(predictor=predictor)
 
-                    result_on_test = self._predict_on_test(predictor=predictor)
+            self._get_dimension_params(predictions_proba_train=result_on_train['prediction_proba'])
 
-                    result_with_boosting = self._predict_witn_boosting(predictions=result_on_train['predictions'],
-                                                                       predictions_proba=result_on_train[
-                                                                           'predictions_proba'],
-                                                                       metrics_without_boosting=result_on_test[
-                                                                           'metrics'])
-                    result_with_boosting['dataset'] = dataset
+            result_on_test = self._predict_on_test(predictor=predictor)
 
-                    self._save_all_results(predictor=predictor,
-                                           boosting_results=result_with_boosting,
-                                           normal_results=result_on_test)
-                except Exception:
-                    print('Problem')
+            result_with_boosting = self._predict_witn_boosting(predictions=result_on_train['predictions'],
+                                                               predictions_proba=result_on_train[
+                                                                   'predictions_proba'],
+                                                               metrics_without_boosting=result_on_test[
+                                                                   'metrics'])
+            result_with_boosting['dataset'] = dataset
+
+            self._save_all_results(predictor=predictor,
+                                   boosting_results=result_with_boosting,
+                                   normal_results=result_on_test)
 
     @staticmethod
     def save_boosting_results(dataset, solution_table, metrics_table, model_list, ensemble_model):
