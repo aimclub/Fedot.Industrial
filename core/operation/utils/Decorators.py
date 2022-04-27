@@ -8,12 +8,14 @@ class DecoratorObject:
         self.deco_type = deco_type
         self.exception_return = exception_return
 
-    def __call__(self, function):
-        def exception_wrapper():
-            try:
-                function()
-            except Exception as error:
-                return self.exception_return
+    def __call__(self, function, *args):
+        def exception_wrapper(function):
+            def applicator(*args):
+                try:
+                    function(*args)
+                except Exception as error:
+                    return self.exception_return
+            return applicator
 
         def reshape_wrapper():
             ...
@@ -27,6 +29,17 @@ class DecoratorObject:
             return reshape_wrapper
         elif self.deco_type == 'logger':
             return logger_wrapper
+
+
+def exception_decorator(exception_return=None):
+    def decorate(function):
+        def exception_wrapper(*args, **kwargs):
+            try:
+                function(*args, **kwargs)
+            except:
+                return exception_return
+        return exception_wrapper
+    return decorate
 
 
 def type_check_decorator(object_type: type, types_list: tuple):
