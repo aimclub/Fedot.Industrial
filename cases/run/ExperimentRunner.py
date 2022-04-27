@@ -1,7 +1,7 @@
 import json
 import os.path
 from core.metrics.metrics_implementation import *
-from core.operation.utils.Decorators import exception_decorator
+from core.operation.utils.Decorators import DecoratorObject
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -135,20 +135,21 @@ class ExperimentRunner:
         fitted = pipeline.fit(input_data=train_data)
         prediction = pipeline.predict(input_data=test_data, output_mode='labels')
         metric_f1 = F1()
-        metric_roc = ROCAUC()
-
         score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
 
-        try:
-            try:
-                score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
-            except Exception:
-                prediction = pipeline.predict(input_data=test_data, output_mode='probs')
-                score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
-        except Exception:
-            score_roc_auc = 0.5
+        score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
 
         return score_f1, score_roc_auc
+
+    @DecoratorObject(deco_type='exception', exception_return=0.5)
+    def get_roc_auc_score(self, pipeline, prediction, test_data):
+        metric_roc = ROCAUC()
+        try:
+            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+        except Exception as error:
+            prediction = pipeline.predict(input_data=test_data, output_mode='probs')
+            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+        return score_roc_auc
 
     def _predict_on_train(self, predictor):
 
@@ -225,7 +226,7 @@ class ExperimentRunner:
 
         pass
 
-    def _predict_witn_boosting(self,
+    def _predict_with_boosting(self,
                                predictions,
                                predictions_proba,
                                metrics_without_boosting):
@@ -309,7 +310,7 @@ class ExperimentRunner:
                     model_list=model_list,
                     ensemble_model=ensemble_model)
 
-    @exception_decorator(exception_return=1)
+    @DecoratorObject(deco_type='exception', exception_return=1)
     def _save_all_results(self, predictor, boosting_results, normal_results):
 
         self.logger.info('Saving model')
@@ -332,9 +333,11 @@ class ExperimentRunner:
             self.train_feats = None
             self.test_feats = None
 
-            self.launches_run(dataset, dict_of_dataset, dict_of_win_list)
+            self.launches_run(dataset=dataset,
+                              dict_of_dataset=dict_of_dataset,
+                              dict_of_win_list=dict_of_win_list)
 
-    @exception_decorator(exception_return='Problem')
+    @DecoratorObject(deco_type='exception', exception_return='Problem')
     def launches_run(self, dataset, dict_of_dataset, dict_of_win_list):
         for launch in range(self.launches):
             self.path_to_save = self._create_path_to_save(dataset, launch)
@@ -358,7 +361,7 @@ class ExperimentRunner:
 
             result_on_test = self._predict_on_test(predictor=predictor)
 
-            result_with_boosting = self._predict_witn_boosting(predictions=result_on_train['predictions'],
+            result_with_boosting = self._predict_with_boosting(predictions=result_on_train['predictions'],
                                                                predictions_proba=result_on_train[
                                                                    'predictions_proba'],
                                                                metrics_without_boosting=result_on_test[
