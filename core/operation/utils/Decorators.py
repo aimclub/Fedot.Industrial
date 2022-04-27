@@ -1,27 +1,32 @@
+from cases.run.utils import get_logger
+
+
 class DecoratorObject:
-    def __init__(self, deco_type: str):
+    def __init__(self,
+                 deco_type: str,
+                 exception_return=None):
         self.deco_type = deco_type
+        self.exception_return = exception_return
 
     def __call__(self, function):
-        def wrapper():
-            value = function()
-            return value
-        return wrapper
+        def exception_wrapper():
+            try:
+                function()
+            except Exception as error:
+                return self.exception_return
 
+        def reshape_wrapper():
+            ...
 
-def exception_decorator(function_to_decorate, exception_return=None):
-    def exception_wrapper():
-        try:
-            function_to_decorate()
-        except Exception:
-            return exception_return
-        return exception_wrapper
+        def logger_wrapper():
+            function()
 
-
-def logger_decorator(function_to_decorate):
-    def logger_wrapper():
-        function_to_decorate()
-        return logger_wrapper
+        if self.deco_type == 'exception':
+            return exception_wrapper
+        elif self.deco_type == 'reshape':
+            return reshape_wrapper
+        elif self.deco_type == 'logger':
+            return logger_wrapper
 
 
 def type_check_decorator(object_type: type, types_list: tuple):
