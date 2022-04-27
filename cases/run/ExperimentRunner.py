@@ -1,7 +1,7 @@
 import json
 import os.path
 from core.metrics.metrics_implementation import *
-from core.operation.utils.Decorators import DecoratorObject
+from core.operation.utils.Decorators import DecoratorObject, exception_decorator
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -141,7 +141,8 @@ class ExperimentRunner:
 
         return score_f1, score_roc_auc
 
-    @DecoratorObject(deco_type='exception', exception_return=0.5)
+    # @DecoratorObject(deco_type='exception', exception_return=0.5)
+    @exception_decorator(exception_return=0.5)
     def get_roc_auc_score(self, pipeline, prediction, test_data):
         metric_roc = ROCAUC()
         try:
@@ -310,7 +311,8 @@ class ExperimentRunner:
                     model_list=model_list,
                     ensemble_model=ensemble_model)
 
-    @DecoratorObject(deco_type='exception', exception_return=1)
+    # @DecoratorObject(deco_type='exception', exception_return=1)
+    @exception_decorator(exception_return=1)
     def _save_all_results(self, predictor, boosting_results, normal_results):
 
         self.logger.info('Saving model')
@@ -337,7 +339,8 @@ class ExperimentRunner:
                               dict_of_dataset=dict_of_dataset,
                               dict_of_win_list=dict_of_win_list)
 
-    @DecoratorObject(deco_type='exception', exception_return='Problem')
+    # @DecoratorObject(deco_type='exception', exception_return='Problem')
+    @exception_decorator(exception_return='Problem')
     def launches_run(self, dataset, dict_of_dataset, dict_of_win_list):
         for launch in range(self.launches):
             self.path_to_save = self._create_path_to_save(dataset, launch)
