@@ -1,6 +1,3 @@
-from cases.run.utils import get_logger
-
-
 class DecoratorObject:
     def __init__(self,
                  deco_type: str,

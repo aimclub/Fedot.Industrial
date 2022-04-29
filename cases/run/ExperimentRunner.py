@@ -79,15 +79,15 @@ class ExperimentRunner:
         return
 
     def _get_clf_params(self):
-        self.n_classes = np.unique(self.y_train)
+        self.n_classes = np.unique(self.y_train).shape[0]
 
-        if self.n_classes.shape[0] > 2:
+        if self.n_classes > 2:
             self.fedot_params['composer_params']['metric'] = 'f1'
         else:
             self.fedot_params['composer_params']['metric'] = 'roc_auc'
 
     def _get_dimension_params(self, predictions_proba_train):
-        if self.n_classes.shape[0] > 2:
+        if self.n_classes > 2:
             self.base_predict = predictions_proba_train
             y_train_multi = pd.get_dummies(self.y_train, sparse=True)
             self.y_train = y_train_multi.values
@@ -217,15 +217,28 @@ class ExperimentRunner:
                                target=self.y_test,
                                task=task,
                                data_type=DataTypesEnum.table)
+
         error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
         boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
+        # ЗАДАЧА: нахера нам тут еррор коррекшен и куда он мать его идет
         return boosting_result
 
-    def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model):
+    def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
+        boosting_test = []
+        input_data_test = self.test_feats
 
-        pass
+        for model in model_list:
+            boost_predict = model.predict(input_data_test)
+            boosting_test.append(boost_predict)
+
+
+        boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
+                                                            ensemble_model=ensemble_model,
+                                                            predictions_proba=predictions_proba)
+        # ЗАДАЧА error_correction
+        return boosting_result
 
     def _predict_with_boosting(self,
                                predictions,
@@ -243,21 +256,21 @@ class ExperimentRunner:
             booster = Booster(X_train=self.train_feats,
                               y_train=self.y_train,
                               base_predict=self.base_predict,
-                              timeout=round(self.fedot_params['timeout'] / 2),
+                              timeout=round(self.fedot_params['timeout']/ 2),
                               )
             boosting_pipeline = self.genetic_boosting_pipeline
 
         predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
-        results = boosting_pipeline(predictions_proba, model_list, ensemble_model)
-        results['base_probs'] = predictions_proba
-        results['true_labels'] = predictions
+        results_on_test = boosting_pipeline(predictions_proba, model_list, ensemble_model)
+
+        results_on_test['base_probs_on_test'] = predictions_proba
+        results_on_test['true_labels_on_test'] = predictions
 
         solution_table = pd.DataFrame({'target': self.y_test,
-                                       'base_probs': results['base_probs'].reshape(-1),
-                                       'ensemble': results['ensemble'].reshape(-1),
-                                       'corrected_probs': results['corrected_probs'],
-                                       'corrected_labels': results['corrected_labels'],
-                                       'true_labels': results['true_labels']})
+                                       'base_probs_on_test': results_on_test['base_probs_on_test'].reshape(-1),
+                                       'ensemble': results_on_test['ensemble'].reshape(-1),
+                                       'corrected_probs': results_on_test['corrected_probs'],
+                                       'corrected_labels': results_on_test['corrected_labels']})
 
         boosting_test = []
         for model in model_list:
@@ -360,7 +373,7 @@ class ExperimentRunner:
 
             result_on_train = self._predict_on_train(predictor=predictor)
 
-            self._get_dimension_params(predictions_proba_train=result_on_train['prediction_proba'])
+            self._get_dimension_params(predictions_proba_train=result_on_train['predictions_proba'])
 
             result_on_test = self._predict_on_test(predictor=predictor)
 
