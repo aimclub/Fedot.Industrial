@@ -36,7 +36,9 @@ class Booster:
                  base_predict,
                  timeout,
                  threshold=0,
-                 reshape_flag=True):
+                 # reshape_flag=True
+                 reshape_flag=False
+                 ):
 
         self.X_train = X_train
         self.y_train = y_train
@@ -72,12 +74,12 @@ class Booster:
         # accu_after_boost, f1_after_boost = self.evaluate_results(self.y_test, final_prediction)
         # self.logger.info(f'Before boosting: Accuracy={accu_after_boost}, F1={f1_after_boost}')
         try:
-            self.check_table['target'] = self.y_train
-            self.check_table['final_predict'] = final_prediction
-            self.check_table['1_stage_predict'] = prediction_1
-            self.check_table['2_stage_predict'] = prediction_2
-            self.check_table['3_stage_predict'] = prediction_3
-            self.check_table['base_pred'] = self.base_predict
+            self.check_table['target'] = self.proba_to_vector(self.y_train)
+            self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
+            self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
+            self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
+            self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
+            self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
         except Exception:
             self.logger.info('Problem with check table')
         self.logger.info('Finish boosting process')
@@ -85,6 +87,10 @@ class Booster:
         # final_prediction_round = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
 
         return final_prediction, model_list, model_ensemble
+
+    def proba_to_vector(self, matrix):
+        vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
+        return vector
 
     def evaluate_results(self, target, prediction):
 
@@ -131,7 +137,7 @@ class Booster:
                             timeout=self.timeout,
                             seed=20,
                             verbose_level=2,
-                            n_jobs=-1)
+                            n_jobs=1)
         if self.reshape_flag:
             features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
             target = self.y_train
@@ -139,6 +145,7 @@ class Booster:
             fedot_model.fit(features, target)
             ensemble_prediction = fedot_model.predict(features)
             ensemble_prediction = ensemble_prediction.reshape(-1)
+            return ensemble_prediction, fedot_model
         else:
             dictlist = []
             for key, value in self.booster_features.items():
@@ -146,8 +153,7 @@ class Booster:
             ensemble_prediction = sum(dictlist)
             features = np.hstack(self.booster_features.values())
             fedot_model = ensemble_prediction
-
-        return ensemble_prediction, fedot_model
+            return ensemble_prediction, None
 
     def custom_round(self, num):
         thr = self.threshold

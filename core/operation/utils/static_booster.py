@@ -114,7 +114,8 @@ class StaticBooster:
 
         input_data = InputData(idx=np.arange(0, len(x_data)),
                                features=x_data,
-                               target=y_data, task=task,
+                               target=y_data,
+                               task=task,
                                data_type=DataTypesEnum.table)
 
         xgboost = PrimaryNode('xgboost')
@@ -123,7 +124,12 @@ class StaticBooster:
         fedot_model.fit(input_data)
         ensemble_prediction = fedot_model.predict(input_data)
 
-        return ensemble_prediction.predict.reshape(-1), fedot_model
+        if np.unique(y_data).shape[0] > 2:
+            ensemble_prediction = np.array([x.argmax() + x[x.argmax()] for x in ensemble_prediction.predict])
+        else:
+            ensemble_prediction = ensemble_prediction.predict.reshape(-1)
+
+        return ensemble_prediction, fedot_model
 
     def custom_round(self, num):
         thr = self.threshold
