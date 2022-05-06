@@ -86,7 +86,7 @@ class Booster:
         fedot_model = Fedot(problem='regression',
                             timeout=self.timeout,
                             seed=20,
-                            verbose_level=2,
+                            verbose_level=1,
                             n_jobs=6)
 
         fedot_model.fit(self.X_train, target_diff)
@@ -106,25 +106,25 @@ class Booster:
     def ensemble(self):
         self.logger.info('Starting ensembling boosting results')
 
-        fedot_model = Fedot(problem='regression',
+        ensemle_model = Fedot(problem='regression',
                             timeout=self.timeout,
                             seed=20,
-                            verbose_level=2,
+                            verbose_level=1,
                             n_jobs=6)
         if self.reshape_flag:
             features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
             target = self.y_train
 
-            fedot_model.fit(features, target)
-            ensemble_prediction = fedot_model.predict(features)
+            ensemle_model.fit(features, target)
+            ensemble_prediction = ensemle_model.predict(features)
             ensemble_prediction = ensemble_prediction.reshape(-1)
-            return ensemble_prediction, fedot_model
+            return ensemble_prediction, ensemle_model
+
         else:
             dictlist = []
             for key, value in self.booster_features.items():
                 dictlist.append(value)
             ensemble_prediction = sum(dictlist)
-            # features = np.hstack(self.booster_features.values())
             return ensemble_prediction, None
 
     def custom_round(self, num):
