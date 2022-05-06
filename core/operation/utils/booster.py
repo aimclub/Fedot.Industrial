@@ -1,42 +1,21 @@
 import warnings
-
 import numpy as np
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
 import pandas as pd
-# from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score
-# from cases.analyzer import PerfomanceAnalyzer
 from cases.run.utils import get_logger
 from fedot.api.main import Fedot
-
-
-# import numpy as np
-# import timeit
 
 
 class Booster:
     CYCLES = 1
 
-    # def __init__(self,
-    #              metrics_name: list = ('f1',
-    #                                    'roc_auc',
-    #                                    'accuracy',
-    #                                    'logloss',
-    #                                    'precision'),
-    #              ):
-    #     self.metrics_name = metrics_name
-
     def __init__(self,
                  X_train,
-                 # X_test,
                  y_train,
-                 # y_test,
                  base_predict,
                  timeout,
                  threshold=0,
-                 # reshape_flag=True
                  reshape_flag=False
                  ):
 
@@ -54,8 +33,6 @@ class Booster:
 
     def run_boosting(self):
         self.logger.info('Started boosting')
-        # accu_before_boost, f1_before_boost = self.evaluate_results(self.y_train, self.base_predict)
-        # self.logger.info(f'Before boosting: Accuracy={accu_before_boost}, F1={f1_before_boost}')
 
         target_diff_1 = self.decompose_target(previous_predict=self.base_predict,
                                               previous_target=self.y_train)
@@ -70,8 +47,6 @@ class Booster:
         self.logger.info('Started boosting ensemble')
         final_prediction, model_ensemble = self.ensemble()
 
-        # accu_after_boost, f1_after_boost = self.evaluate_results(self.y_test, final_prediction)
-        # self.logger.info(f'Before boosting: Accuracy={accu_after_boost}, F1={f1_after_boost}')
         try:
             self.check_table['target'] = self.proba_to_vector(self.y_train)
             self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
@@ -83,7 +58,6 @@ class Booster:
             self.logger.info('Problem with check table')
         self.logger.info('Boosting process is finished')
         model_list = [model_1, model_2, model_3]
-        # final_prediction_round = self.check_table['final_predict'].apply(func=self.custom_round).values.reshape(-1)
 
         return final_prediction, model_list, model_ensemble
 
@@ -92,7 +66,6 @@ class Booster:
         return vector
 
     def evaluate_results(self, target, prediction):
-
         if target.shape[0] > 2:
             average = 'weighted'
         else:
@@ -131,7 +104,8 @@ class Booster:
         return previous_target - previous_predict
 
     def ensemble(self):
-        self.logger.info('Starting to ensembling boosting results')
+        self.logger.info('Starting ensembling boosting results')
+
         fedot_model = Fedot(problem='regression',
                             timeout=self.timeout,
                             seed=20,
@@ -150,7 +124,7 @@ class Booster:
             for key, value in self.booster_features.items():
                 dictlist.append(value)
             ensemble_prediction = sum(dictlist)
-            features = np.hstack(self.booster_features.values())
+            # features = np.hstack(self.booster_features.values())
             return ensemble_prediction, None
 
     def custom_round(self, num):
@@ -158,22 +132,3 @@ class Booster:
         if num - int(num) >= thr:
             return int(num) + 1
         return int(num)
-
-# if __name__ == '__main__':
-#     dataset = 'Earthquakes'
-#     X_test_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_test_feats.csv'
-#     X_train_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_train_feats.csv'
-#     y_train_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_y_train.csv'
-#     y_test_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_y_test.csv'
-#     base_predict_path = r"C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock" \
-#                         r"\probs_preds_target_Earthquakes.csv "
-#
-#     booster = Booster(X_train=pd.read_csv(X_train_path, index_col=0),
-#                       X_test=pd.read_csv(X_test_path, index_col=0),
-#                       y_train=pd.read_csv(y_train_path, index_col=0).values.reshape(-1),
-#                       y_test=pd.read_csv(y_test_path, index_col=0).values.reshape(-1),
-#                       base_predict=pd.read_csv(base_predict_path, index_col=0)['Preds'].values.reshape(-1),
-#                       threshold=0
-#                       )
-#
-#     booster.run_boosting()

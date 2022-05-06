@@ -233,26 +233,24 @@ class ExperimentRunner:
 
     def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
         self.logger.info('Predicting on booster models')
-        boosting_test = []
+        boosting_stages_predict = []
         input_data_test = self.test_feats
 
         n = 1
         for model in model_list:
             self.logger.info(f'Cycle {n} of boosting has started')
             boost_predict = model.predict(input_data_test)
-            boosting_test.append(boost_predict)
+            boosting_stages_predict.append(boost_predict)
             n += 1
 
         self.logger.info('Ensebling booster predictions')
         if ensemble_model:
-            input_data = np.array(boosting_test)
             self.logger.info('Ensembling using FEDOT has been chosen')
-            # error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
+            boosting_stages_predict = pd.DataFrame(np.array(boosting_stages_predict)).T
         else:
-            boosting_test = [np.array(_) for _ in boosting_test]
+            boosting_stages_predict = [np.array(_) for _ in boosting_stages_predict]
             self.logger.info('Ensembling using SUM method has been chosen')
-            # error_correction = sum(boosting_test)
-        boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
+        boosting_result = self._convert_boosting_prediction(boosting_test=boosting_stages_predict,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
         # ЗАДАЧА error_correction
@@ -285,12 +283,10 @@ class ExperimentRunner:
             ensemble_model)
 
         results_on_test['base_probs_on_test'] = predictions_proba
-        results_on_test['true_labels_on_test'] = predictions
+        # results_on_test['true_labels_on_test'] = predictions
 
         solution_table = pd.DataFrame({'target': self.y_test,
-                                       'base_probs_on_test': self.proba_to_vector(
-                                           results_on_test['base_probs_on_test']),
-                                       # 'ensemble': results_on_test['ensemble'].reshape(-1),
+                                       'base_probs_on_test': self.proba_to_vector(results_on_test['base_probs_on_test']),
                                        'corrected_probs': self.proba_to_vector(results_on_test['corrected_probs']),
                                        'corrected_labels': self.proba_to_vector(results_on_test['corrected_labels'])})
 
@@ -316,9 +312,12 @@ class ExperimentRunner:
         self.logger.info('Saving model')
         predictor.current_pipeline.save(path=self.path_to_save)
         best_pipeline, fitted_operation = predictor.current_pipeline.save()
-
         opt_history = predictor.history.save()
-        with open(os.path.join(self.path_to_save, 'history', 'opt_history.json'), 'w') as f:
+
+        # history_path = os.path.join(self.path_to_save, 'history')
+        # if not os.path.exists(history_path):
+        #     os.makedirs(history_path)
+        with open(os.path.join(self.path_to_save, 'opt_history.json'), 'w') as f:
             json.dump(json.loads(opt_history), f)
 
         self.logger.info('Saving results')
@@ -389,8 +388,12 @@ class ExperimentRunner:
                 model.save(path=os.path.join(models_path, f'boost_{index}'),
                            datetime_in_path=False)
         try:
-            ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
-                                                 datetime_in_path=False)
+            try:
+                ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                                     datetime_in_path=False)
+            except:
+                ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                    datetime_in_path=False)
         except:
-            ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
-                                datetime_in_path=False)
+            logger = get_logger()
+            logger.info('Ensemble model cannot be saved due to applied SUM method ')
