@@ -98,10 +98,11 @@ class ExperimentRunner:
             self.base_predict = predictions_proba_train.reshape(-1)
             self.reshape_flag = True
 
-    def _convert_boosting_prediction(self, boosting_test, ensemble_model, predictions_proba):
+    def _convert_boosting_prediction(self, boosting_stages_predict, ensemble_model, predictions_proba):
+        self.logger.info('Calculation of error correction by boosting')
         if self.reshape_flag:
-            boosting_test = [x.reshape(-1) for x in boosting_test]
-            error_correction = ensemble_model.predict(pd.DataFrame(data=boosting_test).T)
+            # boosting_stages_predict = [x.reshape(-1) for x in boosting_stages_predict]
+            error_correction = ensemble_model.predict(boosting_stages_predict).reshape(-1)
             corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
             corrected_probs = corrected_probs.reshape(-1)
             corrected_labels = abs(np.round(corrected_probs))
@@ -109,7 +110,7 @@ class ExperimentRunner:
         else:
             # error_correction = ensemble_model.predict(np.hstack(boosting_test))
             dictlist = []
-            for value in boosting_test:
+            for value in boosting_stages_predict:
                 dictlist.append(value)
             error_correction = sum(dictlist)
             corrected_probs = error_correction + predictions_proba
@@ -164,16 +165,17 @@ class ExperimentRunner:
                                                                  X_test=self.X_train,
                                                                  window_length=self.window_length,
                                                                  y_test=self.y_train)
+        #  make predictions/predictions_proba conversion to vector IF binary classification
+        # if self.n_classes == 2:
+        #     predictions = self.proba_to_vector(predictions)
+        #     predictions_proba = self.proba_to_vector(predictions_proba)
 
-        # GEt metrics on whole TRAIN
-
+        # GEt metrics on TRAIN
         metrics = self.analyzer.calculate_metrics(self.metrics_name,
                                                   target=self.y_train,
                                                   predicted_labels=predictions,
                                                   predicted_probs=predictions_proba
                                                   )
-
-        self.logger.info(f'Without Boosting metrics are: {metrics}')
 
         return dict(predictions=predictions,
                     predictions_proba=predictions_proba,
@@ -187,12 +189,20 @@ class ExperimentRunner:
                                                                  X_test=self.X_test,
                                                                  window_length=self.window_length,
                                                                  y_test=self.y_test)
+        #  make predictions/predictions_proba conversion to vector IF binary classification
+        # if self.n_classes == 2:
+        #     predictions = self.proba_to_vector(predictions)
+        #     predictions_proba = self.proba_to_vector(predictions_proba)
+
+        # GEt metrics on whole TEST
+
 
         metrics = self.analyzer.calculate_metrics(self.metrics_name,
                                                   target=self.y_test,
                                                   predicted_labels=predictions,
                                                   predicted_probs=predictions_proba
                                                   )
+        self.logger.info(f'Without Boosting metrics are: {metrics}')
 
         return dict(predictions=predictions,
                     predictions_proba=predictions_proba,
@@ -200,8 +210,10 @@ class ExperimentRunner:
                     metrics=metrics)
 
     def proba_to_vector(self, matrix):
-        vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
-        return vector
+        if len(matrix.shape) > 1:
+            vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
+            return vector
+        return matrix
 
     def static_boosting_pipeline(self, predictions_proba, model_list, ensemble_model):
         boosting_test = []
@@ -228,11 +240,10 @@ class ExperimentRunner:
         boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
-        # ЗАДАЧА: нахера нам тут еррор коррекшен и куда он мать его идет
         return boosting_result
 
     def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
-        self.logger.info('Predicting on booster models')
+        self.logger.info('Predict on booster models')
         boosting_stages_predict = []
         input_data_test = self.test_feats
 
@@ -246,14 +257,14 @@ class ExperimentRunner:
         self.logger.info('Ensebling booster predictions')
         if ensemble_model:
             self.logger.info('Ensembling using FEDOT has been chosen')
-            boosting_stages_predict = pd.DataFrame(np.array(boosting_stages_predict)).T
+            boosting_stages_predict = pd.DataFrame(i.reshape(-1) for i in boosting_stages_predict).T
         else:
             boosting_stages_predict = [np.array(_) for _ in boosting_stages_predict]
             self.logger.info('Ensembling using SUM method has been chosen')
-        boosting_result = self._convert_boosting_prediction(boosting_test=boosting_stages_predict,
+
+        boosting_result = self._convert_boosting_prediction(boosting_stages_predict=boosting_stages_predict,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
-        # ЗАДАЧА error_correction
         return boosting_result
 
     def _predict_with_boosting(self,
@@ -266,6 +277,7 @@ class ExperimentRunner:
                                     y_train=self.y_train,
                                     base_predict=self.base_predict,
                                     timeout=round(self.fedot_params['timeout'] / 2),
+
                                     )
             boosting_pipeline = self.static_boosting_pipeline
         else:
@@ -273,14 +285,14 @@ class ExperimentRunner:
                               y_train=self.y_train,
                               base_predict=self.base_predict,
                               timeout=round(self.fedot_params['timeout'] / 2),
+                              reshape_flag=self.reshape_flag
                               )
             boosting_pipeline = self.genetic_boosting_pipeline
 
         predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
-        results_on_test = boosting_pipeline(
-            predictions_proba,
-            model_list,
-            ensemble_model)
+        results_on_test = boosting_pipeline(predictions_proba,
+                                            model_list,
+                                            ensemble_model)
 
         results_on_test['base_probs_on_test'] = predictions_proba
         # results_on_test['true_labels_on_test'] = predictions
@@ -314,9 +326,6 @@ class ExperimentRunner:
         best_pipeline, fitted_operation = predictor.current_pipeline.save()
         opt_history = predictor.history.save()
 
-        # history_path = os.path.join(self.path_to_save, 'history')
-        # if not os.path.exists(history_path):
-        #     os.makedirs(history_path)
         with open(os.path.join(self.path_to_save, 'opt_history.json'), 'w') as f:
             json.dump(json.loads(opt_history), f)
 
