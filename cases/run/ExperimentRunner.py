@@ -1,18 +1,20 @@
 import json
 import os.path
-from core.metrics.metrics_implementation import *
-from core.operation.utils.Decorators import DecoratorObject, exception_decorator
+
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
+from sklearn.model_selection import train_test_split
+
+from cases.analyzer import PerfomanceAnalyzer
+from cases.run.utils import *
+from core.metrics.metrics_implementation import *
+from core.operation.utils.Decorators import exception_decorator
 from core.operation.utils.booster import Booster
 from core.operation.utils.static_booster import StaticBooster
-from sklearn.model_selection import train_test_split
-from cases.analyzer import PerfomanceAnalyzer
 from core.operation.utils.utils import *
-from cases.run.utils import *
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -75,7 +77,7 @@ class ExperimentRunner:
         return
 
     def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
-        """  Method responsible for  experiment pipeline """
+        """  Method responsible for experiment pipeline """
         return
 
     def _get_clf_params(self):
@@ -197,6 +199,10 @@ class ExperimentRunner:
                     inference=inference,
                     metrics=metrics)
 
+    def proba_to_vector(self, matrix):
+        vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
+        return vector
+
     def static_boosting_pipeline(self, predictions_proba, model_list, ensemble_model):
         boosting_test = []
         task = Task(TaskTypesEnum.regression)
@@ -226,14 +232,26 @@ class ExperimentRunner:
         return boosting_result
 
     def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
+        self.logger.info('Predicting on booster models')
         boosting_test = []
         input_data_test = self.test_feats
 
+        n = 1
         for model in model_list:
+            self.logger.info(f'Cycle {n} of boosting has started')
             boost_predict = model.predict(input_data_test)
             boosting_test.append(boost_predict)
+            n += 1
 
-
+        self.logger.info('Ensebling booster predictions')
+        if ensemble_model:
+            input_data = np.array(boosting_test)
+            self.logger.info('Ensembling using FEDOT has been chosen')
+            # error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
+        else:
+            boosting_test = [np.array(_) for _ in boosting_test]
+            self.logger.info('Ensembling using SUM method has been chosen')
+            # error_correction = sum(boosting_test)
         boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
@@ -256,62 +274,30 @@ class ExperimentRunner:
             booster = Booster(X_train=self.train_feats,
                               y_train=self.y_train,
                               base_predict=self.base_predict,
-                              timeout=round(self.fedot_params['timeout']/ 2),
+                              timeout=round(self.fedot_params['timeout'] / 2),
                               )
             boosting_pipeline = self.genetic_boosting_pipeline
 
         predictions_boosting_train, model_list, ensemble_model = booster.run_boosting()
-        results_on_test = boosting_pipeline(predictions_proba, model_list, ensemble_model)
+        results_on_test = boosting_pipeline(
+            predictions_proba,
+            model_list,
+            ensemble_model)
 
         results_on_test['base_probs_on_test'] = predictions_proba
         results_on_test['true_labels_on_test'] = predictions
 
         solution_table = pd.DataFrame({'target': self.y_test,
-                                       'base_probs_on_test': results_on_test['base_probs_on_test'].reshape(-1),
-                                       'ensemble': results_on_test['ensemble'].reshape(-1),
-                                       'corrected_probs': results_on_test['corrected_probs'],
-                                       'corrected_labels': results_on_test['corrected_labels']})
-
-        boosting_test = []
-        for model in model_list:
-            if self.static_booster:
-                task = Task(TaskTypesEnum.regression)
-                input_data_test = InputData(idx=np.arange(0, len(self.test_feats)),
-                                            features=self.test_feats,
-                                            target=self.y_test,
-                                            task=task,
-                                            data_type=DataTypesEnum.table)
-                boost_predict = model.predict(input_data=input_data_test).predict.reshape(-1)
-                boosting_test.append(boost_predict)
-            else:
-                boosting_test.append(model.predict(input_data=self.test_feats))
-
-        boosting_test = pd.DataFrame([x.reshape(-1) for x in boosting_test]).T
-
-        if self.static_booster:
-            task = Task(TaskTypesEnum.regression)
-            input_data = InputData(idx=np.arange(0, len(boosting_test)),
-                                   features=boosting_test,
-                                   target=self.y_test,
-                                   task=task,
-                                   data_type=DataTypesEnum.table)
-            error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
-        else:
-            error_correction = ensemble_model.predict(boosting_test).predict.reshape(-1)
-
-        corrected_probs = error_correction + predictions_proba.reshape(-1)
-        corrected_probs = corrected_probs.reshape(-1)
-        corrected_labels = abs(np.round(corrected_probs))
-
-        for index in boosting_test.columns:
-            solution_table[f'boost_{index + 1}'] = boosting_test[index]
-
-            boosting_test.append(model.predict(self.test_feats))
+                                       'base_probs_on_test': self.proba_to_vector(
+                                           results_on_test['base_probs_on_test']),
+                                       # 'ensemble': results_on_test['ensemble'].reshape(-1),
+                                       'corrected_probs': self.proba_to_vector(results_on_test['corrected_probs']),
+                                       'corrected_labels': self.proba_to_vector(results_on_test['corrected_labels'])})
 
         metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
                                                            target=self.y_test,
-                                                           predicted_labels=corrected_labels,
-                                                           predicted_probs=corrected_probs
+                                                           predicted_labels=results_on_test['corrected_labels'],
+                                                           predicted_probs=results_on_test['corrected_probs']
                                                            )
 
         no_boost = pd.Series(metrics_without_boosting)
@@ -324,7 +310,6 @@ class ExperimentRunner:
                     model_list=model_list,
                     ensemble_model=ensemble_model)
 
-    # @DecoratorObject(deco_type='exception', exception_return=1)
     @exception_decorator(exception_return=1)
     def _save_all_results(self, predictor, boosting_results, normal_results):
 
@@ -352,7 +337,6 @@ class ExperimentRunner:
                               dict_of_dataset=dict_of_dataset,
                               dict_of_win_list=dict_of_win_list)
 
-    # @DecoratorObject(deco_type='exception', exception_return='Problem')
     @exception_decorator(exception_return='Problem')
     def launches_run(self, dataset, dict_of_dataset, dict_of_win_list):
         for launch in range(self.launches):
@@ -377,15 +361,13 @@ class ExperimentRunner:
 
             result_on_test = self._predict_on_test(predictor=predictor)
 
-            result_with_boosting = self._predict_with_boosting(predictions=result_on_train['predictions'],
-                                                               predictions_proba=result_on_train[
-                                                                   'predictions_proba'],
-                                                               metrics_without_boosting=result_on_test[
-                                                                   'metrics'])
-            result_with_boosting['dataset'] = dataset
+            boosting_results = self._predict_with_boosting(predictions=result_on_test['predictions'],
+                                                           predictions_proba=result_on_test['predictions_proba'],
+                                                           metrics_without_boosting=result_on_test['metrics'])
+            boosting_results['dataset'] = dataset
 
             self._save_all_results(predictor=predictor,
-                                   boosting_results=result_with_boosting,
+                                   boosting_results=boosting_results,
                                    normal_results=result_on_test)
 
     @staticmethod
@@ -403,10 +385,12 @@ class ExperimentRunner:
             try:
                 model.current_pipeline.save(path=os.path.join(models_path, f'boost_{index}'),
                                             datetime_in_path=False)
-                ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
-                                                     datetime_in_path=False)
             except Exception:
                 model.save(path=os.path.join(models_path, f'boost_{index}'),
                            datetime_in_path=False)
-                ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
-                                    datetime_in_path=False)
+        try:
+            ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                                 datetime_in_path=False)
+        except:
+            ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
+                                datetime_in_path=False)
