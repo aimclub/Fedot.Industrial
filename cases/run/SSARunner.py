@@ -21,6 +21,7 @@ class SSARunner(ExperimentRunner):
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
         self.vis_flag = False
+        self.rank_hyper = None
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
@@ -67,9 +68,7 @@ class SSARunner(ExperimentRunner):
 
         spectr = self.spectrum_extractor(time_series=ts,
                                          window_length=self.window_length)
-        TS_comps, X_elem, V, Components_df, _, n_components, explained_dispersion = spectr.decompose()
-
-
+        TS_comps, X_elem, V, Components_df, _, n_components, explained_dispersion = spectr.decompose(rank_hyper=self.rank_hyper)
 
         self.count += 1
         return [Components_df, n_components, explained_dispersion]
@@ -136,11 +135,12 @@ class SSARunner(ExperimentRunner):
             train_feats = self.generate_features_from_ts(eigenvectors_list)
             train_feats = pd.concat(train_feats)
 
-            self.logger.info(f'Validate model for window length  - {window_length}')
+            #self.logger.info(f'Validate model for window length  - {window_length}')
+            #metrics = self._validate_window_length(features=train_feats, target=y_train)
+            #self.logger.info(f'Obtained metric for window length {window_length}  - F1, ROC_AUC - {metrics}')
 
-            metrics = self._validate_window_length(features=train_feats, target=y_train)
+            metrics = self.explained_dispersion/self.n_components
 
-            self.logger.info(f'Obtained metric for window length {window_length}  - F1, ROC_AUC - {metrics}')
 
             metric_list.append(metrics)
             feature_list.append(train_feats)
@@ -149,8 +149,9 @@ class SSARunner(ExperimentRunner):
             eigen_list.append(eigenvectors_list)
             self.count = 0
 
-        max_score = [sum(x) for x in metric_list]
-        index_of_window = int(max_score.index(max(max_score)))
+        # max_score = [max(metric_list) for x in metric_list]
+        # index_of_window = int(metric_list.index(max(metric_list)))
+        index_of_window = int(metric_list.index(max(metric_list)))
         train_feats = feature_list[index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
 

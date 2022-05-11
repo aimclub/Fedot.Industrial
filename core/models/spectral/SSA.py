@@ -82,7 +82,7 @@ class Spectrum:
         self.__trajectory_matrix = trajectory_matrix
 
     # @type_check_decorator(object_type=pd.Series, types_list=supported_types)
-    def decompose(self, return_df=True, correlation_flag=False):
+    def decompose(self, return_df=True, correlation_flag=False, rank_hyper=None):
         # Embed the time series in a trajectory matrix
         Components_df = None
         Wcorr = None
@@ -113,7 +113,7 @@ class Spectrum:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        if rank > 100000:
+        if rank > rank_hyper:
             combined_components = self.calc_wcorr(TS_comps, rank)
             Components_df = self.components_to_df(combined_components, len(combined_components))
         else:
@@ -168,12 +168,12 @@ class Spectrum:
         combined_components = []
 
         for i in components:
-            corellated_comp = [i for i, v in enumerate(Wcorr[i,]) if v > 0.5]
+            corellated_comp = [i for i, v in enumerate(Wcorr[:, i]) if v > 0.85]
 
             if len(corellated_comp) < 2:
-                final_component = TS_comps[corellated_comp[0],]
+                final_component = TS_comps[:, corellated_comp[0]]
             else:
-                final_component = np.sum(TS_comps[corellated_comp,], axis=0)
+                final_component = np.sum(TS_comps[:, corellated_comp], axis=1)
 
             for elem in corellated_comp:
                 try:
