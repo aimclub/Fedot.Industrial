@@ -100,9 +100,23 @@ class ExperimentRunner:
 
     def _convert_boosting_prediction(self, boosting_stages_predict, ensemble_model, predictions_proba):
         self.logger.info('Calculation of error correction by boosting')
+        if self.static_booster:
+            task = Task(TaskTypesEnum.regression)
+            input_data = InputData(idx=np.arange(0, len(boosting_stages_predict)),
+                                   features=boosting_stages_predict,
+                                   target=self.y_test,
+                                   task=task,
+                                   data_type=DataTypesEnum.table)
+        else:
+            input_data = boosting_stages_predict
+
         if self.reshape_flag:
             # boosting_stages_predict = [x.reshape(-1) for x in boosting_stages_predict]
-            error_correction = ensemble_model.predict(boosting_stages_predict).reshape(-1)
+            if self.static_booster:
+                error_correction = ensemble_model.predict(input_data).predict.reshape(-1)
+            else:
+                error_correction = ensemble_model.predict(input_data).reshape(-1)
+
             corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
             corrected_probs = corrected_probs.reshape(-1)
             corrected_labels = abs(np.round(corrected_probs))
@@ -165,7 +179,6 @@ class ExperimentRunner:
                                                                  X_test=self.X_train,
                                                                  window_length=self.window_length,
                                                                  y_test=self.y_train)
-        #  make predictions/predictions_proba conversion to vector IF binary classification
         # if self.n_classes == 2:
         #     predictions = self.proba_to_vector(predictions)
         #     predictions_proba = self.proba_to_vector(predictions_proba)
@@ -216,7 +229,7 @@ class ExperimentRunner:
         return matrix
 
     def static_boosting_pipeline(self, predictions_proba, model_list, ensemble_model):
-        boosting_test = []
+        boosting_stages_predict = []
         task = Task(TaskTypesEnum.regression)
         input_data_test = InputData(idx=np.arange(0, len(self.test_feats)),
                                     features=self.test_feats,
@@ -226,18 +239,18 @@ class ExperimentRunner:
 
         for model in model_list:
             boost_predict = model.predict(input_data=input_data_test).predict.reshape(-1)
-            boosting_test.append(boost_predict)
+            boosting_stages_predict.append(boost_predict)
 
-        boosting_test = pd.DataFrame([x.reshape(-1) for x in boosting_test]).T
+        boosting_stages_predict = pd.DataFrame([x.reshape(-1) for x in boosting_stages_predict]).T
 
-        input_data = InputData(idx=np.arange(0, len(boosting_test)),
-                               features=boosting_test,
+        input_data = InputData(idx=np.arange(0, len(boosting_stages_predict)),
+                               features=boosting_stages_predict,
                                target=self.y_test,
                                task=task,
                                data_type=DataTypesEnum.table)
 
         error_correction = ensemble_model.predict(input_data=input_data).predict.reshape(-1)
-        boosting_result = self._convert_boosting_prediction(boosting_test=boosting_test,
+        boosting_result = self._convert_boosting_prediction(boosting_stages_predict=boosting_stages_predict,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
         return boosting_result
@@ -277,7 +290,6 @@ class ExperimentRunner:
                                     y_train=self.y_train,
                                     base_predict=self.base_predict,
                                     timeout=round(self.fedot_params['timeout'] / 2),
-
                                     )
             boosting_pipeline = self.static_boosting_pipeline
         else:
@@ -326,6 +338,9 @@ class ExperimentRunner:
         best_pipeline, fitted_operation = predictor.current_pipeline.save()
         opt_history = predictor.history.save()
 
+        # history_path = os.path.join(self.path_to_save, 'history')
+        # if not os.path.exists(history_path):
+        #     os.makedirs(history_path)
         with open(os.path.join(self.path_to_save, 'opt_history.json'), 'w') as f:
             json.dump(json.loads(opt_history), f)
 
