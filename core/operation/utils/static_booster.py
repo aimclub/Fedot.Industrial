@@ -52,14 +52,27 @@ class StaticBooster:
 
         final_prediction, model_ensemble = self.ensemble()
 
-        self.check_table['target'] = self.y_train
-        self.check_table['final_predict'] = final_prediction
-        self.check_table['base_pred'] = self.base_predict
+        try:
+            self.check_table['target'] = self.proba_to_vector(self.y_train)
+            self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
+            self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
+            self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
+            self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
+            self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
+        except Exception:
+            self.logger.info('Problem with check table')
 
         model_list = [model_1, model_2, model_3]
         final_prediction_round = self.check_table['final_predict'].apply(func=np.round).values.reshape(-1)
 
         return final_prediction, model_list, model_ensemble
+
+    def proba_to_vector(self, matrix):
+        try:
+            vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
+            return vector
+        except IndexError:
+            return matrix
 
     def evaluate_results(self, target, prediction):
 
@@ -91,15 +104,15 @@ class StaticBooster:
                                data_type=DataTypesEnum.table)
         current_node = PrimaryNode(node)
 
-        fedot_model = Pipeline(current_node)
+        boosting_model = Pipeline(current_node)
 
-        fedot_model.fit(input_data=input_data)
-        prediction = fedot_model.predict(input_data=input_data)
+        boosting_model.fit(input_data=input_data)
+        prediction = boosting_model.predict(input_data=input_data)
 
         self.booster_features[self.CYCLES] = prediction.predict.reshape(-1)
         self.CYCLES += 1
 
-        return prediction.predict.reshape(-1), fedot_model
+        return prediction.predict.reshape(-1), boosting_model
 
     def decompose_target(self, previous_predict, previous_target):
         return previous_target - previous_predict
@@ -119,39 +132,20 @@ class StaticBooster:
                                data_type=DataTypesEnum.table)
 
         xgboost = PrimaryNode('xgboost')
-        fedot_model = Pipeline(xgboost)
+        ensemble_model = Pipeline(xgboost)
 
-        fedot_model.fit(input_data)
-        ensemble_prediction = fedot_model.predict(input_data)
+        ensemble_model.fit(input_data)
+        ensemble_prediction = ensemble_model.predict(input_data)
 
         if np.unique(y_data).shape[0] > 2:
             ensemble_prediction = np.array([x.argmax() + x[x.argmax()] for x in ensemble_prediction.predict])
         else:
             ensemble_prediction = ensemble_prediction.predict.reshape(-1)
 
-        return ensemble_prediction, fedot_model
+        return ensemble_prediction, ensemble_model
 
     def custom_round(self, num):
         thr = self.threshold
         if num - int(num) >= thr:
             return int(num) + 1
         return int(num)
-
-# if __name__ == '__main__':
-#     dataset = 'Earthquakes'
-#     X_test_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_test_feats.csv'
-#     X_train_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_train_feats.csv'
-#     y_train_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_y_train.csv'
-#     y_test_path = r'C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock\Earthquakes_y_test.csv'
-#     base_predict_path = r"C:\Users\User\Desktop\work-folder\industrial_ts\IndustrialTS\cock" \
-#                         r"\probs_preds_target_Earthquakes.csv "
-#
-#     booster = Booster(X_train=pd.read_csv(X_train_path, index_col=0),
-#                       X_test=pd.read_csv(X_test_path, index_col=0),
-#                       y_train=pd.read_csv(y_train_path, index_col=0).values.reshape(-1),
-#                       y_test=pd.read_csv(y_test_path, index_col=0).values.reshape(-1),
-#                       base_predict=pd.read_csv(base_predict_path, index_col=0)['Preds'].values.reshape(-1),
-#                       threshold=0
-#                       )
-#
-#     booster.run_boosting()
