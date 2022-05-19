@@ -5,7 +5,7 @@ import pandas as pd
 
 
 def save_results(predictions: Union[np.ndarray, pd.DataFrame],
-                 prediction_proba: Union[np.ndarray, pd.DataFrame],
+                 predictions_proba: Union[np.ndarray, pd.DataFrame],
                  target: Union[np.ndarray, pd.Series],
                  path_to_save: str,
                  inference: float,
@@ -16,12 +16,12 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
     if not os.path.exists(path_results):
         os.makedirs(path_results)
 
-    if type(prediction_proba) is not pd.DataFrame:
-        df_preds = pd.DataFrame(prediction_proba)
+    if type(predictions_proba) is not pd.DataFrame:
+        df_preds = pd.DataFrame(predictions_proba)
         df_preds['Target'] = target
         df_preds['Preds'] = predictions
     else:
-        df_preds = prediction_proba
+        df_preds = predictions_proba
         df_preds['Target'] = target.values
 
     if type(metrics) is str:

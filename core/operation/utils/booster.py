@@ -1,5 +1,6 @@
 import warnings
 import numpy as np
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score
@@ -46,16 +47,24 @@ class Booster:
         prediction_3, model_3 = self.api_model(target_diff=target_diff_3)
         self.logger.info('Started boosting ensemble')
         final_prediction, model_ensemble = self.ensemble()
-
         try:
-            self.check_table['target'] = self.proba_to_vector(self.y_train)
-            self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
-            self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
-            self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
-            self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
-            self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
+            try:
+                self.check_table['target'] = self.proba_to_vector(self.y_train)
+                self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
+                self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
+                self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
+                self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
+                self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
+            except Exception:
+                self.check_table['base_pred'] = self.base_predict
+                self.check_table['final_predict'] = final_prediction
+                self.check_table['target'] = self.y_train
+                self.check_table['1_stage_predict'] = prediction_1
+                self.check_table['2_stage_predict'] = prediction_2
+                self.check_table['3_stage_predict'] = prediction_3
         except Exception:
-            self.logger.info('Problem with check table')
+            self.logger.info('Problem with saving table')
+
         self.logger.info('Boosting process is finished')
         model_list = [model_1, model_2, model_3]
 
@@ -107,10 +116,10 @@ class Booster:
         self.logger.info('Starting ensembling boosting results')
 
         ensemle_model = Fedot(problem='regression',
-                            timeout=self.timeout,
-                            seed=20,
-                            verbose_level=1,
-                            n_jobs=6)
+                              timeout=self.timeout,
+                              seed=20,
+                              verbose_level=1,
+                              n_jobs=6)
         if self.reshape_flag:
             features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
             target = self.y_train
