@@ -1,24 +1,34 @@
 import warnings
+
 import numpy as np
+import pandas as pd
+from fedot.api.main import Fedot
+from typing import Union
+
+from cases.run.utils import get_logger
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
-import pandas as pd
-from sklearn.metrics import accuracy_score, f1_score
-from cases.run.utils import get_logger
-from fedot.api.main import Fedot
 
 
 class Booster:
+    """Class to implement genetic booster model for basic prediction improvement"""
     CYCLES = 1
 
     def __init__(self,
-                 X_train,
-                 y_train,
-                 base_predict,
-                 timeout,
-                 threshold=0,
-                 reshape_flag=False
-                 ):
+                 X_train: np.array,
+                 y_train: np.array,
+                 base_predict: np.array,
+                 timeout: int,
+                 threshold: Union[int, float] = 0,
+                 reshape_flag: bool = False):
+        """
+        :param X_train: X_train
+        :param y_train: y_train
+        :param base_predict: prediction, derived from main model (Quantile, Spectral, Topological, or Discrete
+        :param timeout: defines the amount of time to compose and tune main prediction model
+        :param threshold: parameter used as round boundary for custom_round() method
+        :param reshape_flag:
+        """
 
         self.X_train = X_train
         self.y_train = y_train
@@ -32,7 +42,8 @@ class Booster:
         if self.reshape_flag:
             self.y_train = self.y_train.reshape(-1)
 
-    def run_boosting(self):
+    def run_boosting(self) -> tuple:
+        """Method to run the boosting process"""
         self.logger.info('Started boosting')
 
         target_diff_1 = self.decompose_target(previous_predict=self.base_predict,
@@ -48,20 +59,7 @@ class Booster:
         self.logger.info('Started boosting ensemble')
         final_prediction, model_ensemble = self.ensemble()
         try:
-            try:
-                self.check_table['target'] = self.proba_to_vector(self.y_train)
-                self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
-                self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
-                self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
-                self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
-                self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
-            except Exception:
-                self.check_table['base_pred'] = self.base_predict
-                self.check_table['final_predict'] = final_prediction
-                self.check_table['target'] = self.y_train
-                self.check_table['1_stage_predict'] = prediction_1
-                self.check_table['2_stage_predict'] = prediction_2
-                self.check_table['3_stage_predict'] = prediction_3
+            self.get_check_table(final_prediction, prediction_1, prediction_2, prediction_3)
         except Exception:
             self.logger.info('Problem with saving table')
 
@@ -70,26 +68,34 @@ class Booster:
 
         return final_prediction, model_list, model_ensemble
 
-    def proba_to_vector(self, matrix):
+    def get_check_table(self, final_prediction, prediction_1, prediction_2, prediction_3) -> None:
+        """Method to fill self.check_table dataframe with boosting results"""
+        try:
+            self.check_table['target'] = self.proba_to_vector(self.y_train)
+            self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
+            self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
+            self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
+            self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
+            self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
+        except Exception:
+            self.check_table['base_pred'] = self.base_predict
+            self.check_table['final_predict'] = final_prediction
+            self.check_table['target'] = self.y_train
+            self.check_table['1_stage_predict'] = prediction_1
+            self.check_table['2_stage_predict'] = prediction_2
+            self.check_table['3_stage_predict'] = prediction_3
+
+    def proba_to_vector(self, matrix: np.array):
+        """
+        :type matrix: probability matrix received as a result of prediction_proba for multi-class problem
+        """
         vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
         return vector
 
-    def evaluate_results(self, target, prediction):
-        if target.shape[0] > 2:
-            average = 'weighted'
-        else:
-            average = 'binary'
-
-        self.logger.info('Evaluation results')
-        accuracy = accuracy_score(y_true=target,
-                                  y_pred=prediction)
-        f1 = f1_score(y_true=target,
-                      y_pred=prediction,
-                      average=average)
-
-        return accuracy, f1
-
-    def api_model(self, target_diff):
+    def api_model(self, target_diff: np.array) -> tuple:
+        """Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
+        :type target_diff: object
+        """
         self.logger.info(f'Starting cycle {self.CYCLES} of boosting')
 
         fedot_model = Fedot(problem='regression',
@@ -109,25 +115,30 @@ class Booster:
 
         return prediction, fedot_model
 
-    def decompose_target(self, previous_predict, previous_target):
+    def decompose_target(self,
+                         previous_predict: np.array,
+                         previous_target: np.array):
+        """Method that returns difference between two arrays: last target and last predict"""
         return previous_target - previous_predict
 
-    def ensemble(self):
-        self.logger.info('Starting ensembling boosting results')
+    def ensemble(self) -> tuple:
+        """Method that ensemble results of all stages of boosting. Depending on number of classes ensemble method
+        could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem)"""
+        self.logger.info('Starting to ensemble boosting results')
 
-        ensemle_model = Fedot(problem='regression',
-                              timeout=self.timeout,
-                              seed=20,
-                              verbose_level=1,
-                              n_jobs=6)
+        ensemble_model = Fedot(problem='regression',
+                               timeout=self.timeout,
+                               seed=20,
+                               verbose_level=1,
+                               n_jobs=6)
         if self.reshape_flag:
             features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
             target = self.y_train
 
-            ensemle_model.fit(features, target)
-            ensemble_prediction = ensemle_model.predict(features)
+            ensemble_model.fit(features, target)
+            ensemble_prediction = ensemble_model.predict(features)
             ensemble_prediction = ensemble_prediction.reshape(-1)
-            return ensemble_prediction, ensemle_model
+            return ensemble_prediction, ensemble_model
 
         else:
             dictlist = []
@@ -136,7 +147,8 @@ class Booster:
             ensemble_prediction = sum(dictlist)
             return ensemble_prediction, None
 
-    def custom_round(self, num):
+    def custom_round(self, num: float) -> int:
+        """Custom round method with predefined threshold"""
         thr = self.threshold
         if num - int(num) >= thr:
             return int(num) + 1
