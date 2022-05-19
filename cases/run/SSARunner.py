@@ -68,7 +68,8 @@ class SSARunner(ExperimentRunner):
 
         spectr = self.spectrum_extractor(time_series=ts,
                                          window_length=self.window_length)
-        TS_comps, X_elem, V, Components_df, _, n_components, explained_dispersion = spectr.decompose(rank_hyper=self.rank_hyper)
+        TS_comps, X_elem, V, Components_df, _, n_components, explained_dispersion = spectr.decompose(
+            rank_hyper=self.rank_hyper)
 
         self.count += 1
         return [Components_df, n_components, explained_dispersion]
@@ -120,7 +121,7 @@ class SSARunner(ExperimentRunner):
 
             eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
 
-            rank_list = [x[1] for x in eigenvectors_and_rank]
+            rank_list = [x[0].shape[1] for x in eigenvectors_and_rank]
             explained_dispersion = [x[2] for x in eigenvectors_and_rank]
 
             self.explained_dispersion = round(np.mean(explained_dispersion))
@@ -132,30 +133,33 @@ class SSARunner(ExperimentRunner):
                              f'{self.explained_dispersion} % of explained dispersion '
                              f'obtained by first - {self.n_components} components.')
 
-            train_feats = self.generate_features_from_ts(eigenvectors_list)
-            train_feats = pd.concat(train_feats)
-
-            #self.logger.info(f'Validate model for window length  - {window_length}')
-            #metrics = self._validate_window_length(features=train_feats, target=y_train)
-            #self.logger.info(f'Obtained metric for window length {window_length}  - F1, ROC_AUC - {metrics}')
-
-            metrics = self.explained_dispersion/self.n_components
-
-
+            metrics = self.explained_dispersion / (self.n_components / window_length)
             metric_list.append(metrics)
-            feature_list.append(train_feats)
-            n_comp_list.append(self.n_components)
-            disp_list.append(self.explained_dispersion)
+
+            # self.logger.info(f'Validate model for window length  - {window_length}')
+            # metrics = self._validate_window_length(features=train_feats, target=y_train)
+            # self.logger.info(f'Obtained metric for window length {window_length}  - F1, ROC_AUC - {metrics}')
+            # feature_list.append(train_feats)
+            # disp_list.append(self.explained_dispersion)
+
             eigen_list.append(eigenvectors_list)
+            n_comp_list.append(self.n_components)
             self.count = 0
 
         # max_score = [max(metric_list) for x in metric_list]
         # index_of_window = int(metric_list.index(max(metric_list)))
-        index_of_window = int(metric_list.index(max(metric_list)))
-        train_feats = feature_list[index_of_window]
-        eigenvectors_list = eigen_list[index_of_window]
 
-        self.vis_flag = True
+        index_of_window = int(metric_list.index(max(metric_list)))
+
+        self.logger.info(f'Was choosen window length -  {window_length_list[index_of_window]}')
+
+        eigenvectors_list = eigen_list[index_of_window]
+        train_feats = self.generate_features_from_ts(eigenvectors_list)
+        train_feats = pd.concat(train_feats)
+        for col in train_feats.columns:
+            train_feats[col].fillna(value=train_feats[col].mean(), inplace=True)
+
+        self.vis_flag = False
         eigenvectors_list_filtred = []
 
         for class_n in np.unique(y_train):
@@ -171,7 +175,6 @@ class SSARunner(ExperimentRunner):
 
         self.window_length = window_length_list[index_of_window]
         self.n_components = n_comp_list[index_of_window]
-        self.logger.info(f'Was choosen window length -  {self.window_length} ')
 
         return train_feats
 
@@ -197,6 +200,8 @@ class SSARunner(ExperimentRunner):
             eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
             self.test_feats = self.generate_features_from_ts(eigenvectors_list)
             self.test_feats = pd.concat(self.test_feats)
+            for col in self.test_feats.columns:
+                self.test_feats[col].fillna(value=self.test_feats[col].mean(), inplace=True)
 
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=self.test_feats)

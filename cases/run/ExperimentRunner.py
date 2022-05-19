@@ -96,6 +96,7 @@ class ExperimentRunner:
             self.reshape_flag = False
         else:
             self.base_predict = predictions_proba_train.reshape(-1)
+            self.base_predict = round(np.max(self.y_test) - np.max(predictions_proba_train)) + self.base_predict
             self.reshape_flag = True
 
     def _convert_boosting_prediction(self, boosting_stages_predict, ensemble_model, predictions_proba):
@@ -118,6 +119,8 @@ class ExperimentRunner:
                 error_correction = ensemble_model.predict(input_data).reshape(-1)
 
             corrected_probs = error_correction.reshape(-1) + predictions_proba.reshape(-1)
+            if self.reshape_flag and np.min(self.y_test) == 1:
+                corrected_probs = (error_correction.reshape(-1) + predictions_proba.reshape(-1)) / 2
             corrected_probs = corrected_probs.reshape(-1)
             corrected_labels = abs(np.round(corrected_probs))
 
@@ -129,7 +132,6 @@ class ExperimentRunner:
             error_correction = sum(dictlist)
             corrected_probs = error_correction + predictions_proba
             corrected_labels = np.array([x.argmax() + min(self.y_test) for x in corrected_probs])
-            corrected_probs = pd.get_dummies(corrected_labels, sparse=True).values
             corrected_labels = corrected_labels.reshape(len(corrected_labels), 1)
 
         return dict(corrected_labels=corrected_labels,
@@ -209,22 +211,37 @@ class ExperimentRunner:
 
         # GEt metrics on whole TEST
 
-
         metrics = self.analyzer.calculate_metrics(self.metrics_name,
                                                   target=self.y_test,
                                                   predicted_labels=predictions,
                                                   predicted_probs=predictions_proba
                                                   )
         self.logger.info(f'Without Boosting metrics are: {metrics}')
+        result_on_test = dict(predictions=predictions,
+                              predictions_proba=predictions_proba,
+                              inference=inference,
+                              metrics=metrics)
+        if self.window_length is None:
+            self.window_length = 'Empty'
+        result_on_test['window'] = self.window_length
+        result_on_test['target'] = self.y_test
+        result_on_test['fit_time'] = self._generate_fit_time(predictor=predictor)[0]
+        result_on_test['path_to_save'] = self.path_to_save
+        if self.reshape_flag and np.min(self.y_test) == 1:
+            result_on_test['predictions_proba'] = round(
+                np.max(self.y_test) - np.max(result_on_test['predictions_proba'])) + \
+                                                  result_on_test['predictions_proba']
 
-        return dict(predictions=predictions,
-                    predictions_proba=predictions_proba,
-                    inference=inference,
-                    metrics=metrics)
+        return result_on_test
 
-    def proba_to_vector(self, matrix):
+    def proba_to_vector(self, matrix, dummy_flag=True):
+
+        if not dummy_flag:
+            dummy_val = -1
+        else:
+            dummy_val = 0
         if len(matrix.shape) > 1:
-            vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
+            vector = np.array([x.argmax() + x[x.argmax()] + dummy_val for x in matrix])
             return vector
         return matrix
 
@@ -310,7 +327,8 @@ class ExperimentRunner:
         # results_on_test['true_labels_on_test'] = predictions
 
         solution_table = pd.DataFrame({'target': self.y_test,
-                                       'base_probs_on_test': self.proba_to_vector(results_on_test['base_probs_on_test']),
+                                       'base_probs_on_test': self.proba_to_vector(
+                                           results_on_test['base_probs_on_test']),
                                        'corrected_probs': self.proba_to_vector(results_on_test['corrected_probs']),
                                        'corrected_labels': self.proba_to_vector(results_on_test['corrected_labels'])})
 
@@ -331,22 +349,23 @@ class ExperimentRunner:
                     ensemble_model=ensemble_model)
 
     @exception_decorator(exception_return=1)
-    def _save_all_results(self, predictor, boosting_results, normal_results):
-
-        self.logger.info('Saving model')
-        predictor.current_pipeline.save(path=self.path_to_save)
-        best_pipeline, fitted_operation = predictor.current_pipeline.save()
-        opt_history = predictor.history.save()
-
-        # history_path = os.path.join(self.path_to_save, 'history')
-        # if not os.path.exists(history_path):
-        #     os.makedirs(history_path)
-        with open(os.path.join(self.path_to_save, 'opt_history.json'), 'w') as f:
-            json.dump(json.loads(opt_history), f)
+    def _save_all_results(self, predictor, boosting_results, normal_results, save_boosting=False):
 
         self.logger.info('Saving results')
-        self.save_boosting_results(**boosting_results)
-        save_results(**normal_results)
+        if save_boosting:
+            self.save_boosting_results(**boosting_results)
+        else:
+            predictor.current_pipeline.save(path=self.path_to_save)
+            best_pipeline, fitted_operation = predictor.current_pipeline.save()
+            opt_history = predictor.history.save()
+
+            # history_path = os.path.join(self.path_to_save, 'history')
+            # if not os.path.exists(history_path):
+            #     os.makedirs(history_path)
+            with open(os.path.join(self.path_to_save, 'opt_history.json'), 'w') as f:
+                json.dump(json.loads(opt_history), f)
+
+            save_results(**normal_results)
 
     def run_experiment(self,
                        dict_of_dataset: dict,
@@ -384,6 +403,10 @@ class ExperimentRunner:
 
             result_on_test = self._predict_on_test(predictor=predictor)
 
+            self._save_all_results(predictor=predictor,
+                                   boosting_results=None,
+                                   normal_results=result_on_test)
+
             boosting_results = self._predict_with_boosting(predictions=result_on_test['predictions'],
                                                            predictions_proba=result_on_test['predictions_proba'],
                                                            metrics_without_boosting=result_on_test['metrics'])
@@ -391,11 +414,11 @@ class ExperimentRunner:
 
             self._save_all_results(predictor=predictor,
                                    boosting_results=boosting_results,
-                                   normal_results=result_on_test)
+                                   normal_results=result_on_test,
+                                   save_boosting=True)
 
-    @staticmethod
-    def save_boosting_results(dataset, solution_table, metrics_table, model_list, ensemble_model):
-        location = os.path.join(project_path(), 'results_of_experiments', dataset, 'boosting')
+    def save_boosting_results(self, dataset, solution_table, metrics_table, model_list, ensemble_model):
+        location = os.path.join(self.path_to_save, 'boosting')
         if not os.path.exists(location):
             os.makedirs(location)
         solution_table.to_csv(os.path.join(location, 'solution_table.csv'))
