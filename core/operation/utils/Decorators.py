@@ -28,13 +28,13 @@ class DecoratorObject:
             return logger_wrapper
 
 
-def exception_decorator(exception_return=None):
+def exception_decorator(exception_return='Problem'):
     def decorate(function):
         def exception_wrapper(*args, **kwargs):
             try:
                 function(*args, **kwargs)
             except:
-                return exception_return
+                return print(exception_return)
         return exception_wrapper
     return decorate
 

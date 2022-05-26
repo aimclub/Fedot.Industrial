@@ -1,5 +1,6 @@
 from multiprocessing.dummy import Pool
 
+import pandas as pd
 from sklearn.metrics import f1_score
 from fedot.api.main import Fedot
 
@@ -26,11 +27,6 @@ class SignalRunner(ExperimentRunner):
         self.test_feats = None
         self.n_components = None
 
-    def __check_Nan(self, ts):
-        if any(np.isnan(ts)):
-            ts = np.nan_to_num(ts, nan=0)
-        return ts
-
     def _ts_chunk_function(self, ts):
 
         self.logger.info(f'8 CPU on working. '
@@ -39,47 +35,48 @@ class SignalRunner(ExperimentRunner):
 
         ts = self.__check_Nan(ts)
         features = []
+        features_name = []
         spectr = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
         high_freq, low_freq = spectr.decompose_signal()
 
         for mph in range(3):
             peaks_high_freq = spectr.detect_peaks(high_freq, mph=mph + 1)
             features.append(len(peaks_high_freq))
+            features_name.append('HF_peaks_higher_than_{}'.format(mph + 1))
             peaks_high_freq = spectr.detect_peaks(high_freq, threshold=mph + 1, valley=True)
             features.append(len(peaks_high_freq))
+            features_name.append('HF_minimum_lower_than_{}'.format(mph + 1))
             low_freq_freq = spectr.detect_peaks(low_freq, mph=mph + 1)
             features.append(len(low_freq_freq))
+            features_name.append('LF_peaks_higher_than_{}'.format(mph + 1))
             low_freq_freq = spectr.detect_peaks(low_freq, threshold=mph + 1, valley=True)
             features.append(len(low_freq_freq))
+            features_name.append('LF_minimum_lower_than_{}'.format(mph + 1))
 
         for mpd in [1, 3, 5, 7, 9]:
             peaks_high_freq = spectr.detect_peaks(high_freq, mpd=mpd)
             low_freq_freq = spectr.detect_peaks(low_freq, mpd=mpd)
             features.append(len(peaks_high_freq))
+            features_name.append('HF_nearest_peaks_at_distance_{}'.format(mpd))
             features.append(len(low_freq_freq))
+            features_name.append('LF_nearest_peaks_at_distance__{}'.format(mpd))
 
         self.count += 1
-        return features
+        feature_df = pd.DataFrame(data=features)
+        feature_df = feature_df.T
+        feature_df.columns = features_name
+        return feature_df
 
     def generate_vector_from_ts(self, ts_frame):
-        pool = Pool(8)
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = pool.map(self._ts_chunk_function, ts_frame.values)
-        pool.close()
-        pool.join()
-        self.logger.info(f'Time spent on wavelet transformation - {timeit.default_timer() - start}')
+        components_and_vectors = threading_operation(ts_frame=ts_frame,
+                                                     function_for_feature_exctraction=self._ts_chunk_function)
+        self.logger.info(f'Time spent on wavelet extraction - {timeit.default_timer() - start}')
         return components_and_vectors
 
-    def generate_features_from_ts(self, eigenvectors_list):
-        pool = Pool(8)
-        start = timeit.default_timer()
-        aggregation_df = pool.map(self.aggregator.create_features,
-                                  eigenvectors_list)
-        pool.close()
-        pool.join()
-        self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
-        return aggregation_df
+    def generate_features_from_ts(self, ts_frame, window_length=None):
+        pass
 
     def _generate_fit_time(self, predictor):
         fit_time = []
@@ -91,10 +88,6 @@ class SignalRunner(ExperimentRunner):
                 fit_time.append(current_computation)
         return fit_time
 
-    def _create_path_to_save(self, dataset, launch):
-        save_path = os.path.join(path_to_save_results(), dataset, str(launch))
-        return save_path
-
     def _choose_best_wavelet(self, X_train, y_train, wavelet_list):
 
         metric_list = []
@@ -104,16 +97,16 @@ class SignalRunner(ExperimentRunner):
             self.logger.info(f'Generate features for window length - {wavelet}')
             self.wavelet = wavelet
 
-            features = self.generate_vector_from_ts(X_train)
-            train_feats = pd.DataFrame(features)
+            train_feats = self.generate_vector_from_ts(X_train)
+            train_feats = pd.concat(train_feats)
 
             self.logger.info(f'Validate model for wavelet  - {wavelet}')
 
-            metrics = self._validate_window_length(features=train_feats, target=y_train)
+            score_f1, score_roc_auc = self._validate_window_length(features=train_feats, target=y_train)
 
-            self.logger.info(f'Obtained metric for wavelet {wavelet}  - F1, ROC_AUC - {metrics}')
+            self.logger.info(f'Obtained metric for wavelet {wavelet}  - F1, ROC_AUC - {score_f1, score_roc_auc}')
 
-            metric_list.append(metrics)
+            metric_list.append((score_f1, score_roc_auc))
             feature_list.append(train_feats)
             self.count = 0
 
@@ -123,6 +116,8 @@ class SignalRunner(ExperimentRunner):
 
         self.wavelet = wavelet_list[index_of_window]
         self.logger.info(f'Was choosen wavelet -  {self.wavelet} ')
+
+        train_feats = delete_col_by_var(train_feats)
 
         return train_feats
 
@@ -144,11 +139,13 @@ class SignalRunner(ExperimentRunner):
         self.logger.info('Generating features for prediction')
 
         if self.test_feats is None:
-            features = self.generate_vector_from_ts(X_test)
-            self.test_feats = pd.DataFrame(features)
+            self.test_feats = self.generate_vector_from_ts(X_test)
+            self.test_feats = pd.concat(self.test_feats)
+            self.test_feats = delete_col_by_var(self.test_feats)
 
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=self.test_feats)
         inference = timeit.default_timer() - start_time
         predictions_proba = predictor.predict_proba(features=self.test_feats)
+
         return predictions, predictions_proba, inference

@@ -1,3 +1,4 @@
+import pandas as pd
 from sklearn.metrics import f1_score
 from fedot.api.main import Fedot
 from core.models.statistical.Stat_features import AggregationFeatures
@@ -12,7 +13,8 @@ class StatsRunner(ExperimentRunner):
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = None,
-                 static_booster: bool = False
+                 static_booster: bool = False,
+                 window_mode: bool = False
                  ):
 
         super().__init__(list_of_dataset, launches, metrics_name, fedot_params, static_booster=static_booster)
@@ -21,11 +23,7 @@ class StatsRunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
-
-    def __check_Nan(self, ts):
-        if any(np.isnan(ts)):
-            ts = np.nan_to_num(ts, nan=0)
-        return ts
+        self.window_mode = window_mode
 
     def generate_features_from_ts(self, ts):
         self.ts_samples_count = ts.shape[0]
@@ -35,7 +33,13 @@ class StatsRunner(ExperimentRunner):
         start = timeit.default_timer()
         ts = self.__check_Nan(ts)
         ts = pd.DataFrame(ts, dtype=float)
-        aggregation_df = self.aggregator.create_baseline_features(ts)
+
+        if self.window_mode:
+            list_with_stat_features_on_interval = apply_window_for_statistical_feature(ts_data=ts,
+                                                                                       feature_generator=self.aggregator.create_baseline_features)
+            aggregation_df = pd.concat(list_with_stat_features_on_interval, axis=1)
+        else:
+            aggregation_df = self.aggregator.create_baseline_features(ts)
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return aggregation_df
 
@@ -49,10 +53,6 @@ class StatsRunner(ExperimentRunner):
                 fit_time.append(current_computation)
         return fit_time
 
-    def _create_path_to_save(self, dataset, launch):
-        save_path = os.path.join(path_to_save_results(), dataset, str(launch))
-        return save_path
-
     def extract_features(self,
                          dataset,
                          dict_of_dataset,
@@ -65,7 +65,9 @@ class StatsRunner(ExperimentRunner):
         self.logger.info('Generating features for fit model')
         if self.train_feats is None:
             self.train_feats = self.generate_features_from_ts(X_train)
+            self.train_feats = delete_col_by_var(self.train_feats)
         self.logger.info('Start fitting FEDOT model')
+        self.fedot_params['safe_mode'] = False
         predictor = Fedot(**self.fedot_params)
 
         if self.fedot_params['composer_params']['metric'] == 'f1':
@@ -79,7 +81,7 @@ class StatsRunner(ExperimentRunner):
 
         if self.test_feats is None:
             features = self.generate_features_from_ts(X_test)
-            self.test_feats = pd.DataFrame(features)
+            self.test_feats = pd.DataFrame(features[self.train_feats.columns])
 
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=self.test_feats)

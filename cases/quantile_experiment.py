@@ -1,5 +1,7 @@
 import warnings
 
+from cases.run.SSARunner import SSARunner
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from cases.run.QuantileRunner import StatsRunner
@@ -14,6 +16,23 @@ if __name__ == '__main__':
         'EthanolLevel': read_tsv('EthanolLevel')
     }
 
+    dict_of_win_list = {
+        'ItalyPowerDemand': [3, 6, 9],
+        'Herring': [48, 128, 170],
+        'Haptics': [110, 220, 330],
+        'DodgerLoopDay': [28, 56, 84],
+        'Earthquakes': [48, 128, 170],
+        'FordA': [50, 100, 150],
+        'FordB': [50, 100, 150],
+        'Plane': [14, 28, 42],
+        'Trace': [27, 54, 81],
+        'Lightning7': [32, 64, 96],
+        'EthanolLevel': [170, 340, 510],
+        'Beef': [200],
+        'PowerCons': [30, 45, 60],
+        'ShapesAll': [100, 150, 200]
+    }
+
     dict_of_wavelet_list = {
         'ElectricDevices': ['db5', 'sym5', 'coif5', 'bior2.4'],
         'EthanolLevel': ['db5', 'sym5', 'coif5', 'bior2.4'],
@@ -23,16 +42,16 @@ if __name__ == '__main__':
     }
 
     list_of_dataset = [
-        'ElectricDevices',
-        'Earthquakes',
+        #'ElectricDevices',
+        #'Earthquakes',
         'Beef',
-        'Lightning7',
-        'EthanolLevel'
+        #'Lightning7',
+        #'EthanolLevel'
     ]
 
     fedot_params = {'problem': 'classification',
                     'seed': 42,
-                    'timeout': 15,
+                    'timeout': 10,
                     'composer_params': {'max_depth': 10,
                                         'max_arity': 4,
                                         'cv_folds': 3,
@@ -42,9 +61,18 @@ if __name__ == '__main__':
                     'n_jobs': 6}
 
     runner = StatsRunner(list_of_dataset,
-                         launches=3,
+                         launches=1,
                          fedot_params=fedot_params,
-                         static_booster=False)
+                         static_booster=False,
+                         window_mode=True)
+    runner_spectr = SSARunner(list_of_dataset,
+                              launches=3,
+                              fedot_params=fedot_params)
+    runner_spectr.rank_hyper = 2
+    models = runner_spectr.run_experiment(method='spectrrrr',
+                                   dict_of_dataset=dict_of_dataset,
+                                   dict_of_win_list=dict_of_win_list)
 
-    models = runner.run_experiment(dict_of_dataset,
-                                   dict_of_wavelet_list)
+    # models = runner.run_experiment(method='spectrrrr',
+    #                                dict_of_dataset=dict_of_dataset,
+    #                                dict_of_win_list=dict_of_wavelet_list)

@@ -1,4 +1,8 @@
 from multiprocessing.dummy import Pool
+from typing import Any
+from collections import Counter
+import pandas as pd
+from functools import reduce
 from sklearn.metrics import f1_score
 from fedot.api.main import Fedot
 from core.models.spectral.SSA import Spectrum
@@ -14,7 +18,8 @@ class SSARunner(ExperimentRunner):
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
-                 fedot_params: dict = None
+                 fedot_params: dict = None,
+                 window_mode: bool = True
                  ):
 
         super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
@@ -25,6 +30,7 @@ class SSARunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
+        self.window_mode = window_mode
 
     def __vis_and_save_components(self, Components_df):
 
@@ -53,11 +59,6 @@ class SSARunner(ExperimentRunner):
             plt.tight_layout()
             plt.savefig(os.path.join(self.path_to_save_png, f'components_for_ts_class_{idx}.png'))
 
-    def __check_Nan(self, ts):
-        if any(np.isnan(ts)):
-            ts = np.nan_to_num(ts, nan=0)
-        return ts
-
     def _ts_chunk_function(self, ts):
 
         self.logger.info(f'8 CPU on working. '
@@ -75,38 +76,51 @@ class SSARunner(ExperimentRunner):
         return [Components_df, n_components, explained_dispersion]
 
     def generate_vector_from_ts(self, ts_frame):
-        pool = Pool(8)
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = pool.map(self._ts_chunk_function, ts_frame.values)
-        pool.close()
-        pool.join()
+        components_and_vectors = threading_operation(ts_frame=ts_frame,
+                                                     function_for_feature_exctraction=self._ts_chunk_function)
         self.logger.info(f'Time spent on eigenvectors extraction - {timeit.default_timer() - start}')
         return components_and_vectors
 
-    def generate_features_from_ts(self, eigenvectors_list):
-        pool = Pool(8)
+    def generate_features_from_ts(self, eigenvectors_list, window_mode: bool = False):
         start = timeit.default_timer()
-        aggregation_df = pool.map(self.aggregator.create_features,
-                                  eigenvectors_list)
-        pool.close()
-        pool.join()
+        if window_mode:
+            lambda_function_for_stat_features = lambda x: apply_window_for_statistical_feature(x.T,
+                                                                                               feature_generator=self.aggregator.create_baseline_features)
+            lambda_function_for_concat = lambda x: pd.concat(x, axis=1)
+
+            list_with_stat_features_on_interval = list(map(lambda_function_for_stat_features, eigenvectors_list))
+            aggregation_df = list(map(lambda_function_for_concat, list_with_stat_features_on_interval))
+
+            components_names = aggregation_df[0].index.values
+            columns_names = aggregation_df[0].columns.values
+
+            aggregation_df = pd.concat([pd.DataFrame(x.values.ravel()) for x in aggregation_df], axis=1)
+            aggregation_df = aggregation_df.T
+
+            new_column_names = []
+            for number_of_component in components_names:
+                new_column_names.extend([f'{x}_for_component: {number_of_component}' for x in columns_names])
+
+            aggregation_df.columns = new_column_names
+        else:
+            aggregation_df = threading_operation(eigenvectors_list, self.aggregator.create_features)
+
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return aggregation_df
 
     def _generate_fit_time(self, predictor):
         fit_time = []
+
         if predictor.best_models is None:
             fit_time.append(predictor.current_pipeline.computation_time)
         else:
             for model in predictor.best_models:
                 current_computation = model.computation_time
                 fit_time.append(current_computation)
-        return fit_time
 
-    def _create_path_to_save(self, dataset, launch):
-        save_path = os.path.join(path_to_save_results(), dataset, str(launch))
-        return save_path
+        return fit_time
 
     def _choose_best_window_size(self, X_train, y_train, window_length_list):
 
@@ -115,17 +129,22 @@ class SSARunner(ExperimentRunner):
         n_comp_list = []
         disp_list = []
         eigen_list = []
+
+        if type(window_length_list) == int:
+            window_length_list = [window_length_list]
+
         for window_length in window_length_list:
             self.logger.info(f'Generate features for window length - {window_length}')
             self.window_length = window_length
 
             eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
 
-            rank_list = [x[0].shape[1] for x in eigenvectors_and_rank]
+            rank_list = [x[1] for x in eigenvectors_and_rank]
             explained_dispersion = [x[2] for x in eigenvectors_and_rank]
 
             self.explained_dispersion = round(np.mean(explained_dispersion))
-            self.n_components = round(np.mean(rank_list))
+
+            self.n_components = Counter(rank_list).most_common(n=1)[0][0]
 
             eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
 
@@ -154,8 +173,11 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Was choosen window length -  {window_length_list[index_of_window]}')
 
         eigenvectors_list = eigen_list[index_of_window]
-        train_feats = self.generate_features_from_ts(eigenvectors_list)
-        train_feats = pd.concat(train_feats)
+
+        train_feats = self.generate_features_from_ts(eigenvectors_list, window_mode=self.window_mode)
+        if not self.window_mode:
+            train_feats = pd.concat(train_feats)
+
         for col in train_feats.columns:
             train_feats[col].fillna(value=train_feats[col].mean(), inplace=True)
 
@@ -178,11 +200,14 @@ class SSARunner(ExperimentRunner):
 
         return train_feats
 
-    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
+    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: object = None):
 
         self.logger.info('Generating features for fit model')
+
         if self.train_feats is None:
             self.train_feats = self._choose_best_window_size(X_train, y_train, window_length_list)
+            self.train_feats = delete_col_by_var(self.train_feats)
+
         self.logger.info('Start fitting FEDOT model')
         predictor = Fedot(**self.fedot_params)
 
@@ -190,21 +215,27 @@ class SSARunner(ExperimentRunner):
             predictor.params.api_params['tuner_metric'] = f1_score
 
         predictor.fit(features=self.train_feats, target=y_train)
+
         return predictor
 
     def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
+
         self.logger.info('Generating features for prediction')
 
         if self.test_feats is None:
             eigenvectors_and_rank = self.generate_vector_from_ts(X_test)
             eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
-            self.test_feats = self.generate_features_from_ts(eigenvectors_list)
-            self.test_feats = pd.concat(self.test_feats)
+            self.test_feats = self.generate_features_from_ts(eigenvectors_list, window_mode=self.window_mode)
+
+            if not self.window_mode:
+                self.test_feats = pd.concat(self.test_feats)
             for col in self.test_feats.columns:
                 self.test_feats[col].fillna(value=self.test_feats[col].mean(), inplace=True)
+            self.test_feats = self.test_feats[self.train_feats.columns]
 
         start_time = timeit.default_timer()
         predictions = predictor.predict(features=self.test_feats)
         inference = timeit.default_timer() - start_time
         predictions_proba = predictor.predict_proba(features=self.test_feats)
+
         return predictions, predictions_proba, inference

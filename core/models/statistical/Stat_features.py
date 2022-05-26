@@ -30,23 +30,28 @@ class AggregationFeatures:
                     _.append(method_func(row, q=quantile_dict[method_name]))
                 tmp = np.array(_)
                 stat_list.append(tmp)
+                column_name.append(method_name)
             elif method_name.startswith('l'):
                 tmp = tmp.apply(method_func, axis=1)
                 tmp = tmp.astype(int)
                 stat_list.append(tmp.sum(axis=1).values)
+                column_name.append(method_name)
+            elif method_name.startswith('d'):
+                tmp = tmp.apply(method_func, axis=1)
+                stat_list.append(tmp.apply(np.mean).values)
+                column_name.append(method_name+'mean')
+                stat_list.append(tmp.apply(np.min).values)
+                column_name.append(method_name+'min')
+                stat_list.append(tmp.apply(np.max).values)
+                column_name.append(method_name+'max')
             else:
                 stat_list.append(tmp.apply(method_func, axis=1).values)
-
-            column_name.append(method_name)
+                column_name.append(method_name)
 
         df_points_stat = pd.DataFrame(stat_list)
         df_points_stat = df_points_stat.T
         df_points_stat.columns = column_name
         feature_disp = df_points_stat.var()
-
-        for col in feature_disp.index.values:
-            if feature_disp[col] < 0.001:
-                del df_points_stat[col]
 
         return df_points_stat
 
