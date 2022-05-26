@@ -37,5 +37,4 @@ if __name__ == '__main__':
                           launches=1,
                           fedot_params=fedot_params)
 
-    models = runner.run_experiment(dict_of_dataset,
-                                   dict_of_wavelet_list)
+    models = runner.run_experiment(dict_of_dataset=dict_of_dataset,dict_of_win_list=dict_of_wavelet_list,method='ww')

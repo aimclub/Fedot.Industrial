@@ -47,7 +47,7 @@ class ExperimentRunner:
         self.static_booster = static_booster
         self.y_test = None
 
-    def __check_Nan(self, ts):
+    def check_Nan(self, ts):
         if any(np.isnan(ts)):
             ts = np.nan_to_num(ts, nan=0)
         return ts
@@ -56,9 +56,15 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
-    def _generate_fit_time(self, predictor):
-        """  Method responsible for  experiment pipeline """
-        return
+    def generate_fit_time(self, predictor):
+        fit_time = []
+        if predictor.best_models is None:
+            fit_time.append(predictor.current_pipeline.computation_time)
+        else:
+            for model in predictor.best_models:
+                current_computation = model.computation_time
+                fit_time.append(current_computation)
+        return fit_time
 
     def _create_path_to_save(self, method, dataset, launch):
         save_path = os.path.join(path_to_save_results(), method, dataset, str(launch))
@@ -373,7 +379,8 @@ class ExperimentRunner:
 
             save_results(**normal_results)
 
-    def run_experiment(self, method: str,
+    def run_experiment(self,
+                       method: str,
                        dict_of_dataset: dict,
                        dict_of_win_list: dict,
                        save_features=False,

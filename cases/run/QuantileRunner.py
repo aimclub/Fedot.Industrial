@@ -31,7 +31,7 @@ class StatsRunner(ExperimentRunner):
                          f'Total ts samples - {self.ts_samples_count}. '
                          f'Current sample - {self.count}')
         start = timeit.default_timer()
-        ts = self.__check_Nan(ts)
+        ts = self.check_Nan(ts)
         ts = pd.DataFrame(ts, dtype=float)
 
         if self.window_mode:
@@ -42,16 +42,6 @@ class StatsRunner(ExperimentRunner):
             aggregation_df = self.aggregator.create_baseline_features(ts)
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return aggregation_df
-
-    def _generate_fit_time(self, predictor):
-        fit_time = []
-        if predictor.best_models is None:
-            fit_time.append(predictor.current_pipeline.computation_time)
-        else:
-            for model in predictor.best_models:
-                current_computation = model.computation_time
-                fit_time.append(current_computation)
-        return fit_time
 
     def extract_features(self,
                          dataset,

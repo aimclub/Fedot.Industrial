@@ -81,20 +81,6 @@ class TopologicalRunner(ExperimentRunner):
         X_test_transformed = delete_col_by_var(X_test_transformed)
         return X_train_transformed, X_test_transformed
 
-    def _generate_fit_time(self, predictor):
-        fit_time = []
-        if predictor.best_models is None:
-            fit_time.append(predictor.current_pipeline.computation_time)
-        else:
-            for model in predictor.best_models:
-                current_computation = model.computation_time
-                fit_time.append(current_computation)
-        return fit_time
-
-    def _create_path_to_save(self, method,dataset, launch):
-        save_path = os.path.join(path_to_save_results(),method, dataset, str(launch))
-        return save_path
-
     def extract_features(self,
                          dataset,
                          dict_of_dataset,
@@ -167,7 +153,7 @@ class TopologicalRunner(ExperimentRunner):
             trajectory_windows_list = dict_of_win_list[dataset]
             for launch in range(self.launches):
                 try:
-                    self.path_to_save = self._create_path_to_save(method, dataset, launch)
+                    self.path_to_save = self.create_path_to_save(method, dataset, launch)
                     X, y = dict_of_dataset[dataset]
 
                     if type(X) is tuple:
