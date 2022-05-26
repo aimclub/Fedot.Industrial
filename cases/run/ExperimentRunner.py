@@ -1,6 +1,7 @@
 import json
 import os.path
 
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -46,6 +47,11 @@ class ExperimentRunner:
         self.static_booster = static_booster
         self.y_test = None
 
+    def __check_Nan(self, ts):
+        if any(np.isnan(ts)):
+            ts = np.nan_to_num(ts, nan=0)
+        return ts
+
     def generate_features_from_ts(self, ts_frame, window_length=None):
         """  Method responsible for  experiment pipeline """
         return
@@ -54,9 +60,9 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
-    def _create_path_to_save(self, dataset, launch):
-        """  Method responsible for  experiment pipeline """
-        return
+    def _create_path_to_save(self, method, dataset, launch):
+        save_path = os.path.join(path_to_save_results(), method, dataset, str(launch))
+        return save_path
 
     def _load_data(self, dataset, dict_of_dataset):
         X, y = dict_of_dataset[dataset]
@@ -157,10 +163,11 @@ class ExperimentRunner:
         score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
 
         score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
+        if score_roc_auc is None:
+            score_roc_auc = 0.5
 
         return score_f1, score_roc_auc
 
-    # @DecoratorObject(deco_type='exception', exception_return=0.5)
     @exception_decorator(exception_return=0.5)
     def get_roc_auc_score(self, pipeline, prediction, test_data):
         metric_roc = ROCAUC()
@@ -191,7 +198,6 @@ class ExperimentRunner:
                                                   predicted_labels=predictions,
                                                   predicted_probs=predictions_proba
                                                   )
-
         return dict(predictions=predictions,
                     predictions_proba=predictions_proba,
                     inference=inference,
@@ -367,22 +373,40 @@ class ExperimentRunner:
 
             save_results(**normal_results)
 
-    def run_experiment(self,
+    def run_experiment(self, method: str,
                        dict_of_dataset: dict,
-                       dict_of_win_list: dict):
+                       dict_of_win_list: dict,
+                       save_features=False,
+                       single_window_mode=False):
 
         for dataset in self.list_of_dataset:
             self.train_feats = None
             self.test_feats = None
 
-            self.launches_run(dataset=dataset,
+            self.launches_run(method=method,
+                              dataset=dataset,
                               dict_of_dataset=dict_of_dataset,
-                              dict_of_win_list=dict_of_win_list)
+                              dict_of_win_list=dict_of_win_list,
+                              save_features=save_features,
+                              single_window_mode=single_window_mode)
 
     @exception_decorator(exception_return='Problem')
-    def launches_run(self, dataset, dict_of_dataset, dict_of_win_list):
+    def get_ECM_results(self, result_on_test, dataset, predictor):
+        boosting_results = self._predict_with_boosting(predictions=result_on_test['predictions'],
+                                                       predictions_proba=result_on_test['predictions_proba'],
+                                                       metrics_without_boosting=result_on_test['metrics'])
+        boosting_results['dataset'] = dataset
+
+        self._save_all_results(predictor=predictor,
+                               boosting_results=boosting_results,
+                               normal_results=result_on_test,
+                               save_boosting=True)
+
+    def launches_run(self, method, dataset, dict_of_dataset, dict_of_win_list, save_features=False,
+                     single_window_mode=False):
+        trajectory_windows_list = dict_of_win_list[dataset]
         for launch in range(self.launches):
-            self.path_to_save = self._create_path_to_save(dataset, launch)
+            self.path_to_save = self._create_path_to_save(method, dataset, launch)
             self.path_to_save_png = os.path.join(self.path_to_save, 'pictures')
 
             if not os.path.exists(self.path_to_save_png):
@@ -393,9 +417,19 @@ class ExperimentRunner:
 
             self._get_clf_params()
 
+            if single_window_mode:
+                self.window_length = trajectory_windows_list[launch]
+                window_length_list = trajectory_windows_list[launch]
+                self.logger.info(
+                    'Generate pipeline for trajectory matrix with window length - {}'.format(self.window_length))
+                self.test_feats = None
+                self.train_feats = None
+            else:
+                window_length_list = trajectory_windows_list
+
             predictor = self.fit(X_train=self.X_train,
                                  y_train=self.y_train,
-                                 window_length_list=dict_of_win_list[dataset])
+                                 window_length_list=window_length_list)
 
             result_on_train = self._predict_on_train(predictor=predictor)
 
@@ -403,19 +437,17 @@ class ExperimentRunner:
 
             result_on_test = self._predict_on_test(predictor=predictor)
 
+            if save_features:
+                pd.DataFrame(self.train_feats).to_csv(os.path.join(self.path_to_save, 'train_features.csv'))
+                pd.DataFrame(self.y_train).to_csv(os.path.join(self.path_to_save, 'train_target.csv'))
+                pd.DataFrame(self.test_feats).to_csv(os.path.join(self.path_to_save, 'test_features.csv'))
+                pd.DataFrame(self.y_test).to_csv(os.path.join(self.path_to_save, 'test_target.csv'))
+
             self._save_all_results(predictor=predictor,
                                    boosting_results=None,
                                    normal_results=result_on_test)
 
-            boosting_results = self._predict_with_boosting(predictions=result_on_test['predictions'],
-                                                           predictions_proba=result_on_test['predictions_proba'],
-                                                           metrics_without_boosting=result_on_test['metrics'])
-            boosting_results['dataset'] = dataset
-
-            self._save_all_results(predictor=predictor,
-                                   boosting_results=boosting_results,
-                                   normal_results=result_on_test,
-                                   save_boosting=True)
+            self.get_ECM_results(result_on_test, dataset, predictor)
 
     def save_boosting_results(self, dataset, solution_table, metrics_table, model_list, ensemble_model):
         location = os.path.join(self.path_to_save, 'boosting')
@@ -434,13 +466,13 @@ class ExperimentRunner:
             except Exception:
                 model.save(path=os.path.join(models_path, f'boost_{index}'),
                            datetime_in_path=False)
-        try:
+        if ensemble_model is not None:
             try:
                 ensemble_model.current_pipeline.save(path=os.path.join(models_path, 'boost_ensemble'),
                                                      datetime_in_path=False)
-            except:
+            except Exception:
                 ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
                                     datetime_in_path=False)
-        except:
+        else:
             logger = get_logger()
             logger.info('Ensemble model cannot be saved due to applied SUM method ')

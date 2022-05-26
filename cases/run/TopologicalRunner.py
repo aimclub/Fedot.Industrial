@@ -8,6 +8,10 @@ from sklearn.model_selection import train_test_split
 from core.models.topological.external import *
 from core.models.topological.TDA import Topological
 from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.topological.external.TFE import TopologicalFeaturesExtractor, PersistenceDiagramsExtractor, \
+    HolesNumberFeature, MaxHoleLifeTimeFeature, RelevantHolesNumber, AverageHoleLifetimeFeature, SumHoleLifetimeFeature, \
+    PersistenceEntropyFeature, SimultaneousAliveHolesFeatue, AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, \
+    RadiusAtMaxBNFeature
 from core.operation.utils.utils import *
 import timeit
 
@@ -60,19 +64,21 @@ class TopologicalRunner(ExperimentRunner):
                                                                        tokens_embedding_delay=tokens_embedding_delay,
                                                                        homology_dimensions=(0, 1),
                                                                        parallel=True),
-            persistence_diagram_features=[HolesNumberFeature(),
-                                          MaxHoleLifeTimeFeature(),
-                                          RelevantHolesNumber(),
-                                          AverageHoleLifetimeFeature(),
-                                          SumHoleLifetimeFeature(),
-                                          PersistenceEntropyFeature(),
-                                          SimultaneousAliveHolesFeatue(),
-                                          AveragePersistenceLandscapeFeature(),
-                                          BettiNumbersSumFeature(),
-                                          RadiusAtMaxBNFeature()])
+            persistence_diagram_features={'HolesNumberFeature': HolesNumberFeature(),
+                                          'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
+                                          'RelevantHolesNumber': RelevantHolesNumber(),
+                                          'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
+                                          'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
+                                          'PersistenceEntropyFeature': PersistenceEntropyFeature(),
+                                          'SimultaneousAliveHolesFeatue': SimultaneousAliveHolesFeatue(),
+                                          'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
+                                          'BettiNumbersSumFeature': BettiNumbersSumFeature(),
+                                          'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()})
 
         X_train_transformed = feature_extractor.fit_transform(X_train.values)
         X_test_transformed = feature_extractor.fit_transform(X_test.values)
+        X_train_transformed = delete_col_by_var(X_train_transformed)
+        X_test_transformed = delete_col_by_var(X_test_transformed)
         return X_train_transformed, X_test_transformed
 
     def _generate_fit_time(self, predictor):
@@ -85,8 +91,8 @@ class TopologicalRunner(ExperimentRunner):
                 fit_time.append(current_computation)
         return fit_time
 
-    def _create_path_to_save(self, dataset, launch):
-        save_path = os.path.join(path_to_save_results(), dataset, str(launch))
+    def _create_path_to_save(self, method,dataset, launch):
+        save_path = os.path.join(path_to_save_results(),method, dataset, str(launch))
         return save_path
 
     def extract_features(self,
@@ -109,8 +115,28 @@ class TopologicalRunner(ExperimentRunner):
                                                           col_numbers=X_train.shape[1])
 
         predictor = Fedot(**self.fedot_params)
-        predictor.fit(converted_features)
+        predictor.fit(features=X_train, target=y_train)
         return predictor
+
+    def _predict_on_train(self, predictor):
+
+        # Predict on whole TRAIN
+        predictions, predictions_proba, inference = self.predict(predictor=predictor,
+                                                                 X_test=self.train_feats,
+                                                                 window_length=self.window_length,
+                                                                 y_test=self.y_train)
+
+        # GEt metrics on TRAIN
+        metrics = self.analyzer.calculate_metrics(self.metrics_name,
+                                                  target=self.y_train,
+                                                  predicted_labels=predictions,
+                                                  predicted_probs=predictions_proba
+                                                  )
+
+        return dict(predictions=predictions,
+                    predictions_proba=predictions_proba,
+                    inference=inference,
+                    metrics=metrics)
 
     def predict(self, predictor,
                 X_test: pd.DataFrame,
@@ -125,67 +151,77 @@ class TopologicalRunner(ExperimentRunner):
                                                           col_numbers=X_test.shape[1])
 
         start_time = timeit.default_timer()
-        predictions = predictor.predict(features=converted_features)
+        predictions = predictor.predict(features=X_test)
         inference = timeit.default_timer() - start_time
-        predictions_proba = predictor.predict_proba(features=converted_features)
+        predictions_proba = predictor.predict_proba(features=X_test)
 
         return predictions, predictions_proba, inference
 
     def run_experiment(self,
+                       method,
                        dict_of_dataset: dict,
-                       dict_of_win_list: dict):
+                       dict_of_win_list: dict,
+                       save_features: bool = False,
+                       single_window_mode: bool = True):
         for dataset in self.list_of_dataset:
+            trajectory_windows_list = dict_of_win_list[dataset]
             for launch in range(self.launches):
                 try:
-                    path_to_save = self._create_path_to_save(dataset, launch)
+                    self.path_to_save = self._create_path_to_save(method, dataset, launch)
                     X, y = dict_of_dataset[dataset]
 
                     if type(X) is tuple:
-                        X_train, X_test, y_train, y_test = X[0], X[1], y[0], y[1]
+                        self.X_train, self.X_test, self.y_train, self.y_test = X[0], X[1], y[0], y[1]
                     else:
                         X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=np.random.randint(100))
 
-                    window_length_list = dict_of_win_list[dataset]
-                    X_train_converted, X_test_converted = self.extract_features()
-                    predictor = self.fit(X_train=X_train_converted,
-                                         y_train=y_train,
-                                         window_length=window_length_list)
+                    self._get_clf_params()
 
-                    self.count = 0
+                    if single_window_mode:
+                        self.window_length = trajectory_windows_list[launch]
+                        window_length_list = trajectory_windows_list[launch]
+                        self.logger.info('Generate pipeline for trajectory matrix with window length - {}'.format(
+                            self.window_length))
+                        self.test_feats = None
+                        self.train_feats = None
+                    else:
+                        window_length_list = trajectory_windows_list
 
-                    predictions, predictions_proba, inference = self.predict(predictor=predictor,
-                                                                             X_test=X_test_converted,
-                                                                             window_length=dict_of_win_list[dataset],
-                                                                             y_test=y_test)
+                    self.train_feats, self.test_feats = self.generate_topological_features(X_train=self.X_train,
+                                                                                           X_test=self.X_test,
+                                                                                           tokens_embedding_delay=self.window_length)
+                    predictor = self.fit(X_train=self.train_feats,
+                                         y_train=self.y_train,
+                                         window_length=self.window_length)
 
-                    self.logger.info('Saving model')
-                    predictor.current_pipeline.save(path=path_to_save)
-                    best_pipeline, fitted_operation = predictor.current_pipeline.save()
+                    result_on_train = self._predict_on_train(predictor=predictor)
 
-                    try:
-                        opt_history = predictor.history.save()
-                        with open(os.path.join(path_to_save, 'history', 'opt_history.json'), 'w') as f:
-                            json.dump(json.loads(opt_history), f)
-                    except Exception as ex:
-                        ex = 1
+                    self.X_test = self.test_feats
 
-                    self.logger.info('Saving results')
-                    try:
-                        metrics = self.analyzer.calculate_metrics(self.metrics_name,
-                                                                  target=y_test,
-                                                                  predicted_labels=predictions,
-                                                                  predicted_probs=predictions_proba)
-                    except Exception as ex:
-                        metrics = 'empty'
+                    self._get_dimension_params(predictions_proba_train=result_on_train['predictions_proba'])
 
-                    save_results(predictions=predictions,
-                                 prediction_proba=predictions_proba,
-                                 target=y_test,
-                                 metrics=metrics,
-                                 inference=inference,
-                                 fit_time=np.mean(self._generate_fit_time(predictor)),
-                                 path_to_save=path_to_save)
-                    self.count = 0
+                    result_on_test = self._predict_on_test(predictor=predictor)
+
+                    if save_features:
+                        pd.DataFrame(self.train_feats).to_csv(os.path.join(self.path_to_save, 'train_features.csv'))
+                        pd.DataFrame(self.y_train).to_csv(os.path.join(self.path_to_save, 'train_target.csv'))
+                        pd.DataFrame(self.test_feats).to_csv(os.path.join(self.path_to_save, 'test_features.csv'))
+                        pd.DataFrame(self.y_test).to_csv(os.path.join(self.path_to_save, 'test_target.csv'))
+
+                    self._save_all_results(predictor=predictor,
+                                           boosting_results=None,
+                                           normal_results=result_on_test)
+
+                    # boosting_results = self._predict_with_boosting(predictions=result_on_test['predictions'],
+                    #                                                predictions_proba=result_on_test[
+                    #                                                    'predictions_proba'],
+                    #                                                metrics_without_boosting=result_on_test['metrics'])
+                    # boosting_results['dataset'] = dataset
+                    #
+                    # self._save_all_results(predictor=predictor,
+                    #                        boosting_results=boosting_results,
+                    #                        normal_results=result_on_test,
+                    #                        save_boosting=True)
 
                 except Exception as ex:
                     print(ex)

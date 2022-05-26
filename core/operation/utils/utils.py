@@ -1,4 +1,5 @@
 import os
+from multiprocessing import Pool
 from typing import Union
 import numpy as np
 import pandas as pd
@@ -53,6 +54,38 @@ def path_to_save_results() -> str:
     return save_path
 
 
+def delete_col_by_var(dataframe: pd.DataFrame):
+    for col in dataframe.columns:
+        if dataframe[col].var() < 0.001 and not col.startswith('diff'):
+            del dataframe[col]
+    return dataframe
+
+
+def apply_window_for_statistical_feature(ts_data: pd.DataFrame, feature_generator: object, window_size: int = None):
+    if window_size is None:
+        window_size = round(ts_data.shape[1] / 10)
+    tmp_list = []
+    for i in range(0, ts_data.shape[1], window_size):
+        slice_ts = ts_data.iloc[:, i:i + window_size]
+        if slice_ts.shape[1] == 1:
+            break
+        else:
+            df = feature_generator(slice_ts)
+            df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+            tmp_list.append(df)
+    return tmp_list
+
+
+def fill_by_mean(column: str, feature_data: pd.DataFrame):
+    feature_data.fillna(value=feature_data[column].mean(), inplace=True)
+
+
+def threading_operation(ts_frame: pd.DataFrame, function_for_feature_exctraction: object):
+    pool = Pool(8)
+    features = pool.map(function_for_feature_exctraction, ts_frame.values)
+    pool.close()
+    pool.join()
+    return features
 
 
 from sklearn.decomposition import KernelPCA
@@ -110,15 +143,17 @@ if __name__ == '__main__':
     #
     # X_reduced = lle.fit_transform(X[:1000])
     #
-    my_file = open(r'C:\Users\user\Desktop\Репозитории\Huawei_AutoML\results_of_experiments\FEDOT\delta_ailerons.csv\launch_0\predictions.txt')
+    my_file = open(
+        r'C:\Users\user\Desktop\Репозитории\Huawei_AutoML\results_of_experiments\FEDOT\delta_ailerons.csv\launch_0\predictions.txt')
     text = my_file.read()
     d = json.loads(text)
     dd = [x[0] for x in d]
-    my_file = open(r'C:\Users\user\Desktop\Репозитории\Huawei_AutoML\results_of_experiments\FEDOT\delta_ailerons.csv\launch_0\target.txt')
+    my_file = open(
+        r'C:\Users\user\Desktop\Репозитории\Huawei_AutoML\results_of_experiments\FEDOT\delta_ailerons.csv\launch_0\target.txt')
     text = my_file.read()
     d = json.loads(text)
-    r2 = r2_score(d,dd)
-    rmse = mean_squared_error(d,dd,squared=False)
+    r2 = r2_score(d, dd)
+    rmse = mean_squared_error(d, dd, squared=False)
     # pred = pd.read_csv(r'C:\Users\user\Desktop\Репозитории\Huawei_AutoML\results_of_experiments\AutoGluon\pol.csv\launch_0\utils\predictions.csv',sep=';')
     # y = pd.read_pickle(r'C:\Users\user\Desktop\Репозитории\Huawei_AutoML\results_of_experiments\AutoGluon\pol.csv\launch_0\utils\data\y.pkl')
     # r2 = r2_score(y.values,pred.values)

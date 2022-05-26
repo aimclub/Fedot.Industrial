@@ -28,7 +28,8 @@ stat_methods_full = {
     'q25_': quantile,
     'q75_': quantile,
     'q95_': quantile,
-    'sum_': np.sum
+    'sum_': np.sum,
+    'dif_': np.diff
 }
 
 hyperparam_dict = {'statistical_methods': stat_methods_default,

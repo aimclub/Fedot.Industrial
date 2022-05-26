@@ -1,6 +1,7 @@
 from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
+import pandas as pd
 
 from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape, BettiCurve
 from gtda.homology import VietorisRipsPersistence
@@ -69,14 +70,17 @@ class TopologicalFeaturesExtractor:
 
         X_pd = self.persistence_diagram_extractor_.fit_transform(X)
         tmp = []
-        for pd_feature in self.persistence_diagram_features_:
+        column_list = []
+        for feature_name, feature_impl in self.persistence_diagram_features_.items():
             try:
-                X_features = pd_feature.fit_transform(X_pd)
+                X_features = feature_impl.fit_transform(X_pd)
                 tmp.append(X_features)
+                for dim in range(len(X_features.shape)):
+                    column_list.append('{}_{}'.format(feature_name,dim))
             except Exception:
                 f = 1
                 continue
-        X_transformed = np.hstack(tmp)
+        X_transformed = pd.DataFrame(data=np.hstack(tmp),columns=column_list)
         return X_transformed
 
 
