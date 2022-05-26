@@ -33,38 +33,43 @@ class SignalRunner(ExperimentRunner):
                          f'Total ts samples - {self.ts_samples_count}. '
                          f'Current sample - {self.count}')
 
-        ts = self.__check_Nan(ts)
-        features = []
-        features_name = []
+        ts = self.check_Nan(ts)
+
+        threshold_range = [1, 3, 5, 7, 9]
+
         spectr = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
         high_freq, low_freq = spectr.decompose_signal()
 
-        for mph in range(3):
-            peaks_high_freq = spectr.detect_peaks(high_freq, mph=mph + 1)
-            features.append(len(peaks_high_freq))
-            features_name.append('HF_peaks_higher_than_{}'.format(mph + 1))
-            peaks_high_freq = spectr.detect_peaks(high_freq, threshold=mph + 1, valley=True)
-            features.append(len(peaks_high_freq))
-            features_name.append('HF_minimum_lower_than_{}'.format(mph + 1))
-            low_freq_freq = spectr.detect_peaks(low_freq, mph=mph + 1)
-            features.append(len(low_freq_freq))
-            features_name.append('LF_peaks_higher_than_{}'.format(mph + 1))
-            low_freq_freq = spectr.detect_peaks(low_freq, threshold=mph + 1, valley=True)
-            features.append(len(low_freq_freq))
-            features_name.append('LF_minimum_lower_than_{}'.format(mph + 1))
+        hf_lambda_peaks = lambda x: len(spectr.detect_peaks(high_freq, mph=x + 1))
+        hf_lambda_names = lambda x: 'HF_peaks_higher_than_{}'.format(x + 1)
+        hf_lambda_KNN = lambda x: len(spectr.detect_peaks(high_freq, mpd=x))
+        hf_lambda_KNN_names = lambda x: 'HF_nearest_peaks_at_distance_{}'.format(x)
 
-        for mpd in [1, 3, 5, 7, 9]:
-            peaks_high_freq = spectr.detect_peaks(high_freq, mpd=mpd)
-            low_freq_freq = spectr.detect_peaks(low_freq, mpd=mpd)
-            features.append(len(peaks_high_freq))
-            features_name.append('HF_nearest_peaks_at_distance_{}'.format(mpd))
-            features.append(len(low_freq_freq))
-            features_name.append('LF_nearest_peaks_at_distance__{}'.format(mpd))
+        LF_lambda_peaks = lambda x: len(spectr.detect_peaks(high_freq, mph=x + 1, valley=True))
+        LF_lambda_names = lambda x: 'LF_peaks_higher_than_{}'.format(x + 1)
+        LF_lambda_KNN = lambda x: len(spectr.detect_peaks(high_freq, mpd=x))
+        LF_lambda_KNN_names = lambda x: 'LF_nearest_peaks_at_distance_{}'.format(x)
+
+        lambda_list = [
+            hf_lambda_KNN,
+            LF_lambda_peaks,
+            LF_lambda_KNN]
+
+        lambda_list_names = [
+            hf_lambda_KNN_names,
+            LF_lambda_names,
+            LF_lambda_KNN_names]
+
+        features = list(map(hf_lambda_peaks, threshold_range))
+        features_names = list(map(hf_lambda_names, threshold_range))
+        for lambda_method, lambda_name in zip(lambda_list, lambda_list_names):
+            features.extend(list(map(lambda_method, threshold_range)))
+            features_names.extend(list(map(lambda_name, threshold_range)))
 
         self.count += 1
         feature_df = pd.DataFrame(data=features)
         feature_df = feature_df.T
-        feature_df.columns = features_name
+        feature_df.columns = features_names
         return feature_df
 
     def generate_vector_from_ts(self, ts_frame):
@@ -77,16 +82,6 @@ class SignalRunner(ExperimentRunner):
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         pass
-
-    def _generate_fit_time(self, predictor):
-        fit_time = []
-        if predictor.best_models is None:
-            fit_time.append(predictor.current_pipeline.computation_time)
-        else:
-            for model in predictor.best_models:
-                current_computation = model.computation_time
-                fit_time.append(current_computation)
-        return fit_time
 
     def _choose_best_wavelet(self, X_train, y_train, wavelet_list):
 
