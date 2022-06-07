@@ -42,9 +42,9 @@ if __name__ == '__main__':
     }
 
     list_of_dataset = [
-        #'ElectricDevices',
+        'ElectricDevices',
         #'Earthquakes',
-        'Beef',
+        #'Beef',
         #'Lightning7',
         #'EthanolLevel'
     ]
@@ -65,14 +65,14 @@ if __name__ == '__main__':
                          fedot_params=fedot_params,
                          static_booster=False,
                          window_mode=True)
-    runner_spectr = SSARunner(list_of_dataset,
-                              launches=3,
-                              fedot_params=fedot_params)
-    runner_spectr.rank_hyper = 2
-    models = runner_spectr.run_experiment(method='spectrrrr',
-                                   dict_of_dataset=dict_of_dataset,
-                                   dict_of_win_list=dict_of_win_list)
-
-    # models = runner.run_experiment(method='spectrrrr',
+    # runner_spectr = SSARunner(list_of_dataset,
+    #                           launches=3,
+    #                           fedot_params=fedot_params)
+    # runner_spectr.rank_hyper = 2
+    # models = runner_spectr.run_experiment(method='spectrrrr',
     #                                dict_of_dataset=dict_of_dataset,
-    #                                dict_of_win_list=dict_of_wavelet_list)
+    #                                dict_of_win_list=dict_of_win_list)
+
+    models = runner.run_experiment(method='sqqq',
+                                   dict_of_dataset=dict_of_dataset,
+                                   dict_of_win_list=dict_of_wavelet_list)

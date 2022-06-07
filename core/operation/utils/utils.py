@@ -3,7 +3,8 @@ from multiprocessing import Pool
 from typing import Union
 import numpy as np
 import pandas as pd
-
+import os
+from pathlib import Path
 
 def save_results(predictions: Union[np.ndarray, pd.DataFrame],
                  predictions_proba: Union[np.ndarray, pd.DataFrame],
@@ -82,7 +83,7 @@ def fill_by_mean(column: str, feature_data: pd.DataFrame):
 
 def threading_operation(ts_frame: pd.DataFrame, function_for_feature_exctraction: object):
     pool = Pool(8)
-    features = pool.map(function_for_feature_exctraction, ts_frame.values)
+    features = pool.map(function_for_feature_exctraction, ts_frame)
     pool.close()
     pool.join()
     return features

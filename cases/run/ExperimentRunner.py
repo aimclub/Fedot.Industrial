@@ -23,6 +23,7 @@ dict_of_win_list = dict
 
 class ExperimentRunner:
     def __init__(self,
+                 feature_generanor_dict: dict = None,
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
@@ -36,6 +37,7 @@ class ExperimentRunner:
                  static_booster: bool = False):
         self.analyzer = PerfomanceAnalyzer()
         self.list_of_dataset = list_of_dataset
+        self.feature_generanor_dict = feature_generanor_dict
         self.launches = launches
         self.metrics_name = metrics_name
         self.count = 0
@@ -237,7 +239,7 @@ class ExperimentRunner:
             self.window_length = 'Empty'
         result_on_test['window'] = self.window_length
         result_on_test['target'] = self.y_test
-        result_on_test['fit_time'] = self._generate_fit_time(predictor=predictor)[0]
+        result_on_test['fit_time'] = self.generate_fit_time(predictor=predictor)[0]
         result_on_test['path_to_save'] = self.path_to_save
         if self.reshape_flag and np.min(self.y_test) == 1:
             result_on_test['predictions_proba'] = round(
@@ -382,7 +384,6 @@ class ExperimentRunner:
     def run_experiment(self,
                        method: str,
                        dict_of_dataset: dict,
-                       dict_of_win_list: dict,
                        save_features=False,
                        single_window_mode=False):
 
@@ -393,7 +394,6 @@ class ExperimentRunner:
             self.launches_run(method=method,
                               dataset=dataset,
                               dict_of_dataset=dict_of_dataset,
-                              dict_of_win_list=dict_of_win_list,
                               save_features=save_features,
                               single_window_mode=single_window_mode)
 
@@ -409,9 +409,12 @@ class ExperimentRunner:
                                normal_results=result_on_test,
                                save_boosting=True)
 
-    def launches_run(self, method, dataset, dict_of_dataset, dict_of_win_list, save_features=False,
+    def launches_run(self, method,
+                     dataset,
+                     dict_of_dataset,
+                     save_features=False,
                      single_window_mode=False):
-        trajectory_windows_list = dict_of_win_list[dataset]
+        trajectory_windows_list = self.feature_generanor_dict[dataset]
         for launch in range(self.launches):
             self.path_to_save = self._create_path_to_save(method, dataset, launch)
             self.path_to_save_png = os.path.join(self.path_to_save, 'pictures')
