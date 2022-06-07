@@ -11,6 +11,7 @@ from cases.run.TopologicalRunner import TopologicalRunner
 from core.operation.utils.utils import project_path
 from cases.run.ts_clf import TimeSeriesClf
 
+
 class Industrial:
     """ Class-support for performing examples for tasks (read yaml configs, create data folders and log files)"""
 
@@ -38,9 +39,13 @@ class Industrial:
             'window_quantile': StatsRunner,
             'wavelet': SignalRunner,
             'spectral': SSARunner,
-            'window_spectral': SSARunner,
+            'spectral_window': SSARunner,
             'topological': TopologicalRunner}
 
+    def _get_ts_data(self, name_of_datasets):
+        all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
+        train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
+        return train_data, test_data
 
     def read_yaml_config(self, config_name: str) -> Dict:
         """ Read yaml config from './experiments/configs/config_name' directory as dictionary file
@@ -53,20 +58,34 @@ class Industrial:
             self.config_dict['logger'] = self.logger
             self.logger.info(f"schema ready: {self.config_dict}")
 
+    def fit(self):
+        pass
 
-    def run_experiment(self,config_name):
+    def run_experiment(self, config_name):
+
         self.read_yaml_config(config_name)
         experiment_dict = copy.deepcopy(self.config_dict)
 
-        for key in self.config_dict['dataset_list'].keys():
-            experiment_dict['dataset_list'][key] = {i:read_tsv(i) for i in experiment_dict['dataset_list'][key]}
+        # for key in self.config_dict['dataset_by_feature_generator'].keys():
+        #     experiment_dict['dataset_by_feature_generator'][key] = {i: read_tsv(i) for i in
+        #                                                             experiment_dict['dataset_by_feature_generator'][
+        #                                                                 key]}
 
         experiment_dict['feature_generator'].clear()
         experiment_dict['feature_generator'] = dict()
-        for idx,feature_generator in enumerate(self.config_dict['feature_generator']):
-            experiment_dict['feature_generator'].update({feature_generator: self.feature_generator_dict[feature_generator]
-                (fedot_params=experiment_dict['fedot_params'],**experiment_dict['feature_generator_params'][feature_generator])})
+
+        for idx, feature_generator in enumerate(self.config_dict['feature_generator']):
+            experiment_dict['feature_generator'].update(
+                {feature_generator: self.feature_generator_dict[feature_generator]
+                (fedot_params=experiment_dict['fedot_params'],
+                 **experiment_dict['feature_generator_params'][feature_generator])})
 
         classificator = TimeSeriesClf(feature_generator_dict=experiment_dict['feature_generator'],
-                      model_hyperparams=experiment_dict['fedot_params'])
+                                      model_hyperparams=experiment_dict['fedot_params'])
+
+        train_data, test_data = self._get_ts_data(self.config_dict['datasets_list'])
+
+        fitted_predictor = list(map(lambda x: classificator.fit(x), train_data))
+        prediction = list(map(lambda x: classificator.predict(fitted_predictor, x), test_data))
+
         _ = 1

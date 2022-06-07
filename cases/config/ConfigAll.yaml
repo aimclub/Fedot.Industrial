@@ -1,15 +1,14 @@
 feature_generator: [
-        'window_quantile',
-        'quantile',
-        'wavelet',
+#        'window_quantile',
+#        'quantile',
+#        'wavelet',
         'spectral',
-        'window_spectral'
+        'spectral_window'
 ]
-dataset_list: {'window_quantile':['ElectricDevices'],
-               'quantile':['ElectricDevices'],
-               'wavelet': ['ElectricDevices'],
-               'spectral':['ElectricDevices'],
-               'window_spectral':['ElectricDevices']}
+
+datasets_list: [
+  'ItalyPowerDemand'
+  ]
 
 feature_generator_params: {
   'window_quantile':
@@ -36,9 +35,11 @@ feature_generator_params: {
           'FordA': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
           'FordB': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
           'PowerCons': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-        }
+        },
+      'launches': 1,
+      'list_of_dataset': ['ItalyPowerDemand']
     },
-  'window_spectral':
+  'spectral_window':
     {
       'feature_generanor_dict': {
         'ItalyPowerDemand': [ 3, 6, 9 ],
@@ -57,7 +58,9 @@ feature_generator_params: {
         'PowerCons': [ 30, 45, 60 ],
         'ShapesAll': [ 100, 150, 200 ]
       },
-      'launches': 1
+      'launches': 1,
+      'window_mode': True,
+      'list_of_dataset': [ 'ItalyPowerDemand' ]
     },
   'spectral':
     {
@@ -78,7 +81,8 @@ feature_generator_params: {
         'PowerCons': [ 30, 45, 60 ],
         'ShapesAll': [ 100, 150, 200 ]
       },
-      'launches': 1
+      'launches': 1,
+      'list_of_dataset': [ 'ItalyPowerDemand' ]
     },
   'topological': {
     topological_params:
@@ -95,7 +99,7 @@ fedot_params:
   {
   'problem': 'classification',
   'seed': 14,
-  'timeout': 30,
+  'timeout': 2,
   'composer_params': {
                       'max_depth': 10,
                       'max_arity': 4,

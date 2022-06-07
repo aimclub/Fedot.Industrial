@@ -43,38 +43,6 @@ class StatsRunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return aggregation_df
 
-    def extract_features(self,
-                         dataset,
-                         dict_of_dataset,
-                         dict_of_extra_params=None):
-        X_train, X_test, y_train, y_test = self._load_data(dataset=dataset, dict_of_dataset=dict_of_dataset)
-        return self.generate_features_from_ts(X_train), pd.DataFrame(self.generate_features_from_ts(X_test))
+    def extract_features(self, ts_data):
+        return self.generate_features_from_ts(ts_data)
 
-    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
-
-        self.logger.info('Generating features for fit model')
-        if self.train_feats is None:
-            self.train_feats = self.generate_features_from_ts(X_train)
-            self.train_feats = delete_col_by_var(self.train_feats)
-        self.logger.info('Start fitting FEDOT model')
-        self.fedot_params['safe_mode'] = False
-        predictor = Fedot(**self.fedot_params)
-
-        if self.fedot_params['composer_params']['metric'] == 'f1':
-            predictor.params.api_params['tuner_metric'] = f1_score
-
-        predictor.fit(features=self.train_feats, target=y_train)
-        return predictor
-
-    def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
-        self.logger.info('Generating features for prediction')
-
-        if self.test_feats is None:
-            features = self.generate_features_from_ts(X_test)
-            self.test_feats = pd.DataFrame(features[self.train_feats.columns])
-
-        start_time = timeit.default_timer()
-        predictions = predictor.predict(features=self.test_feats)
-        inference = timeit.default_timer() - start_time
-        predictions_proba = predictor.predict_proba(features=self.test_feats)
-        return predictions, predictions_proba, inference
