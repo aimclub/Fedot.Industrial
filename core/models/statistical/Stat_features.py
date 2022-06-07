@@ -22,7 +22,10 @@ class AggregationFeatures:
         stat_list = []
         column_name = []
         for method_name, method_func in stat_methods_extra.items():
-            tmp = feature_to_aggregation.copy(deep=True)
+            try:
+                tmp = feature_to_aggregation.copy(deep=True)
+            except Exception:
+                tmp = feature_to_aggregation.copy()
 
             if method_name.startswith('q'):
                 _ = []
@@ -48,10 +51,11 @@ class AggregationFeatures:
                 stat_list.append(tmp.apply(method_func, axis=1).values)
                 column_name.append(method_name)
 
+            del tmp
+
         df_points_stat = pd.DataFrame(stat_list)
         df_points_stat = df_points_stat.T
         df_points_stat.columns = column_name
-        feature_disp = df_points_stat.var()
 
         return df_points_stat
 

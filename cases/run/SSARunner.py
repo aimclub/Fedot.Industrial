@@ -1,8 +1,5 @@
-from multiprocessing.dummy import Pool
-from typing import Any
 from collections import Counter
 import pandas as pd
-from functools import reduce
 from sklearn.metrics import f1_score
 from fedot.api.main import Fedot
 from core.models.spectral.SSA import Spectrum
@@ -15,6 +12,7 @@ import timeit
 
 class SSARunner(ExperimentRunner):
     def __init__(self,
+                 feature_generanor_dict: dict = None,
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
@@ -22,9 +20,10 @@ class SSARunner(ExperimentRunner):
                  window_mode: bool = True
                  ):
 
-        super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(feature_generanor_dict,list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
+        self.window_length_list = feature_generanor_dict
         self.vis_flag = False
         self.rank_hyper = None
         self.train_feats = None
@@ -78,13 +77,14 @@ class SSARunner(ExperimentRunner):
     def generate_vector_from_ts(self, ts_frame):
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = threading_operation(ts_frame=ts_frame,
+        components_and_vectors = threading_operation(ts_frame=ts_frame.values,
                                                      function_for_feature_exctraction=self._ts_chunk_function)
         self.logger.info(f'Time spent on eigenvectors extraction - {timeit.default_timer() - start}')
         return components_and_vectors
 
     def generate_features_from_ts(self, eigenvectors_list, window_mode: bool = False):
         start = timeit.default_timer()
+
         if window_mode:
             lambda_function_for_stat_features = lambda x: apply_window_for_statistical_feature(x.T,
                                                                                                feature_generator=self.aggregator.create_baseline_features)
@@ -92,20 +92,20 @@ class SSARunner(ExperimentRunner):
 
             list_with_stat_features_on_interval = list(map(lambda_function_for_stat_features, eigenvectors_list))
             aggregation_df = list(map(lambda_function_for_concat, list_with_stat_features_on_interval))
-
-            components_names = aggregation_df[0].index.values
-            columns_names = aggregation_df[0].columns.values
-
-            aggregation_df = pd.concat([pd.DataFrame(x.values.ravel()) for x in aggregation_df], axis=1)
-            aggregation_df = aggregation_df.T
-
-            new_column_names = []
-            for number_of_component in components_names:
-                new_column_names.extend([f'{x}_for_component: {number_of_component}' for x in columns_names])
-
-            aggregation_df.columns = new_column_names
         else:
-            aggregation_df = threading_operation(eigenvectors_list, self.aggregator.create_features)
+            aggregation_df = list(map(lambda x: self.aggregator.create_baseline_features(x.T), eigenvectors_list))
+
+        components_names = aggregation_df[0].index.values
+        columns_names = aggregation_df[0].columns.values
+
+        aggregation_df = pd.concat([pd.DataFrame(x.values.ravel()) for x in aggregation_df], axis=1)
+        aggregation_df = aggregation_df.T
+
+        new_column_names = []
+        for number_of_component in components_names:
+            new_column_names.extend([f'{x}_for_component: {number_of_component}' for x in columns_names])
+
+        aggregation_df.columns = new_column_names
 
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return aggregation_df
@@ -113,7 +113,6 @@ class SSARunner(ExperimentRunner):
     def _choose_best_window_size(self, X_train, y_train, window_length_list):
 
         metric_list = []
-        feature_list = []
         n_comp_list = []
         disp_list = []
         eigen_list = []
@@ -140,7 +139,7 @@ class SSARunner(ExperimentRunner):
                              f'{self.explained_dispersion} % of explained dispersion '
                              f'obtained by first - {self.n_components} components.')
 
-            metrics = self.explained_dispersion / (self.n_components / window_length)
+            metrics = self.explained_dispersion #/ self.n_components
             metric_list.append(metrics)
 
             # self.logger.info(f'Validate model for window length  - {window_length}')
@@ -161,10 +160,9 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Was choosen window length -  {window_length_list[index_of_window]}')
 
         eigenvectors_list = eigen_list[index_of_window]
-
+        self.min_rank = np.min([x.shape[1] for x in eigenvectors_list])
+        eigenvectors_list = [x.iloc[:, :self.min_rank] for x in eigenvectors_list]
         train_feats = self.generate_features_from_ts(eigenvectors_list, window_mode=self.window_mode)
-        if not self.window_mode:
-            train_feats = pd.concat(train_feats)
 
         for col in train_feats.columns:
             train_feats[col].fillna(value=train_feats[col].mean(), inplace=True)
@@ -212,11 +210,9 @@ class SSARunner(ExperimentRunner):
 
         if self.test_feats is None:
             eigenvectors_and_rank = self.generate_vector_from_ts(X_test)
-            eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
+            eigenvectors_list = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
             self.test_feats = self.generate_features_from_ts(eigenvectors_list, window_mode=self.window_mode)
 
-            if not self.window_mode:
-                self.test_feats = pd.concat(self.test_feats)
             for col in self.test_feats.columns:
                 self.test_feats[col].fillna(value=self.test_feats[col].mean(), inplace=True)
             self.test_feats = self.test_feats[self.train_feats.columns]

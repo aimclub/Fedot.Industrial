@@ -153,7 +153,7 @@ class TopologicalRunner(ExperimentRunner):
             trajectory_windows_list = dict_of_win_list[dataset]
             for launch in range(self.launches):
                 try:
-                    self.path_to_save = self.create_path_to_save(method, dataset, launch)
+                    self.path_to_save = self._create_path_to_save(method, dataset, launch)
                     X, y = dict_of_dataset[dataset]
 
                     if type(X) is tuple:
@@ -187,6 +187,9 @@ class TopologicalRunner(ExperimentRunner):
                     self._get_dimension_params(predictions_proba_train=result_on_train['predictions_proba'])
 
                     result_on_test = self._predict_on_test(predictor=predictor)
+
+                    if not os.path.exists(self.path_to_save):
+                        os.makedirs(self.path_to_save)
 
                     if save_features:
                         pd.DataFrame(self.train_feats).to_csv(os.path.join(self.path_to_save, 'train_features.csv'))

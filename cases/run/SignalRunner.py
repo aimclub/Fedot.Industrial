@@ -13,18 +13,21 @@ import timeit
 
 class SignalRunner(ExperimentRunner):
     def __init__(self,
+                 feature_generanor_dict:dict,
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = None
                  ):
 
-        super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(feature_generanor_dict,list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
+        self.wavelet_list = feature_generanor_dict
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
+
         self.n_components = None
 
     def _ts_chunk_function(self, ts):
@@ -75,20 +78,19 @@ class SignalRunner(ExperimentRunner):
     def generate_vector_from_ts(self, ts_frame):
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = threading_operation(ts_frame=ts_frame,
-                                                     function_for_feature_exctraction=self._ts_chunk_function)
+        components_and_vectors = list(map(self._ts_chunk_function, ts_frame.values))
         self.logger.info(f'Time spent on wavelet extraction - {timeit.default_timer() - start}')
         return components_and_vectors
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
         pass
 
-    def _choose_best_wavelet(self, X_train, y_train, wavelet_list):
+    def _choose_best_wavelet(self, X_train, y_train):
 
         metric_list = []
         feature_list = []
 
-        for wavelet in wavelet_list:
+        for wavelet in self.wavelet_list:
             self.logger.info(f'Generate features for window length - {wavelet}')
             self.wavelet = wavelet
 
@@ -109,18 +111,18 @@ class SignalRunner(ExperimentRunner):
         index_of_window = int(max_score.index(max(max_score)))
         train_feats = feature_list[index_of_window]
 
-        self.wavelet = wavelet_list[index_of_window]
+        self.wavelet = self.wavelet_list[index_of_window]
         self.logger.info(f'Was choosen wavelet -  {self.wavelet} ')
 
         train_feats = delete_col_by_var(train_feats)
 
         return train_feats
 
-    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray, window_length_list: list = None):
+    def fit(self, X_train: pd.DataFrame, y_train: np.ndarray):
 
         self.logger.info('Generating features for fit model')
         if self.train_feats is None:
-            self.train_feats = self._choose_best_wavelet(X_train, y_train, window_length_list)
+            self.train_feats = self._choose_best_wavelet(X_train, y_train)
         self.logger.info('Start fitting FEDOT model')
         predictor = Fedot(**self.fedot_params)
 
