@@ -1,5 +1,4 @@
 from fedot.api.main import Fedot
-
 from core.operation.utils.Composer import FeatureGeneratorBuilder, FeatureGeneratorComposer
 
 
@@ -18,6 +17,8 @@ class TimeSeriesClf:
             for operation_name, operation_functionality in self.feature_generator_dict.items():
                 self.composer.add_operation(operation_name, operation_functionality)
 
+        self.list_of_generators = list(self.composer.dict.values())
+
     def _init_builder(self):
         self.builder = FeatureGeneratorBuilder
         for operation_name, operation_functionality in self.feature_generator_dict.items():
@@ -31,14 +32,20 @@ class TimeSeriesClf:
                 self.feature_generator_dict[operation_name] = self.builder(
                     feature_generator=operation_functionality).add_steady_transformation
 
-    def fit(self, feature, target):
-        feature_list = map(lambda x: x(feature), self.composer.dict.values())
-        predictor_list = map(lambda x: Fedot(**self.model_hyperparams).fit(feature, target), feature_list)
+    def _fit_fedot_model(self, feature, target):
+        fedot_model = Fedot(**self.model_hyperparams)
+        fedot_model.fit(feature, target)
+        return fedot_model
+
+    def fit(self, train_tuple):
+        feature_list = list(map(lambda x: x.extract_features(train_tuple[0]), self.list_of_generators))
+        predictor_list = list(map(lambda x: self._fit_fedot_model(x, train_tuple[1]), feature_list))
         return predictor_list
 
-    def predict(self, predictor_list, target):
-        predictions_list = map(lambda x: x.predict(target), predictor_list)
-        predictions_proba_list = map(lambda x: x.predict_proba(target), predictor_list)
+    def predict(self, predictor_list, test_tuple):
+        feature_list = list(map(lambda x: x.extract_features(test_tuple[0]), self.list_of_generators))
+        predictions_list = list(map(lambda x, y: x.predict(y), predictor_list[0], feature_list))
+        predictions_proba_list = list(map(lambda x, y: x.predict_proba(y), predictor_list[0], feature_list))
         return predictions_list, predictions_proba_list
 
     def get_metrics(self, predictor_list, target):

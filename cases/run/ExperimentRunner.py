@@ -84,10 +84,7 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
-    def extract_features(self,
-                         dataset_name: str,
-                         dict_of_dataset: dict = None,
-                         dict_of_extra_params: dict = None):
+    def extract_features(self,ts_data):
         return
 
     def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
