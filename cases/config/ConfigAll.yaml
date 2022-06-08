@@ -1,6 +1,6 @@
 feature_generator: [
 #        'window_quantile',
-#        'quantile',
+#         'quantile',
 #        'wavelet',
         'spectral',
         'spectral_window'
@@ -9,9 +9,12 @@ feature_generator: [
 datasets_list: [
   'ItalyPowerDemand',
   'Lightning7',
-
+  'EthanolLevel',
+  'Beef'
   ]
+
 'launches': 1
+
 feature_generator_params: {
   'window_quantile':
     {
@@ -62,7 +65,12 @@ feature_generator_params: {
       },
       'launches': 1,
       'window_mode': True,
-      'list_of_dataset': [ 'ItalyPowerDemand' ]
+      'list_of_dataset': [
+  'ItalyPowerDemand',
+  'Lightning7',
+  'EthanolLevel',
+  'Beef'
+  ]
     },
   'spectral':
     {
@@ -84,7 +92,12 @@ feature_generator_params: {
         'ShapesAll': [ 100, 150, 200 ]
       },
       'launches': 1,
-      'list_of_dataset': [ 'ItalyPowerDemand' ]
+      'list_of_dataset': [
+  'ItalyPowerDemand',
+  'Lightning7',
+  'EthanolLevel',
+  'Beef'
+  ]
     },
   'topological': {
     topological_params:
@@ -101,7 +114,7 @@ fedot_params:
   {
   'problem': 'classification',
   'seed': 14,
-  'timeout': 2,
+  'timeout': 15,
   'composer_params': {
                       'max_depth': 10,
                       'max_arity': 4,
