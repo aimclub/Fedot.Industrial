@@ -7,9 +7,11 @@ feature_generator: [
 ]
 
 datasets_list: [
-  'ItalyPowerDemand'
-  ]
+  'ItalyPowerDemand',
+  'Lightning7',
 
+  ]
+'launches': 1
 feature_generator_params: {
   'window_quantile':
     {

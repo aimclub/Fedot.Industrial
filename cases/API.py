@@ -10,6 +10,7 @@ from cases.run.SignalRunner import SignalRunner
 from cases.run.TopologicalRunner import TopologicalRunner
 from core.operation.utils.utils import project_path
 from cases.run.ts_clf import TimeSeriesClf
+from cases.run.utils import *
 
 
 class Industrial:
@@ -66,11 +67,6 @@ class Industrial:
         self.read_yaml_config(config_name)
         experiment_dict = copy.deepcopy(self.config_dict)
 
-        # for key in self.config_dict['dataset_by_feature_generator'].keys():
-        #     experiment_dict['dataset_by_feature_generator'][key] = {i: read_tsv(i) for i in
-        #                                                             experiment_dict['dataset_by_feature_generator'][
-        #                                                                 key]}
-
         experiment_dict['feature_generator'].clear()
         experiment_dict['feature_generator'] = dict()
 
@@ -83,9 +79,10 @@ class Industrial:
         classificator = TimeSeriesClf(feature_generator_dict=experiment_dict['feature_generator'],
                                       model_hyperparams=experiment_dict['fedot_params'])
 
-        train_data, test_data = self._get_ts_data(self.config_dict['datasets_list'])
+        train_archive, test_archive = self._get_ts_data(self.config_dict['datasets_list'])
 
-        fitted_predictor = list(map(lambda x: classificator.fit(x), train_data))
-        prediction = list(map(lambda x: classificator.predict(fitted_predictor, x), test_data))
-
-        _ = 1
+        for train_data, test_data in zip(train_archive, test_archive):
+            fitted_predictor = list(map(lambda x: classificator.fit(x), [train_data]))
+            prediction = list(map(lambda x: classificator.predict(fitted_predictor, x), [test_data]))
+            # self.path_to_save = self._create_path_to_save(method, dataset, launch)
+            _ = 1
