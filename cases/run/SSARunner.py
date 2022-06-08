@@ -90,8 +90,8 @@ class SSARunner(ExperimentRunner):
             aggregation_df = delete_col_by_var(self.train_feats)
         else:
             eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
-            eigenvectors_list = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
-            aggregation_df = self.generate_features_from_ts(eigenvectors_list, window_mode=self.window_mode)
+            self.eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
+            aggregation_df = self.generate_features_from_ts(self.eigenvectors_list_test, window_mode=self.window_mode)
             aggregation_df = aggregation_df[self.train_feats.columns]
 
             for col in aggregation_df.columns:
@@ -167,8 +167,8 @@ class SSARunner(ExperimentRunner):
         self.window_length = self.window_length_list[self.list_of_dataset[0]][index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
         self.min_rank = np.min([x.shape[1] for x in eigenvectors_list])
-        eigenvectors_list = [x.iloc[:, :self.min_rank] for x in eigenvectors_list]
-        self.train_feats = self.generate_features_from_ts(eigenvectors_list, window_mode=self.window_mode)
+        self.eigenvectors_list_train = [x.iloc[:, :self.min_rank] for x in eigenvectors_list]
+        self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)
 
         for col in self.train_feats.columns:
             self.train_feats[col].fillna(value=self.train_feats[col].mean(), inplace=True)

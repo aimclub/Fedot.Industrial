@@ -35,13 +35,4 @@ class FeatureGeneratorBuilder:
         return X
 
     def add_random_interval_transformation(self, feature_generator: callable):
-        # subseq_generator = range(0, self.feature_array.shape[1], self.window_size)
-        # slice_ts = [self.feature_array.iloc[:, i:i + self.window_size] for i in subseq_generator]
-        # slice_ts = list(filter(lambda x: x.shape[1] > 1, slice_ts))
-        # feature_list = map(lambda x: feature_generator(x), slice_ts)
-        # # columns_name = [x + f'_on_interval: {i} - {i + self.window_size}' for x in df.columns for i in
-        # #                 subseq_generator]
-        # X = pd.concat(feature_list)
-        # del feature_list
-        # return X
         pass

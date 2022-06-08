@@ -1,14 +1,16 @@
 import copy
 import os
+
+import numpy as np
 import yaml
 import logging
-from typing import Dict
+from typing import Dict, Union
 from cases.run.utils import read_tsv
 from cases.run.QuantileRunner import StatsRunner
 from cases.run.SSARunner import SSARunner
 from cases.run.SignalRunner import SignalRunner
 from cases.run.TopologicalRunner import TopologicalRunner
-from core.operation.utils.utils import project_path
+from core.operation.utils.utils import project_path, path_to_save_results
 from cases.run.ts_clf import TimeSeriesClf
 from cases.run.utils import *
 
@@ -48,6 +50,28 @@ class Industrial:
         train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
         return train_data, test_data
 
+    def _init_experiment_setup(self, config_name):
+        self.read_yaml_config(config_name)
+        experiment_dict = copy.deepcopy(self.config_dict)
+
+        experiment_dict['feature_generator'].clear()
+        experiment_dict['feature_generator'] = dict()
+
+        for idx, feature_generator in enumerate(self.config_dict['feature_generator']):
+            feature_generator_class = {feature_generator: self.feature_generator_dict[feature_generator]
+            (fedot_params=experiment_dict['fedot_params'],
+             **experiment_dict['feature_generator_params'][feature_generator])}
+            experiment_dict['feature_generator'].update(feature_generator_class)
+
+        return experiment_dict
+
+    def _save_spectrum(self, classificator, path_to_save):
+        for method, path in zip(list(classificator.composer.dict.keys()), path_to_save):
+            pd.concat(classificator.composer.dict[method].eigenvectors_list_train, axis=1).to_csv(
+                os.path.join(path, 'train_spectrum.csv'))
+            pd.concat(classificator.composer.dict[method].eigenvectors_list_test, axis=1).to_csv(
+                os.path.join(path, 'test_spectrum.csv'))
+
     def read_yaml_config(self, config_name: str) -> Dict:
         """ Read yaml config from './experiments/configs/config_name' directory as dictionary file
             :param config_name: yaml-config name
@@ -59,30 +83,87 @@ class Industrial:
             self.config_dict['logger'] = self.logger
             self.logger.info(f"schema ready: {self.config_dict}")
 
-    def fit(self):
-        pass
+    def save_results(self,
+                     predictions: Union[np.ndarray, pd.DataFrame],
+                     predictions_proba: Union[np.ndarray, pd.DataFrame],
+                     train_target: Union[np.ndarray, pd.Series],
+                     test_target: Union[np.ndarray, pd.Series],
+                     path_to_save: str,
+                     metrics: dict,
+                     train_features: Union[np.ndarray, pd.DataFrame],
+                     test_features: Union[np.ndarray, pd.DataFrame],
+                     ):
+
+        path_results = os.path.join(path_to_save, 'test_results')
+        if not os.path.exists(path_results):
+            os.makedirs(path_results)
+
+        features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
+        features_list = [train_features, train_target, test_features, test_target]
+        saved_features = list(
+            map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
+
+        if type(predictions_proba) is not pd.DataFrame:
+            df_preds = pd.DataFrame(predictions_proba)
+            df_preds['Target'] = test_target
+            df_preds['Preds'] = predictions
+        else:
+            df_preds = predictions_proba
+            df_preds['Target'] = test_target.values
+
+        if type(metrics) is str:
+            df_metrics = pd.DataFrame()
+        else:
+            df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
+
+        # df_metrics['Inference'] = inference
+        # df_metrics['Fit_time'] = fit_time
+        # df_metrics['window'] = window
+
+        for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
+                        [df_preds, df_metrics]):
+            full_path = os.path.join(path_results, p)
+            d.to_csv(full_path)
 
     def run_experiment(self, config_name):
 
-        self.read_yaml_config(config_name)
-        experiment_dict = copy.deepcopy(self.config_dict)
-
-        experiment_dict['feature_generator'].clear()
-        experiment_dict['feature_generator'] = dict()
-
-        for idx, feature_generator in enumerate(self.config_dict['feature_generator']):
-            experiment_dict['feature_generator'].update(
-                {feature_generator: self.feature_generator_dict[feature_generator]
-                (fedot_params=experiment_dict['fedot_params'],
-                 **experiment_dict['feature_generator_params'][feature_generator])})
+        experiment_dict = self._init_experiment_setup(config_name)
 
         classificator = TimeSeriesClf(feature_generator_dict=experiment_dict['feature_generator'],
                                       model_hyperparams=experiment_dict['fedot_params'])
 
         train_archive, test_archive = self._get_ts_data(self.config_dict['datasets_list'])
+        launch = self.config_dict['launches']
 
-        for train_data, test_data in zip(train_archive, test_archive):
-            fitted_predictor = list(map(lambda x: classificator.fit(x), [train_data]))
-            prediction = list(map(lambda x: classificator.predict(fitted_predictor, x), [test_data]))
-            # self.path_to_save = self._create_path_to_save(method, dataset, launch)
-            _ = 1
+        for train_data, test_data, dataset_name in zip(train_archive, test_archive, self.config_dict['datasets_list']):
+            paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
+                                     list(experiment_dict['feature_generator'].keys())))
+
+            fitted_results = list(map(lambda x: classificator.fit(x), [train_data]))
+
+            fitted_predictor = fitted_results[0]['predictors']
+            train_features = fitted_results[0]['train_features']
+
+            predictions = list(
+                map(lambda x: classificator.predict(fitted_predictor, x), [test_data]))
+
+            metrics = predictions[0]['metrics']
+            test_features = predictions[0]['test_features']
+            prediction = predictions[0]['prediction']
+            prediction_proba = predictions[0]['prediction_proba']
+
+            saved_result = list(map(lambda x, y, z, k, j, m: self.save_results(train_target=train_data[1],
+                                                                               test_target=test_data[1],
+                                                                               path_to_save=x,
+                                                                               train_features=y,
+                                                                               test_features=z,
+                                                                               metrics=k,
+                                                                               predictions=j,
+                                                                               predictions_proba=m),
+                                    paths_to_save, train_features, test_features, metrics, prediction,
+                                    prediction_proba))
+
+            spectral_generators = [x for x in paths_to_save if 'spectral' in x]
+            if len(spectral_generators) != 0:
+                self._save_spectrum(classificator, path_to_save=spectral_generators)
+
