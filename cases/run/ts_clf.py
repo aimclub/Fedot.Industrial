@@ -1,4 +1,8 @@
+import json
+
 from fedot.api.main import Fedot
+
+from cases.analyzer import PerfomanceAnalyzer
 from core.operation.utils.Composer import FeatureGeneratorBuilder, FeatureGeneratorComposer
 
 
@@ -8,6 +12,8 @@ class TimeSeriesClf:
                  model_hyperparams: dict):
         self.feature_generator_dict = feature_generator_dict
         self.model_hyperparams = model_hyperparams
+        self.analyzer = PerfomanceAnalyzer()
+        self.metrics_name = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
         self._init_composer()
         self._init_builder()
 
@@ -46,9 +52,9 @@ class TimeSeriesClf:
         feature_list = list(map(lambda x: x.extract_features(test_tuple[0]), self.list_of_generators))
         predictions_list = list(map(lambda x, y: x.predict(y), predictor_list[0], feature_list))
         predictions_proba_list = list(map(lambda x, y: x.predict_proba(y), predictor_list[0], feature_list))
-        return predictions_list, predictions_proba_list
-
-    def get_metrics(self, predictor_list, target):
-        predictions_list = map(lambda x: x.predict(target), predictor_list)
-        predictions_proba_list = map(lambda x: x.predict_proba(target), predictor_list)
-        return predictions_list, predictions_proba_list
+        metrics = list(map(lambda x, y: self.analyzer.calculate_metrics(self.metrics_name,
+                                                                        target=test_tuple[1],
+                                                                        predicted_labels=x,
+                                                                        predicted_probs=y
+                                                                        ), predictions_list, predictions_proba_list))
+        return predictions_list, predictions_proba_list, metrics

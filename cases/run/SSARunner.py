@@ -97,6 +97,9 @@ class SSARunner(ExperimentRunner):
             for col in aggregation_df.columns:
                 aggregation_df[col].fillna(value=aggregation_df[col].mean(), inplace=True)
 
+            self.window_length = None
+            self.test_feats = None
+
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list, window_mode: bool = False):
