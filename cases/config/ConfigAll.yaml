@@ -7,7 +7,6 @@ feature_generator: [
 ]
 
 datasets_list: [
-  'ItalyPowerDemand',
   'Lightning7',
   'EthanolLevel',
   'Beef'
@@ -66,7 +65,6 @@ feature_generator_params: {
       'launches': 1,
       'window_mode': True,
       'list_of_dataset': [
-  'ItalyPowerDemand',
   'Lightning7',
   'EthanolLevel',
   'Beef'
@@ -93,7 +91,6 @@ feature_generator_params: {
       },
       'launches': 1,
       'list_of_dataset': [
-  'ItalyPowerDemand',
   'Lightning7',
   'EthanolLevel',
   'Beef'
@@ -118,7 +115,7 @@ fedot_params:
   'composer_params': {
                       'max_depth': 10,
                       'max_arity': 4,
-                      'cv_folds': 3,
+                      'cv_folds': 2,
                       'stopping_after_n_generation': 20
                       },
   'verbose_level': 3,
