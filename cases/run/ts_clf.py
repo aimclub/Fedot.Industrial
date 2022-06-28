@@ -1,6 +1,8 @@
 from fedot.api.main import Fedot
+
 from cases.analyzer import PerfomanceAnalyzer
-from core.operation.utils.Composer import FeatureGeneratorBuilder, FeatureGeneratorComposer
+from core.operation.utils.Composer import FeatureGeneratorComposer
+from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
 
 
 class TimeSeriesClf:
@@ -23,17 +25,9 @@ class TimeSeriesClf:
         self.list_of_generators = list(self.composer.dict.values())
 
     def _init_builder(self):
-        self.builder = FeatureGeneratorBuilder
         for operation_name, operation_functionality in self.feature_generator_dict.items():
-            if operation_name.startswith('window'):
-                self.feature_generator_dict[operation_name] = self.builder(
-                    feature_generator=operation_functionality).add_window_transformation
-            elif operation_name.startswith('random'):
-                self.feature_generator_dict[operation_name] = self.builder(
-                    feature_generator=operation_functionality).add_random_interval_transformation
-            else:
-                self.feature_generator_dict[operation_name] = self.builder(
-                    feature_generator=operation_functionality).add_steady_transformation
+            self.feature_generator_dict[operation_name] = \
+                FeatureBuilderSelector(operation_name, operation_functionality).add_transformation()
 
     def _fit_fedot_model(self, feature, target):
         fedot_model = Fedot(**self.model_hyperparams)
