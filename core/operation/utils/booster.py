@@ -1,9 +1,9 @@
 import warnings
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from typing import Union
 
 from cases.run.utils import get_logger
 
@@ -15,7 +15,7 @@ class Booster:
     CYCLES = 1
 
     def __init__(self,
-                 X_train: np.array,
+                 X_train: np.ndarray,
                  y_train: np.array,
                  base_predict: np.array,
                  timeout: int,
@@ -92,9 +92,8 @@ class Booster:
         vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
         return vector
 
-    def api_model(self, target_diff: np.array) -> tuple:
+    def api_model(self, target_diff: np.ndarray) -> tuple:
         """Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
-        :type target_diff: object
         """
         self.logger.info(f'Starting cycle {self.CYCLES} of boosting')
 
