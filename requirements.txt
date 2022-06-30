@@ -1,0 +1,15 @@
+numpy==1.23.0
+pandas==1.4.1
+matplotlib==3.5.1
+seaborn==0.11.2
+typing==3.7.4.3
+scipy==1.8.0
+cycler==0.11.0
+ripser==0.6.1
+torch==1.11.0
+plotly==5.6.0
+fastprogress==1.0.2
+scikit-learn==1.0.2
+networkx==2.7.1
+fedot==0.5.2
+PyYAML==6.0
