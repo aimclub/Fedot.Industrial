@@ -1,10 +1,12 @@
+import timeit
 from collections import Counter
+
+import matplotlib.pyplot as plt
+
+from cases.run.ExperimentRunner import ExperimentRunner
 from core.models.spectral.SSA import Spectrum
 from core.models.statistical.Stat_features import AggregationFeatures
-from cases.run.ExperimentRunner import ExperimentRunner
 from core.operation.utils.utils import *
-import matplotlib.pyplot as plt
-import timeit
 
 
 class SSARunner(ExperimentRunner):
@@ -22,7 +24,9 @@ class SSARunner(ExperimentRunner):
         self.spectrum_extractor = Spectrum
 
         self.window_length_list = feature_generanor_dict
-        if type(self.window_length_list) == int:
+
+        if isinstance(self.window_length_list, int):
+            # if type(self.window_length_list) == int:
             self.window_length_list = [self.window_length_list]
 
         self.vis_flag = False
@@ -119,6 +123,7 @@ class SSARunner(ExperimentRunner):
         columns_names = aggregation_df[0].columns.values
 
         aggregation_df = pd.concat([pd.DataFrame(x.values.ravel()) for x in aggregation_df], axis=1)
+        aggregation_df.columns = range(len(aggregation_df.columns))
         aggregation_df = aggregation_df.T
 
         new_column_names = []
