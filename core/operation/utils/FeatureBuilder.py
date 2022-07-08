@@ -8,7 +8,7 @@ class FeatureBuilderSelector:
         self.operation_name = operation_name
         self.feature_generator = feature_generator
 
-    def add_transformation(self):
+    def select_transformation(self):
         if self.operation_name.startswith('window'):
             return WindowBuilder(self.feature_generator).add_transformation
         elif self.operation_name.startswith('random'):

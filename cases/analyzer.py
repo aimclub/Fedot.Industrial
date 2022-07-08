@@ -1,10 +1,12 @@
-from core.metrics.metrics_implementation import *
 from typing import Dict, Union, List
+
 import numpy as np
 from sklearn import preprocessing
 
+from core.metrics.metrics_implementation import *
 
-class PerfomanceAnalyzer:
+
+class PerformanceAnalyzer:
     def __init__(self):
         return
 

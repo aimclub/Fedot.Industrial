@@ -1,7 +1,6 @@
 import json
 import os.path
 
-import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -9,7 +8,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 from sklearn.model_selection import train_test_split
 
-from cases.analyzer import PerfomanceAnalyzer
+from cases.analyzer import PerformanceAnalyzer
 from cases.run.utils import *
 from core.metrics.metrics_implementation import *
 from core.operation.utils.Decorators import exception_decorator
@@ -35,7 +34,7 @@ class ExperimentRunner:
                                        'verbose_level': 1},
                  boost_mode: bool = True,
                  static_booster: bool = False):
-        self.analyzer = PerfomanceAnalyzer()
+        self.analyzer = PerformanceAnalyzer()
         self.list_of_dataset = list_of_dataset
         self.feature_generanor_dict = feature_generanor_dict
         self.launches = launches
