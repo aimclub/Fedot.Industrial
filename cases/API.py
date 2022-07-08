@@ -1,18 +1,17 @@
 import copy
-import os
+from typing import Dict, Union
 
 import numpy as np
 import yaml
-import logging
-from typing import Dict, Union
-from cases.run.utils import read_tsv
+
+from cases.run.EnsembleRunner import EnsembleRunner
 from cases.run.QuantileRunner import StatsRunner
 from cases.run.SSARunner import SSARunner
 from cases.run.SignalRunner import SignalRunner
 from cases.run.TopologicalRunner import TopologicalRunner
-from core.operation.utils.utils import project_path, path_to_save_results
 from cases.run.ts_clf import TimeSeriesClf
 from cases.run.utils import *
+from core.operation.utils.utils import path_to_save_results
 
 
 class Industrial:
@@ -43,7 +42,8 @@ class Industrial:
             'wavelet': SignalRunner,
             'spectral': SSARunner,
             'spectral_window': SSARunner,
-            'topological': TopologicalRunner}
+            'topological': TopologicalRunner,
+            'ensemble': EnsembleRunner}
 
     def _get_ts_data(self, name_of_datasets):
         all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
