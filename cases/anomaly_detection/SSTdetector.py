@@ -86,7 +86,7 @@ class SingularSpectrumTransformation:
                     K=self.ts_window_length - self.trajectory_win_length + 1,
                     L=self.trajectory_win_length)
                 if horm_hist is None:
-                    horm_hist = np.linalg.norm(X_history, 'fro')
+                    horm_hist = np.linalg.norm(X_history, 1)
 
                 start_idx_test = t - self.ts_window_length
                 end_idx_test = t
@@ -124,18 +124,21 @@ class SingularSpectrumTransformation:
                     L=self.trajectory_win_length)
                 if horm_hist is None:
                     # horm_hist = np.linalg.norm(X_history, 'fro')
-                    horm_hist = np.linalg.norm(distance_matrix(X_history, X_history), 'nuc')
+                    horm_hist = np.linalg.norm(distance_matrix(X_history.T, X_history.T), 2)
 
                 # norm_list_real.append(np.linalg.norm(X_history-X_test, 'fro'))
-                norm_list_real.append(np.linalg.norm(distance_matrix(X_history, X_test), 'nuc'))
-
-                score[t - 1] = self._sst_svd(X_test, X_history, self.n_components)
+                norm_list_real.append(np.linalg.norm(distance_matrix(X_history.T, X_test.T), 2))
+                #norm_list_real.append(np.linalg.norm(abs(X_history-X_test), 1))
+                #score[t - 1] = self._sst_svd(X_test, X_history, self.n_components)
         # score = [horm_hist - x for x in norm_list_real]
         # score = norm_list_real
         score = [horm_hist] + norm_list_real
+        score_diff = np.diff(score)
+        q_95 = np.quantile(score_diff, 0.95)
+        filtred_score = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
         #dst_mtr = distance_matrix(score, score)
         self.n_components = None
-        return score
+        return filtred_score
 
     def _sst_svd(self, X_test, X_history, n_components):
         """Run sst algorithm with svd."""
