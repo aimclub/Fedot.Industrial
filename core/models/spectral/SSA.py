@@ -3,8 +3,10 @@ from cycler import cycler
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-
+from sklearn.utils.extmath import randomized_svd
+from numba import jit
 from core.operation.utils.Decorators import type_check_decorator
+from scipy.linalg import hankel
 
 plt.rcParams['figure.figsize'] = (10, 8)
 plt.rcParams['font.size'] = 14
@@ -48,7 +50,7 @@ class Spectrum:
         self.__save_memory = save_memory
         object_type = type(time_series)
         self.__set_dimensions()
-        self.__check_windows_length()
+        # self.__check_windows_length()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
     def __check_windows_length(self):
@@ -69,6 +71,10 @@ class Spectrum:
     def window_length(self):
         return self.__window_length
 
+    @property
+    def sub_seq_length(self):
+        return self.__subseq_length
+
     @window_length.setter
     def window_length(self, window_length):
         self.__window_length = window_length
@@ -76,6 +82,10 @@ class Spectrum:
     @property
     def trajectory_matrix(self):
         return self.__trajectory_matrix
+
+    @property
+    def ts_length(self):
+        return self.__ts_length
 
     @trajectory_matrix.setter
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
@@ -241,3 +251,69 @@ class Spectrum:
 
         plt.xlim(min - 0.5, max_rnge + 0.5)
         plt.ylim(max_rnge + 0.5, min - 0.5)
+
+    def singular_value_hard_threshold(self,
+                                      singular_values,
+                                      rank=None,
+                                      threshold=2.858):
+        rank = len(singular_values) if rank is None else rank
+
+        # Singular Value Hard Thresholding
+        # This is a threshold on the rank/singular values based on the findings
+        # in this paper:
+        # https://arxiv.org/pdf/1305.5870.pdf
+        # We assume the noise is not known, and so the thresholding value is
+        # determined by the data (See section D)
+
+        median_sv = np.median(singular_values[:rank])
+        sv_threshold = threshold * median_sv
+        adjusted_rank = np.sum(singular_values >= sv_threshold)
+        return adjusted_rank
+
+    def ts_vector_to_trajectory_matrix(self, timeseries, L, K):
+        hankelized = hankel(timeseries, np.zeros(L)).T
+        hankelized = hankelized[:, :K]
+        return hankelized
+
+    def ts_matrix_to_trajectory_matrix(self, timeseries, L, K):
+        '''Forulation for V-MSSA (vertical stack)
+        https://www.researchgate.net/publication/263870252_Multivariate_singular_spectrum_analysis_A_general_view_and_new_vector_forecasting_approach
+        '''
+        P, N = timeseries.shape
+
+        trajectory_matrix = [
+            self.ts_vector_to_trajectory_matrix(timeseries[p, :], L, K)
+            for p in range(P)
+        ]
+
+        trajectory_matrix = np.concatenate(trajectory_matrix, axis=1)
+        return trajectory_matrix
+
+    def decompose_trajectory_matrix(self,
+                                    trajectory_matrix,
+                                    K=10,
+                                    svd_method='exact'):
+        # calculate S matrix
+        # https://arxiv.org/pdf/1309.5050.pdf
+        # S = np.dot(trajectory_matrix, trajectory_matrix.T)
+        S = trajectory_matrix
+
+        if svd_method == 'exact':
+            try:
+                U, s, V = np.linalg.svd(S)
+            except Exception:
+                U, s, V = randomized_svd(S, n_components=K)
+
+        # Valid rank is only where eigenvalues > 0
+        rank = np.sum(s > 0.01)
+
+        return U, s, V, rank
+
+    def sv_to_explained_variance_ratio(self, singular_values, N):
+        # Calculation taken from sklearn. See:
+        # https://github.com/scikit-learn/scikit-learn/blob/7389dba/sklearn/decomposition/pca.py
+        eigenvalues = singular_values ** 2
+        explained_variance = eigenvalues / (N - 1)
+        total_variance = np.sum(explained_variance)
+        explained_variance_ratio = explained_variance / total_variance
+        return explained_variance, explained_variance_ratio
