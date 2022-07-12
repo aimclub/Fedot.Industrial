@@ -8,8 +8,8 @@ from cases.run.EnsembleRunner import EnsembleRunner
 from cases.run.QuantileRunner import StatsRunner
 from cases.run.SSARunner import SSARunner
 from cases.run.SignalRunner import SignalRunner
+from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
 from cases.run.TopologicalRunner import TopologicalRunner
-from cases.run.ts_clf import TimeSeriesClf
 from cases.run.utils import *
 from core.operation.utils.utils import path_to_save_results
 
@@ -129,8 +129,8 @@ class Industrial:
 
         experiment_dict = self._init_experiment_setup(config_name)
 
-        classificator = TimeSeriesClf(feature_generator_dict=experiment_dict['feature_generator'],
-                                      model_hyperparams=experiment_dict['fedot_params'])
+        classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
+                                             model_hyperparams=experiment_dict['fedot_params'])
 
         train_archive, test_archive = self._get_ts_data(self.config_dict['datasets_list'])
         launch = self.config_dict['launches']

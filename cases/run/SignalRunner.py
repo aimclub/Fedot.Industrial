@@ -1,29 +1,24 @@
-from multiprocessing.dummy import Pool
+import timeit
 
-import pandas as pd
-from sklearn.metrics import f1_score
-from fedot.api.main import Fedot
-
+from cases.run.ExperimentRunner import ExperimentRunner
 from core.models.signal.wavelet import WaveletExtractor
 from core.models.statistical.Stat_features import AggregationFeatures
-from cases.run.ExperimentRunner import ExperimentRunner
 from core.operation.utils.utils import *
-import timeit
 
 
 class SignalRunner(ExperimentRunner):
     def __init__(self,
-                 feature_generanor_dict: dict,
+                 feature_generator_dict: dict,
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = None
                  ):
 
-        super().__init__(feature_generanor_dict, list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(feature_generator_dict, list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
-        self.wavelet_list = feature_generanor_dict
+        self.wavelet_list = feature_generator_dict
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None

@@ -7,6 +7,10 @@ from cases.analyzer import PerformanceAnalyzer
 
 
 class AbstractObject(ABC):
+    """
+    Base class for feature/predictions lists
+    """
+
     def __init__(self):
         pass
 
@@ -15,6 +19,10 @@ class AbstractObject(ABC):
 
 
 class FeatureList(AbstractObject):
+    """
+    Class responsible for creation of feature list
+    """
+
     def __init__(self, list_of_generators: list, dataset: pd.DataFrame) -> None:
         super().__init__()
         self.list_of_generators = list_of_generators
@@ -25,6 +33,10 @@ class FeatureList(AbstractObject):
 
 
 class PredictorList(AbstractObject):
+    """
+    Class responsible for creation of predictors list
+    """
+
     def __init__(self, train_feature_set, feature_list, operation: callable):
         super().__init__()
         self.train_feature_set = train_feature_set
@@ -36,6 +48,11 @@ class PredictorList(AbstractObject):
 
 
 class PredictionsList(AbstractObject):
+    """
+    Class responsible for creation of predictions list for predictors
+    and features
+    """
+
     def __init__(self, predictor_list, feature_list, operation):
         super().__init__()
         self.operation = operation
@@ -50,6 +67,13 @@ class PredictionsList(AbstractObject):
 
 
 class MetricsDict:
+    """
+    Class responsible for creation metrics dict based on predictions_list,
+    predictions probability list and target. Apply methods of
+    PerformanceAnalyzer class for chosen metrics:
+    ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
+    """
+
     def __init__(self, predictions_list, predictions_proba_list, target):
         self.predictions_list = predictions_list
         self.predictions_proba_list = predictions_proba_list
