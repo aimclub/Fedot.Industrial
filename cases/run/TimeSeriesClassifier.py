@@ -1,19 +1,16 @@
 from fedot.api.main import Fedot
 
-# from cases.analyzer import PerformanceAnalyzer
 from core.operation.utils.Composer import FeatureGeneratorComposer
 from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
 from core.operation.utils.TSDatatypes import FeatureList, PredictorList, PredictionsList, MetricsDict
 
 
-class TimeSeriesClf:
+class TimeSeriesClassifier:
     def __init__(self,
                  feature_generator_dict: dict,
                  model_hyperparams: dict):
         self.feature_generator_dict = feature_generator_dict
         self.model_hyperparams = model_hyperparams
-        # self.analyzer = PerformanceAnalyzer()
-        # self.metrics_name = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
         self._init_composer()
         self._init_builder()
 
@@ -30,17 +27,12 @@ class TimeSeriesClf:
             self.feature_generator_dict[operation_name] = \
                 FeatureBuilderSelector(operation_name, operation_functionality).select_transformation()
 
-    def _fit_fedot_model(self, feature, target):
+    def _fit_fedot_model(self, feature, target) -> Fedot:
         fedot_model = Fedot(**self.model_hyperparams)
         fedot_model.fit(feature, target)
         return fedot_model
 
-    # def fit_ensemble(self, train_tuple):
-    #     feature_list = list(map(lambda x: x.extract_features(train_tuple[0]), self.list_of_generators))
-    #     if self.ensemble_flag:
-    #         predictor_list = list(map(lambda x: self._fit_fedot_model(x, train_tuple[1]), feature_list))
-
-    def fit(self, train_tuple):
+    def fit(self, train_tuple) -> dict:
         feature_list = FeatureList(self.list_of_generators,
                                    train_tuple[0]).create()
 
@@ -48,22 +40,9 @@ class TimeSeriesClf:
                                        feature_list,
                                        self._fit_fedot_model).create()
 
-        # feature_list = list(map(lambda x: x.extract_features(train_tuple[0]), self.list_of_generators))
-        # predictor_list = list(map(lambda x: self._fit_fedot_model(x, train_tuple[1]), feature_list))
         return dict(predictors=predictor_list, train_features=feature_list)
 
     def predict(self, predictor_list, test_tuple) -> dict:
-        # feature_list = list(map(lambda x: x.extract_features(test_tuple[0]), self.list_of_generators))
-        # predictions_list = list(map(lambda x, y: x.predict(y), predictor_list, feature_list))
-        # predictions_proba_list = list(map(lambda x, y: x.predict_proba(y), predictor_list, feature_list))
-        # metrics_dict = list(map(lambda x, y: self.analyzer.calculate_metrics(self.metrics_name,
-        #                                                                      target=test_tuple[1],
-        #                                                                      predicted_labels=x,
-        #                                                                      predicted_probs=y
-        #                                                                      ),
-        #                         predictions_list,
-        #                         predictions_proba_list))
-
         feature_list = FeatureList(list_of_generators=self.list_of_generators,
                                    dataset=test_tuple[0]).create()
 
