@@ -1,5 +1,13 @@
 import numpy as np
 import pandas as pd
+
+
+import sys
+import os
+sys.path.append('../utils')
+import_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(import_path)
+sys.path.append(os.path.join(import_path, "../../"))
 from cases.anomaly_detection.SSTdetector import SingularSpectrumTransformation
 import matplotlib.pyplot as plt
 from tsad.evaluating.evaluating import evaluating
@@ -57,6 +65,8 @@ if __name__ == '__main__':
             plot_data_and_score(x, predicted_cp, change_point, anomaly, col=col_name)
             predicted_cp = pd.Series(predicted_cp)
             predicted_cp.index = df.index
+            print(df.index)
+            print(df.changepoint)
             nab = evaluating(df.changepoint, predicted_cp, metric='nab', numenta_time='30 sec')
             add = evaluating(df.changepoint, predicted_cp, metric='average_time', numenta_time='30 sec')
             nab_scores.update({col_name: nab['Standart']})
