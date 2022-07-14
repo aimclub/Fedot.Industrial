@@ -5,7 +5,7 @@ import pandas as pd
 
 def read_anomaly_data():
     all_files = []
-    for root, dirs, files in os.walk("./"):
+    for root, dirs, files in os.walk("/media/nikita/HDD/SKAB/data/"):
         for file in files:
             if file.endswith(".csv"):
                 all_files.append(os.path.join(root, file))

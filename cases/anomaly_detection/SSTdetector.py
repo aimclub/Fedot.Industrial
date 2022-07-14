@@ -3,6 +3,8 @@ from numba import jit
 from scipy.spatial import distance_matrix
 from sklearn.preprocessing import MinMaxScaler
 from core.models.spectral.SSA import Spectrum
+import pandas as pd
+from core.models.statistical.Stat_features import AggregationFeatures
 
 
 # from .util.linear_algebra import power_method, lanczos, eig_tridiag
@@ -31,7 +33,7 @@ class SingularSpectrumTransformation:
         self.ts = time_series
         self.trajectory_win_length = trajectory_window_length
         self.ts_window_length = ts_window_length
-
+        self.aggregator = AggregationFeatures()
         if self.ts_window_length is None:
             self.ts_window_length = self.trajectory_win_length
 
@@ -43,6 +45,78 @@ class SingularSpectrumTransformation:
         self.is_scaled = is_scaled
 
         self.n_components = None
+
+    def score_offline_2d(self, dynamic_mode: bool = True):
+        if not self.is_scaled:
+            x_scaled = MinMaxScaler(feature_range=(1, 2)) \
+                           .fit_transform(self.ts.reshape(-1, 1))[:, 0]
+        else:
+            x_scaled = self.ts
+        score = self._score_offline_2d(dynamic_mode=dynamic_mode)
+
+        return score
+
+    def _get_window_from_ts_complex(self, ts_complex, start:int, end:int) -> list:
+        window: list = []
+        if start < 0 or start >= len(ts_complex[0]): raise ValueError("Start value is less than zero or more then lenght of time series!")
+        if end < 0 or end >= len(ts_complex[0]): raise ValueError("End value is less than zero or more then lenght of time series!")
+        if end < start : raise ValueError("Start > End!")
+        for _ in ts_complex:
+            window.append([])
+        for i in range(start, end):
+            for j in range(len(ts_complex)):
+                window[j].append(ts_complex[j][i])
+        return window
+        
+
+    def _score_offline_2d(self, dynamic_mode: bool = True):
+        """Core implementation of offline score calculation. FOR 2D or more D"""
+        step = 1 * self.ts_window_length
+        start_idx = step
+        end_idx = len(self.ts[0]) - step
+        norm_list_real = []
+        horm_hist = None
+        
+        current_index = start_idx
+        first_window = self._get_window_from_ts_complex(self.ts, current_index, current_index+step)
+        first_features = self._get_features_vector_from_window(first_window)
+        first_features = np.asarray(first_features)
+        first_features = np.reshape(first_features, (len(self.ts),7))
+        #q = np.quantile(first_features, 0.8)
+        #m = np.median(first_features)
+        #p = np.ptp(first_features)
+        #n = np.nanmean(first_features)
+        #first_matrix_metrics = np.asarray([q, m, p, n])
+        from scipy.spatial import distance
+        for current_index in range(start_idx, end_idx, step):
+            # print('TEST_matrix_at_idx: {} - {}'.format(start_idx_test, end_idx_test))
+            current_window = self._get_window_from_ts_complex(self.ts, current_index, current_index+step)
+            current_features = self._get_features_vector_from_window(current_window)
+            current_features = np.asarray(current_features)
+            #q = np.quantile(current_features, 0.8)
+            #m = np.median(current_features)
+            #p = np.ptp(current_features)
+            #n = np.nanmean(current_features)
+            #current_matrix_metrics = np.asarray([q, m, p, n])
+            current_features = np.reshape(current_features, (len(self.ts),7))
+            if horm_hist is None:
+                # horm_hist = np.linalg.norm(X_history, 'fro')
+                horm_hist = np.linalg.norm(distance_matrix(first_features.T, current_features.T), 2)
+
+            # norm_list_real.append(np.linalg.norm(X_history-X_test, 'fro'))
+            norm_list_real.append(np.linalg.norm(distance_matrix(first_features.T, current_features.T), 2))
+            #norm_list_real.append(np.linalg.norm(abs(X_history-X_test), 1))
+            #score[t - 1] = self._sst_svd(X_test, X_history, self.n_components)
+        # score = [horm_hist - x for x in norm_list_real]
+        # score = norm_list_real
+
+        score = [horm_hist] + norm_list_real
+        score_diff = np.diff(score)
+        q_95 = np.quantile(score_diff, 0.95)
+        filtred_score = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
+        #dst_mtr = distance_matrix(score, score)
+        self.n_components = None
+        return filtred_score
 
     def score_offline(self, dynamic_mode: bool = True):
         """Calculate anomaly score (offline).
@@ -148,6 +222,51 @@ class SingularSpectrumTransformation:
         U_cov, s, _ = np.linalg.svd(S_cov, full_matrices=False)
         return 1 - s[0]
 
+    def _get_features_vector_from_window(self, window: list) -> list:
+        features: list = []
+        for ts in window:
+            temp_features = self._generate_features_from_one_ts(ts)
+            features.append(temp_features)
+        return features
+
+    def _generate_features_from_one_ts(self, time_series) -> list:
+        time_series = np.asarray(time_series)
+        time_series = np.reshape(time_series, (1, time_series.shape[0]))
+        time_series = pd.DataFrame(time_series, dtype=float)
+        feat = self.aggregator.create_baseline_features(time_series)
+        """
+        mean_ 0
+        median_ 1
+        lambda_less_zero 2 ??
+        std_ 3 -/+
+        var_ 4 -/+
+        max 5
+        min 6
+        q5_ 7
+        q25_ 8
+        q75_ 9
+        q95_ 10
+        sum_ 11
+        """
+
+        keys = feat.columns
+        values = feat._values
+        out_values = []
+        out_values.append(values[0][0])
+        out_values.append(values[0][1])
+        out_values.append(values[0][2])
+        #out_values.append(values[0][3])
+        #out_values.append(values[0][4])
+        #out_values.append(values[0][5])
+        #out_values.append(values[0][6])
+        out_values.append(values[0][7])
+        out_values.append(values[0][8])
+        out_values.append(values[0][9])
+        out_values.append(values[0][10])
+        #out_values.append(values[0][11])  
+        out_values = np.array(out_values) 
+        reshaped_values = [out_values] 
+        return reshaped_values
 
 if __name__ == '__main__':
     # x0 = np.sin(2 * np.pi * 1 * np.linspace(0, 10, 1000))
