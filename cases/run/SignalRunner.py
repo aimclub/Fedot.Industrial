@@ -1,6 +1,7 @@
 import timeit
 
 from cases.run.ExperimentRunner import ExperimentRunner
+from cases.run.utils import read_tsv
 from core.models.signal.wavelet import WaveletExtractor
 from core.models.statistical.Stat_features import AggregationFeatures
 from core.operation.utils.utils import *
@@ -18,11 +19,10 @@ class SignalRunner(ExperimentRunner):
         super().__init__(feature_generator_dict, list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
-        self.wavelet_list = feature_generator_dict
+        self.wavelet_list = feature_generator_dict['wavelet_types']
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
-
         self.n_components = None
 
     def _ts_chunk_function(self, ts):
@@ -80,17 +80,20 @@ class SignalRunner(ExperimentRunner):
     def generate_features_from_ts(self, ts_frame, window_length=None):
         pass
 
-    def extract_features(self, ts_data):
+    def extract_features(self, ts_data, dataset_name):
+
+        (_, _), (y_train, _) = read_tsv(dataset_name)
 
         if self.train_feats is None:
-            self.train_feats = self._choose_best_wavelet(ts_data)
+            train_feats = self._choose_best_wavelet(ts_data, y_train)
+            self.train_feats = train_feats
+            return train_feats
         else:
             if self.test_feats is None:
-                self.test_feats = self.generate_vector_from_ts(ts_data)
-                self.test_feats = pd.concat(self.test_feats)
-                self.test_feats = delete_col_by_var(self.test_feats)
-
-        return
+                test_feats = self.generate_vector_from_ts(ts_data)
+                test_feats = pd.concat(test_feats)
+                self.test_feats = delete_col_by_var(test_feats)
+            return self.test_feats
 
     def _choose_best_wavelet(self, X_train, y_train):
 
@@ -98,7 +101,7 @@ class SignalRunner(ExperimentRunner):
         feature_list = []
 
         for wavelet in self.wavelet_list:
-            self.logger.info(f'Generate features for window length - {wavelet}')
+            self.logger.info(f'Generate features wavelet - {wavelet}')
             self.wavelet = wavelet
 
             train_feats = self.generate_vector_from_ts(X_train)
@@ -116,10 +119,12 @@ class SignalRunner(ExperimentRunner):
 
         max_score = [sum(x) for x in metric_list]
         index_of_window = int(max_score.index(max(max_score)))
+
         train_feats = feature_list[index_of_window]
+        train_feats.index = list(range(len(train_feats)))
 
         self.wavelet = self.wavelet_list[index_of_window]
-        self.logger.info(f'Was choosen wavelet -  {self.wavelet} ')
+        self.logger.info(f'<{self.wavelet}> wavelet was chosen')
 
         train_feats = delete_col_by_var(train_feats)
 

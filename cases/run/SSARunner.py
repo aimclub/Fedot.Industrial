@@ -11,7 +11,7 @@ from core.operation.utils.utils import *
 
 class SSARunner(ExperimentRunner):
     def __init__(self,
-                 feature_generanor_dict: dict = None,
+                 feature_generator_dict: dict = None,
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
@@ -19,11 +19,11 @@ class SSARunner(ExperimentRunner):
                  window_mode: bool = False
                  ):
 
-        super().__init__(feature_generanor_dict, list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(feature_generator_dict, list_of_dataset, launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
 
-        self.window_length_list = feature_generanor_dict
+        self.window_length_list = feature_generator_dict
 
         if isinstance(self.window_length_list, int):
             # if type(self.window_length_list) == int:

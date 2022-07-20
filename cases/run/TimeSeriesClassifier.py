@@ -32,9 +32,11 @@ class TimeSeriesClassifier:
         fedot_model.fit(feature, target)
         return fedot_model
 
-    def fit(self, train_tuple) -> dict:
-        feature_list = FeatureList(self.list_of_generators,
-                                   train_tuple[0]).create()
+    def fit(self, train_tuple, dataset_name) -> dict:
+
+        feature_list = FeatureList(list_of_generators=self.list_of_generators,
+                                   data=train_tuple[0],
+                                   dataset_name=dataset_name).create()
 
         predictor_list = PredictorList(train_tuple[1],
                                        feature_list,
@@ -42,9 +44,11 @@ class TimeSeriesClassifier:
 
         return dict(predictors=predictor_list, train_features=feature_list)
 
-    def predict(self, predictor_list, test_tuple) -> dict:
+    def predict(self, predictor_list, test_tuple, dataset_name) -> dict:
+
         feature_list = FeatureList(list_of_generators=self.list_of_generators,
-                                   dataset=test_tuple[0]).create()
+                                   data=test_tuple[0],
+                                   dataset_name=dataset_name).create()
 
         predictions_list = PredictionsList(predictor_list=predictor_list,
                                            feature_list=feature_list,

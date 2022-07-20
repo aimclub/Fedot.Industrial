@@ -23,13 +23,17 @@ class FeatureList(AbstractObject):
     Class responsible for creation of feature list
     """
 
-    def __init__(self, list_of_generators: list, dataset: pd.DataFrame) -> None:
+    def __init__(self,
+                 list_of_generators: list,
+                 data: pd.DataFrame,
+                 dataset_name: str) -> None:
         super().__init__()
         self.list_of_generators = list_of_generators
-        self.dataset = dataset
+        self.data = data
+        self.dataset_name = dataset_name
 
     def create(self) -> List[pd.DataFrame]:
-        return list(map(lambda x: x.extract_features(self.dataset), self.list_of_generators))
+        return list(map(lambda x: x.extract_features(self.data, self.dataset_name), self.list_of_generators))
 
 
 class PredictorList(AbstractObject):

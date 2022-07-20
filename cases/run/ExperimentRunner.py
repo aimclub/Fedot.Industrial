@@ -22,7 +22,7 @@ dict_of_win_list = dict
 
 class ExperimentRunner:
     def __init__(self,
-                 feature_generanor_dict: dict = None,
+                 feature_generator_dict: dict = None,
                  list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
@@ -36,7 +36,7 @@ class ExperimentRunner:
                  static_booster: bool = False):
         self.analyzer = PerformanceAnalyzer()
         self.list_of_dataset = list_of_dataset
-        self.feature_generanor_dict = feature_generanor_dict
+        self.feature_generator_dict = feature_generator_dict
         self.launches = launches
         self.metrics_name = metrics_name
         self.count = 0
@@ -83,7 +83,7 @@ class ExperimentRunner:
         """  Method responsible for  experiment pipeline """
         return
 
-    def extract_features(self,ts_data):
+    def extract_features(self, ts_data, dataset_name: str = None):
         return
 
     def predict(self, predictor, X_test: pd.DataFrame, window_length: int = None, y_test=None):
@@ -154,12 +154,17 @@ class ExperimentRunner:
         pipeline = Pipeline(node)
         n_samples = round(features.shape[0] * 0.7)
 
-        train_data = InputData(features=features.values[:n_samples, :], target=target[:n_samples],
+        train_data = InputData(features=features.values[:n_samples, :],
+                               target=target[:n_samples],
                                idx=np.arange(0, len(target[:n_samples])),
-                               task=Task(TaskTypesEnum('classification')), data_type=DataTypesEnum.table)
-        test_data = InputData(features=features.values[n_samples:, :], target=target[n_samples:],
+                               task=Task(TaskTypesEnum('classification')),
+                               data_type=DataTypesEnum.table)
+
+        test_data = InputData(features=features.values[n_samples:, :],
+                              target=target[n_samples:],
                               idx=np.arange(0, len(target[n_samples:])),
-                              task=Task(TaskTypesEnum('classification')), data_type=DataTypesEnum.table)
+                              task=Task(TaskTypesEnum('classification')),
+                              data_type=DataTypesEnum.table)
 
         fitted = pipeline.fit(input_data=train_data)
         prediction = pipeline.predict(input_data=test_data, output_mode='labels')
@@ -410,7 +415,7 @@ class ExperimentRunner:
                      dict_of_dataset,
                      save_features=False,
                      single_window_mode=False):
-        trajectory_windows_list = self.feature_generanor_dict[dataset]
+        trajectory_windows_list = self.feature_generator_dict[dataset]
         for launch in range(self.launches):
             self.path_to_save = self._create_path_to_save(method, dataset, launch)
             self.path_to_save_png = os.path.join(self.path_to_save, 'pictures')
