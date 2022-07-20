@@ -1,5 +1,5 @@
 import copy
-from typing import Dict, Union
+from typing import Union
 
 import numpy as np
 import yaml
@@ -15,7 +15,8 @@ from core.operation.utils.utils import path_to_save_results
 
 
 class Industrial:
-    """ Class-support for performing examples for tasks (read yaml configs, create data folders and log files)"""
+    """ Class-support for performing examples for tasks
+    (read yaml configs, create data folders and log files)"""
 
     def __init__(self):
         logger = logging.getLogger('Experiment logger')
@@ -58,10 +59,28 @@ class Industrial:
         experiment_dict['feature_generator'] = dict()
 
         for idx, feature_generator in enumerate(self.config_dict['feature_generator']):
-            feature_generator_class = {feature_generator: self.feature_generator_dict[feature_generator]
-            (fedot_params=experiment_dict['fedot_params'],
-             **experiment_dict['feature_generator_params'][feature_generator])}
-            experiment_dict['feature_generator'].update(feature_generator_class)
+            if feature_generator.startswith('ensemble'):
+                models = feature_generator.split(': ')[1].split(' ')
+                for model in models:
+                    feature_generator_class = {model: self.feature_generator_dict[model]
+                    (fedot_params=experiment_dict['fedot_params'],
+                     **experiment_dict['feature_generator_params'][model])}
+
+                    experiment_dict['feature_generator_params']['ensemble']['list_of_generators'].update(
+                        feature_generator_class)
+
+                ensemble_generator = {'ensemble': self.feature_generator_dict['ensemble']
+                (fedot_params=experiment_dict['fedot_params'],
+                 **experiment_dict['feature_generator_params']['ensemble'])}
+
+                experiment_dict['feature_generator'].update(ensemble_generator)
+
+            else:
+                feature_generator_class = {feature_generator: self.feature_generator_dict[feature_generator]
+                (fedot_params=experiment_dict['fedot_params'],
+                 **experiment_dict['feature_generator_params'][feature_generator])}
+
+                experiment_dict['feature_generator'].update(feature_generator_class)
 
         return experiment_dict
 
@@ -72,10 +91,9 @@ class Industrial:
             pd.concat(classificator.composer.dict[method].eigenvectors_list_test, axis=1).to_csv(
                 os.path.join(path, 'test_spectrum.csv'))
 
-    def read_yaml_config(self, config_name: str) -> Dict:
+    def read_yaml_config(self, config_name: str) -> None:
         """ Read yaml config from './experiments/configs/config_name' directory as dictionary file
             :param config_name: yaml-config name
-            :return: yaml config
         """
         path = os.path.join(project_path(), 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
@@ -139,13 +157,13 @@ class Industrial:
             paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
                                      list(experiment_dict['feature_generator'].keys())))
 
-            fitted_results = list(map(lambda x: classificator.fit(x), [train_data]))
+            fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
 
             fitted_predictor = fitted_results[0]['predictors']
             train_features = fitted_results[0]['train_features']
 
             predictions = list(
-                map(lambda x: classificator.predict(fitted_predictor, x), [test_data]))
+                map(lambda x: classificator.predict(fitted_predictor, x, dataset_name), [test_data]))
 
             metrics = predictions[0]['metrics']
             test_features = predictions[0]['test_features']
