@@ -1,10 +1,8 @@
-import pandas as pd
-from sklearn.metrics import f1_score
-from fedot.api.main import Fedot
-from core.models.statistical.Stat_features import AggregationFeatures
-from cases.run.ExperimentRunner import ExperimentRunner
-from core.operation.utils.utils import *
 import timeit
+
+from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.statistical.Stat_features import AggregationFeatures
+from core.operation.utils.utils import *
 
 
 class StatsRunner(ExperimentRunner):
@@ -17,7 +15,12 @@ class StatsRunner(ExperimentRunner):
                  window_mode: bool = False
                  ):
 
-        super().__init__(list_of_dataset, launches, metrics_name, fedot_params, static_booster=static_booster)
+        super().__init__(list_of_dataset=list_of_dataset,
+                         launches=launches,
+                         metrics_name=metrics_name,
+                         fedot_params=fedot_params,
+                         static_booster=static_booster)
+
         self.aggregator = AggregationFeatures()
         self.vis_flag = False
         self.train_feats = None
