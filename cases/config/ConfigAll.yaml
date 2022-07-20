@@ -1,18 +1,22 @@
 feature_generator: [
-  #        'window_quantile',
-  #         'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
-  'wavelet',
-  #        'spectral',
-  #          'spectral_window',
-  #          'quantile',
-  #          'ensemble: wavelet window_quantile spectral_window'
+  #    'window_quantile',
+  #    'quantile',
+  #    'spectral_window',
+  #    'spectral',
+  #    'wavelet',
+
+  #    ожидание:
+  #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
+
+  #    реальность:
+  'ensemble: wavelet window_quantile spectral_window'
 ]
 
 datasets_list: [
   'Lightning7',
-  #  'EthanolLevel',
-  #  'Beef',
-  #  'Wafer'
+  #    'EthanolLevel',
+  #    'Beef',
+  #    'Wafer'
 ]
 
 'launches': 1
