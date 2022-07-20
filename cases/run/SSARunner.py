@@ -26,7 +26,6 @@ class SSARunner(ExperimentRunner):
         self.window_length_list = feature_generator_dict
 
         if isinstance(self.window_length_list, int):
-            # if type(self.window_length_list) == int:
             self.window_length_list = [self.window_length_list]
 
         self.vis_flag = False
@@ -36,9 +35,9 @@ class SSARunner(ExperimentRunner):
         self.n_components = None
         self.window_mode = window_mode
 
-    def __vis_and_save_components(self, Components_df):
+    def __vis_and_save_components(self, components_df):
 
-        n_rows = round(Components_df[0].shape[1] / 5)
+        n_rows = round(components_df[0].shape[1] / 5)
 
         if n_rows < 4:
             plot_area = 'small'
@@ -54,7 +53,7 @@ class SSARunner(ExperimentRunner):
         figsize = plot_dict[plot_area]
         layout = (n_rows + 1, 5)
 
-        for idx, df in enumerate(Components_df):
+        for idx, df in enumerate(components_df):
             df.plot(subplots=True,
                     figsize=figsize,
                     legend=None,

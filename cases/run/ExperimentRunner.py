@@ -9,9 +9,9 @@ from fedot.core.repository.tasks import TaskTypesEnum, Task
 from sklearn.model_selection import train_test_split
 
 from cases.analyzer import PerformanceAnalyzer
-from cases.run.utils import *
 from core.metrics.metrics_implementation import *
 from core.operation.utils.Decorators import exception_decorator
+from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.booster import Booster
 from core.operation.utils.static_booster import StaticBooster
 from core.operation.utils.utils import *
@@ -41,7 +41,7 @@ class ExperimentRunner:
         self.metrics_name = metrics_name
         self.count = 0
         self.window_length = None
-        self.logger = get_logger()
+        self.logger = Logger().get_logger()
         self.fedot_params = fedot_params
         self.boost_mode = boost_mode
 
@@ -485,5 +485,4 @@ class ExperimentRunner:
                 ensemble_model.save(path=os.path.join(models_path, 'boost_ensemble'),
                                     datetime_in_path=False)
         else:
-            logger = get_logger()
-            logger.info('Ensemble model cannot be saved due to applied SUM method ')
+            self.logger.info('Ensemble model cannot be saved due to applied SUM method ')

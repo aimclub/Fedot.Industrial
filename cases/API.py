@@ -11,6 +11,7 @@ from cases.run.SignalRunner import SignalRunner
 from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
 from cases.run.TopologicalRunner import TopologicalRunner
 from cases.run.utils import *
+from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import path_to_save_results
 
 
@@ -19,23 +20,7 @@ class Industrial:
     (read yaml configs, create data folders and log files)"""
 
     def __init__(self):
-        logger = logging.getLogger('Experiment logger')
-        logger.setLevel(logging.INFO)
-
-        # create console handler and set level to debug
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-
-        # create formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-        # add formatter to ch
-        ch.setFormatter(formatter)
-
-        # add ch to logger
-        logger.addHandler(ch)
-
-        self.logger = logger
+        self.logger = Logger().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
@@ -101,8 +86,8 @@ class Industrial:
             self.config_dict['logger'] = self.logger
             self.logger.info(f"schema ready: {self.config_dict}")
 
-    def save_results(self,
-                     predictions: Union[np.ndarray, pd.DataFrame],
+    @staticmethod
+    def save_results(predictions: Union[np.ndarray, pd.DataFrame],
                      predictions_proba: Union[np.ndarray, pd.DataFrame],
                      train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
@@ -184,4 +169,3 @@ class Industrial:
             spectral_generators = [x for x in paths_to_save if 'spectral' in x]
             if len(spectral_generators) != 0:
                 self._save_spectrum(classificator, path_to_save=spectral_generators)
-
