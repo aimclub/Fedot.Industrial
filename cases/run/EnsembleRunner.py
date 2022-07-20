@@ -27,13 +27,13 @@ class EnsembleRunner(ExperimentRunner):
                                    topological=TopologicalRunner,
                                    ensemble=EnsembleRunner)
 
-    def extract_features(self, input_data):
-        return self.ensemble_features(input_data)
+    def extract_features(self, input_data, dataset_name: str = None):
+        return self.ensemble_features(input_data, dataset_name)
 
-    def ensemble_features(self, input_data):
+    def ensemble_features(self, input_data, dataset_name: str = None):
         features = list()
         for generator_name, generator in self.list_of_generators.items():
-            features_df = generator.extract_features(input_data)
+            features_df = generator.extract_features(input_data, dataset_name)
             features.append(features_df)
 
         return pd.concat(features, axis=1)

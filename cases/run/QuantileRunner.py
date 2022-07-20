@@ -46,6 +46,5 @@ class StatsRunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
         return aggregation_df
 
-    def extract_features(self, ts_data):
+    def extract_features(self, ts_data, dataset_name: str = None):
         return self.generate_features_from_ts(ts_data)
-

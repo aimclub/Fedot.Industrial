@@ -87,7 +87,7 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Time spent on eigenvectors extraction - {timeit.default_timer() - start}')
         return components_and_vectors
 
-    def extract_features(self, ts_data):
+    def extract_features(self, ts_data, dataset_name: str = None):
 
         if self.window_length is None:
             aggregation_df = self._choose_best_window_size(ts_data)

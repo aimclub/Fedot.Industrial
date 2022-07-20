@@ -92,6 +92,7 @@ class SignalRunner(ExperimentRunner):
             if self.test_feats is None:
                 test_feats = self.generate_vector_from_ts(ts_data)
                 test_feats = pd.concat(test_feats)
+                test_feats.index = list(range(len(test_feats)))
                 self.test_feats = delete_col_by_var(test_feats)
             return self.test_feats
 
