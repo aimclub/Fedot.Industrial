@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 
-from cases.run.utils import get_logger
+from core.operation.utils.LoggerSingleton import Logger
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -29,7 +29,7 @@ class Booster:
         :param threshold: parameter used as round boundary for custom_round() method
         :param reshape_flag:
         """
-
+        self.logger = Logger().get_logger()
         self.X_train = X_train
         self.y_train = y_train
         self.base_predict = base_predict
@@ -38,7 +38,6 @@ class Booster:
         self.booster_features = {}
         self.check_table = pd.DataFrame()
         self.reshape_flag = reshape_flag
-        self.logger = get_logger()
         if self.reshape_flag:
             self.y_train = self.y_train.reshape(-1)
 
