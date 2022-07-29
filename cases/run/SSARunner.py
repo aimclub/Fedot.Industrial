@@ -83,7 +83,7 @@ class SSARunner(ExperimentRunner):
         self.ts_samples_count = ts_frame.shape[0]
         components_and_vectors = threading_operation(ts_frame=ts_frame.values,
                                                      function_for_feature_exctraction=self._ts_chunk_function)
-        self.logger.info(f'Time spent on eigenvectors extraction - {timeit.default_timer() - start}')
+        self.logger.info(f'Time spent on eigenvectors extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors
 
     def extract_features(self, ts_data, dataset_name: str = None):
@@ -131,7 +131,7 @@ class SSARunner(ExperimentRunner):
 
         aggregation_df.columns = new_column_names
 
-        self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
+        self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
         return aggregation_df
 
     def _choose_best_window_size(self, X_train):

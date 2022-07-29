@@ -84,7 +84,8 @@ class Industrial:
         with open(path, "r") as input_stream:
             self.config_dict = yaml.safe_load(input_stream)
             self.config_dict['logger'] = self.logger
-            self.logger.info(f"schema ready: {self.config_dict}")
+            self.logger.info(
+                f"Schema ready:\ndatasets - {self.config_dict['datasets_list']},\nfeature generators - {self.config_dict['feature_generator']}")
 
     @staticmethod
     def save_results(predictions: Union[np.ndarray, pd.DataFrame],

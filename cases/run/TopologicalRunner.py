@@ -1,19 +1,20 @@
+import timeit
 from multiprocessing.dummy import Pool
+
 from fedot.api.main import Fedot
 from fedot.core.data.data import InputData
 from fedot.core.data.supplementary_data import SupplementaryData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 from sklearn.model_selection import train_test_split
-from core.models.topological.external import *
-from core.models.topological.TDA import Topological
+
 from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.topological.TDA import Topological
 from core.models.topological.external.TFE import TopologicalFeaturesExtractor, PersistenceDiagramsExtractor, \
     HolesNumberFeature, MaxHoleLifeTimeFeature, RelevantHolesNumber, AverageHoleLifetimeFeature, SumHoleLifetimeFeature, \
     PersistenceEntropyFeature, SimultaneousAliveHolesFeatue, AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, \
     RadiusAtMaxBNFeature
 from core.operation.utils.utils import *
-import timeit
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -55,7 +56,7 @@ class TopologicalRunner(ExperimentRunner):
         feats = pd.DataFrame(betti_sum)
         pool.close()
         pool.join()
-        self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
+        self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
         return feats, aggregation_df
 
     def generate_topological_features(self, X_train, X_test, tokens_embedding_delay):

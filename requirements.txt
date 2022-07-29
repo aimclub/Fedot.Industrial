@@ -13,3 +13,5 @@ scikit-learn==1.0.2
 networkx==2.7.1
 fedot==0.5.2
 PyYAML==6.0
+ripser==0.6.1
+PyWavelets==1.3.0

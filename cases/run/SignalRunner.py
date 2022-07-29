@@ -1,9 +1,12 @@
 import timeit
 
+from tqdm import tqdm
+
 from cases.run.ExperimentRunner import ExperimentRunner
 from cases.run.utils import read_tsv
 from core.models.signal.wavelet import WaveletExtractor
 from core.models.statistical.Stat_features import AggregationFeatures
+from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import *
 
 
@@ -24,13 +27,9 @@ class SignalRunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
+        self.logger = Logger().get_logger()
 
     def _ts_chunk_function(self, ts):
-
-        self.logger.info(f'8 CPU on working. '
-                         f'Total ts samples - {self.ts_samples_count}. '
-                         f'Current sample - {self.count}')
-
         ts = self.check_Nan(ts)
 
         threshold_range = [1, 3, 5, 7, 9]
@@ -73,8 +72,17 @@ class SignalRunner(ExperimentRunner):
     def generate_vector_from_ts(self, ts_frame):
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = list(map(self._ts_chunk_function, ts_frame.values))
-        self.logger.info(f'Time spent on wavelet extraction - {timeit.default_timer() - start}')
+
+        components_and_vectors = list()
+        s = 'Feature generation. Time series processed:'
+        with tqdm(total=ts_frame.shape[0],
+                  desc=self.logger.info(s),
+                  unit='ts', initial=0) as pbar:
+            for ts in ts_frame.values:
+                components_and_vectors.append(self._ts_chunk_function(ts))
+                pbar.update(1)
+
+        self.logger.info(f'Time spent on wavelet extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors
 
     def generate_features_from_ts(self, ts_frame, window_length=None):
