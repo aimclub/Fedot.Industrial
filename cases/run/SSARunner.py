@@ -12,14 +12,14 @@ from core.operation.utils.utils import *
 class SSARunner(ExperimentRunner):
     def __init__(self,
                  feature_generator_dict: dict = None,
-                 list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = None,
                  window_mode: bool = False
                  ):
 
-        super().__init__(feature_generator_dict, list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(feature_generator_dict,
+                         launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
 
@@ -82,14 +82,14 @@ class SSARunner(ExperimentRunner):
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
         components_and_vectors = threading_operation(ts_frame=ts_frame.values,
-                                                     function_for_feature_exctraction=self._ts_chunk_function)
+                                                     function_for_feature_extraction=self._ts_chunk_function)
         self.logger.info(f'Time spent on eigenvectors extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors
 
     def extract_features(self, ts_data, dataset_name: str = None):
 
         if self.window_length is None:
-            aggregation_df = self._choose_best_window_size(ts_data)
+            aggregation_df = self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = delete_col_by_var(self.train_feats)
         else:
             eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
@@ -134,14 +134,14 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
         return aggregation_df
 
-    def _choose_best_window_size(self, X_train):
+    def _choose_best_window_size(self, X_train, dataset_name):
 
         metric_list = []
         n_comp_list = []
         disp_list = []
         eigen_list = []
 
-        for window_length in self.window_length_list[self.list_of_dataset[0]]:
+        for window_length in self.window_length_list[dataset_name]:
             self.logger.info(f'Generate features for window length - {window_length}')
             self.window_length = window_length
 
@@ -168,7 +168,7 @@ class SSARunner(ExperimentRunner):
             self.count = 0
 
         index_of_window = int(metric_list.index(max(metric_list)))
-        self.window_length = self.window_length_list[self.list_of_dataset[0]][index_of_window]
+        self.window_length = self.window_length_list[dataset_name][index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
         self.min_rank = np.min([x.shape[1] for x in eigenvectors_list])
         self.eigenvectors_list_train = [x.iloc[:, :self.min_rank] for x in eigenvectors_list]
@@ -179,6 +179,5 @@ class SSARunner(ExperimentRunner):
 
         self.n_components = n_comp_list[index_of_window]
         self.logger.info(f'Was choosen window length -  {self.window_length}')
-        del self.list_of_dataset[0]
 
         return self.train_feats

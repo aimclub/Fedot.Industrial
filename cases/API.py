@@ -85,7 +85,7 @@ class Industrial:
             self.config_dict = yaml.safe_load(input_stream)
             self.config_dict['logger'] = self.logger
             self.logger.info(
-                f"Schema ready:\ndatasets - {self.config_dict['datasets_list']},\nfeature generators - {self.config_dict['feature_generator']}")
+                f"Experiment setup:\ndatasets - {self.config_dict['datasets_list']},\nfeature generators - {self.config_dict['feature_generator']}")
 
     @staticmethod
     def save_results(predictions: Union[np.ndarray, pd.DataFrame],
@@ -130,6 +130,7 @@ class Industrial:
             d.to_csv(full_path)
 
     def run_experiment(self, config_name):
+        self.logger.info(f'START EXPERIMENT')
 
         experiment_dict = self._init_experiment_setup(config_name)
 
@@ -140,14 +141,16 @@ class Industrial:
         launch = self.config_dict['launches']
 
         for train_data, test_data, dataset_name in zip(train_archive, test_archive, self.config_dict['datasets_list']):
+            self.logger.info(f'START WORKING on {dataset_name} dataset')
             paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
                                      list(experiment_dict['feature_generator'].keys())))
-
+            self.logger.info('START TRAINING')
             fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
 
             fitted_predictor = fitted_results[0]['predictors']
             train_features = fitted_results[0]['train_features']
 
+            self.logger.info('START PREDICTION')
             predictions = list(
                 map(lambda x: classificator.predict(fitted_predictor, x, dataset_name), [test_data]))
 
@@ -156,6 +159,7 @@ class Industrial:
             prediction = predictions[0]['prediction']
             prediction_proba = predictions[0]['prediction_proba']
 
+            self.logger.info('SAVING RESULTS')
             saved_result = list(map(lambda x, y, z, k, j, m: self.save_results(train_target=train_data[1],
                                                                                test_target=test_data[1],
                                                                                path_to_save=x,
@@ -170,3 +174,5 @@ class Industrial:
             spectral_generators = [x for x in paths_to_save if 'spectral' in x]
             if len(spectral_generators) != 0:
                 self._save_spectrum(classificator, path_to_save=spectral_generators)
+
+        self.logger.info('END EXPERIMENT')
