@@ -1,22 +1,22 @@
 feature_generator: [
-  #    'window_quantile',
+#      'window_quantile',
   #    'quantile',
-  #    'spectral_window',
+  #      'spectral_window',
   #    'spectral',
-  #    'wavelet',
+  #      'wavelet',
 
   #    ожидание:
   #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
 
   #    реальность:
-  'ensemble: wavelet window_quantile spectral_window'
+  'ensemble: quantile wavelet window_quantile spectral_window'
 ]
 
 datasets_list: [
   'Lightning7',
   #    'EthanolLevel',
-  #    'Beef',
-  #    'Wafer'
+  #      'Beef',
+  #      'Wafer'
 ]
 
 'launches': 1
@@ -36,20 +36,8 @@ feature_generator_params: {
     { 'feature_generator_dict':
         {
           'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
-            #          'ElectricDevices': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'EthanolLevel': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'Earthquakes': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'Lightning7': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'Beef': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'ItalyPowerDemand': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'Haptics': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'ShapesAll': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'FordA': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'FordB': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
-            #          'PowerCons': [ 'db5', 'sym5', 'coif5', 'bior2.4' ],
         },
       'launches': 1,
-      'list_of_dataset': ['ItalyPowerDemand']
     },
   'spectral_window':
     {
@@ -68,15 +56,12 @@ feature_generator_params: {
         'ElectricDevices': [ 10, 20, 30 ],
         'Beef': [ 100, 150, 200 ],
         'PowerCons': [ 30, 45, 60 ],
-        'ShapesAll': [ 100, 150, 200 ]
+        'ShapesAll': [ 100, 150, 200 ],
+        'Wafer': [ 100, 150, 200 ]
       },
       'launches': 1,
       'window_mode': True,
-      'list_of_dataset': [
-  'Lightning7',
-  'EthanolLevel',
-  'Beef'
-  ]
+
     },
   'spectral':
     {
@@ -95,14 +80,11 @@ feature_generator_params: {
         'ElectricDevices': [ 10, 20, 30 ],
         'Beef': [ 100, 150, 200 ],
         'PowerCons': [ 30, 45, 60 ],
-        'ShapesAll': [ 100, 150, 200 ]
+        'ShapesAll': [ 100, 150, 200 ],
+        'Wafer': [ 10, 30, 40 ]
       },
       'launches': 1,
-      'list_of_dataset': [
-  'Lightning7',
-  'EthanolLevel',
-  'Beef'
-  ]
+
     },
   'topological': {
     topological_params:
@@ -130,7 +112,7 @@ fedot_params:
       'stopping_after_n_generation': 20
     },
     'verbose_level': 3,
-    'n_jobs': 4
+    'n_jobs': 2
   }
 task: 'classification'
 logger: 'logger'

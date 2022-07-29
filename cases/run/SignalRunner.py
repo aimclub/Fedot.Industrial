@@ -13,13 +13,13 @@ from core.operation.utils.utils import *
 class SignalRunner(ExperimentRunner):
     def __init__(self,
                  feature_generator_dict: dict,
-                 list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = None
                  ):
 
-        super().__init__(feature_generator_dict, list_of_dataset, launches, metrics_name, fedot_params)
+        super().__init__(feature_generator_dict,
+                         launches, metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
         self.wavelet_list = feature_generator_dict['wavelet_types']
@@ -74,13 +74,13 @@ class SignalRunner(ExperimentRunner):
         self.ts_samples_count = ts_frame.shape[0]
 
         components_and_vectors = list()
-        s = 'Feature generation. Time series processed:'
         with tqdm(total=ts_frame.shape[0],
-                  desc=self.logger.info(s),
+                  desc='Feature generation. Time series processed:',
                   unit='ts', initial=0) as pbar:
             for ts in ts_frame.values:
                 components_and_vectors.append(self._ts_chunk_function(ts))
                 pbar.update(1)
+        self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
 
         self.logger.info(f'Time spent on wavelet extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors

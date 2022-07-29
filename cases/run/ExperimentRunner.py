@@ -23,7 +23,6 @@ dict_of_win_list = dict
 class ExperimentRunner:
     def __init__(self,
                  feature_generator_dict: dict = None,
-                 list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = {'problem': 'classification',
@@ -35,7 +34,6 @@ class ExperimentRunner:
                  boost_mode: bool = True,
                  static_booster: bool = False):
         self.analyzer = PerformanceAnalyzer()
-        self.list_of_dataset = list_of_dataset
         self.feature_generator_dict = feature_generator_dict
         self.launches = launches
         self.metrics_name = metrics_name

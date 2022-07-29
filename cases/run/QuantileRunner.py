@@ -7,7 +7,6 @@ from core.operation.utils.utils import *
 
 class StatsRunner(ExperimentRunner):
     def __init__(self,
-                 list_of_dataset: list = None,
                  launches: int = 3,
                  metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
                  fedot_params: dict = None,
@@ -15,8 +14,7 @@ class StatsRunner(ExperimentRunner):
                  window_mode: bool = False
                  ):
 
-        super().__init__(list_of_dataset=list_of_dataset,
-                         launches=launches,
+        super().__init__(launches=launches,
                          metrics_name=metrics_name,
                          fedot_params=fedot_params,
                          static_booster=static_booster)
@@ -30,9 +28,10 @@ class StatsRunner(ExperimentRunner):
 
     def generate_features_from_ts(self, ts):
         self.ts_samples_count = ts.shape[0]
-        self.logger.info(f'8 CPU on working. '
-                         f'Total ts samples - {self.ts_samples_count}. '
-                         f'Current sample - {self.count}')
+        # self.logger.info(f'8 CPU on working. '
+        #                  f'Total ts samples - {self.ts_samples_count}. '
+        #                  f'Current sample - {self.count}')
+        self.logger.info(f'Number of TS to be processed: {self.ts_samples_count}')
         start = timeit.default_timer()
         ts = self.check_Nan(ts)
         ts = pd.DataFrame(ts, dtype=float)
