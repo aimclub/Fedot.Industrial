@@ -43,7 +43,7 @@ class StatsRunner(ExperimentRunner):
             aggregation_df = pd.concat(list_with_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
-        self.logger.info(f'Time spent on feature generation - {timeit.default_timer() - start}')
+        self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
         return aggregation_df
 
     def extract_features(self, ts_data, dataset_name: str = None):

@@ -12,7 +12,7 @@ class EnsembleRunner(ExperimentRunner):
                  feature_generator_dict: dict = None,
                  list_of_dataset: list = None,
                  launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
+                 metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  fedot_params: dict = None,
                  list_of_generators=None
                  ):

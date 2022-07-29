@@ -1,10 +1,11 @@
+from multiprocessing import Pool
 import os
 from multiprocessing import Pool
 from typing import Union
+
 import numpy as np
 import pandas as pd
-import os
-from pathlib import Path
+
 
 def save_results(predictions: Union[np.ndarray, pd.DataFrame],
                  predictions_proba: Union[np.ndarray, pd.DataFrame],
@@ -62,7 +63,9 @@ def delete_col_by_var(dataframe: pd.DataFrame):
     return dataframe
 
 
-def apply_window_for_statistical_feature(ts_data: pd.DataFrame, feature_generator: object, window_size: int = None):
+def apply_window_for_statistical_feature(ts_data: pd.DataFrame,
+                                         feature_generator: callable,
+                                         window_size: int = None):
     if window_size is None:
         window_size = round(ts_data.shape[1] / 10)
     tmp_list = []
@@ -81,16 +84,14 @@ def fill_by_mean(column: str, feature_data: pd.DataFrame):
     feature_data.fillna(value=feature_data[column].mean(), inplace=True)
 
 
-def threading_operation(ts_frame: pd.DataFrame, function_for_feature_exctraction: object):
+def threading_operation(ts_frame: pd.DataFrame,
+                        function_for_feature_extraction: callable):
     pool = Pool(8)
-    features = pool.map(function_for_feature_exctraction, ts_frame)
+    features = pool.map(function_for_feature_extraction, ts_frame)
     pool.close()
     pool.join()
     return features
 
-
-from sklearn.decomposition import KernelPCA
-from sklearn.manifold import Isomap, MDS, LocallyLinearEmbedding, SpectralEmbedding, TSNE
 
 if __name__ == '__main__':
     # eigen_list = []
