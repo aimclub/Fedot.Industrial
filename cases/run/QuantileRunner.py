@@ -46,4 +46,5 @@ class StatsRunner(ExperimentRunner):
         return aggregation_df
 
     def extract_features(self, ts_data, dataset_name: str = None):
+        self.logger.info('Statistical features extraction started')
         return self.generate_features_from_ts(ts_data)

@@ -89,6 +89,7 @@ class SignalRunner(ExperimentRunner):
         pass
 
     def extract_features(self, ts_data, dataset_name):
+        self.logger.info('Wavelet feature extraction started')
 
         (_, _), (y_train, _) = read_tsv(dataset_name)
 
