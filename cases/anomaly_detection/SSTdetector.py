@@ -56,6 +56,16 @@ class SingularSpectrumTransformation:
 
         return score
 
+    def score_offline_2d_average(self, dynamic_mode: bool = True):
+        if not self.is_scaled:
+            x_scaled = MinMaxScaler(feature_range=(1, 2)) \
+                           .fit_transform(self.ts.reshape(-1, 1))[:, 0]
+        else:
+            x_scaled = self.ts
+        score = self._score_offline_2d_average(dynamic_mode=dynamic_mode)
+
+        return score
+
     def _get_window_from_ts_complex(self, ts_complex, start:int, end:int) -> list:
         window: list = []
         if start < 0 or start >= len(ts_complex[0]): raise ValueError("Start value is less than zero or more then lenght of time series!")
@@ -67,7 +77,134 @@ class SingularSpectrumTransformation:
             for j in range(len(ts_complex)):
                 window[j].append(ts_complex[j][i])
         return window
-        
+    
+    def _score_offline_2d_average(self, dynamic_mode: bool = True):
+        """Core implementation of offline score calculation. FOR 2D or more D"""
+        score = np.zeros_like(self.ts[0])
+        if not dynamic_mode:
+            step = 1 * self.ts_window_length
+            start_idx = step
+            step = self.lag
+            end_idx = len(self.ts[0]) - step
+            norm_list_real = []
+            horm_hist = None
+            current_index = 0
+            temp_average_features = [[]] * len(self.ts)
+            for current_index in range(start_idx, end_idx, step):
+                current_window = self._get_window_from_ts_complex(self.ts, current_index, current_index+step)
+                current_features = self._get_features_vector_from_window(current_window)
+                current_features = np.asarray(current_features)
+                for i in range(len(self.ts)):
+                    temp_average_features[i].append(current_features[i])
+            temp_average_features = np.array(temp_average_features)
+            average_features = []
+            for i in range(len(temp_average_features)):
+                average_features.append(np.average(temp_average_features[i], axis=0))
+            
+            average_features = np.array(average_features)
+            average_features = average_features.reshape( \
+                average_features.shape[0], 
+                (average_features.shape[1]*average_features.shape[2])
+            )
+            #first_window = self._get_window_from_ts_complex(self.ts, current_index, current_index+step)
+            #first_features = self._get_features_vector_from_window(first_window)
+            #first_features = np.asarray(first_features)
+            #first_features = np.reshape(first_features, (len(self.ts),7))
+            
+
+            from scipy.spatial import distance
+            for current_index in range(start_idx, end_idx, step):
+                # print('TEST_matrix_at_idx: {} - {}'.format(start_idx_test, end_idx_test))
+                current_window = self._get_window_from_ts_complex(self.ts, current_index, current_index+step)
+                current_features = self._get_features_vector_from_window(current_window)
+                current_features = np.asarray(current_features)
+                current_features = np.reshape(current_features, (len(self.ts),7))
+                if horm_hist is None:
+                    # horm_hist = np.linalg.norm(X_history, 'fro')
+                    horm_hist = np.linalg.norm(distance_matrix(average_features.T, current_features.T), 2)
+
+                # norm_list_real.append(np.linalg.norm(X_history-X_test, 'fro'))
+                norm_list_real.append(np.linalg.norm(distance_matrix(average_features.T, current_features.T), 2))
+                #norm_list_real.append(np.linalg.norm(abs(X_history-X_test), 1))
+                #score[t - 1] = self._sst_svd(X_test, X_history, self.n_components)
+            # score = [horm_hist - x for x in norm_list_real]
+            # score = norm_list_real
+        else:
+            score = []
+            start_idx = self.ts_window_length + self.lag
+            end_idx = len(self.ts[0]) - self.ts_window_length - 1
+            norm_list_real = []
+            horm_hist = None
+            x_history_arr = []
+            temp_average_features = [[]] * len(self.ts)
+            for current_index in range(start_idx, end_idx, self.lag):
+                current_window = self._get_window_from_ts_complex(self.ts, current_index, current_index+self.lag)
+                current_features = self._get_features_vector_from_window(current_window)
+                current_features = np.asarray(current_features)
+                for i in range(len(self.ts)):
+                    temp_average_features[i].append(current_features[i])
+            temp_average_features = np.array(temp_average_features)
+            average_features = []
+            for i in range(len(temp_average_features)):
+                average_features.append(np.average(temp_average_features[i], axis=0))
+            
+            average_features = np.array(average_features)
+            average_features = average_features.reshape( \
+                average_features.shape[0], 
+                (average_features.shape[1]*average_features.shape[2])
+            )
+            for ts_number in range(len(average_features)):
+                X_history = self.spectrum_extractor.ts_vector_to_trajectory_matrix(
+                    timeseries=average_features[ts_number],
+                    K=self.ts_window_length - self.trajectory_win_length + 1,
+                    L=len(average_features[ts_number]))
+                x_history_arr.extend(X_history)
+            for t in range(start_idx, end_idx, self.lag):
+                # get Hankel matrix
+                start_idx_hist = t - self.ts_window_length - self.lag
+                end_idx_hist = t - self.lag
+                # print('HISTORY_matrix_at_idx: {} - {}'.format(start_idx_hist, end_idx_hist))
+                
+                if horm_hist is None:
+                    horm_hist = np.linalg.norm(X_history, 1)
+
+                start_idx_test = t - self.ts_window_length
+                end_idx_test = t
+                # print('TEST_matrix_at_idx: {} - {}'.format(start_idx_test, end_idx_test))
+                current_window = self._get_window_from_ts_complex(self.ts, t, t+self.ts_window_length)
+                current_features = self._get_features_vector_from_window(current_window)
+                current_features = np.asarray(current_features)
+                current_features = current_features.reshape( \
+                    current_features.shape[0], 
+                    (current_features.shape[1]*current_features.shape[2])
+                )
+                x_test_arr = []
+                for ts_number in range(len(current_features)):
+                    X_test = self.spectrum_extractor.ts_vector_to_trajectory_matrix(
+                        timeseries=current_features[ts_number],
+                        K=self.ts_window_length - self.trajectory_win_length + 1,
+                        L=len(current_features[ts_number]))
+                    x_test_arr.extend(X_test)
+                
+                if self.n_components is None:
+                    U, s, V, rank = self.spectrum_extractor.decompose_trajectory_matrix(X_history)
+                    var, exp_var_by_component = self.spectrum_extractor.sv_to_explained_variance_ratio(s,
+                                                                                                       self.trajectory_win_length)
+                    exp_var_by_component = list(filter(lambda s: s > 0.05, exp_var_by_component))
+                    #self.n_components = len(exp_var_by_component)
+                    self.n_components = len(x_history_arr)
+                score.append(
+                    self._sst_svd(x_test_arr, x_history_arr, self.n_components)
+                )
+                #norm_list_real.append(horm_hist)
+        #score = [horm_hist] + norm_list_real
+        score_diff = np.diff(score)
+        q_95 = np.quantile(score_diff, 0.95)
+        filtred_score = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
+        #dst_mtr = distance_matrix(score, score)
+        self.n_components = None
+        return filtred_score
+
 
     def _score_offline_2d(self, dynamic_mode: bool = True):
         """Core implementation of offline score calculation. FOR 2D or more D"""
@@ -82,6 +219,7 @@ class SingularSpectrumTransformation:
         first_features = self._get_features_vector_from_window(first_window)
         first_features = np.asarray(first_features)
         first_features = np.reshape(first_features, (len(self.ts),7))
+        
         #q = np.quantile(first_features, 0.8)
         #m = np.median(first_features)
         #p = np.ptp(first_features)

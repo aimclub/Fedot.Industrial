@@ -1,5 +1,1 @@
 Lables;win_len;Step;metric;filtering window len;filtering threshold
-['Vd', 'Vu'];40;5;18.22;10;2
-['Vd', 'Vu'];40;5;13.84;10;3
-['Vd', 'Vu'];40;5;18.84;12;2
-['Vd', 'Vu'];40;5;14.48;12;3

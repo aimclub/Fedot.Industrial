@@ -1,13 +1,127 @@
-Lables;win_len;Step;metric;filtering window len;filtering threshold
-('Vd', 'Vu');40;5;17.57;10;2
-('Vd', 'Vu');40;5;13.22;10;3
-('Vd', 'Vu');40;5;17.57;12;2
-('Vd', 'Vu');40;5;13.07;12;3
-('Vd', 'Vu');40;5;20.22;14;2
-('Vd', 'Vu');40;5;13.07;14;3
-('Vd', 'Vu');40;5;20.22;16;2
-('Vd', 'Vu');40;5;13.07;16;3
-('Vd', 'Vu');40;5;20.22;18;2
-('Vd', 'Vu');40;5;13.07;18;3
-('Vd', 'Vu');40;5;20.22;20;2
-('Vd', 'Vu');40;5;14.3;20;3
+{"target": 0.7119221490513139, "params": {"dist": 18.048229042148773, "f_thresh": 3.7744919462065853, "f_window": 116.12451212208279, "step": 15.541595555705591, "window": 227.0472092977052}, "datetime": {"datetime": "2022-07-14 16:51:23", "elapsed": 657.597729, "delta": 14.394663}}
+{"target": 0.7096584373715644, "params": {"dist": 20.0, "f_thresh": 3.0, "f_window": 98.9455343253321, "step": 77.2466858527661, "window": 160.83956083738124}, "datetime": {"datetime": "2022-07-14 16:58:21", "elapsed": 1075.928019, "delta": 19.561689}}
+{"target": 0.7215986403967115, "params": {"dist": 20.0, "f_thresh": 3.0, "f_window": 95.88914834211312, "step": 65.42118720099741, "window": 145.31024788429366}, "datetime": {"datetime": "2022-07-14 17:10:18", "elapsed": 1792.794479, "delta": 21.561901}}
+{"target": 0.7325727194952412, "params": {"dist": 20.0, "f_thresh": 3.0, "f_window": 115.57068865248038, "step": 61.97442361263576, "window": 200.86554630982124}, "datetime": {"datetime": "2022-07-14 17:25:08", "elapsed": 2682.861762, "delta": 16.251463}}
+{"target": 0.7454303729100598, "params": {"dist": 20.0, "f_thresh": 3.0, "f_window": 120.0, "step": 53.71314408745365, "window": 198.20201267386784}, "datetime": {"datetime": "2022-07-14 17:26:21", "elapsed": 2755.209544, "delta": 16.301428}}
+{"target": 0.7472965153167015, "params": {"dist": 20.0, "f_thresh": 3.0, "f_window": 79.7249612573192, "step": 34.32407867007387, "window": 198.7679741407151}, "datetime": {"datetime": "2022-07-14 17:35:17", "elapsed": 3291.200805, "delta": 16.259193}}
+{"target": 0.7328976452544207, "params": {"dist": 17.960308978408893, "f_thresh": 3.4856306404366855, "f_window": 95.51703755633247, "step": 35.09920678344534, "window": 198.4591824195632}, "datetime": {"datetime": "2022-07-14 18:15:21", "elapsed": 5696.086491, "delta": 16.425018}}
+{"target": 0.7461299819139526, "params": {"dist": 19.830041255444325, "f_thresh": 3.3553088675572345, "f_window": 95.74929212896235, "step": 31.60038255821552, "window": 198.53470890673043}, "datetime": {"datetime": "2022-07-14 18:20:33", "elapsed": 6007.452967, "delta": 16.596925}}
+{"target": 0.7325727194952412, "params": {"dist": 20.0, "f_thresh": 3.0, "f_window": 96.47648919803255, "step": 33.03836995147588, "window": 200.37040708473987}, "datetime": {"datetime": "2022-07-14 18:30:05", "elapsed": 6579.699372, "delta": 16.341077}}
+{"target": 0.7489379857903427, "params": 
+{"dist": 20.0, "f_thresh": 4.694078968258459, "f_window": 120.0, 
+"step": 72.77705998787161, "window": 198.0521151570745}, "datetime": {"datetime": "2022-07-14 19:23:02", "elapsed": 9756.115831, "delta": 16.972862}}
+
+
+
+{"target": 0.7496424059761471, "params": 
+{"dist": 19.896733593767443, 
+"f_thresh": 4.578295869538403, 
+"f_window": 111.61000234874518, 
+"step": 28.71481971017853, 
+"window": 198.84359327300854}, 
+"datetime": {"datetime": "2022-07-14 19:38:30", "elapsed": 10684.27639, "delta": 17.122771}}
+
+{"target": 0.6139567323196953, "params": 
+{"combination_number": 35.16287419490062,
+ "dist": 18.67427924446538, 
+ "f_thresh": 5.217762049108253, 
+ "f_window": 90.67443125255271, "step": 63.77767415987305, "window": 55.71281336794115}, "datetime": {"datetime": "2022-07-21 20:12:54", "elapsed": 12398.701579, "delta": 54.796435}}
+
+{"target": 0.5866355929286323, "params": 
+{"combination_number": 16.93291551703258, 
+"dist": 7.615938855562402, "f_thresh": 5.948463569625975, 
+"f_window": 38.79694710543157, "step": 41.57101235903425, 
+"window": 207.83327424112795}, "datetime": 
+{"datetime": "2022-07-20 17:01:26", "elapsed": 11695.515082, "delta": 33.115103}}
+
+"""
+        print("++++++++++++++++++++++++++++++++++++")
+        print("Best score:")
+        print(f"Best time series: {self.best_lables}")
+        print(f"Best Window len : {self.best_window}")
+        print(f"Best Step : {self.best_step}")
+        print(f"Best F1 metric : {self.best_score}")
+        print(f"Best filtering window len : {self.best_filt_window}")
+        print(f"Best filtering threshold : {self.best_filt_thresh}")
+        print("++++++++++++++++++++++++++++++++++++")
+        with open('/home/nikita/IndustrialTS/cases/anomaly_detection/log.csv', 'w', encoding='UTF8', newline='') as f:
+            writer = csv.writer(f, delimiter=";")
+            writer.writerow(["Lables", "win_len", 
+            "Step","metric","filtering window len","filtering threshold"])
+            for window in range(40, 300, 10):
+                for step in range(5, 100, 2):
+                    for filter_window in range(10, 50, 2):
+                        for filter_thresh in range(2, 4, 1):
+                            #for i, x in enumerate(self.powerset(all_lables)):
+                            print(f"Attempt number {attempt}")
+                            print(f"Window len : {window}")
+                            print(f"Step : {step}")
+                            print(f"Filter Window len : {filter_window}")
+                            print(f"Filter thresh : {filter_thresh}")
+                            attempt += 1
+                            print(f"Current time series: {not_all_lables}")
+                            print("++++++++++++++++++++++++++++++++++++")
+                            print("Best score:")
+                            print(f"Best time series: {self.best_lables}")
+                            print(f"Best Window len : {self.best_window}")
+                            print(f"Best Step : {self.best_step}")
+                            print(f"Best metric : {self.best_score}")
+                            print(f"Best filtering window len : {self.best_filt_window}")
+                            print(f"Best filtering threshold : {self.best_filt_thresh}")
+                            print("++++++++++++++++++++++++++++++++++++")
+
+                            if len(not_all_lables) > 1:
+                                self.score = 0
+                                #for lables in not_all_lables:
+                                self.get_several_time_series(not_all_lables)
+                                #self.labeling()
+                                self.good_lbl = np.asarray(self.labeles)
+                                self.processing(False, window, step, filter_window, filter_thresh)
+                                print(f"F1 metric : {self.score}")
+                                writer.writerow([not_all_lables, window, step, self.score, filter_window, filter_thresh])
+                                if self.score > self.best_score: 
+                                    self.best_score = self.score
+                                    self.best_lables = not_all_lables
+                                    self.best_window = window
+                                    self.best_step = step
+                                    self.best_filt_window = filter_window
+                                    self.best_filt_thresh = filter_thresh
+                                    print("---------------------------------")
+                                    print("Best score found!")
+                                    print(f"Current time series: {not_all_lables}")
+                                    print(f"Window len : {window}")
+                                    print(f"Step : {step}")
+                                    print(f"F1 metric : {self.score}")
+                                    print("---------------------------------")
+        print("++++++++++++++++++++++++++++++++++++")
+        print("Best score:")
+        print(f"Best time series: {self.best_lables}")
+        print(f"Best Window len : {self.best_window}")
+        print(f"Best Step : {self.best_step}")
+        print(f"Best F1 metric : {self.best_score}")
+        print(f"Best filtering window len : {self.best_filt_window}")
+        print(f"Best filtering threshold : {self.best_filt_thresh}")
+        print("++++++++++++++++++++++++++++++++++++")
+        #plt.show()
+        #self.window_analisys(350, 30) # 350, 800
+        """
+
+
+
+{"target": 0.6347743846751467, "params": 
+{"combination_number": 0.0, "dist": 17.66594841323917, 
+
+"f_thresh": 3.8184181035549707, "f_window": 38.91858533049457, 
+"step": 53.90767004968369, "window": 74.33530447439244}, 
+"datetime": {"datetime": "2022-07-25 15:02:45", "elapsed": 11610.260122, 
+"delta": 84.179573}}
+
+
+
+{"target": 0.6293226668854901, "params": {"dist": 20.0, "f_thresh": 6.0, "f_window": 103.00599087318743, "step": 70.2967921393932, "window": 260.1223966584214}, "datetime": {"datetime": "2022-07-27 16:42:19", "elapsed": 5438.343436, "delta": 53.449639}}
+{"target": 0.6459020177541231, "params": 
+{"dist": 20.0, 
+"f_thresh": 6.0, 
+"f_window": 110.67408030273785, 
+"step": 43.17227241480647, 
+"window": 264.8164509779791}, "datetime": {"datetime": "2022-07-27 17:20:48", "elapsed": 7746.479481, "delta": 51.584474}}
