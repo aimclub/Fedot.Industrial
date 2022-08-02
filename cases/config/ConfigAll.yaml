@@ -4,12 +4,13 @@ feature_generator: [
   #      'spectral_window',
   #    'spectral',
   #      'wavelet',
+'topological'
 
   #    ожидание:
   #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
 
   #    реальность:
-  'ensemble: quantile wavelet window_quantile spectral_window'
+  #  'ensemble: quantile wavelet window_quantile spectral_window'
 ]
 
 datasets_list: [
@@ -94,7 +95,9 @@ feature_generator_params: {
         'persistance_params': None,
         'window_length': 6
       },
-    'launches': 1
+
+    'launches': 1,
+
   },
   'ensemble': {
     'list_of_generators': { }

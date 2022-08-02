@@ -28,6 +28,7 @@ class EnsembleRunner(ExperimentRunner):
                                    ensemble=EnsembleRunner)
 
     def extract_features(self, input_data, dataset_name: str = None):
+        self.logger.info('Ensemled features extraction started')
         return self.ensemble_features(input_data, dataset_name)
 
     def ensemble_features(self, input_data, dataset_name: str = None):

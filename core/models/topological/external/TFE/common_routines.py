@@ -2,7 +2,6 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
 import pandas as pd
-
 from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape, BettiCurve
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
@@ -11,25 +10,20 @@ from core.models.topological.external.TFE.base import PersistenceDiagramFeatureE
 
 
 class PersistenceDiagramsExtractor:
-    def __init__(self, tokens_embedding_dim, tokens_embedding_delay, homology_dimensions,
+    def __init__(self, takens_embedding_dim, takens_embedding_delay, homology_dimensions,
                  filtering=False, filtering_dimensions=(1, 2), parallel=False):
-        self.tokens_embedding_dim_ = tokens_embedding_dim
-        self.tokens_embedding_delay_ = tokens_embedding_delay
+        self.tokens_embedding_dim_ = takens_embedding_dim
+        self.tokens_embedding_delay_ = takens_embedding_delay
         self.homology_dimensions_ = homology_dimensions
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
         self.parallel_ = parallel
         self.n_job = -1 if self.parallel_ else None
 
-    def tokens_embeddings_(self, X):
-        X_transformed = list()
-        # for series in X:
-        #     te = TakensEmbedding(dimension=self.tokens_embedding_dim_,
-        #                          time_delay=self.tokens_embedding_delay_)
-        #     X_transformed.append(te.fit_transform(series))
+    def takens_embeddings_(self, data):
         te = TakensEmbedding(dimension=self.tokens_embedding_dim_,
                              time_delay=self.tokens_embedding_delay_)
-        return te.fit_transform(X)
+        return te.fit_transform(data)
 
     def persistence_diagrams_(self, X_embdeddings):
         if self.parallel_:
@@ -55,7 +49,7 @@ class PersistenceDiagramsExtractor:
         return persistence_diagrams[0]
 
     def fit_transform(self, X):
-        X_embeddings = self.tokens_embeddings_(X)
+        X_embeddings = self.takens_embeddings_(X)
         X_persistence_diagrams = self.persistence_diagrams_(X_embeddings)
         return X_persistence_diagrams
 
