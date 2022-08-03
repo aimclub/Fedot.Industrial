@@ -6,19 +6,17 @@ from core.operation.utils.utils import *
 
 
 class StatsRunner(ExperimentRunner):
-    def __init__(self,
-                 launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
+    def __init__(self, metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  fedot_params: dict = None,
                  static_booster: bool = False,
                  window_mode: bool = False
                  ):
 
-        super().__init__(launches=launches,
-                         metrics_name=metrics_name,
+        super().__init__(metrics_name=metrics_name,
                          fedot_params=fedot_params,
                          static_booster=static_booster)
 
+        self.ts_samples_count = None
         self.aggregator = AggregationFeatures()
         self.vis_flag = False
         self.train_feats = None
@@ -26,19 +24,18 @@ class StatsRunner(ExperimentRunner):
         self.n_components = None
         self.window_mode = window_mode
 
-    def generate_features_from_ts(self, ts):
-        self.ts_samples_count = ts.shape[0]
-        # self.logger.info(f'8 CPU on working. '
-        #                  f'Total ts samples - {self.ts_samples_count}. '
-        #                  f'Current sample - {self.count}')
-        self.logger.info(f'Number of TS to be processed: {self.ts_samples_count}')
+    def generate_features_from_ts(self, ts, window_length=None):
         start = timeit.default_timer()
+        self.ts_samples_count = ts.shape[0]
+        self.logger.info(f'Number of TS to be processed: {self.ts_samples_count}')
         ts = self.check_Nan(ts)
         ts = pd.DataFrame(ts, dtype=float)
 
         if self.window_mode:
+            aggregator = self.aggregator.create_baseline_features
+
             list_with_stat_features_on_interval = apply_window_for_statistical_feature(ts_data=ts,
-                                                                                       feature_generator=self.aggregator.create_baseline_features)
+                                                                                       feature_generator=aggregator)
             aggregation_df = pd.concat(list_with_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)

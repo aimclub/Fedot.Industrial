@@ -14,7 +14,7 @@ from cases.run.ExperimentRunner import ExperimentRunner
 from core.models.topological.TDA import Topological
 from core.models.topological.external.TFE import TopologicalFeaturesExtractor, PersistenceDiagramsExtractor, \
     HolesNumberFeature, MaxHoleLifeTimeFeature, RelevantHolesNumber, AverageHoleLifetimeFeature, \
-    SumHoleLifetimeFeature, PersistenceEntropyFeature, SimultaneousAliveHolesFeatue, \
+    SumHoleLifetimeFeature, PersistenceEntropyFeature, SimultaneousAliveHolesFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature
 from core.operation.utils.utils import *
 
@@ -27,22 +27,21 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                 'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
                                 'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
                                 'PersistenceEntropyFeature': PersistenceEntropyFeature(),
-                                'SimultaneousAliveHolesFeatue': SimultaneousAliveHolesFeatue(),
+                                'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
                                 'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
                                 'BettiNumbersSumFeature': BettiNumbersSumFeature(),
                                 'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
 
 
 class TopologicalRunner(ExperimentRunner):
-    def __init__(self,
-                 topological_params: dict,
+    def __init__(self, topological_params: dict,
                  list_of_dataset: list = None,
-                 launches: int = 3,
                  metrics_name: list = ('f1', 'roc_auc', 'accuracy',
                                        'logloss', 'precision'),
-                 fedot_params: dict = None,
-                 ):
-        super().__init__(list_of_dataset, launches, metrics_name, fedot_params)
+                 fedot_params: dict = None):
+        super().__init__(list_of_dataset,
+                         metrics_name,
+                         fedot_params)
         self.topological_extractor = Topological(**topological_params)
         self.TE_dimension = None
         self.TE_time_delay = None

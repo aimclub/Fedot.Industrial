@@ -11,15 +11,13 @@ from core.operation.utils.utils import *
 
 
 class SignalRunner(ExperimentRunner):
-    def __init__(self,
-                 feature_generator_dict: dict,
-                 launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
-                 fedot_params: dict = None
-                 ):
+    def __init__(self, feature_generator_dict: dict,
+                 metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                 fedot_params: dict = None):
 
         super().__init__(feature_generator_dict,
-                         launches, metrics_name, fedot_params)
+                         metrics_name,
+                         fedot_params)
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
         self.wavelet_list = feature_generator_dict['wavelet_types']
@@ -88,7 +86,7 @@ class SignalRunner(ExperimentRunner):
     def generate_features_from_ts(self, ts_frame, window_length=None):
         pass
 
-    def extract_features(self, ts_data, dataset_name):
+    def extract_features(self, ts_data, dataset_name: str = None):
         self.logger.info('Wavelet feature extraction started')
 
         (_, _), (y_train, _) = read_tsv(dataset_name)

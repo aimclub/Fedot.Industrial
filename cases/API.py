@@ -138,41 +138,44 @@ class Industrial:
                                              model_hyperparams=experiment_dict['fedot_params'])
 
         train_archive, test_archive = self._get_ts_data(self.config_dict['datasets_list'])
-        launch = self.config_dict['launches']
+        launches = self.config_dict['launches']
 
-        for train_data, test_data, dataset_name in zip(train_archive, test_archive, self.config_dict['datasets_list']):
-            self.logger.info(f'START WORKING on {dataset_name} dataset')
-            paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
-                                     list(experiment_dict['feature_generator'].keys())))
-            self.logger.info('START TRAINING')
-            fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
+        for launch in range(1, launches + 1):
+            self.logger.info(f'START LAUNCH {launch}')
+            for train_data, test_data, dataset_name in zip(train_archive, test_archive,
+                                                           self.config_dict['datasets_list']):
+                self.logger.info(f'START WORKING on {dataset_name} dataset')
+                paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
+                                         list(experiment_dict['feature_generator'].keys())))
+                self.logger.info('START TRAINING')
+                fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
 
-            fitted_predictor = fitted_results[0]['predictors']
-            train_features = fitted_results[0]['train_features']
+                fitted_predictor = fitted_results[0]['predictors']
+                train_features = fitted_results[0]['train_features']
 
-            self.logger.info('START PREDICTION')
-            predictions = list(
-                map(lambda x: classificator.predict(fitted_predictor, x, dataset_name), [test_data]))
+                self.logger.info('START PREDICTION')
+                predictions = list(
+                    map(lambda x: classificator.predict(fitted_predictor, x, dataset_name), [test_data]))
 
-            metrics = predictions[0]['metrics']
-            test_features = predictions[0]['test_features']
-            prediction = predictions[0]['prediction']
-            prediction_proba = predictions[0]['prediction_proba']
+                metrics = predictions[0]['metrics']
+                test_features = predictions[0]['test_features']
+                prediction = predictions[0]['prediction']
+                prediction_proba = predictions[0]['prediction_proba']
 
-            self.logger.info('SAVING RESULTS')
-            saved_result = list(map(lambda x, y, z, k, j, m: self.save_results(train_target=train_data[1],
-                                                                               test_target=test_data[1],
-                                                                               path_to_save=x,
-                                                                               train_features=y,
-                                                                               test_features=z,
-                                                                               metrics=k,
-                                                                               predictions=j,
-                                                                               predictions_proba=m),
-                                    paths_to_save, train_features, test_features, metrics, prediction,
-                                    prediction_proba))
+                self.logger.info('SAVING RESULTS')
+                saved_result = list(map(lambda x, y, z, k, j, m: self.save_results(train_target=train_data[1],
+                                                                                   test_target=test_data[1],
+                                                                                   path_to_save=x,
+                                                                                   train_features=y,
+                                                                                   test_features=z,
+                                                                                   metrics=k,
+                                                                                   predictions=j,
+                                                                                   predictions_proba=m),
+                                        paths_to_save, train_features, test_features, metrics, prediction,
+                                        prediction_proba))
 
-            spectral_generators = [x for x in paths_to_save if 'spectral' in x]
-            if len(spectral_generators) != 0:
-                self._save_spectrum(classificator, path_to_save=spectral_generators)
+                spectral_generators = [x for x in paths_to_save if 'spectral' in x]
+                if len(spectral_generators) != 0:
+                    self._save_spectrum(classificator, path_to_save=spectral_generators)
 
         self.logger.info('END EXPERIMENT')

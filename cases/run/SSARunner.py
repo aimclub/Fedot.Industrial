@@ -10,16 +10,13 @@ from core.operation.utils.utils import *
 
 
 class SSARunner(ExperimentRunner):
-    def __init__(self,
-                 feature_generator_dict: dict = None,
-                 launches: int = 3,
-                 metrics_name: list = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'],
+    def __init__(self, feature_generator_dict: dict = None,
+                 metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  fedot_params: dict = None,
-                 window_mode: bool = False
-                 ):
+                 window_mode: bool = False):
 
         super().__init__(feature_generator_dict,
-                         launches, metrics_name, fedot_params)
+                         metrics_name, fedot_params)
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
 
