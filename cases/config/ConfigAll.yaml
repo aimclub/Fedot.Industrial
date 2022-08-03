@@ -1,16 +1,16 @@
 feature_generator: [
-#      'window_quantile',
+  #      'window_quantile',
   #    'quantile',
-  #      'spectral_window',
+  #    'spectral_window',
   #    'spectral',
-  #      'wavelet',
-'topological'
+  #    'wavelet',
+  'topological'
 
   #    ожидание:
   #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
 
   #    реальность:
-  #  'ensemble: quantile wavelet window_quantile spectral_window'
+  #    'ensemble: quantile wavelet window_quantile spectral_window'
 ]
 
 datasets_list: [
@@ -20,26 +20,26 @@ datasets_list: [
   #      'Wafer'
 ]
 
-'launches': 1
+'launches': 2
 
 feature_generator_params: {
   'window_quantile':
     {
       'window_mode': True,
-      'launches': 1
     },
 
   'quantile':
-    { 'window_mode': False,
-      'launches': 1,
+    {
+      'window_mode': False,
     },
+
   'wavelet':
     { 'feature_generator_dict':
         {
           'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
         },
-      'launches': 1,
     },
+
   'spectral_window':
     {
       'feature_generator_dict': {
@@ -60,10 +60,10 @@ feature_generator_params: {
         'ShapesAll': [ 100, 150, 200 ],
         'Wafer': [ 100, 150, 200 ]
       },
-      'launches': 1,
       'window_mode': True,
 
     },
+
   'spectral':
     {
       'feature_generator_dict': {
@@ -84,9 +84,8 @@ feature_generator_params: {
         'ShapesAll': [ 100, 150, 200 ],
         'Wafer': [ 10, 30, 40 ]
       },
-      'launches': 1,
-
     },
+
   'topological': {
     topological_params:
       {
@@ -95,14 +94,12 @@ feature_generator_params: {
         'persistance_params': None,
         'window_length': 6
       },
-
-    'launches': 1,
-
   },
   'ensemble': {
     'list_of_generators': { }
   }
 }
+
 fedot_params:
   {
     'problem': 'classification',

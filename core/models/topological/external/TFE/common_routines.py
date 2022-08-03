@@ -172,9 +172,9 @@ class PersistenceEntropyFeature(PersistenceDiagramFeatureExtractor):
         return persistence_entropy.fit_transform([persistence_diagram])[0]
 
 
-class SimultaneousAliveHolesFeatue(PersistenceDiagramFeatureExtractor):
+class SimultaneousAliveHolesFeature(PersistenceDiagramFeatureExtractor):
     def __init__(self):
-        super(SimultaneousAliveHolesFeatue).__init__()
+        super(SimultaneousAliveHolesFeature).__init__()
 
     def get_average_intersection_number_(self, segments):
         intersections = list()
