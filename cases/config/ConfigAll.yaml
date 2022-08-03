@@ -3,14 +3,14 @@ feature_generator: [
   #    'quantile',
   #    'spectral_window',
   #    'spectral',
-  #    'wavelet',
-  'topological'
+  #      'wavelet',
+  #  'topological'
 
   #    ожидание:
   #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
 
   #    реальность:
-  #    'ensemble: quantile wavelet window_quantile spectral_window'
+  'ensemble: topological wavelet window_quantile'
 ]
 
 datasets_list: [
@@ -20,7 +20,7 @@ datasets_list: [
   #      'Wafer'
 ]
 
-'launches': 2
+'launches': 1
 
 feature_generator_params: {
   'window_quantile':
