@@ -35,8 +35,8 @@ class StatsRunner(ExperimentRunner):
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
 
-        time_spent = round((timeit.default_timer() - start), 2)
-        self.logger.info(f'Time spent on feature generation - {time_spent} sec')
+        time_elapsed = round((timeit.default_timer() - start), 2)
+        self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')
         return aggregation_df
 
     def extract_features(self, ts_data, dataset_name: str = None):

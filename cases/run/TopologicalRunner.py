@@ -41,14 +41,6 @@ class TopologicalRunner(ExperimentRunner):
         self.TE_dimension = None
         self.TE_time_delay = None
 
-    @staticmethod
-    def get_embedding_params(single_time_series):
-        embedder = SingleTakensEmbedding(parameters_type="search",
-                                         time_delay=10,
-                                         dimension=10)
-        embedder.fit_transform(single_time_series)
-        return embedder.dimension_, embedder.time_delay_
-
     def generate_topological_features(self, ts_data: pd.DataFrame):
         start = timeit.default_timer()
 
@@ -68,13 +60,21 @@ class TopologicalRunner(ExperimentRunner):
         ts_data_transformed = feature_extractor.fit_transform(ts_data.values)
         ts_data_transformed = delete_col_by_var(ts_data_transformed)
 
-        time_spent = round(timeit.default_timer() - start, 2)
-        self.logger.info(f'Time spent on feature generation - {time_spent} sec')
+        time_elapsed = round(timeit.default_timer() - start, 2)
+        self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')
         return ts_data_transformed
 
     def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
         self.logger.info('Topological features extraction started')
         return self.generate_topological_features(ts_data=ts_data)
+
+    @staticmethod
+    def get_embedding_params(single_time_series):
+        embedder = SingleTakensEmbedding(parameters_type="search",
+                                         time_delay=10,
+                                         dimension=10)
+        embedder.fit_transform(single_time_series)
+        return embedder.dimension_, embedder.time_delay_
 
     # def generate_features_from_ts(self, ts_frame, window_length=None):
     #     pool = Pool(8)
