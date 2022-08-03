@@ -11,14 +11,15 @@ from core.operation.utils.utils import *
 
 
 class SignalRunner(ExperimentRunner):
-    def __init__(self, feature_generator_dict: dict):
+    def __init__(self, wavelet_types):
 
-        super().__init__(feature_generator_dict)
+        super().__init__()
 
         self.ts_samples_count = None
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
-        self.wavelet_list = feature_generator_dict['wavelet_types']
+        self.wavelet_list = wavelet_types
+        # self.wavelet_list = feature_generator_dict['wavelet_types']
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
@@ -78,7 +79,8 @@ class SignalRunner(ExperimentRunner):
                 pbar.update(1)
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
 
-        self.logger.info(f'Time spent on wavelet extraction - {round((timeit.default_timer() - start), 2)} sec')
+        time_elapsed = round(timeit.default_timer() - start, 2)
+        self.logger.info(f'Time spent on wavelet extraction - {time_elapsed} sec')
         return components_and_vectors
 
     def generate_features_from_ts(self, ts_frame, window_length=None):

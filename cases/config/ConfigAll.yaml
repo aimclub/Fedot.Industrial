@@ -1,16 +1,16 @@
 feature_generator: [
   #      'window_quantile',
   #    'quantile',
-  #    'spectral_window',
+#      'spectral_window',
   #    'spectral',
-  #      'wavelet',
+  #        'wavelet',
   #  'topological'
 
   #    ожидание:
   #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
 
   #    реальность:
-  'ensemble: topological wavelet window_quantile'
+  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 
 datasets_list: [
@@ -34,15 +34,13 @@ feature_generator_params: {
     },
 
   'wavelet':
-    { 'feature_generator_dict':
-        {
-          'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
-        },
+    {
+      'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
     },
 
   'spectral_window':
     {
-      'feature_generator_dict': {
+      'window_sizes': {
         'ItalyPowerDemand': [ 3, 6, 9 ],
         'Herring': [ 48, 128, 170 ],
         'Haptics': [ 110, 220, 330 ],
@@ -66,7 +64,7 @@ feature_generator_params: {
 
   'spectral':
     {
-      'feature_generator_dict': {
+      'window_sizes': {
         'ItalyPowerDemand': [ 3, 6, 9 ],
         'Herring': [ 48, 128, 170 ],
         'Haptics': [ 110, 220, 330 ],
@@ -95,6 +93,7 @@ feature_generator_params: {
         'window_length': 6
       },
   },
+
   'ensemble': {
     'list_of_generators': { }
   }

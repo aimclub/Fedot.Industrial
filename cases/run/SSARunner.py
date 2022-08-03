@@ -10,15 +10,16 @@ from core.operation.utils.utils import *
 
 
 class SSARunner(ExperimentRunner):
-    def __init__(self, feature_generator_dict: dict = None,
+    def __init__(self, window_sizes: list,
                  window_mode: bool = False):
 
-        super().__init__(feature_generator_dict)
+        super().__init__()
 
+        self.ts_samples_count = None
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
 
-        self.window_length_list = feature_generator_dict
+        self.window_length_list = window_sizes
 
         if isinstance(self.window_length_list, int):
             self.window_length_list = [self.window_length_list]
@@ -82,6 +83,7 @@ class SSARunner(ExperimentRunner):
         return components_and_vectors
 
     def extract_features(self, ts_data, dataset_name: str = None):
+        self.logger.info('Spectra features extraction started')
 
         start = timeit.default_timer()
         if self.window_length is None:
@@ -89,8 +91,9 @@ class SSARunner(ExperimentRunner):
             aggregation_df = delete_col_by_var(self.train_feats)
         else:
             eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
-            self.eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
-            aggregation_df = self.generate_features_from_ts(self.eigenvectors_list_test, window_mode=self.window_mode)
+            eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
+
+            aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
             aggregation_df = aggregation_df[self.train_feats.columns]
 
             for col in aggregation_df.columns:
@@ -176,6 +179,6 @@ class SSARunner(ExperimentRunner):
             self.train_feats[col].fillna(value=self.train_feats[col].mean(), inplace=True)
 
         self.n_components = n_comp_list[index_of_window]
-        self.logger.info(f'Was choosen window length -  {self.window_length}')
+        self.logger.info(f'Window length = {self.window_length} was chosen')
 
         return self.train_feats
