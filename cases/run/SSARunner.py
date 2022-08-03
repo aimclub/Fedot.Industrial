@@ -11,12 +11,10 @@ from core.operation.utils.utils import *
 
 class SSARunner(ExperimentRunner):
     def __init__(self, feature_generator_dict: dict = None,
-                 metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
-                 fedot_params: dict = None,
                  window_mode: bool = False):
 
-        super().__init__(feature_generator_dict,
-                         metrics_name, fedot_params)
+        super().__init__(feature_generator_dict)
+
         self.aggregator = AggregationFeatures()
         self.spectrum_extractor = Spectrum
 
@@ -85,6 +83,7 @@ class SSARunner(ExperimentRunner):
 
     def extract_features(self, ts_data, dataset_name: str = None):
 
+        start = timeit.default_timer()
         if self.window_length is None:
             aggregation_df = self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = delete_col_by_var(self.train_feats)
@@ -100,6 +99,8 @@ class SSARunner(ExperimentRunner):
             self.window_length = None
             self.test_feats = None
 
+        time_spent = round((timeit.default_timer() - start), 2)
+        self.logger.info(f'Time spent on feature generation - {time_spent} sec')
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list, window_mode: bool = False):

@@ -1,12 +1,4 @@
-# import timeit
-# from multiprocessing.dummy import Pool
-
-# from fedot.api.main import Fedot
-# from fedot.core.data.data import InputData
-# from fedot.core.data.supplementary_data import SupplementaryData
-# from fedot.core.repository.dataset_types import DataTypesEnum
-# from fedot.core.repository.tasks import TaskTypesEnum, Task
-# from sklearn.model_selection import train_test_split
+import timeit
 
 from gtda.time_series import SingleTakensEmbedding
 
@@ -17,6 +9,14 @@ from core.models.topological.external.TFE import TopologicalFeaturesExtractor, P
     SumHoleLifetimeFeature, PersistenceEntropyFeature, SimultaneousAliveHolesFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature
 from core.operation.utils.utils import *
+
+# from multiprocessing.dummy import Pool
+# from fedot.api.main import Fedot
+# from fedot.core.data.data import InputData
+# from fedot.core.data.supplementary_data import SupplementaryData
+# from fedot.core.repository.dataset_types import DataTypesEnum
+# from fedot.core.repository.tasks import TaskTypesEnum, Task
+# from sklearn.model_selection import train_test_split
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -35,13 +35,8 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
 
 class TopologicalRunner(ExperimentRunner):
     def __init__(self, topological_params: dict,
-                 list_of_dataset: list = None,
-                 metrics_name: list = ('f1', 'roc_auc', 'accuracy',
-                                       'logloss', 'precision'),
-                 fedot_params: dict = None):
-        super().__init__(list_of_dataset,
-                         metrics_name,
-                         fedot_params)
+                 list_of_dataset: list = None):
+        super().__init__(list_of_dataset)
         self.topological_extractor = Topological(**topological_params)
         self.TE_dimension = None
         self.TE_time_delay = None
@@ -55,6 +50,8 @@ class TopologicalRunner(ExperimentRunner):
         return embedder.dimension_, embedder.time_delay_
 
     def generate_topological_features(self, ts_data: pd.DataFrame):
+        start = timeit.default_timer()
+
         if not self.TE_dimension and not self.TE_time_delay:
             single_ts = ts_data.loc[0]
             self.TE_dimension, self.TE_time_delay = self.get_embedding_params(single_time_series=single_ts)
@@ -70,6 +67,9 @@ class TopologicalRunner(ExperimentRunner):
 
         ts_data_transformed = feature_extractor.fit_transform(ts_data.values)
         ts_data_transformed = delete_col_by_var(ts_data_transformed)
+
+        time_spent = round(timeit.default_timer() - start, 2)
+        self.logger.info(f'Time spent on feature generation - {time_spent} sec')
         return ts_data_transformed
 
     def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None):

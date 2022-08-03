@@ -21,23 +21,17 @@ dict_of_win_list = dict
 
 
 class ExperimentRunner:
+    METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
+
     def __init__(self, feature_generator_dict: dict = None,
-                 metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
-                 fedot_params: dict = {'problem': 'classification',
-                                       'seed': 42,
-                                       'timeout': 1,
-                                       'composer_params': {'max_depth': 10,
-                                                           'max_arity': 4},
-                                       'verbose_level': 1},
                  boost_mode: bool = True,
                  static_booster: bool = False):
+
         self.analyzer = PerformanceAnalyzer()
         self.feature_generator_dict = feature_generator_dict
-        self.metrics_name = metrics_name
         self.count = 0
         self.window_length = None
         self.logger = Logger().get_logger()
-        self.fedot_params = fedot_params
         self.boost_mode = boost_mode
 
         self.static_booster = static_booster
@@ -184,7 +178,6 @@ class ExperimentRunner:
 
     def _predict_on_train(self, predictor):
 
-        self.count = 0
         self.test_feats = self.train_feats
 
         # Predict on whole TRAIN
@@ -197,7 +190,7 @@ class ExperimentRunner:
         #     predictions_proba = self.proba_to_vector(predictions_proba)
 
         # GEt metrics on TRAIN
-        metrics = self.analyzer.calculate_metrics(self.metrics_name,
+        metrics = self.analyzer.calculate_metrics(self.METRICS_NAME,
                                                   target=self.y_train,
                                                   predicted_labels=predictions,
                                                   predicted_probs=predictions_proba
@@ -221,7 +214,7 @@ class ExperimentRunner:
 
         # GEt metrics on whole TEST
 
-        metrics = self.analyzer.calculate_metrics(self.metrics_name,
+        metrics = self.analyzer.calculate_metrics(self.METRICS_NAME,
                                                   target=self.y_test,
                                                   predicted_labels=predictions,
                                                   predicted_probs=predictions_proba
@@ -342,7 +335,7 @@ class ExperimentRunner:
                                        'corrected_probs': self.proba_to_vector(results_on_test['corrected_probs']),
                                        'corrected_labels': self.proba_to_vector(results_on_test['corrected_labels'])})
 
-        metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
+        metrics_boosting = self.analyzer.calculate_metrics(self.METRICS_NAME,
                                                            target=self.y_test,
                                                            predicted_labels=results_on_test['corrected_labels'],
                                                            predicted_probs=results_on_test['corrected_probs']

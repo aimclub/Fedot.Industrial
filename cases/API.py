@@ -47,23 +47,20 @@ class Industrial:
             if feature_generator.startswith('ensemble'):
                 models = feature_generator.split(': ')[1].split(' ')
                 for model in models:
-                    feature_generator_class = {model: self.feature_generator_dict[model]
-                    (fedot_params=experiment_dict['fedot_params'],
-                     **experiment_dict['feature_generator_params'][model])}
+                    feature_generator_class = {
+                        model: self.feature_generator_dict[model](**experiment_dict['feature_generator_params'][model])}
 
                     experiment_dict['feature_generator_params']['ensemble']['list_of_generators'].update(
                         feature_generator_class)
 
                 ensemble_generator = {'ensemble': self.feature_generator_dict['ensemble']
-                (fedot_params=experiment_dict['fedot_params'],
-                 **experiment_dict['feature_generator_params']['ensemble'])}
+                (**experiment_dict['feature_generator_params']['ensemble'])}
 
                 experiment_dict['feature_generator'].update(ensemble_generator)
 
             else:
                 feature_generator_class = {feature_generator: self.feature_generator_dict[feature_generator]
-                (fedot_params=experiment_dict['fedot_params'],
-                 **experiment_dict['feature_generator_params'][feature_generator])}
+                (**experiment_dict['feature_generator_params'][feature_generator])}
 
                 experiment_dict['feature_generator'].update(feature_generator_class)
 

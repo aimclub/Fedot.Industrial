@@ -6,15 +6,10 @@ from core.operation.utils.utils import *
 
 
 class StatsRunner(ExperimentRunner):
-    def __init__(self, metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
-                 fedot_params: dict = None,
-                 static_booster: bool = False,
-                 window_mode: bool = False
-                 ):
+    def __init__(self, static_booster: bool = False,
+                 window_mode: bool = False):
 
-        super().__init__(metrics_name=metrics_name,
-                         fedot_params=fedot_params,
-                         static_booster=static_booster)
+        super().__init__(static_booster=static_booster)
 
         self.ts_samples_count = None
         self.aggregator = AggregationFeatures()
@@ -39,7 +34,9 @@ class StatsRunner(ExperimentRunner):
             aggregation_df = pd.concat(list_with_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
-        self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
+
+        time_spent = round((timeit.default_timer() - start), 2)
+        self.logger.info(f'Time spent on feature generation - {time_spent} sec')
         return aggregation_df
 
     def extract_features(self, ts_data, dataset_name: str = None):

@@ -11,13 +11,11 @@ from core.operation.utils.utils import *
 
 
 class SignalRunner(ExperimentRunner):
-    def __init__(self, feature_generator_dict: dict,
-                 metrics_name: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
-                 fedot_params: dict = None):
+    def __init__(self, feature_generator_dict: dict):
 
-        super().__init__(feature_generator_dict,
-                         metrics_name,
-                         fedot_params)
+        super().__init__(feature_generator_dict)
+
+        self.ts_samples_count = None
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
         self.wavelet_list = feature_generator_dict['wavelet_types']
@@ -32,17 +30,17 @@ class SignalRunner(ExperimentRunner):
 
         threshold_range = [1, 3, 5, 7, 9]
 
-        spectr = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
-        high_freq, low_freq = spectr.decompose_signal()
+        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
+        high_freq, low_freq = specter.decompose_signal()
 
-        hf_lambda_peaks = lambda x: len(spectr.detect_peaks(high_freq, mph=x + 1))
+        hf_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1))
         hf_lambda_names = lambda x: 'HF_peaks_higher_than_{}'.format(x + 1)
-        hf_lambda_KNN = lambda x: len(spectr.detect_peaks(high_freq, mpd=x))
+        hf_lambda_KNN = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
         hf_lambda_KNN_names = lambda x: 'HF_nearest_peaks_at_distance_{}'.format(x)
 
-        LF_lambda_peaks = lambda x: len(spectr.detect_peaks(high_freq, mph=x + 1, valley=True))
+        LF_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1, valley=True))
         LF_lambda_names = lambda x: 'LF_peaks_higher_than_{}'.format(x + 1)
-        LF_lambda_KNN = lambda x: len(spectr.detect_peaks(high_freq, mpd=x))
+        LF_lambda_KNN = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
         LF_lambda_KNN_names = lambda x: 'LF_nearest_peaks_at_distance_{}'.format(x)
 
         lambda_list = [
