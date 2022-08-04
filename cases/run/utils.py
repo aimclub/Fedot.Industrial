@@ -11,7 +11,7 @@ def read_tsv(file_name: str):
         sep='\t',
         header=None)
 
-    X_train = df_train.iloc[:, 1:]
+    x_train = df_train.iloc[:, 1:]
     y_train = df_train[0].values
 
     df_test = pd.read_csv(
@@ -19,7 +19,7 @@ def read_tsv(file_name: str):
         sep='\t',
         header=None)
 
-    X_test = df_test.iloc[:, 1:]
+    x_test = df_test.iloc[:, 1:]
     y_test = df_test[0].values
 
-    return (X_train, X_test), (y_train, y_test)
+    return (x_train, x_test), (y_train, y_test)
