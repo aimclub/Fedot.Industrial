@@ -1,9 +1,12 @@
 
+import numpy as np
 from tqdm import tqdm
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
+from sklearn import preprocessing
+from statistics import mean
 """
 
 
@@ -18,11 +21,10 @@ Output
 """
 class DataTransform:
     args: SettingsArgs
-    raw_data: list
-    transformed_data: list = []
 
     def set_settings(self, args: SettingsArgs):
         self.args = args
+        self.transformed_data = []
         self._print_logs(f"{get_current_time()} Data transformator: settings was set.")
         self._print_logs(f"{get_current_time()} Data transformator: Visualisate = {self.args.visualisate}")
         self._print_logs(f"{get_current_time()} Data transformator: Print logs = {self.args.print_logs}")
@@ -54,7 +56,33 @@ class DataTransform:
         for i, line in enumerate(data):
             for j, element in enumerate(line):
                 self.temp_transformed_data[j].append(element)
-        return self.temp_transformed_data
+        new_trans_data = []
+        average_values_list = []
+        for i, data in enumerate(self.temp_transformed_data):
+            if 2 <= i <= 9:
+                try:
+                    reshaped_data = preprocessing.normalize([np.array(data)]).flatten()
+                    new_trans_data.append(reshaped_data.tolist())
+                    average_values_list.append(mean(reshaped_data.tolist()))
+                except:
+                    print("Datetime meet!")
+            else:
+                new_trans_data.append(data)
+        average_mean = 0 #mean(average_values_list)
+        for i, data in enumerate(new_trans_data):
+            if 2 <= i <= 9:
+                try:
+                    if mean(new_trans_data[i]) < average_mean:
+                        mean_distance = average_mean - mean(new_trans_data[i])
+                        for j in range(len(new_trans_data[i])):
+                            new_trans_data[i][j] = new_trans_data[i][j] + abs(mean_distance)
+                    else:
+                        mean_distance = average_mean - mean(new_trans_data[i])
+                        for j in range(len(new_trans_data[i])):
+                            new_trans_data[i][j] = new_trans_data[i][j] - abs(mean_distance)
+                except:
+                    print("Datetime meet!")
+        return new_trans_data #self.temp_transformed_data
 
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:

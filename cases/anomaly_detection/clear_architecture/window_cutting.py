@@ -17,14 +17,11 @@ Output
 """
 class WindowCut:
     args: SettingsArgs
-    window_len: int
-    window_step: int
-    input_dict: dict
-    output_window_list: list = []
 
     def __init__(self, window_len, window_step):
         self.window_len = window_len
         self.window_step = window_step
+        self.output_window_list = []
 
     def set_settings(self, args: SettingsArgs):
         self.args = args
@@ -51,7 +48,8 @@ class WindowCut:
 
     def _cut_data_to_windows(self) -> None:
         for data in self.data:
-            self.output_window_list.append(self._cut_ts_to_windows(data))
+            windows = self._cut_ts_to_windows(data)
+            self.output_window_list.append(windows)
 
     def _cut_ts_to_windows(self, ts: list) -> list:
         start_idx = 0
@@ -65,6 +63,7 @@ class WindowCut:
                 for t in range(len(temp_window)):
                     temp_window[t].append(ts[t][j])
             temp_windows_list.append(temp_window)
+
         return temp_windows_list
 
 

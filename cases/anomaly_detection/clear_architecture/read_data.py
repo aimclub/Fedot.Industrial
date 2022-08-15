@@ -52,7 +52,7 @@ class DataReader:
         self.lables = self._read_lables_csv_from_file(self.lables_path)
         self._print_logs(f"{get_current_time()} Data loader: Lables read successful!")
         self._print_logs(f"{get_current_time()} Data loader: Try to read data...")
-        self.refied_data, self.refined_lables = self._read_data_csv_in_folder(self.data_path)
+        self.refied_data, self.lables_for_show, self.refined_lables = self._read_data_csv_in_folder(self.data_path)
         self._print_logs(f"{get_current_time()} Data loader: Data is ready!")
 
     def output_data(self) -> dict:
@@ -61,13 +61,17 @@ class DataReader:
             "data_body": {
                 "raw_lables": self.refined_lables,
                 "raw_data": self.refied_data, 
-                "raw_columns": self.all_lables
+                "raw_columns": self.all_lables,
+                "lables_for_show": self.lables_for_show
                 },
             "data_flags": {}
         }
 
     def _read_lables_csv_from_file(self, filename: str) -> list:
+        temp_list = []
+        # in lables 5 columns
         temp_list = [[], [], [], [], []]
+
         with open(filename, 'r') as file:
             lines = file.readlines()
         
@@ -106,6 +110,7 @@ class DataReader:
         self._print_logs(f"{get_current_time()} Data loader: File list created! {len(files)} files found!")
         formatted_data = []
         fromatted_lables = []
+        lables_for_show = []
         for file in files:
             data = self._read_data_csv_from_file(file)
             #get file's lables
@@ -114,15 +119,19 @@ class DataReader:
             for i in range(len(self.lables)):
                 if self.lables[i][0] == filename: 
                     lable = self.lables[i][1]
-            temp_lable_arr = [0] * len(data)
+            temp_lable_arr_for_work = [0] * len(data)
+            temp_lable_arr_fow_show = [0] * len(data)
             approx_count = 30
             for i, line in enumerate(data):
                 for lable_line in lable:
                     if int(lable_line[0]) - approx_count <= line[0]<= int(lable_line[1])+approx_count:
-                        temp_lable_arr[i] = 1
+                        temp_lable_arr_fow_show[i] = 0.0025
+                        temp_lable_arr_for_work[i] = 1
             formatted_data.append(data)
-            fromatted_lables.append(temp_lable_arr)
-        return formatted_data, fromatted_lables
+            lables_for_show.append(temp_lable_arr_fow_show)
+            fromatted_lables.append(temp_lable_arr_for_work)
+
+        return formatted_data, lables_for_show, fromatted_lables
 
     def _read_data_csv_from_file(self, filename: str) -> list:
         with open(filename, 'r', encoding="iso-8859-1") as file:

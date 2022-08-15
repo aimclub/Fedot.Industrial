@@ -3,7 +3,7 @@ from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-
+from statsmodels.nonparametric.smoothers_lowess import lowess
 """
 
 
@@ -18,9 +18,6 @@ Output
 """
 class TsElector:
     args: SettingsArgs
-    ts_lables: list
-    transformed_data: list
-    new_data: list = []
 
     def __init__(self, ts_lables):
         self.ts_lables = ts_lables
@@ -49,6 +46,7 @@ class TsElector:
 
     def _elect_data(self) -> list:
         # File level
+        self.new_data = []
         for dataset in self.transformed_data:
             self.new_data.append(self._elect_ts_from_data(dataset))
 
@@ -56,7 +54,10 @@ class TsElector:
     def _elect_ts_from_data(self, ts: list) -> list:
         temp_data_set = []
         for column in self.ts_lables:
-            temp_data_set.append(ts[self.columns_lables.index(column)])
+
+            data = ts[self.columns_lables.index(column)]
+            #filtered = lowess(data, is_sorted=True, frac=0.025, it=0)
+            temp_data_set.append(data)
         return temp_data_set
 
         

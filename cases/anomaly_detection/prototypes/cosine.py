@@ -31,13 +31,23 @@ def _get_vector_len(vector):
     return math.sqrt(sum_of_coordinates)
 
 
-a = 0, 0
+a = 0, 6
 b = 0, 10
 c = 5, 5
-ab = _make_vector(a, b)
-ac = _make_vector(a, c)
+#ab = _make_vector(a)
+#ac = _make_vector(a)
 bc = _make_vector(b, c)
-print('vectors', ab, ac, bc)
+#print('vectors', ab, ac, bc)
  
-angle_a = _get_angle_between_vectors(ab, ac)
+angle_a = _get_angle_between_vectors(a, b)
 print(angle_a)
+
+
+
+
+def _check_intersection(segment_one: list, segment_two: list) -> bool:
+    if segment_two[0] <= segment_one[0] <= segment_two[1] or segment_two[0] <= segment_one[1] <= segment_two[1]:
+        start = max(segment_two[0], segment_one[0])
+        end = max(segment_two[1], segment_one[1])
+        return [start, end]
+    return False
