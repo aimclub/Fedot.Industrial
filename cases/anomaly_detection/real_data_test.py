@@ -51,6 +51,7 @@ class DataContainer:
         
         # Vd Vu
         not_all_lables = ["Vd", "Vu"]
+        not_all_lables = ["N"]
         self.best_score = 0
         self.best_lables = []
         self.best_window = 0
