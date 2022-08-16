@@ -10,6 +10,7 @@ from scipy import spatial
 import math
 import numpy as np
 from tqdm import tqdm
+from sklearn import preprocessing
 
 """
 
@@ -105,7 +106,6 @@ class AreasDetector:
             odd_new_predicts = []
             state = 0
             counter_for_areas = 0
-            state_line = 0
             for i in range(len(data[0])):
                 if state == 0:
                     counter_for_areas = 1
@@ -138,7 +138,14 @@ class AreasDetector:
             q_95 = np.quantile(odd_new_predicts, self.quantile)
             max_val = max(odd_new_predicts) + max(odd_new_predicts)/10
             #odd_new_predicts = list(map(lambda x: max_val if x > q_95 else 0, score_diff))
-            self.output_list.append(odd_new_predicts)
+            reshaped_data = preprocessing.normalize([np.array(odd_new_predicts)]).flatten()
+            reshaped_data = self.NormalizeData(np.array(odd_new_predicts))
+            self.output_list.append(reshaped_data.tolist())
+            #self.output_list.append(odd_new_predicts)
+
+
+    def NormalizeData(self, data):
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
 
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:

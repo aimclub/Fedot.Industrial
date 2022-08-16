@@ -125,7 +125,7 @@ class DataReader:
             for i, line in enumerate(data):
                 for lable_line in lable:
                     if int(lable_line[0]) - approx_count <= line[0]<= int(lable_line[1])+approx_count:
-                        temp_lable_arr_fow_show[i] = 0.0025
+                        temp_lable_arr_fow_show[i] = 0.5
                         temp_lable_arr_for_work[i] = 1
             formatted_data.append(data)
             lables_for_show.append(temp_lable_arr_fow_show)

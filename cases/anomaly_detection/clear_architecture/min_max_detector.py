@@ -24,7 +24,7 @@ Output
     the same dict but with additional list of window
     
 """
-class VectorDetector:
+class MinMaxsDetector:
     args: SettingsArgs
 
     def __init__(self, quantile: float, step: int = 2, filtering: bool = True):
@@ -95,29 +95,25 @@ class VectorDetector:
                     for j in range(len(window)):
                         point.append(window[j][i])
                     point_array.append(point)
-                cosinus_array = []
-                last_point = point_array[-1]
-                first_point = point_array[0]
-                for i in range(0, len(point_array) - 1, self.inner_step):
-                    vector_1 = self._make_vector(last_point, last_point)
-                    vector_2 = self._make_vector(point_array[i], last_point)
-                    cosinus = self._get_angle_between_vectors(
-                        last_point, 
-                        point_array[i]
-                    )
-                    # bad, without 1 - is better
-                    cosinus = 1 -spatial.distance.cosine(last_point, point_array[i])
-                    cosinus_array.append(cosinus ** 2)
-                avg = sum(cosinus_array) / len(cosinus_array)
-                var = sum((x-avg) ** 2 for x in cosinus_array) / len(cosinus_array)
-                var = np.mean(cosinus_array)
-                temp_output.append(var)
+
+                maximum = max(point_array[0])
+                minimum = min(point_array[0])
+                for i in range(1, len(point_array), self.inner_step):
+                    temp_maximum = max(point_array[i])
+                    temp_minimum = min(point_array[i])
+                    maximum = max(maximum, temp_maximum)
+                    minimum = min(minimum, temp_minimum)
+            
+                temp_output.append(abs(maximum - minimum))
             if False:
+                print(temp_output)
                 score_diff = np.diff(temp_output)
                 q_95 = np.quantile(temp_output, self.quantile)
                 temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
-            #reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
-            #reshaped_data = self.NormalizeData(np.array(temp_output)).tolist()
+                print(temp_output)
+            else:
+                reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
+                temp_output = self.NormalizeData(np.array(temp_output)).tolist()
             self.output_list.append(temp_output)
         new_output_data = []
         for _ in range(len(self.output_list)):
