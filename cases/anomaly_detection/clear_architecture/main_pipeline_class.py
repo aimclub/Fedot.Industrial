@@ -81,6 +81,8 @@ from anomaly_detection.clear_architecture.areas_detector \
     import AreasDetector 
 from anomaly_detection.clear_architecture.areas_detector_by_zero \
     import AreasDetectorByZero 
+from anomaly_detection.clear_architecture.min_max_detector \
+    import MinMaxsDetector 
 
 class MainPipeline:
     elements_of_pipeline: list = None
@@ -120,7 +122,7 @@ if __name__ == '__main__':
     lables_2 = ["Vd", "Vu"]
     lables_3 = ["Zd", "Zu"]
     lables_4 = ["Xu", "Xd"]
-    lables_5 = ["Vd", "Vu"]
+    lables_5 = ["Zd", "Vu"]
     #lables_5 = ["Vd", "Zu"] # 1500, 100, 0.98, 50
     #lables_5 = ["Xu", "Yd"]
     #lables_3 = ["N"]
@@ -130,15 +132,17 @@ if __name__ == '__main__':
     elector_2 = TsElector(lables_5)
     elector_3 = TsElector(lables_2)
     elector_4 = TsElector(lables_2)
-    cutter_1 = WindowCut(1500, 100)
+    cutter_1 = WindowCut(100, 10)
     cutter_2 = WindowCut(3000, 50)
     cutter_3 = WindowCut(1200, 100)
     cutter_4 = WindowCut(900, 40)
 
-    area_detector = AreasDetector(0.95, 2, False)
-    area_detector_1 = AreasDetectorByZero(0.95, 2, False)
+    area_detector = AreasDetector(0.95, 3, False)
+    area_detector_1 = AreasDetectorByZero(0.92, 2, False)
 
-    vector_detector_1 = VectorDetector(0.93, 50, False)
+    min_max_detector = MinMaxsDetector(0.90, 2, False)
+
+    vector_detector_1 = VectorDetector(0.95, 50, False)
     vector_detector_2 = VectorDetector(0.98, 500, False)
     vector_detector_3 = VectorDetector(0.98, 3, False)
     vector_detector_4 = VectorDetector(0.98, 4, False)
@@ -150,10 +154,10 @@ if __name__ == '__main__':
         transformer,
         elector_1,
         cutter_1,
-        area_detector_1,
+        min_max_detector,
         #elector_2,
         #cutter_2,
-        #vector_detector_2,
+        #area_detector,
         #elector_3,
         #cutter_3,
         #vector_detector_3,

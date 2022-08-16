@@ -90,10 +90,14 @@ class DataVisualisator:
             #ax[counter].set_title(f"raw data {self.new_lables }")
             counter += 1
             #ax[counter].plot(self.lables[i], "r")
-            #for predict in self.predicts[i]:
-                #ax[counter].plot(predict)
+            for predict in self.predicts[i]:
+                ax[counter].plot(predict)
+                score_diff = np.diff(predict)
+                q_95 = np.quantile(predict, 0.98)
+                predict_1 = list(map(lambda x: 1 if x > q_95 else 0, predict))
+                ax[counter].plot(predict_1, "r")
             ax[counter].plot(self.predicts[i][0], "b")
-            ax[counter].plot(odd_new_predicts_1, "r")
+            #ax[counter].plot(odd_new_predicts_1, "r")
             #ax[counter].set_title("lables")
             counter += 1
         plt.show()

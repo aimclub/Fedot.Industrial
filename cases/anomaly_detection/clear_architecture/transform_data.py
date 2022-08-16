@@ -7,6 +7,7 @@ from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
 from sklearn import preprocessing
 from statistics import mean
+from scipy.signal import savgol_filter
 """
 
 
@@ -60,12 +61,12 @@ class DataTransform:
         average_values_list = []
         for i, data in enumerate(self.temp_transformed_data):
             if 2 <= i <= 9:
-                try:
-                    reshaped_data = preprocessing.normalize([np.array(data)]).flatten()
-                    new_trans_data.append(reshaped_data.tolist())
-                    average_values_list.append(mean(reshaped_data.tolist()))
-                except:
-                    print("Datetime meet!")
+                #reshaped_data = preprocessing.normalize([np.array(data_1)]).flatten()
+                reshaped_data = self.NormalizeData(np.array(data))
+                reshaped_data = savgol_filter(reshaped_data.tolist(), 87, 1) 
+                reshaped_data = savgol_filter(reshaped_data, 31, 1) 
+                new_trans_data.append(reshaped_data)
+                average_values_list.append(mean(reshaped_data.tolist()))
             else:
                 new_trans_data.append(data)
         average_mean = 0 #mean(average_values_list)
@@ -83,6 +84,9 @@ class DataTransform:
                 except:
                     print("Datetime meet!")
         return new_trans_data #self.temp_transformed_data
+
+    def NormalizeData(self, data):
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
 
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:
