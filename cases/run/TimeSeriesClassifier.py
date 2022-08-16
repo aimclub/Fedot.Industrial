@@ -11,6 +11,7 @@ class TimeSeriesClassifier:
                  model_hyperparams: dict):
         self.feature_generator_dict = feature_generator_dict
         self.model_hyperparams = model_hyperparams
+        self.error_correction = False
         self._init_composer()
         self._init_builder()
 

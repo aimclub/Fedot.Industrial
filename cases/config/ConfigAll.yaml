@@ -1,16 +1,16 @@
 feature_generator: [
   #      'window_quantile',
   #    'quantile',
-#      'spectral_window',
+  #      'spectral_window',
   #    'spectral',
-  #        'wavelet',
+  'wavelet',
   #  'topological'
 
   #    ожидание:
   #    'quantile_window_50_no_means'+'spectral_window50_no_periodic'+'wavelet_biortogonal',
 
   #    реальность:
-  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
+  #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 
 datasets_list: [

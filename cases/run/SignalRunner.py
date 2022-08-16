@@ -19,7 +19,6 @@ class SignalRunner(ExperimentRunner):
         self.aggregator = AggregationFeatures()
         self.wavelet_extractor = WaveletExtractor
         self.wavelet_list = wavelet_types
-        # self.wavelet_list = feature_generator_dict['wavelet_types']
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None

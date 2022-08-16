@@ -20,6 +20,7 @@ class Industrial:
     (read yaml configs, create data folders and log files)"""
 
     def __init__(self):
+        self.config_dict = None
         self.logger = Logger().get_logger()
 
         self.feature_generator_dict = {
@@ -31,7 +32,8 @@ class Industrial:
             'topological': TopologicalRunner,
             'ensemble': EnsembleRunner}
 
-    def _get_ts_data(self, name_of_datasets):
+    @staticmethod
+    def _get_ts_data(name_of_datasets):
         all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
         train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
         return train_data, test_data
@@ -66,7 +68,8 @@ class Industrial:
 
         return experiment_dict
 
-    def _save_spectrum(self, classificator, path_to_save):
+    @staticmethod
+    def _save_spectrum(classificator, path_to_save):
         for method, path in zip(list(classificator.composer.dict.keys()), path_to_save):
             pd.concat(classificator.composer.dict[method].eigenvectors_list_train, axis=1).to_csv(
                 os.path.join(path, 'train_spectrum.csv'))
@@ -82,7 +85,9 @@ class Industrial:
             self.config_dict = yaml.safe_load(input_stream)
             self.config_dict['logger'] = self.logger
             self.logger.info(
-                f"Experiment setup:\ndatasets - {self.config_dict['datasets_list']},\nfeature generators - {self.config_dict['feature_generator']}")
+                f"Experiment setup:"
+                f"\ndatasets - {self.config_dict['datasets_list']},"
+                f"\nfeature generators - {self.config_dict['feature_generator']}")
 
     @staticmethod
     def save_results(predictions: Union[np.ndarray, pd.DataFrame],
@@ -132,7 +137,8 @@ class Industrial:
         experiment_dict = self._init_experiment_setup(config_name)
 
         classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
-                                             model_hyperparams=experiment_dict['fedot_params'])
+                                             model_hyperparams=experiment_dict['fedot_params'],
+                                             error_correction=experiment_dict['error_correction'])
 
         train_archive, test_archive = self._get_ts_data(self.config_dict['datasets_list'])
         launches = self.config_dict['launches']
