@@ -1,21 +1,21 @@
-
-from matplotlib import pyplot as plt
-from tqdm import tqdm
+# from tqdm import tqdm
+# import pandas as pd
+# import plotly.express as px
+# from dash import Dash, dcc, html, Input, Output
+# import plotly.graph_objs as go
+# from plotly.subplots import make_subplots
+import numpy as np
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-import pandas as pd
-import plotly.express as px
-from dash import Dash, dcc, html, Input, Output
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
-import numpy as np
+from matplotlib import pyplot as plt
+
+"""
+some description
 """
 
 
-    
-"""
 class DataVisualisator:
     args: SettingsArgs
     raw_data: list
@@ -23,32 +23,31 @@ class DataVisualisator:
 
     def set_settings(self, args: SettingsArgs):
         self.args = args
-        self._print_logs(f"{get_current_time()} Visualisator: settings was set.")
-        self._print_logs(f"{get_current_time()} Visualisator: Visualisate = {self.args.visualisate}")
-        self._print_logs(f"{get_current_time()} Visualisator: Print logs = {self.args.print_logs}")
+        self._print_logs(f"{get_current_time()} Visualizer: settings was set.")
+        self._print_logs(f"{get_current_time()} Visualizer: Visualize = {self.args.visualize}")
+        self._print_logs(f"{get_current_time()} Visualizer: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Visualisator: Data read!")
+        self._print_logs(f"{get_current_time()} Visualizer: Data read!")
         self.input_dict = dictionary
         self.data = self.input_dict["data_body"]["elected_data"]
-        self.lables = self.input_dict["data_body"]["lables_for_show"]
+        self.labels = self.input_dict["data_body"]["labels_for_show"]
         self.predicts = self.input_dict["data_body"]["detection"]
         self.window = self.input_dict["data_body"]["window_len"]
 
     def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Visualisator: Loading visualisation...")
-        self._visualisator()
-        self._print_logs(f"{get_current_time()} Visualisator: Ready!")
+        self._print_logs(f"{get_current_time()} Visualizer: Loading visualization...")
+        self._visualizer()
+        self._print_logs(f"{get_current_time()} Visualizer: Ready!")
 
     def output_data(self) -> dict:
         self.input_dict["data_body"]["transformed_data"] = self.transformed_data
         return self.input_dict
 
-    def _visualisator(self) -> None:
+    def _visualizer(self) -> None:
         x_lables = []
         y_data = []
-        
-        
+
         f, ax = plt.subplots(len(self.data) * 2, 1, figsize=(20, 10))
         counter = 0
         for i in range(0, len(self.data)):
@@ -58,7 +57,7 @@ class DataVisualisator:
                 for t in range(len(self.data[i])):
                     temp_list.append(self.data[i][t][j])
                 y_data.append(temp_list)
-            true_lables = []
+            true_labels = []
             index = []
             """
             for j in range(0, len(self.predicts[i])):
@@ -86,7 +85,7 @@ class DataVisualisator:
             max_val = max(self.predicts[i][0]) + max(self.predicts[i][0])/10
             odd_new_predicts_1 = list(map(lambda x: max_val if x > q_95 else 0, score_diff))
             ax[counter].plot(y_data)
-            ax[counter].plot(self.lables[i], "g")
+            ax[counter].plot(self.labels[i], "g")
             #ax[counter].set_title(f"raw data {self.new_lables }")
             counter += 1
             #ax[counter].plot(self.lables[i], "r")
@@ -114,6 +113,7 @@ class DataVisualisator:
             for i in range(segment[0], segment[1]):
                 predict[i] = 0.7
             return predict
+
         def _check_intersection(segment_one: list, segment_two: list) -> bool:
             if segment_two[0] <= segment_one[0] <= segment_two[1] or \
                 segment_two[0] <= segment_one[1] <= segment_two[1] or \

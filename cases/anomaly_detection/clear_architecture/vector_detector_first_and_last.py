@@ -1,27 +1,24 @@
-from pandas import array
-from sklearn.metrics import f1_score
+# from pandas import array
+import math
+
+import numpy as np
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-
 from scipy import spatial
-import math
-import numpy as np
+from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 """
-
-
-
 input format:
-
-    dict with "data" and "lables" fields
+    dict with "data" and "labels" fields
 
 Output 
     the same dict but with additional list of window
-    
 """
+
+
 class VectorDetectorFaL:
     args: SettingsArgs
 
@@ -33,7 +30,7 @@ class VectorDetectorFaL:
         self.windowed_data: list = []
         self.output_list: list = []
         self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualisate}")
+        self._print_logs(f"{get_current_time()} Vector detector: Visualize = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
@@ -43,8 +40,7 @@ class VectorDetectorFaL:
         self.step = self.input_dict["data_body"]["window_step"]
         self.len = self.input_dict["data_body"]["window_len"]
         self.data = self.input_dict["data_body"]["elected_data"]
-        self.lables = self.input_dict["data_body"]["raw_lables"]
-
+        self.labels = self.input_dict["data_body"]["raw_labels"]
 
     def run(self) -> None:
         self._print_logs(f"{get_current_time()} Vector detector: Start transforming...")
@@ -61,7 +57,7 @@ class VectorDetectorFaL:
         self.input_dict["data_body"]["detection"] = self.output_list
         score = []
         for i in range(len(self.output_list)):
-            score.append(f1_score(self.lables[i], self.output_list[i], average='macro'))
+            score.append(f1_score(self.labels[i], self.output_list[i], average='macro'))
         print("-------------------------------------")
         main_score = sum(score) / len(score)
         print("Average predict:")
@@ -79,21 +75,21 @@ class VectorDetectorFaL:
                     for j in range(len(window)):
                         point.append(window[j][i])
                     point_array.append(point)
-                cosinus_array = []
+                cosine_array = []
                 last_point = point_array[-1]
                 first_point = point_array[0]
                 inner_step = 1
-                for i in range(0, len(point_array)//2):
+                for i in range(0, len(point_array) // 2):
                     first_point = point_array[i]
                     last_point = point_array[len(point_array) - 1 - i]
                     res = spatial.distance.cosine(last_point, first_point)
-                    cosinus_array.append(res)
-                avg = sum(cosinus_array) / len(cosinus_array)
-                var = sum((x-avg) ** 2 for x in cosinus_array) / len(cosinus_array)
-                cosinus = self._get_angle_between_vectors(
-                        last_point, 
-                        first_point
-                    )
+                    cosine_array.append(res)
+                avg = sum(cosine_array) / len(cosine_array)
+                var = sum((x - avg) ** 2 for x in cosine_array) / len(cosine_array)
+                cosine = self._get_angle_between_vectors(
+                    last_point,
+                    first_point
+                )
                 result = spatial.distance.cosine(last_point, first_point)
 
                 temp_output.append(var ** 2)
@@ -115,10 +111,9 @@ class VectorDetectorFaL:
             new_output_data[i] = temp_predict
         self.output_list = new_output_data
 
-
-
     def _make_vector(self, point_1: list, point_2: list):
-        if len(point_1) != len(point_2): raise ValueError("Vectors has to be the same len!")
+        if len(point_1) != len(point_2):
+            raise ValueError("Vectors has to be the same len!")
         vector = []
         for i in range(len(point_1)):
             vector.append(point_2[i] - point_1[i])
@@ -139,7 +134,6 @@ class VectorDetectorFaL:
         for coordinate in vector:
             sum_of_coordinates += coordinate ** 2
         return math.sqrt(sum_of_coordinates)
-
 
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:

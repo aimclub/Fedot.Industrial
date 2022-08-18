@@ -1,29 +1,26 @@
-from pickle import TRUE
-from pandas import array
-from sklearn.metrics import f1_score
+# from pickle import TRUE
+# from pandas import array
+# from sklearn import preprocessing
+import math
+
+import numpy as np
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-
 from scipy import spatial
-import math
-import numpy as np
+from sklearn.metrics import f1_score
 from tqdm import tqdm
-from sklearn import preprocessing
 
 """
-
-
-
 input format:
-
     dict with "data" and "lables" fields
 
 Output 
-    the same dict but with additional list of window
-    
+    the same dict but with additional list of window 
 """
+
+
 class VectorDetector:
     args: SettingsArgs
 
@@ -37,7 +34,7 @@ class VectorDetector:
         self.windowed_data: list = []
         self.output_list: list = []
         self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualisate}")
+        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
@@ -102,22 +99,22 @@ class VectorDetector:
                     vector_1 = self._make_vector(last_point, last_point)
                     vector_2 = self._make_vector(point_array[i], last_point)
                     cosinus = self._get_angle_between_vectors(
-                        last_point, 
+                        last_point,
                         point_array[i]
                     )
                     # bad, without 1 - is better
-                    cosinus = 1 -spatial.distance.cosine(last_point, point_array[i])
+                    cosinus = 1 - spatial.distance.cosine(last_point, point_array[i])
                     cosinus_array.append(cosinus ** 2)
                 avg = sum(cosinus_array) / len(cosinus_array)
-                var = sum((x-avg) ** 2 for x in cosinus_array) / len(cosinus_array)
+                var = sum((x - avg) ** 2 for x in cosinus_array) / len(cosinus_array)
                 var = np.mean(cosinus_array)
                 temp_output.append(var)
             if False:
                 score_diff = np.diff(temp_output)
                 q_95 = np.quantile(temp_output, self.quantile)
                 temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
-            #reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
-            #reshaped_data = self.NormalizeData(np.array(temp_output)).tolist()
+            # reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
+            # reshaped_data = self.NormalizeData(np.array(temp_output)).tolist()
             self.output_list.append(temp_output)
         new_output_data = []
         for _ in range(len(self.output_list)):
@@ -138,12 +135,11 @@ class VectorDetector:
                 for j in myiter:
                     if self.output_list[i][j] == 1:
                         for k in range(self.win_len):
-                            self.output_list[i][j+k] = 1
+                            self.output_list[i][j + k] = 1
                             next(myiter, None)
 
-    def NormalizeData(self, data):
+    def normalize_data(self, data):
         return (data - np.min(data)) / (np.max(data) - np.min(data))
-
 
     def _make_vector(self, point_1: list, point_2: list):
         if len(point_1) != len(point_2): raise ValueError("Vectors has to be the same len!")
@@ -167,7 +163,6 @@ class VectorDetector:
         for coordinate in vector:
             sum_of_coordinates += coordinate ** 2
         return math.sqrt(sum_of_coordinates)
-
 
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:

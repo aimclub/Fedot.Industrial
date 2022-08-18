@@ -8,10 +8,11 @@ from core.operation.utils.TSDatatypes import FeatureList, PredictorList, Predict
 class TimeSeriesClassifier:
     def __init__(self,
                  feature_generator_dict: dict,
-                 model_hyperparams: dict):
+                 model_hyperparams: dict,
+                 error_correction: False):
         self.feature_generator_dict = feature_generator_dict
         self.model_hyperparams = model_hyperparams
-        self.error_correction = False
+        self.error_correction = error_correction
         self._init_composer()
         self._init_builder()
 

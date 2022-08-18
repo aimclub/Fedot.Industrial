@@ -1,33 +1,32 @@
-from pickle import TRUE
-from pandas import array
 from sklearn.metrics import f1_score
+import math
+
+import numpy as np
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-
-from scipy import spatial
-import math
-import numpy as np
-from tqdm import tqdm
 from sklearn import preprocessing
+from sklearn.metrics import f1_score
+from tqdm import tqdm
 
 """
-
-
-
 input format:
 
-    dict with "data" and "lables" fields
+    dict with "data" and "labels" fields
 
 Output 
-    the same dict but with additional list of window
-    
+    the same dict but with additional list of window 
 """
+
+
 class MinMaxsDetector:
     args: SettingsArgs
 
-    def __init__(self, quantile: float, step: int = 2, filtering: bool = True):
+    def __init__(self,
+                 quantile: float,
+                 step: int = 2,
+                 filtering: bool = True):
         self.quantile = quantile
         self.filtering = filtering
         self.inner_step = step
@@ -37,7 +36,7 @@ class MinMaxsDetector:
         self.windowed_data: list = []
         self.output_list: list = []
         self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualisate}")
+        self._print_logs(f"{get_current_time()} Vector detector: Visualize = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
@@ -47,7 +46,7 @@ class MinMaxsDetector:
         self.step = self.input_dict["data_body"]["window_step"]
         self.len = self.input_dict["data_body"]["window_len"]
         self.data = self.input_dict["data_body"]["elected_data"]
-        self.lables = self.input_dict["data_body"]["raw_lables"]
+        self.labels = self.input_dict["data_body"]["raw_labels"]
         self.win_len = self.input_dict["data_body"]["window_len"]
 
     def run(self) -> None:
@@ -77,7 +76,7 @@ class MinMaxsDetector:
         if self.filtering:
             score = []
             for i in range(len(self.output_list)):
-                score.append(f1_score(self.lables[i], self.output_list[i], average='macro'))
+                score.append(f1_score(self.labels[i], self.output_list[i], average='macro'))
             print("-------------------------------------")
             main_score = sum(score) / len(score)
             print("Average predict:")
@@ -130,16 +129,15 @@ class MinMaxsDetector:
         self.output_list = new_output_data
         if False:
             for i in range(len(self.output_list)):
-                myiter = iter(range(0, len(self.output_list[i])))
-                for j in myiter:
+                my_iterator = iter(range(0, len(self.output_list[i])))
+                for j in my_iterator:
                     if self.output_list[i][j] == 1:
                         for k in range(self.win_len):
-                            self.output_list[i][j+k] = 1
-                            next(myiter, None)
+                            self.output_list[i][j + k] = 1
+                            next(my_iterator, None)
 
     def NormalizeData(self, data):
         return (data - np.min(data)) / (np.max(data) - np.min(data))
-
 
     def _make_vector(self, point_1: list, point_2: list):
         if len(point_1) != len(point_2): raise ValueError("Vectors has to be the same len!")
@@ -163,7 +161,6 @@ class MinMaxsDetector:
         for coordinate in vector:
             sum_of_coordinates += coordinate ** 2
         return math.sqrt(sum_of_coordinates)
-
 
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:

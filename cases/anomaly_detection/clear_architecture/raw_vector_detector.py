@@ -1,12 +1,12 @@
-from pandas import array
+from anomaly_detection.clear_architecture.settings_args \
+    import SettingsArgs
+import math
+
+import numpy as np
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-
-from scipy import spatial
-import math
-import numpy as np
 from tqdm import tqdm
 
 """
@@ -29,7 +29,7 @@ class VectorDetector:
     def set_settings(self, args: SettingsArgs):
         self.args = args
         self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualisate}")
+        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
