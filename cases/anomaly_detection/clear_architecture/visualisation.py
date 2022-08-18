@@ -1,19 +1,20 @@
-
-from tqdm import tqdm
+from anomaly_detection.clear_architecture.settings_args \
+    import SettingsArgs
+import pandas as pd
+import plotly.graph_objs as go
 from anomaly_detection.clear_architecture.settings_args \
     import SettingsArgs
 from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-import pandas as pd
-import plotly.express as px
-from dash import Dash, dcc, html, Input, Output
-import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+
 """
 
 
     
 """
+
+
 class DataVisualisator:
     args: SettingsArgs
     raw_data: list
@@ -22,7 +23,7 @@ class DataVisualisator:
     def set_settings(self, args: SettingsArgs):
         self.args = args
         self._print_logs(f"{get_current_time()} Visualisator: settings was set.")
-        self._print_logs(f"{get_current_time()} Visualisator: Visualisate = {self.args.visualisate}")
+        self._print_logs(f"{get_current_time()} Visualisator: Visualisate = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Visualisator: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:

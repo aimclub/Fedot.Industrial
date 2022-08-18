@@ -4,17 +4,15 @@ from anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
 
 """
-
-
-
 input format:
 
-    dict with "data" and "lables" fields
+    dict with "data" and "labels" fields
 
 Output 
-    the same dict but with additional with windiows_list and lables for it?
-    
+    the same dict but with additional windows_list and labels for it
 """
+
+
 class WindowCut:
     args: SettingsArgs
 
@@ -26,7 +24,7 @@ class WindowCut:
     def set_settings(self, args: SettingsArgs):
         self.args = args
         self._print_logs(f"{get_current_time()} Window cutter: settings was set.")
-        self._print_logs(f"{get_current_time()} Window cutter: Visualisate = {self.args.visualisate}")
+        self._print_logs(f"{get_current_time()} Window cutter: Visualize = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Window cutter: Print logs = {self.args.print_logs}")
 
     def input_data(self, input_dict: dict) -> None:
@@ -38,7 +36,6 @@ class WindowCut:
         self._print_logs(f"{get_current_time()} Window cutter: Start cutting...")
         self._cut_data_to_windows()
         self._print_logs(f"{get_current_time()} Window cutter: Cutting finished!")
-
 
     def output_data(self) -> dict:
         self.input_dict["data_body"]["windows_list"] = self.output_window_list
@@ -66,8 +63,6 @@ class WindowCut:
 
         return temp_windows_list
 
-
-        
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:
             print(log_message)

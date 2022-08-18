@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class SettingsArgs(BaseModel):
-    visualisate: bool
+    visualize: bool
     print_logs: bool
