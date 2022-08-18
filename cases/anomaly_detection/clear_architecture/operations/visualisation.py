@@ -1,59 +1,56 @@
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
 import pandas as pd
 import plotly.graph_objs as go
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
-from anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
 from plotly.subplots import make_subplots
 
+from cases.anomaly_detection.clear_architecture.utils.get_time \
+    import get_current_time
+from cases.anomaly_detection.clear_architecture.utils.settings_args \
+    import SettingsArgs
+
+"""
+some description   
 """
 
 
-    
-"""
-
-
-class DataVisualisator:
+class DataVisualizer:
     args: SettingsArgs
     raw_data: list
     transformed_data: list = []
 
     def set_settings(self, args: SettingsArgs):
         self.args = args
-        self._print_logs(f"{get_current_time()} Visualisator: settings was set.")
-        self._print_logs(f"{get_current_time()} Visualisator: Visualisate = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Visualisator: Print logs = {self.args.print_logs}")
+        self._print_logs(f"{get_current_time()} Visualizer: settings was set.")
+        self._print_logs(f"{get_current_time()} Visualizer: Visualisate = {self.args.visualize}")
+        self._print_logs(f"{get_current_time()} Visualizer: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Visualisator: Data read!")
+        self._print_logs(f"{get_current_time()} Visualizer: Data read!")
         self.input_dict = dictionary
         self.data = self.input_dict["data_body"]["elected_data"]
-        self.lables = self.input_dict["data_body"]["lables_for_show"]
+        self.lables = self.input_dict["data_body"]["labels_for_show"]
         self.predicts = self.input_dict["data_body"]["detection"]
 
     def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Visualisator: Loading visualisation...")
-        self._visualisator()
-        self._print_logs(f"{get_current_time()} Visualisator: Ready!")
+        self._print_logs(f"{get_current_time()} Visualizer: Loading visualisation...")
+        self._visualizer()
+        self._print_logs(f"{get_current_time()} Visualizer: Ready!")
 
     def output_data(self) -> dict:
         self.input_dict["data_body"]["transformed_data"] = self.transformed_data
         return self.input_dict
 
-    def _visualisator(self) -> None:
-        x_lables = []
+    def _visualizer(self) -> None:
+        x_labels = []
         y_data = []
         for i in range(len(self.data[0][0])):
-            x_lables.append(i)
+            x_labels.append(i)
             y_data.append([self.data[0][0][i], self.data[0][1][i]])
         visualisate_df = pd.DataFrame(
-                {
-                    'x': x_lables, 
-                    'y1': self.data[0][0],
-                    'y2': self.data[0][1],
-                }
+            {
+                'x': x_labels,
+                'y1': self.data[0][0],
+                'y2': self.data[0][1],
+            }
             )
         
         #fig = px.scatter(visualisate_df,
@@ -84,12 +81,8 @@ class DataVisualisator:
             autosize=False,
             width=1400,
             height=400)
-        plots.append_trace(fig,
-            row=1, col=1
-            )
-        plots.append_trace(fig,
-            row=2, col=1
-            )
+        plots.append_trace(fig, row=1, col=1)
+        plots.append_trace(fig, row=2, col=1)
         plots.update_layout(height=900, width=1400, title_text="Side By Side Subplots")
         plots.show()
         """
@@ -112,4 +105,3 @@ class DataVisualisator:
     def _print_logs(self, log_message: str) -> None:
         if self.args.print_logs:
             print(log_message)
-

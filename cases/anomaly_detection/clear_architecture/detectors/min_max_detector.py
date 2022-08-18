@@ -1,30 +1,32 @@
-# from pickle import TRUE
-# from pandas import array
-# from sklearn import preprocessing
 import math
 
 import numpy as np
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
-from anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
-from scipy import spatial
+from sklearn import preprocessing
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
+from cases.anomaly_detection.clear_architecture.utils.get_time \
+    import get_current_time
+from cases.anomaly_detection.clear_architecture.utils.settings_args \
+    import SettingsArgs
+
 """
 input format:
-    dict with "data" and "lables" fields
+
+    dict with "data" and "labels" fields
 
 Output 
     the same dict but with additional list of window 
 """
 
 
-class VectorDetector:
+class MinMaxsDetector:
     args: SettingsArgs
 
-    def __init__(self, quantile: float, step: int = 2, filtering: bool = True):
+    def __init__(self,
+                 quantile: float,
+                 step: int = 2,
+                 filtering: bool = True):
         self.quantile = quantile
         self.filtering = filtering
         self.inner_step = step
@@ -34,7 +36,7 @@ class VectorDetector:
         self.windowed_data: list = []
         self.output_list: list = []
         self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualize}")
+        self._print_logs(f"{get_current_time()} Vector detector: Visualize = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
@@ -44,7 +46,7 @@ class VectorDetector:
         self.step = self.input_dict["data_body"]["window_step"]
         self.len = self.input_dict["data_body"]["window_len"]
         self.data = self.input_dict["data_body"]["elected_data"]
-        self.lables = self.input_dict["data_body"]["raw_lables"]
+        self.labels = self.input_dict["data_body"]["raw_labels"]
         self.win_len = self.input_dict["data_body"]["window_len"]
 
     def run(self) -> None:
@@ -74,7 +76,7 @@ class VectorDetector:
         if self.filtering:
             score = []
             for i in range(len(self.output_list)):
-                score.append(f1_score(self.lables[i], self.output_list[i], average='macro'))
+                score.append(f1_score(self.labels[i], self.output_list[i], average='macro'))
             print("-------------------------------------")
             main_score = sum(score) / len(score)
             print("Average predict:")
@@ -92,29 +94,25 @@ class VectorDetector:
                     for j in range(len(window)):
                         point.append(window[j][i])
                     point_array.append(point)
-                cosinus_array = []
-                last_point = point_array[-1]
-                first_point = point_array[0]
-                for i in range(0, len(point_array) - 1, self.inner_step):
-                    vector_1 = self._make_vector(last_point, last_point)
-                    vector_2 = self._make_vector(point_array[i], last_point)
-                    cosinus = self._get_angle_between_vectors(
-                        last_point,
-                        point_array[i]
-                    )
-                    # bad, without 1 - is better
-                    cosinus = 1 - spatial.distance.cosine(last_point, point_array[i])
-                    cosinus_array.append(cosinus ** 2)
-                avg = sum(cosinus_array) / len(cosinus_array)
-                var = sum((x - avg) ** 2 for x in cosinus_array) / len(cosinus_array)
-                var = np.mean(cosinus_array)
-                temp_output.append(var)
+
+                maximum = max(point_array[0])
+                minimum = min(point_array[0])
+                for i in range(1, len(point_array), self.inner_step):
+                    temp_maximum = max(point_array[i])
+                    temp_minimum = min(point_array[i])
+                    maximum = max(maximum, temp_maximum)
+                    minimum = min(minimum, temp_minimum)
+            
+                temp_output.append(abs(maximum - minimum))
             if False:
+                print(temp_output)
                 score_diff = np.diff(temp_output)
                 q_95 = np.quantile(temp_output, self.quantile)
                 temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
-            # reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
-            # reshaped_data = self.NormalizeData(np.array(temp_output)).tolist()
+                print(temp_output)
+            else:
+                reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
+                temp_output = self.NormalizeData(np.array(temp_output)).tolist()
             self.output_list.append(temp_output)
         new_output_data = []
         for _ in range(len(self.output_list)):
@@ -131,14 +129,14 @@ class VectorDetector:
         self.output_list = new_output_data
         if False:
             for i in range(len(self.output_list)):
-                myiter = iter(range(0, len(self.output_list[i])))
-                for j in myiter:
+                my_iterator = iter(range(0, len(self.output_list[i])))
+                for j in my_iterator:
                     if self.output_list[i][j] == 1:
                         for k in range(self.win_len):
                             self.output_list[i][j + k] = 1
-                            next(myiter, None)
+                            next(my_iterator, None)
 
-    def normalize_data(self, data):
+    def NormalizeData(self, data):
         return (data - np.min(data)) / (np.max(data) - np.min(data))
 
     def _make_vector(self, point_1: list, point_2: list):

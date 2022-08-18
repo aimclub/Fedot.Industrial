@@ -1,5 +1,3 @@
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
 import math
 
 import numpy as np

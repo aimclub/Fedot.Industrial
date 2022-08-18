@@ -1,7 +1,7 @@
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
-from anomaly_detection.clear_architecture.utils.get_time \
+from cases.anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
+from cases.anomaly_detection.clear_architecture.utils.settings_args \
+    import SettingsArgs
 
 """
 input format:

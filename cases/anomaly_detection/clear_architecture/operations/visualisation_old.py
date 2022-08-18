@@ -5,18 +5,17 @@
 # import plotly.graph_objs as go
 # from plotly.subplots import make_subplots
 import numpy as np
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
-from anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
 from matplotlib import pyplot as plt
+
+from cases.anomaly_detection.clear_architecture.utils.get_time import get_current_time
+from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
 
 """
 some description
 """
 
 
-class DataVisualisator:
+class DataVisualizer:
     args: SettingsArgs
     raw_data: list
     transformed_data: list = []
