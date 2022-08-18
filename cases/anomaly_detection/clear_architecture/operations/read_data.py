@@ -6,12 +6,12 @@ from tqdm import tqdm
 
 import_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(import_path)
-sys.path.append(os.path.join(import_path, "../../"))
-from anomaly_detection.clear_architecture.utils.get_time \
+sys.path.append(os.path.join(import_path, "../../../"))
+from cases.anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
-from anomaly_detection.clear_architecture.settings_args \
+from cases.anomaly_detection.clear_architecture.utils.settings_args \
     import SettingsArgs
-from anomaly_detection.clear_architecture.constants.data_types \
+from cases.anomaly_detection.clear_architecture.constants.data_types \
     import CLEAR_DATA
 
 """

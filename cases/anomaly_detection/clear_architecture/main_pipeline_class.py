@@ -57,46 +57,17 @@ pipeline
 
 import os
 
-from areas_detector import AreasDetector
-from areas_detector_by_zero import AreasDetectorByZero
+from cases.anomaly_detection.clear_architecture.detectors.areas_detector import AreasDetector
+from cases.anomaly_detection.clear_architecture.detectors.areas_detector_by_zero import AreasDetectorByZero
+from cases.anomaly_detection.clear_architecture.detectors.min_max_detector import MinMaxsDetector
+from cases.anomaly_detection.clear_architecture.detectors.vector_detector import VectorDetector
+from cases.anomaly_detection.clear_architecture.operations.read_data import DataReader
+from cases.anomaly_detection.clear_architecture.operations.transform_data import DataTransform
+from cases.anomaly_detection.clear_architecture.operations.ts_elector import TsElector
+from cases.anomaly_detection.clear_architecture.operations.visualisation_old import DataVisualizer
+from cases.anomaly_detection.clear_architecture.operations.window_cutting import WindowCut
+from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
 from core.operation.utils.utils import project_path
-from min_max_detector import MinMaxsDetector
-from read_data import DataReader
-from settings_args import SettingsArgs
-from transform_data import DataTransform
-from ts_elector import TsElector
-from vector_detector import VectorDetector
-from visualisation_old import DataVisualisator
-from window_cutting import WindowCut
-
-
-#
-# import_path = os.path.dirname(os.path.abspath(__file__))
-# sys.path.append(import_path)
-# sys.path.append(os.path.join(import_path, "../../"))
-#
-# from anomaly_detection.clear_architecture.settings_args \
-#     import SettingsArgs
-# from anomaly_detection.clear_architecture.read_data \
-#     import DataReader
-# from anomaly_detection.clear_architecture.ts_elector \
-#     import TsElector
-# from anomaly_detection.clear_architecture.transform_data \
-#     import DataTransform
-# from anomaly_detection.clear_architecture.window_cutting \
-#     import WindowCut
-# from anomaly_detection.clear_architecture.vector_detector \
-#     import VectorDetector
-# from anomaly_detection.clear_architecture.vector_detector_first_and_last \
-#     import VectorDetectorFaL
-# from anomaly_detection.clear_architecture.visualisation_old \
-#     import DataVisualisator
-# from anomaly_detection.clear_architecture.areas_detector \
-#     import AreasDetector
-# from anomaly_detection.clear_architecture.areas_detector_by_zero \
-#     import AreasDetectorByZero
-# from anomaly_detection.clear_architecture.min_max_detector \
-#     import MinMaxsDetector
 
 
 class MainPipeline:
@@ -127,10 +98,10 @@ class MainPipeline:
 
 
 if __name__ == '__main__':
-    proj_path = project_path()
+    industrial_path = project_path()
 
-    path = os.path.join(proj_path, "data/anomaly_detection/data/data/CSV2")
-    labels_path = os.path.join(proj_path, "data/anomaly_detection/anomalies_new_nocount_2.csv")
+    path = os.path.join(industrial_path, "data/anomaly_detection/data/data/CSV2")
+    labels_path = os.path.join(industrial_path, "data/anomaly_detection/anomalies_new_nocount_2.csv")
 
     # path = "/media/nikita/HDD/Data_part_1/data/¥¼íá/CSV/"
     # labels_path = "/media/nikita/HDD/anomalies_new_nocount_2.csv"
@@ -167,7 +138,7 @@ if __name__ == '__main__':
     vector_detector_4 = VectorDetector(0.98, 4, False)
     # vector_detector_FaL_1 = VectorDetectorFaL(0.99)
     # vector_detector_FaL_2 = VectorDetectorFaL(0.99)
-    visualisator = DataVisualisator()
+    visualizer = DataVisualizer()
     pipe = MainPipeline([
         reader,
         transformer,
@@ -183,6 +154,6 @@ if __name__ == '__main__':
         # elector_4,
         # cutter_4,
         # vector_detector_4,
-        visualisator
+        visualizer
     ])
     pipe.run()
