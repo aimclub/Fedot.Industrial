@@ -20,7 +20,7 @@ algorithmic kernel of [**AutoML framework FEDOT.**](https://github.com/nccr-itmo
 
 # Supported by
 
-- `National Center for Cognitive Research of ITMO University <https://actcognitive.org/>`_
+- `<https://sai.itmo.ru/>`
 
 # Citation
 
