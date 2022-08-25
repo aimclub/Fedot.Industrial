@@ -24,7 +24,7 @@ from itertools import chain, combinations
 from bayes_opt import BayesianOptimization
 from bayes_opt.logger import JSONLogger
 from bayes_opt.event import Events
-from data.lable_reader import read_lables_csv_from_file
+from data.label_reader import read_lables_csv_from_file
 from sklearn.ensemble import IsolationForest
 
 

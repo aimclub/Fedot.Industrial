@@ -100,7 +100,7 @@ class MainPipeline:
 if __name__ == '__main__':
     industrial_path = project_path()
 
-    path = os.path.join(industrial_path, "data/anomaly_detection/data/data/CSV2")
+    path = os.path.join(industrial_path, "data/anomaly_detection/monitoring/CSV2")
     labels_path = os.path.join(industrial_path, "data/anomaly_detection/anomalies_new_nocount_2.csv")
 
     # path = "/media/nikita/HDD/Data_part_1/data/¥¼íá/CSV/"
@@ -157,3 +157,4 @@ if __name__ == '__main__':
         visualizer
     ])
     pipe.run()
+    os.system('say "you job is done"')
