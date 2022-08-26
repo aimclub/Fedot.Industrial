@@ -11,7 +11,7 @@ from cases.anomaly_detection.clear_architecture.utils.get_time \
     import get_current_time
 from cases.anomaly_detection.clear_architecture.utils.settings_args \
     import SettingsArgs
-from cases.anomaly_detection.clear_architecture.constants.data_types \
+from cases.anomaly_detection.clear_architecture.utils.data_types \
     import CLEAR_DATA
 
 """
@@ -44,7 +44,7 @@ class DataReader:
         self._print_logs(f"{get_current_time()} Data loader: Visualize = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Data loader: Print logs = {self.args.print_logs}")
 
-    def input_data(self) -> None:
+    def input_data(self, args=None) -> None:
         self._print_logs(f"{get_current_time()} Data loader: Start reading...")
 
     def run(self) -> None:
@@ -113,7 +113,7 @@ class DataReader:
         labels_for_show = []
         for file in files:
             data = self._read_data_csv_from_file(file)
-            # get file's lables
+            # get file's labels
             label = []
             filename = os.path.splitext(os.path.basename(file))[0]
             for i in range(len(self.labels)):

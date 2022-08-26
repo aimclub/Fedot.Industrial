@@ -2,17 +2,12 @@ import math
 
 import numpy as np
 from sklearn import preprocessing
-from sklearn.metrics import f1_score
 from tqdm import tqdm
 
-from cases.anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
-from cases.anomaly_detection.clear_architecture.utils.settings_args \
-    import SettingsArgs
+from cases.anomaly_detection.clear_architecture.detectors.AbstractDetector import AbstractDetector
 
 """
 input format:
-
     dict with "data" and "labels" fields
 
 Output 
@@ -20,8 +15,7 @@ Output
 """
 
 
-class MinMaxsDetector:
-    args: SettingsArgs
+class MinMaxDetector(AbstractDetector):
 
     def __init__(self,
                  quantile: float,
@@ -31,60 +25,9 @@ class MinMaxsDetector:
         self.filtering = filtering
         self.inner_step = step
 
-    def set_settings(self, args: SettingsArgs):
-        self.args = args
-        self.windowed_data: list = []
-        self.output_list: list = []
-        self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualize = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
+        super().__init__('Vector Detector')
 
-    def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Vector detector: Data read!")
-        self.input_dict = dictionary
-        self.windowed_data = self.input_dict["data_body"]["windows_list"]
-        self.step = self.input_dict["data_body"]["window_step"]
-        self.len = self.input_dict["data_body"]["window_len"]
-        self.data = self.input_dict["data_body"]["elected_data"]
-        self.labels = self.input_dict["data_body"]["raw_labels"]
-        self.win_len = self.input_dict["data_body"]["window_len"]
-
-    def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Vector detector: Start transforming...")
-        self._vector_analysis()
-        self._print_logs(f"{get_current_time()} Vector detector: Transforming finished!")
-
-    def output_data(self) -> dict:
-        if "detection" in self.input_dict["data_body"]:
-            previous_predict = self.input_dict["data_body"]["detection"]
-            """
-            for i, predict in enumerate(previous_predict):
-                for j in range(len(predict)):
-                    if predict[j] == 1:
-                        self.output_list[i][j] = 1
-            """
-            for i in range(len(self.output_list)):
-                self.output_list[i] = [self.output_list[i]]
-            for i in range(len(self.output_list)):
-                for j in range(len(previous_predict[i])):
-                    self.output_list[i].append(previous_predict[i][j])
-        else:
-            for i in range(len(self.output_list)):
-                self.output_list[i] = [self.output_list[i]]
-
-        self.input_dict["data_body"]["detection"] = self.output_list
-        if self.filtering:
-            score = []
-            for i in range(len(self.output_list)):
-                score.append(f1_score(self.labels[i], self.output_list[i], average='macro'))
-            print("-------------------------------------")
-            main_score = sum(score) / len(score)
-            print("Average predict:")
-            print(main_score)
-            print("-------------------------------------")
-        return self.input_dict
-
-    def _vector_analysis(self) -> None:
+    def _analysis(self) -> None:
         for dataset in self.windowed_data:
             temp_output = []
             for window in tqdm(dataset, colour="RED"):
@@ -112,7 +55,7 @@ class MinMaxsDetector:
                 print(temp_output)
             else:
                 reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
-                temp_output = self.NormalizeData(np.array(temp_output)).tolist()
+                temp_output = self.normalize_data(np.array(temp_output)).tolist()
             self.output_list.append(temp_output)
         new_output_data = []
         for _ in range(len(self.output_list)):
@@ -136,16 +79,6 @@ class MinMaxsDetector:
                             self.output_list[i][j + k] = 1
                             next(my_iterator, None)
 
-    def NormalizeData(self, data):
-        return (data - np.min(data)) / (np.max(data) - np.min(data))
-
-    def _make_vector(self, point_1: list, point_2: list):
-        if len(point_1) != len(point_2): raise ValueError("Vectors has to be the same len!")
-        vector = []
-        for i in range(len(point_1)):
-            vector.append(point_2[i] - point_1[i])
-        return vector
-
     def _get_angle_between_vectors(self, vector1, vector2):
         sum_of_coordinates = 0
         for i in range(len(vector1)):
@@ -156,12 +89,9 @@ class MinMaxsDetector:
             sum_of_coordinates /
             (self._get_vector_len(vector1) * self._get_vector_len(vector2)))
 
-    def _get_vector_len(self, vector):
+    @staticmethod
+    def _get_vector_len(vector):
         sum_of_coordinates = 0
         for coordinate in vector:
             sum_of_coordinates += coordinate ** 2
         return math.sqrt(sum_of_coordinates)
-
-    def _print_logs(self, log_message: str) -> None:
-        if self.args.print_logs:
-            print(log_message)
