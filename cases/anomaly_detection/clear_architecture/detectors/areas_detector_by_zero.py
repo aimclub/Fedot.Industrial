@@ -1,14 +1,7 @@
-# from pickle import TRUE
-# from pandas import array
-# from scipy import spatial
-# import math
-# from tqdm import tqdm
 import numpy as np
 from sklearn import preprocessing
-from sklearn.metrics import f1_score
 
-from cases.anomaly_detection.clear_architecture.utils.get_time import get_current_time
-from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
+from cases.anomaly_detection.clear_architecture.detectors.AbstractDetector import AbstractDetector
 
 """
 input format:
@@ -19,69 +12,17 @@ Output
 """
 
 
-class AreasDetectorByZero:
-    args: SettingsArgs
+class AreasDetectorByZero(AbstractDetector):
 
     def __init__(self, quantile: float, divider_for_anomaly_len_influence: float, filtering: bool = True):
         self.quantile = quantile
         self.filtering = filtering
         self.divider = divider_for_anomaly_len_influence
 
-    def set_settings(self, args: SettingsArgs):
-        self.args = args
-        self.windowed_data: list = []
-        self.output_list: list = []
-        self._print_logs(f"{get_current_time()} Areas detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Areas detector: Visualize = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Areas detector: Print logs = {self.args.print_logs}")
+        super().__init__(name="AreasDetectorByZero")
 
-    def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Areas detector: Data read!")
-        self.input_dict = dictionary
-        self.windowed_data = self.input_dict["data_body"]["windows_list"]
-        self.step = self.input_dict["data_body"]["window_step"]
-        self.len = self.input_dict["data_body"]["window_len"]
-        self.data = self.input_dict["data_body"]["elected_data"]
-        self.labels = self.input_dict["data_body"]["raw_labels"]
-        self.win_len = self.input_dict["data_body"]["window_len"]
+    def _do_analysis(self) -> None:
 
-    def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Areas detector: Start transforming...")
-        self._areas_analysis()
-        self._print_logs(f"{get_current_time()} Areas detector: Transforming finished!")
-
-    def output_data(self) -> dict:
-        if "detection" in self.input_dict["data_body"]:
-            previous_predict = self.input_dict["data_body"]["detection"]
-            """
-            for i, predict in enumerate(previous_predict):
-                for j in range(len(predict)):
-                    if predict[j] == 1:
-                        self.output_list[i][j] = 1
-            """
-            for i in range(len(self.output_list)):
-                self.output_list[i] = [self.output_list[i]]
-            for i in range(len(self.output_list)):
-                for j in range(len(previous_predict[i])):
-                    self.output_list[i].append(previous_predict[i][j])
-        else:
-            for i in range(len(self.output_list)):
-                self.output_list[i] = [self.output_list[i]]
-
-        self.input_dict["data_body"]["detection"] = self.output_list
-        if self.filtering:
-            score = []
-            for i in range(len(self.output_list)):
-                score.append(f1_score(self.labels[i], self.output_list[i], average='macro'))
-            print("-------------------------------------")
-            main_score = sum(score) / len(score)
-            print("Average predict:")
-            print(main_score)
-            print("-------------------------------------")
-        return self.input_dict
-
-    def _areas_analysis(self) -> None:
-        
         def get_distance(data: list, number: int) -> float:
             return abs(data[0][number]) + abs(data[1][number])
 
@@ -132,7 +73,3 @@ class AreasDetectorByZero:
             reshaped_data = preprocessing.normalize([np.array(odd_new_predicts)]).flatten()
             self.output_list.append(reshaped_data.tolist())
             # self.output_list.append(odd_new_predicts)
-
-    def _print_logs(self, log_message: str) -> None:
-        if self.args.print_logs:
-            print(log_message)
