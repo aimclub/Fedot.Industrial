@@ -14,7 +14,9 @@ Output
 
 class AreasDetectorByZero(AbstractDetector):
 
-    def __init__(self, quantile: float, divider_for_anomaly_len_influence: float, filtering: bool = True):
+    def __init__(self, quantile: float,
+                 divider_for_anomaly_len_influence: float,
+                 filtering: bool = True):
         self.quantile = quantile
         self.filtering = filtering
         self.divider = divider_for_anomaly_len_influence
