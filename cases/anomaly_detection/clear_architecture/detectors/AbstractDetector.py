@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from sklearn.metrics import f1_score
 
@@ -78,6 +80,23 @@ class AbstractDetector:
         for i in range(len(point_1)):
             vector.append(point_2[i] - point_1[i])
         return vector
+
+    def _get_angle_between_vectors(self, vector1, vector2):
+        sum_of_coordinates = 0
+        for i in range(len(vector1)):
+            sum_of_coordinates += vector1[i] * vector2[i]
+        if self._get_vector_len(vector1) * self._get_vector_len(vector2) == 0:
+            return 0
+        return math.sin(
+            sum_of_coordinates /
+            (self._get_vector_len(vector1) * self._get_vector_len(vector2)))
+
+    @staticmethod
+    def _get_vector_len(vector):
+        sum_of_coordinates = 0
+        for coordinate in vector:
+            sum_of_coordinates += coordinate ** 2
+        return math.sqrt(sum_of_coordinates)
 
     @staticmethod
     def normalize_data(data):

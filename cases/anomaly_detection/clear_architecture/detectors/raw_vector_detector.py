@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 from tqdm import tqdm
 
@@ -16,9 +14,9 @@ Output
 
 
 class RawVectorDetector(AbstractDetector):
-  
+
     def __init__(self):
-        super().__init__(name="RawVectorDetector")
+        super().__init__(name="RawVector Detector")
 
     def input_data(self, dictionary: dict) -> None:
         self._print_logs(f"{get_current_time()} {self.name}: Data read!")
@@ -58,20 +56,3 @@ class RawVectorDetector(AbstractDetector):
             q_95 = np.quantile(temp_output, 0.99)
             temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
             self.output_list.append(temp_output)
-
-    def _get_angle_between_vectors(self, vector1, vector2):
-        sum_of_coordinates = 0
-        for i in range(len(vector1)):
-            sum_of_coordinates += vector1[i] * vector2[i]
-        if self._get_vector_len(vector1) * self._get_vector_len(vector2) == 0:
-            return 0
-        return math.cos(
-            sum_of_coordinates /
-            (self._get_vector_len(vector1) * self._get_vector_len(vector2)))
-
-    @staticmethod
-    def _get_vector_len(vector):
-        sum_of_coordinates = 0
-        for coordinate in vector:
-            sum_of_coordinates += coordinate ** 2
-        return math.sqrt(sum_of_coordinates)
