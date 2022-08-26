@@ -59,7 +59,7 @@ import os
 
 from cases.anomaly_detection.clear_architecture.detectors.areas_detector import AreasDetector
 from cases.anomaly_detection.clear_architecture.detectors.areas_detector_by_zero import AreasDetectorByZero
-from cases.anomaly_detection.clear_architecture.detectors.min_max_detector import MinMaxsDetector
+from cases.anomaly_detection.clear_architecture.detectors.min_max_detector import MinMaxDetector
 from cases.anomaly_detection.clear_architecture.detectors.vector_detector import VectorDetector
 from cases.anomaly_detection.clear_architecture.operations.read_data import DataReader
 from cases.anomaly_detection.clear_architecture.operations.transform_data import DataTransform
@@ -78,10 +78,8 @@ class MainPipeline:
 
     def __init__(self, elements_list: list) -> None:
         self.elements_of_pipeline = elements_list
-        self.settings_args = SettingsArgs(
-            visualize=self.visualize,
-            print_logs=self.print_logs
-        )
+        self.settings_args = SettingsArgs(visualize=self.visualize,
+                                          print_logs=self.print_logs)
 
     def run(self):
         self.elements_of_pipeline[0].set_settings(self.settings_args)
@@ -89,12 +87,13 @@ class MainPipeline:
         self.elements_of_pipeline[0].run()
         out_dict = self.elements_of_pipeline[0].output_data()
         if len(self.elements_of_pipeline) > 1:
-            for i in range(1, len(self.elements_of_pipeline)):
-                self.elements_of_pipeline[i].set_settings(self.settings_args)
-                self.elements_of_pipeline[i].input_data(out_dict)
-                self.elements_of_pipeline[i].run()
-                out_dict = self.elements_of_pipeline[i].output_data()
-        # print(out_dict["data_body"]["windows_list"])
+            for pipeline_node in self.elements_of_pipeline:
+                pipeline_node.set_settings(self.settings_args)
+                pipeline_node.input_data(out_dict)
+                pipeline_node.run()
+                out_dict = pipeline_node.output_data()
+        else:
+            raise Exception('Pipeline has not enough nodes')
 
 
 if __name__ == '__main__':
@@ -102,9 +101,6 @@ if __name__ == '__main__':
 
     path = os.path.join(industrial_path, "data/anomaly_detection/monitoring/CSV2")
     labels_path = os.path.join(industrial_path, "data/anomaly_detection/anomalies_new_nocount_2.csv")
-
-    # path = "/media/nikita/HDD/Data_part_1/data/¥¼íá/CSV/"
-    # labels_path = "/media/nikita/HDD/anomalies_new_nocount_2.csv"
 
     reader = DataReader(path, labels_path)
     transformer = DataTransform()
@@ -130,7 +126,7 @@ if __name__ == '__main__':
     area_detector = AreasDetector(0.95, 3, False)
     area_detector_1 = AreasDetectorByZero(0.92, 2, False)
 
-    min_max_detector = MinMaxsDetector(0.90, 2, False)
+    min_max_detector = MinMaxDetector(0.90, 2, False)
 
     vector_detector_1 = VectorDetector(0.95, 50, False)
     vector_detector_2 = VectorDetector(0.98, 500, False)
@@ -157,4 +153,4 @@ if __name__ == '__main__':
         visualizer
     ])
     pipe.run()
-    os.system('say "you job is done"')
+    os.system('say "your job is done"')
