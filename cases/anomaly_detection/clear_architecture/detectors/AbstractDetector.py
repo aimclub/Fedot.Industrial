@@ -34,7 +34,7 @@ class AbstractDetector:
 
     def run(self) -> None:
         self._print_logs(f"{time_now()} {self.name}: Start transforming...")
-        self._analysis()
+        self._do_analysis()
         self._print_logs(f"{time_now()} {self.name}: Transforming finished!")
 
     def output_data(self) -> dict:
@@ -67,7 +67,7 @@ class AbstractDetector:
             print("-------------------------------------")
         return self.input_dict
 
-    def _analysis(self) -> None:
+    def _do_analysis(self) -> None:
         pass
 
     @staticmethod

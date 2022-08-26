@@ -27,7 +27,7 @@ class MinMaxDetector(AbstractDetector):
 
         super().__init__('Vector Detector')
 
-    def _analysis(self) -> None:
+    def _do_analysis(self) -> None:
         for dataset in self.windowed_data:
             temp_output = []
             for window in tqdm(dataset, colour="RED"):
