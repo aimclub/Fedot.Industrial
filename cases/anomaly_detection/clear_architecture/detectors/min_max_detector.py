@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 from sklearn import preprocessing
 from tqdm import tqdm
@@ -78,20 +76,3 @@ class MinMaxDetector(AbstractDetector):
                         for k in range(self.win_len):
                             self.output_list[i][j + k] = 1
                             next(my_iterator, None)
-
-    def _get_angle_between_vectors(self, vector1, vector2):
-        sum_of_coordinates = 0
-        for i in range(len(vector1)):
-            sum_of_coordinates += vector1[i] * vector2[i]
-        if self._get_vector_len(vector1) * self._get_vector_len(vector2) == 0:
-            return 0
-        return math.sin(
-            sum_of_coordinates /
-            (self._get_vector_len(vector1) * self._get_vector_len(vector2)))
-
-    @staticmethod
-    def _get_vector_len(vector):
-        sum_of_coordinates = 0
-        for coordinate in vector:
-            sum_of_coordinates += coordinate ** 2
-        return math.sqrt(sum_of_coordinates)
