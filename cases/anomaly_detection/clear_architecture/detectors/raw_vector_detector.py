@@ -1,50 +1,35 @@
 import math
 
 import numpy as np
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
-from anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
 from tqdm import tqdm
 
+from cases.anomaly_detection.clear_architecture.detectors.AbstractDetector import AbstractDetector
+from cases.anomaly_detection.clear_architecture.utils.get_time import get_current_time
+
 """
-
-
-
 input format:
-
-    dict with "data" and "lables" fields
+    dict with "data" and "labels" fields
 
 Output 
     the same dict but with additional list of window
-    
 """
-class VectorDetector:
-    args: SettingsArgs
-    data: list = []
-    output_list: list = []
 
-    def set_settings(self, args: SettingsArgs):
-        self.args = args
-        self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualisate = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
+
+class RawVectorDetector(AbstractDetector):
+  
+    def __init__(self):
+        super().__init__(name="RawVectorDetector")
 
     def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Vector detector: Data read!")
+        self._print_logs(f"{get_current_time()} {self.name}: Data read!")
         self.input_dict = dictionary
         self.data = self.input_dict["data_body"]["elected_data"]
-
-    def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Vector detector: Start transforming...")
-        self._vector_analysis()
-        self._print_logs(f"{get_current_time()} Vector detector: Transforming finished!")
 
     def output_data(self) -> dict:
         self.input_dict["data_body"]["detection"] = self.output_list
         return self.input_dict
 
-    def _vector_analysis(self) -> None:
+    def _do_analysis(self) -> None:
         for dataset in self.windowed_data:
             temp_output = []
             for window in tqdm(dataset, colour="RED"):
@@ -74,14 +59,6 @@ class VectorDetector:
             temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
             self.output_list.append(temp_output)
 
-
-    def _make_vector(self, point_1: list, point_2: list):
-        if len(point_1) != len(point_2): raise ValueError("Vectors has to be the same len!")
-        vector = []
-        for i in range(len(point_1)):
-            vector.append(point_2[i] - point_1[i])
-        return vector
-
     def _get_angle_between_vectors(self, vector1, vector2):
         sum_of_coordinates = 0
         for i in range(len(vector1)):
@@ -92,13 +69,9 @@ class VectorDetector:
             sum_of_coordinates /
             (self._get_vector_len(vector1) * self._get_vector_len(vector2)))
 
-    def _get_vector_len(self, vector):
+    @staticmethod
+    def _get_vector_len(vector):
         sum_of_coordinates = 0
         for coordinate in vector:
             sum_of_coordinates += coordinate ** 2
         return math.sqrt(sum_of_coordinates)
-
-
-    def _print_logs(self, log_message: str) -> None:
-        if self.args.print_logs:
-            print(log_message)
