@@ -1,14 +1,9 @@
-# from pandas import array
-import math
-
 import numpy as np
-from anomaly_detection.clear_architecture.settings_args \
-    import SettingsArgs
-from anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
 from scipy import spatial
 from sklearn.metrics import f1_score
 from tqdm import tqdm
+
+from cases.anomaly_detection.clear_architecture.detectors.AbstractDetector import AbstractDetector
 
 """
 input format:
@@ -19,33 +14,11 @@ Output
 """
 
 
-class VectorDetectorFaL:
-    args: SettingsArgs
+class VectorDetectorFaL(AbstractDetector):
 
     def __init__(self, quantile: float):
         self.quantile = quantile
-
-    def set_settings(self, args: SettingsArgs):
-        self.args = args
-        self.windowed_data: list = []
-        self.output_list: list = []
-        self._print_logs(f"{get_current_time()} Vector detector: settings was set.")
-        self._print_logs(f"{get_current_time()} Vector detector: Visualize = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Vector detector: Print logs = {self.args.print_logs}")
-
-    def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Vector detector: Data read!")
-        self.input_dict = dictionary
-        self.windowed_data = self.input_dict["data_body"]["windows_list"]
-        self.step = self.input_dict["data_body"]["window_step"]
-        self.len = self.input_dict["data_body"]["window_len"]
-        self.data = self.input_dict["data_body"]["elected_data"]
-        self.labels = self.input_dict["data_body"]["raw_labels"]
-
-    def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Vector detector: Start transforming...")
-        self._vector_analysis()
-        self._print_logs(f"{get_current_time()} Vector detector: Transforming finished!")
+        super().__init__(name='VectorDetectorFaL')
 
     def output_data(self) -> dict:
         if "detection" in self.input_dict["data_body"]:
@@ -65,7 +38,7 @@ class VectorDetectorFaL:
         print("-------------------------------------")
         return self.input_dict
 
-    def _vector_analysis(self) -> None:
+    def _do_analysis(self) -> None:
         for dataset in self.windowed_data:
             temp_output = []
             for window in tqdm(dataset, colour="RED"):
@@ -110,31 +83,3 @@ class VectorDetectorFaL:
                 temp_predict.append(predict[-1])
             new_output_data[i] = temp_predict
         self.output_list = new_output_data
-
-    def _make_vector(self, point_1: list, point_2: list):
-        if len(point_1) != len(point_2):
-            raise ValueError("Vectors has to be the same len!")
-        vector = []
-        for i in range(len(point_1)):
-            vector.append(point_2[i] - point_1[i])
-        return vector
-
-    def _get_angle_between_vectors(self, vector1, vector2):
-        sum_of_coordinates = 0
-        for i in range(len(vector1)):
-            sum_of_coordinates += vector1[i] * vector2[i]
-        if self._get_vector_len(vector1) * self._get_vector_len(vector2) == 0:
-            return 0
-        return math.sin(
-            sum_of_coordinates /
-            (self._get_vector_len(vector1) * self._get_vector_len(vector2)))
-
-    def _get_vector_len(self, vector):
-        sum_of_coordinates = 0
-        for coordinate in vector:
-            sum_of_coordinates += coordinate ** 2
-        return math.sqrt(sum_of_coordinates)
-
-    def _print_logs(self, log_message: str) -> None:
-        if self.args.print_logs:
-            print(log_message)
