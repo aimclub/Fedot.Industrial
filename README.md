@@ -36,7 +36,9 @@ to use its capabilities in a simple way.
 #### Classification
 
 To conduct time series classification you need to first
-set experiment configuration using file `cases/config/Config_Classification.yaml` and then run the following command:
+set experiment configuration using file `cases/config/Config_Classification.yaml`
+and then run `cases/classification_experiment.py` script, or create your own
+with the following code:
 
     from cases.API import Industrial
 
@@ -44,13 +46,27 @@ set experiment configuration using file `cases/config/Config_Classification.yaml
     ExperimentHelper = Industrial()
     ExperimentHelper.run_experiment(config_name)
 
+Config file contains the following parameters:
+
+- `feature_generators` - list of feature generators to use in the experiment
+- `datasets_list` - list of datasets to use in the experiment
+- `launches` - number of launches for each dataset
+- `feature_generator_params` - specification for feature generators
+- `fedot_params` - specification for FEDOT algorithmic kernel
+
+Datasets for classification should be stored in the `data` directory and
+divided into `train` and `test` sets with `.tsv` extension. So the name of folder
+in the `data` directory should be equal to the name of dataset that you want
+to use in the experiment.
+
 Possible feature generators which could be specified in configuration are
 `window_quantile`, `quantile`, `spectral_window`, `spectral`,
 `wavelet` and `topological`.
 
 There is also a possibility to ensemble several
-feature generators. It could be done by the following instruction in `feature_generator`
-field of `Config_Classification.yaml` file:
+feature generators. It could be done by the following instruction in
+`feature_generator` field of `Config_Classification.yaml` file where
+you need to specify the list of feature generators:
 
     'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 
@@ -58,14 +74,14 @@ Results of experiment are stored in `results_of_experiments/{feature_generator n
 Logs of experiment are stored in `log` directory.
 
 #### Anomaly detection
-
 *--work in progress--*
 
 #### Change point detection
-
 *--work in progress--*
 
 #### Object detection
+
+*--work in progress--*
 
 ## Examples & Tutorials
 
