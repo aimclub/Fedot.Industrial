@@ -25,7 +25,7 @@ fields:
 Data_reader 
 
 Out format:
-    "raw_labels": self.refied_data,
+    "raw_labels": self.refined_data,
     "raw_data": self.refined_labels,
     "raw_columns": self.all_labels
     "labels_for_show": labels for visualisation
@@ -41,7 +41,7 @@ All fields in data:
 
     // We HAVE to choose som ts for work - just fo filtering //
     "labels_of_elected_ts" - labels of columns for choosing ts
-    "elected_data" - data with only ts choosed by "labels of needed ts"
+    "elected_data" - data with only ts has been chosen by "labels of needed ts"
     
     // Window cutter //
     "window_step" - step of window
@@ -109,9 +109,9 @@ if __name__ == '__main__':
     labels_3 = ["Zd", "Zu"]
     labels_4 = ["Xu", "Xd"]
     labels_5 = ["Zd", "Vu"]
-    # lables_5 = ["Vd", "Zu"] # 1500, 100, 0.98, 50
-    # lables_5 = ["Xu", "Yd"]
-    # lables_3 = ["N"]
+    # labels_5 = ["Vd", "Zu"] # 1500, 100, 0.98, 50
+    # labels_5 = ["Xu", "Yd"]
+    # labels_3 = ["N"]
     # Xu 
     # "Yu", "Xu" - good 
     elector_1 = TsElector(labels_5)
