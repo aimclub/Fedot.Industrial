@@ -1,6 +1,5 @@
 import numpy as np
 from scipy import spatial
-from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 from cases.anomaly_detection.clear_architecture.detectors.AbstractDetector import AbstractDetector
@@ -28,14 +27,7 @@ class VectorDetectorFaL(AbstractDetector):
                     if predict[j] == 1:
                         self.output_list[i][j] = 1
         self.input_dict["data_body"]["detection"] = self.output_list
-        score = []
-        for i in range(len(self.output_list)):
-            score.append(f1_score(self.labels[i], self.output_list[i], average='macro'))
-        print("-------------------------------------")
-        main_score = sum(score) / len(score)
-        print("Average predict:")
-        print(main_score)
-        print("-------------------------------------")
+        self._do_score()
         return self.input_dict
 
     def _do_analysis(self) -> None:

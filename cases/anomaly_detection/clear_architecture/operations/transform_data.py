@@ -8,21 +8,21 @@ from cases.anomaly_detection.clear_architecture.utils.settings_args import Setti
 
 """
 input format:
-
-    dict with "data" and "lables" fields
+    dict with "data" and "labels" fields
 
 Output 
-    the same dict but with additional list of window
-    
+    the same dict but with additional list of window   
 """
 
 
 class DataTransform:
     args: SettingsArgs
 
+    def __init__(self):
+        self.transformed_data = list()
+
     def set_settings(self, args: SettingsArgs):
         self.args = args
-        self.transformed_data = []
         self._print_logs(f"{get_current_time()} Data transformator: settings was set.")
         self._print_logs(f"{get_current_time()} Data transformator: Visualize = {self.args.visualize}")
         self._print_logs(f"{get_current_time()} Data transformator: Print logs = {self.args.print_logs}")
@@ -31,18 +31,18 @@ class DataTransform:
         self._print_logs(f"{get_current_time()} Data transformator: Data read!")
         self.input_dict = dictionary
         self.raw_data = self.input_dict["data_body"]["raw_data"]
-        self.raw_lables = self.input_dict["data_body"]["raw_columns"]
+        self.raw_labels = self.input_dict["data_body"]["raw_columns"]
 
     def run(self) -> None:
         self._print_logs(f"{get_current_time()} Data transformator: Start transforming...")
-        self._all_data_transorm()
+        self._all_data_transform()
         self._print_logs(f"{get_current_time()} Data transformator: Transforming finished!")
 
     def output_data(self) -> dict:
         self.input_dict["data_body"]["transformed_data"] = self.transformed_data
         return self.input_dict
 
-    def _all_data_transorm(self) -> None:
+    def _all_data_transform(self) -> None:
         for data in self.raw_data:
             self.transformed_data.append(self._data_transform(data))
 

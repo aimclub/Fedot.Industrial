@@ -48,29 +48,26 @@ class DataReader:
         self._print_logs(f"{get_current_time()} Data loader: Start reading...")
 
     def run(self) -> None:
-        self.all_lables = ["N", "DIST", "Xu", "Yu", "Zu", "Xd", "Yd", "Zd", "Vu", "Vd", "LAT", "LNG", "Time", "Depth"]
+        self.all_labels = ["N", "DIST", "Xu", "Yu", "Zu", "Xd", "Yd", "Zd", "Vu", "Vd", "LAT", "LNG", "Time", "Depth"]
         self._print_logs(f"{get_current_time()} Data loader: Try to read labels...")
-        self.labels = self._read_lables_csv_from_file(self.labels_path)
+        self.labels = self._read_labels_csv_from_file(self.labels_path)
         self._print_logs(f"{get_current_time()} Data loader: Labels read successful!")
         self._print_logs(f"{get_current_time()} Data loader: Try to read data...")
         self.refined_data, self.labels_for_show, self.refined_labels = self._read_data_csv_in_folder(self.data_path)
         self._print_logs(f"{get_current_time()} Data loader: Data is ready!")
 
     def output_data(self) -> dict:
-        return {
-            "data_type": CLEAR_DATA,
-            "data_body": {
-                "raw_labels": self.refined_labels,
-                "raw_data": self.refined_data,
-                "raw_columns": self.all_lables,
-                "labels_for_show": self.labels_for_show
-            },
-            "data_flags": {}
-        }
+        return dict(data_type=CLEAR_DATA,
+                    data_body={"raw_labels": self.refined_labels,
+                               "raw_data": self.refined_data,
+                               "raw_columns": self.all_labels,
+                               "labels_for_show": self.labels_for_show
+                               },
+                    data_flags={})
 
-    def _read_lables_csv_from_file(self, filename: str) -> list:
+    def _read_labels_csv_from_file(self, filename: str) -> list:
         temp_list = []
-        # in lables 5 columns
+        # in labels 5 columns
         temp_list = [[], [], [], [], []]
 
         with open(filename, 'r') as file:
@@ -142,7 +139,7 @@ class DataReader:
             good_str = v.decode("iso-8859-1").replace('\x00', '').replace(' ', '')
             arr = good_str.split(";")
             temp_arr = []
-            for j in range(0, len(self.all_lables)):
+            for j in range(0, len(self.all_labels)):
                 if j == 12:
                     temp_arr.append(datetime.strptime(arr[j], "%H:%M:%S").time())
                 elif j == 0:
