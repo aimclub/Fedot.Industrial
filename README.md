@@ -4,9 +4,31 @@ Instead of using complex and resource-demanding deep learning techniques, which 
 solutions, we propose using a combination of feature extractors with an ensemble of lightweight models obtained by the
 algorithmic kernel of [**AutoML framework FEDOT.**](https://github.com/nccr-itmo/FEDOT)
 
-# Installation
+Application field of the framework is the following:
+
+### Classification (time series or image)
+
+For this purpose we have developed four feature
+generators: spectral, quantile, wavelet and topological.
+
+![](doc/spectral_and_topological.png)
+
+![](doc/wavelet_and_quantile.png)
+
+### Anomaly detection (time series or image)
+
+### Change point detection (only time series)
+
+*--work in progress--*
+
+### Object detection (only image)
+
+*--work in progress--*
 
 # Usage
+
+FEDOT.Industrial provides a high-level API that allows you
+to use its capabilities in a simple way. The API can be used for the following purposes:
 
 # Examples & Tutorials
 
