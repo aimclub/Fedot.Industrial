@@ -11,9 +11,7 @@ Application field of the framework is the following:
 For this purpose we have developed four feature
 generators: spectral, quantile, wavelet and topological.
 
-![](doc/spectral_and_topological.png)
-
-![](doc/wavelet_and_quantile.png)
+![](doc/all-generators.png)
 
 ### Anomaly detection (time series or image)
 
