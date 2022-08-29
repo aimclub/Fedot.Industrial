@@ -6,7 +6,7 @@ algorithmic kernel of [**AutoML framework FEDOT.**](https://github.com/nccr-itmo
 
 Application field of the framework is the following:
 
-### Classification (time series or image)
+- **Classification (time series or image)**
 
 For this purpose we introduce four feature
 generators:
@@ -16,15 +16,15 @@ generators:
 After feature generation process apply evolutionary
 algorithm of FEDOT to find the best model for classification task.
 
-### Anomaly detection (time series or image)
+- **Anomaly detection (time series or image)**
 
 *--work in progress--*
 
-### Change point detection (only time series)
+- **Change point detection (only time series)**
 
 *--work in progress--*
 
-### Object detection (only image)
+- **Object detection (only image)**
 
 *--work in progress--*
 
@@ -70,7 +70,8 @@ you need to specify the list of feature generators:
 
     'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 
-Results of experiment are stored in `results_of_experiments/{feature_generator name}` directory.
+Results of experiment which include generated features, predicted classes, metrics and
+pipelines are stored in `results_of_experiments/{feature_generator name}` directory.
 Logs of experiment are stored in `log` directory.
 
 #### Anomaly detection
@@ -85,6 +86,7 @@ Logs of experiment are stored in `log` directory.
 
 ## Examples & Tutorials
 
+Comprehensive tutorial will be available soon.
 ## Publications about FEDOT.Industrial
 
 Our plan for publication activity is to publish papers related to
@@ -98,16 +100,41 @@ Stay tuned!
 
 ## Project structure
 
+The latest stable release of FEDOT.Industrial is on the [**main
+branch**](<https://github.com/ITMO-NSS-team/Fedot.Industrial>).
+
+The repository includes the following directories:
+
+- Package `core` contains the main classes and scripts
+- Package `cases` includes several how-to-use-cases where you can start to discover how framework works
+- All unit and integration tests will be observed in the `test` directory
+- The sources of the documentation are in the `docs`
+
 ## Current R&D and future plans
+
+- Development of meta-knowledge storage for data obtained from the experiments
+- Research on time series clusterization
 
 ## Documentation
 
-*--work in progress--*
+Documentation will be available soon at `Read The Docs` after first stable release
 
 ## Supported by
 
-- `<https://sai.itmo.ru/>`
+The research is supported by Research Center
+[**Strong Artificial Intelligence in Industry**](<https://sai.itmo.ru/>)
+of ITMO University (Saint Petersburg, Russia)
 
 ## Citation
 
+Here will be provided a list of citations for the project.
 
+So far you can use citation for this repository:
+
+    @online{fedot_industrial,
+      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Mikitin, Nikolay},
+      title = {FEDOT.Industrial - Framework for automated time series analysis},
+      year = 2022,
+      url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},
+      urldate = {2022-05-05}
+    }
