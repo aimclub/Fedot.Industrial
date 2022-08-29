@@ -8,12 +8,17 @@ Application field of the framework is the following:
 
 ### Classification (time series or image)
 
-For this purpose we have developed four feature
-generators: spectral, quantile, wavelet and topological.
+For this purpose we introduce four feature
+generators:
 
 ![](doc/all-generators.png)
 
+After feature generation process apply evolutionary
+algorithm of FEDOT to find the best model for classification task.
+
 ### Anomaly detection (time series or image)
+
+*--work in progress--*
 
 ### Change point detection (only time series)
 
@@ -23,25 +28,70 @@ generators: spectral, quantile, wavelet and topological.
 
 *--work in progress--*
 
-# Usage
+## Usage
 
 FEDOT.Industrial provides a high-level API that allows you
-to use its capabilities in a simple way. The API can be used for the following purposes:
+to use its capabilities in a simple way.
 
-# Examples & Tutorials
+#### Classification
 
-# Publications about FEDOT.Industrial
+To conduct time series classification you need to first
+set experiment configuration using file `cases/config/Config_Classification.yaml` and then run the following command:
 
-# Project structure
+    from cases.API import Industrial
 
-# Current R&D and future plans
+    config_name = 'Config_Classification.yaml'
+    ExperimentHelper = Industrial()
+    ExperimentHelper.run_experiment(config_name)
 
-# Documentation
+Possible feature generators which could be specified in configuration are
+`window_quantile`, `quantile`, `spectral_window`, `spectral`,
+`wavelet` and `topological`.
 
-# Supported by
+There is also a possibility to ensemble several
+feature generators. It could be done by the following instruction in `feature_generator`
+field of `Config_Classification.yaml` file:
+
+    'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
+
+Results of experiment are stored in `results_of_experiments/{feature_generator name}` directory.
+Logs of experiment are stored in `log` directory.
+
+#### Anomaly detection
+
+*--work in progress--*
+
+#### Change point detection
+
+*--work in progress--*
+
+#### Object detection
+
+## Examples & Tutorials
+
+## Publications about FEDOT.Industrial
+
+Our plan for publication activity is to publish papers related to
+framework's usability and its applications.
+
+First article `AUTOMATED MACHINE LEARNING APPROACH FOR TIME SERIES
+CLASSIFICATION PIPELINES USING EVOLUTIONARY OPTIMISATION` by Ilya E. Revin,
+Vadim A. Potemkin, Nikita R. Balabanov, Nikolay O. Nikitin is under review.
+
+Stay tuned!
+
+## Project structure
+
+## Current R&D and future plans
+
+## Documentation
+
+*--work in progress--*
+
+## Supported by
 
 - `<https://sai.itmo.ru/>`
 
-# Citation
+## Citation
 
 
