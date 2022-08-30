@@ -1,6 +1,10 @@
 ![](doc/fedot-industrial.png)
 
-[![GitHub issues](https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/issues) [![GitHub stars](https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers) ![](https://img.shields.io/badge/python-3.8-green?style=for-the-badge&logo=python)
+[![GitHub issues](https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/issues) 
+[![GitHub stars](https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers) 
+![](https://img.shields.io/badge/python-3.8-green?style=for-the-badge&logo=python)
+[![GitHub license](https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md)
+
 
 Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
 solutions, we propose using a combination of feature extractors with an ensemble of lightweight models obtained by the
