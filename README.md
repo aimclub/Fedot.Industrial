@@ -140,3 +140,7 @@ So far you can use citation for this repository:
       url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},
       urldate = {2022-05-05}
     }
+
+## Meme time
+
+![Jokes Card](https://readme-jokes.vercel.app/api)
