@@ -1,5 +1,7 @@
 ![](doc/fedot-industrial.png)
 
+[![GitHub issues](https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/issues) [![GitHub stars](https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers)
+
 Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
 solutions, we propose using a combination of feature extractors with an ensemble of lightweight models obtained by the
 algorithmic kernel of [**AutoML framework FEDOT.**](https://github.com/nccr-itmo/FEDOT)
