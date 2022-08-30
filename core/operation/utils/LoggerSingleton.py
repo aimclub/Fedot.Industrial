@@ -8,6 +8,9 @@ MSG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 DT_FORMAT = '%H:%M:%S'
 DATE_NOW = date.today()
 TIME_NOW = datetime.now().strftime("%H-%M")
+
+if not os.path.exists(project_path() + '/log'):
+    os.mkdir(project_path() + '/log')
 LOG_PATH = os.path.join(project_path(), 'log', f'Experiment-log-{DATE_NOW}_{TIME_NOW}.log')
 
 

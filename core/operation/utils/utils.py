@@ -43,7 +43,7 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
 
 
 def project_path() -> str:
-    name_project = 'IndustrialTS'
+    name_project = 'Fedot.Industrial'
     abs_path = os.path.abspath(os.path.curdir)
     while os.path.basename(abs_path) != name_project:
         abs_path = os.path.dirname(abs_path)
