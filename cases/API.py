@@ -1,18 +1,21 @@
-import copy
-from typing import Union
-
-import numpy as np
-import yaml
-
+from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
+from core.operation.utils.utils import path_to_save_results
+from cases.run.TopologicalRunner import TopologicalRunner
+from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.utils import project_path
 from cases.run.EnsembleRunner import EnsembleRunner
 from cases.run.QuantileRunner import StatsRunner
-from cases.run.SSARunner import SSARunner
 from cases.run.SignalRunner import SignalRunner
-from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
-from cases.run.TopologicalRunner import TopologicalRunner
-from cases.run.utils import *
-from core.operation.utils.LoggerSingleton import Logger
-from core.operation.utils.utils import path_to_save_results
+from core.operation.utils.utils import read_tsv
+from cases.run.SSARunner import SSARunner
+
+from typing import Union
+
+import pandas as pd
+import numpy as np
+import copy
+import yaml
+import os
 
 
 class Industrial:
@@ -31,12 +34,6 @@ class Industrial:
             'spectral_window': SSARunner,
             'topological': TopologicalRunner,
             'ensemble': EnsembleRunner}
-
-    @staticmethod
-    def _get_ts_data(name_of_datasets):
-        all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
-        train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
-        return train_data, test_data
 
     def _init_experiment_setup(self, config_name):
         self.read_yaml_config(config_name)
@@ -68,17 +65,10 @@ class Industrial:
 
         return experiment_dict
 
-    @staticmethod
-    def _save_spectrum(classificator, path_to_save):
-        for method, path in zip(list(classificator.composer.dict.keys()), path_to_save):
-            pd.concat(classificator.composer.dict[method].eigenvectors_list_train, axis=1).to_csv(
-                os.path.join(path, 'train_spectrum.csv'))
-            pd.concat(classificator.composer.dict[method].eigenvectors_list_test, axis=1).to_csv(
-                os.path.join(path, 'test_spectrum.csv'))
-
     def read_yaml_config(self, config_name: str) -> None:
-        """ Read yaml config from './experiments/configs/config_name' directory as dictionary file
-            :param config_name: yaml-config name
+        """
+        Read yaml config from './experiments/configs/config_name' directory as dictionary file
+        :param config_name: yaml-config name
         """
         path = os.path.join(project_path(), 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
@@ -89,49 +79,12 @@ class Industrial:
                 f"\ndatasets - {self.config_dict['datasets_list']},"
                 f"\nfeature generators - {self.config_dict['feature_generator']}")
 
-    @staticmethod
-    def save_results(predictions: Union[np.ndarray, pd.DataFrame],
-                     predictions_proba: Union[np.ndarray, pd.DataFrame],
-                     train_target: Union[np.ndarray, pd.Series],
-                     test_target: Union[np.ndarray, pd.Series],
-                     path_to_save: str,
-                     metrics: dict,
-                     train_features: Union[np.ndarray, pd.DataFrame],
-                     test_features: Union[np.ndarray, pd.DataFrame],
-                     ):
-
-        path_results = os.path.join(path_to_save, 'test_results')
-        if not os.path.exists(path_results):
-            os.makedirs(path_results)
-
-        features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
-        features_list = [train_features, train_target, test_features, test_target]
-        saved_features = list(
-            map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
-
-        if type(predictions_proba) is not pd.DataFrame:
-            df_preds = pd.DataFrame(predictions_proba)
-            df_preds['Target'] = test_target
-            df_preds['Preds'] = predictions
-        else:
-            df_preds = predictions_proba
-            df_preds['Target'] = test_target.values
-
-        if type(metrics) is str:
-            df_metrics = pd.DataFrame()
-        else:
-            df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
-
-        # df_metrics['Inference'] = inference
-        # df_metrics['Fit_time'] = fit_time
-        # df_metrics['window'] = window
-
-        for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
-                        [df_preds, df_metrics]):
-            full_path = os.path.join(path_results, p)
-            d.to_csv(full_path)
-
-    def run_experiment(self, config_name):
+    def run_experiment(self, config_name) -> None:
+        """
+        Run experiment with corresponding config_name
+        :param config_name: configuration file name [Config_Classification.yaml]
+        return:
+        """
         self.logger.info(f'START EXPERIMENT')
 
         experiment_dict = self._init_experiment_setup(config_name)
@@ -182,3 +135,55 @@ class Industrial:
                     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
         self.logger.info('END EXPERIMENT')
+
+    @staticmethod
+    def _get_ts_data(name_of_datasets):
+        all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
+        train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
+        return train_data, test_data
+
+    @staticmethod
+    def _save_spectrum(classificator, path_to_save):
+        for method, path in zip(list(classificator.composer.dict.keys()), path_to_save):
+            pd.concat(classificator.composer.dict[method].eigenvectors_list_train, axis=1).to_csv(
+                os.path.join(path, 'train_spectrum.csv'))
+            pd.concat(classificator.composer.dict[method].eigenvectors_list_test, axis=1).to_csv(
+                os.path.join(path, 'test_spectrum.csv'))
+
+    @staticmethod
+    def save_results(predictions: Union[np.ndarray, pd.DataFrame],
+                     predictions_proba: Union[np.ndarray, pd.DataFrame],
+                     train_target: Union[np.ndarray, pd.Series],
+                     test_target: Union[np.ndarray, pd.Series],
+                     path_to_save: str,
+                     metrics: dict,
+                     train_features: Union[np.ndarray, pd.DataFrame],
+                     test_features: Union[np.ndarray, pd.DataFrame],
+                     ):
+
+        path_results = os.path.join(path_to_save, 'test_results')
+        if not os.path.exists(path_results):
+            os.makedirs(path_results)
+
+        features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
+        features_list = [train_features, train_target, test_features, test_target]
+        saved_features = list(
+            map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
+
+        if type(predictions_proba) is not pd.DataFrame:
+            df_preds = pd.DataFrame(predictions_proba)
+            df_preds['Target'] = test_target
+            df_preds['Preds'] = predictions
+        else:
+            df_preds = predictions_proba
+            df_preds['Target'] = test_target.values
+
+        if type(metrics) is str:
+            df_metrics = pd.DataFrame()
+        else:
+            df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
+
+        for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
+                        [df_preds, df_metrics]):
+            full_path = os.path.join(path_results, p)
+            d.to_csv(full_path)

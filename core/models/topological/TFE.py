@@ -1,12 +1,19 @@
 from multiprocessing.dummy import Pool as ThreadPool
 
+from abc import ABC
 import numpy as np
 import pandas as pd
 from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape, BettiCurve
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
 
-from core.models.topological.external.TFE.base import PersistenceDiagramFeatureExtractor
+
+class PersistenceDiagramFeatureExtractor(ABC):
+    def extract_feature_(self, persistence_diagram):
+        pass
+
+    def fit_transform(self, X_pd):
+        return np.array([self.extract_feature_(diagram) for diagram in X_pd])
 
 
 class PersistenceDiagramsExtractor:

@@ -1,17 +1,27 @@
-import timeit
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import TaskTypesEnum, Task
+from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.pipelines.node import PrimaryNode
+from fedot.core.data.data import InputData
 
-from tqdm import tqdm
-
-from cases.run.ExperimentRunner import ExperimentRunner
-from cases.run.utils import read_tsv
-from core.models.signal.wavelet import WaveletExtractor
 from core.models.statistical.Stat_features import AggregationFeatures
+from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.signal.wavelet import WaveletExtractor
 from core.operation.utils.LoggerSingleton import Logger
+from core.metrics.metrics_implementation import *
 from core.operation.utils.utils import *
+from core.operation.utils.utils import read_tsv
+
+import timeit
+from tqdm import tqdm
 
 
 class SignalRunner(ExperimentRunner):
-    def __init__(self, wavelet_types):
+    """
+    Class responsible for wavelet feature generator experiment
+    """
+
+    def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4')):
 
         super().__init__()
 
@@ -26,7 +36,7 @@ class SignalRunner(ExperimentRunner):
         self.logger = Logger().get_logger()
 
     def _ts_chunk_function(self, ts):
-        ts = self.check_Nan(ts)
+        ts = self.check_for_nan(ts)
 
         threshold_range = [1, 3, 5, 7, 9]
 
@@ -35,23 +45,23 @@ class SignalRunner(ExperimentRunner):
 
         hf_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1))
         hf_lambda_names = lambda x: 'HF_peaks_higher_than_{}'.format(x + 1)
-        hf_lambda_KNN = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
-        hf_lambda_KNN_names = lambda x: 'HF_nearest_peaks_at_distance_{}'.format(x)
+        hf_lambda_knn = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
+        hf_lambda_knn_names = lambda x: 'HF_nearest_peaks_at_distance_{}'.format(x)
 
-        LF_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1, valley=True))
-        LF_lambda_names = lambda x: 'LF_peaks_higher_than_{}'.format(x + 1)
-        LF_lambda_KNN = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
-        LF_lambda_KNN_names = lambda x: 'LF_nearest_peaks_at_distance_{}'.format(x)
+        lf_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1, valley=True))
+        lf_lambda_names = lambda x: 'LF_peaks_higher_than_{}'.format(x + 1)
+        lf_lambda_knn = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
+        lf_lambda_knn_names = lambda x: 'LF_nearest_peaks_at_distance_{}'.format(x)
 
         lambda_list = [
-            hf_lambda_KNN,
-            LF_lambda_peaks,
-            LF_lambda_KNN]
+            hf_lambda_knn,
+            lf_lambda_peaks,
+            lf_lambda_knn]
 
         lambda_list_names = [
-            hf_lambda_KNN_names,
-            LF_lambda_names,
-            LF_lambda_KNN_names]
+            hf_lambda_knn_names,
+            lf_lambda_names,
+            lf_lambda_knn_names]
 
         features = list(map(hf_lambda_peaks, threshold_range))
         features_names = list(map(hf_lambda_names, threshold_range))
@@ -65,7 +75,12 @@ class SignalRunner(ExperimentRunner):
         feature_df.columns = features_names
         return feature_df
 
-    def generate_vector_from_ts(self, ts_frame):
+    def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> list:
+        """
+        Generate vector from time series
+        :param ts_frame: time series dataframe
+        :return:
+        """
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
 
@@ -82,10 +97,7 @@ class SignalRunner(ExperimentRunner):
         self.logger.info(f'Time spent on wavelet extraction - {time_elapsed} sec')
         return components_and_vectors
 
-    def generate_features_from_ts(self, ts_frame, window_length=None):
-        pass
-
-    def extract_features(self, ts_data, dataset_name: str = None):
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         self.logger.info('Wavelet feature extraction started')
 
         (_, _), (y_train, _) = read_tsv(dataset_name)
@@ -102,8 +114,47 @@ class SignalRunner(ExperimentRunner):
                 self.test_feats = delete_col_by_var(test_feats)
             return self.test_feats
 
-    def _choose_best_wavelet(self, X_train, y_train):
+    def _validate_window_length(self, features: pd.DataFrame, target: np.ndarray):
+        """
+        Validate window length using one-node (random forest) Fedot model
+        :param features: features dataframe
+        :param target: array of target labels
+        :return:
+        """
+        node = PrimaryNode('rf')
+        pipeline = Pipeline(node)
+        n_samples = round(features.shape[0] * 0.7)
 
+        train_data = InputData(features=features.values[:n_samples, :],
+                               target=target[:n_samples],
+                               idx=np.arange(0, len(target[:n_samples])),
+                               task=Task(TaskTypesEnum('classification')),
+                               data_type=DataTypesEnum.table)
+
+        test_data = InputData(features=features.values[n_samples:, :],
+                              target=target[n_samples:],
+                              idx=np.arange(0, len(target[n_samples:])),
+                              task=Task(TaskTypesEnum('classification')),
+                              data_type=DataTypesEnum.table)
+
+        pipeline.fit(input_data=train_data)
+        prediction = pipeline.predict(input_data=test_data, output_mode='labels')
+        metric_f1 = F1()
+        score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
+
+        score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
+        if score_roc_auc is None:
+            score_roc_auc = 0.5
+
+        return score_f1, score_roc_auc
+
+    def _choose_best_wavelet(self, X_train: pd.DataFrame, y_train: np.ndarray) -> pd.DataFrame:
+        """
+        Chooses the best wavelet for feature extraction
+        :param X_train: train features dataframe
+        :param y_train: train target labels
+        :return:
+        """
         metric_list = []
         feature_list = []
 

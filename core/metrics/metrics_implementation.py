@@ -1,5 +1,7 @@
 import numpy as np
-from sklearn.metrics import (accuracy_score, f1_score, log_loss, mean_absolute_error, mean_absolute_percentage_error,
+from sklearn.metrics import (accuracy_score, f1_score,
+                             log_loss, mean_absolute_error,
+                             mean_absolute_percentage_error,
                              mean_squared_error, mean_squared_log_error,
                              precision_score, r2_score, roc_auc_score)
 
@@ -8,9 +10,7 @@ class QualityMetric:
     def __init__(self, default_value: float = 0.0):
         self.default_value = default_value
 
-    def metric(self,
-               target: list,
-               prediction: list) -> float:
+    def metric(self, target: list, prediction: list) -> float:
         return 0
 
 
@@ -41,7 +41,6 @@ class MAPE(QualityMetric):
 
 
 class F1(QualityMetric):
-
     def metric(self, target, prediction) -> float:
         self.default_value = 0
         n_classes = np.unique(target)
@@ -55,19 +54,16 @@ class F1(QualityMetric):
 
 
 class MAE(QualityMetric):
-
     def metric(self, target, prediction) -> float:
         return mean_absolute_error(y_true=target, y_pred=prediction)
 
 
 class R2(QualityMetric):
-
     def metric(self, target, prediction) -> float:
         return r2_score(y_true=target, y_pred=prediction)
 
 
 class ROCAUC(QualityMetric):
-
     def metric(self, target, prediction) -> float:
         self.default_value = 0.5
         n_classes = np.unique(target)

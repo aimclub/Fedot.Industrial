@@ -1,14 +1,10 @@
-from typing import Dict, Union, List
-
-import numpy as np
-from sklearn import preprocessing
-
 from core.metrics.metrics_implementation import *
+
+from typing import Dict, Union, List
+from sklearn import preprocessing
 
 
 class PerformanceAnalyzer:
-    def __init__(self):
-        return
 
     def problem_and_metric_for_dataset(self, task_type: str) -> Union[List, None]:
         if task_type == 'classification':

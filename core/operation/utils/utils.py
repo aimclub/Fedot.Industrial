@@ -1,9 +1,9 @@
 from multiprocessing import Pool
 from typing import Union
 
-import os
-import numpy as np
 import pandas as pd
+import numpy as np
+import os
 
 
 def save_results(predictions: Union[np.ndarray, pd.DataFrame],
@@ -88,3 +88,30 @@ def threading_operation(ts_frame: pd.DataFrame,
     pool.close()
     pool.join()
     return features
+
+
+def read_tsv(file_name: str):
+    """
+    Read tsv file that contains data for classification experiment. Data must be placed
+    in 'data' folder with .tsv extension.
+    :param file_name:
+    :return: (x_train, x_test) - pandas dataframes and (y_train, y_test) - numpy arrays
+    """
+    df_train = pd.read_csv(
+        os.path.join(project_path(), 'data', file_name, f'{file_name}_TRAIN.tsv'),
+        sep='\t',
+        header=None)
+
+    x_train = df_train.iloc[:, 1:]
+    y_train = df_train[0].values
+
+    df_test = pd.read_csv(
+        os.path.join(project_path(), 'data', file_name, f'{file_name}_TEST.tsv'),
+        sep='\t',
+        header=None)
+
+    x_test = df_test.iloc[:, 1:]
+    y_test = df_test[0].values
+
+    return (x_train, x_test), (y_train, y_test)
+
