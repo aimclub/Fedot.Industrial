@@ -1,4 +1,4 @@
-from cases.run.utils import read_tsv
+from core.operation.utils.utils import read_tsv
 
 
 def test_read_tsv():

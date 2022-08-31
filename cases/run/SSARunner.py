@@ -1,15 +1,22 @@
-import timeit
-from collections import Counter
+from typing import List, Any
 
-import matplotlib.pyplot as plt
+import pandas as pd
 
+from core.models.statistical.Stat_features import AggregationFeatures
 from cases.run.ExperimentRunner import ExperimentRunner
 from core.models.spectral.SSA import Spectrum
-from core.models.statistical.Stat_features import AggregationFeatures
 from core.operation.utils.utils import *
+
+import matplotlib.pyplot as plt
+from collections import Counter
+import timeit
 
 
 class SSARunner(ExperimentRunner):
+    """
+    Class responsible for spectral feature generator experiment
+    """
+
     def __init__(self, window_sizes: list,
                  window_mode: bool = False):
 
@@ -58,21 +65,21 @@ class SSARunner(ExperimentRunner):
             plt.tight_layout()
             plt.savefig(os.path.join(self.path_to_save_png, f'components_for_ts_class_{idx}.png'))
 
-    def _ts_chunk_function(self, ts):
+    def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
 
         self.logger.info(f'8 CPU on working. '
                          f'Total ts samples - {self.ts_samples_count}. '
                          f'Current sample - {self.count}')
 
-        ts = self.check_Nan(ts)
+        ts = self.check_for_nan(ts_data)
 
-        spectr = self.spectrum_extractor(time_series=ts,
-                                         window_length=self.window_length)
-        TS_comps, X_elem, V, Components_df, _, n_components, explained_dispersion = spectr.decompose(
+        specter = self.spectrum_extractor(time_series=ts,
+                                          window_length=self.window_length)
+        ts_comps, x_elem, v, components_df, _, n_components, explained_dispersion = specter.decompose(
             rank_hyper=self.rank_hyper)
 
         self.count += 1
-        return [Components_df, n_components, explained_dispersion]
+        return [components_df, n_components, explained_dispersion]
 
     def generate_vector_from_ts(self, ts_frame):
         start = timeit.default_timer()
@@ -82,12 +89,12 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Time spent on eigenvectors extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors
 
-    def extract_features(self, ts_data, dataset_name: str = None):
-        self.logger.info('Spectra features extraction started')
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+        self.logger.info('Spectral features extraction started')
 
         start = timeit.default_timer()
         if self.window_length is None:
-            aggregation_df = self._choose_best_window_size(ts_data, dataset_name=dataset_name)
+            self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = delete_col_by_var(self.train_feats)
         else:
             eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
@@ -106,7 +113,7 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {time_spent} sec')
         return aggregation_df
 
-    def generate_features_from_ts(self, eigenvectors_list, window_mode: bool = False):
+    def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
         start = timeit.default_timer()
 
         if window_mode:
@@ -135,11 +142,15 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
         return aggregation_df
 
-    def _choose_best_window_size(self, X_train, dataset_name):
-
+    def _choose_best_window_size(self, X_train, dataset_name) -> pd.DataFrame:
+        """
+        Chooses the best window for feature extraction
+        :param X_train: train features dataframe
+        :param dataset_name: name of the dataset
+        :return: dataframe of features extracted with the best window size
+        """
         metric_list = []
         n_comp_list = []
-        disp_list = []
         eigen_list = []
 
         for window_length in self.window_length_list[dataset_name]:
@@ -149,9 +160,10 @@ class SSARunner(ExperimentRunner):
             eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
 
             rank_list = [x[1] for x in eigenvectors_and_rank]
-            explained_dispersion = [x[2] for x in eigenvectors_and_rank]
 
-            self.explained_dispersion = round(np.mean(explained_dispersion))
+            explained_dispersion = [x[2] for x in eigenvectors_and_rank]
+            mean_dispersion = np.mean(explained_dispersion)
+            self.explained_dispersion = round(float(mean_dispersion))
 
             self.n_components = Counter(rank_list).most_common(n=1)[0][0]
 
@@ -161,7 +173,7 @@ class SSARunner(ExperimentRunner):
                              f'{self.explained_dispersion} % of explained dispersion '
                              f'obtained by first - {self.n_components} components.')
 
-            metrics = self.explained_dispersion  # / self.n_components
+            metrics = self.explained_dispersion
             metric_list.append(metrics)
 
             eigen_list.append(eigenvectors_list)

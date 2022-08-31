@@ -13,7 +13,7 @@ class Topological:
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list] = None,
                  max_simplex_dim: int = None,
                  epsilon: int = None,
-                 persistance_params: dict = None,
+                 persistence_params: dict = None,
                  window_length: int = None):
         """
         Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
@@ -34,9 +34,9 @@ class Topological:
 
         self.epsilon_range = self.__create_epsilon_range(epsilon)
 
-        self.persistance_params = persistance_params
-        if self.persistance_params is None:
-            self.persistance_params = {
+        self.persistence_params = persistence_params
+        if self.persistence_params is None:
+            self.persistence_params = {
                 'coeff': 2,
                 'do_cocycles': False,
                 'verbose': False}
@@ -123,8 +123,8 @@ class Topological:
         epsilon_range = self.epsilon_range
 
         # build filtration
-        self.persistance_params['maxdim'] = max_simplex_dim
-        filtration = Rips(**self.persistance_params)
+        self.persistence_params['maxdim'] = max_simplex_dim
+        filtration = Rips(**self.persistence_params)
 
         if point_cloud is None:
             point_cloud = self.time_series_to_point_cloud()

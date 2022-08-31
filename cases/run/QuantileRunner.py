@@ -1,11 +1,14 @@
-import timeit
-
-from cases.run.ExperimentRunner import ExperimentRunner
 from core.models.statistical.Stat_features import AggregationFeatures
+from cases.run.ExperimentRunner import ExperimentRunner
 from core.operation.utils.utils import *
+
+import timeit
 
 
 class StatsRunner(ExperimentRunner):
+    """
+    Class responsible for quantile feature generator experiment
+    """
     def __init__(self, static_booster: bool = False,
                  window_mode: bool = False):
 
@@ -19,11 +22,11 @@ class StatsRunner(ExperimentRunner):
         self.n_components = None
         self.window_mode = window_mode
 
-    def generate_features_from_ts(self, ts, window_length=None):
+    def generate_features_from_ts(self, ts: pd.DataFrame, window_length: int = None) -> pd.DataFrame:
         start = timeit.default_timer()
         self.ts_samples_count = ts.shape[0]
         self.logger.info(f'Number of TS to be processed: {self.ts_samples_count}')
-        ts = self.check_Nan(ts)
+        ts = self.check_for_nan(ts)
         ts = pd.DataFrame(ts, dtype=float)
 
         if self.window_mode:

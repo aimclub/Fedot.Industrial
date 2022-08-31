@@ -1,11 +1,17 @@
-from fedot.api.main import Fedot
+import numpy as np
+import pandas as pd
 
-from core.operation.utils.Composer import FeatureGeneratorComposer
-from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
 from core.operation.utils.TSDatatypes import FeatureList, PredictorList, PredictionsList, MetricsDict
+from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
+from core.operation.utils.Composer import FeatureGeneratorComposer
+
+from fedot.api.main import Fedot
 
 
 class TimeSeriesClassifier:
+    """
+    Class responsible for interaction with Fedot classifier
+    """
     def __init__(self,
                  feature_generator_dict: dict,
                  model_hyperparams: dict,
@@ -16,7 +22,11 @@ class TimeSeriesClassifier:
         self._init_composer()
         self._init_builder()
 
-    def _init_composer(self):
+    def _init_composer(self) -> None:
+        """
+        Initialize composer with all operations
+        :return:
+        """
         self.composer = FeatureGeneratorComposer()
         if self.feature_generator_dict is not None:
             for operation_name, operation_functionality in self.feature_generator_dict.items():
@@ -24,17 +34,27 @@ class TimeSeriesClassifier:
 
         self.list_of_generators = list(self.composer.dict.values())
 
-    def _init_builder(self):
+    def _init_builder(self) -> None:
+        """
+        Initialize builder with all operations combining generator name and transformation method
+        :return:
+        """
         for operation_name, operation_functionality in self.feature_generator_dict.items():
             self.feature_generator_dict[operation_name] = \
                 FeatureBuilderSelector(operation_name, operation_functionality).select_transformation()
 
-    def _fit_fedot_model(self, feature, target) -> Fedot:
+    def _fit_fedot_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
+        """
+        Fit Fedot model with feature and target
+        @param feature:
+        @param target:
+        @return:
+        """
         fedot_model = Fedot(**self.model_hyperparams)
-        fedot_model.fit(feature, target)
+        fedot_model.fit(features, target)
         return fedot_model
 
-    def fit(self, train_tuple, dataset_name) -> dict:
+    def fit(self, train_tuple: tuple, dataset_name: str) -> dict:
 
         feature_list = FeatureList(list_of_generators=self.list_of_generators,
                                    data=train_tuple[0],
