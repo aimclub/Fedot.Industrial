@@ -8,6 +8,8 @@ import pandas as pd
 class StatsRunner(ExperimentRunner):
     """
     Class responsible for quantile feature generator experiment
+        :param static_booster: boolean flag that indicates whether to use static booster or not
+        :param window_mode: boolean flag that indicates whether to use window mode or not
     """
 
     def __init__(self, static_booster: bool = False,

@@ -3,26 +3,25 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from ripser import Rips, ripser
-# matplotlib.use('TkAgg')
 from scipy import sparse
 
 
 class Topological:
+    """
+    Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
+    recorded at equal intervals
+        :param time_series : The original time series, in the form of a Pandas Series, NumPy array or list
+        :param max_simplex_dim : integer that will be the maximum dimension of the simplices to be created
+        :param epsilon : float that will be the epsilon parameter for the Rips filtration
+        :param persistence_params : dictionary that will be the parameters for the topological experiment
+        :param window_length : integer that will be the length of the window
+    """
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list] = None,
                  max_simplex_dim: int = None,
                  epsilon: int = None,
                  persistence_params: dict = None,
                  window_length: int = None):
-        """
-        Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-        recorded at equal intervals.
-
-        Parameters
-        ----------
-        time_series : The original time series, in the form of a Pandas Series, NumPy array or list.
-        window_length : integer that will be the length of the window.
-        """
         self.time_series = time_series
 
         # time series to float type
@@ -90,11 +89,10 @@ class Topological:
     def time_series_to_point_cloud(self, array: np.array = None, dimension_embed=2):
         """
         Convert a time series into a point cloud in the dimension specified by dimension_embed
-
-        :param: dimension_embed: dimension of Euclidean space in which to embed the time series into by taking windows of
+            :param dimension_embed: dimension of Euclidean space in which to embed the time series into by taking windows of
         dimension_embed length, e.g. if the time series is [t_1,...,t_n] and dimension_embed is 2,
         then the point cloud would be [(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]
-        :return: collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
+            :return: collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
         in the manner explained above
         """
 
@@ -154,11 +152,10 @@ class Topological:
         """
         Wrapper function that takes in a time series and outputs
         the persistent homology object, along with other
-        auxiliary objects.
-
-        :param: time_series: Numpy array of time series values
-        :param: max_simplex_dim: Integer denoting the maximum dimension of simplexes to create in filtration
-        :return: dictionary with keys in range(max_simplex_dim) and, the value hom[i] is an array of length
+        auxiliary objects
+            :param time_series: Numpy array of time series values
+            :param max_simplex_dim: Integer denoting the maximum dimension of simplexes to create in filtration
+            :return: dictionary with keys in range(max_simplex_dim) and, the value hom[i] is an array of length
         equal to len(epsilon_range) containing the betti numbers of the i-th homology groups for the Rips filtration
         """
 

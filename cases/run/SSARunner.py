@@ -12,12 +12,11 @@ from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 
 
-# from core.operation.utils.utils import *
-
-
 class SSARunner(ExperimentRunner):
     """
     Class responsible for spectral feature generator experiment
+        :param window_sizes: list of window sizes to be used for feature extraction
+        :param window_mode: boolean flag - if True, window mode is used
     """
 
     def __init__(self, window_sizes: list,

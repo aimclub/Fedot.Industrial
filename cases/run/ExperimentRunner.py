@@ -11,18 +11,15 @@ dict_of_win_list = dict
 class ExperimentRunner:
     """
     Abstract class responsible for feature generators
+        :param feature_generator_dict: dict that consists of 'generator_name': generator_class pairs
+        :param boost_mode: defines whether to use error correction model or not
+        :param static_booster: defines whether to use static booster or dynamic
     """
     METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
 
     def __init__(self, feature_generator_dict: dict = None,
                  boost_mode: bool = True,
                  static_booster: bool = False):
-        """
-        Constructor of class
-        :param feature_generator_dict: dict that consists of 'generator_name': generator_class pairs
-        :param boost_mode: defines whether to use error correction model or not
-        :param static_booster: defines whether to use static booster or dynamic
-        """
         self.feature_generator_dict = feature_generator_dict
         self.count = 0
         self.window_length = None
@@ -34,7 +31,9 @@ class ExperimentRunner:
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
-        """  Method responsible for generation of features from time series
+        """
+        Method responsible for generation of features from time series.
+
         :return: dataframe with generated features
         """
         pass

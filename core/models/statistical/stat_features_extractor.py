@@ -88,10 +88,9 @@ class StatFeaturesExtractor:
         """
         Transform X for given intervals.
         Compute the mean, standard deviation and slope for given intervals of input data X.
-
-        :param: Xt: np.ndarray or pd.DataFrame. Panel data to transform.
-        :param: intervals: np.ndarray. Intervals containing start and end values.
-        :return: Xt: np.ndarray or pd.DataFrame. Transformed X, containing the mean, std and slope for each interval
+            :param Xt: np.ndarray or pd.DataFrame. Panel data to transform
+            :param intervals: np.ndarray. Intervals containing start and end values
+            :return Xt: np.ndarray or pd.DataFrame. Transformed X, containing the mean, std and slope for each interval
         """
         n_instances, _ = X.shape
         n_intervals, _ = intervals.shape
@@ -111,12 +110,11 @@ class StatFeaturesExtractor:
     def _get_intervals(n_intervals, min_interval, series_length, rng):
         """
         Generate random intervals for given parameters
-
-        :param n_intervals: int. Number of intervals to generate.
-        :param min_interval: int. Minimum length of interval.
-        :param series_length: int. Length of series.
-        :param rng:
-        :return: np.ndarray. Intervals
+            :param n_intervals: int. Number of intervals to generate
+            :param min_interval: int. Minimum length of interval
+            :param series_length: int. Length of series
+            :param rng:
+            :return: np.ndarray. Intervals
         """
         intervals = np.zeros((n_intervals, 2), dtype=int)
         for j in range(n_intervals):

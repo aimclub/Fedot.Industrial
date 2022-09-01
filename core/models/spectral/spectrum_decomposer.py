@@ -28,18 +28,16 @@ def plot_2d(m, title=""):
 class SpectrumDecomposer:
     """
     Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-    recorded at equal intervals.
+    recorded at equal intervals
+        :param time_series: The original time series, in the form of a Pandas Series, NumPy array or list
+        :param window_length: The window length. Must be an integer 2 <= L <= N/2, where N is the length of the time series
+        :param save_memory: Conserve memory by not retaining the elementary matrices
     """
 
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  window_length: int = None,
                  save_memory: bool = True):
-        """
-        :param: time_series: The original time series, in the form of a Pandas Series, NumPy array or list.
-        :param: window_length: The window length. Must be an integer 2 <= L <= N/2, where N is the length of the time series.
-        :param: save_memory: Conserve memory by not retaining the elementary matrices
-        """
         self.__time_series = time_series
         self.__window_length = window_length
         self.__save_memory = save_memory
@@ -208,11 +206,8 @@ class SpectrumDecomposer:
     def reconstruct(self, indices):
         """
         Reconstructs the time series from its elementary components, using the given indices. Returns a Pandas Series
-        object with the reconstructed time series.
-
-        Parameters
-        ----------
-        indices: An integer, list of integers or slice(n,m) object, representing the elementary components to sum.
+        object with the reconstructed time series
+            :param indices: An integer, list of integers or slice(n,m) object, representing the elementary components to sum.
         """
         if isinstance(indices, int): indices = [indices]
 

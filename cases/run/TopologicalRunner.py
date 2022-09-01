@@ -24,6 +24,8 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
 class TopologicalRunner(ExperimentRunner):
     """
     Class for extracting topological features from time series data
+        :param topological_params: parameters for topological extractor. Defined in Config.yaml
+        :param list_of_dataset: list of dataset names that will be used for experiments
     """
     def __init__(self, topological_params: dict,
                  list_of_dataset: list = None):

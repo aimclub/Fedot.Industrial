@@ -9,15 +9,13 @@ class WaveletExtractor:
     """
     Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
     recorded at equal intervals.
+
+    :param: time_series: The original time series, in the form of a Pandas Series, NumPy array or list.
+    :param: wavelet_name: The name of the wavelet to use.
     """
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  wavelet_name: str = None):
-        """
-        Initialize WaveletExtractor class
-        :param: time_series: The original time series, in the form of a Pandas Series, NumPy array or list
-        :param: wavelet_name: The name of the wavelet to use.
-        """
         self.time_series = time_series
         self.discrete_wavelets = pywt.wavelist(kind='discrete')
         self.continuous_wavelets = pywt.wavelist(kind='continuous')

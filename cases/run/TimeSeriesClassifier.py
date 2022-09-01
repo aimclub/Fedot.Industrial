@@ -10,6 +10,9 @@ from core.operation.utils.TSDatatypes import FeatureList, MetricsDict, Predictio
 class TimeSeriesClassifier:
     """
     Class responsible for interaction with Fedot classifier
+        :param feature_generator_dict: dict with feature generators
+        :param model_hyperparams: dict with hyperparams for Fedot model
+        :param error_correction: bool with error correction
     """
     def __init__(self,
                  feature_generator_dict: dict,
@@ -36,7 +39,6 @@ class TimeSeriesClassifier:
     def _init_builder(self) -> None:
         """
         Initialize builder with all operations combining generator name and transformation method
-        :return:
         """
         for operation_name, operation_functionality in self.feature_generator_dict.items():
             self.feature_generator_dict[operation_name] = \

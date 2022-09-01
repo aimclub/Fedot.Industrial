@@ -19,6 +19,7 @@ from core.operation.utils.utils import read_tsv
 class SignalRunner(ExperimentRunner):
     """
     Class responsible for wavelet feature generator experiment
+        :wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml
     """
 
     def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4')):
