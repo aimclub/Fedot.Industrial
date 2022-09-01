@@ -113,15 +113,22 @@ class Booster:
 
         return prediction, fedot_model
 
-    def decompose_target(self,
-                         previous_predict: np.array,
-                         previous_target: np.array):
-        """Method that returns difference between two arrays: last target and last predict"""
+    @staticmethod
+    def decompose_target(previous_predict: np.ndarray,
+                         previous_target: np.ndarray):
+        """
+        Method that returns difference between two arrays: last target and last predict.
+
+        :param previous_predict: last prediction
+        :param previous_target: last target
+        :return: difference between last target and last predict"""
         return previous_target - previous_predict
 
     def ensemble(self) -> tuple:
-        """Method that ensemble results of all stages of boosting. Depending on number of classes ensemble method
-        could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem)"""
+        """
+        Method that ensemble results of all stages of boosting. Depending on number of classes ensemble method
+        could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem)
+        """
         self.logger.info('Starting to ensemble boosting results')
 
         ensemble_model = Fedot(problem='regression',
@@ -146,7 +153,10 @@ class Booster:
             return ensemble_prediction, None
 
     def custom_round(self, num: float) -> int:
-        """Custom round method with predefined threshold"""
+        """
+        Custom round method with predefined threshold
+
+        :param num: number to be rounded"""
         thr = self.threshold
         if num - int(num) >= thr:
             return int(num) + 1

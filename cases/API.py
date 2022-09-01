@@ -1,21 +1,21 @@
-from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
-from core.operation.utils.utils import path_to_save_results
-from cases.run.TopologicalRunner import TopologicalRunner
-from core.operation.utils.LoggerSingleton import Logger
-from core.operation.utils.utils import project_path
+import copy
+import os
+from typing import Union
+
+import numpy as np
+import pandas as pd
+import yaml
+
 from cases.run.EnsembleRunner import EnsembleRunner
 from cases.run.QuantileRunner import StatsRunner
 from cases.run.SignalRunner import SignalRunner
-from core.operation.utils.utils import read_tsv
 from cases.run.SSARunner import SSARunner
-
-from typing import Union
-
-import pandas as pd
-import numpy as np
-import copy
-import yaml
-import os
+from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
+from cases.run.TopologicalRunner import TopologicalRunner
+from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.utils import path_to_save_results
+from core.operation.utils.utils import project_path
+from core.operation.utils.utils import read_tsv
 
 
 class Industrial:
@@ -119,16 +119,16 @@ class Industrial:
                 prediction_proba = predictions[0]['prediction_proba']
 
                 self.logger.info('SAVING RESULTS')
-                saved_result = list(map(lambda x, y, z, k, j, m: self.save_results(train_target=train_data[1],
-                                                                                   test_target=test_data[1],
-                                                                                   path_to_save=x,
-                                                                                   train_features=y,
-                                                                                   test_features=z,
-                                                                                   metrics=k,
-                                                                                   predictions=j,
-                                                                                   predictions_proba=m),
-                                        paths_to_save, train_features, test_features, metrics, prediction,
-                                        prediction_proba))
+                _ = list(map(lambda x, y, z, k, j, m: self.save_results(train_target=train_data[1],
+                                                                        test_target=test_data[1],
+                                                                        path_to_save=x,
+                                                                        train_features=y,
+                                                                        test_features=z,
+                                                                        metrics=k,
+                                                                        predictions=j,
+                                                                        predictions_proba=m),
+                             paths_to_save, train_features, test_features, metrics, prediction,
+                             prediction_proba))
 
                 spectral_generators = [x for x in paths_to_save if 'spectral' in x]
                 if len(spectral_generators) != 0:
@@ -167,8 +167,7 @@ class Industrial:
 
         features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
         features_list = [train_features, train_target, test_features, test_target]
-        saved_features = list(
-            map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
+        _ = list(map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)

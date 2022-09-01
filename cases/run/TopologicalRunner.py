@@ -1,15 +1,10 @@
-from core.models.topological.TFE import TopologicalFeaturesExtractor, PersistenceDiagramsExtractor, \
-    HolesNumberFeature, MaxHoleLifeTimeFeature, RelevantHolesNumber, AverageHoleLifetimeFeature, \
-    SumHoleLifetimeFeature, PersistenceEntropyFeature, SimultaneousAliveHolesFeature, \
-    AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature
-from cases.run.ExperimentRunner import ExperimentRunner
-from core.models.topological.TDA import Topological
-from core.operation.utils.utils import *
+import timeit
 
 from gtda.time_series import SingleTakensEmbedding
 
-import timeit
-
+from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.topological.TDA import Topological
+from core.models.topological.TFE import *
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -54,7 +49,7 @@ class TopologicalRunner(ExperimentRunner):
                                                          persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
 
         ts_data_transformed = feature_extractor.fit_transform(ts_data.values)
-        ts_data_transformed = delete_col_by_var(ts_data_transformed)
+        ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
 
         time_elapsed = round(timeit.default_timer() - start, 2)
         self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')

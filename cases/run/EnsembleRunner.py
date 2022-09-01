@@ -1,10 +1,10 @@
+import pandas as pd
+
 from cases.run.ExperimentRunner import ExperimentRunner
-from cases.run.TopologicalRunner import TopologicalRunner
 from cases.run.QuantileRunner import StatsRunner
 from cases.run.SignalRunner import SignalRunner
 from cases.run.SSARunner import SSARunner
-
-import pandas as pd
+from cases.run.TopologicalRunner import TopologicalRunner
 
 
 class EnsembleRunner(ExperimentRunner):

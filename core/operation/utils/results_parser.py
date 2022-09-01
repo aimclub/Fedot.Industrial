@@ -1,9 +1,11 @@
 import os
-from core.operation.utils.utils import project_path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
+
+from core.operation.utils.utils import project_path
 
 dataset_types = {
     'equal': ['Trace', 'ShapesAll', 'Beef', 'DodgerLoopDay', 'ScreenType', 'Lightning7', 'EigenWorms',
@@ -58,7 +60,7 @@ class ResultsParser:
             return
         raise FileNotFoundError('Folder with results cases is empty or doesnt exists')
 
-    def read_result(self, dataset, version):
+    def read_result(self, dataset: str, version: str):
         """ Function to parse a single result """
         try:
             result = pd.read_csv(f'{self.results_path}/{dataset}/{version}/test_results/metrics.csv')['1']
@@ -195,12 +197,11 @@ class ResultsParser:
         return path_list
 
 
-# EXAMPLE
+if __name__ == '__main__':
+    metrics = ['f1', 'roc_auc']
+    parser = ResultsParser()
 
-ls = ['f1', 'roc_auc']
-c = ResultsParser()
-
-for metr in ls:
-    table = c.get_comparison(metr, full_table=False)
-    c.get_compare_boxplots()
-    c.save_to_csv(table, f'{metr}_mega_compare_{c.timeout}')
+    for metr in metrics:
+        table = parser.get_comparison(metr, full_table=False)
+        parser.get_compare_boxplots()
+        parser.save_to_csv(table, f'{metr}_mega_compare_{parser.timeout}')

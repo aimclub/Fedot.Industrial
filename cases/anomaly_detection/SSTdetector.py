@@ -2,9 +2,9 @@ import numpy as np
 from numba import jit
 from scipy.spatial import distance_matrix
 from sklearn.preprocessing import MinMaxScaler
-from core.models.spectral.SSA import Spectrum
+from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
 import pandas as pd
-from core.models.statistical.Stat_features import AggregationFeatures
+from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 
 
 # from .util.linear_algebra import power_method, lanczos, eig_tridiag
@@ -29,11 +29,11 @@ class SingularSpectrumTransformation:
         is_scaled : bool
             if false, min-max scaling will be applied(recommended).
         """
-        self.spectrum_extractor = Spectrum(time_series=time_series, window_length=trajectory_window_length)
+        self.spectrum_extractor = SpectrumDecomposer(time_series=time_series, window_length=trajectory_window_length)
         self.ts = time_series
         self.trajectory_win_length = trajectory_window_length
         self.ts_window_length = ts_window_length
-        self.aggregator = AggregationFeatures()
+        self.aggregator = StatFeaturesExtractor()
         if self.ts_window_length is None:
             self.ts_window_length = self.trajectory_win_length
 

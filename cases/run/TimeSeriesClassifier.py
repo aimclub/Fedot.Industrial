@@ -1,11 +1,10 @@
 import numpy as np
 import pandas as pd
-
-from core.operation.utils.TSDatatypes import FeatureList, PredictorList, PredictionsList, MetricsDict
-from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
-from core.operation.utils.Composer import FeatureGeneratorComposer
-
 from fedot.api.main import Fedot
+
+from core.operation.utils.Composer import FeatureGeneratorComposer
+from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
+from core.operation.utils.TSDatatypes import FeatureList, MetricsDict, PredictionsList, PredictorList
 
 
 class TimeSeriesClassifier:
@@ -46,9 +45,9 @@ class TimeSeriesClassifier:
     def _fit_fedot_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """
         Fit Fedot model with feature and target
-        @param feature:
-        @param target:
-        @return:
+        :param features: pandas.DataFrame with features
+        :param target: numpy.ndarray with target
+        :return: Fedot model
         """
         fedot_model = Fedot(**self.model_hyperparams)
         fedot_model.fit(features, target)

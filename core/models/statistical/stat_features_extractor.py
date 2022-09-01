@@ -1,13 +1,11 @@
 from typing import Union
-import numpy as np
-import pandas as pd
-#from pipe import *
-from core.operation.settings.Hyperparams import *
-from core.operation.utils.Decorators import type_check_decorator
-import copy
 
-stat_methods = ParamSelector('statistical_methods')
-stat_methods_extra = ParamSelector('statistical_methods_extra')
+import pandas as pd
+
+from core.operation.settings.Hyperparams import *
+
+stat_methods = select_hyper_param('statistical_methods')
+stat_methods_extra = select_hyper_param('statistical_methods_extra')
 supported_types = (pd.Series, np.ndarray, list)
 quantile_dict = {'q5_': 0.05,
                  'q25_': 0.25,
@@ -16,7 +14,10 @@ quantile_dict = {'q5_': 0.05,
                  }
 
 
-class AggregationFeatures:
+class StatFeaturesExtractor:
+    """
+    Class for generating statistical features for a given time series.
+    """
 
     def create_baseline_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
@@ -84,21 +85,13 @@ class AggregationFeatures:
         return df_points_stat
 
     def _transform(X, intervals):
-        """Transform X for given intervals.
-
+        """
+        Transform X for given intervals.
         Compute the mean, standard deviation and slope for given intervals of input data X.
 
-        Parameters
-        ----------
-        Xt: np.ndarray or pd.DataFrame
-            Panel data to transform.
-        intervals : np.ndarray
-            Intervals containing start and end values.
-
-        Returns
-        -------
-        Xt: np.ndarray or pd.DataFrame
-         Transformed X, containing the mean, std and slope for each interval
+        :param: Xt: np.ndarray or pd.DataFrame. Panel data to transform.
+        :param: intervals: np.ndarray. Intervals containing start and end values.
+        :return: Xt: np.ndarray or pd.DataFrame. Transformed X, containing the mean, std and slope for each interval
         """
         n_instances, _ = X.shape
         n_intervals, _ = intervals.shape
@@ -114,8 +107,17 @@ class AggregationFeatures:
 
         return transformed_x.T
 
+    @staticmethod
     def _get_intervals(n_intervals, min_interval, series_length, rng):
-        """Generate random intervals for given parameters."""
+        """
+        Generate random intervals for given parameters
+
+        :param n_intervals: int. Number of intervals to generate.
+        :param min_interval: int. Minimum length of interval.
+        :param series_length: int. Length of series.
+        :param rng:
+        :return: np.ndarray. Intervals
+        """
         intervals = np.zeros((n_intervals, 2), dtype=int)
         for j in range(n_intervals):
             intervals[j][0] = rng.randint(series_length - min_interval)

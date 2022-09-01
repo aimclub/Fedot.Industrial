@@ -3,8 +3,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from ripser import Rips, ripser
-import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 from scipy import sparse
 
 
@@ -43,10 +42,12 @@ class Topological:
 
         self.__window_length = window_length
 
-    def __create_epsilon_range(self, epsilon):
+    @staticmethod
+    def __create_epsilon_range(epsilon):
         return np.array([y * float(1 / epsilon) for y in range(epsilon)])
 
-    def __compute_persistnace_landscapes(self, ts):
+    @staticmethod
+    def __compute_persistence_landscapes(ts):
 
         N = len(ts)
         I = np.arange(N - 1)
@@ -72,16 +73,14 @@ class Topological:
 
         return
 
-    def rolling_window(self, array, window):
+    @staticmethod
+    def rolling_window(array, window):
         """
         Take in an array and return array of rolling windows of specified length
 
-        Parameters:
-        - array: numpy array that will be windowed
-        - window: integer that will be the length of the window
-
-        Returns:
-        - a_windowed: array where each entry is an array of length window
+        :param: array: numpy array that will be windowed
+        :param: window: integer that will be the length of the window
+        :return: array where each entry is an array of length window
         """
         shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
         strides = array.strides + (array.strides[-1],)
@@ -92,13 +91,10 @@ class Topological:
         """
         Convert a time series into a point cloud in the dimension specified by dimension_embed
 
-        Parameters:
-        - dimension_embed: dimension of Euclidean space in which to embed the time series into by taking windows of
+        :param: dimension_embed: dimension of Euclidean space in which to embed the time series into by taking windows of
         dimension_embed length, e.g. if the time series is [t_1,...,t_n] and dimension_embed is 2,
         then the point cloud would be [(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]
-
-        Returns:
-        - point_cloud: collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
+        :return: collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
         in the manner explained above
         """
 
@@ -160,12 +156,9 @@ class Topological:
         the persistent homology object, along with other
         auxiliary objects.
 
-        Parameters:
-        - time_series: Numpy array of time series values
-        - max_simplex_dim: Integer denoting the maximum dimension of simplexes to create in filtration
-
-        Returns:
-        - homology: dictionary with keys in range(max_simplex_dim) and, the value hom[i] is an array of length
+        :param: time_series: Numpy array of time series values
+        :param: max_simplex_dim: Integer denoting the maximum dimension of simplexes to create in filtration
+        :return: dictionary with keys in range(max_simplex_dim) and, the value hom[i] is an array of length
         equal to len(epsilon_range) containing the betti numbers of the i-th homology groups for the Rips filtration
         """
 
@@ -174,14 +167,7 @@ class Topological:
         return homology
 
     def time_series_rolling_betti_ripser(self, ts):
-        # homology_list = []
-        # # self.__compute_persistnace_landscapes(ts)
-        # window_list = [x for x in self.rolling_window(array=ts, window=self.__window_length)]
-        #
-        # for window_ts in window_list:
-        #     homology = self.time_series_to_persistent_cohomology_ripser(window_ts,
-        #                                                                 max_simplex_dim=self.max_simplex_dim)
-        # homology_list.append(homology)
+
         point_cloud = self.rolling_window(array=ts, window=self.__window_length)
         homology = self.time_series_to_persistent_cohomology_ripser(point_cloud,
                                                                     max_simplex_dim=self.max_simplex_dim)

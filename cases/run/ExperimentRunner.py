@@ -1,7 +1,8 @@
+import pandas as pd
+
+from core.metrics.metrics_implementation import *
 from core.operation.utils.Decorators import exception_decorator
 from core.operation.utils.LoggerSingleton import Logger
-from core.metrics.metrics_implementation import *
-from core.operation.utils.utils import *
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -64,7 +65,31 @@ class ExperimentRunner:
         metric_roc = ROCAUC()
         try:
             score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
-        except Exception:
+        except ValueError:
             prediction = pipeline.predict(input_data=test_data, output_mode='probs')
             score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
         return score_roc_auc
+
+    @staticmethod
+    def delete_col_by_var(dataframe: pd.DataFrame):
+        for col in dataframe.columns:
+            if dataframe[col].var() < 0.001 and not col.startswith('diff'):
+                del dataframe[col]
+        return dataframe
+
+    @staticmethod
+    def apply_window_for_statistical_feature(ts_data: pd.DataFrame,
+                                             feature_generator: callable,
+                                             window_size: int = None):
+        if window_size is None:
+            window_size = round(ts_data.shape[1] / 10)
+        tmp_list = []
+        for i in range(0, ts_data.shape[1], window_size):
+            slice_ts = ts_data.iloc[:, i:i + window_size]
+            if slice_ts.shape[1] == 1:
+                break
+            else:
+                df = feature_generator(slice_ts)
+                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+                tmp_list.append(df)
+        return tmp_list

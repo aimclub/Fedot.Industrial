@@ -1,4 +1,3 @@
-from multiprocessing import Pool
 from typing import Union
 
 import pandas as pd
@@ -34,6 +33,7 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
     df_metrics['Inference'] = inference
     df_metrics['Fit_time'] = fit_time
     df_metrics['window'] = window
+
     for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
                     [df_preds, df_metrics]):
         full_path = os.path.join(path_results, p)
@@ -53,41 +53,8 @@ def path_to_save_results() -> str:
     return save_path
 
 
-def delete_col_by_var(dataframe: pd.DataFrame):
-    for col in dataframe.columns:
-        if dataframe[col].var() < 0.001 and not col.startswith('diff'):
-            del dataframe[col]
-    return dataframe
-
-
-def apply_window_for_statistical_feature(ts_data: pd.DataFrame,
-                                         feature_generator: callable,
-                                         window_size: int = None):
-    if window_size is None:
-        window_size = round(ts_data.shape[1] / 10)
-    tmp_list = []
-    for i in range(0, ts_data.shape[1], window_size):
-        slice_ts = ts_data.iloc[:, i:i + window_size]
-        if slice_ts.shape[1] == 1:
-            break
-        else:
-            df = feature_generator(slice_ts)
-            df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
-            tmp_list.append(df)
-    return tmp_list
-
-
 def fill_by_mean(column: str, feature_data: pd.DataFrame):
     feature_data.fillna(value=feature_data[column].mean(), inplace=True)
-
-
-def threading_operation(ts_frame: pd.DataFrame,
-                        function_for_feature_extraction: callable):
-    pool = Pool(8)
-    features = pool.map(function_for_feature_extraction, ts_frame)
-    pool.close()
-    pool.join()
-    return features
 
 
 def read_tsv(file_name: str):
@@ -114,4 +81,3 @@ def read_tsv(file_name: str):
     y_test = df_test[0].values
 
     return (x_train, x_test), (y_train, y_test)
-

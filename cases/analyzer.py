@@ -1,7 +1,8 @@
-from core.metrics.metrics_implementation import *
+from typing import Dict, List, Union
 
-from typing import Dict, Union, List
 from sklearn import preprocessing
+
+from core.metrics.metrics_implementation import *
 
 
 class PerformanceAnalyzer:

@@ -1,19 +1,19 @@
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import TaskTypesEnum, Task
-from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.node import PrimaryNode
-from fedot.core.data.data import InputData
-
-from core.models.statistical.Stat_features import AggregationFeatures
-from cases.run.ExperimentRunner import ExperimentRunner
-from core.models.signal.wavelet import WaveletExtractor
-from core.operation.utils.LoggerSingleton import Logger
-from core.metrics.metrics_implementation import *
-from core.operation.utils.utils import *
-from core.operation.utils.utils import read_tsv
-
 import timeit
+
+import pandas as pd
+from fedot.core.data.data import InputData
+from fedot.core.pipelines.node import PrimaryNode
+from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 from tqdm import tqdm
+
+from cases.run.ExperimentRunner import ExperimentRunner
+from core.metrics.metrics_implementation import *
+from core.models.signal.wavelet_extractor import WaveletExtractor
+from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
+from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.utils import read_tsv
 
 
 class SignalRunner(ExperimentRunner):
@@ -26,7 +26,7 @@ class SignalRunner(ExperimentRunner):
         super().__init__()
 
         self.ts_samples_count = None
-        self.aggregator = AggregationFeatures()
+        self.aggregator = StatFeaturesExtractor()
         self.wavelet_extractor = WaveletExtractor
         self.wavelet_list = wavelet_types
         self.vis_flag = False
@@ -111,7 +111,7 @@ class SignalRunner(ExperimentRunner):
                 test_feats = self.generate_vector_from_ts(ts_data)
                 test_feats = pd.concat(test_feats)
                 test_feats.index = list(range(len(test_feats)))
-                self.test_feats = delete_col_by_var(test_feats)
+                self.test_feats = self.delete_col_by_var(test_feats)
             return self.test_feats
 
     def _validate_window_length(self, features: pd.DataFrame, target: np.ndarray):
@@ -184,6 +184,6 @@ class SignalRunner(ExperimentRunner):
         self.wavelet = self.wavelet_list[index_of_window]
         self.logger.info(f'<{self.wavelet}> wavelet was chosen')
 
-        train_feats = delete_col_by_var(train_feats)
+        train_feats = self.delete_col_by_var(train_feats)
 
         return train_feats
