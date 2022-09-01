@@ -5,7 +5,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-PROJECT_PATH = Path(__file__).parent.parent.parent.parent
+PROJECT_PATH = str(Path(__file__).parent.parent.parent.parent)
 
 
 def save_results(predictions: Union[np.ndarray, pd.DataFrame],

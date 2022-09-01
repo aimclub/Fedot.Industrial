@@ -169,6 +169,7 @@ class SignalRunner(ExperimentRunner):
             self.logger.info(f'Validate model for wavelet  - {wavelet}')
 
             score_f1, score_roc_auc = self._validate_window_length(features=train_feats, target=y_train)
+            score_f1, score_roc_auc = round(score_f1, 3), round(score_roc_auc, 3)
 
             self.logger.info(f'Obtained metric for wavelet {wavelet}  - F1, ROC_AUC - {score_f1, score_roc_auc}')
 

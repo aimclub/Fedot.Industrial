@@ -3,10 +3,10 @@ feature_generator: [
 #  'quantile',
 #  'spectral_window',
 #  'spectral',
-#  'wavelet',
+  'wavelet',
 #  'topological'
 
-  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
+#  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: True,
 

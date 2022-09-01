@@ -20,7 +20,7 @@ from core.operation.utils.utils import read_tsv
 
 class Industrial:
     """
-    Class-support for performing examples for tasks (read yaml configs, create data folders and log files)
+    Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
     """
 
     def __init__(self):
