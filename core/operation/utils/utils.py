@@ -1,8 +1,11 @@
+import os
+from pathlib import Path
 from typing import Union
 
-import pandas as pd
 import numpy as np
-import os
+import pandas as pd
+
+PROJECT_PATH = Path(__file__).parent.parent.parent.parent
 
 
 def save_results(predictions: Union[np.ndarray, pd.DataFrame],
@@ -41,14 +44,8 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
     return
 
 
-def project_path() -> str:
-    abs_path = os.path.abspath(os.path.curdir)
-    abs_path = os.path.dirname(abs_path)
-    return abs_path
-
-
 def path_to_save_results() -> str:
-    path = project_path()
+    path = PROJECT_PATH
     save_path = os.path.join(path, 'results_of_experiments')
     return save_path
 
@@ -65,7 +62,7 @@ def read_tsv(file_name: str):
     :return: (x_train, x_test) - pandas dataframes and (y_train, y_test) - numpy arrays
     """
     df_train = pd.read_csv(
-        os.path.join(project_path(), 'data', file_name, f'{file_name}_TRAIN.tsv'),
+        os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TRAIN.tsv'),
         sep='\t',
         header=None)
 
@@ -73,7 +70,7 @@ def read_tsv(file_name: str):
     y_train = df_train[0].values
 
     df_test = pd.read_csv(
-        os.path.join(project_path(), 'data', file_name, f'{file_name}_TEST.tsv'),
+        os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TEST.tsv'),
         sep='\t',
         header=None)
 

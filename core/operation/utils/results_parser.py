@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from core.operation.utils.utils import project_path
+from core.operation.utils.utils import project_path, PROJECT_PATH
 
 dataset_types = {
     'equal': ['Trace', 'ShapesAll', 'Beef', 'DodgerLoopDay', 'ScreenType', 'Lightning7', 'EigenWorms',
@@ -32,10 +32,10 @@ class ResultsParser:
                              'precision': 'TESTPrec'
                              }
         self.timeout = '1_hour'
-        self.results_path = os.path.join(project_path(),
+        self.results_path = os.path.join(PROJECT_PATH,
                                          'results_of_experiments',
                                          self.timeout)
-        self.comparison_path = os.path.join(project_path(), 'results_of_experiments')
+        self.comparison_path = os.path.join(PROJECT_PATH, 'results_of_experiments')
         self.table = pd.DataFrame(columns=['dataset', 'run'] + list(self.metrics_dict.keys()))
         self.fill_table()
 

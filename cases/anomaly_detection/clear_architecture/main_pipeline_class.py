@@ -67,7 +67,7 @@ from cases.anomaly_detection.clear_architecture.operations.ts_elector import TsE
 from cases.anomaly_detection.clear_architecture.operations.visualisation_old import DataVisualizer
 from cases.anomaly_detection.clear_architecture.operations.window_cutting import WindowCut
 from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
-from core.operation.utils.utils import project_path
+from core.operation.utils.utils import PROJECT_PATH
 
 
 class MainPipeline:
@@ -97,10 +97,9 @@ class MainPipeline:
 
 
 if __name__ == '__main__':
-    industrial_path = project_path()
 
-    path = os.path.join(industrial_path, "data/anomaly_detection/monitoring/CSV2")
-    labels_path = os.path.join(industrial_path, "data/anomaly_detection/anomalies_new_nocount_2.csv")
+    path = os.path.join(PROJECT_PATH, "data/anomaly_detection/monitoring/CSV2")
+    labels_path = os.path.join(PROJECT_PATH, "data/anomaly_detection/anomalies_new_nocount_2.csv")
 
     reader = DataReader(path, labels_path)
     transformer = DataTransform()
@@ -153,4 +152,3 @@ if __name__ == '__main__':
         visualizer
     ])
     pipe.run()
-    os.system('say "your job is done"')

@@ -14,7 +14,7 @@ from cases.run.TimeSeriesClassifier import TimeSeriesClassifier
 from cases.run.TopologicalRunner import TopologicalRunner
 from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import path_to_save_results
-from core.operation.utils.utils import project_path
+from core.operation.utils.utils import PROJECT_PATH
 from core.operation.utils.utils import read_tsv
 
 
@@ -70,7 +70,7 @@ class Industrial:
         Read yaml config from './experiments/configs/config_name' directory as dictionary file
         :param config_name: yaml-config name
         """
-        path = os.path.join(project_path(), 'cases', 'config', config_name)
+        path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
             self.config_dict = yaml.safe_load(input_stream)
             self.config_dict['logger'] = self.logger
