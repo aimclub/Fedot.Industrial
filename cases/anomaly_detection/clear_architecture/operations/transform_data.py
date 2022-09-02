@@ -3,46 +3,39 @@ from statistics import mean
 import numpy as np
 from scipy.signal import savgol_filter
 
-from cases.anomaly_detection.clear_architecture.utils.get_time import get_current_time
-from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
-
-"""
-input format:
-    dict with "data" and "labels" fields
-
-Output 
-    the same dict but with additional list of window   
-"""
+from cases.anomaly_detection.clear_architecture.operations.AbstractDataOperation import AbstractDataOperation
+from cases.anomaly_detection.clear_architecture.utils.get_time import time_now
 
 
-class DataTransform:
-    args: SettingsArgs
-
+class DataTransformer(AbstractDataOperation):
+    """
+    Data transformer.
+        input: dict with "data" and "labels" fields
+        Output: the same dict but with additional list of window
+    """
     def __init__(self):
+        super().__init__(name="Data Transformer", operation='transformation')
         self.transformed_data = list()
 
-    def set_settings(self, args: SettingsArgs):
-        self.args = args
-        self._print_logs(f"{get_current_time()} Data transformator: settings was set.")
-        self._print_logs(f"{get_current_time()} Data transformator: Visualize = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Data transformator: Print logs = {self.args.print_logs}")
+        self.raw_data = None
+        self.input_dict = None
+        self.raw_labels = None
 
     def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} Data transformator: Data read!")
+        self._print_logs(f"{time_now()} {self.name}: Data read!")
         self.input_dict = dictionary
         self.raw_data = self.input_dict["data_body"]["raw_data"]
         self.raw_labels = self.input_dict["data_body"]["raw_columns"]
-
-    def run(self) -> None:
-        self._print_logs(f"{get_current_time()} Data transformator: Start transforming...")
-        self._all_data_transform()
-        self._print_logs(f"{get_current_time()} Data transformator: Transforming finished!")
 
     def output_data(self) -> dict:
         self.input_dict["data_body"]["transformed_data"] = self.transformed_data
         return self.input_dict
 
-    def _all_data_transform(self) -> None:
+    def _do_analysis(self) -> None:
+        """
+        Transforms all data
+        :return: None
+        """
         for data in self.raw_data:
             self.transformed_data.append(self._data_transform(data))
 
@@ -58,7 +51,6 @@ class DataTransform:
         average_values_list = []
         for i, data in enumerate(self.temp_transformed_data):
             if 2 <= i <= 9:
-                #reshaped_data = preprocessing.normalize([np.array(data_1)]).flatten()
                 reshaped_data = self.normalize_data(np.array(data))
                 reshaped_data = savgol_filter(reshaped_data.tolist(), 87, 1) 
                 reshaped_data = savgol_filter(reshaped_data, 31, 1) 
@@ -66,7 +58,7 @@ class DataTransform:
                 average_values_list.append(mean(reshaped_data.tolist()))
             else:
                 new_trans_data.append(data)
-        average_mean = 0 #mean(average_values_list)
+        average_mean = 0
         for i, data in enumerate(new_trans_data):
             if 2 <= i <= 9:
                 try:
@@ -78,13 +70,6 @@ class DataTransform:
                         mean_distance = average_mean - mean(new_trans_data[i])
                         for j in range(len(new_trans_data[i])):
                             new_trans_data[i][j] = new_trans_data[i][j] - abs(mean_distance)
-                except:
+                except IndexError:
                     print("Datetime meet!")
-        return new_trans_data #self.temp_transformed_data
-
-    def normalize_data(self, data):
-        return (data - np.min(data)) / (np.max(data) - np.min(data))
-
-    def _print_logs(self, log_message: str) -> None:
-        if self.args.print_logs:
-            print(log_message)
+        return new_trans_data

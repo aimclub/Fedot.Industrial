@@ -62,10 +62,10 @@ from cases.anomaly_detection.clear_architecture.detectors.areas_detector_by_zero
 from cases.anomaly_detection.clear_architecture.detectors.min_max_detector import MinMaxDetector
 from cases.anomaly_detection.clear_architecture.detectors.vector_detector import VectorDetector
 from cases.anomaly_detection.clear_architecture.operations.read_data import DataReader
-from cases.anomaly_detection.clear_architecture.operations.transform_data import DataTransform
-from cases.anomaly_detection.clear_architecture.operations.ts_elector import TsElector
+from cases.anomaly_detection.clear_architecture.operations.transform_data import DataTransformer
+from cases.anomaly_detection.clear_architecture.detectors.ts_elector import TsElector
 from cases.anomaly_detection.clear_architecture.operations.visualisation_old import DataVisualizer
-from cases.anomaly_detection.clear_architecture.operations.window_cutting import WindowCut
+from cases.anomaly_detection.clear_architecture.detectors.window_cutting import WindowCutter
 from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
 from core.operation.utils.utils import PROJECT_PATH
 
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     labels_path = os.path.join(PROJECT_PATH, "data/anomaly_detection/anomalies_new_nocount_2.csv")
 
     reader = DataReader(path, labels_path)
-    transformer = DataTransform()
+    transformer = DataTransformer()
     labels_1 = ["N", "DIST", "Xu", "Yu", "Zu", "Xd", "Yd", "Zd", "Vu", "Vd", "LAT", "LNG", "Depth"]
     labels_2 = ["Vd", "Vu"]
     labels_3 = ["Zd", "Zu"]
@@ -117,10 +117,10 @@ if __name__ == '__main__':
     elector_2 = TsElector(labels_5)
     elector_3 = TsElector(labels_2)
     elector_4 = TsElector(labels_2)
-    cutter_1 = WindowCut(100, 10)
-    cutter_2 = WindowCut(3000, 50)
-    cutter_3 = WindowCut(1200, 100)
-    cutter_4 = WindowCut(900, 40)
+    cutter_1 = WindowCutter(100, 10)
+    cutter_2 = WindowCutter(3000, 50)
+    cutter_3 = WindowCutter(1200, 100)
+    cutter_4 = WindowCutter(900, 40)
 
     area_detector = AreasDetector(0.95, 3, False)
     area_detector_1 = AreasDetectorByZero(0.92, 2, False)

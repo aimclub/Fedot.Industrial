@@ -3,7 +3,7 @@ import math
 import numpy as np
 from sklearn.metrics import f1_score
 
-from cases.anomaly_detection.clear_architecture.utils.get_time import get_current_time as time_now
+from cases.anomaly_detection.clear_architecture.utils.get_time import time_now as time_now
 from cases.anomaly_detection.clear_architecture.utils.settings_args import SettingsArgs
 
 
@@ -14,13 +14,15 @@ class AbstractDetector:
     windowed_data: list = []
     filtering: bool = False
 
-    def __init__(self, name: str = 'UnknownDetector'):
+    def __init__(self, operation='detection', name: str = 'Unknown Detector'):
+        self.name = name
+        self.operation = operation
+
         self.win_len = None
         self.labels = None
         self.len = None
         self.step = None
         self.input_dict = None
-        self.name = name
 
     def set_settings(self, args: SettingsArgs):
         self.args = args
@@ -29,7 +31,7 @@ class AbstractDetector:
         self._print_logs(f"{time_now()} {self.name}: Print logs = {self.args.print_logs}")
 
     def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{time_now()} {self.name} detector: Data read!")
+        self._print_logs(f"{time_now()} {self.name}: Data read!")
         self.input_dict = dictionary
         self.windowed_data = self.input_dict["data_body"]["windows_list"]
         self.step = self.input_dict["data_body"]["window_step"]
@@ -39,9 +41,9 @@ class AbstractDetector:
         self.win_len = self.input_dict["data_body"]["window_len"]
 
     def run(self) -> None:
-        self._print_logs(f"{time_now()} {self.name}: Start transforming...")
+        self._print_logs(f"{time_now()} {self.name}: Start {self.operation}...")
         self._do_analysis()
-        self._print_logs(f"{time_now()} {self.name}: Transforming finished!")
+        self._print_logs(f"{time_now()} {self.name}: {self.operation} finished!")
 
     def output_data(self) -> dict:
         if "detection" in self.input_dict["data_body"]:

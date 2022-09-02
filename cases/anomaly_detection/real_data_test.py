@@ -24,7 +24,7 @@ from itertools import chain, combinations
 from bayes_opt import BayesianOptimization
 from bayes_opt.logger import JSONLogger
 from bayes_opt.event import Events
-from data.label_reader import read_lables_csv_from_file
+from data.label_reader import read_labels_csv_from_file
 from sklearn.ensemble import IsolationForest
 
 
@@ -45,7 +45,7 @@ import os
 class DataContainer:
     def __init__(self, path: str, lables_path: str) -> None:
         self.all_lables = ["N", "DIST", "Xu", "Yu", "Zu", "Xd", "Yd", "Zd", "Vu", "Vd", "LAT", "LNG", "Time", "Depth"]
-        self.labels = read_lables_csv_from_file(lables_path)
+        self.labels = read_labels_csv_from_file(lables_path)
         self.count_from_the_start = 3
         self.refined_data, self.refined_lables = self.read_data_csv_in_folder(path)
         print(f"Time series count: {len(self.refined_data[0])}, labels count: {len(self.all_lables)}")
