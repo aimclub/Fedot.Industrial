@@ -1,9 +1,12 @@
 from abc import ABC
 from typing import List
 
+import numpy as np
 import pandas as pd
 
 from cases.analyzer import PerformanceAnalyzer
+
+from sklearn.model_selection import train_test_split
 
 
 class AbstractObject(ABC):
@@ -41,14 +44,27 @@ class PredictorList(AbstractObject):
     Class responsible for creation of predictors list
     """
 
-    def __init__(self, train_feature_set, feature_list, operation: callable):
+    def __init__(self, train_labels_set: np.ndarray, feature_list: list, operation: callable):
         super().__init__()
-        self.train_feature_set = train_feature_set
+        self.train_labels_set = train_labels_set
         self.feature_list = feature_list
         self.operation = operation
+        self.ecm_model_flag = False
 
     def create(self):
-        return list(map(lambda x: self.operation(x, self.train_feature_set), self.feature_list))
+        # if self.ecm_model_flag:
+        #     metric, ECM_MODEL = self.check_for_ecm_model_necessity()
+        #     if metric > 0:
+        #         return list(map(lambda x: self.operation(x, self.train_labels_set, ECM_MODEL), self.feature_list))
+
+        return list(map(lambda x: self.operation(x, self.train_labels_set), self.feature_list))
+
+    # def check_for_ecm_model_necessity(self) -> tuple:
+    #     X_train, X_test, y_train, y_test = train_test_split(self.feature_list,
+    #                                                         self.train_labels_set,
+    #                                                         test_size=0.2)
+    #     pass
+#     функционал должен быть расширен: должен передаваться аргумент (бустер)
 
 
 class PredictionsList(AbstractObject):
