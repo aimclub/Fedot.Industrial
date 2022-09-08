@@ -5,10 +5,9 @@ from torch.nn.modules.conv import Conv2d
 from torch.nn.parameter import Parameter
 from torch.nn.common_types import _size_2_t
 
-
 from typing import Union
 
-__all__ = ['DecomposedConv2d']
+__all__ = ["DecomposedConv2d"]
 
 
 class DecomposedConv2d(Conv2d):
@@ -26,7 +25,7 @@ class DecomposedConv2d(Conv2d):
         dilation: _size_2_t = 1,
         groups: int = 1,
         bias: bool = True,
-        padding_mode: str = "zeros",  # TODO: refine this type,
+        padding_mode: str = "zeros",
         decomposing: bool = True,
         decomposing_mode: str = "channel",
         device=None,
@@ -47,8 +46,16 @@ class DecomposedConv2d(Conv2d):
             dtype,
         )
 
-        self.decomposing = decomposing
-        self.decomposing_mode = decomposing_mode
+        if decomposing:
+            self.decompose(decomposing_mode)
+        else:
+            self.U = None
+            self.S = None
+            self.Vh = None
+            self.decomposing = False
+
+    def decompose(self, decomposing_mode: str) -> None:
+        """Decompose the weight matrix in singular value decomposition."""
 
         valid_decomposing_modes = {"channel", "spatial"}
         if decomposing_mode not in valid_decomposing_modes:
@@ -57,19 +64,8 @@ class DecomposedConv2d(Conv2d):
                     valid_decomposing_modes, decomposing_mode
                 )
             )
-
-        if decomposing:
-            self.decompose()
-        else:
-            self.U = None
-            self.S = None
-            self.Vh = None
-
-    def decompose(self) -> None:
-        """Decompose the weight matrix in singular value decomposition."""
-
         n, c, w, h = self.weight.size()
-        if self.decomposing_mode == "channel":
+        if decomposing_mode == "channel":
             W = self.weight.view(n, c * w * h)
         else:
             W = self.weight.view(n * w, c * h)
@@ -98,12 +94,11 @@ class DecomposedConv2d(Conv2d):
         self.decomposing = False
 
     def pruning(self, e: float) -> float:
-        """Prune the weight matrix at the energy threshold.
+        """Prune the weight matrices to the energy threshold.
         Returns the compression ratio.
         """
 
         assert self.decomposing, "for pruning, the model must be decomposed"
-
         len_S = self.S.numel()
         S, indices = self.S.sort()
         U = self.U[:, indices]
@@ -117,7 +112,7 @@ class DecomposedConv2d(Conv2d):
                 self.U = torch.nn.Parameter(U[:, i:])
                 self.Vh = torch.nn.Parameter(Vh[i:, :])
                 break
-        return self.S.numel() / len_S
+        return 1 - self.S.numel() / len_S
 
     def forward(self, input: Tensor) -> Tensor:
 
