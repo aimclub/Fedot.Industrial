@@ -1,8 +1,7 @@
+import torch
 from torch import Tensor
 from torch.nn.modules.module import Module
-from torch.nn.parameter import Parameter
 from torch.linalg import vector_norm, matrix_norm
-from typing import Tuple, Iterator
 
 
 class OrthogonalLoss(Module):
@@ -12,10 +11,10 @@ class OrthogonalLoss(Module):
         super(OrthogonalLoss, self).__init__()
         self.device = device
 
-    def forward(self, named_parameters: Iterator[Tuple[str, Parameter]]) -> Tensor:
+    def forward(self, model: Module) -> Tensor:
         loss = 0
         n = 0
-        for name, parameter in named_parameters:
+        for name, parameter in model.named_parameters():
             if name.split(".")[-1] == "U":
                 n += 1
                 U = parameter
@@ -37,10 +36,10 @@ class HoyerLoss(Module):
     def __init__(self) -> None:
         super(HoyerLoss, self).__init__()
 
-    def forward(self, named_parameters: Iterator[Tuple[str, Parameter]]) -> Tensor:
-        loss = 0
+    def forward(self, model: Module) -> Tensor:
+        loss = Tensor([0])
         n = 0
-        for name, parameter in named_parameters:
+        for name, parameter in model.named_parameters():
             if name.split(".")[-1] == "S":
                 n += 1
                 S = parameter
