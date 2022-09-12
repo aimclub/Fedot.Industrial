@@ -3,15 +3,16 @@ feature_generator: [
 #  'quantile',
 #  'spectral_window',
 #  'spectral',
-  'wavelet',
-#  'topological'
+#  'wavelet',
+  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: True,
 
 datasets_list: [
-  'Lightning7',
+#  'Lightning7',
+  'Earthquakes',
   #    'EthanolLevel',
   #     'Beef',
   #     'Wafer'

@@ -1,6 +1,6 @@
 import timeit
 
-from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.ExperimentRunner import ExperimentRunner
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 import pandas as pd
 

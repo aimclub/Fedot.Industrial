@@ -6,8 +6,6 @@ import pandas as pd
 
 from cases.analyzer import PerformanceAnalyzer
 
-from sklearn.model_selection import train_test_split
-
 
 class AbstractObject(ABC):
     """
@@ -23,7 +21,11 @@ class AbstractObject(ABC):
 
 class FeatureList(AbstractObject):
     """
-    Class responsible for creation of feature list
+    Class responsible for creation of feature list.
+
+    :param list_of_generators: list of generators from config
+    :param data: pandas.DataFrame with train/test data
+    :param dataset_name: name of dataset
     """
 
     def __init__(self,
@@ -41,36 +43,33 @@ class FeatureList(AbstractObject):
 
 class PredictorList(AbstractObject):
     """
-    Class responsible for creation of predictors list
+    Class responsible for creation of predictors list.
+
+    :param train_labels_set: numpy.ndarray with train labels
+    :param feature_list: list of pandas.DataFrame with features
+    :param operation: callable function (fitting Fedot model)
     """
 
-    def __init__(self, train_labels_set: np.ndarray, feature_list: list, operation: callable):
+    def __init__(self, train_labels_set: np.ndarray,
+                 feature_list: list,
+                 operation: callable):
         super().__init__()
         self.train_labels_set = train_labels_set
         self.feature_list = feature_list
         self.operation = operation
-        self.ecm_model_flag = False
 
     def create(self):
-        # if self.ecm_model_flag:
-        #     metric, ECM_MODEL = self.check_for_ecm_model_necessity()
-        #     if metric > 0:
-        #         return list(map(lambda x: self.operation(x, self.train_labels_set, ECM_MODEL), self.feature_list))
-
-        return list(map(lambda x: self.operation(x, self.train_labels_set), self.feature_list))
-
-    # def check_for_ecm_model_necessity(self) -> tuple:
-    #     X_train, X_test, y_train, y_test = train_test_split(self.feature_list,
-    #                                                         self.train_labels_set,
-    #                                                         test_size=0.2)
-    #     pass
-#     функционал должен быть расширен: должен передаваться аргумент (бустер)
+        fedot_models_list = list(map(lambda x: self.operation(x, self.train_labels_set), self.feature_list))
+        return fedot_models_list
 
 
 class PredictionsList(AbstractObject):
     """
-    Class responsible for creation of predictions list for predictors
-    and features
+    Class responsible for creation of predictions list for predictors and features.
+
+    :param predictor_list: list of predictors (Fedot models)
+    :param feature_list: list of pandas.DataFrame with features
+    :param operation: callable function to obtain predictions
     """
 
     def __init__(self, predictor_list, feature_list, operation):
@@ -91,7 +90,11 @@ class MetricsDict:
     Class responsible for creation metrics dict based on predictions_list,
     predictions probability list and target. Apply methods of
     PerformanceAnalyzer class for chosen metrics:
-    ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
+    ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'].
+
+    :param predictions_list: list of numpy.ndarray with predictions
+    :param predictions_proba_list: list of numpy.ndarray with predictions probability
+    :param target: numpy.ndarray with target
     """
 
     def __init__(self, predictions_list, predictions_proba_list, target):

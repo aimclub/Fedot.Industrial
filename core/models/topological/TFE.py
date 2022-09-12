@@ -182,7 +182,8 @@ class SimultaneousAliveHolesFeature(PersistenceDiagramFeatureExtractor):
     def __init__(self):
         super(SimultaneousAliveHolesFeature).__init__()
 
-    def get_average_intersection_number_(self, segments):
+    @staticmethod
+    def get_average_intersection_number_(segments):
         intersections = list()
         n_segments = segments.shape[0]
         i = 0

@@ -23,16 +23,12 @@ class Topological:
                  persistence_params: dict = None,
                  window_length: int = None):
         self.time_series = time_series
-
-        # time series to float type
         self.time_series = np.array(self.time_series)
         self.time_series = self.time_series.astype(float)
-
         self.max_simplex_dim = max_simplex_dim
-
         self.epsilon_range = self.__create_epsilon_range(epsilon)
-
         self.persistence_params = persistence_params
+
         if self.persistence_params is None:
             self.persistence_params = {
                 'coeff': 2,
@@ -70,8 +66,6 @@ class Topological:
         ys = np.unique(dgm0[:, 1])
         ys = ys[ys < np.inf]
 
-        return
-
     @staticmethod
     def rolling_window(array, window):
         """
@@ -106,11 +100,9 @@ class Topological:
             array = self.time_series
 
         point_cloud = self.rolling_window(array=array, window=dimension_embed)
-
         return np.array(point_cloud)
 
-    def point_cloud_to_persistent_cohomology_ripser(self,
-                                                    point_cloud: np.array = None,
+    def point_cloud_to_persistent_cohomology_ripser(self, point_cloud: np.array = None,
                                                     max_simplex_dim: int = None):
 
         # ensure epsilon_range is a numpy array

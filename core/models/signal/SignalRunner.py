@@ -1,6 +1,5 @@
 import timeit
 
-import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -8,7 +7,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from tqdm import tqdm
 
-from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.ExperimentRunner import ExperimentRunner
 from core.metrics.metrics_implementation import *
 from core.models.signal.wavelet_extractor import WaveletExtractor
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
@@ -18,8 +17,9 @@ from core.operation.utils.utils import read_tsv
 
 class SignalRunner(ExperimentRunner):
     """
-    Class responsible for wavelet feature generator experiment
-        :wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml
+    Class responsible for wavelet feature generator experiment.
+
+    :wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml
     """
 
     def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4')):
@@ -30,6 +30,7 @@ class SignalRunner(ExperimentRunner):
         self.aggregator = StatFeaturesExtractor()
         self.wavelet_extractor = WaveletExtractor
         self.wavelet_list = wavelet_types
+        self.wavelet = None
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
@@ -78,7 +79,8 @@ class SignalRunner(ExperimentRunner):
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> list:
         """
-        Generate vector from time series
+        Generate vector from time series.
+
         :param ts_frame: time series dataframe
         :return:
         """
@@ -103,21 +105,21 @@ class SignalRunner(ExperimentRunner):
 
         (_, _), (y_train, _) = read_tsv(dataset_name)
 
-        if self.train_feats is None:
+        if not self.wavelet:
             train_feats = self._choose_best_wavelet(ts_data, y_train)
             self.train_feats = train_feats
-            return train_feats
+            return self.train_feats
         else:
-            if self.test_feats is None:
-                test_feats = self.generate_vector_from_ts(ts_data)
-                test_feats = pd.concat(test_feats)
-                test_feats.index = list(range(len(test_feats)))
-                self.test_feats = self.delete_col_by_var(test_feats)
-            return self.test_feats
+            test_feats = self.generate_vector_from_ts(ts_data)
+            test_feats = pd.concat(test_feats)
+            test_feats.index = list(range(len(test_feats)))
+            self.test_feats = self.delete_col_by_var(test_feats)
+        return self.test_feats
 
     def _validate_window_length(self, features: pd.DataFrame, target: np.ndarray):
         """
-        Validate window length using one-node (random forest) Fedot model
+        Validate window length using one-node (random forest) Fedot model.
+
         :param features: features dataframe
         :param target: array of target labels
         :return:
@@ -140,18 +142,19 @@ class SignalRunner(ExperimentRunner):
 
         pipeline.fit(input_data=train_data)
         prediction = pipeline.predict(input_data=test_data, output_mode='labels')
-        metric_f1 = F1()
-        score_f1 = metric_f1.metric(target=prediction.target, prediction=prediction.predict)
+        metric_f1 = F1(target=prediction.target, predicted_labels=prediction.predict)
+        score_f1 = metric_f1.metric()
 
         score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
-        if score_roc_auc is None:
+        if score_roc_auc:
             score_roc_auc = 0.5
 
         return score_f1, score_roc_auc
 
     def _choose_best_wavelet(self, X_train: pd.DataFrame, y_train: np.ndarray) -> pd.DataFrame:
         """
-        Chooses the best wavelet for feature extraction
+        Chooses the best wavelet for feature extraction.
+
         :param X_train: train features dataframe
         :param y_train: train target labels
         :return:
@@ -187,5 +190,4 @@ class SignalRunner(ExperimentRunner):
         self.logger.info(f'<{self.wavelet}> wavelet was chosen')
 
         train_feats = self.delete_col_by_var(train_feats)
-
         return train_feats

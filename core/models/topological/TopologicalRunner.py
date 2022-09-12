@@ -2,7 +2,7 @@ import timeit
 
 from gtda.time_series import SingleTakensEmbedding
 
-from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.ExperimentRunner import ExperimentRunner
 from core.models.topological.TDA import Topological
 from core.models.topological.TFE import *
 
@@ -63,6 +63,12 @@ class TopologicalRunner(ExperimentRunner):
 
     @staticmethod
     def get_embedding_params(single_time_series):
+        """
+        Method for getting optimal Takens embedding parameters.
+
+        :param single_time_series: single time series from dataset
+        :return: optimal dimension and time delay
+        """
         embedder = SingleTakensEmbedding(parameters_type="search",
                                          time_delay=10,
                                          dimension=10)

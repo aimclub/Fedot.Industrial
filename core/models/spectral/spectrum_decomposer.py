@@ -43,7 +43,6 @@ class SpectrumDecomposer:
         self.__save_memory = save_memory
         object_type = type(time_series)
         self.__set_dimensions()
-        # self.__check_windows_length()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
     def __check_windows_length(self):
@@ -84,7 +83,6 @@ class SpectrumDecomposer:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
-    # @type_check_decorator(object_type=pd.Series, types_list=supported_types)
     def decompose(self, return_df=True, correlation_flag=False, rank_hyper=None):
         # Embed the time series in a trajectory matrix
         Components_df = None
@@ -145,6 +143,8 @@ class SpectrumDecomposer:
     def calc_wcorr(self, TS_comps, rank):
         """
         Calculates the w-correlation matrix for the time series.
+        :param TS_comps: The time series components
+        :param rank: The rank of the time series
         """
 
         # Calculate the weights
@@ -188,7 +188,8 @@ class SpectrumDecomposer:
 
         return combined_components
 
-    def components_to_df(self, TS_comps, rank, n=0):
+    @staticmethod
+    def components_to_df(TS_comps, rank, n=0):
         """
         Returns all the time series components in a single Pandas DataFrame object.
         """
@@ -207,21 +208,22 @@ class SpectrumDecomposer:
         """
         Reconstructs the time series from its elementary components, using the given indices. Returns a Pandas Series
         object with the reconstructed time series
-            :param indices: An integer, list of integers or slice(n,m) object, representing the elementary components to sum.
+            :param indices: An integer, list of integers or slice(n,m) object, representing the elementary
+            components to sum.
         """
         if isinstance(indices, int): indices = [indices]
 
         ts_vals = self.TS_comps[:, indices].sum(axis=1)
         return pd.Series(ts_vals)
 
-    def plot_wcorr(self, min=None, max=None):
+    def plot_wcorr(self, minimum=None, maximum=None):
         """
         Plots the w-correlation matrix for the decomposed time series.
         """
-        if min is None:
-            min = 0
-        if max is None:
-            max = self.d
+        if minimum is None:
+            minimum = 0
+        if maximum is None:
+            maximum = self.d
 
         if self.Wcorr is None:
             self.calc_wcorr()
@@ -234,16 +236,16 @@ class SpectrumDecomposer:
         plt.clim(0, 1)
 
         # For plotting purposes:
-        if max == self.d:
-            max_rnge = self.d - 1
+        if maximum == self.d:
+            max_range = self.d - 1
         else:
-            max_rnge = max
+            max_range = maximum
 
-        plt.xlim(min - 0.5, max_rnge + 0.5)
-        plt.ylim(max_rnge + 0.5, min - 0.5)
+        plt.xlim(minimum - 0.5, max_range + 0.5)
+        plt.ylim(max_range + 0.5, minimum - 0.5)
 
-    def singular_value_hard_threshold(self,
-                                      singular_values,
+    @staticmethod
+    def singular_value_hard_threshold(singular_values,
                                       rank=None,
                                       threshold=2.858):
         rank = len(singular_values) if rank is None else rank
@@ -253,7 +255,8 @@ class SpectrumDecomposer:
         adjusted_rank = np.sum(singular_values >= sv_threshold)
         return adjusted_rank
 
-    def ts_vector_to_trajectory_matrix(self, timeseries, L, K):
+    @staticmethod
+    def ts_vector_to_trajectory_matrix(timeseries, L, K):
         hankelized = hankel(timeseries, np.zeros(L)).T
         hankelized = hankelized[:, :K]
         return hankelized
@@ -269,12 +272,11 @@ class SpectrumDecomposer:
         trajectory_matrix = np.concatenate(trajectory_matrix, axis=1)
         return trajectory_matrix
 
-    def decompose_trajectory_matrix(self,
-                                    trajectory_matrix,
+    @staticmethod
+    def decompose_trajectory_matrix(trajectory_matrix,
                                     K=10,
                                     svd_method='exact'):
         # calculate S matrix
-        # S = np.dot(trajectory_matrix, trajectory_matrix.T)
         S = trajectory_matrix
 
         if svd_method == 'exact':
@@ -288,7 +290,8 @@ class SpectrumDecomposer:
 
         return U, s, V, rank
 
-    def sv_to_explained_variance_ratio(self, singular_values, N):
+    @staticmethod
+    def sv_to_explained_variance_ratio(singular_values, N):
         eigenvalues = singular_values ** 2
         explained_variance = eigenvalues / (N - 1)
         total_variance = np.sum(explained_variance)

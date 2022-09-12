@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from cases.run.ExperimentRunner import ExperimentRunner
+from core.models.ExperimentRunner import ExperimentRunner
 from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 

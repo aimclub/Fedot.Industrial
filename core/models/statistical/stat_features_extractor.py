@@ -19,7 +19,8 @@ class StatFeaturesExtractor:
     Class for generating statistical features for a given time series.
     """
 
-    def create_baseline_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
+    @staticmethod
+    def create_baseline_features(feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
         column_name = []
         for method_name, method_func in stat_methods_extra.items():
@@ -60,8 +61,8 @@ class StatFeaturesExtractor:
 
         return df_points_stat
 
-    # @type_check_decorator(types_list=supported_types)
-    def create_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
+    @staticmethod
+    def create_features(feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
         column_name = []
         for method_name, method_func in stat_methods.items():

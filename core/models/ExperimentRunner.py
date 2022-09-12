@@ -1,5 +1,3 @@
-import pandas as pd
-
 from core.metrics.metrics_implementation import *
 from core.operation.utils.Decorators import exception_decorator
 from core.operation.utils.LoggerSingleton import Logger
@@ -23,11 +21,10 @@ class ExperimentRunner:
         self.feature_generator_dict = feature_generator_dict
         self.count = 0
         self.window_length = None
+        self.y_test = None
         self.logger = Logger().get_logger()
         self.boost_mode = boost_mode
-
         self.static_booster = static_booster
-        self.y_test = None
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
@@ -43,7 +40,7 @@ class ExperimentRunner:
         Method responsible for extracting features from time series dataframe
         :param ts_data: dataframe with time series data
         :param dataset_name:
-        :return:
+        :return: pd.DataFrame with extracted features
         """
         pass
 
@@ -60,13 +57,13 @@ class ExperimentRunner:
         return ts
 
     @exception_decorator(exception_return=0.5)
-    def get_roc_auc_score(self, pipeline, prediction, test_data):
-        metric_roc = ROCAUC()
+    def get_roc_auc_score(self, prediction, test_data):
+        metric_roc = ROCAUC(target=test_data, predicted_labels=prediction.predict)
         try:
-            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            score_roc_auc = metric_roc.metric()
         except ValueError:
-            prediction = pipeline.predict(input_data=test_data, output_mode='probs')
-            score_roc_auc = metric_roc.metric(target=prediction.target, prediction=prediction.predict)
+            self.logger.info(f'ValueError in roc_auc_score')
+            score_roc_auc = 0
         return score_roc_auc
 
     @staticmethod
