@@ -78,7 +78,7 @@ class DecomposedConv2d(Conv2d):
         self.register_parameter("weight", None)
         self.decomposing = True
 
-    def compose(self):
+    def compose(self) -> None:
         """Compose the weight matrix from singular value decomposition."""
 
         W = self.U @ torch.diag(self.S) @ self.Vh

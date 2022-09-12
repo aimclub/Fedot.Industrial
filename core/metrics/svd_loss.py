@@ -37,7 +37,7 @@ class HoyerLoss(Module):
         super(HoyerLoss, self).__init__()
 
     def forward(self, model: Module) -> Tensor:
-        loss = Tensor([0])
+        loss = 0
         n = 0
         for name, parameter in model.named_parameters():
             if name.split(".")[-1] == "S":
