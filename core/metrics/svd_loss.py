@@ -22,7 +22,7 @@ class OrthogonalLoss(Module):
                 E = torch.eye(r, device=self.device)
                 loss += matrix_norm(U.transpose(0, 1) @ U - E) ** 2 / r
 
-            elif name.split(".")[-1] == "U" or name.split(".")[-1] == "Vh":
+            elif name.split(".")[-1] == "Vh":
                 Vh = parameter
                 r = Vh.size()[0]
                 E = torch.eye(r, device=self.device)
