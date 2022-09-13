@@ -22,7 +22,7 @@ class VectorDetector(AbstractDetector):
         self.filtering = filtering
         self.inner_step = step
 
-        super().__init__(name='Vector Detector')
+        super().__init__(name='Vector Detector', operation='vector detection')
 
     def _do_analysis(self) -> None:
         for dataset in self.windowed_data:

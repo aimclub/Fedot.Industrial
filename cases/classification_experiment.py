@@ -1,4 +1,4 @@
-from cases.API import Industrial
+from core.api.tsc_API import Industrial
 
 
 if __name__ == '__main__':

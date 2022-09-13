@@ -2,16 +2,15 @@ import logging
 import os.path
 from datetime import date, datetime
 
-from core.operation.utils.utils import project_path
+from core.operation.utils.utils import PROJECT_PATH
 
 MSG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 DT_FORMAT = '%H:%M:%S'
 DATE_NOW = date.today()
 TIME_NOW = datetime.now().strftime("%H-%M")
 
-if not os.path.exists(project_path() + '/log'):
-    os.mkdir(project_path() + '/log')
-LOG_PATH = os.path.join(project_path(), 'log', f'Experiment-log-{DATE_NOW}_{TIME_NOW}.log')
+if not os.path.exists(PROJECT_PATH + '/log'):
+    os.mkdir(PROJECT_PATH + '/log')
 
 
 class SingletonMetaLogger(type):
@@ -22,7 +21,8 @@ class SingletonMetaLogger(type):
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
+            log_path = os.path.join(PROJECT_PATH, 'log', f'Experiment-log-{DATE_NOW}_{TIME_NOW}.log')
+            instance = super().__call__(log_path)
             cls._instances[cls] = instance
         return cls._instances[cls]
 
@@ -32,8 +32,8 @@ class Logger(object, metaclass=SingletonMetaLogger):
     Class for implementing singleton Logger
     """
 
-    def __init__(self):
-        logging.basicConfig(filename=LOG_PATH)
+    def __init__(self, log_path):
+        # logging.basicConfig(filename=log_path)
         self._logger = logging.getLogger('FEDOT-TSC')
         self._logger.setLevel(logging.INFO)
 

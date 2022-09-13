@@ -1,12 +1,11 @@
 from typing import Union
-from cycler import cycler
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from sklearn.utils.extmath import randomized_svd
-from numba import jit
-from core.operation.utils.Decorators import type_check_decorator
+from cycler import cycler
 from scipy.linalg import hankel
+from sklearn.utils.extmath import randomized_svd
 
 plt.rcParams['figure.figsize'] = (10, 8)
 plt.rcParams['font.size'] = 14
@@ -26,31 +25,24 @@ def plot_2d(m, title=""):
     plt.title(title)
 
 
-class Spectrum:
+class SpectrumDecomposer:
+    """
+    Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
+    recorded at equal intervals
+        :param time_series: The original time series, in the form of a Pandas Series, NumPy array or list
+        :param window_length: The window length. Must be an integer 2 <= L <= N/2, where N is the length of the time series
+        :param save_memory: Conserve memory by not retaining the elementary matrices
+    """
 
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  window_length: int = None,
                  save_memory: bool = True):
-        """
-        Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-        recorded at equal intervals.
-
-        Parameters
-        ----------
-        time_series : The original time series, in the form of a Pandas Series, NumPy array or list.
-        window_length : The window length. Must be an integer 2 <= L <= N/2, where N is the length of the time series.
-        save_memory : Conserve memory by not retaining the elementary matrices. Recommended for long time series with
-            thousands of values. Defaults to True.
-        Even if an NumPy array or list is used for the initial time series, all time series returned will be
-        in the form of a Pandas Series or DataFrame object.
-        """
         self.__time_series = time_series
         self.__window_length = window_length
         self.__save_memory = save_memory
         object_type = type(time_series)
         self.__set_dimensions()
-        # self.__check_windows_length()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
     def __check_windows_length(self):
@@ -91,7 +83,6 @@ class Spectrum:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
-    # @type_check_decorator(object_type=pd.Series, types_list=supported_types)
     def decompose(self, return_df=True, correlation_flag=False, rank_hyper=None):
         # Embed the time series in a trajectory matrix
         Components_df = None
@@ -152,6 +143,8 @@ class Spectrum:
     def calc_wcorr(self, TS_comps, rank):
         """
         Calculates the w-correlation matrix for the time series.
+        :param TS_comps: The time series components
+        :param rank: The rank of the time series
         """
 
         # Calculate the weights
@@ -195,7 +188,8 @@ class Spectrum:
 
         return combined_components
 
-    def components_to_df(self, TS_comps, rank, n=0):
+    @staticmethod
+    def components_to_df(TS_comps, rank, n=0):
         """
         Returns all the time series components in a single Pandas DataFrame object.
         """
@@ -213,25 +207,23 @@ class Spectrum:
     def reconstruct(self, indices):
         """
         Reconstructs the time series from its elementary components, using the given indices. Returns a Pandas Series
-        object with the reconstructed time series.
-
-        Parameters
-        ----------
-        indices: An integer, list of integers or slice(n,m) object, representing the elementary components to sum.
+        object with the reconstructed time series
+            :param indices: An integer, list of integers or slice(n,m) object, representing the elementary
+            components to sum.
         """
         if isinstance(indices, int): indices = [indices]
 
         ts_vals = self.TS_comps[:, indices].sum(axis=1)
         return pd.Series(ts_vals)
 
-    def plot_wcorr(self, min=None, max=None):
+    def plot_wcorr(self, minimum=None, maximum=None):
         """
         Plots the w-correlation matrix for the decomposed time series.
         """
-        if min is None:
-            min = 0
-        if max is None:
-            max = self.d
+        if minimum is None:
+            minimum = 0
+        if maximum is None:
+            maximum = self.d
 
         if self.Wcorr is None:
             self.calc_wcorr()
@@ -244,41 +236,32 @@ class Spectrum:
         plt.clim(0, 1)
 
         # For plotting purposes:
-        if max == self.d:
-            max_rnge = self.d - 1
+        if maximum == self.d:
+            max_range = self.d - 1
         else:
-            max_rnge = max
+            max_range = maximum
 
-        plt.xlim(min - 0.5, max_rnge + 0.5)
-        plt.ylim(max_rnge + 0.5, min - 0.5)
+        plt.xlim(minimum - 0.5, max_range + 0.5)
+        plt.ylim(max_range + 0.5, minimum - 0.5)
 
-    def singular_value_hard_threshold(self,
-                                      singular_values,
+    @staticmethod
+    def singular_value_hard_threshold(singular_values,
                                       rank=None,
                                       threshold=2.858):
         rank = len(singular_values) if rank is None else rank
-
-        # Singular Value Hard Thresholding
-        # This is a threshold on the rank/singular values based on the findings
-        # in this paper:
-        # https://arxiv.org/pdf/1305.5870.pdf
-        # We assume the noise is not known, and so the thresholding value is
-        # determined by the data (See section D)
 
         median_sv = np.median(singular_values[:rank])
         sv_threshold = threshold * median_sv
         adjusted_rank = np.sum(singular_values >= sv_threshold)
         return adjusted_rank
 
-    def ts_vector_to_trajectory_matrix(self, timeseries, L, K):
+    @staticmethod
+    def ts_vector_to_trajectory_matrix(timeseries, L, K):
         hankelized = hankel(timeseries, np.zeros(L)).T
         hankelized = hankelized[:, :K]
         return hankelized
 
     def ts_matrix_to_trajectory_matrix(self, timeseries, L, K):
-        '''Forulation for V-MSSA (vertical stack)
-        https://www.researchgate.net/publication/263870252_Multivariate_singular_spectrum_analysis_A_general_view_and_new_vector_forecasting_approach
-        '''
         P, N = timeseries.shape
 
         trajectory_matrix = [
@@ -289,13 +272,11 @@ class Spectrum:
         trajectory_matrix = np.concatenate(trajectory_matrix, axis=1)
         return trajectory_matrix
 
-    def decompose_trajectory_matrix(self,
-                                    trajectory_matrix,
+    @staticmethod
+    def decompose_trajectory_matrix(trajectory_matrix,
                                     K=10,
                                     svd_method='exact'):
         # calculate S matrix
-        # https://arxiv.org/pdf/1309.5050.pdf
-        # S = np.dot(trajectory_matrix, trajectory_matrix.T)
         S = trajectory_matrix
 
         if svd_method == 'exact':
@@ -309,9 +290,8 @@ class Spectrum:
 
         return U, s, V, rank
 
-    def sv_to_explained_variance_ratio(self, singular_values, N):
-        # Calculation taken from sklearn. See:
-        # https://github.com/scikit-learn/scikit-learn/blob/7389dba/sklearn/decomposition/pca.py
+    @staticmethod
+    def sv_to_explained_variance_ratio(singular_values, N):
         eigenvalues = singular_values ** 2
         explained_variance = eigenvalues / (N - 1)
         total_variance = np.sum(explained_variance)

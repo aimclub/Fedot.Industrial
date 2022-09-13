@@ -15,12 +15,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 class StaticBooster:
     CYCLES = 1
 
-    def __init__(self,
-                 X_train,
-                 y_train,
-                 base_predict,
-                 timeout,
-                 threshold=0):
+    def __init__(self, X_train, y_train, base_predict, timeout, threshold=0):
 
         self.X_train = X_train
         self.y_train = y_train

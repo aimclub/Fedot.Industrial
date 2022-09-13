@@ -1,4 +1,3 @@
-
 import os
 import sys
 
@@ -10,7 +9,7 @@ from tqdm import tqdm
 # format output is list of files and list of anomalies with type and descriptions
 
 
-def read_lables_csv_from_file(filename: str) -> list:
+def read_labels_csv_from_file(filename: str) -> list:
     temp_list = [[], [], [], [], []]
     with open(filename, 'r') as file:
         lines = file.readlines()
@@ -21,7 +20,6 @@ def read_lables_csv_from_file(filename: str) -> list:
             temp_list[j].append(temp_line[j])
     out_list = []
     current_filename = ""
-    temp_element = []
     temp_anomalies_list = []
     for i in range(len(temp_list[0])):
         if current_filename == "":
@@ -45,5 +43,5 @@ if __name__ == '__main__':
     path = "/media/nikita/HDD/anomalies_new_nocount_2.csv"
     path_1 = "/media/nikita/HDD/anomalies_new_nocount.csv"
 
-    data_container = read_lables_csv_from_file(path)
-    data_container = read_lables_csv_from_file(path_1)
+    data_container = read_labels_csv_from_file(path)
+    data_container = read_labels_csv_from_file(path_1)

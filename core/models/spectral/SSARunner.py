@@ -1,20 +1,22 @@
-from typing import List, Any
-
-import pandas as pd
-
-from core.models.statistical.Stat_features import AggregationFeatures
-from cases.run.ExperimentRunner import ExperimentRunner
-from core.models.spectral.SSA import Spectrum
-from core.operation.utils.utils import *
+import os
+import timeit
+from collections import Counter
+from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
-from collections import Counter
-import timeit
+import numpy as np
+import pandas as pd
+
+from core.models.ExperimentRunner import ExperimentRunner
+from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
+from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 
 
 class SSARunner(ExperimentRunner):
     """
     Class responsible for spectral feature generator experiment
+        :param window_sizes: list of window sizes to be used for feature extraction
+        :param window_mode: boolean flag - if True, window mode is used
     """
 
     def __init__(self, window_sizes: list,
@@ -23,8 +25,8 @@ class SSARunner(ExperimentRunner):
         super().__init__()
 
         self.ts_samples_count = None
-        self.aggregator = AggregationFeatures()
-        self.spectrum_extractor = Spectrum
+        self.aggregator = StatFeaturesExtractor()
+        self.spectrum_extractor = SpectrumDecomposer
 
         self.window_length_list = window_sizes
 
@@ -84,8 +86,8 @@ class SSARunner(ExperimentRunner):
     def generate_vector_from_ts(self, ts_frame):
         start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = threading_operation(ts_frame=ts_frame.values,
-                                                     function_for_feature_extraction=self._ts_chunk_function)
+        components_and_vectors = self.threading_operation(ts_frame=ts_frame.values,
+                                                          function_for_feature_extraction=self._ts_chunk_function)
         self.logger.info(f'Time spent on eigenvectors extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors
 
@@ -95,7 +97,7 @@ class SSARunner(ExperimentRunner):
         start = timeit.default_timer()
         if self.window_length is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
-            aggregation_df = delete_col_by_var(self.train_feats)
+            aggregation_df = self.delete_col_by_var(self.train_feats)
         else:
             eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
             eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
@@ -117,8 +119,8 @@ class SSARunner(ExperimentRunner):
         start = timeit.default_timer()
 
         if window_mode:
-            lambda_function_for_stat_features = lambda x: apply_window_for_statistical_feature(x.T,
-                                                                                               feature_generator=self.aggregator.create_baseline_features)
+            lambda_function_for_stat_features = lambda x: self.apply_window_for_statistical_feature(x.T,
+                                                                                                    feature_generator=self.aggregator.create_baseline_features)
             lambda_function_for_concat = lambda x: pd.concat(x, axis=1)
 
             list_with_stat_features_on_interval = list(map(lambda_function_for_stat_features, eigenvectors_list))
@@ -194,3 +196,12 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Window length = {self.window_length} was chosen')
 
         return self.train_feats
+
+    @staticmethod
+    def threading_operation(ts_frame: pd.DataFrame,
+                            function_for_feature_extraction: callable):
+        pool = Pool(8)
+        features = pool.map(function_for_feature_extraction, ts_frame)
+        pool.close()
+        pool.join()
+        return features

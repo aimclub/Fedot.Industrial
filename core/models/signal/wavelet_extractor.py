@@ -1,23 +1,21 @@
 from typing import Union
-import pywt
+
 import numpy as np
 import pandas as pd
+import pywt
 
 
 class WaveletExtractor:
+    """
+    Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
+    recorded at equal intervals.
+
+    :param: time_series: The original time series, in the form of a Pandas Series, NumPy array or list.
+    :param: wavelet_name: The name of the wavelet to use.
+    """
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  wavelet_name: str = None):
-        """
-        Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-        recorded at equal intervals.
-
-        Parameters
-        ----------
-        time_series : The original time series, in the form of a Pandas Series, NumPy array or list.
-        Even if an NumPy array or list is used for the initial time series, all time series returned will be
-        in the form of a Pandas Series or DataFrame object.
-        """
         self.time_series = time_series
         self.discrete_wavelets = pywt.wavelist(kind='discrete')
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
@@ -28,38 +26,34 @@ class WaveletExtractor:
                         self.wavelet_name,
                         'smooth')
 
-    def detect_peaks(self,
-                     x,
+    @staticmethod
+    def detect_peaks(x,
                      mph=None,
                      mpd=1,
                      threshold=0,
                      edge='rising',
                      kpsh=False,
                      valley=False):
-        """Detect peaks in data based on their amplitude and other features.
-        Parameters
-        ----------
-        x : 1D array_like
-            data.
-        mph : {None, number}, optional (default = None)
+        """
+        Detect peaks in data based on their amplitude and other features.
+        :param: x: 1D array_like data.
+        :param: mph: {None, number}, optional (default = None)
             detect peaks that are greater than minimum peak height.
-        mpd : positive integer, optional (default = 1)
+        :param: mpd: positive integer, optional (default = 1)
             detect peaks that are at least separated by minimum peak distance (in
             number of data).
-        threshold : positive number, optional (default = 0)
+        :param: threshold: positive number, optional (default = 0)
             detect peaks (valleys) that are greater (smaller) than `threshold`
             in relation to their immediate neighbors.
-        edge : {None, 'rising', 'falling', 'both'}, optional (default = 'rising')
+        :param: edge: {None, 'rising', 'falling', 'both'}, optional (default = 'rising')
             for a flat peak, keep only the rising edge ('rising'), only the
             falling edge ('falling'), both edges ('both'), or don't detect a
             flat peak (None).
-        kpsh : bool, optional (default = False)
+        :param: kpsh: bool, optional (default = False)
             keep peaks with same height even if they are closer than `mpd`.
-        valley : bool, optional (default = False)
+        :param: valley: bool, optional (default = False)
             if True (1), detect valleys (local minima) instead of peaks.
-        Returns
-        -------
-        ind : 1D array_like indeces of the peaks in `x`.
+        :return: 1D array containing the indices of the peaks in `x`.
         """
 
         x = np.atleast_1d(x).astype('float64')

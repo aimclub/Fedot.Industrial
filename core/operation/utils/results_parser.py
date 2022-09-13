@@ -1,9 +1,11 @@
 import os
-from core.operation.utils.utils import project_path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
+
+from core.operation.utils.utils import PROJECT_PATH
 
 dataset_types = {
     'equal': ['Trace', 'ShapesAll', 'Beef', 'DodgerLoopDay', 'ScreenType', 'Lightning7', 'EigenWorms',
@@ -30,19 +32,23 @@ class ResultsParser:
                              'precision': 'TESTPrec'
                              }
         self.timeout = '1_hour'
-        self.results_path = os.path.join(project_path(),
+        self.results_path = os.path.join(PROJECT_PATH,
                                          'results_of_experiments',
                                          self.timeout)
-        self.comparison_path = os.path.join(project_path(), 'results_of_experiments')
+        self.comparison_path = os.path.join(PROJECT_PATH, 'results_of_experiments')
         self.table = pd.DataFrame(columns=['dataset', 'run'] + list(self.metrics_dict.keys()))
         self.fill_table()
 
     def get_mean_pivot(self):
-        """ Create pivot table with mean values of metrics """
+        """
+        Create pivot table with mean values of metrics
+        """
         return self.table.groupby(['dataset']).mean().round(6)
 
     def fill_table(self):
-        """ Function for parsing cases results into single table """
+        """
+        Function for parsing cases results into single table
+        """
         if os.path.exists(self.results_path):
             dataset_folders = [i.split('/')[-1] for i in self.list_dir(self.results_path)]
             index = 0
@@ -58,19 +64,24 @@ class ResultsParser:
             return
         raise FileNotFoundError('Folder with results cases is empty or doesnt exists')
 
-    def read_result(self, dataset, version):
-        """ Function to parse a single result """
+    def read_result(self, dataset: str, version: str):
+        """
+        Function to parse a single result
+        :param dataset: name of dataset
+        :param version: name of run
+        """
         try:
             result = pd.read_csv(f'{self.results_path}/{dataset}/{version}/test_results/metrics.csv')['1']
             return result
-        except Exception:
+        except FileNotFoundError or FileExistsError:
             return None
 
     def save_to_csv(self, table_object, name):
         table_object.to_csv(f'{self.results_path}/{name}.csv')
 
     def read_mega_table(self, metric: str):
-        """ Function for parsing table with results of cases with different algorithms
+        """
+        Function for parsing table with results of cases with different algorithms
 
         :param metric: name of metric to extract from mega table (e.g. f1, roc_auc)
         :return specific (by metric) sheet of excel-table converted to pd.DataFrame
@@ -85,7 +96,8 @@ class ResultsParser:
         return pd.read_excel(os.path.join(self.comparison_path, table_name), sheet_name=sheet_lists[metric])
 
     def get_comparison(self, metric: str, full_table: bool = True):
-        """ Function for comparison FEDOT results with other algorithms by chosen metric
+        """
+        Function for comparison FEDOT results with other algorithms by chosen metric
 
         :param full_table: True (default) returns full table with all datasets. False returns shortened version
         :param metric: name of metric to compare by (e.g. f1, roc_auc)
@@ -195,12 +207,12 @@ class ResultsParser:
         return path_list
 
 
-# EXAMPLE
+if __name__ == '__main__':
+    # Example of usage
+    metrics = ['f1', 'roc_auc']
+    parser = ResultsParser()
 
-ls = ['f1', 'roc_auc']
-c = ResultsParser()
-
-for metr in ls:
-    table = c.get_comparison(metr, full_table=False)
-    c.get_compare_boxplots()
-    c.save_to_csv(table, f'{metr}_mega_compare_{c.timeout}')
+    for metr in metrics:
+        table = parser.get_comparison(metr, full_table=False)
+        parser.get_compare_boxplots()
+        parser.save_to_csv(table, f'{metr}_mega_compare_{parser.timeout}')

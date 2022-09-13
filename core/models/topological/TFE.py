@@ -1,14 +1,18 @@
+from abc import ABC
 from multiprocessing.dummy import Pool as ThreadPool
 
-from abc import ABC
 import numpy as np
 import pandas as pd
-from gtda.diagrams import Scaler, Filtering, PersistenceEntropy, PersistenceLandscape, BettiCurve
+from gtda.diagrams import BettiCurve, Filtering, PersistenceEntropy, PersistenceLandscape, Scaler
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
 
 
 class PersistenceDiagramFeatureExtractor(ABC):
+    """
+    Abstract class persistence diagrams features extractor.
+    """
+
     def extract_feature_(self, persistence_diagram):
         pass
 
@@ -77,11 +81,11 @@ class TopologicalFeaturesExtractor:
                 X_features = feature_impl.fit_transform(X_pd)
                 tmp.append(X_features)
                 for dim in range(len(X_features.shape)):
-                    column_list.append('{}_{}'.format(feature_name,dim))
+                    column_list.append('{}_{}'.format(feature_name, dim))
             except Exception:
                 f = 1
                 continue
-        X_transformed = pd.DataFrame(data=np.hstack(tmp),columns=column_list)
+        X_transformed = pd.DataFrame(data=np.hstack(tmp), columns=column_list)
         return X_transformed
 
 
@@ -90,14 +94,9 @@ class HolesNumberFeature(PersistenceDiagramFeatureExtractor):
         super(HolesNumberFeature).__init__()
 
     def extract_feature_(self, persistence_diagram):
-        # Persistence diagrams has dimensionality (N, 3).
-        # The second coordinate has following notation: (birth, death, homology dimension).
-        # See https://github.com/giotto-ai/giotto-tda/blob/master/gtda/plotting/persistence_diagrams.py
         feature = np.zeros(int(np.max(persistence_diagram[:, 2])) + 1)
         for hole in persistence_diagram:
             if hole[1] - hole[0] > 0:
-                # Some holes still can have zero-lifetime
-                # See https://giotto-ai.github.io/gtda-docs/latest/modules/generated/diagrams/preprocessing/gtda.diagrams.Filtering.html#gtda.diagrams.Filtering.fit_transform
                 feature[int(hole[2])] += 1.0
         return feature
 
@@ -183,7 +182,8 @@ class SimultaneousAliveHolesFeature(PersistenceDiagramFeatureExtractor):
     def __init__(self):
         super(SimultaneousAliveHolesFeature).__init__()
 
-    def get_average_intersection_number_(self, segments):
+    @staticmethod
+    def get_average_intersection_number_(segments):
         intersections = list()
         n_segments = segments.shape[0]
         i = 0
@@ -194,7 +194,7 @@ class SimultaneousAliveHolesFeature(PersistenceDiagramFeatureExtractor):
             end = segments[i, 1]
 
             for j in range(i + 1, n_segments):
-                if segments[j, 0] >= start and segments[j, 0] <= end:
+                if start <= segments[j, 0] <= end:
                     count += 1
                 else:
                     break

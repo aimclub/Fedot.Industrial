@@ -1,15 +1,10 @@
-from core.models.topological.TFE import TopologicalFeaturesExtractor, PersistenceDiagramsExtractor, \
-    HolesNumberFeature, MaxHoleLifeTimeFeature, RelevantHolesNumber, AverageHoleLifetimeFeature, \
-    SumHoleLifetimeFeature, PersistenceEntropyFeature, SimultaneousAliveHolesFeature, \
-    AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature
-from cases.run.ExperimentRunner import ExperimentRunner
-from core.models.topological.TDA import Topological
-from core.operation.utils.utils import *
+import timeit
 
 from gtda.time_series import SingleTakensEmbedding
 
-import timeit
-
+from core.models.ExperimentRunner import ExperimentRunner
+from core.models.topological.TDA import Topological
+from core.models.topological.TFE import *
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -29,6 +24,8 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
 class TopologicalRunner(ExperimentRunner):
     """
     Class for extracting topological features from time series data
+        :param topological_params: parameters for topological extractor. Defined in Config.yaml
+        :param list_of_dataset: list of dataset names that will be used for experiments
     """
     def __init__(self, topological_params: dict,
                  list_of_dataset: list = None):
@@ -54,7 +51,7 @@ class TopologicalRunner(ExperimentRunner):
                                                          persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
 
         ts_data_transformed = feature_extractor.fit_transform(ts_data.values)
-        ts_data_transformed = delete_col_by_var(ts_data_transformed)
+        ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
 
         time_elapsed = round(timeit.default_timer() - start, 2)
         self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')
@@ -66,6 +63,12 @@ class TopologicalRunner(ExperimentRunner):
 
     @staticmethod
     def get_embedding_params(single_time_series):
+        """
+        Method for getting optimal Takens embedding parameters.
+
+        :param single_time_series: single time series from dataset
+        :return: optimal dimension and time delay
+        """
         embedder = SingleTakensEmbedding(parameters_type="search",
                                          time_delay=10,
                                          dimension=10)

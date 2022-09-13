@@ -1,27 +1,24 @@
-from cases.run.ExperimentRunner import ExperimentRunner
-from cases.run.TopologicalRunner import TopologicalRunner
-from cases.run.QuantileRunner import StatsRunner
-from cases.run.SignalRunner import SignalRunner
-from cases.run.SSARunner import SSARunner
-
 import pandas as pd
+
+from core.models.ExperimentRunner import ExperimentRunner
+from core.models.signal.SignalRunner import SignalRunner
+from core.models.spectral.SSARunner import SSARunner
+from core.models.statistical.QuantileRunner import StatsRunner
+from core.models.topological.TopologicalRunner import TopologicalRunner
 
 
 class EnsembleRunner(ExperimentRunner):
     """
     Class for performing experiments with ensemble of feature generators
+        :param feature_generator_dict: dict that consists of 'generator_name': generator_class pairs
+        :param list_of_generators: list of generator names that will be used for ensemble
     """
 
     def __init__(self, feature_generator_dict: dict = None,
                  list_of_generators=None):
-        """
-        Constructor
-        :param feature_generator_dict: dict that consists of 'generator_name': generator_class pairs
-        :param list_of_generators: list of generator names that will be used for ensemble
-        """
-        self.list_of_generators = list_of_generators
         super().__init__(feature_generator_dict)
 
+        self.list_of_generators = list_of_generators
         self.generator_dict = dict(quantile=StatsRunner,
                                    window_quantile=StatsRunner,
                                    wavelet=SignalRunner,
