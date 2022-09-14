@@ -46,11 +46,13 @@ set experiment configuration using file `cases/config/Config_Classification.yaml
 and then run `cases/classification_experiment.py` script, or create your own
 with the following code:
 
-    from cases.API import Industrial
+    from core.api.tsc_API import Industrial
 
-    config_name = 'Config_Classification.yaml'
-    ExperimentHelper = Industrial()
-    ExperimentHelper.run_experiment(config_name)
+
+    if __name__ == '__main__':
+        config_name = 'Config_Classification.yaml'
+        ExperimentHelper = Industrial()
+        ExperimentHelper.run_experiment(config_name)
 
 Config file contains the following parameters:
 
@@ -59,6 +61,7 @@ Config file contains the following parameters:
 - `launches` - number of launches for each dataset
 - `feature_generator_params` - specification for feature generators
 - `fedot_params` - specification for FEDOT algorithmic kernel
+- `error_correction` - flag for application of error correction model in the experiment
 
 Datasets for classification should be stored in the `data` directory and
 divided into `train` and `test` sets with `.tsv` extension. So the name of folder
@@ -79,6 +82,23 @@ you need to specify the list of feature generators:
 Results of experiment which include generated features, predicted classes, metrics and
 pipelines are stored in `results_of_experiments/{feature_generator name}` directory.
 Logs of experiment are stored in `log` directory.
+
+#### Error correction model
+
+It is up to you to decide whether to use error correction model or not. To apply it the `error_correction` 
+flag in the `Config_Classification.yaml` file should be set to `True`. 
+In this case after each launch of FEDOT algorithmic kernel the error correction model will be trained on the
+produced error. 
+
+![](doc/ec_model.png)
+
+The error correction model is a simple linear regression model of
+three stages: at every next stage the model learn the error of 
+prediction. The type of ensemble model for error correction is dependent 
+on the number of classes:
+- For `binary classification` the ensemble is also
+linear regression, trained on predictions of correction stages. 
+- For `multiclass classification` the ensemble is a sum of previous predictions.
 
 #### Anomaly detection
 *--work in progress--*
