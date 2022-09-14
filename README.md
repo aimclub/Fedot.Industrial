@@ -90,7 +90,7 @@ flag in the `Config_Classification.yaml` file should be set to `True`.
 In this case after each launch of FEDOT algorithmic kernel the error correction model will be trained on the
 produced error. 
 
-![](doc/ec_model.png)
+![](doc/error_corr_model.png)
 
 The error correction model is a simple linear regression model of
 three stages: at every next stage the model learn the error of 
