@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from typing import List, Tuple, Dict, Optional
 from tqdm import tqdm
 
-from core.operation.utils.decomposing_tools import decompose_module, prune_model
+from core.operation.utils.decomposing_tools import decompose_module, prune_model, EnergyThresholdPruning
 from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
 
 
@@ -188,14 +188,14 @@ def auto_pruning(
 
     for e10 in range(1, 11):
         e = e10 / 10
-        pruned_model = type(model)()
-        decompose_module(model=pruned_model, decomposing_mode=decomposing_mode)
-        pruned_model.to(device)
-        pruned_model.load_state_dict(model.state_dict())
-        compression = prune_model(pruned_model, e) * 100
+        new_model = type(model)()
+        decompose_module(model=new_model, decomposing_mode=decomposing_mode)
+        new_model.to(device)
+        new_model.load_state_dict(model.state_dict())
+        compression = prune_model(new_model, EnergyThresholdPruning(e)) * 100
         test_loss, accuracy = test_loop(
             dataloader=dataloader,
-            model=pruned_model,
+            model=new_model,
             device=device,
             loss_fn=loss_fn,
             progress=False,

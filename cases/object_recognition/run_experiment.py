@@ -13,7 +13,7 @@ if __name__ == "__main__":
             "loss_fn": torch.nn.CrossEntropyLoss,
             "optimizer": torch.optim.Adam,
             "learning_rate": 0.001,
-            "num_epochs": 10,
+            "num_epochs": 20,
             "progress": True,
         },
     )
