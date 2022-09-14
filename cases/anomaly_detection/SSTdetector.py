@@ -77,6 +77,7 @@ class SingularSpectrumTransformation:
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
+
         return self._score_offline_2d(x_scaled, dynamic_mode=dynamic_mode)
 
     def score_offline_2d_average(self, dynamic_mode: bool = True):
@@ -85,7 +86,6 @@ class SingularSpectrumTransformation:
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
-        return self._score_offline_2d_average(x_scaled, dynamic_mode=dynamic_mode)
 
     def _get_window_from_ts_complex(self, ts_complex, start: int, end: int) -> list:
         window: list = []
@@ -93,6 +93,7 @@ class SingularSpectrumTransformation:
             raise ValueError("Start value is less than zero or more then lenght of time series!")
         if end < 0 or end >= len(ts_complex[0]):
             raise ValueError("End value is less than zero or more then lenght of time series!")
+
         if end < start:
             raise ValueError("Start > End!")
         for _ in ts_complex:
@@ -176,6 +177,7 @@ class SingularSpectrumTransformation:
                 current_features = np.asarray(current_features)
                 current_features = current_features.reshape(current_features.shape[0],
                                                             (current_features.shape[1] * current_features.shape[2]))
+
                 x_test_arr = []
                 for ts_number in range(len(current_features)):
                     x_test = self.spectrum_extractor.ts_vector_to_trajectory_matrix(
@@ -192,6 +194,7 @@ class SingularSpectrumTransformation:
         score_diff = np.diff(score_list)
         q_95 = np.quantile(score_diff, self.quantile_rate)
         filtred_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
+
         self.n_components = None
         return filtred_score
 
