@@ -1,7 +1,41 @@
+from typing import Callable, Dict
 from torch.nn.modules.conv import Conv2d
 from torch.nn.modules import Module
 
 from core.models.cnn.decomposed_conv import DecomposedConv2d
+
+
+class StructureOptimizer:
+    """Base class for structure optimizers."""
+    def __init__(self) -> None:
+        super(StructureOptimizer, self).__init__()
+
+
+class EnergyThresholdPruning(StructureOptimizer):
+    """Prune the weight matrices to the energy threshold."""
+
+    def __init__(self, energy_threshold: float) -> None:
+        super(StructureOptimizer, self).__init__()
+        self.energy_threshold = energy_threshold
+
+    def optimize(self, conv: DecomposedConv2d) -> float:
+        """Prune the weight matrices to the self.energy_threshold.
+        Returns the compression ratio.
+        """
+
+        assert conv.decomposing, "for pruning, the model must be decomposed"
+        len_S = conv.S.numel()
+        S, indices = conv.S.sort()
+        U = conv.U[:, indices]
+        Vh = conv.Vh[indices, :]
+        sum = (S**2).sum()
+        threshold = self.energy_threshold * sum
+        for i, s in enumerate(S):
+            sum -= s**2
+            if sum < threshold:
+                conv.set_U_S_Vh(U[:, i:], S[i:], Vh[i:, :])
+                break
+        return 1 - conv.S.numel() / len_S
 
 
 def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
@@ -28,8 +62,8 @@ def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
             setattr(model, name, new_module)
 
 
-def prune_model(model: Module, e: float) -> float:
-    """Prune DecomposedConv2d layers of the model to the energy threshold.
+def prune_model(model: Module, optimizer: StructureOptimizer) -> float:
+    """Prune DecomposedConv2d layers of the model with pruning_fn.
     Returns the average by layers compression ratio.
     """
     compression = 0
@@ -37,5 +71,7 @@ def prune_model(model: Module, e: float) -> float:
     for module in model.modules():
         if isinstance(module, DecomposedConv2d):
             n += 1
-            compression += module.pruning(e)
+            compression += optimizer.optimize(module)
     return compression / n
+
+
