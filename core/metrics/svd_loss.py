@@ -4,7 +4,14 @@ from torch.nn.modules.module import Module
 from torch.linalg import vector_norm, matrix_norm
 
 
-class OrthogonalLoss(Module):
+class SVDLoss(Module):
+    """Base class for singular value decomposition losses."""
+
+    def __init__(self) -> None:
+        super(SVDLoss, self).__init__()
+
+
+class OrthogonalLoss(SVDLoss):
     """Calculates orthogonality loss for complex unitary matrices."""
 
     def __init__(self, device: torch.device) -> None:
@@ -30,7 +37,7 @@ class OrthogonalLoss(Module):
         return loss / n
 
 
-class HoyerLoss(Module):
+class HoyerLoss(SVDLoss):
     """Calculates Hoyer Loss for diagonal matrix with singular values."""
 
     def __init__(self) -> None:
