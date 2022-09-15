@@ -18,13 +18,13 @@ class EnergyThresholdPruning(StructureOptimizer):
         super(StructureOptimizer, self).__init__()
         self.energy_threshold = energy_threshold
 
-    def optimize(self, conv: DecomposedConv2d) -> float:
+    def optimize(self, conv: DecomposedConv2d) -> (int, int):
         """Prune the weight matrices to the self.energy_threshold.
-        Returns the compression ratio.
+        Return the number of parameters before and after pruning.
         """
 
         assert conv.decomposing, "for pruning, the model must be decomposed"
-        len_S = conv.S.numel()
+        num_old_params = conv.S.numel() + conv.U.numel() + conv.Vh.numel()
         S, indices = conv.S.sort()
         U = conv.U[:, indices]
         Vh = conv.Vh[indices, :]
@@ -35,7 +35,8 @@ class EnergyThresholdPruning(StructureOptimizer):
             if sum < threshold:
                 conv.set_U_S_Vh(U[:, i:], S[i:], Vh[i:, :])
                 break
-        return 1 - conv.S.numel() / len_S
+        num_new_params = conv.S.numel() + conv.U.numel() + conv.Vh.numel()
+        return num_old_params, num_new_params
 
 
 def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
@@ -62,16 +63,17 @@ def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
             setattr(model, name, new_module)
 
 
-def prune_model(model: Module, optimizer: StructureOptimizer) -> float:
+def prune_model(model: Module, optimizer: StructureOptimizer) -> (int, int):
     """Prune DecomposedConv2d layers of the model with pruning_fn.
-    Returns the average by layers compression ratio.
+    Return the number of parameters before and after pruning.
     """
-    compression = 0
-    n = 0
+    old_params_counter = 0
+    new_params_counter = 0
     for module in model.modules():
         if isinstance(module, DecomposedConv2d):
-            n += 1
-            compression += optimizer.optimize(module)
-    return compression / n
+            num_old_params, num_new_params = optimizer.optimize(module)
+            old_params_counter += num_old_params
+            new_params_counter += num_new_params
+    return old_params_counter, new_params_counter
 
 
