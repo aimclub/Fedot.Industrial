@@ -1,3 +1,6 @@
+import copy
+import time
+
 import torch
 import torchvision
 
@@ -96,7 +99,9 @@ def train(
 
     print("Train {}, using device: {}".format(exp_description, device))
     model.to(device)
-    for epoch in range(num_epochs):
+    for epoch in range(1, num_epochs + 1):
+        if progress:
+            print("Epoch {}".format(epoch))
         train_loss, additional_losses = train_loop(
             model=model,
             device=device,
@@ -125,10 +130,10 @@ def train(
         auto_pruning(
             model=model,
             device=device,
-            decomposing_mode=decomposing_mode,
             dataloader=test_dataloader,
             loss_fn=loss_fn,
             writer=writer,
+            progress=progress,
         )
 
 
@@ -180,31 +185,32 @@ def run_experiment(
 def auto_pruning(
     model: torch.nn.Module,
     device: torch.device,
-    decomposing_mode: str,
     dataloader: DataLoader,
     loss_fn: torch.nn.Module,
     writer: SummaryWriter,
+    progress: bool = True,
 ) -> None:
 
-    for e10 in range(1, 11):
-        e = e10 / 10
-        new_model = type(model)()
-        decompose_module(model=new_model, decomposing_mode=decomposing_mode)
-        new_model.to(device)
-        new_model.load_state_dict(model.state_dict())
-        compression = prune_model(new_model, EnergyThresholdPruning(e)) * 100
+    for e in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.92, 0.94, 0.96, 0.98, 1]:
+        new_model = copy.deepcopy(model)
+        start = time.time()
+        old_params, new_params = prune_model(new_model, EnergyThresholdPruning(e))
+        stop = time.time()
         test_loss, accuracy = test_loop(
             dataloader=dataloader,
             model=new_model,
             device=device,
             loss_fn=loss_fn,
-            progress=False,
+            progress=progress,
         )
+        compression = (1 - new_params / old_params) * 100
         accuracy *= 100
-        writer.add_scalar("accuracy(e)", accuracy, e10)
-        writer.add_scalar("compression(e)", compression, e10)
-        writer.add_scalar("acc/(100-compr)(e)", accuracy / (100 - compression), e10)
-        writer.add_scalar("acc - (100-compr)(e)", accuracy - (100 - compression), e10)
+        if progress:
+            print("The model pruned from {} to {} parameters in {:.3f} seconds with e={:.2f}. Compression {:.2f}%, accuracy {:.2f}%".format(old_params, new_params, (stop - start), e, compression, accuracy))
+        writer.add_scalar("accuracy(e)", accuracy, e * 100)
+        writer.add_scalar("compression(e)", compression, e * 100)
+        writer.add_scalar("acc/(100-compr)(e)", accuracy / (100 - compression), e * 100)
+        writer.add_scalar("acc - (100-compr)(e)", accuracy - (100 - compression), e * 100)
 
 
 def get_MNIST_dataloaders(batch_size: int = 100) -> Tuple[str, DataLoader, DataLoader]:
@@ -227,3 +233,33 @@ def get_MNIST_dataloaders(batch_size: int = 100) -> Tuple[str, DataLoader, DataL
         dataset=test_dataset, batch_size=batch_size, shuffle=False
     )
     return "MNIST", train_dataloader, test_dataloader
+
+
+def get_CIFAR100_dataloaders(
+        ds_path: str,
+        batch_size: int = 100
+) -> Tuple[str, DataLoader, DataLoader]:
+
+    transform = torchvision.transforms.Compose(
+        [
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(
+                (0.5074, 0.4867, 0.4411),
+                (0.2011, 0.1987, 0.2025)
+            ),
+        ]
+    )
+
+    train_dataset = torchvision.datasets.CIFAR100(
+        root=ds_path, train=True, transform=transform, download=True
+    )
+    test_dataset = torchvision.datasets.CIFAR100(
+        root=ds_path, train=False, transform=transform
+    )
+    train_dataloader = DataLoader(
+        dataset=train_dataset, batch_size=batch_size, shuffle=True
+    )
+    test_dataloader = DataLoader(
+        dataset=test_dataset, batch_size=batch_size, shuffle=False
+    )
+    return "CIFAR100", train_dataloader, test_dataloader
