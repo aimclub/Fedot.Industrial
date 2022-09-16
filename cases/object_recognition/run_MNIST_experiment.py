@@ -6,7 +6,7 @@ from utils import run_experiment, get_MNIST_dataloaders
 
 if __name__ == "__main__":
     run_experiment(
-        dataloaders=[get_MNIST_dataloaders()],
+        dataloaders=[get_MNIST_dataloaders("/home/storage/datasets/MNIST")],
         models=[("SimpleConvNet2", SimpleConvNet2)],
         coefficients=[0.01, 0.005, 0.001, 0.0005],
         train_parameters={

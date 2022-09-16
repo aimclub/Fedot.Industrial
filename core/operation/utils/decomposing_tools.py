@@ -1,4 +1,3 @@
-from typing import Callable, Dict
 from torch.nn.modules.conv import Conv2d
 from torch.nn.modules import Module
 

@@ -54,13 +54,14 @@ def test_loop(
     dataloader: DataLoader,
     loss_fn: torch.nn.Module,
     progress: bool = True,
-) -> (float, float):
+) -> (float, float, float):
 
     batches = tqdm(dataloader) if progress else dataloader
     size = len(dataloader.dataset)
     test_loss = 0
     accuracy = 0
 
+    start = time.time()
     with torch.no_grad():
         for i, (x, y) in enumerate(batches):
             x = x.to(device)
@@ -71,7 +72,8 @@ def test_loop(
 
             if progress:
                 batches.set_postfix({"val loss": test_loss / (i + 1)})
-    return test_loss / len(dataloader), accuracy / size
+    total_time = time.time() - start
+    return test_loss / len(dataloader), accuracy / size, total_time / len(dataloader)
 
 
 def train(
@@ -111,7 +113,7 @@ def train(
             model_losses=model_losses,
             progress=progress,
         )
-        test_loss, accuracy = test_loop(
+        test_loss, accuracy, _ = test_loop(
             model=model,
             device=device,
             dataloader=test_dataloader,
@@ -119,12 +121,12 @@ def train(
             progress=progress,
         )
 
-        writer.add_scalar("train loss", train_loss, epoch)
-        writer.add_scalar("test loss", test_loss, epoch)
-        writer.add_scalar("test accuracy", accuracy, epoch)
+        writer.add_scalar("train/loss", train_loss, epoch)
+        writer.add_scalar("test/loss", test_loss, epoch)
+        writer.add_scalar("test/accuracy", accuracy, epoch)
         if len(model_losses) > 0:
-            writer.add_scalar("orthogonal loss", additional_losses[0], epoch)
-            writer.add_scalar("hoyer loss", additional_losses[1], epoch)
+            writer.add_scalar("train/orthogonal loss", additional_losses[0], epoch)
+            writer.add_scalar("train/hoyer loss", additional_losses[1], epoch)
     print("Accuracy: {:.2f}%".format(accuracy * 100))
     if decomposing_mode in {"channel", "spatial"}:
         auto_pruning(
@@ -133,7 +135,6 @@ def train(
             dataloader=test_dataloader,
             loss_fn=loss_fn,
             writer=writer,
-            progress=progress,
         )
 
 
@@ -188,32 +189,51 @@ def auto_pruning(
     dataloader: DataLoader,
     loss_fn: torch.nn.Module,
     writer: SummaryWriter,
-    progress: bool = True,
 ) -> None:
 
-    for e in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.92, 0.94, 0.96, 0.98, 1]:
+    _, default_accuracy, default_time = test_loop(
+        dataloader=dataloader,
+        model=model,
+        device=device,
+        loss_fn=loss_fn,
+        progress=False,
+    )
+
+    for e in [0.1, 0.3, 0.5, 0.7, 0.9,
+              0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99,
+              0.992, 0.994, 0.996, 0.998, 0.999,
+              0.9999, 1]:
+        int_e = e * 10000
         new_model = copy.deepcopy(model)
         start = time.time()
         old_params, new_params = prune_model(new_model, EnergyThresholdPruning(e))
-        stop = time.time()
-        test_loss, accuracy = test_loop(
+        pruning_time = time.time() - start
+
+        _, accuracy, val_time = test_loop(
             dataloader=dataloader,
             model=new_model,
             device=device,
             loss_fn=loss_fn,
-            progress=progress,
+            progress=False,
         )
-        compression = (1 - new_params / old_params) * 100
-        accuracy *= 100
-        if progress:
-            print("The model pruned from {} to {} parameters in {:.3f} seconds with e={:.2f}. Compression {:.2f}%, accuracy {:.2f}%".format(old_params, new_params, (stop - start), e, compression, accuracy))
-        writer.add_scalar("accuracy(e)", accuracy, e * 100)
-        writer.add_scalar("compression(e)", compression, e * 100)
-        writer.add_scalar("acc/(100-compr)(e)", accuracy / (100 - compression), e * 100)
-        writer.add_scalar("acc - (100-compr)(e)", accuracy - (100 - compression), e * 100)
+        size_percentage = new_params / old_params * 100
+        time_percentage = val_time / default_time * 100
+        accuracy_percentage = accuracy / default_accuracy * 100
+
+        writer.add_scalar("e/accuracy %)", accuracy_percentage, int_e)
+        writer.add_scalar("e/size %", size_percentage, int_e)
+        writer.add_scalar("e/inference time %", time_percentage, int_e)
+        writer.add_scalar("e/pruning time", pruning_time, int_e)
+        writer.add_scalar("acc-compr/division)",
+                          accuracy_percentage / size_percentage, int_e)
+        writer.add_scalar("acc-compr/subtraction)",
+                          accuracy_percentage - size_percentage, int_e)
 
 
-def get_MNIST_dataloaders(batch_size: int = 100) -> Tuple[str, DataLoader, DataLoader]:
+def get_MNIST_dataloaders(
+        ds_path: str,
+        batch_size: int = 100
+) -> Tuple[str, DataLoader, DataLoader]:
     mnist_transform = torchvision.transforms.Compose(
         [
             torchvision.transforms.ToTensor(),
@@ -221,10 +241,10 @@ def get_MNIST_dataloaders(batch_size: int = 100) -> Tuple[str, DataLoader, DataL
         ]
     )
     train_dataset = torchvision.datasets.MNIST(
-        root="MNIST_dataset", train=True, transform=mnist_transform, download=True
+        root=ds_path, train=True, transform=mnist_transform, download=True
     )
     test_dataset = torchvision.datasets.MNIST(
-        root="MNIST_dataset", train=False, transform=mnist_transform
+        root=ds_path, train=False, transform=mnist_transform
     )
     train_dataloader = DataLoader(
         dataset=train_dataset, batch_size=batch_size, shuffle=True
