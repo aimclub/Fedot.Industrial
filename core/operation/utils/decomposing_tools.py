@@ -1,11 +1,14 @@
+import torch
 from torch.nn.modules.conv import Conv2d
 from torch.nn.modules import Module
+from torch.linalg import vector_norm
 
 from core.models.cnn.decomposed_conv import DecomposedConv2d
 
 
 class StructureOptimizer:
     """Base class for structure optimizers."""
+
     def __init__(self) -> None:
         super(StructureOptimizer, self).__init__()
 
@@ -38,6 +41,27 @@ class EnergyThresholdPruning(StructureOptimizer):
         return num_old_params, num_new_params
 
 
+class SoftFilterPruning(StructureOptimizer):
+    """Zerolize filters of convolutional layer to the pruning ratio"""
+
+    def __init__(self, pruning_ratio: float) -> None:
+        super(StructureOptimizer, self).__init__()
+        self.pruning_ratio = pruning_ratio
+
+    def optimize(self, conv: DecomposedConv2d) -> (int, int):
+        """Zerolize filters of convolutional layer to the self.pruning_percent.
+        Return the number of zero parameters before and after pruning.
+        """
+        num_old_params = torch.count_nonzero(conv.weight)
+        filter_pruned_num = int(conv.weight.size()[0] * self.pruning_ratio)
+        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+        _, indices = filter_norms.sort()
+        with torch.no_grad():
+            conv.weight[indices[:filter_pruned_num]] = 0
+        num_new_params = torch.count_nonzero(conv.weight)
+        return num_old_params, num_new_params
+
+
 def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place)."""
     for name, module in model.named_children():
@@ -63,16 +87,14 @@ def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
 
 
 def prune_model(model: Module, optimizer: StructureOptimizer) -> (int, int):
-    """Prune DecomposedConv2d layers of the model with pruning_fn.
+    """Prune Conv2d layers of the model with pruning_fn.
     Return the number of parameters before and after pruning.
     """
     old_params_counter = 0
     new_params_counter = 0
     for module in model.modules():
-        if isinstance(module, DecomposedConv2d):
+        if isinstance(module, Conv2d):
             num_old_params, num_new_params = optimizer.optimize(module)
             old_params_counter += num_old_params
             new_params_counter += num_new_params
     return old_params_counter, new_params_counter
-
-
