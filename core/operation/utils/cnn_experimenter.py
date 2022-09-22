@@ -19,7 +19,6 @@ class Experimenter:
 
     def __init__(
         self,
-        num_epochs: int,
         dataset: str,
         dataset_params: Dict,
         model: str,
@@ -88,9 +87,8 @@ class Experimenter:
         self.optimizer = optimizer(self.model.parameters(), **optimizer_params)
         self.writer = SummaryWriter("runs/" + self.exp_description)
         print("{}, using device: {}".format(self.exp_description, self.device))
-        self.run(num_epochs)
 
-    def run(self, num_epochs):
+    def run(self, num_epochs: int):
         for epoch in range(1, num_epochs + 1):
             if self.progress:
                 print("Epoch {}".format(epoch))
@@ -100,11 +98,11 @@ class Experimenter:
             self.writer.add_scalar("train/loss", train_loss, epoch)
             self.writer.add_scalar("val/loss", val_loss, epoch)
             self.writer.add_scalar("val/accuracy", accuracy, epoch)
-            for key in svd_losses.keys():
-                self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
-                self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
 
-            if self.compression_mode == "SFP":
+            if self.compression_mode == "SVD":
+                for key in svd_losses.keys():
+                    self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
+            elif self.compression_mode == "SFP":
                 prune_model(
                     model=self.model, optimizer=self.compression_params["optimizer"]
                 )
