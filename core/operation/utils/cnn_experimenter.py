@@ -91,11 +91,11 @@ class Experimenter:
             if self.progress:
                 print("Epoch {}".format(epoch))
             train_loss, svd_losses = self.train_loop()
-            test_loss, accuracy, _ = self.val_loop()
+            val_loss, accuracy, _ = self.val_loop()
 
             self.writer.add_scalar("train/loss", train_loss, epoch)
-            self.writer.add_scalar("test/loss", test_loss, epoch)
-            self.writer.add_scalar("test/accuracy", accuracy, epoch)
+            self.writer.add_scalar("val/loss", val_loss, epoch)
+            self.writer.add_scalar("val/accuracy", accuracy, epoch)
             for key in svd_losses.keys():
                 self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
                 self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
@@ -149,7 +149,7 @@ class Experimenter:
                 accuracy += (pred.argmax(1) == y).type(torch.float).mean().item()
 
         total_time = time.time() - start
-        n = len(self.train_dl)
+        n = len(self.val_dl)
         return val_loss / n, accuracy / n, total_time / n
 
     def auto_pruning(self) -> None:
