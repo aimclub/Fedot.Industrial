@@ -80,6 +80,10 @@ class Experimenter:
             self.compression_params["optimizer"] = SoftFilterPruning(
                 pruning_ratio=self.compression_params["pruning_ratio"]
             )
+            self.exp_description += "{}_P:{:.2f}".format(
+                self.compression_mode,
+                self.compression_params["pruning_ratio"],
+            )
 
         self.optimizer = optimizer(self.model.parameters(), **optimizer_params)
         self.writer = SummaryWriter("runs/" + self.exp_description)
