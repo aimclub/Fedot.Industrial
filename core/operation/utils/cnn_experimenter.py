@@ -14,27 +14,29 @@ from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
 from core.models.cnn.classification_models import MODELS
 
 
-
 class Experimenter:
+    """Class of experiment on compression of convolutional classification models."""
 
     def __init__(
-            self,
-            num_epochs: int,
-            dataset: str,
-            dataset_params: Dict,
-            model: str,
-            model_params: Dict,
-            optimizer: type[torch.optim.Optimizer],
-            optimizer_params: Dict,
-            loss_fn: type[torch.nn.Module],
-            loss_params: Dict,
-            compression_mode: str,
-            compression_params: Dict,
-            progress: bool = True,
+        self,
+        num_epochs: int,
+        dataset: str,
+        dataset_params: Dict,
+        model: str,
+        model_params: Dict,
+        optimizer: type[torch.optim.Optimizer],
+        optimizer_params: Dict,
+        loss_fn: type[torch.nn.Module],
+        loss_params: Dict,
+        compression_mode: str,
+        compression_params: Dict,
+        progress: bool = True,
     ) -> None:
 
         self.exp_description = "{}/{}/".format(dataset, model)
-        self.train_dl, self.val_dl, num_classes = get_dataloaders(dataset, **dataset_params)
+        self.train_dl, self.val_dl, num_classes = get_dataloaders(
+            dataset, **dataset_params
+        )
 
         valid_compression_modes = {"none", "SVD", "SFP"}
         if compression_mode not in valid_compression_modes:
@@ -61,17 +63,18 @@ class Experimenter:
         if self.compression_mode == "SVD":
             decompose_module(
                 model=self.model,
-                decomposing_mode=self.compression_params["decomposing_mode"])
-            self.exp_description += '{}_O:{:.1f}_H:{:.6f}'.format(
+                decomposing_mode=self.compression_params["decomposing_mode"],
+            )
+            self.exp_description += "{}_O:{:.1f}_H:{:.6f}".format(
                 self.compression_params["decomposing_mode"],
                 self.compression_params["orthogonal_loss"],
-                self.compression_params["hoer_loss"])
+                self.compression_params["hoer_loss"],
+            )
             self.compression_params["hoer_loss"] = HoyerLoss(
                 factor=self.compression_params["hoer_loss"]
             )
             self.compression_params["orthogonal_loss"] = OrthogonalLoss(
-                device=self.device,
-                factor=self.compression_params["orthogonal_loss"]
+                device=self.device, factor=self.compression_params["orthogonal_loss"]
             )
         elif self.compression_mode == "SFP":
             self.compression_params["optimizer"] = SoftFilterPruning(
@@ -99,8 +102,7 @@ class Experimenter:
 
             if self.compression_mode == "SFP":
                 prune_model(
-                    model=self.model,
-                    optimizer=self.compression_params["optimizer"]
+                    model=self.model, optimizer=self.compression_params["optimizer"]
                 )
 
         print("Accuracy: {:.2f}%".format(accuracy * 100))
@@ -159,8 +161,7 @@ class Experimenter:
             new_model = copy.deepcopy(self.model)
             start = time.time()
             old_params, new_params = prune_model(
-                model=new_model,
-                optimizer=EnergyThresholdPruning(e)
+                model=new_model, optimizer=EnergyThresholdPruning(e)
             )
             pruning_time = time.time() - start
 

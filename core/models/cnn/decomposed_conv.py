@@ -49,7 +49,7 @@ class DecomposedConv2d(Conv2d):
         n, c, w, h = self.weight.size()
         self.decomposing_modes_dict = {
             "channel": (n, c * w * h),
-            "spatial": (n * w, c * h)
+            "spatial": (n * w, c * h),
         }
 
         if decomposing:

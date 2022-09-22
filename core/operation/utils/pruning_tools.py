@@ -52,6 +52,7 @@ class SoftFilterPruning(StructureOptimizer):
         """Zerolize filters of convolutional layer to the self.pruning_percent.
         Return the number of zero parameters before and after pruning.
         """
+
         num_old_params = torch.count_nonzero(conv.weight)
         filter_pruned_num = int(conv.weight.size()[0] * self.pruning_ratio)
         filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
@@ -64,6 +65,7 @@ class SoftFilterPruning(StructureOptimizer):
 
 def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place)."""
+
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
             decompose_module(module, decomposing_mode=decomposing_mode)
@@ -90,6 +92,7 @@ def prune_model(model: Module, optimizer: StructureOptimizer) -> (int, int):
     """Prune Conv2d layers of the model with pruning_fn.
     Return the number of parameters before and after pruning.
     """
+
     old_params_counter = 0
     new_params_counter = 0
     for module in model.modules():

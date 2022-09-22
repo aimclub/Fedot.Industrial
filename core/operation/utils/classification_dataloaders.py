@@ -8,20 +8,20 @@ DATASETS_PARAMETERS = {
         "getter": CIFAR100,
         "num_classes": 100,
         "mean": (0.5074, 0.4867, 0.4411),
-        "std": (0.2011, 0.1987, 0.2025)
+        "std": (0.2011, 0.1987, 0.2025),
     },
     "CIFAR10": {
         "getter": CIFAR10,
         "num_classes": 10,
         "mean": (0.5074, 0.4867, 0.4411),
-        "std": (0.2011, 0.1987, 0.2025)
+        "std": (0.2011, 0.1987, 0.2025),
     },
     "MNIST": {
         "getter": MNIST,
         "num_classes": 10,
         "mean": (0.1307,),
-        "std": (0.3081,)
-    }
+        "std": (0.3081,),
+    },
 }
 
 
@@ -49,7 +49,7 @@ def get_dataloaders(
             download=True
         ),
         batch_size=batch_size,
-        shuffle=True
+        shuffle=True,
     )
     test_dataloader = DataLoader(
         dataset=params["getter"](
@@ -58,6 +58,6 @@ def get_dataloaders(
             transform=transform,
         ),
         batch_size=batch_size,
-        shuffle=False
+        shuffle=False,
     )
     return train_dataloader, test_dataloader, params["num_classes"]
