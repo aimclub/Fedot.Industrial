@@ -118,6 +118,8 @@ class Industrial:
                 predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
 
                 predict_on_train = classificator.predict_on_train()
+
+                n_ecm_cycles = experiment_dict['n_ecm_cycles']
                 ecm_fedot_params = dict(problem='regression',
                                         seed=14,
                                         timeout=1,
@@ -131,7 +133,8 @@ class Industrial:
                 ecm_params = dict(n_classes=n_classes,
                                   dataset_name=dataset_name,
                                   save_models=False,
-                                  fedot_params=ecm_fedot_params)
+                                  fedot_params=ecm_fedot_params,
+                                  n_cycles=n_ecm_cycles)
 
                 if self.config_dict['error_correction']:
                     ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,

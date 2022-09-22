@@ -22,7 +22,6 @@ class Booster:
     :param n_cycles: number of boosting cycles
     :param reshape_flag: ...
     """
-    FIRST_CYCLE = 1
 
     def __init__(self, features_train: np.ndarray,
                  target_train: np.array,
@@ -38,74 +37,39 @@ class Booster:
         self.threshold = threshold
         # self.timeout = max(3, round(timeout / 4))
         self.timeout = 1
-        self.booster_features = {}
-        self.check_table = pd.DataFrame()
         self.reshape_flag = reshape_flag
         self.n_cycles = n_cycles
         if self.reshape_flag:
             self.target_train = self.target_train.reshape(-1)
 
-    def run_boosting(self) -> tuple:
+        self.ecm_targets = [self.target_train, ]
+        self.ecm_predictions = [self.base_predict, ]
+
+    def fit(self) -> tuple:
         """
         Method to run the boosting process
         """
         self.logger.info('Started boosting')
+        model_list = list()
 
-        target_diff_1 = self.decompose_target(previous_predict=self.base_predict,
-                                              previous_target=self.target_train)
-        prediction_1, model_1 = self.api_model(target_diff=target_diff_1)
-        target_diff_2 = self.decompose_target(previous_predict=prediction_1,
-                                              previous_target=target_diff_1)
-        prediction_2, model_2 = self.api_model(target_diff=target_diff_2)
+        for i in range(self.n_cycles):
+            self.logger.info(f'Starting cycle {1+i} of boosting')
+            target_diff = self.decompose_target(previous_predict=self.ecm_predictions[i],
+                                                previous_target=self.ecm_targets[i])
+            self.ecm_targets.append(target_diff)
 
-        target_diff_3 = self.decompose_target(previous_predict=prediction_2,
-                                              previous_target=target_diff_2)
-        prediction_3, model_3 = self.api_model(target_diff=target_diff_3)
-        self.logger.info('Started boosting ensemble')
-        final_prediction, model_ensemble = self.ensemble()
-        try:
-            self.get_check_table(final_prediction, prediction_1, prediction_2, prediction_3)
-        except Exception as ex:
-            self.logger.info(f'Problem with saving table: {ex}')
+            prediction, fedot_model = self.api_model(target_diff=target_diff)
+            self.ecm_predictions.append(prediction)
+            model_list.append(fedot_model)
 
-        self.logger.info('Boosting process is finished')
-        model_list = [model_1, model_2, model_3]
+        final_prediction, model_ensemble = self.ensemble(features=self.ecm_predictions[1:])
 
         return final_prediction, model_list, model_ensemble
-
-    def get_check_table(self, final_prediction, prediction_1, prediction_2, prediction_3) -> None:
-        """
-        Method to fill self.check_table dataframe with boosting results.
-
-        :param final_prediction: prediction, derived from ensemble of all boosting stages
-        :param prediction_1: prediction, derived from first boosting stage
-        :param prediction_2: prediction, derived from second boosting stage
-        :param prediction_3: prediction, derived from third boosting stage
-        :return: None
-        """
-        try:
-            self.check_table['target'] = self.proba_to_vector(self.target_train)
-            self.check_table['final_predict'] = self.proba_to_vector(final_prediction)
-            self.check_table['1_stage_predict'] = self.proba_to_vector(prediction_1)
-            self.check_table['2_stage_predict'] = self.proba_to_vector(prediction_2)
-            self.check_table['3_stage_predict'] = self.proba_to_vector(prediction_3)
-            self.check_table['base_pred'] = self.proba_to_vector(self.base_predict)
-        except Exception as ex:
-            self.logger.info(f'Problem with filling table: {ex}')
-
-            self.check_table['base_pred'] = self.base_predict
-            self.check_table['final_predict'] = final_prediction
-            self.check_table['target'] = self.target_train
-            self.check_table['1_stage_predict'] = prediction_1
-            self.check_table['2_stage_predict'] = prediction_2
-            self.check_table['3_stage_predict'] = prediction_3
 
     def api_model(self, target_diff: np.ndarray) -> tuple:
         """
         Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
         """
-        self.logger.info(f'Starting cycle {self.FIRST_CYCLE} of boosting')
-
         fedot_model = Fedot(problem='regression',
                             timeout=self.timeout,
                             seed=20,
@@ -117,9 +81,6 @@ class Booster:
 
         if self.reshape_flag:
             prediction = prediction.reshape(-1)
-
-        self.booster_features[self.FIRST_CYCLE] = prediction
-        self.FIRST_CYCLE += 1
 
         return prediction, fedot_model
 
@@ -135,7 +96,7 @@ class Booster:
         """
         return previous_target - previous_predict
 
-    def ensemble(self) -> tuple:
+    def ensemble(self, features) -> tuple:
         """
         Method that ensembles results of all stages of boosting. Depending on number of classes ensemble method
         could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem)
@@ -148,7 +109,7 @@ class Booster:
                                verbose_level=1,
                                n_jobs=6)
         if self.reshape_flag:
-            features = pd.DataFrame.from_dict(self.booster_features, orient='index').T.values
+            features = np.hstack(features)
             target = self.target_train
 
             ensemble_model.fit(features, target)
@@ -157,10 +118,7 @@ class Booster:
             return ensemble_prediction, ensemble_model
 
         else:
-            dictlist = []
-            for key, value in self.booster_features.items():
-                dictlist.append(value)
-            ensemble_prediction = sum(dictlist)
+            ensemble_prediction = sum(features)
             return ensemble_prediction, None
 
     @staticmethod
@@ -196,4 +154,4 @@ if __name__ == '__main__':
                       base_predict=base_predict,
                       timeout=1)
 
-    result = booster.run_boosting()
+    result = booster.fit()

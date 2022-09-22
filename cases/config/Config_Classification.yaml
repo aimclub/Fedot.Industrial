@@ -9,13 +9,14 @@ feature_generator: [
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: True,
+n_ecm_cycles: 3,
 
 datasets_list: [
-#  'Lightning7',
-  'Earthquakes',
-  #    'EthanolLevel',
-  #     'Beef',
-  #     'Wafer'
+  'Lightning7',
+#  'Earthquakes',
+#  'EthanolLevel',
+#  'Beef',
+#  'Wafer'
 ]
 
 'launches': 1
