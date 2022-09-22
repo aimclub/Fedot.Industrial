@@ -8,14 +8,14 @@ class SVDLoss(Module):
     """Base class for singular value decomposition losses."""
 
     def __init__(self) -> None:
-        super(SVDLoss, self).__init__()
+        super().__init__()
 
 
 class OrthogonalLoss(SVDLoss):
     """Calculates orthogonality loss for complex unitary matrices."""
 
     def __init__(self, device: torch.device) -> None:
-        super(OrthogonalLoss, self).__init__()
+        super().__init__()
         self.device = device
 
     def forward(self, model: Module) -> Tensor:
@@ -41,7 +41,7 @@ class HoyerLoss(SVDLoss):
     """Calculates Hoyer Loss for diagonal matrix with singular values."""
 
     def __init__(self) -> None:
-        super(HoyerLoss, self).__init__()
+        super().__init__()
 
     def forward(self, model: Module) -> Tensor:
         loss = 0

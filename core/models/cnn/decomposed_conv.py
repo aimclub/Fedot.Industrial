@@ -32,7 +32,7 @@ class DecomposedConv2d(Conv2d):
         dtype=None,
     ) -> None:
 
-        super(DecomposedConv2d, self).__init__(
+        super().__init__(
             in_channels,
             out_channels,
             kernel_size,

@@ -10,14 +10,14 @@ class StructureOptimizer:
     """Base class for structure optimizers."""
 
     def __init__(self) -> None:
-        super(StructureOptimizer, self).__init__()
+        pass
 
 
 class EnergyThresholdPruning(StructureOptimizer):
     """Prune the weight matrices to the energy threshold."""
 
     def __init__(self, energy_threshold: float) -> None:
-        super(StructureOptimizer, self).__init__()
+        super().__init__()
         self.energy_threshold = energy_threshold
 
     def optimize(self, conv: DecomposedConv2d) -> (int, int):
@@ -45,7 +45,7 @@ class SoftFilterPruning(StructureOptimizer):
     """Zerolize filters of convolutional layer to the pruning ratio"""
 
     def __init__(self, pruning_ratio: float) -> None:
-        super(StructureOptimizer, self).__init__()
+        super().__init__()
         self.pruning_ratio = pruning_ratio
 
     def optimize(self, conv: DecomposedConv2d) -> (int, int):
@@ -66,7 +66,7 @@ def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place)."""
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
-            decompose_module(module, decomposing_mode="channel")
+            decompose_module(module, decomposing_mode=decomposing_mode)
 
         if isinstance(module, Conv2d):
             new_module = DecomposedConv2d(

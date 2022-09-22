@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from typing import List, Tuple, Dict, Optional
 from tqdm import tqdm
 
-from core.operation.utils.decomposing_tools import decompose_module, prune_model, EnergyThresholdPruning
+from core.operation.utils.pruning_tools import decompose_module, prune_model, EnergyThresholdPruning
 from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
 
 
