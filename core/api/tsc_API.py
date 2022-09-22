@@ -75,6 +75,13 @@ class Industrial:
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
             self.config_dict = yaml.safe_load(input_stream)
+            if 'path_to_config' in list(self.config_dict.keys()):
+                config_name = self.config_dict['path_to_config']
+                path = os.path.join(PROJECT_PATH, config_name)
+                with open(path, "r") as input_stream:
+                    config_dict_template = yaml.safe_load(input_stream)
+                self.config_dict = {**config_dict_template, **self.config_dict}
+                del self.config_dict['path_to_config']
             self.config_dict['logger'] = self.logger
             self.logger.info(
                 f"Experiment setup:"
@@ -124,12 +131,12 @@ class Industrial:
                 ecm_fedot_params = dict(problem='regression',
                                         seed=14,
                                         timeout=1,
-                                        composer_params=dict(max_depth=10,
-                                                             max_arity=4,
-                                                             cv_folds=2,
-                                                             stopping_after_n_generation=20),
-                                        verbose_level=1,
-                                        n_jobs=2)
+                                        max_depth=10,
+                                        max_arity=4,
+                                        cv_folds=2,
+                                        stopping_after_n_generation=20,
+                                        logging_level=20,
+                                        n_jobs=4)
 
                 ecm_params = dict(n_classes=n_classes,
                                   dataset_name=dataset_name,
@@ -148,20 +155,18 @@ class Industrial:
                                            train_features,
                                            predictions))
                 else:
-                    ecm_results = [None]
+                    ecm_results = [[]] * len(paths_to_save)
 
                 self.logger.info('SAVING RESULTS')
 
-                _ = list(map(lambda path, x_tr, pred, ecm_res: self.save_results(train_target=train_data[1],
-                                                                                 test_target=test_data[1],
-                                                                                 path_to_save=path,
-                                                                                 train_features=x_tr,
-                                                                                 prediction=pred,
-                                                                                 fitted_predictor=fitted_predictor,
-                                                                                 ecm_results=ecm_res),
-                             paths_to_save, train_features, predictions, ecm_results
-                             )
-                         )
+                for i in range(len(paths_to_save)):
+                    self.save_results(train_target=train_data[1],
+                                      test_target=test_data[1],
+                                      path_to_save=paths_to_save[i],
+                                      train_features=train_features[i],
+                                      prediction=predictions[i],
+                                      fitted_predictor=fitted_predictor,
+                                      ecm_results=ecm_results[i]),
 
                 spectral_generators = [x for x in paths_to_save if 'spectral' in x]
                 if len(spectral_generators) != 0:
@@ -189,7 +194,7 @@ class Industrial:
         except Exception as ex:
             self.logger.error(f'Can not save pipeline: {ex}')
 
-        if ecm_results is not None:
+        if len(ecm_results) != 0:
             self.save_boosting_results(**ecm_results, path_to_save=path_results)
 
         features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
@@ -250,7 +255,8 @@ class Industrial:
     @staticmethod
     def _save_spectrum(classificator, path_to_save):
         for method, path in zip(list(classificator.composer.dict.keys()), path_to_save):
-            pd.concat(classificator.composer.dict[method].eigenvectors_list_train, axis=1).to_csv(
-                os.path.join(path, 'train_spectrum.csv'))
-            pd.concat(classificator.composer.dict[method].eigenvectors_list_test, axis=1).to_csv(
-                os.path.join(path, 'test_spectrum.csv'))
+            if 'spectral' in method:
+                pd.concat(classificator.composer.dict[method].eigenvectors_list_train, axis=1).to_csv(
+                    os.path.join(path, 'train_spectrum.csv'))
+                pd.concat(classificator.composer.dict[method].eigenvectors_list_test, axis=1).to_csv(
+                    os.path.join(path, 'test_spectrum.csv'))

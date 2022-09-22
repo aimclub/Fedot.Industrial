@@ -24,8 +24,7 @@ class ErrorCorrectionModel:
     def __init__(self, results_on_train: np.ndarray = None,
                  results_on_test: dict = None, n_classes=None,
                  dataset_name: str = None, save_models: bool = False,
-                 fedot_params: dict = None, train_data=None, test_data=None,
-                 n_cycles: int = 3):
+                 fedot_params: dict = None, train_data=None, test_data=None):
 
         self.logger = Logger().get_logger()
         self.results_on_train = results_on_train
@@ -36,7 +35,6 @@ class ErrorCorrectionModel:
         self.fedot_params = fedot_params
         self.train_feats, self.test_features = train_data[0], test_data[0]['test_features']
         self.y_train, self.y_test = train_data[1], test_data[1]
-        self.n_cycles = n_cycles
         self.analyzer = PerformanceAnalyzer()
 
     def run(self):
@@ -78,8 +76,7 @@ class ErrorCorrectionModel:
                           target_train=self.y_train,
                           base_predict=self.base_predict,
                           timeout=1,
-                          reshape_flag=self.reshape_flag,
-                          n_cycles=self.n_cycles)
+                          reshape_flag=self.reshape_flag)
 
         boosting_pipeline = self.genetic_boosting_pipeline
 
@@ -114,21 +111,26 @@ class ErrorCorrectionModel:
 
     def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
         self.logger.info('Predict on booster models')
-        boosting_predict_list = list()
+        # TODO: проверить лист()
+        boosting_stages_predict = []
         input_data_test = self.test_features
 
+        n = 1
         for model in model_list:
+            self.logger.info(f'Cycle {n} of boosting has started')
             boost_predict = model.predict(input_data_test)
-            boosting_predict_list.append(boost_predict)
+            boosting_stages_predict.append(boost_predict)
+            n += 1
 
+        self.logger.info('Ensemble booster predictions')
         if ensemble_model:
             self.logger.info('Ensemble using FEDOT has been chosen')
-            boosting_predict_list = pd.DataFrame(i.reshape(-1) for i in boosting_predict_list).T
+            boosting_stages_predict = pd.DataFrame(i.reshape(-1) for i in boosting_stages_predict).T
         else:
-            boosting_predict_list = [np.array(_) for _ in boosting_predict_list]
+            boosting_stages_predict = [np.array(_) for _ in boosting_stages_predict]
             self.logger.info('Ensemble using SUM method has been chosen')
 
-        boosting_result = self._convert_boosting_prediction(boosting_stages_predict=boosting_predict_list,
+        boosting_result = self._convert_boosting_prediction(boosting_stages_predict=boosting_stages_predict,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
         return boosting_result
