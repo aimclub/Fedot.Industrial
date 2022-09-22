@@ -1,4 +1,5 @@
 from torch import nn
+from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
 
 
 class SimpleConvNet2(nn.Module):
@@ -28,3 +29,13 @@ class SimpleConvNet2(nn.Module):
         out = self.fc1(out)
         out = self.fc2(out)
         return out
+
+
+MODELS = {
+    "SimpleConvNet2": SimpleConvNet2,
+    "ResNet18": resnet18,
+    "ResNet34": resnet34,
+    "ResNet50": resnet50,
+    "ResNet101": resnet101,
+    "ResNet152": resnet152,
+}
