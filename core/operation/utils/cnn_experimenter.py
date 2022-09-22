@@ -4,7 +4,7 @@ import time
 import torch
 
 from torch.utils.tensorboard import SummaryWriter
-from typing import Dict
+from typing import Dict, Type
 from tqdm import tqdm
 
 from core.operation.utils.pruning_tools import decompose_module, prune_model
@@ -23,9 +23,9 @@ class Experimenter:
         dataset_params: Dict,
         model: str,
         model_params: Dict,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: Type[torch.optim.Optimizer],
         optimizer_params: Dict,
-        loss_fn: type[torch.nn.Module],
+        loss_fn: Type[torch.nn.Module],
         loss_params: Dict,
         compression_mode: str,
         compression_params: Dict,
