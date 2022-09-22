@@ -72,9 +72,9 @@ class Booster:
         """
         fedot_model = Fedot(problem='regression',
                             timeout=self.timeout,
-                            seed=20,
-                            verbose_level=1,
-                            n_jobs=2)
+                            seed=42,
+                            logging_level=1,
+                            n_jobs=4)
 
         fedot_model.fit(self.X_train, target_diff)
         prediction = fedot_model.predict(self.X_train)
@@ -106,7 +106,7 @@ class Booster:
         ensemble_model = Fedot(problem='regression',
                                timeout=self.timeout,
                                seed=20,
-                               verbose_level=1,
+                               logging_level=20,
                                n_jobs=6)
         if self.reshape_flag:
             features = np.hstack(features)

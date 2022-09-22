@@ -69,10 +69,6 @@ class SSARunner(ExperimentRunner):
 
     def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
 
-        self.logger.info(f'8 CPU on working. '
-                         f'Total ts samples - {self.ts_samples_count}. '
-                         f'Current sample - {self.count}')
-
         ts = self.check_for_nan(ts_data)
 
         specter = self.spectrum_extractor(time_series=ts,
@@ -154,7 +150,6 @@ class SSARunner(ExperimentRunner):
         metric_list = []
         n_comp_list = []
         eigen_list = []
-
         for window_length in self.window_length_list[dataset_name]:
             self.logger.info(f'Generate features for window length - {window_length}')
             self.window_length = window_length
@@ -172,15 +167,19 @@ class SSARunner(ExperimentRunner):
             eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
 
             self.logger.info(f'Every eigenvector with impact less then 1 % percent was eliminated. '
-                             f'{self.explained_dispersion} % of explained dispersion '
-                             f'obtained by first - {self.n_components} components.')
-
+                                 f'{self.explained_dispersion} % of explained dispersion '
+                                 f'obtained by first - {self.n_components} components.')
             metrics = self.explained_dispersion
             metric_list.append(metrics)
 
             eigen_list.append(eigenvectors_list)
             n_comp_list.append(self.n_components)
             self.count = 0
+            if self.n_components > 10:
+                self.logger.info(f'SSA method find {self.n_components} PCT.'
+                                     f'This is mean that SSA method does not find effective low rank structure for '
+                                     f'this signal.')
+                break
 
         index_of_window = int(metric_list.index(max(metric_list)))
         self.window_length = self.window_length_list[dataset_name][index_of_window]
