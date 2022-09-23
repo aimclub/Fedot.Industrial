@@ -1,5 +1,6 @@
 import timeit
 
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -36,13 +37,11 @@ class SignalRunner(ExperimentRunner):
         self.test_feats = None
         self.n_components = None
         self.logger = Logger().get_logger()
+        self.dict_of_methods = {'Peaks': self._method_of_peaks,
+                                'AC': self._method_of_AC}
 
-    def _ts_chunk_function(self, ts):
-        ts = self.check_for_nan(ts)
-
+    def _method_of_peaks(self, specter):
         threshold_range = [1, 3, 5, 7, 9]
-
-        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
         high_freq, low_freq = specter.decompose_signal()
 
         hf_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1))
@@ -77,7 +76,23 @@ class SignalRunner(ExperimentRunner):
         feature_df.columns = features_names
         return feature_df
 
-    def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> list:
+    def _method_of_AC(self, specter, level: int = 3):
+        high_freq, low_freq = specter.decompose_signal()
+        hf_AC_features = specter.generate_features_from_AC(HF=high_freq, LF=low_freq, level=level)
+
+        feature_df = pd.concat(hf_AC_features, axis=1)
+        return feature_df
+
+    def _ts_chunk_function(self, ts,
+                           method_name: str = 'AC'):
+
+        ts = self.check_for_nan(ts)
+        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
+        feature_df = self.dict_of_methods[method_name](specter)
+
+        return feature_df
+
+    def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
         """
         Generate vector from time series.
 
@@ -92,7 +107,7 @@ class SignalRunner(ExperimentRunner):
                   desc='Feature generation. Time series processed:',
                   unit='ts', initial=0) as pbar:
             for ts in ts_frame.values:
-                components_and_vectors.append(self._ts_chunk_function(ts))
+                components_and_vectors.append(self._ts_chunk_function(ts, method_name=method_name))
                 pbar.update(1)
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
 
@@ -146,7 +161,7 @@ class SignalRunner(ExperimentRunner):
         score_f1 = metric_f1.metric()
 
         score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
-        if score_roc_auc:
+        if score_roc_auc or score_roc_auc is None:
             score_roc_auc = 0.5
 
         return score_f1, score_roc_auc
