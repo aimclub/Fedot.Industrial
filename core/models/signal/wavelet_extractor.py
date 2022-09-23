@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import pywt
 
+from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
+
 
 class WaveletExtractor:
     """
@@ -13,6 +15,7 @@ class WaveletExtractor:
     :param: time_series: The original time series, in the form of a Pandas Series, NumPy array or list.
     :param: wavelet_name: The name of the wavelet to use.
     """
+
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  wavelet_name: str = None):
@@ -21,10 +24,25 @@ class WaveletExtractor:
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
         self.wavelet_name = wavelet_name
 
-    def decompose_signal(self):
-        return pywt.dwt(self.time_series,
+    def decompose_signal(self, ts=None):
+        if ts is None:
+            ts = self.time_series
+        return pywt.dwt(ts,
                         self.wavelet_name,
                         'smooth')
+
+    def generate_features_from_AC(self, HF, LF, level: int = 3):
+        extractor = StatFeaturesExtractor()
+        feature_list = []
+        feature_df = extractor.create_features(LF)
+        feature_df.columns = [f'{x}_LF' for x in feature_df.columns]
+        feature_list.append(feature_df)
+        for i in range(level):
+            feature_df = extractor.create_features(HF)
+            feature_df.columns = [f'{x}_level_{i}'for x in feature_df.columns]
+            feature_list.append(feature_df)
+            HF = self.decompose_signal(ts=HF)[0]
+        return feature_list
 
     @staticmethod
     def detect_peaks(x,
