@@ -114,21 +114,21 @@ class ErrorCorrectionModel:
 
     def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
         self.logger.info('Predict on booster models')
-        boosting_stages_predict = []
+        boosting_predict_list = list()
         input_data_test = self.test_features
 
         for model in model_list:
             boost_predict = model.predict(input_data_test)
-            boosting_stages_predict.append(boost_predict)
+            boosting_predict_list.append(boost_predict)
 
         if ensemble_model:
             self.logger.info('Ensemble using FEDOT has been chosen')
-            boosting_stages_predict = pd.DataFrame(i.reshape(-1) for i in boosting_stages_predict).T
+            boosting_predict_list = pd.DataFrame(i.reshape(-1) for i in boosting_predict_list).T
         else:
-            boosting_stages_predict = [np.array(_) for _ in boosting_stages_predict]
+            boosting_predict_list = [np.array(_) for _ in boosting_predict_list]
             self.logger.info('Ensemble using SUM method has been chosen')
 
-        boosting_result = self._convert_boosting_prediction(boosting_stages_predict=boosting_stages_predict,
+        boosting_result = self._convert_boosting_prediction(boosting_stages_predict=boosting_predict_list,
                                                             ensemble_model=ensemble_model,
                                                             predictions_proba=predictions_proba)
         return boosting_result

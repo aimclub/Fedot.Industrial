@@ -6,17 +6,17 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from core.models.EnsembleRunner import EnsembleRunner
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
-from core.models.statistical.QuantileRunner import StatsRunner
+from core.models.EnsembleRunner import EnsembleRunner
 from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
-from core.TimeSeriesClassifier import TimeSeriesClassifier
+from core.models.statistical.QuantileRunner import StatsRunner
 from core.models.topological.TopologicalRunner import TopologicalRunner
 from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.load_data import DataLoader
 from core.operation.utils.utils import path_to_save_results
 from core.operation.utils.utils import PROJECT_PATH
-from core.operation.utils.utils import read_tsv
+from core.TimeSeriesClassifier import TimeSeriesClassifier
 
 
 class Industrial:
@@ -81,11 +81,10 @@ class Industrial:
                 f"\ndatasets - {self.config_dict['datasets_list']},"
                 f"\nfeature generators - {self.config_dict['feature_generator']}")
 
-    def run_experiment(self, config_name) -> None:
+    def run_experiment(self, config_name):
         """
         Run experiment with corresponding config_name
         :param config_name: configuration file name [Config_Classification.yaml]
-        :return: None
         """
         self.logger.info(f'START EXPERIMENT')
         experiment_dict = self._init_experiment_setup(config_name)
@@ -93,30 +92,32 @@ class Industrial:
         classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
                                              model_hyperparams=experiment_dict['fedot_params'],
                                              ecm_model_flag=experiment_dict['error_correction'])
-
-        train_archive, test_archive = self._get_ts_data(self.config_dict['datasets_list'])
         launches = self.config_dict['launches']
 
-        for launch in range(1, launches + 1):
-            self.logger.info(f'START LAUNCH {launch}')
-            for train_data, test_data, dataset_name in zip(train_archive, test_archive,
-                                                           self.config_dict['datasets_list']):
-                self.logger.info(f'START WORKING on {dataset_name} dataset')
+        for dataset_name in self.config_dict['datasets_list']:
+            self.logger.info(f'START WORKING on {dataset_name} dataset')
+            try: # to load data
+                train_data, test_data = DataLoader(dataset_name).load_data()
+                self.logger.info(f'Loaded data from {dataset_name} dataset')
+            except Exception:
+                self.logger.error(f'Some problem with {dataset_name} data. Skip it')
+                continue
 
-                n_classes = len(np.unique(train_data[1]))
-                self.logger.info(f'{n_classes} classes detected')
+            n_classes = len(np.unique(train_data[1]))
+            self.logger.info(f'{n_classes} classes detected')
 
+            for launch in range(1, launches + 1):
+                self.logger.info(f'START LAUNCH {launch}')
                 paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
                                          list(experiment_dict['feature_generator'].keys())))
+
                 self.logger.info('START TRAINING')
                 fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
                 fitted_predictor = fitted_results[0]['predictors']
                 train_features = fitted_results[0]['train_features']
 
                 self.logger.info('START PREDICTION')
-
                 predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
-
                 predict_on_train = classificator.predict_on_train()
 
                 n_ecm_cycles = experiment_dict['n_ecm_cycles']
@@ -242,7 +243,8 @@ class Industrial:
 
     @staticmethod
     def _get_ts_data(name_of_datasets):
-        all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
+        # all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
+        all_data = list(map(lambda x: DataLoader().load_data(x), name_of_datasets))
         train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
         return train_data, test_data
 
