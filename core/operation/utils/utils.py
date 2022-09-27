@@ -16,7 +16,6 @@ def save_results(predictions: Union[np.ndarray, pd.DataFrame],
                  fit_time: float,
                  window: int,
                  metrics: dict = None):
-
     path_results = os.path.join(path_to_save, 'test_results')
     if not os.path.exists(path_results):
         os.makedirs(path_results)
@@ -52,29 +51,3 @@ def path_to_save_results() -> str:
 
 def fill_by_mean(column: str, feature_data: pd.DataFrame):
     feature_data.fillna(value=feature_data[column].mean(), inplace=True)
-
-
-def read_tsv(file_name: str):
-    """
-    Read tsv file that contains data for classification experiment. Data must be placed
-    in 'data' folder with .tsv extension.
-    :param file_name:
-    :return: (x_train, x_test) - pandas dataframes and (y_train, y_test) - numpy arrays
-    """
-    df_train = pd.read_csv(
-        os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TRAIN.tsv'),
-        sep='\t',
-        header=None)
-
-    x_train = df_train.iloc[:, 1:]
-    y_train = df_train[0].values
-
-    df_test = pd.read_csv(
-        os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TEST.tsv'),
-        sep='\t',
-        header=None)
-
-    x_test = df_test.iloc[:, 1:]
-    y_test = df_test[0].values
-
-    return (x_train, x_test), (y_train, y_test)
