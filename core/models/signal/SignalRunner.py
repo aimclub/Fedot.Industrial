@@ -12,7 +12,7 @@ from core.metrics.metrics_implementation import *
 from core.models.signal.wavelet_extractor import WaveletExtractor
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 from core.operation.utils.LoggerSingleton import Logger
-from core.operation.utils.utils import read_tsv
+from core.operation.utils.load_data import DataLoader
 
 
 class SignalRunner(ExperimentRunner):
@@ -103,7 +103,7 @@ class SignalRunner(ExperimentRunner):
     def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         self.logger.info('Wavelet feature extraction started')
 
-        (_, _), (y_train, _) = read_tsv(dataset_name)
+        (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
 
         if not self.wavelet:
             train_feats = self._choose_best_wavelet(ts_data, y_train)
@@ -146,7 +146,7 @@ class SignalRunner(ExperimentRunner):
         score_f1 = metric_f1.metric()
 
         score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
-        if score_roc_auc:
+        if not score_roc_auc:
             score_roc_auc = 0.5
 
         return score_f1, score_roc_auc

@@ -243,7 +243,6 @@ class Industrial:
 
     @staticmethod
     def _get_ts_data(name_of_datasets):
-        # all_data = list(map(lambda x: read_tsv(x), name_of_datasets))
         all_data = list(map(lambda x: DataLoader().load_data(x), name_of_datasets))
         train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
         return train_data, test_data
