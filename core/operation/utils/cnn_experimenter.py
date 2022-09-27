@@ -61,7 +61,9 @@ class Experimenter:
         self.progress = progress
         self.loss_fn = loss_fn(**loss_params)
 
-        if self.compression_mode == "SVD":
+        if self.compression_mode == "none":
+            self.exp_description += "without_compression"
+        elif self.compression_mode == "SVD":
             decompose_module(
                 model=self.model,
                 decomposing_mode=self.compression_params["decomposing_mode"],
@@ -179,13 +181,14 @@ class Experimenter:
             size_p = new_params / old_params * 100
             time_p = val_time / default_time * 100
             accuracy_p = accuracy / default_accuracy * 100
-
-            self.writer.add_scalar("e/accuracy %", accuracy_p, int_e)
-            self.writer.add_scalar("e/size %", size_p, int_e)
-            self.writer.add_scalar("e/inference time %", time_p, int_e)
-            self.writer.add_scalar("e/pruning time", pruning_time, int_e)
+            delta_accuracy = (accuracy - default_accuracy) * 100
+            self.writer.add_scalar("abs(e)/delta accuracy", delta_accuracy, int_e)
+            self.writer.add_scalar("percentage(e)/accuracy %", accuracy_p, int_e)
+            self.writer.add_scalar("percentage(e)/size %", size_p, int_e)
+            self.writer.add_scalar("percentage(e)/inference time %", time_p, int_e)
+            self.writer.add_scalar("abs(e)/pruning time", pruning_time, int_e)
             self.writer.add_scalar("acc-compr/division", accuracy_p / size_p, int_e)
-            self.writer.add_scalar("acc-compr/subtraction)", accuracy_p - size_p, int_e)
+            self.writer.add_scalar("acc-compr/subtraction", accuracy_p - size_p, int_e)
 
     def save_model(self) -> None:
         file_path = os.path.join(self.path, self.exp_description)
