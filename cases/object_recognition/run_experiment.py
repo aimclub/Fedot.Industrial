@@ -21,11 +21,12 @@ if __name__ == "__main__":
         dataset_params={"ds_path": "/home/ann/datasets/MNIST", "batch_size": 100},
         model="SimpleConvNet2",
         model_params={},
+        models_saving_path="/home/ann/models",
         optimizer=torch.optim.Adam,
         optimizer_params={},
         loss_fn=torch.nn.CrossEntropyLoss,
         loss_params={},
-        compression_mode="SFP",
-        compression_params=sfp_parameters,
+        compression_mode="SVD",
+        compression_params=svd_parameters,
     )
-    exp.run(num_epochs=5)
+    exp.run(num_epochs=15)

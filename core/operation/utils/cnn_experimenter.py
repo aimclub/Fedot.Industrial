@@ -1,5 +1,6 @@
 import copy
 import time
+import os
 
 import torch
 
@@ -23,6 +24,7 @@ class Experimenter:
         dataset_params: Dict,
         model: str,
         model_params: Dict,
+        models_saving_path: str,
         optimizer: Type[torch.optim.Optimizer],
         optimizer_params: Dict,
         loss_fn: Type[torch.nn.Module],
@@ -32,11 +34,12 @@ class Experimenter:
         progress: bool = True,
     ) -> None:
 
-        self.exp_description = "{}/{}/".format(dataset, model)
-        self.train_dl, self.val_dl, num_classes = get_dataloaders(
-            dataset, **dataset_params
-        )
-
+        if model not in MODELS.keys():
+            raise ValueError(
+                "model must be one of {}, but got model='{}'".format(
+                    MODELS.keys(), model
+                )
+            )
         valid_compression_modes = {"none", "SVD", "SFP"}
         if compression_mode not in valid_compression_modes:
             raise ValueError(
@@ -44,20 +47,19 @@ class Experimenter:
                     valid_compression_modes, compression_mode
                 )
             )
+        self.exp_description = "{}/{}/".format(dataset, model)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.best_score = 0
+
+        self.train_dl, self.val_dl, num_classes = get_dataloaders(
+            dataset, **dataset_params
+        )
+        self.model = MODELS[model](num_classes=num_classes, **model_params)
         self.compression_mode = compression_mode
         self.compression_params = compression_params
-
-        if model not in MODELS.keys():
-            raise ValueError(
-                "model must be one of {}, but got model='{}'".format(
-                    MODELS.keys(), model
-                )
-            )
-        self.model = MODELS[model](num_classes=num_classes, **model_params)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
-        self.loss_fn = loss_fn(**loss_params)
+        self.path = models_saving_path
         self.progress = progress
+        self.loss_fn = loss_fn(**loss_params)
 
         if self.compression_mode == "SVD":
             decompose_module(
@@ -84,6 +86,7 @@ class Experimenter:
                 self.compression_params["pruning_ratio"],
             )
 
+        self.model.to(self.device)
         self.optimizer = optimizer(self.model.parameters(), **optimizer_params)
         self.writer = SummaryWriter("runs/" + self.exp_description)
         print("{}, using device: {}".format(self.exp_description, self.device))
@@ -94,6 +97,10 @@ class Experimenter:
                 print("Epoch {}".format(epoch))
             train_loss, svd_losses = self.train_loop()
             val_loss, accuracy, _ = self.val_loop()
+
+            if accuracy > self.best_score:
+                self.best_score = accuracy
+                self.save_model()
 
             self.writer.add_scalar("train/loss", train_loss, epoch)
             self.writer.add_scalar("val/loss", val_loss, epoch)
@@ -155,7 +162,7 @@ class Experimenter:
         return val_loss / n, accuracy / n, total_time / n
 
     def auto_pruning(self) -> None:
-
+        self.load_model()
         _, default_accuracy, default_time = self.val_loop()
 
         for e in self.compression_params["e"]:
@@ -179,3 +186,18 @@ class Experimenter:
             self.writer.add_scalar("e/pruning time", pruning_time, int_e)
             self.writer.add_scalar("acc-compr/division", accuracy_p / size_p, int_e)
             self.writer.add_scalar("acc-compr/subtraction)", accuracy_p - size_p, int_e)
+
+    def save_model(self) -> None:
+        file_path = os.path.join(self.path, self.exp_description)
+        dir_path = "/".join(file_path.split("/")[:-1])
+        os.makedirs(dir_path, exist_ok=True)
+        torch.save(self.model.state_dict(), file_path)
+        if self.progress:
+            print("Model saved.")
+
+    def load_model(self) -> None:
+        file_path = os.path.join(self.path, self.exp_description)
+        self.model.load_state_dict(torch.load(file_path))
+        self.model.to(self.device)
+        if self.progress:
+            print("Model loaded.")
