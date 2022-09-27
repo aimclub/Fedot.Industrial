@@ -22,7 +22,7 @@ class DataLoader:
 
     def load_data(self) -> ((pd.DataFrame, np.ndarray), (pd.DataFrame, np.ndarray)):
         """
-        Load data for classification experiment.
+        Load data for classification experiment locally or externally from UCR archive.
         :return: (x_train, y_train) - pandas dataframes and (x_test, y_test) - numpy arrays
         """
         dataset_name = self.dataset_name
@@ -32,11 +32,12 @@ class DataLoader:
         if X_train is None:
             self.logger.info(f'Dataset {dataset_name} not found in data folder. Downloading...')
 
+            # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
             download_path = cache_path + 'downloads/'
             temp_data_path = cache_path + 'temp_data/'
             filename = 'tempdata_{}'.format(dataset_name)
-            for _ in (download_path, temp_data_path, cache_path):
+            for _ in (download_path, temp_data_path):
                 if not os.path.exists(_):
                     os.makedirs(_)
 
@@ -46,14 +47,15 @@ class DataLoader:
 
             zipfile.ZipFile(download_path + filename).extractall(temp_data_path)
 
-            self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
-            (X_train, X_test), (y_train, y_test) = self.unzip_data(dataset_name, temp_data_path)
-
-            shutil.rmtree(cache_path)
+            try:
+                self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
+                (X_train, X_test), (y_train, y_test) = self.unzip_data(dataset_name, temp_data_path)
+            finally:
+                shutil.rmtree(cache_path)
 
         return (X_train, X_test), (y_train, y_test)
 
-    def unzip_data(self, dataset_name: str, temp_data_path: str) -> ((pd.DataFrame, np.ndarray), (pd.DataFrame, np.ndarray)):
+    def unzip_data(self, dataset_name: str, temp_data_path: str):
         """
         Unpacks data from downloaded file and saves it into Data folder with .tsv extension.
         :param dataset_name: name of dataset
