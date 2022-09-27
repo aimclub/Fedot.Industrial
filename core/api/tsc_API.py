@@ -148,7 +148,7 @@ class Industrial:
                                            train_features,
                                            predictions))
                 else:
-                    ecm_results = None
+                    ecm_results = [None]
 
                 self.logger.info('SAVING RESULTS')
 
