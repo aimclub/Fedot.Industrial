@@ -5,7 +5,7 @@ import os
 import torch
 
 from torch.utils.tensorboard import SummaryWriter
-from typing import Dict, Type
+from typing import Dict, Type, Optional
 from tqdm import tqdm
 
 from core.operation.utils.pruning_tools import decompose_module, prune_model
@@ -148,7 +148,12 @@ class Experimenter:
         svd_losses = {key: svd_losses[key] / n for key in svd_losses.keys()}
         return train_loss, svd_losses
 
-    def val_loop(self) -> (float, float, float):
+    def val_loop(
+            self,
+            model: Optional[torch.nn.Module] = None
+    ) -> (float, float, float):
+        if model is None:
+            model = self.model
         batches = tqdm(self.val_dl) if self.progress else self.val_dl
         val_loss = 0
         accuracy = 0
@@ -157,7 +162,7 @@ class Experimenter:
             for x, y in batches:
                 x = x.to(self.device)
                 y = y.to(self.device)
-                pred = self.model(x)
+                pred = model(x)
                 val_loss += self.loss_fn(pred, y).item()
                 accuracy += (pred.argmax(1) == y).type(torch.float).mean().item()
 
