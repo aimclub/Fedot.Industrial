@@ -183,7 +183,7 @@ class Experimenter:
             )
             pruning_time = time.time() - start
 
-            _, accuracy, val_time = self.val_loop()
+            _, accuracy, val_time = self.val_loop(model=new_model)
 
             size_p = new_params / old_params * 100
             time_p = val_time / default_time * 100
