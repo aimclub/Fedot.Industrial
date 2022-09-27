@@ -16,6 +16,7 @@ class DataLoader:
     Class for reading data from tsv files and downloading from UCR archive if not found.
     :param dataset_name: name of dataset
     """
+
     def __init__(self, dataset_name: str):
         self.logger = Logger().get_logger()
         self.dataset_name = dataset_name
@@ -41,8 +42,7 @@ class DataLoader:
                 if not os.path.exists(_):
                     os.makedirs(_)
 
-            url = ("http://www.timeseriesclassification.com/Downloads/{0}.zip"
-                   .format(dataset_name))
+            url = f"http://www.timeseriesclassification.com/Downloads/{dataset_name}.zip"
             request.urlretrieve(url, download_path + filename)
 
             zipfile.ZipFile(download_path + filename).extractall(temp_data_path)
@@ -148,16 +148,12 @@ class DataLoader:
 
         if X_data[0][0].dtype.names is None:
             for i in range(n_samples):
-                X_sample = np.asarray(
-                    [X_data[i][name] for name in X_data[i].dtype.names]
-                )
+                X_sample = np.asarray([X_data[i][name] for name in X_data[i].dtype.names])
                 X.append(X_sample.T)
                 y.append(X_data[i][1])
         else:
             for i in range(n_samples):
-                X_sample = np.asarray(
-                    [X_data[i][0][name] for name in X_data[i][0].dtype.names]
-                )
+                X_sample = np.asarray([X_data[i][0][name] for name in X_data[i][0].dtype.names])
                 X.append(X_sample.T)
                 y.append(X_data[i][1])
 
@@ -172,7 +168,13 @@ class DataLoader:
         return X, y
 
 
+# Example of usage
 if __name__ == '__main__':
-    ds_name = 'EthanolLevel'
-    loader = DataLoader(ds_name)
-    x = loader.load_data()
+    ds_name = ['Lightning7',
+               'Earthquakes',
+               'EthanolLevel',
+               'Beef',
+               'Wafer']
+    for ds in ds_name:
+        loader = DataLoader(ds)
+        x = loader.load_data()
