@@ -98,6 +98,12 @@ class Experimenter:
             if self.progress:
                 print("Epoch {}".format(epoch))
             train_loss, svd_losses = self.train_loop()
+
+            if self.compression_mode == "SFP":
+                prune_model(
+                    model=self.model, optimizer=self.compression_params["optimizer"]
+                )
+
             val_loss, accuracy, _ = self.val_loop()
 
             if accuracy > self.best_score:
@@ -111,10 +117,6 @@ class Experimenter:
             if self.compression_mode == "SVD":
                 for key in svd_losses.keys():
                     self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
-            elif self.compression_mode == "SFP":
-                prune_model(
-                    model=self.model, optimizer=self.compression_params["optimizer"]
-                )
 
         print("Accuracy: {:.2f}%".format(accuracy * 100))
         if self.compression_mode == "SVD":
