@@ -1,6 +1,6 @@
 fedot==0.5.2
 numpy
-pandas==1.4.1
+pandas
 matplotlib==3.5.1
 seaborn==0.11.2
 typing==3.7.4.3
