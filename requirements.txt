@@ -13,3 +13,5 @@ statsmodels~=0.13.2
 pydantic~=1.9.2
 dash~=2.6.1
 giotto-tda==0.6.0
+autodocsumm
+sphinx_rtd_theme
