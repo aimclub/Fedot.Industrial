@@ -1,4 +1,4 @@
-![](doc/fedot-industrial.png)
+![](docs/img/fedot-industrial.png)
 
 [![GitHub issues](https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/issues) 
 [![GitHub stars](https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge)](https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers) 
@@ -17,7 +17,7 @@ Application field of the framework is the following:
 For this purpose we introduce four feature
 generators:
 
-![](doc/all-generators.png)
+![](docs/img/all-generators.png)
 
 After feature generation process apply evolutionary
 algorithm of FEDOT to find the best model for classification task.
@@ -94,7 +94,7 @@ cycles `n_ecm_cycles` should be provided.
 In this case after each launch of FEDOT algorithmic kernel the error correction model will be trained on the
 produced error. 
 
-![](doc/error_corr_model.png)
+![](docs/img/error_corr_model.png)
 
 The error correction model is a linear regression model of
 three stages: at every next stage the model learn the error of 
