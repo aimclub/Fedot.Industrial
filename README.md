@@ -62,18 +62,21 @@ Config file contains the following parameters:
 - `feature_generator_params` - specification for feature generators
 - `fedot_params` - specification for FEDOT algorithmic kernel
 - `error_correction` - flag for application of error correction model in the experiment
+- `n_ecm_cycles` - number of cycles for error correction model
 
 Datasets for classification should be stored in the `data` directory and
 divided into `train` and `test` sets with `.tsv` extension. So the name of folder
 in the `data` directory should be equal to the name of dataset that you want
-to use in the experiment.
+to use in the experiment. In case of data absence in the local folder, implemented `DataLoader` 
+class will try to load data from the [**UCR archive**](https://www.cs.ucr.edu/~eamonn/time_series_data/)
+from **http://www.timeseriesclassification.com/dataset.php**.
 
 Possible feature generators which could be specified in configuration are
 `window_quantile`, `quantile`, `spectral_window`, `spectral`,
 `wavelet` and `topological`.
 
-There is also a possibility to ensemble several
-feature generators. It could be done by the following instruction in
+There is also a possibility to ensemble several feature generators. 
+It could be done by the following instruction in
 `feature_generator` field of `Config_Classification.yaml` file where
 you need to specify the list of feature generators:
 
@@ -86,13 +89,14 @@ Logs of experiment are stored in `log` directory.
 #### Error correction model
 
 It is up to you to decide whether to use error correction model or not. To apply it the `error_correction` 
-flag in the `Config_Classification.yaml` file should be set to `True`. 
+flag in the `Config_Classification.yaml` file should be set to `True` and number of
+cycles `n_ecm_cycles` should be provided. 
 In this case after each launch of FEDOT algorithmic kernel the error correction model will be trained on the
 produced error. 
 
 ![](doc/error_corr_model.png)
 
-The error correction model is a simple linear regression model of
+The error correction model is a linear regression model of
 three stages: at every next stage the model learn the error of 
 prediction. The type of ensemble model for error correction is dependent 
 on the number of classes:
