@@ -114,29 +114,22 @@ class SpectrumDecomposer:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        if rank > rank_hyper:
-            combined_components = self.calc_wcorr(TS_comps, rank)
-            Components_df = self.components_to_df(combined_components, len(combined_components))
-        else:
-            Components_df = self.components_to_df(TS_comps.T, rank)
+        rank = self.singular_value_hard_threshold(singular_values=Sigma)
+        if rank_hyper is not None:
+            rank = rank_hyper
+
+        Components_df = self.components_to_df(TS_comps.T, rank)
+
+        # if rank > rank_hyper:
+        #     combined_components = self.calc_wcorr(TS_comps, rank)
+        #     Components_df = self.components_to_df(combined_components, len(combined_components))
+        # else:
+        #     Components_df = self.components_to_df(TS_comps.T, rank)
 
         n_components = [x / sum(Sigma) * 100 for x in Sigma]
-        n_components = list(filter(lambda s: s > 1.0, n_components))
+        n_components = n_components[:rank]
         explained_dispersion = sum(n_components)
-
-        if explained_dispersion > 95:
-            dispersion = 0
-            for index, elem in enumerate(n_components):
-                if dispersion < 95:
-                    dispersion += elem
-                else:
-                    break
-        else:
-            n_components = len(n_components)
-
-        if type(n_components) is list:
-            explained_dispersion = 95.0
-            n_components = index
+        n_components = rank
 
         return TS_comps, X_elem, V, Components_df, Wcorr, n_components, explained_dispersion
 
@@ -200,7 +193,7 @@ class SpectrumDecomposer:
 
         # Create list of columns - call them F0, F1, F2, ...
         cols = ["F{}".format(i) for i in range(n)]
-        df = pd.DataFrame(TS_comps).T
+        df = pd.DataFrame(TS_comps).T.iloc[:,:rank]
         df.columns = cols
         return df
 
