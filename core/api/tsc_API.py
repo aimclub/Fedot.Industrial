@@ -69,8 +69,8 @@ class Industrial:
 
     def read_yaml_config(self, config_name: str) -> None:
         """
-        Read yaml config from './experiments/configs/config_name' directory as dictionary file
-        :param config_name: yaml-config name
+        Read yaml config from './cases/config/config_name' directory as dictionary file
+        :param config_name: yaml-config name, e.g. 'Config_Classification.yaml'
         """
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
