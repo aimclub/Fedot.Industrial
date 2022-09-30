@@ -1,6 +1,5 @@
 import timeit
 
-import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -8,12 +7,13 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from tqdm import tqdm
 
-from core.models.ExperimentRunner import ExperimentRunner
 from core.metrics.metrics_implementation import *
+from core.models.ExperimentRunner import ExperimentRunner
 from core.models.signal.wavelet_extractor import WaveletExtractor
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.Decorators import time_it
 from core.operation.utils.load_data import DataLoader
+from core.operation.utils.LoggerSingleton import Logger
 
 
 class SignalRunner(ExperimentRunner):
@@ -102,7 +102,6 @@ class SignalRunner(ExperimentRunner):
         :param method_name: method name
         :return:
         """
-        start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
 
         components_and_vectors = list()
@@ -113,17 +112,14 @@ class SignalRunner(ExperimentRunner):
                 components_and_vectors.append(self._ts_chunk_function(ts, method_name=method_name))
                 pbar.update(1)
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
-
-        time_elapsed = round(timeit.default_timer() - start, 2)
-        self.logger.info(f'Time spent on wavelet extraction - {time_elapsed} sec')
         return components_and_vectors
 
+    @time_it
     def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         self.logger.info('Wavelet feature extraction started')
 
-        (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
-
         if not self.wavelet:
+            (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
             train_feats = self._choose_best_wavelet(ts_data, y_train)
             self.train_feats = train_feats
             return self.train_feats

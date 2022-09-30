@@ -71,7 +71,7 @@ class TimeSeriesClassifier:
         self.train_features = FeatureList(list_of_generators=self.list_of_generators,
                                           data=train_tuple[0],
                                           dataset_name=dataset_name).create()
-
+        # exit()
         self.predictor_list = PredictorList(train_labels_set=train_tuple[1],
                                             feature_list=self.train_features,
                                             operation=self._fit_fedot_model).create()
