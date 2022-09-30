@@ -7,6 +7,26 @@ from sklearn.metrics import (accuracy_score, f1_score,
                              precision_score, r2_score, roc_auc_score)
 
 
+class ParetoMetrics:
+    def __init__(self):
+        pass
+
+    def pareto_metric_list(self, costs, maximise=True):
+        """
+        :param costs: An (n_points, n_costs) array
+        :maximise: boolean. True for maximising, False for minimising
+        :return: A (n_points, ) boolean array, indicating whether each point is Pareto efficient
+        """
+        is_efficient = np.ones(costs.shape[0], dtype=bool)
+        for i, c in enumerate(costs):
+            if is_efficient[i]:
+                if maximise:
+                    is_efficient[is_efficient] = np.any(costs[is_efficient] >= c, axis=1)  # Remove dominated points
+                else:
+                    is_efficient[is_efficient] = np.any(costs[is_efficient] <= c, axis=1)  # Remove dominated points
+        return is_efficient
+
+
 class QualityMetric:
     def __init__(self, target,
                  predicted_labels,
@@ -47,16 +67,19 @@ class F1(QualityMetric):
     def metric(self) -> float:
         target = self.target
         prediction = self.predicted_labels
-
         self.default_value = 0
-        n_classes = np.unique(target)
-        n_classes_pred = np.unique(prediction)
-        if n_classes.shape[0] > 2 or n_classes_pred.shape[0] > 2:
+        n_classes = len(np.unique(target))
+        n_classes_pred = len(np.unique(prediction))
+        if n_classes > 2 or n_classes_pred > 2:
             additional_params = {'average': 'weighted'}
         else:
             additional_params = {'average': 'binary'}
-        return f1_score(y_true=target, y_pred=prediction,
-                        **additional_params)
+        try:
+            return f1_score(y_true=target, y_pred=prediction,
+                            **additional_params)
+        except Exception:
+            return f1_score(y_true=target, y_pred=prediction,
+                            average='weighted')
 
 
 class MAE(QualityMetric):

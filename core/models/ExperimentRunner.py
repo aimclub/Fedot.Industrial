@@ -69,7 +69,7 @@ class ExperimentRunner:
     @staticmethod
     def delete_col_by_var(dataframe: pd.DataFrame):
         for col in dataframe.columns:
-            if dataframe[col].var() < 0.001 and not col.startswith('diff'):
+            if dataframe[col].std() < 0.1 and not col.startswith('diff'):
                 del dataframe[col]
         return dataframe
 

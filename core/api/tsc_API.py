@@ -5,15 +5,16 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 import yaml
+from core.operation.utils.load_data import DataLoader
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
+from core.models.signal.RecurrenceRunner import RecurrenceRunner
 from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
 from core.models.statistical.QuantileRunner import StatsRunner
 from core.models.topological.TopologicalRunner import TopologicalRunner
 from core.operation.utils.LoggerSingleton import Logger
-from core.operation.utils.load_data import DataLoader
 from core.operation.utils.utils import path_to_save_results
 from core.operation.utils.utils import PROJECT_PATH
 from core.TimeSeriesClassifier import TimeSeriesClassifier
@@ -35,10 +36,11 @@ class Industrial:
             'spectral': SSARunner,
             'spectral_window': SSARunner,
             'topological': TopologicalRunner,
+            'recurrence': RecurrenceRunner,
             'ensemble': EnsembleRunner}
 
     def _init_experiment_setup(self, config_name):
-        self.read_yaml_config(config_name)
+        self.read_yaml_config(config_name=config_name)
         experiment_dict = copy.deepcopy(self.config_dict)
 
         experiment_dict['feature_generator'].clear()
@@ -66,6 +68,26 @@ class Industrial:
                 experiment_dict['feature_generator'].update(feature_generator_class)
 
         return experiment_dict
+
+    def _check_window_sizes(self, dataset_name, train_data):
+        for key in self.config_dict['feature_generator_params'].keys():
+            if key.startswith('spectral'):
+                self.logger.info(f'CHECK WINDOW SIZES FOR DATASET-{dataset_name} AND {key} method')
+                if dataset_name not in self.config_dict['feature_generator_params'][key].keys():
+                    ts_length = train_data[0].shape[1]
+                    list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
+                    self.config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
+                    self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
+                                     f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
+                                     f'THATS EQUAL 10/20/30% OF TS LENGTH')
+
+    def _check_metric(self, n_classes):
+        if n_classes > 2:
+            self.logger.info(f'NUMBER OF CLASSES IS {n_classes}. METRIC FOR OPTIMAZATION- F1')
+            return 'f1'
+        else:
+            self.logger.info(f'NUMBER OF CLASSES IS {n_classes}. METRIC FOR OPTIMAZATION - ROC_AUC')
+            return 'roc_auc'
 
     def read_yaml_config(self, config_name: str) -> None:
         """
@@ -95,14 +117,16 @@ class Industrial:
         """
         self.logger.info(f'START EXPERIMENT')
         experiment_dict = self._init_experiment_setup(config_name)
+        launches = self.config_dict['launches']
 
         classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
                                              model_hyperparams=experiment_dict['fedot_params'],
                                              ecm_model_flag=experiment_dict['error_correction'])
-        launches = self.config_dict['launches']
+        # self.config_dict['datasets_list'] = cleaned_dataset_list
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
+            self._check_window_sizes(dataset_name)
             try: # to load data
                 train_data, test_data = DataLoader(dataset_name).load_data()
                 self.logger.info(f'Loaded data from {dataset_name} dataset')
@@ -112,6 +136,8 @@ class Industrial:
 
             n_classes = len(np.unique(train_data[1]))
             self.logger.info(f'{n_classes} classes detected')
+
+            classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
 
             for launch in range(1, launches + 1):
                 self.logger.info(f'START LAUNCH {launch}')
@@ -143,19 +169,22 @@ class Industrial:
                                   save_models=False,
                                   fedot_params=ecm_fedot_params,
                                   n_cycles=n_ecm_cycles)
-
-                if self.config_dict['error_correction']:
-                    ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
-                                                                                   results_on_test=x,
-                                                                                   results_on_train=y,
-                                                                                   train_data=(z, train_data[1]),
-                                                                                   test_data=(m, test_data[1])).run(),
-                                           predictions,
-                                           predict_on_train,
-                                           train_features,
-                                           predictions))
-                else:
-                    ecm_results = [[]] * len(paths_to_save)
+                ecm_results = [[]] * len(paths_to_save)
+                try:
+                    self.logger.info('START COMPOSE ECM')
+                    if self.config_dict['error_correction']:
+                        ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
+                                                                                       results_on_test=x,
+                                                                                       results_on_train=y,
+                                                                                       train_data=(z, train_data[1]),
+                                                                                       test_data=(
+                                                                                           m, test_data[1])).run(),
+                                               predictions,
+                                               predict_on_train,
+                                               train_features,
+                                               predictions))
+                except Exception:
+                    self.logger.info('ECM COMPOSE WAS FAILED')
 
                 self.logger.info('SAVING RESULTS')
 
@@ -168,9 +197,9 @@ class Industrial:
                                       fitted_predictor=fitted_predictor,
                                       ecm_results=ecm_results[i]),
 
-                spectral_generators = [x for x in paths_to_save if 'spectral' in x]
-                if len(spectral_generators) != 0:
-                    self._save_spectrum(classificator, path_to_save=spectral_generators)
+                # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
+                # if len(spectral_generators) != 0:
+                #     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
         self.logger.info('END EXPERIMENT')
 

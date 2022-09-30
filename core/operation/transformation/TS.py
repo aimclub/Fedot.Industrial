@@ -1,7 +1,5 @@
 from __future__ import division, print_function
 import numpy as np
-import pandas as pd
-import pylab as plt
 from scipy.spatial.distance import pdist, squareform
 
 
@@ -9,21 +7,42 @@ class TSTransformer:
     def __init__(self, time_series):
         self.time_series = time_series
         self.reccurancy_matrix = None
+        self.threshold_baseline = [10, 15, 20]
 
     def ts_to_reccurancy_matrix(self,
-                        eps=0.10,
-                        steps=10):
+                                eps=0.10,
+                                steps=None):
         distance_matrix = pdist(metric='euclidean', X=self.time_series[:, None])
         distance_matrix = np.floor(distance_matrix / eps)
-        distance_matrix = self.binarization(distance_matrix, threshold=steps)
+        distance_matrix, steps = self.binarization(distance_matrix, threshold=steps)
         distance_matrix[distance_matrix > steps] = steps
         self.reccurancy_matrix = squareform(distance_matrix)
         return self.reccurancy_matrix
 
     def binarization(self, distance_matrix, threshold):
-        distance_matrix[distance_matrix < threshold] = 0.0
-        distance_matrix[distance_matrix >= threshold] = 1.0
-        return distance_matrix
+        best_threshold_flag = False
+        best_ratio = None
+        if threshold is None:
+            for threshold_baseline in self.threshold_baseline:
+                threshold = threshold_baseline
+                tmp_array = np.copy(distance_matrix)
+                tmp_array[tmp_array < threshold_baseline] = 0.0
+                tmp_array[tmp_array >= threshold_baseline] = 1.0
+                signal_ratio = np.where(tmp_array == 0)[0].shape[0] / tmp_array.shape[0]
+
+                if 0.6 < signal_ratio < 0.8:
+                    best_ratio = signal_ratio
+                    distance_matrix = tmp_array
+                    best_threshold_flag = True
+                    if signal_ratio > best_ratio:
+                        distance_matrix = tmp_array
+
+                del tmp_array
+
+        if not best_threshold_flag:
+            distance_matrix[distance_matrix < threshold] = 0.0
+            distance_matrix[distance_matrix >= threshold] = 1.0
+        return distance_matrix, threshold
 
     def _calculate_DFD(self, recurrence_matrix, number_of_vectors):
         # Calculating the diagonal frequency distribution - P(l)
@@ -219,27 +238,19 @@ class TSTransformer:
             # 'DFD': diagonal_frequency_distribution,
             #             'VFD': vertical_frequency_distribution,
             #             'WVFD': white_vertical_frequency_distribution,
-                        'RR': recurrence_rate,
-                        'DET': determinism,
-                        'ADLL': average_diagonal_line_length,
-                        'LDLL': longest_diagonal_line_length,
-                        'Div': divergence,
-                        'EDL': entropy_diagonal_lines,
-                        'Lam': laminarity,
-                        'AVLL': average_vertical_line_length,
-                        'LVLL': longest_vertical_line_length,
-                        'EVL': entropy_vertical_lines,
-                        'AWLL': average_white_vertical_line_length,
-                        'LWLL': longest_white_vertical_line_length,
-                        'EWLL': entropy_white_vertical_lines,
-                        'RDRR': ratio_determinism_recurrence_rate,
-                        'RLD': ratio_laminarity_determinism}
+            'RR': recurrence_rate,
+            'DET': determinism,
+            'ADLL': average_diagonal_line_length,
+            'LDLL': longest_diagonal_line_length,
+            'Div': divergence,
+            'EDL': entropy_diagonal_lines,
+            'Lam': laminarity,
+            'AVLL': average_vertical_line_length,
+            'LVLL': longest_vertical_line_length,
+            'EVL': entropy_vertical_lines,
+            'AWLL': average_white_vertical_line_length,
+            'LWLL': longest_white_vertical_line_length,
+            'EWLL': entropy_white_vertical_lines,
+            'RDRR': ratio_determinism_recurrence_rate,
+            'RLD': ratio_laminarity_determinism}
         return feature_dict
-
-
-def moving_average(s, r=5):
-    return np.convolve(s, np.ones((r,)) / r, mode='valid')
-
-
-
-
