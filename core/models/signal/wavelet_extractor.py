@@ -24,22 +24,33 @@ class WaveletExtractor:
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
         self.wavelet_name = wavelet_name
 
+    @property
+    def decomposing_level(self):
+        return pywt.dwt_max_level(len(self.time_series), self.wavelet_name)
+
     def decompose_signal(self, ts=None):
         if ts is None:
             ts = self.time_series
-        return pywt.dwt(ts,
-                        self.wavelet_name,
-                        'smooth')
+        if self.wavelet_name in self.discrete_wavelets:
+            return pywt.dwt(ts,
+                            self.wavelet_name,
+                            'smooth')
+        else:
+            return pywt.cwt(ts,
+                            self.wavelet_name)
 
-    def generate_features_from_AC(self, HF, LF, level: int = 3):
+    def generate_features_from_AC(self,
+                                  HF,
+                                  LF,
+                                  level: int = 3):
         extractor = StatFeaturesExtractor()
         feature_list = []
         feature_df = extractor.create_features(LF)
         feature_df.columns = [f'{x}_LF' for x in feature_df.columns]
         feature_list.append(feature_df)
-        for i in range(level):
+        for i in range(self.decomposing_level):
             feature_df = extractor.create_features(HF)
-            feature_df.columns = [f'{x}_level_{i}'for x in feature_df.columns]
+            feature_df.columns = [f'{x}_level_{i}' for x in feature_df.columns]
             feature_list.append(feature_df)
             HF = self.decompose_signal(ts=HF)[0]
         return feature_list

@@ -78,7 +78,9 @@ class SignalRunner(ExperimentRunner):
 
     def _method_of_AC(self, specter, level: int = 3):
         high_freq, low_freq = specter.decompose_signal()
-        hf_AC_features = specter.generate_features_from_AC(HF=high_freq, LF=low_freq, level=level)
+        hf_AC_features = specter.generate_features_from_AC(HF=high_freq,
+                                                           LF=low_freq,
+                                                           level=level)
 
         feature_df = pd.concat(hf_AC_features, axis=1)
         return feature_df
