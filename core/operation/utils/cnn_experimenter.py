@@ -1,18 +1,29 @@
 import copy
-import time
 import os
+import time
+from typing import Dict, Type, Optional, Set, Union
 
 import torch
-
+from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import precision_recall_fscore_support, f1_score
+from torch.nn.functional import softmax
 from torch.utils.tensorboard import SummaryWriter
-from typing import Dict, Type, Optional
 from tqdm import tqdm
 
-from core.operation.utils.pruning_tools import decompose_module, prune_model
-from core.operation.utils.pruning_tools import EnergyThresholdPruning, SoftFilterPruning
-from core.operation.utils.classification_dataloaders import get_dataloaders
 from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
 from core.models.cnn.classification_models import MODELS
+from core.operation.utils.classification_dataloaders import get_dataloaders
+from core.operation.utils.pruning_tools import EnergyThresholdPruning, SoftFilterPruning
+from core.operation.utils.pruning_tools import decompose_module, prune_model
+
+
+def parameter_value_check(parameter: str, value: str, valid_values: Set[str]) -> None:
+    if value not in valid_values:
+        raise ValueError(
+            "{} must be one of {}, but got {}='{}'".format(
+                parameter, valid_values, parameter, value
+            )
+        )
 
 
 class Experimenter:
@@ -31,35 +42,38 @@ class Experimenter:
         loss_params: Dict,
         compression_mode: str,
         compression_params: Dict,
+        target_metric: str = "f1",
         progress: bool = True,
     ) -> None:
 
-        if model not in MODELS.keys():
-            raise ValueError(
-                "model must be one of {}, but got model='{}'".format(
-                    MODELS.keys(), model
-                )
-            )
-        valid_compression_modes = {"none", "SVD", "SFP"}
-        if compression_mode not in valid_compression_modes:
-            raise ValueError(
-                "compression_mode must be one of {}, but got compression_mode='{}'".format(
-                    valid_compression_modes, compression_mode
-                )
-            )
+        parameter_value_check(
+            parameter="model",
+            value=model,
+            valid_values=MODELS.keys())
+        parameter_value_check(
+            parameter="compression_mode",
+            value=compression_mode,
+            valid_values={"none", "SVD", "SFP"})
+        parameter_value_check(
+            parameter="target_metric",
+            value=target_metric,
+            valid_values={"f1", "accuracy", "precision", "recall", "roc_auc"},
+        )
+
         self.exp_description = "{}/{}/".format(dataset, model)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.best_score = 0
 
-        self.train_dl, self.val_dl, num_classes = get_dataloaders(
+        self.train_dl, self.val_dl, self.num_classes = get_dataloaders(
             dataset, **dataset_params
         )
-        self.model = MODELS[model](num_classes=num_classes, **model_params)
+        self.model = MODELS[model](num_classes=self.num_classes, **model_params)
+        self.loss_fn = loss_fn(**loss_params)
         self.compression_mode = compression_mode
         self.compression_params = compression_params
         self.path = models_saving_path
         self.progress = progress
-        self.loss_fn = loss_fn(**loss_params)
+        self.target_metric = target_metric
 
         if self.compression_mode == "none":
             self.exp_description += "without_compression"
@@ -97,33 +111,40 @@ class Experimenter:
         for epoch in range(1, num_epochs + 1):
             if self.progress:
                 print("Epoch {}".format(epoch))
-            train_loss, svd_losses = self.train_loop()
 
-            if self.compression_mode == "SFP":
-                prune_model(
-                    model=self.model, optimizer=self.compression_params["optimizer"]
-                )
+            train_accuracy, train_loss, svd_losses = self.train_loop()
 
-            val_loss, accuracy, _ = self.val_loop()
-
-            if accuracy > self.best_score:
-                self.best_score = accuracy
-                self.save_model()
-
+            self.writer.add_scalar("train/accuracy", train_accuracy, epoch)
             self.writer.add_scalar("train/loss", train_loss, epoch)
-            self.writer.add_scalar("val/loss", val_loss, epoch)
-            self.writer.add_scalar("val/accuracy", accuracy, epoch)
 
             if self.compression_mode == "SVD":
                 for key in svd_losses.keys():
                     self.writer.add_scalar("train/" + key, svd_losses[key], epoch)
+            elif self.compression_mode == "SFP":
+                prune_model(
+                    model=self.model, optimizer=self.compression_params["optimizer"]
+                )
 
-        print("Accuracy: {:.2f}%".format(accuracy * 100))
+            val_scores = self.val_loop()
+
+            if val_scores[self.target_metric] > self.best_score:
+                self.best_score = val_scores[self.target_metric]
+                self.save_model()
+
+            for key in ("loss", "accuracy", "precision", "recall", "f1", "roc_auc"):
+                self.writer.add_scalar("val/" + key, val_scores[key], epoch)
+
+            for key in range(self.num_classes):
+                self.writer.add_scalar("classes/{}".format(key), val_scores[key], epoch)
+
         if self.compression_mode == "SVD":
             self.auto_pruning()
 
-    def train_loop(self) -> (float, Dict):
+        self.writer.close()
+
+    def train_loop(self) -> (float, float, Dict):
         batches = tqdm(self.train_dl) if self.progress else self.train_dl
+        train_accuracy = 0
         train_loss = 0
         svd_losses = {"orthogonal_loss": 0, "hoer_loss": 0}
         for x, y in batches:
@@ -132,6 +153,7 @@ class Experimenter:
             pred = self.model(x)
             loss = self.loss_fn(pred, y)
             train_loss += loss.item()
+            train_accuracy += (pred.argmax(1) == y).type(torch.float).mean().item()
 
             if self.compression_mode == "SVD":
                 orthogonal_loss = self.compression_params["orthogonal_loss"](self.model)
@@ -144,35 +166,51 @@ class Experimenter:
             loss.backward()
             self.optimizer.step()
         n = len(self.train_dl)
+        train_accuracy /= n
         train_loss /= n
         svd_losses = {key: svd_losses[key] / n for key in svd_losses.keys()}
-        return train_loss, svd_losses
+        return train_accuracy, train_loss, svd_losses
 
     def val_loop(
-            self,
-            model: Optional[torch.nn.Module] = None
-    ) -> (float, float, float):
+        self, model: Optional[torch.nn.Module] = None
+    ) -> Dict[Union[str, int], float]:
         if model is None:
             model = self.model
         batches = tqdm(self.val_dl) if self.progress else self.val_dl
         val_loss = 0
-        accuracy = 0
+        y_true = []
+        y_pred = []
+        y_score = []
         start = time.time()
         with torch.no_grad():
             for x, y in batches:
+                y_true.extend(y)
                 x = x.to(self.device)
                 y = y.to(self.device)
                 pred = model(x)
+                y_pred.extend(pred.cpu().argmax(1))
+                y_score.extend(softmax(pred, dim=1).tolist())
                 val_loss += self.loss_fn(pred, y).item()
-                accuracy += (pred.argmax(1) == y).type(torch.float).mean().item()
 
         total_time = time.time() - start
-        n = len(self.val_dl)
-        return val_loss / n, accuracy / n, total_time / n
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true, y_pred, average="macro"
+        )
+        val_scores = {
+            "loss": val_loss / len(self.val_dl),
+            "time": total_time / len(self.val_dl),
+            "accuracy": accuracy_score(y_true, y_pred),
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "roc_auc": roc_auc_score(y_true, y_score, multi_class="ovo"),
+        }
+        val_scores.update(enumerate(f1_score(y_true, y_pred, average=None)))
+        return val_scores
 
     def auto_pruning(self) -> None:
         self.load_model()
-        _, default_accuracy, default_time = self.val_loop()
+        default_scores = self.val_loop()
 
         for e in self.compression_params["e"]:
             int_e = e * 100000
@@ -183,19 +221,20 @@ class Experimenter:
             )
             pruning_time = time.time() - start
 
-            _, accuracy, val_time = self.val_loop(model=new_model)
+            val_scores = self.val_loop(model=new_model)
 
             size_p = new_params / old_params * 100
-            time_p = val_time / default_time * 100
-            accuracy_p = accuracy / default_accuracy * 100
-            delta_accuracy = (accuracy - default_accuracy) * 100
-            self.writer.add_scalar("abs(e)/delta accuracy", delta_accuracy, int_e)
-            self.writer.add_scalar("percentage(e)/accuracy %", accuracy_p, int_e)
-            self.writer.add_scalar("percentage(e)/size %", size_p, int_e)
-            self.writer.add_scalar("percentage(e)/inference time %", time_p, int_e)
+
             self.writer.add_scalar("abs(e)/pruning time", pruning_time, int_e)
-            self.writer.add_scalar("acc-compr/division", accuracy_p / size_p, int_e)
-            self.writer.add_scalar("acc-compr/subtraction", accuracy_p - size_p, int_e)
+            self.writer.add_scalar("percentage(e)/size", size_p, int_e)
+
+            for score in ("time", "accuracy", "precision", "recall", "f1", "roc_auc"):
+                score_p = val_scores[score] / default_scores[score] * 100
+                self.writer.add_scalar("percentage(e)/{}".format(score), score_p, int_e)
+
+            for score in ("time", "accuracy", "precision", "recall", "f1", "roc_auc"):
+                delta_score = val_scores[score] - default_scores[score]
+                self.writer.add_scalar("delta(e)/{}".format(score), delta_score, int_e)
 
     def save_model(self) -> None:
         file_path = os.path.join(self.path, self.exp_description)

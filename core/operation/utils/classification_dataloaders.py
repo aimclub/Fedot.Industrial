@@ -1,4 +1,6 @@
+from os import path
 from typing import Tuple
+
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
@@ -27,7 +29,7 @@ DATASETS_PARAMETERS = {
 
 def get_dataloaders(
         dataset_name: str,
-        ds_path: str,
+        datasets_folder: str,
         batch_size: int
 ) -> Tuple[DataLoader, DataLoader, int]:
 
@@ -43,7 +45,7 @@ def get_dataloaders(
 
     train_dataloader = DataLoader(
         dataset=params["getter"](
-            root=ds_path,
+            root=path.join(datasets_folder, dataset_name),
             train=True,
             transform=transform,
             download=True
@@ -53,7 +55,7 @@ def get_dataloaders(
     )
     test_dataloader = DataLoader(
         dataset=params["getter"](
-            root=ds_path,
+            root=path.join(datasets_folder, dataset_name),
             train=False,
             transform=transform,
         ),

@@ -2,10 +2,9 @@ import torch
 
 from core.operation.utils.cnn_experimenter import Experimenter
 
-
 if __name__ == "__main__":
     svd_parameters = {
-        "decomposing_mode": "spatial",
+        "decomposing_mode": "channel",
         "orthogonal_loss": 1,
         "hoer_loss": 0.001,
         "e": [0.1, 0.3, 0.5, 0.7, 0.9,
@@ -17,11 +16,11 @@ if __name__ == "__main__":
         "pruning_ratio": 0.4
     }
     exp = Experimenter(
-        dataset="MNIST",
-        dataset_params={"ds_path": "/home/ann/datasets/MNIST", "batch_size": 100},
-        model="SimpleConvNet2",
+        dataset="CIFAR10",
+        dataset_params={"datasets_folder": "/home/n31v/datasets", "batch_size": 100},
+        model="ResNet50",
         model_params={},
-        models_saving_path="/home/ann/models",
+        models_saving_path="/home/n31v/models",
         optimizer=torch.optim.Adam,
         optimizer_params={},
         loss_fn=torch.nn.CrossEntropyLoss,
@@ -29,4 +28,4 @@ if __name__ == "__main__":
         compression_mode="SVD",
         compression_params=svd_parameters,
     )
-    exp.run(num_epochs=15)
+    exp.run(num_epochs=30)
