@@ -8,15 +8,15 @@ from core.operation.utils.Decorators import time_it
 class StatsRunner(ExperimentRunner):
     """
     Class responsible for quantile feature generator experiment
-        :param static_booster: boolean flag that indicates whether to use static booster or not
         :param window_mode: boolean flag that indicates whether to use window mode or not
     """
 
-    def __init__(self, static_booster: bool = False,
-                 window_mode: bool = False):
+    def __init__(self,
+                 window_mode: bool = False,
+                 use_cache: bool = False):
 
-        super().__init__(static_booster=static_booster)
-
+        super().__init__()
+        self.use_cache = use_cache
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.vis_flag = False
@@ -42,6 +42,5 @@ class StatsRunner(ExperimentRunner):
         return aggregation_df
 
     @time_it
-    def extract_features(self, ts_data, dataset_name: str = None):
-        self.logger.info('Statistical features extraction started')
+    def get_features(self, ts_data, dataset_name: str = None):
         return self.generate_features_from_ts(ts_data)

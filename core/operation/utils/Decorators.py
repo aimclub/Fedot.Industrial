@@ -1,10 +1,6 @@
-import os
 import timeit
 
-import pandas as pd
-
 from core.operation.utils.LoggerSingleton import Logger
-from core.operation.utils.utils import PROJECT_PATH
 
 
 def exception_decorator(exception_return='Problem'):
@@ -31,40 +27,6 @@ def type_check_decorator(object_type: type, types_list: tuple):
             return wrapper
 
         return type_check_wrapper
-
-
-# def cache_it(func):
-#     def wrapper(runner, ts_data, dataset_name):
-#         r = str(type(runner)).split("'")[-2].split('.')[-1]
-#         file = os.path.join(PROJECT_PATH, 'cached_features', f'{r}_{dataset_name}.hdf5')
-#         if not os.path.isfile(file):
-#             features = func(runner, ts_data, dataset_name)
-#             features.to_hdf(file, 'features')
-#         else:
-#             features = pd.read_hdf(file)
-#         return features
-#
-#     return wrapper
-
-def cache_it(switch='off'):
-    def inner(func):
-        if switch == 'on':
-            def wrapper(runner, ts_data, dataset_name):
-
-                r = str(type(runner)).split("'")[-2].split('.')[-1]
-                file = os.path.join(PROJECT_PATH, 'cached_features', f'{r}_{dataset_name}.h5')
-                if not os.path.isfile(file):
-                    features = func(runner, ts_data, dataset_name)
-                    features.to_hdf(file, 'features')
-                else:
-                    features = pd.read_hdf(file)
-                return features
-
-            return wrapper
-        else:
-            return func
-
-    return inner  # this is the fun_obj mentioned in the above content
 
 
 def time_it(func):

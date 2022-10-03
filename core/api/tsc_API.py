@@ -40,32 +40,40 @@ class Industrial:
     def _init_experiment_setup(self, config_name):
         self.read_yaml_config(config_name)
         experiment_dict = copy.deepcopy(self.config_dict)
+        self.use_cache = experiment_dict['use_cache']
 
-        experiment_dict['feature_generator'].clear()
         experiment_dict['feature_generator'] = dict()
 
-        for idx, feature_generator in enumerate(self.config_dict['feature_generator']):
-            if feature_generator.startswith('ensemble'):
-                models = feature_generator.split(': ')[1].split(' ')
-                for model in models:
-                    feature_generator_class = {
-                        model: self.feature_generator_dict[model](**experiment_dict['feature_generator_params'][model])}
-
+        for idx, generator in enumerate(self.config_dict['feature_generator']):
+            if generator.startswith('ensemble'):
+                generators = generator.split(': ')[1].split(' ')
+                for gen_name in generators:
+                    feature_gen_class = self.get_generator_class(experiment_dict, gen_name)
                     experiment_dict['feature_generator_params']['ensemble']['list_of_generators'].update(
-                        feature_generator_class)
+                        feature_gen_class)
 
-                ensemble_generator = {'ensemble': self.feature_generator_dict['ensemble']
-                (**experiment_dict['feature_generator_params']['ensemble'])}
-
-                experiment_dict['feature_generator'].update(ensemble_generator)
+                ensemble_class = self.get_generator_class(experiment_dict, 'ensemble')
+                experiment_dict['feature_generator'].update(ensemble_class)
 
             else:
-                feature_generator_class = {feature_generator: self.feature_generator_dict[feature_generator]
-                (**experiment_dict['feature_generator_params'][feature_generator])}
+                feature_gen_class = self.get_generator_class(experiment_dict, generator)
 
-                experiment_dict['feature_generator'].update(feature_generator_class)
+                experiment_dict['feature_generator'].update(feature_gen_class)
 
         return experiment_dict
+
+    def get_generator_class(self, experiment_dict, gen_name):
+        """
+        Combines the name of the generator with the parameters from the config file
+        :return: dictionary with the name of the generator and its parameters
+        """
+        feature_gen_model = self.feature_generator_dict[gen_name]
+        try:
+            feature_gen_params = experiment_dict['feature_generator_params'][gen_name]
+        except KeyError:
+            feature_gen_params = dict()
+        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
+        return feature_gen_class
 
     def read_yaml_config(self, config_name: str) -> None:
         """
@@ -96,7 +104,7 @@ class Industrial:
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-            try: # to load data
+            try:  # to load data
                 train_data, test_data = DataLoader(dataset_name).load_data()
                 self.logger.info(f'Loaded data from {dataset_name} dataset')
             except Exception:
@@ -181,8 +189,8 @@ class Industrial:
         predictions_proba, test_features = prediction['predictions_proba'], prediction['test_features']
 
         path_results = os.path.join(path_to_save, 'test_results')
-        if not os.path.exists(path_results):
-            os.makedirs(path_results)
+        os.makedirs(path_results, exist_ok=True)
+
         try:
             for predictor in fitted_predictor:
                 predictor.current_pipeline.save(path_results)

@@ -11,7 +11,6 @@ from core.models.signal.wavelet_extractor import WaveletExtractor
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 from core.operation.utils.Decorators import time_it
 from core.operation.utils.load_data import DataLoader
-from core.operation.utils.LoggerSingleton import Logger
 
 
 class SignalRunner(ExperimentRunner):
@@ -21,10 +20,11 @@ class SignalRunner(ExperimentRunner):
     :wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml
     """
 
-    def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4')):
+    def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4'),
+                 use_cache: bool = False):
 
         super().__init__()
-
+        self.use_cache = use_cache
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.wavelet_extractor = WaveletExtractor
@@ -34,7 +34,6 @@ class SignalRunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
-        self.logger = Logger().get_logger()
 
     def _ts_chunk_function(self, ts):
         ts = self.check_for_nan(ts)
@@ -96,8 +95,7 @@ class SignalRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        self.logger.info('Wavelet feature extraction started')
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
 
         if not self.wavelet:
             (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
@@ -186,3 +184,4 @@ class SignalRunner(ExperimentRunner):
 
         train_feats = self.delete_col_by_var(train_feats)
         return train_feats
+

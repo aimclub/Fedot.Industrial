@@ -15,9 +15,9 @@ class EnsembleRunner(ExperimentRunner):
     """
 
     def __init__(self, feature_generator_dict: dict = None,
-                 list_of_generators=None):
+                 list_of_generators=None, use_cache: bool = False):
         super().__init__(feature_generator_dict)
-
+        self.use_cache = use_cache
         self.list_of_generators = list_of_generators
         self.generator_dict = dict(quantile=StatsRunner,
                                    window_quantile=StatsRunner,
@@ -27,8 +27,7 @@ class EnsembleRunner(ExperimentRunner):
                                    topological=TopologicalRunner,
                                    ensemble=EnsembleRunner)
 
-    def extract_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        self.logger.info('Ensemble features extraction started')
+    def get_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         return self.ensemble_features(input_data, dataset_name)
 
     def ensemble_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
