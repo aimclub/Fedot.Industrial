@@ -1,5 +1,4 @@
 import os
-import timeit
 from collections import Counter
 from multiprocessing import Pool
 
@@ -23,10 +22,11 @@ class SSARunner(ExperimentRunner):
     """
 
     def __init__(self, window_sizes: list,
-                 window_mode: bool = False):
+                 window_mode: bool = False,
+                 use_cache: bool = False):
 
         super().__init__()
-
+        self.use_cache = use_cache
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
@@ -94,8 +94,7 @@ class SSARunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        self.logger.info('Spectral features extraction started')
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
 
         if self.window_length is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)

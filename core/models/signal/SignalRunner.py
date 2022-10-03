@@ -1,5 +1,3 @@
-import timeit
-
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -23,7 +21,8 @@ class SignalRunner(ExperimentRunner):
     :wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml
     """
 
-    def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4')):
+    def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4'),
+                 use_cache: bool = False):
 
         super().__init__()
 
@@ -36,7 +35,6 @@ class SignalRunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
-        self.logger = Logger().get_logger()
         self.dict_of_methods = {'Peaks': self._method_of_peaks,
                                 'AC': self._method_of_AC}
 
@@ -115,8 +113,7 @@ class SignalRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        self.logger.info('Wavelet feature extraction started')
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
 
         if not self.wavelet:
             (_, y_train), (_, _) = DataLoader(dataset_name).load_data()

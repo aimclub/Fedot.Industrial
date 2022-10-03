@@ -11,9 +11,11 @@ feature_generator: [
 ]
 error_correction: False
 n_ecm_cycles: 3
+use_cache: True
 
 datasets_list: [
   'Lightning7',
+#  'Coffee',
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',

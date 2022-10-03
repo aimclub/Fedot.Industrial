@@ -24,18 +24,16 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
 class TopologicalRunner(ExperimentRunner):
     """
     Class for extracting topological features from time series data
-        :param topological_params: parameters for topological extractor. Defined in Config.yaml
         :param list_of_dataset: list of dataset names that will be used for experiments
     """
-    def __init__(self, topological_params: dict,
-                 list_of_dataset: list = None):
+    def __init__(self, list_of_dataset: list = None,
+                 use_cache: bool = False):
         super().__init__(list_of_dataset)
-        self.topological_extractor = Topological(**topological_params)
+        self.use_cache = use_cache
         self.TE_dimension = None
         self.TE_time_delay = None
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
-        start = timeit.default_timer()
 
         if not self.TE_dimension and not self.TE_time_delay:
             single_ts = ts_data.loc[0]
@@ -53,12 +51,9 @@ class TopologicalRunner(ExperimentRunner):
         ts_data_transformed = feature_extractor.fit_transform(ts_data.values)
         ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
 
-        time_elapsed = round(timeit.default_timer() - start, 2)
-        self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')
         return ts_data_transformed
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
-        self.logger.info('Topological features extraction started')
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
         return self.generate_topological_features(ts_data=ts_data)
 
     @staticmethod
