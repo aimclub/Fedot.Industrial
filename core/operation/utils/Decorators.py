@@ -10,9 +10,7 @@ def exception_decorator(exception_return='Problem'):
                 function(*args, **kwargs)
             except:
                 return print(exception_return)
-
         return exception_wrapper
-
     return decorate
 
 
@@ -23,9 +21,7 @@ def type_check_decorator(object_type: type, types_list: tuple):
                 raise TypeError(f"Unsupported object type. Try one of {str(types_list)}.")
             else:
                 function_to_decorate(*args, **kwargs)
-
             return wrapper
-
         return type_check_wrapper
 
 
@@ -37,5 +33,4 @@ def time_it(func):
         end = timeit.default_timer()
         logger.info(f'Time spent on feature generation - {round((end - start), 2)} sec')
         return result
-
     return wrapper

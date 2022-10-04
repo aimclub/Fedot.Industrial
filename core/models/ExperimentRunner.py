@@ -14,9 +14,10 @@ dict_of_win_list = dict
 class ExperimentRunner:
     """
     Abstract class responsible for feature generators
-        :param feature_generator_dict: dict that consists of 'generator_name': generator_class pairs
-        :param boost_mode: defines whether to use error correction model or not
-        :param static_booster: defines whether to use static booster or dynamic
+        :param feature_generator_dict: dict that consists of {'generator_name': generator_class} pairs
+        :param use_cache: bool flag that indicates if cached features should be used.
+            If True, then it tries to extract cached features and cached them in case
+            of absence in cache folder
     """
     METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
 
@@ -39,14 +40,15 @@ class ExperimentRunner:
     def extract_features(self, ts_data: pd.DataFrame,
                          dataset_name: str = None) -> pd.DataFrame:
         """
-        Wrapper method for feature extraction with caching results into pickle file
+        Wrapper method for feature extraction method get_features() with caching results
+        into pickle file
         :param ts_data: dataframe with time series data
         :param dataset_name: str dataset name
         :return: pd.DataFrame with extracted features
         """
         generator_name = self.__class__.__name__
         self.logger.info(f'{generator_name} is working...')
-        if generator_name == 'StatsRunner':
+        if generator_name in ('StatsRunner', 'SSARunner'):
             self.logger.info(f'Window mode: {self.window_mode}')
 
         if self.use_cache:
@@ -56,18 +58,19 @@ class ExperimentRunner:
                                          obj_info_dict=generator_info)
             cache_path = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_info + '.pkl')
 
-            self.logger.info('Trying to load features from cache')
             try:
+                self.logger.info('Trying to load features from cache...')
                 return self.load_features_from_cache(cache_path)
             except FileNotFoundError:
-                self.logger.info('Cache not found. Generating features')
+                self.logger.info('Cache not found. Generating features...')
                 features = self.get_features(ts_data, dataset_name)
                 self.save_features_to_cache(hashed_info, features)
                 return features
         else:
             return self.get_features(ts_data, dataset_name)
 
-    def hash_info(self, dataframe, name, obj_info_dict):
+    @staticmethod
+    def hash_info(dataframe, name, obj_info_dict):
         """
         Method responsible for hashing information about initial dataset, its name and feature generator
         :param dataframe: pd.DataFrame with time series data
@@ -82,8 +85,8 @@ class ExperimentRunner:
     def load_features_from_cache(self, cache_path):
         start = timeit.default_timer()
         features = pd.read_pickle(cache_path)
-        elapsed_time = timeit.default_timer() - start
-        self.logger.info('Features loaded from cache in {} sec'.format(round(elapsed_time, 5)))
+        elapsed_time = round(timeit.default_timer() - start, 5)
+        self.logger.info(f'Features loaded from cache in {elapsed_time} sec')
         return features
 
     def save_features_to_cache(self, hashed_data, features):
@@ -93,7 +96,7 @@ class ExperimentRunner:
 
         os.makedirs(cache_folder, exist_ok=True)
         features.to_pickle(cache_file)
-        self.logger.info(f'Features for {self.__class__.__name__} cached with {hashed_data} hash')
+        self.logger.info(f'Features for {generator_name} cached with {hashed_data} hash')
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:

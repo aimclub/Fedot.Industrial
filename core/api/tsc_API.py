@@ -128,24 +128,23 @@ class Industrial:
                 predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
                 predict_on_train = classificator.predict_on_train()
 
-                n_ecm_cycles = experiment_dict['n_ecm_cycles']
-                ecm_fedot_params = dict(problem='regression',
-                                        seed=14,
-                                        timeout=1,
-                                        composer_params=dict(max_depth=10,
-                                                             max_arity=4,
-                                                             cv_folds=2,
-                                                             stopping_after_n_generation=20),
-                                        verbose_level=1,
-                                        n_jobs=2)
-
-                ecm_params = dict(n_classes=n_classes,
-                                  dataset_name=dataset_name,
-                                  save_models=False,
-                                  fedot_params=ecm_fedot_params,
-                                  n_cycles=n_ecm_cycles)
-
                 if self.config_dict['error_correction']:
+                    n_ecm_cycles = experiment_dict['n_ecm_cycles']
+                    ecm_fedot_params = dict(problem='regression',
+                                            seed=14,
+                                            timeout=1,
+                                            composer_params=dict(max_depth=10,
+                                                                 max_arity=4,
+                                                                 cv_folds=2,
+                                                                 stopping_after_n_generation=20),
+                                            verbose_level=1,
+                                            n_jobs=2)
+
+                    ecm_params = dict(n_classes=n_classes,
+                                      dataset_name=dataset_name,
+                                      save_models=False,
+                                      fedot_params=ecm_fedot_params,
+                                      n_cycles=n_ecm_cycles)
                     ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
                                                                                    results_on_test=x,
                                                                                    results_on_train=y,
@@ -156,7 +155,7 @@ class Industrial:
                                            train_features,
                                            predictions))
                 else:
-                    ecm_results = [None]
+                    ecm_results = [None]*len(predictions)
 
                 self.logger.info('SAVING RESULTS')
 
@@ -175,7 +174,7 @@ class Industrial:
                 if len(spectral_generators) != 0:
                     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
-        self.logger.info('END EXPERIMENT')
+        self.logger.info('END OF EXPERIMENT')
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
