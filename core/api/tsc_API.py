@@ -207,7 +207,7 @@ class Industrial:
                 # if len(spectral_generators) != 0:
                 #     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
-        self.logger.info('END EXPERIMENT')
+        self.logger.info('END OF EXPERIMENT')
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
