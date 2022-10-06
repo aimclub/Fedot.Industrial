@@ -1,11 +1,10 @@
-from gtda.time_series import SingleTakensEmbedding
+from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.topological.TFE import *
 from core.operation.utils.Decorators import time_it
-
 
 PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                 'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
@@ -50,17 +49,6 @@ class TopologicalRunner(ExperimentRunner):
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
         return self.generate_topological_features(ts_data=ts_data)
 
-    @staticmethod
-    def get_embedding_params(embedder: TakensEmbedding, single_time_series: pd.Series) -> tuple:
-        """
-        Method for getting optimal Takens embedding parameters
-        :param embedder: TakensEmbedder object from gtda library
-        :param single_time_series: single time series from dataset
-        :return: optimal dimension and time delay
-        """
-        embedder.fit(single_time_series)
-        return embedder.dimension_, embedder.time_delay_
-
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
         """
         Method for getting optimal Takens embedding parameters.
@@ -69,11 +57,6 @@ class TopologicalRunner(ExperimentRunner):
         :param method: stat method for getting optimal parameters
         :return: optimal dimension and time delay
         """
-
-        embedder = SingleTakensEmbedding(parameters_type="search",
-                                         time_delay=10,
-                                         dimension=10,
-                                         n_jobs=-1)
         methods = {'mode': self._mode,
                    'mean': np.mean,
                    'median': np.median}
@@ -86,9 +69,12 @@ class TopologicalRunner(ExperimentRunner):
                       desc='Time series processed: ',
                       unit='ts', colour='black'):
             single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
-            dim, delay = self.get_embedding_params(embedder, single_time_series)
-            dim_list.append(dim)
+            delay, dim = takens_embedding_optimal_parameters(X=single_time_series.values,
+                                                             max_time_delay=10,
+                                                             max_dimension=10,
+                                                             n_jobs=-1)
             delay_list.append(delay)
+            dim_list.append(dim)
 
         _dimension = int(methods[method](dim_list))
         _delay = int(methods[method](delay_list))
