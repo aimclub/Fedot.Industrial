@@ -23,8 +23,8 @@ class PersistenceDiagramFeatureExtractor(ABC):
 class PersistenceDiagramsExtractor:
     def __init__(self, takens_embedding_dim, takens_embedding_delay, homology_dimensions,
                  filtering=False, filtering_dimensions=(1, 2), parallel=False):
-        self.tokens_embedding_dim_ = takens_embedding_dim
-        self.tokens_embedding_delay_ = takens_embedding_delay
+        self.takens_embedding_dim_ = takens_embedding_dim
+        self.takens_embedding_delay_ = takens_embedding_delay
         self.homology_dimensions_ = homology_dimensions
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
@@ -32,8 +32,8 @@ class PersistenceDiagramsExtractor:
         self.n_job = -1 if self.parallel_ else None
 
     def takens_embeddings_(self, data):
-        te = TakensEmbedding(dimension=self.tokens_embedding_dim_,
-                             time_delay=self.tokens_embedding_delay_)
+        te = TakensEmbedding(dimension=self.takens_embedding_dim_,
+                             time_delay=self.takens_embedding_delay_)
         return te.fit_transform(data)
 
     def persistence_diagrams_(self, X_embdeddings):
@@ -71,19 +71,17 @@ class TopologicalFeaturesExtractor:
         self.persistence_diagram_features_ = persistence_diagram_features
 
     def fit_transform(self, X):
-        X_transformed = None
 
-        X_pd = self.persistence_diagram_extractor_.fit_transform(X)
+        x_pers_diag = self.persistence_diagram_extractor_.fit_transform(X)
         tmp = []
         column_list = []
-        for feature_name, feature_impl in self.persistence_diagram_features_.items():
+        for feature_name, feature_model in self.persistence_diagram_features_.items():
             try:
-                X_features = feature_impl.fit_transform(X_pd)
+                X_features = feature_model.fit_transform(x_pers_diag)
                 tmp.append(X_features)
                 for dim in range(len(X_features.shape)):
                     column_list.append('{}_{}'.format(feature_name, dim))
             except Exception:
-                f = 1
                 continue
         X_transformed = pd.DataFrame(data=np.hstack(tmp), columns=column_list)
         return X_transformed
