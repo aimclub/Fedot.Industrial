@@ -9,49 +9,98 @@ DATASETS_PARAMETERS = {
     "CIFAR100": {
         "getter": CIFAR100,
         "num_classes": 100,
-        "transform": Compose(
-            [
-                ToTensor(),
-                Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
-            ]
-        ),
-        "download": True,
+        "train": {
+            "train": True,
+            "download": True,
+            "transform": Compose(
+                [
+                    ToTensor(),
+                    Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
+                ]
+            ),
+        },
+        "val": {
+            "train": False,
+            "download": False,
+            "transform": Compose(
+                [
+                    ToTensor(),
+                    Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
+                ]
+            ),
+        },
     },
     "CIFAR10": {
         "getter": CIFAR10,
         "num_classes": 10,
-        "transform": Compose(
-            [
-                ToTensor(),
-                Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
-            ]
-        ),
-        "mean": (0.5074, 0.4867, 0.4411),
-        "std": (0.2011, 0.1987, 0.2025),
-        "download": True,
+        "train": {
+            "train": True,
+            "download": True,
+            "transform": Compose(
+                [
+                    ToTensor(),
+                    Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
+                ]
+            ),
+        },
+        "val": {
+            "train": False,
+            "download": False,
+            "transform": Compose(
+                [
+                    ToTensor(),
+                    Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
+                ]
+            ),
+        },
     },
     "MNIST": {
         "getter": MNIST,
         "num_classes": 10,
-        "transform": Compose(
-            [
-                ToTensor(),
-                Normalize((0.1307,), (0.3081,)),
-            ]
-        ),
-        "download": True,
+        "train": {
+            "train": True,
+            "download": True,
+            "transform": Compose(
+                [
+                    ToTensor(),
+                    Normalize((0.1307,), (0.3081,)),
+                ]
+            ),
+        },
+        "val": {
+            "train": False,
+            "download": False,
+            "transform": Compose(
+                [
+                    ToTensor(),
+                    Normalize((0.1307,), (0.3081,)),
+                ]
+            ),
+        },
     },
     "ImageNet": {
         "getter": ImageNet,
         "num_classes": 1000,
-        "transform": Compose(
-            [
-                Resize(256),
-                ToTensor(),
-                Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-            ]
-        ),
-        "download": False,
+        "train": {
+            "split": "train",
+            "transform": Compose(
+                [
+                    Resize((256, 265)),
+                    ToTensor(),
+                    Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                ]
+            ),
+        },
+        "val": {
+            "split": "val",
+            "transform": Compose(
+                [
+                    Resize((256, 265)),
+                    ToTensor(),
+                    Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                ]
+            ),
+        },
     },
 }
 
@@ -71,9 +120,7 @@ def get_dataloaders(
     train_dataloader = DataLoader(
         dataset=params["getter"](
             root=path.join(datasets_folder, dataset_name),
-            train=True,
-            transform=params["transform"],
-            download=params["download"],
+            **params["train"]
         ),
         batch_size=batch_size,
         shuffle=True,
@@ -81,8 +128,7 @@ def get_dataloaders(
     test_dataloader = DataLoader(
         dataset=params["getter"](
             root=path.join(datasets_folder, dataset_name),
-            train=False,
-            transform=params["transform"],
+            **params["val"]
         ),
         batch_size=batch_size,
         shuffle=False,
