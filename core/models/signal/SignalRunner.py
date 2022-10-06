@@ -105,7 +105,7 @@ class SignalRunner(ExperimentRunner):
         components_and_vectors = list()
         with tqdm(total=ts_frame.shape[0],
                   desc='Feature generation. Time series processed:',
-                  unit='ts', initial=0) as pbar:
+                  unit='ts', initial=0, colour='black') as pbar:
             for ts in ts_frame.values:
                 components_and_vectors.append(self._ts_chunk_function(ts, method_name=method_name))
                 pbar.update(1)

@@ -86,7 +86,7 @@ class SSARunner(ExperimentRunner):
         components_and_vectors = list()
         with tqdm(total=self.ts_samples_count,
                   desc='Feature Generation. Samples processed: ',
-                  unit=' samples', initial=0) as pbar:
+                  unit=' samples', initial=0, colour='black') as pbar:
             for ts in ts_frame.values:
                 v = self._ts_chunk_function(ts)
                 components_and_vectors.append(v)

@@ -1,13 +1,11 @@
-import timeit
-
 from gtda.time_series import SingleTakensEmbedding
+from scipy import stats
+from tqdm import tqdm
 
 from core.models.ExperimentRunner import ExperimentRunner
-from core.models.topological.TDA import Topological
 from core.models.topological.TFE import *
+from core.operation.utils.Decorators import time_it
 
-dict_of_dataset = dict
-dict_of_win_list = dict
 
 PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                 'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
@@ -26,22 +24,17 @@ class TopologicalRunner(ExperimentRunner):
     Class for extracting topological features from time series data
         :param list_of_dataset: list of dataset names that will be used for experiments
     """
+
     def __init__(self, list_of_dataset: list = None,
                  use_cache: bool = False):
         super().__init__(list_of_dataset)
         self.use_cache = use_cache
-        self.TE_dimension = None
-        self.TE_time_delay = None
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
+        te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
-        if not self.TE_dimension and not self.TE_time_delay:
-            single_ts = ts_data.loc[0]
-            self.TE_dimension, self.TE_time_delay = self.get_embedding_params(single_time_series=single_ts)
-            self.logger.info(f'TE_delay: {self.TE_time_delay}, TE_dimension: {self.TE_dimension} are selected')
-
-        persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=self.TE_dimension,
-                                                                     takens_embedding_delay=self.TE_time_delay,
+        persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
+                                                                     takens_embedding_delay=te_time_delay,
                                                                      homology_dimensions=(0, 1),
                                                                      parallel=True)
 
@@ -53,19 +46,56 @@ class TopologicalRunner(ExperimentRunner):
 
         return ts_data_transformed
 
+    @time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
         return self.generate_topological_features(ts_data=ts_data)
 
     @staticmethod
-    def get_embedding_params(single_time_series):
+    def get_embedding_params(embedder: TakensEmbedding, single_time_series: pd.Series) -> tuple:
         """
-        Method for getting optimal Takens embedding parameters.
-
+        Method for getting optimal Takens embedding parameters
+        :param embedder: TakensEmbedder object from gtda library
         :param single_time_series: single time series from dataset
         :return: optimal dimension and time delay
         """
+        embedder.fit(single_time_series)
+        return embedder.dimension_, embedder.time_delay_
+
+    def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
+        """
+        Method for getting optimal Takens embedding parameters.
+
+        :param ts_data: time series data
+        :param method: stat method for getting optimal parameters
+        :return: optimal dimension and time delay
+        """
+
         embedder = SingleTakensEmbedding(parameters_type="search",
                                          time_delay=10,
-                                         dimension=10)
-        embedder.fit_transform(single_time_series)
-        return embedder.dimension_, embedder.time_delay_
+                                         dimension=10,
+                                         n_jobs=-1)
+        methods = {'mode': self._mode,
+                   'mean': np.mean,
+                   'median': np.median}
+
+        self.logger.info('Start searching optimal TE parameters')
+        dim_list, delay_list = list(), list()
+
+        for _ in tqdm(range(len(ts_data)),
+                      initial=0,
+                      desc='Time series processed: ',
+                      unit='ts', colour='black'):
+            single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
+            dim, delay = self.get_embedding_params(embedder, single_time_series)
+            dim_list.append(dim)
+            delay_list.append(delay)
+
+        _dimension = int(methods[method](dim_list))
+        _delay = int(methods[method](delay_list))
+        self.logger.info(f'Optimal TE parameters: dimension = {_dimension}, time_delay = {_delay}')
+
+        return _dimension, _delay
+
+    @staticmethod
+    def _mode(arr: list) -> int:
+        return int(stats.mode(arr)[0][0])

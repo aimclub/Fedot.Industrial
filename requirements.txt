@@ -22,6 +22,6 @@ scikit-learn~=1.0.2
 matplotlib~=3.5.1
 scipy~=1.8.0
 sphinx~=5.2.3
-joblib~=1.1.0
+joblib==1.2.0
 docker~=6.0.0
 seaborn~=0.11.2
