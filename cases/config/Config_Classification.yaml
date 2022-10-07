@@ -14,9 +14,9 @@ use_cache: True
 n_ecm_cycles: 3
 
 datasets_list: [
-  'Lightning7',
+#  'Lightning7',
 #  'Coffee',
-#  'Earthquakes',
+  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',
 #  'Wafer'
