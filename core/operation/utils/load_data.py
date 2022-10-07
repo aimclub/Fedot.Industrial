@@ -187,7 +187,7 @@ class DataLoader:
             except ValueError:
                 y_train, y_test = y_train.astype(str), y_test.astype(str)
 
-            return (x_train, y_train), (x_test, y_test)
+            return (x_train, x_test), (y_train, y_test)
         except FileNotFoundError:
             return None, None
 
