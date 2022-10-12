@@ -10,7 +10,7 @@ class PerformanceAnalyzer:
     """
     Class responsible for calculating metrics for predictions.
     """
-
+    metric_list = ['roc_auc', 'f1', 'precision', 'accuracy', 'logloss']
     logger = Logger().get_logger()
 
     @staticmethod
@@ -39,8 +39,9 @@ class PerformanceAnalyzer:
 
         return converted_target, converted_predictions
 
-    def calculate_metrics(self, metric_list: list,
+    def calculate_metrics(self,
                           target: list,
+                          metric_list: list = ['roc_auc', 'f1', 'precision', 'accuracy', 'logloss'],
                           predicted_labels: list = None,
                           predicted_probs: list = None) -> Dict:
 
