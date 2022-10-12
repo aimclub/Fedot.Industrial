@@ -1,0 +1,27 @@
+feature_generator: [
+'window_quantile',
+'spectral_window',
+'ensemble: window_quantile spectral_window'
+]
+error_correction: False
+
+feature_generator_params: {
+  'window_quantile':
+    {
+      'window_mode': True,
+    },
+  'spectral_window':
+    {
+      'window_sizes': {
+        'ItalyPowerDemand': [ 3, 6, 9 ],
+        'Earthquakes': [48],
+        'Beef': [100],
+      },
+      'window_mode': True,
+
+    },
+  'ensemble': {
+    'list_of_generators': { }
+  }
+}
+path_to_config: 'cases/ts_classification_example/configs_for_examples/BasicConfigCLF.yaml'

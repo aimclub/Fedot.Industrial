@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
@@ -27,14 +28,14 @@ class SSARunner(ExperimentRunner):
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
-
+        self.pareto_front = ParetoMetrics()
         self.window_length_list = window_sizes
 
         if isinstance(self.window_length_list, int):
             self.window_length_list = [self.window_length_list]
 
         self.vis_flag = False
-        self.rank_hyper = 2
+        self.rank_hyper = None
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
@@ -68,10 +69,6 @@ class SSARunner(ExperimentRunner):
             plt.savefig(os.path.join(self.path_to_save_png, f'components_for_ts_class_{idx}.png'))
 
     def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
-
-        self.logger.info(f'8 CPU on working. '
-                         f'Total ts samples - {self.ts_samples_count}. '
-                         f'Current sample - {self.count}')
 
         ts = self.check_for_nan(ts_data)
 
@@ -154,12 +151,11 @@ class SSARunner(ExperimentRunner):
         metric_list = []
         n_comp_list = []
         eigen_list = []
-
         for window_length in self.window_length_list[dataset_name]:
             self.logger.info(f'Generate features for window length - {window_length}')
             self.window_length = window_length
 
-            eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
+            eigenvectors_and_rank = self.generate_vector_from_ts(X_train.sample(frac=0.5))
 
             rank_list = [x[1] for x in eigenvectors_and_rank]
 
@@ -174,21 +170,31 @@ class SSARunner(ExperimentRunner):
             self.logger.info(f'Every eigenvector with impact less then 1 % percent was eliminated. '
                              f'{self.explained_dispersion} % of explained dispersion '
                              f'obtained by first - {self.n_components} components.')
-
-            metrics = self.explained_dispersion
+            signal_compression = 100 * (1 - (self.n_components / window_length))
+            explained_dispersion = self.explained_dispersion
+            metrics = [signal_compression, explained_dispersion]
             metric_list.append(metrics)
 
             eigen_list.append(eigenvectors_list)
             n_comp_list.append(self.n_components)
             self.count = 0
+            if self.n_components > 15:
+                self.logger.info(f'SSA method find {self.n_components} PCT.'
+                                 f'This is mean that SSA method does not find effective low rank structure for '
+                                 f'this signal.')
+                break
 
-        index_of_window = int(metric_list.index(max(metric_list)))
+        # index_of_window = int(metric_list.index(max(metric_list)))
+        index_of_window = self.pareto_front.pareto_metric_list(np.array(metric_list))
+        index_of_window = np.where(index_of_window == True)[0][0]
         self.window_length = self.window_length_list[dataset_name][index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
-        self.min_rank = np.min([x.shape[1] for x in eigenvectors_list])
-        self.eigenvectors_list_train = [x.iloc[:, :self.min_rank] for x in eigenvectors_list]
+        self.min_rank = round(np.mean([x.shape[1] for x in eigenvectors_list]))
+        self.rank_hyper = self.min_rank
+        eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
+        self.eigenvectors_list_train = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
         self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)
-
+        self.train_feats = self.delete_col_by_var(self.train_feats)
         for col in self.train_feats.columns:
             self.train_feats[col].fillna(value=self.train_feats[col].mean(), inplace=True)
 

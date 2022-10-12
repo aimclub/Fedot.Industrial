@@ -28,7 +28,7 @@ class DataLoader:
         """
         dataset_name = self.dataset_name
         self.logger.info(f'Reading {dataset_name} data locally')
-        (X_train, X_test), (y_train, y_test) = self.read_tsv(dataset_name)
+        (X_train, y_train), (X_test, y_test) = self.read_tsv(dataset_name)
 
         if X_train is None:
             self.logger.info(f'Dataset {dataset_name} not found in data folder. Downloading...')
@@ -49,11 +49,12 @@ class DataLoader:
 
             try:
                 self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
-                (X_train, X_test), (y_train, y_test) = self.unzip_data(dataset_name, temp_data_path)
+                (X_train, y_train), (X_test, y_test) = self.unzip_data(dataset_name, temp_data_path)
             finally:
                 shutil.rmtree(cache_path)
 
-        return (X_train, X_test), (y_train, y_test)
+        return (X_train, y_train), (X_test, y_test)
+
 
     def unzip_data(self, dataset_name: str, temp_data_path: str):
         """
