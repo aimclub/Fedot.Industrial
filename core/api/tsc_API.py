@@ -5,6 +5,7 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 import yaml
+from fedot.api.main import Fedot
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
@@ -125,15 +126,15 @@ class Industrial:
         """
         self.logger.info(f'START EXPERIMENT')
         experiment_dict = self._init_experiment_setup(config_name)
-
-        classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
-                                             model_hyperparams=experiment_dict['fedot_params'],
-                                             ecm_model_flag=experiment_dict['error_correction'])
         launches = self.config_dict['launches']
+
+        # classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
+        #                                      model_hyperparams=experiment_dict['fedot_params'],
+        #                                      ecm_model_flag=experiment_dict['error_correction'])
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-            try: # to load data
+            try:  # to load data
                 train_data, test_data = DataLoader(dataset_name).load_data()
                 self.logger.info(f'Loaded data from {dataset_name} dataset')
             except Exception:
@@ -143,75 +144,73 @@ class Industrial:
             n_classes = len(np.unique(train_data[1]))
             self.logger.info(f'{n_classes} classes detected')
 
-            classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
+            for runner_name, runner in experiment_dict['feature_generator'].items():
+                classificator = TimeSeriesClassifier(generator_name=runner_name,
+                                                     generator_runner=runner,
+                                                     model_hyperparams=experiment_dict['fedot_params'],
+                                                     ecm_model_flag=experiment_dict['error_correction'])
+                classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
 
-            for launch in range(1, launches + 1):
-                self.logger.info(f'START LAUNCH {launch}')
-                paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
-                                         list(experiment_dict['feature_generator'].keys())))
+                for launch in range(1, launches + 1):
+                    self.logger.info(f'START LAUNCH {launch}')
+                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
-                self.logger.info('START TRAINING')
-                fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
-                fitted_predictor = fitted_results[0]['predictors']
-                train_features = fitted_results[0]['train_features']
+                    self.logger.info('START TRAINING')
+                    fitted_results = classificator.fit(train_data, dataset_name)
+                    fitted_predictor = fitted_results['predictor']
+                    train_features = fitted_results['train_features']
 
-                self.logger.info('START PREDICTION')
-                predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
-                predict_on_train = classificator.predict_on_train()
+                    self.logger.info('START PREDICTION')
+                    predictions = classificator.predict(fitted_predictor,
+                                                        test_data,
+                                                        dataset_name)
 
-                ecm_results = [[]] * len(paths_to_save)
-                if self.config_dict['error_correction']:
-                    ecm_fedot_params = dict(problem='regression',
-                                            seed=14,
-                                            timeout=1,
-                                            max_depth=10,
-                                            max_arity=4,
-                                            cv_folds=2,
-                                            logging_level=20,
-                                            n_jobs=4)
+                    if self.config_dict['error_correction']:
+                        predict_on_train = classificator.predict_on_train()
+                        ecm_fedot_params = experiment_dict['fedot_params']
+                        ecm_fedot_params['problem'] = 'regression'
+                        ecm_fedot_params['timeout'] = round(experiment_dict['fedot_params']['timeout'] / 3)
 
-                    ecm_params = dict(n_classes=n_classes,
-                                      dataset_name=dataset_name,
-                                      save_models=False,
-                                      fedot_params=ecm_fedot_params)
+                        ecm_params = dict(n_classes=n_classes,
+                                          dataset_name=dataset_name,
+                                          save_models=False,
+                                          fedot_params=ecm_fedot_params)
 
-                    try:
-                        self.logger.info('START COMPOSE ECM')
-                        ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
-                                                                                       results_on_test=x,
-                                                                                       results_on_train=y,
-                                                                                       train_data=(z, train_data[1]),
-                                                                                       test_data=(m, test_data[1])).run(),
-                                               predictions,
-                                               predict_on_train,
-                                               train_features,
-                                               predictions))
-                    except Exception:
-                        self.logger.info('ECM COMPOSE WAS FAILED')
+                        try:
+                            self.logger.info('START COMPOSE ECM')
+                            ecm_results = ErrorCorrectionModel(**ecm_params,
+                                                               results_on_test=predictions,
+                                                               results_on_train=predict_on_train,
+                                                               train_data=train_data,
+                                                               test_data=test_data,
+                                                               ).run()
+                        except Exception:
+                            self.logger.info('ECM COMPOSE WAS FAILED')
+                    else:
+                        ecm_results = None
 
-                self.logger.info('SAVING RESULTS')
+                    self.logger.info('SAVING RESULTS')
 
-                for i in range(len(paths_to_save)):
                     self.save_results(train_target=train_data[1],
                                       test_target=test_data[1],
-                                      path_to_save=paths_to_save[i],
-                                      train_features=train_features[i],
-                                      prediction=predictions[i],
+                                      path_to_save=paths_to_save,
+                                      train_features=train_features,
+                                      prediction=predictions,
                                       fitted_predictor=fitted_predictor,
-                                      ecm_results=ecm_results[i])
+                                      ecm_results=ecm_results),
 
-                # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
-                # if len(spectral_generators) != 0:
-                #     self._save_spectrum(classificator, path_to_save=spectral_generators)
+                    # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
+                    # if len(spectral_generators) != 0:
+                    #     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
         self.logger.info('END OF EXPERIMENT')
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
                      path_to_save: str,
-                     prediction: Any,
+                     prediction: dict,
                      train_features: Union[np.ndarray, pd.DataFrame],
-                     fitted_predictor,
+                     fitted_predictor: Fedot,
                      ecm_results: dict):
 
         metrics, predictions = prediction['metrics'], prediction['prediction']
@@ -221,17 +220,19 @@ class Industrial:
         os.makedirs(path_results, exist_ok=True)
 
         try:
-            for predictor in fitted_predictor:
-                predictor.current_pipeline.save(path_results)
+            fitted_predictor.current_pipeline.save(path_results)
         except Exception as ex:
             self.logger.error(f'Can not save pipeline: {ex}')
 
-        if len(ecm_results) != 0:
+        if ecm_results:
             self.save_boosting_results(**ecm_results, path_to_save=path_results)
 
         features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
         features_list = [train_features, train_target, test_features, test_target]
-        _ = list(map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
+
+        for name, features in zip(features_names, features_list):
+            pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
+
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)
