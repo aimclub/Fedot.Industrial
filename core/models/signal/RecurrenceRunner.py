@@ -3,6 +3,7 @@ from tqdm import tqdm
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.TS import TSTransformer
+from core.operation.utils.Decorators import time_it
 from core.operation.utils.LoggerSingleton import Logger
 
 
@@ -13,12 +14,13 @@ class RecurrenceRunner(ExperimentRunner):
     :window_mode: if True, then window mode is used
     """
 
-    def __init__(self, window_mode: bool = False):
+    def __init__(self, window_mode: bool = False, use_cache: bool = False):
 
         super().__init__()
 
         self.ts_samples_count = None
         self.window_mode = window_mode
+        self.use_cache = use_cache
         self.transformer = TSTransformer
         self.train_feats = None
         self.test_feats = None
@@ -51,7 +53,8 @@ class RecurrenceRunner(ExperimentRunner):
 
         return components_and_vectors
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    @time_it
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:

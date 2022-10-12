@@ -75,7 +75,8 @@ class Industrial:
             feature_gen_params = experiment_dict['feature_generator_params'][gen_name]
         except KeyError:
             feature_gen_params = dict()
-        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
+        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params,
+                                                         use_cache=self.use_cache)}
         return feature_gen_class
 
     def _check_window_sizes(self, dataset_name, train_data):
