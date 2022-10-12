@@ -25,7 +25,7 @@ class SignalRunner(ExperimentRunner):
                  use_cache: bool = False):
 
         super().__init__()
-
+        self.use_cache = use_cache
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.wavelet_extractor = WaveletExtractor
