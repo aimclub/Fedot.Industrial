@@ -1,10 +1,11 @@
 import copy
 import os
-from typing import Union
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
 import yaml
+from fedot.api.main import Fedot
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
@@ -112,12 +113,11 @@ class Industrial:
                     config_dict_template = yaml.safe_load(input_stream)
                 self.config_dict = {**config_dict_template, **self.config_dict}
                 del self.config_dict['path_to_config']
-
-            self.logger.info(f'''Experiment setup:
-            datasets - {self.config_dict['datasets_list']},
-            feature generators - {self.config_dict['feature_generator']},
-            use_cache - {self.config_dict['use_cache']},
-            error_correction - {self.config_dict['error_correction']}''')
+            # self.config_dict['logger'] = self.logger
+            self.logger.info(
+                f"Experiment setup:"
+                f"\ndatasets - {self.config_dict['datasets_list']},"
+                f"\nfeature generators - {self.config_dict['feature_generator']}")
 
     def run_experiment(self, config_name):
         """
@@ -128,13 +128,16 @@ class Industrial:
         experiment_dict = self._init_experiment_setup(config_name)
         launches = self.config_dict['launches']
 
+        # classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
+        #                                      model_hyperparams=experiment_dict['fedot_params'],
+        #                                      ecm_model_flag=experiment_dict['error_correction'])
+
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-
-            # load data
-            train_data, test_data = DataLoader(dataset_name).load_data()
-            self.logger.info(f'Loaded data from {dataset_name} dataset')
-            if train_data is None:
+            try:  # to load data
+                train_data, test_data = DataLoader(dataset_name).load_data()
+                self.logger.info(f'Loaded data from {dataset_name} dataset')
+            except Exception:
                 self.logger.error(f'Some problem with {dataset_name} data. Skip it')
                 continue
 
@@ -142,22 +145,25 @@ class Industrial:
             self.logger.info(f'{n_classes} classes detected')
 
             for runner_name, runner in experiment_dict['feature_generator'].items():
-                self.logger.info(f'{runner_name} runner is on duty')
-
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
                                                      model_hyperparams=experiment_dict['fedot_params'],
                                                      ecm_model_flag=experiment_dict['error_correction'])
-                classificator.feature_generator_params = self.config_dict['feature_generator_params']
                 classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
 
                 for launch in range(1, launches + 1):
                     self.logger.info(f'START LAUNCH {launch}')
+                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
-                    fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
+                    self.logger.info('START TRAINING')
+                    fitted_results = classificator.fit(train_data, dataset_name)
+                    fitted_predictor = fitted_results['predictor']
+                    train_features = fitted_results['train_features']
 
                     self.logger.info('START PREDICTION')
-                    predictions = classificator.predict(test_data, dataset_name)
+                    predictions = classificator.predict(fitted_predictor,
+                                                        test_data,
+                                                        dataset_name)
 
                     if self.config_dict['error_correction']:
                         predict_on_train = classificator.predict_on_train()
@@ -183,8 +189,7 @@ class Industrial:
                     else:
                         ecm_results = None
 
-                    self.logger.info('*------------SAVING RESULTS------------*')
-                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+                    self.logger.info('SAVING RESULTS')
 
                     self.save_results(train_target=train_data[1],
                                       test_target=test_data[1],
@@ -205,7 +210,7 @@ class Industrial:
                      path_to_save: str,
                      prediction: dict,
                      train_features: Union[np.ndarray, pd.DataFrame],
-                     fitted_predictor,
+                     fitted_predictor: Fedot,
                      ecm_results: dict):
 
         metrics, predictions = prediction['metrics'], prediction['prediction']
