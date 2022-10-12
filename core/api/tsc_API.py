@@ -28,7 +28,7 @@ class Industrial:
 
     def __init__(self):
         self.config_dict = None
-        self.logger = Logger.__call__().get_logger()
+        self.logger = Logger().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
@@ -123,13 +123,16 @@ class Industrial:
         experiment_dict = self._init_experiment_setup(config_name)
         launches = self.config_dict['launches']
 
+        # classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
+        #                                      model_hyperparams=experiment_dict['fedot_params'],
+        #                                      ecm_model_flag=experiment_dict['error_correction'])
+
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-
-            # load data
-            train_data, test_data = DataLoader(dataset_name).load_data()
-            self.logger.info(f'Loaded data from {dataset_name} dataset')
-            if train_data is None:
+            try:  # to load data
+                train_data, test_data = DataLoader(dataset_name).load_data()
+                self.logger.info(f'Loaded data from {dataset_name} dataset')
+            except Exception:
                 self.logger.error(f'Some problem with {dataset_name} data. Skip it')
                 continue
 
@@ -137,23 +140,28 @@ class Industrial:
             self.logger.info(f'{n_classes} classes detected')
 
             for runner_name, runner in experiment_dict['feature_generator'].items():
-                self.logger.info(f'{runner_name} runner is on duty')
-
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
                                                      model_hyperparams=experiment_dict['fedot_params'],
                                                      ecm_model_flag=experiment_dict['error_correction'])
-                classificator.feature_generator_params = self.config_dict['feature_generator_params']
                 classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
 
                 for launch in range(1, launches + 1):
                     self.logger.info(f'START LAUNCH {launch}')
+                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+
                     self.logger.info('START TRAINING')
-                    fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
+                    fitted_results = classificator.fit(train_data, dataset_name)
+                    fitted_predictor = fitted_results['predictor']
+                    train_features = fitted_results['train_features']
 
                     self.logger.info('START PREDICTION')
-                    predictions = classificator.predict(test_data, dataset_name)
+                    predictions = classificator.predict(fitted_predictor,
+                                                        test_data,
+                                                        dataset_name)
 
+                    # n_ecm_cycles = experiment_dict['n_ecm_cycles']
+                    # ecm_results = [[]] * len(paths_to_save)
                     if self.config_dict['error_correction']:
                         predict_on_train = classificator.predict_on_train()
                         ecm_fedot_params = experiment_dict['fedot_params']
@@ -173,14 +181,25 @@ class Industrial:
                                                                train_data=train_data,
                                                                test_data=test_data,
                                                                ).run()
+                            # ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
+                            #                                                                results_on_test=x,
+                            #                                                                results_on_train=y,
+                            #                                                                train_data=(
+                            #                                                                z, train_data[1]),
+                            #                                                                test_data=(
+                            #                                                                m, test_data[1])).run(),
+                            #                        predictions,
+                            #                        predict_on_train,
+                            #                        train_features,
+                            #                        predictions))
                         except Exception:
                             self.logger.info('ECM COMPOSE WAS FAILED')
                     else:
                         ecm_results = None
 
-                    self.logger.info('*------------SAVING RESULTS------------*')
-                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+                    self.logger.info('SAVING RESULTS')
 
+                    # for i in range(len(paths_to_save)):
                     self.save_results(train_target=train_data[1],
                                       test_target=test_data[1],
                                       path_to_save=paths_to_save,
@@ -210,6 +229,7 @@ class Industrial:
         if not os.path.exists(path_results):
             os.makedirs(path_results)
         try:
+            # for predictor in fitted_predictor:
             fitted_predictor.current_pipeline.save(path_results)
         except Exception as ex:
             self.logger.error(f'Can not save pipeline: {ex}')
@@ -222,6 +242,8 @@ class Industrial:
 
         for name, features in zip(features_names, features_list):
             pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
+
+        # _ = list(map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)
