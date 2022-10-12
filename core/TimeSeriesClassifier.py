@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
@@ -64,6 +66,9 @@ class TimeSeriesClassifier:
         features = self.generator_runner.extract_features(test_tuple[0], dataset_name)
         prediction_label = self.predictor.predict(features)
         prediction_proba = self.predictor.predict_proba(features)
+        metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
+                                                               predicted_labels=prediction_label,
+                                                               predicted_probs=prediction_proba)
         metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
                                                                predicted_labels=prediction_label,
                                                                predicted_probs=prediction_proba)
