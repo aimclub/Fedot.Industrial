@@ -104,7 +104,7 @@ class Industrial:
                     config_dict_template = yaml.safe_load(input_stream)
                 self.config_dict = {**config_dict_template, **self.config_dict}
                 del self.config_dict['path_to_config']
-            self.config_dict['logger'] = self.logger
+            # self.config_dict['logger'] = self.logger
             self.logger.info(
                 f"Experiment setup:"
                 f"\ndatasets - {self.config_dict['datasets_list']},"
@@ -153,22 +153,22 @@ class Industrial:
                 predict_on_train = classificator.predict_on_train()
 
                 # n_ecm_cycles = experiment_dict['n_ecm_cycles']
-                ecm_fedot_params = dict(problem='regression',
-                                        seed=14,
-                                        timeout=1,
-                                        max_depth=10,
-                                        max_arity=4,
-                                        cv_folds=2,
-                                        logging_level=20,
-                                        n_jobs=4)
-
-                ecm_params = dict(n_classes=n_classes,
-                                  dataset_name=dataset_name,
-                                  save_models=False,
-                                  fedot_params=ecm_fedot_params)
-                ecm_results = [[]] * len(paths_to_save)
 
                 if self.config_dict['error_correction']:
+                    ecm_fedot_params = dict(problem='regression',
+                                            seed=14,
+                                            timeout=1,
+                                            max_depth=10,
+                                            max_arity=4,
+                                            cv_folds=2,
+                                            logging_level=20,
+                                            n_jobs=4)
+
+                    ecm_params = dict(n_classes=n_classes,
+                                      dataset_name=dataset_name,
+                                      save_models=False,
+                                      fedot_params=ecm_fedot_params)
+                    ecm_results = [[]] * len(paths_to_save)
                     try:
                         self.logger.info('START COMPOSE ECM')
                         ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,

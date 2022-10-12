@@ -4,7 +4,8 @@ feature_generator: [
 #  'spectral_window',
 #  'spectral',
 #  'wavelet',
-  'topological'
+  'recurrence',
+#  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
@@ -23,6 +24,11 @@ datasets_list: [
 
 feature_generator_params: {
   'window_quantile':
+    {
+      'window_mode': True,
+    },
+
+  'recurrence':
     {
       'window_mode': True,
     },
