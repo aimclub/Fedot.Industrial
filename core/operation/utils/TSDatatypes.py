@@ -3,7 +3,7 @@ from typing import List
 
 import pandas as pd
 
-from cases.analyzer import PerformanceAnalyzer
+from core.operation.utils.analyzer import PerformanceAnalyzer
 
 
 class AbstractObject(ABC):

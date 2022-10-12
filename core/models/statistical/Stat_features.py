@@ -21,6 +21,7 @@ class AggregationFeatures:
     def create_baseline_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
         column_name = []
+        feature_to_aggregation = pd.DataFrame(feature_to_aggregation)
         for method_name, method_func in stat_methods_extra.items():
             try:
                 tmp = feature_to_aggregation.copy(deep=True)
@@ -42,11 +43,11 @@ class AggregationFeatures:
             elif method_name.startswith('d'):
                 tmp = tmp.apply(method_func, axis=1)
                 stat_list.append(tmp.apply(np.mean).values)
-                column_name.append(method_name+'mean')
+                column_name.append(method_name + 'mean')
                 stat_list.append(tmp.apply(np.min).values)
-                column_name.append(method_name+'min')
+                column_name.append(method_name + 'min')
                 stat_list.append(tmp.apply(np.max).values)
-                column_name.append(method_name+'max')
+                column_name.append(method_name + 'max')
             else:
                 stat_list.append(tmp.apply(method_func, axis=1).values)
                 column_name.append(method_name)
@@ -63,8 +64,9 @@ class AggregationFeatures:
     def create_features(self, feature_to_aggregation: Union[pd.DataFrame, np.ndarray]):
         stat_list = []
         column_name = []
+        feature_to_aggregation = pd.DataFrame(feature_to_aggregation)
         for method_name, method_func in stat_methods.items():
-            tmp = feature_to_aggregation.copy(deep=True)
+            tmp = feature_to_aggregation.copy()
 
             if method_name.startswith('q'):
                 for col in tmp.columns:
@@ -75,7 +77,7 @@ class AggregationFeatures:
                 tmp = tmp.T
 
             for feature in feature_to_aggregation.columns:
-                column_name.append(method_name + feature)
+                column_name.append(method_name + str(feature))
 
             stat_list.append(tmp.values)
 

@@ -1,0 +1,64 @@
+from tqdm import tqdm
+
+from core.metrics.metrics_implementation import *
+from core.models.ExperimentRunner import ExperimentRunner
+from core.operation.transformation.TS import TSTransformer
+from core.operation.utils.LoggerSingleton import Logger
+
+
+class RecurrenceRunner(ExperimentRunner):
+    """
+    Class responsible for wavelet feature generator experiment.
+
+    :window_mode: if True, then window mode is used
+    """
+
+    def __init__(self, window_mode: bool = False):
+
+        super().__init__()
+
+        self.ts_samples_count = None
+        self.window_mode = window_mode
+        self.transformer = TSTransformer
+        self.train_feats = None
+        self.test_feats = None
+        self.logger = Logger().get_logger()
+
+    def _ts_chunk_function(self, ts):
+
+        ts = self.check_for_nan(ts)
+        specter = self.transformer(time_series=ts)
+        feature_df = pd.Series(specter.get_reccurancy_metrics())
+        return feature_df
+
+    def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
+        """
+        Generate vector from time series.
+
+        :param ts_frame: time series dataframe
+        :return:
+        """
+        self.ts_samples_count = ts_frame.shape[0]
+
+        components_and_vectors = list()
+        with tqdm(total=ts_frame.shape[0],
+                  desc='Feature generation. Time series processed:',
+                  unit='ts', initial=0, colour='black') as pbar:
+            for ts in ts_frame.values:
+                components_and_vectors.append(self._ts_chunk_function(ts))
+                pbar.update(1)
+        components_and_vectors = pd.concat(components_and_vectors, axis=1).T
+
+        return components_and_vectors
+
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+        self.logger.info('Recurrence feature extraction started')
+
+        if self.train_feats is None:
+            train_feats = self.generate_vector_from_ts(ts_data)
+            self.train_feats = train_feats
+            return self.train_feats
+        else:
+            test_feats = self.generate_vector_from_ts(ts_data)
+            self.test_feats = test_feats[self.train_feats.columns]
+            return self.test_feats
