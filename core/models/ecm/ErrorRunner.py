@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from cases.analyzer import PerformanceAnalyzer
 from core.models.ecm.error_correction import Booster
+from core.operation.utils.analyzer import PerformanceAnalyzer
 from core.operation.utils.LoggerSingleton import Logger
 
 

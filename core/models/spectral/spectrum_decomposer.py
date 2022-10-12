@@ -41,7 +41,6 @@ class SpectrumDecomposer:
         self.__time_series = time_series
         self.__window_length = window_length
         self.__save_memory = save_memory
-        object_type = type(time_series)
         self.__set_dimensions()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
@@ -85,7 +84,7 @@ class SpectrumDecomposer:
 
     def decompose(self, return_df=True, correlation_flag=False, rank_hyper=None):
         # Embed the time series in a trajectory matrix
-        Components_df = None
+        components_df = None
         Wcorr = None
         U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
         rank = np.linalg.matrix_rank(self.__trajectory_matrix)
@@ -118,20 +117,14 @@ class SpectrumDecomposer:
         if rank_hyper is not None:
             rank = rank_hyper
 
-        Components_df = self.components_to_df(TS_comps.T, rank)
-
-        # if rank > rank_hyper:
-        #     combined_components = self.calc_wcorr(TS_comps, rank)
-        #     Components_df = self.components_to_df(combined_components, len(combined_components))
-        # else:
-        #     Components_df = self.components_to_df(TS_comps.T, rank)
+        components_df = self.components_to_df(TS_comps.T, rank)
 
         n_components = [x / sum(Sigma) * 100 for x in Sigma]
         n_components = n_components[:rank]
         explained_dispersion = sum(n_components)
         n_components = rank
 
-        return TS_comps, X_elem, V, Components_df, Wcorr, n_components, explained_dispersion
+        return TS_comps, X_elem, V, components_df, Wcorr, n_components, explained_dispersion
 
     def calc_wcorr(self, TS_comps, rank):
         """

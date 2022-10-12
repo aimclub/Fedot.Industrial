@@ -5,7 +5,6 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 import yaml
-from core.operation.utils.load_data import DataLoader
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
@@ -14,6 +13,7 @@ from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
 from core.models.statistical.QuantileRunner import StatsRunner
 from core.models.topological.TopologicalRunner import TopologicalRunner
+from core.operation.utils.load_data import DataLoader
 from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import path_to_save_results
 from core.operation.utils.utils import PROJECT_PATH
@@ -83,10 +83,10 @@ class Industrial:
 
     def _check_metric(self, n_classes):
         if n_classes > 2:
-            self.logger.info(f'NUMBER OF CLASSES IS {n_classes}. METRIC FOR OPTIMAZATION- F1')
+            self.logger.info('Metric for optimization - F1')
             return 'f1'
         else:
-            self.logger.info(f'NUMBER OF CLASSES IS {n_classes}. METRIC FOR OPTIMAZATION - ROC_AUC')
+            self.logger.info('Metric for optimization - ROC_AUC')
             return 'roc_auc'
 
     def read_yaml_config(self, config_name: str) -> None:
@@ -122,14 +122,13 @@ class Industrial:
         classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
                                              model_hyperparams=experiment_dict['fedot_params'],
                                              ecm_model_flag=experiment_dict['error_correction'])
-        # self.config_dict['datasets_list'] = cleaned_dataset_list
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-            self._check_window_sizes(dataset_name)
             try: # to load data
                 train_data, test_data = DataLoader(dataset_name).load_data()
                 self.logger.info(f'Loaded data from {dataset_name} dataset')
+                self._check_window_sizes(dataset_name, train_data)
             except Exception:
                 self.logger.error(f'Some problem with {dataset_name} data. Skip it')
                 continue
@@ -153,38 +152,36 @@ class Industrial:
                 predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
                 predict_on_train = classificator.predict_on_train()
 
-                n_ecm_cycles = experiment_dict['n_ecm_cycles']
+                # n_ecm_cycles = experiment_dict['n_ecm_cycles']
                 ecm_fedot_params = dict(problem='regression',
                                         seed=14,
                                         timeout=1,
                                         max_depth=10,
                                         max_arity=4,
                                         cv_folds=2,
-                                        stopping_after_n_generation=20,
                                         logging_level=20,
                                         n_jobs=4)
 
                 ecm_params = dict(n_classes=n_classes,
                                   dataset_name=dataset_name,
                                   save_models=False,
-                                  fedot_params=ecm_fedot_params,
-                                  n_cycles=n_ecm_cycles)
+                                  fedot_params=ecm_fedot_params)
                 ecm_results = [[]] * len(paths_to_save)
-                try:
-                    self.logger.info('START COMPOSE ECM')
-                    if self.config_dict['error_correction']:
+
+                if self.config_dict['error_correction']:
+                    try:
+                        self.logger.info('START COMPOSE ECM')
                         ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
                                                                                        results_on_test=x,
                                                                                        results_on_train=y,
                                                                                        train_data=(z, train_data[1]),
-                                                                                       test_data=(
-                                                                                           m, test_data[1])).run(),
+                                                                                       test_data=(m, test_data[1])).run(),
                                                predictions,
                                                predict_on_train,
                                                train_features,
                                                predictions))
-                except Exception:
-                    self.logger.info('ECM COMPOSE WAS FAILED')
+                    except Exception:
+                        self.logger.info('ECM COMPOSE WAS FAILED')
 
                 self.logger.info('SAVING RESULTS')
 
@@ -274,12 +271,6 @@ class Industrial:
                                     datetime_in_path=False)
         else:
             self.logger.info('Ensemble model cannot be saved due to applied SUM method ')
-
-    @staticmethod
-    def _get_ts_data(name_of_datasets):
-        all_data = list(map(lambda x: DataLoader().load_data(x), name_of_datasets))
-        train_data, test_data = [(x[0][0], x[1][0]) for x in all_data], [(x[0][1], x[1][1]) for x in all_data]
-        return train_data, test_data
 
     @staticmethod
     def _save_spectrum(classificator, path_to_save):

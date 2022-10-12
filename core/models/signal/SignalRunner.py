@@ -99,6 +99,7 @@ class SignalRunner(ExperimentRunner):
         Generate vector from time series.
 
         :param ts_frame: time series dataframe
+        :param method_name: method name
         :return:
         """
         start = timeit.default_timer()

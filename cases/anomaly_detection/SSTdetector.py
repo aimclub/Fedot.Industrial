@@ -1,13 +1,10 @@
 import numpy as np
-from numba import jit
+import pandas as pd
 from scipy.spatial import distance_matrix
 from sklearn.preprocessing import MinMaxScaler
+
 from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
-import pandas as pd
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-
-
-# from .util.linear_algebra import power_method, lanczos, eig_tridiag
 
 
 class SingularSpectrumTransformation:
@@ -48,8 +45,7 @@ class SingularSpectrumTransformation:
 
     def score_offline_2d(self, dynamic_mode: bool = True):
         if not self.is_scaled:
-            x_scaled = MinMaxScaler(feature_range=(1, 2)) \
-                           .fit_transform(self.ts.reshape(-1, 1))[:, 0]
+            x_scaled = MinMaxScaler(feature_range=(1, 2)).fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
         score = self._score_offline_2d(dynamic_mode=dynamic_mode)
@@ -58,8 +54,7 @@ class SingularSpectrumTransformation:
 
     def score_offline_2d_average(self, dynamic_mode: bool = True):
         if not self.is_scaled:
-            x_scaled = MinMaxScaler(feature_range=(1, 2)) \
-                           .fit_transform(self.ts.reshape(-1, 1))[:, 0]
+            x_scaled = MinMaxScaler(feature_range=(1, 2)).fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
         score = self._score_offline_2d_average(dynamic_mode=dynamic_mode)
@@ -113,7 +108,6 @@ class SingularSpectrumTransformation:
             # first_features = np.asarray(first_features)
             # first_features = np.reshape(first_features, (len(self.ts),7))
 
-            from scipy.spatial import distance
             for current_index in range(start_idx, end_idx, step):
                 # print('TEST_matrix_at_idx: {} - {}'.format(start_idx_test, end_idx_test))
                 current_window = self._get_window_from_ts_complex(self.ts, current_index, current_index + step)
@@ -171,7 +165,6 @@ class SingularSpectrumTransformation:
 
                 start_idx_test = t - self.ts_window_length
                 end_idx_test = t
-                # print('TEST_matrix_at_idx: {} - {}'.format(start_idx_test, end_idx_test))
                 current_window = self._get_window_from_ts_complex(self.ts, t, t + self.ts_window_length)
                 current_features = self._get_features_vector_from_window(current_window)
                 current_features = np.asarray(current_features)
@@ -225,7 +218,6 @@ class SingularSpectrumTransformation:
         # p = np.ptp(first_features)
         # n = np.nanmean(first_features)
         # first_matrix_metrics = np.asarray([q, m, p, n])
-        from scipy.spatial import distance
         for current_index in range(start_idx, end_idx, step):
             # print('TEST_matrix_at_idx: {} - {}'.format(start_idx_test, end_idx_test))
             current_window = self._get_window_from_ts_complex(self.ts, current_index, current_index + step)

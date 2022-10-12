@@ -29,7 +29,8 @@ class PersistenceDiagramsExtractor:
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
         self.parallel_ = parallel
-        self.n_job = -1 if self.parallel_ else None
+        # self.n_job = -1 if self.parallel_ else None
+        self.n_job = None
 
     def takens_embeddings_(self, data):
         te = TakensEmbedding(dimension=self.tokens_embedding_dim_,
