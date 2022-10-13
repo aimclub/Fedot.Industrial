@@ -1,6 +1,6 @@
 feature_generator: [
-  'window_quantile',
-  'quantile',
+#  'window_quantile',
+#  'quantile',
   'spectral_window',
   'spectral',
   'wavelet',
@@ -11,13 +11,11 @@ feature_generator: [
 ]
 error_correction: False
 n_ecm_cycles: 3
-use_cache: False
 
 datasets_list: [
-  'Lightning7',
-#  'Coffee',
 #  'Lightning7',
-#  'UMD',
+  'UMD',
+
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',
@@ -93,6 +91,16 @@ feature_generator_params: {
       },
     },
 
+  'topological': {
+    topological_params:
+      {
+        'max_simplex_dim': 2,
+        'epsilon': 100,
+        'persistence_params': None,
+        'window_length': 6
+      },
+  },
+
   'ensemble': {
     'list_of_generators': { }
   }
@@ -102,7 +110,7 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 15,
+    'timeout': 1,
     'max_depth': 10,
     'max_arity': 4,
     'cv_folds': 2,
