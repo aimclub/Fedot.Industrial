@@ -28,7 +28,7 @@ class Industrial:
 
     def __init__(self):
         self.config_dict = None
-        self.logger = Logger().get_logger()
+        self.logger = Logger.__call__().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
@@ -140,10 +140,13 @@ class Industrial:
             self.logger.info(f'{n_classes} classes detected')
 
             for runner_name, runner in experiment_dict['feature_generator'].items():
+
+
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
                                                      model_hyperparams=experiment_dict['fedot_params'],
                                                      ecm_model_flag=experiment_dict['error_correction'])
+                classificator.feature_generator_params = self.config_dict['feature_generator_params']
                 classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
 
                 for launch in range(1, launches + 1):
