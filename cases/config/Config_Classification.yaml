@@ -1,11 +1,11 @@
 feature_generator: [
 #  'window_quantile',
 #  'quantile',
-#  'spectral_window',
-#  'spectral',
-#  'wavelet',
+  'spectral_window',
+  'spectral',
+  'wavelet',
   'recurrence',
-#  'topological'
+  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
@@ -15,6 +15,7 @@ n_ecm_cycles: 3
 datasets_list: [
 #  'Lightning7',
   'UMD',
+
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',
@@ -114,7 +115,7 @@ fedot_params:
     'max_arity': 4,
     'cv_folds': 2,
     'logging_level': 20,
-    'n_jobs': 4
+    'n_jobs': 2
   }
 task: 'classification'
 logger: 'logger'
