@@ -41,6 +41,9 @@ class Industrial:
 
     def _init_experiment_setup(self, config_name):
         self.read_yaml_config(config_name=config_name)
+        for dataset_name in self.config_dict['datasets_list']:
+            train_data, _ = DataLoader(dataset_name).load_data()
+            self._check_window_sizes(dataset_name=dataset_name, train_data=train_data)
         experiment_dict = copy.deepcopy(self.config_dict)
 
         experiment_dict['feature_generator'].clear()
@@ -128,7 +131,6 @@ class Industrial:
             try: # to load data
                 train_data, test_data = DataLoader(dataset_name).load_data()
                 self.logger.info(f'Loaded data from {dataset_name} dataset')
-                self._check_window_sizes(dataset_name, train_data)
             except Exception:
                 self.logger.error(f'Some problem with {dataset_name} data. Skip it')
                 continue

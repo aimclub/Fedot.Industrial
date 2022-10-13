@@ -13,7 +13,8 @@ error_correction: False
 n_ecm_cycles: 3
 
 datasets_list: [
-  'Lightning7',
+#  'Lightning7',
+  'UMD',
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',
