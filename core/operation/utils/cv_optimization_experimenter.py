@@ -65,9 +65,11 @@ class OptimizationExperimenter:
             dataset, **dataset_params
         )
         self.model = MODELS[model](num_classes=self.num_classes, **model_params)
-        self.default_size = self.size_of_model()
-        self.default_n_params = self.number_of_params()
-        print("Default size: {:.2f} MB".format(self.default_size))
+        self.default_scores = {
+            "size": self.size_of_model(),
+            "n_params": self.number_of_params(),
+        }
+        print("Default size: {:.2f} MB".format(self.default_scores["size"]))
         self.target_loss = target_loss(**loss_params)
         self.models_path = models_saving_path
         self.summary_per_class = summary_per_class
@@ -78,7 +80,8 @@ class OptimizationExperimenter:
         self.init_model_optimizer(**model_optimizer_params)
         self.model.to(self.device)
         self.optimizer = optimizer(self.model.parameters(), **optimizer_params)
-        self.writer = SummaryWriter(os.path.join(summary_path, self.exp_description))
+        self.summary_path = os.path.join(summary_path, self.exp_description)
+        self.writer = SummaryWriter(self.summary_path)
         print("{}, using device: {}".format(self.exp_description, self.device))
 
     def init_model_optimizer(self) -> None:
@@ -161,11 +164,11 @@ class OptimizationExperimenter:
             val_scores.update({"per_class/{}".format(i): s for i, s in enumerate(f1s)})
         return val_scores
 
-    def save_model(self) -> None:
+    def save_model(self, postfix: str = "") -> None:
         file_path = os.path.join(self.models_path, self.exp_description)
         dir_path = "/".join(file_path.split("/")[:-1])
         os.makedirs(dir_path, exist_ok=True)
-        torch.save(self.model.state_dict(), file_path + ".pt")
+        torch.save(self.model.state_dict(), file_path + postfix + ".pt")
         if self.progress:
             print("Model saved.")
 
@@ -208,42 +211,54 @@ class SVDOptimizationExperimenter(OptimizationExperimenter):
         )
 
     def final_optimize(self) -> None:
+        ft_writer = SummaryWriter(self.summary_path + "_fine-tuned")
         self.summary_per_class = False
         self.load_model()
         default_model = copy.deepcopy(self.model)
-        default_scores = self.val_loop()
+        self.default_scores.update(self.val_loop())
 
         for e in self.energy_thresholds:
-            int_e = e * 100000
+            int_e = int(e * 100000)
             self.model = copy.deepcopy(default_model)
-
             start = time.time()
             self.prune_model(e)
             pruning_time = time.time() - start
-
-            val_scores = self.val_loop()
-            size = self.size_of_model()
-            n_params = self.number_of_params()
-
             self.writer.add_scalar("abs(e)/pruning_time", pruning_time, int_e)
-            self.writer.add_scalar("abs(e)/size_MB", size, int_e)
+            self.optimization_summary(e=int_e, writer=self.writer)
+            self.finetune(e=e, num_epochs=5)
+            self.optimization_summary(e=int_e, writer=ft_writer)
+            self.save_model(postfix="_e-{}".format(e))
 
-            size_p = size / self.default_size * 100
-            n_params_p = n_params / self.default_n_params * 100
-
-            self.writer.add_scalar("percentage(e)/size", size_p, int_e)
-            self.writer.add_scalar("percentage(e)/number_of_params", n_params_p, int_e)
-
-            for score in val_scores:
-                score_p = val_scores[score] / default_scores[score] * 100
-                delta_score = val_scores[score] - default_scores[score]
-                self.writer.add_scalar("percentage(e)/{}".format(score), score_p, int_e)
-                self.writer.add_scalar("delta(e)/{}".format(score), delta_score, int_e)
-
-    def prune_model(self, e):
+    def prune_model(self, e) -> None:
         for module in self.model.modules():
             if isinstance(module, DecomposedConv2d):
                 energy_threshold_pruning(conv=module, energy_threshold=e)
+
+    def optimization_summary(self, e: int, writer: SummaryWriter) -> None:
+        val_scores = self.val_loop()
+        val_scores["size"] = self.size_of_model()
+        val_scores["n_params"] = self.number_of_params()
+        for key, score in val_scores.items():
+            score_p = score / self.default_scores[key] * 100
+            delta_score = score - self.default_scores[key]
+            key = key.split("/")[-1]
+            writer.add_scalar("abs(e)/{}".format(key), score, e)
+            writer.add_scalar("percentage(e)/{}".format(key), score_p, e)
+            writer.add_scalar("delta(e)/{}".format(key), delta_score, e)
+
+    def finetune(self, e: float, num_epochs: int) -> None:
+        writer = SummaryWriter(self.summary_path + "_e-{}".format(e))
+        print("Fine-tuning {}".format(self.exp_description) + "_e-{}".format(e))
+        for epoch in range(1, num_epochs+1):
+            if self.progress:
+                print("Fine-tuning epoch {}".format(epoch))
+            train_scores = super().train_loop()
+            for key, score in train_scores.items():
+                writer.add_scalar("fine-tuning_{}".format(key), score, epoch)
+            val_scores = self.val_loop()
+            for key, score in val_scores.items():
+                writer.add_scalar("fine-tuning_{}".format(key), score, epoch)
+        writer.close()
 
     def train_loop(self) -> (Dict[str, float]):
         self.model.train()
