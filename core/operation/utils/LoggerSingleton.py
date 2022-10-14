@@ -32,22 +32,22 @@ class Logger(object, metaclass=SingletonMetaLogger):
         self._logger.setLevel(logging.INFO)
         self._logger.propagate = False
 
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        # formatter = CustomFormatter()
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s",
+                                      "%Y-%m-%d %H:%M:%S")
         now = datetime.datetime.now()
         dirname = os.path.join(PROJECT_PATH, 'log')
 
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
-        fileHandler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d")+".log")
+        file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log")
 
-        streamHandler = logging.StreamHandler()
+        stream_handler = logging.StreamHandler()
 
-        fileHandler.setFormatter(formatter)
-        streamHandler.setFormatter(formatter)
+        file_handler.setFormatter(formatter)
+        stream_handler.setFormatter(formatter)
 
-        self._logger.addHandler(fileHandler)
-        self._logger.addHandler(streamHandler)
+        self._logger.addHandler(file_handler)
+        self._logger.addHandler(stream_handler)
 
     def get_logger(self):
         return self._logger
