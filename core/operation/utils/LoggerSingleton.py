@@ -39,16 +39,14 @@ class Logger(object, metaclass=SingletonMetaLogger):
 
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
-        file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log",
-                                           delay=True,
-                                           mode='w')
+        file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log")
 
         stream_handler = logging.StreamHandler()
 
         file_handler.setFormatter(formatter)
         stream_handler.setFormatter(formatter)
 
-        # self._logger.addHandler(file_handler)
+        self._logger.addHandler(file_handler)
         self._logger.addHandler(stream_handler)
 
     def get_logger(self):
