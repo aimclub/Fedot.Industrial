@@ -36,6 +36,7 @@ class Logger(object, metaclass=SingletonMetaLogger):
         # logging.basicConfig(filename=log_path)
         self._logger = logging.getLogger('FEDOT-TSC')
         self._logger.setLevel(logging.INFO)
+        self._logger.propagate = False
 
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
