@@ -1,5 +1,3 @@
-from typing import Union
-
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
@@ -69,12 +67,9 @@ class TimeSeriesClassifier:
         metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
                                                                predicted_labels=prediction_label,
                                                                predicted_probs=prediction_proba)
-        metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
-                                                               predicted_labels=prediction_label,
-                                                               predicted_probs=prediction_proba)
 
         return dict(prediction=prediction_label, predictions_proba=prediction_proba,
-                    metrics=metrics_dict, test_features=features)
+                    metrics=metrics_dict, test_features=feature_list)
 
     def predict_on_train(self) -> ndarray:
         return self.predictor.predict_proba(self.train_features)
