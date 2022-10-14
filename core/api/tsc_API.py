@@ -128,10 +128,6 @@ class Industrial:
         experiment_dict = self._init_experiment_setup(config_name)
         launches = self.config_dict['launches']
 
-        # classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
-        #                                      model_hyperparams=experiment_dict['fedot_params'],
-        #                                      ecm_model_flag=experiment_dict['error_correction'])
-
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
             try:  # to load data
@@ -145,7 +141,6 @@ class Industrial:
             self.logger.info(f'{n_classes} classes detected')
 
             for runner_name, runner in experiment_dict['feature_generator'].items():
-
 
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
