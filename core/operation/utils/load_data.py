@@ -14,50 +14,48 @@ from core.operation.utils.utils import PROJECT_PATH
 class DataLoader:
     """
     Class for reading data from tsv files and downloading from UCR archive if not found.
-        :param dataset_name: name of dataset.
+    :param dataset_name: name of dataset
     """
 
     def __init__(self, dataset_name: str):
         self.logger = Logger().get_logger()
         self.dataset_name = dataset_name
 
-    def load_data(self) -> tuple:
+    def load_data(self) -> ((pd.DataFrame, np.ndarray), (pd.DataFrame, np.ndarray)):
         """
         Load data for classification experiment locally or externally from UCR archive.
         :return: (x_train, y_train) - pandas dataframes and (x_test, y_test) - numpy arrays
         """
         dataset_name = self.dataset_name
         self.logger.info(f'Reading {dataset_name} data locally')
-        train_data, test_data = self.read_tsv(dataset_name)
+        (X_train, y_train), (X_test, y_test) = self.read_tsv(dataset_name)
 
-        if train_data is None:
+        if X_train is None:
             self.logger.info(f'Dataset {dataset_name} not found in data folder. Downloading...')
 
             # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
             download_path = cache_path + 'downloads/'
             temp_data_path = cache_path + 'temp_data/'
-            filename = 'temp_data_{}'.format(dataset_name)
+            filename = 'tempdata_{}'.format(dataset_name)
             for _ in (download_path, temp_data_path):
-                os.makedirs(_, exist_ok=True)
+                if not os.path.exists(_):
+                    os.makedirs(_)
 
             url = f"http://www.timeseriesclassification.com/Downloads/{dataset_name}.zip"
             request.urlretrieve(url, download_path + filename)
+
+            zipfile.ZipFile(download_path + filename).extractall(temp_data_path)
+
             try:
-                zipfile.ZipFile(download_path + filename).extractall(temp_data_path)
-            except zipfile.BadZipFile:
-                self.logger.error(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
-                return None, None
+                self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
+                (X_train, y_train), (X_test, y_test) = self.unzip_data(dataset_name, temp_data_path)
+            finally:
+                shutil.rmtree(cache_path)
 
-            self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
-            train_data, test_data = self.extract_data(dataset_name, temp_data_path)
+        return (X_train, y_train), (X_test, y_test)
 
-            shutil.rmtree(cache_path)
-            return train_data, test_data
-
-        return train_data, test_data
-
-    def extract_data(self, dataset_name: str, temp_data_path: str):
+    def unzip_data(self, dataset_name: str, temp_data_path: str):
         """
         Unpacks data from downloaded file and saves it into Data folder with .tsv extension.
         :param dataset_name: name of dataset
@@ -67,15 +65,30 @@ class DataLoader:
 
         # If data unpacked as .txt file
         if os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.txt'):
-            x_test, x_train, y_test, y_train = self.read_txt(dataset_name, temp_data_path)
+            data_train = np.genfromtxt(temp_data_path + '/' + dataset_name + '_TRAIN.txt')
+            data_test = np.genfromtxt(temp_data_path + '/' + dataset_name + '_TEST.txt')
+
+            X_train, y_train = data_train[:, 1:], data_train[:, 0]
+            X_test, y_test = data_test[:, 1:], data_test[:, 0]
 
         # If data unpacked as .arff file
         elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.arff'):
-            x_test, x_train, y_test, y_train = self.read_arff(dataset_name, temp_data_path)
+            train = loadarff(temp_data_path + dataset_name + '_TRAIN.arff')
+            test = loadarff(temp_data_path + dataset_name + '_TEST.arff')
+            try:
+                data_train = np.asarray([train[0][name] for name in train[1].names()])
+                X_train = data_train[:-1].T.astype('float64')
+                y_train = data_train[-1]
+
+                data_test = np.asarray([test[0][name] for name in test[1].names()])
+                X_test = data_test[:-1].T.astype('float64')
+                y_test = data_test[-1]
+            except Exception:
+                X_train, y_train = self.load_rearff(temp_data_path + dataset_name + '_TRAIN.arff')
+                X_test, y_test = self.load_rearff(temp_data_path + dataset_name + '_TEST.arff')
 
         else:
             self.logger.error('Data unpacking error')
-            return None, None
 
         # Conversion of target values to int or str
         try:
@@ -92,39 +105,14 @@ class DataLoader:
 
         self.logger.info(f'Saving {dataset_name} data to tsv files')
         for subset in ('TRAIN', 'TEST'):
-            df = pd.DataFrame(x_train if subset == 'TRAIN' else x_test)
+            df = pd.DataFrame(X_train if subset == 'TRAIN' else X_test)
             df.insert(0, 'class', y_train if subset == 'TRAIN' else y_test)
             df.to_csv(os.path.join(data_path, f'{dataset_name}_{subset}.tsv'), sep='\t', index=False, header=False)
 
         del df
-        return (pd.DataFrame(x_train), y_train), (pd.DataFrame(x_test), y_test)
+        return (pd.DataFrame(X_train), y_train), (pd.DataFrame(X_test), y_test)
 
-    def read_arff(self, dataset_name, temp_data_path):
-        train = loadarff(temp_data_path + dataset_name + '_TRAIN.arff')
-        test = loadarff(temp_data_path + dataset_name + '_TEST.arff')
-        try:
-            data_train = np.asarray([train[0][name] for name in train[1].names()])
-            x_train = data_train[:-1].T.astype('float64')
-            y_train = data_train[-1]
-
-            data_test = np.asarray([test[0][name] for name in test[1].names()])
-            x_test = data_test[:-1].T.astype('float64')
-            y_test = data_test[-1]
-        except Exception:
-            x_train, y_train = self.load_re_arff(temp_data_path + dataset_name + '_TRAIN.arff')
-            x_test, y_test = self.load_re_arff(temp_data_path + dataset_name + '_TEST.arff')
-        return x_test, x_train, y_test, y_train
-
-    @staticmethod
-    def read_txt(dataset_name, temp_data_path):
-        data_train = np.genfromtxt(temp_data_path + '/' + dataset_name + '_TRAIN.txt')
-        data_test = np.genfromtxt(temp_data_path + '/' + dataset_name + '_TEST.txt')
-        x_train, y_train = data_train[:, 1:], data_train[:, 0]
-        x_test, y_test = data_test[:, 1:], data_test[:, 0]
-        return x_test, x_train, y_test, y_train
-
-    @staticmethod
-    def read_tsv(file_name: str):
+    def read_tsv(self, file_name: str):
         """
         Read tsv file that contains data for classification experiment. Data must be placed
         in 'data' folder with .tsv extension.
@@ -132,16 +120,18 @@ class DataLoader:
         :return: (x_train, x_test) - pandas dataframes and (y_train, y_test) - numpy arrays
         """
         try:
-            df_train = pd.read_csv(os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TRAIN.tsv'),
-                                   sep='\t',
-                                   header=None)
+            df_train = pd.read_csv(
+                os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TRAIN.tsv'),
+                sep='\t',
+                header=None)
 
             x_train = df_train.iloc[:, 1:]
             y_train = df_train[0].values
 
-            df_test = pd.read_csv(os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TEST.tsv'),
-                                  sep='\t',
-                                  header=None)
+            df_test = pd.read_csv(
+                os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TEST.tsv'),
+                sep='\t',
+                header=None)
 
             x_test = df_test.iloc[:, 1:]
             y_test = df_test[0].values
@@ -149,52 +139,42 @@ class DataLoader:
 
             return (x_train, y_train), (x_test, y_test)
         except FileNotFoundError:
-            return None, None
+            return (None, None), (None, None)
 
-    @staticmethod
-    def load_re_arff(data):
-        x_data = np.asarray(data[0])
-        n_samples = len(x_data)
-        x_ls, y_ls = [], []
+    def load_rearff(self, data):
+        X_data = np.asarray(data[0])
+        n_samples = len(X_data)
+        X, y = [], []
 
-        if x_data[0][0].dtype.names is None:
+        if X_data[0][0].dtype.names is None:
             for i in range(n_samples):
-                x_sample = np.asarray([x_data[i][name] for name in x_data[i].dtype.names])
-                x_ls.append(x_sample.T)
-                y_ls.append(x_data[i][1])
+                X_sample = np.asarray([X_data[i][name] for name in X_data[i].dtype.names])
+                X.append(X_sample.T)
+                y.append(X_data[i][1])
         else:
             for i in range(n_samples):
-                x_sample = np.asarray([x_data[i][0][name] for name in x_data[i][0].dtype.names])
-                x_ls.append(x_sample.T)
-                y_ls.append(x_data[i][1])
+                X_sample = np.asarray([X_data[i][0][name] for name in X_data[i][0].dtype.names])
+                X.append(X_sample.T)
+                y.append(X_data[i][1])
 
-        x_arr = np.asarray(x_ls).astype('float64')
-        y_arr = np.asarray(y_ls)
+        X = np.asarray(X).astype('float64')
+        y = np.asarray(y)
 
         try:
-            y_arr = y_arr.astype('float64').astype('int64')
+            y = y.astype('float64').astype('int64')
         except ValueError:
-            y_arr = y_arr.astype(str)
+            y = y.astype(str)
 
-        return x_arr, y_arr
+        return X, y
 
 
 # Example of usage
 if __name__ == '__main__':
-    ds_name = [
-        'DodgerLoopDay',
-        'Beef',
-        'Coffee',
-        'SonyAIBORobotSurface1',
-        'SonyAIBORobotSurface122',  # fake dataset
-        'Lightning7',
-        'UMD',
-    ]
-
+    ds_name = ['Lightning7',
+               'Earthquakes',
+               'EthanolLevel',
+               'Beef',
+               'Wafer']
     for ds in ds_name:
         loader = DataLoader(ds)
-        train, test = loader.load_data()
-        if train:
-            print(f'{ds} train: {train[0].shape}, test: {test[0].shape}')
-        else:
-            continue
+        x = loader.load_data()

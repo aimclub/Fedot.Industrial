@@ -123,10 +123,6 @@ class Industrial:
         experiment_dict = self._init_experiment_setup(config_name)
         launches = self.config_dict['launches']
 
-        # classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
-        #                                      model_hyperparams=experiment_dict['fedot_params'],
-        #                                      ecm_model_flag=experiment_dict['error_correction'])
-
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
             try:  # to load data
@@ -140,7 +136,6 @@ class Industrial:
             self.logger.info(f'{n_classes} classes detected')
 
             for runner_name, runner in experiment_dict['feature_generator'].items():
-
 
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
@@ -163,8 +158,6 @@ class Industrial:
                                                         test_data,
                                                         dataset_name)
 
-                    # n_ecm_cycles = experiment_dict['n_ecm_cycles']
-                    # ecm_results = [[]] * len(paths_to_save)
                     if self.config_dict['error_correction']:
                         predict_on_train = classificator.predict_on_train()
                         ecm_fedot_params = experiment_dict['fedot_params']
@@ -184,17 +177,6 @@ class Industrial:
                                                                train_data=train_data,
                                                                test_data=test_data,
                                                                ).run()
-                            # ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
-                            #                                                                results_on_test=x,
-                            #                                                                results_on_train=y,
-                            #                                                                train_data=(
-                            #                                                                z, train_data[1]),
-                            #                                                                test_data=(
-                            #                                                                m, test_data[1])).run(),
-                            #                        predictions,
-                            #                        predict_on_train,
-                            #                        train_features,
-                            #                        predictions))
                         except Exception:
                             self.logger.info('ECM COMPOSE WAS FAILED')
                     else:
@@ -202,7 +184,6 @@ class Industrial:
 
                     self.logger.info('SAVING RESULTS')
 
-                    # for i in range(len(paths_to_save)):
                     self.save_results(train_target=train_data[1],
                                       test_target=test_data[1],
                                       path_to_save=paths_to_save,
@@ -232,7 +213,6 @@ class Industrial:
         if not os.path.exists(path_results):
             os.makedirs(path_results)
         try:
-            # for predictor in fitted_predictor:
             fitted_predictor.current_pipeline.save(path_results)
         except Exception as ex:
             self.logger.error(f'Can not save pipeline: {ex}')
@@ -245,8 +225,6 @@ class Industrial:
 
         for name, features in zip(features_names, features_list):
             pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
-
-        # _ = list(map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)
