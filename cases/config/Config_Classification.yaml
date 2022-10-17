@@ -16,6 +16,8 @@ use_cache: False
 datasets_list: [
   'Lightning7',
 #  'Coffee',
+#  'Lightning7',
+#  'UMD',
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',

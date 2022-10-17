@@ -55,7 +55,6 @@ class DataLoader:
 
         return (X_train, y_train), (X_test, y_test)
 
-
     def unzip_data(self, dataset_name: str, temp_data_path: str):
         """
         Unpacks data from downloaded file and saves it into Data folder with .tsv extension.
@@ -136,7 +135,7 @@ class DataLoader:
 
             x_test = df_test.iloc[:, 1:]
             y_test = df_test[0].values
-            x_test, y_test = x_test.astype(int), y_test.astype(int)
+            y_train, y_test = y_train.astype(int), y_test.astype(int)
 
             return (x_train, y_train), (x_test, y_test)
         except FileNotFoundError:
