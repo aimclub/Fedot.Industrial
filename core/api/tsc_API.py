@@ -60,7 +60,6 @@ class Industrial:
 
             else:
                 feature_gen_class = self.get_generator_class(experiment_dict, generator)
-
                 experiment_dict['feature_generator'].update(feature_gen_class)
 
         return experiment_dict
@@ -71,12 +70,8 @@ class Industrial:
         :return: dictionary with the name of the generator and its parameters
         """
         feature_gen_model = self.feature_generator_dict[gen_name]
-        try:
-            feature_gen_params = experiment_dict['feature_generator_params'][gen_name]
-        except KeyError:
-            feature_gen_params = dict()
-        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params,
-                                                         use_cache=self.use_cache)}
+        feature_gen_params = experiment_dict['feature_generator_params'].get(gen_name, dict())
+        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
         return feature_gen_class
 
     def _check_window_sizes(self, dataset_name, train_data):
