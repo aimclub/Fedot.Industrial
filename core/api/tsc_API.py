@@ -146,17 +146,11 @@ class Industrial:
 
                 for launch in range(1, launches + 1):
                     self.logger.info(f'START LAUNCH {launch}')
-                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
-
                     self.logger.info('START TRAINING')
-                    fitted_results = classificator.fit(train_data, dataset_name)
-                    fitted_predictor = fitted_results['predictor']
-                    train_features = fitted_results['train_features']
+                    fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
                     self.logger.info('START PREDICTION')
-                    predictions = classificator.predict(fitted_predictor,
-                                                        test_data,
-                                                        dataset_name)
+                    predictions = classificator.predict(test_data, dataset_name)
 
                     if self.config_dict['error_correction']:
                         predict_on_train = classificator.predict_on_train()
@@ -183,6 +177,7 @@ class Industrial:
                         ecm_results = None
 
                     self.logger.info('SAVING RESULTS')
+                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
                     self.save_results(train_target=train_data[1],
                                       test_target=test_data[1],
