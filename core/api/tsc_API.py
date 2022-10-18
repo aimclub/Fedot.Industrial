@@ -137,6 +137,7 @@ class Industrial:
             self.logger.info(f'{n_classes} classes detected')
 
             for runner_name, runner in experiment_dict['feature_generator'].items():
+                self.logger.info(f'{runner_name} runner is on duty')
 
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
@@ -177,7 +178,7 @@ class Industrial:
                     else:
                         ecm_results = None
 
-                    self.logger.info('SAVING RESULTS')
+                    self.logger.info('*------------SAVING RESULTS------------*')
                     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
                     self.save_results(train_target=train_data[1],
