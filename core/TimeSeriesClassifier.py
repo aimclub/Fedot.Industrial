@@ -22,6 +22,7 @@ class TimeSeriesClassifier:
                  generator_runner: ExperimentRunner,
                  model_hyperparams: dict,
                  ecm_model_flag: False):
+        self.predictor = None
         self.y_train = None
         self.predictor_list = None
         self.train_features = None
@@ -52,17 +53,17 @@ class TimeSeriesClassifier:
         fedot_model.fit(features, target)
         return fedot_model
 
-    def fit(self, train_tuple: tuple, dataset_name: str) -> dict:
+    def fit(self, train_tuple: tuple, dataset_name: str) -> tuple:
         self.y_train = train_tuple[1]
         self.train_features = self.generator_runner.extract_features(train_tuple[0], dataset_name)
         self.predictor = self._fit_fedot_model(self.train_features, train_tuple[1])
 
-        return dict(predictor=self.predictor, train_features=self.train_features)
+        return self.predictor, self.train_features
 
-    def predict(self, predictor, test_tuple, dataset_name) -> dict:
+    def predict(self, test_tuple, dataset_name) -> dict:
         features = self.generator_runner.extract_features(test_tuple[0], dataset_name)
-        prediction_label = predictor.predict(features)
-        prediction_proba = predictor.predict_proba(features)
+        prediction_label = self.predictor.predict(features)
+        prediction_proba = self.predictor.predict_proba(features)
         metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
                                                                predicted_labels=prediction_label,
                                                                predicted_probs=prediction_proba)
