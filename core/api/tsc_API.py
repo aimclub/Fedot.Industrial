@@ -130,10 +130,11 @@ class Industrial:
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-            try:  # to load data
-                train_data, test_data = DataLoader(dataset_name).load_data()
-                self.logger.info(f'Loaded data from {dataset_name} dataset')
-            except Exception:
+
+            # load data
+            train_data, test_data = DataLoader(dataset_name).load_data()
+            self.logger.info(f'Loaded data from {dataset_name} dataset')
+            if train_data is None:
                 self.logger.error(f'Some problem with {dataset_name} data. Skip it')
                 continue
 
