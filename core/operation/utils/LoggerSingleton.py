@@ -39,7 +39,9 @@ class Logger(object, metaclass=SingletonMetaLogger):
 
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
-        file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log")
+        file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log",
+                                           delay=True,
+                                           mode='w')
 
         stream_handler = logging.StreamHandler()
 
