@@ -200,18 +200,21 @@ class SVDOptimizationExperimenter(OptimizationExperimenter):
             hoer_loss_factor: float,
             orthogonal_loss_factor: float,
             energy_thresholds: List[float],
+            finetuning_epochs: int,
     ) -> None:
         decompose_module(model=self.model, decomposing_mode=decomposing_mode)
         print("SVD decomposed size: {:.2f} MB".format(self.size_of_model()))
         self.hoer_loss = HoyerLoss(hoer_loss_factor)
         self.orthogonal_loss = OrthogonalLoss(self.device, orthogonal_loss_factor)
         self.energy_thresholds = energy_thresholds
+        self.finetuning_epochs = finetuning_epochs
         self.exp_description += "SVD_{}_O-{:.1f}_H-{:.6f}".format(
             decomposing_mode, orthogonal_loss_factor, hoer_loss_factor
         )
 
     def final_optimize(self) -> None:
         ft_writer = SummaryWriter(self.summary_path + "_fine-tuned")
+        self.hoer_loss = HoyerLoss(factor=0)
         self.summary_per_class = False
         self.load_model()
         default_model = copy.deepcopy(self.model)
@@ -225,7 +228,7 @@ class SVDOptimizationExperimenter(OptimizationExperimenter):
             pruning_time = time.time() - start
             self.writer.add_scalar("abs(e)/pruning_time", pruning_time, int_e)
             self.optimization_summary(e=int_e, writer=self.writer)
-            self.finetune(e=e, num_epochs=5)
+            self.finetune(e=e)
             self.optimization_summary(e=int_e, writer=ft_writer)
             self.save_model(postfix="_e-{}".format(e))
 
@@ -246,13 +249,13 @@ class SVDOptimizationExperimenter(OptimizationExperimenter):
             writer.add_scalar("percentage(e)/{}".format(key), score_p, e)
             writer.add_scalar("delta(e)/{}".format(key), delta_score, e)
 
-    def finetune(self, e: float, num_epochs: int) -> None:
+    def finetune(self, e: float) -> None:
         writer = SummaryWriter(self.summary_path + "_e-{}".format(e))
         print("Fine-tuning {}".format(self.exp_description) + "_e-{}".format(e))
-        for epoch in range(1, num_epochs+1):
+        for epoch in range(1, self.finetuning_epochs+1):
             if self.progress:
                 print("Fine-tuning epoch {}".format(epoch))
-            train_scores = super().train_loop()
+            train_scores = self.train_loop()
             for key, score in train_scores.items():
                 writer.add_scalar("fine-tuning_{}".format(key), score, epoch)
             val_scores = self.val_loop()
