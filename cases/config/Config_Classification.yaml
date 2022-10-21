@@ -102,7 +102,7 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 1,
+    'timeout': 7,
     'max_depth': 10,
     'max_arity': 4,
     'cv_folds': 2,
