@@ -33,7 +33,7 @@ class ErrorCorrectionModel:
         self.dataset_name = dataset_name
         self.save_models = save_models
         self.fedot_params = fedot_params
-        self.train_feats, self.test_features = train_data[0], test_data[0]['test_features']
+        self.train_feats, self.test_features = train_data[0], test_data[0]
         self.y_train, self.y_test = train_data[1], test_data[1]
         self.analyzer = PerformanceAnalyzer()
 
@@ -81,7 +81,7 @@ class ErrorCorrectionModel:
         boosting_pipeline = self.genetic_boosting_pipeline
 
         _, model_list, ensemble_model = booster.fit()
-        results_on_test = boosting_pipeline(predictions_proba,
+        results_on_test = boosting_pipeline(self.results_on_test['prediction'],
                                             model_list,
                                             ensemble_model)
 
@@ -94,7 +94,7 @@ class ErrorCorrectionModel:
                                        'corrected_labels': self.proba_to_vector(results_on_test['corrected_labels'])})
 
         self.metrics_name = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
-        metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
+        metrics_boosting = self.analyzer.calculate_metrics(metric_list=self.metrics_name,
                                                            target=self.y_test,
                                                            predicted_labels=results_on_test['corrected_labels'],
                                                            predicted_probs=results_on_test['corrected_probs'])
