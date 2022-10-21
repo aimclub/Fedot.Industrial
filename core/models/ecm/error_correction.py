@@ -17,7 +17,7 @@ class Booster:
     :param features_train: X_train
     :param target_train: y_train
     :param base_predict: prediction, derived from main model (Quantile, Spectral, Topological, or Wavelet)
-    :param timeout: defines the amount of time to compose and tune main prediction model
+    :param timeout: defines the amount of time to compose and tune regression model
     :param threshold: parameter used as round boundary for custom_round() method
     :param n_cycles: number of boosting cycles
     :param reshape_flag: ...
@@ -53,7 +53,7 @@ class Booster:
         model_list = list()
 
         for i in range(self.n_cycles):
-            self.logger.info(f'Starting cycle {1+i} of boosting')
+            self.logger.info(f'Starting cycle {1 + i} of boosting')
             target_diff = self.decompose_target(previous_predict=self.ecm_predictions[i],
                                                 previous_target=self.ecm_targets[i])
             self.ecm_targets.append(target_diff)
@@ -70,11 +70,11 @@ class Booster:
         """
         Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
         """
-        fedot_model = Fedot(problem='regression',
-                            timeout=self.timeout,
-                            seed=42,
-                            logging_level=1,
-                            n_jobs=4)
+        fedot_model = Fedot(problem='regression', seed=42,
+                            timeout=self.timeout, max_depth=10,
+                            max_arity=4,
+                            cv_folds=2,
+                            logging_level=20, n_jobs=2)
 
         fedot_model.fit(self.X_train, target_diff)
         prediction = fedot_model.predict(self.X_train)

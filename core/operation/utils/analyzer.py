@@ -41,7 +41,7 @@ class PerformanceAnalyzer:
 
     def calculate_metrics(self,
                           target: list,
-                          metric_list: list = ['roc_auc', 'f1', 'precision', 'accuracy', 'logloss'],
+                          metric_list: list = ('roc_auc', 'f1', 'precision', 'accuracy', 'logloss'),
                           predicted_labels: list = None,
                           predicted_probs: list = None) -> Dict:
 
