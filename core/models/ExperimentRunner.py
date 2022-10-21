@@ -40,10 +40,14 @@ class ExperimentRunner:
     def extract_features(self, ts_data: pd.DataFrame,
                          dataset_name: str = None) -> pd.DataFrame:
         """
-        Wrapper method for feature extraction method get_features() with caching results
-        into pickle file
-        :param ts_data: dataframe with time series data
-        :param dataset_name: str dataset name
+        Wrapper method for feature extraction method get_features() with caching results into pickle file. The idea
+        is to create a unique pointer from dataset name, subsample (test or train) and feature generator object. We
+        can uniquely identify the generator in our case only using a set of parameters in the form of obj.__dict__,
+        while excluding some dynamic attributes. In this way we can create a hash of incoming data unique for each
+        case, and then associate it with the output data - the feature set.
+
+        :param ts_data: dataframe with time series data.
+        :param dataset_name: str dataset name :return: pd.DataFrame with extracted features
         :return: pd.DataFrame with extracted features
         """
         generator_name = self.__class__.__name__
@@ -72,7 +76,8 @@ class ExperimentRunner:
     @staticmethod
     def hash_info(dataframe, name, obj_info_dict):
         """
-        Method responsible for hashing information about initial dataset, its name and feature generator
+        Method responsible for hashing information about initial dataset, its name and feature generator.
+        It utilizes md5 hashing algorithm.
         :param dataframe: pd.DataFrame with time series data
         :param name: name
         :param obj_info_dict: obj.__dict__
@@ -90,6 +95,12 @@ class ExperimentRunner:
         return features
 
     def save_features_to_cache(self, hashed_data, features):
+        """
+        Method responsible for saving features to cache folder. It utilizes pickle format for saving data.
+
+        :param hashed_data: hashed string of unique pointer
+        :param features: pd.DataFrame with extracted features
+        """
         cache_folder = os.path.join(PROJECT_PATH, 'cache')
         generator_name = self.__class__.__name__
         cache_file = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_data + '.pkl')
@@ -112,6 +123,7 @@ class ExperimentRunner:
         """
         Method responsible for checking if there are any NaN values in the time series dataframe
         and replacing them with 0
+        
         :param ts: dataframe with time series data
         :return: dataframe with time series data without NaN values
         """
