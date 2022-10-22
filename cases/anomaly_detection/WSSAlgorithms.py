@@ -124,7 +124,7 @@ class WindowSizeSelection:
         stats_ts = [np.mean(self.time_series), np.std(self.time_series), np.var(self.time_series)]
         list_score = [self.suss_score(self.time_series, window_size, stats_ts)\
                       for window_size in range(self.window_min, self.window_max)]
-        window_size_selected = next(x[0] for x in enumerate(score_list) if x[1] > 0.89) + self.window_min
+        window_size_selected = next(x[0] for x in enumerate(list_score) if x[1] > 0.89) + self.window_min
         return window_size_selected, list_score
 
     def stats_diff(self, ts, window_size, stats_ts):
@@ -139,7 +139,7 @@ class WindowSizeSelection:
                   for i in range(self.length_ts)]
         stat_diff = [[(1/window_size)*np.sqrt((stats_ts[0]-stat_w[i][0])**2\
                                               + (stats_ts[1]-stat_w[i][1])**2\
-                                              + (stats_ts[2]-stat_w[i][2])**2)] for i in range(len(stats_w))]
+                                              + (stats_ts[2]-stat_w[i][2])**2)] for i in range(len(stat_w))]
         return np.mean(stat_diff)
 
     def suss_score(self, ts, window_size, stats_ts):
@@ -151,7 +151,6 @@ class WindowSizeSelection:
         s_min, s_max = self.stats_diff(ts, len(ts), stats_ts), self.stats_diff(ts, 1, stats_ts)
         score = self.stats_diff(ts, window_size, stats_ts)
         score_normalize = (score - s_min) / (s_max - s_min)
-        print(1 - score_normalize)
         return 1 - score_normalize
 
     def multi_window_finder(self):
