@@ -23,7 +23,7 @@ class MinMaxDetector(AbstractDetector):
         self.filtering = filtering
         self.inner_step = step
 
-        super().__init__('Vector Detector')
+        super().__init__(name='Vector Detector', operation='detection')
 
     def _do_analysis(self) -> None:
         for dataset in self.windowed_data:

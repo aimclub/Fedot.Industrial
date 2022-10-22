@@ -1,60 +1,44 @@
 import os
-import sys
 from datetime import datetime
 
 from tqdm import tqdm
 
-import_path = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(import_path)
-sys.path.append(os.path.join(import_path, "../../../"))
-from cases.anomaly_detection.clear_architecture.utils.get_time \
-    import get_current_time
-from cases.anomaly_detection.clear_architecture.utils.settings_args \
-    import SettingsArgs
-from cases.anomaly_detection.clear_architecture.utils.data_types \
-    import CLEAR_DATA
-
-"""
-init
-input_data
-run
-output_data
-set_settings
-
-{
-    data_type: <type>,
-    data_body: <main data>,
-    data_flags: <{dict of flags}>
-}
-"""
+from cases.anomaly_detection.clear_architecture.operations.AbstractDataOperation import AbstractDataOperation
+from cases.anomaly_detection.clear_architecture.utils.data_types import CLEAR_DATA
+from cases.anomaly_detection.clear_architecture.utils.get_time import time_now
+from cases.anomaly_detection.data.label_reader import read_labels_csv_from_file
 
 
-class DataReader:
-    args: SettingsArgs
-    data_path: str
-    labels_path: str
+class DataReader(AbstractDataOperation):
+    """
+    Data Reader class.
+        data_type: <type>,
+        data_body: <main data>,
+        data_flags: <{dict of flags}>
+    """
 
     def __init__(self, data_path, labels_path):
-        self.data_path = data_path
+        super().__init__(name="Data Reader", operation="data reading")
         self.labels_path = labels_path
 
-    def set_settings(self, args: SettingsArgs):
-        self.args = args
-        self._print_logs(f"{get_current_time()} Data loader: settings was set.")
-        self._print_logs(f"{get_current_time()} Data loader: Visualize = {self.args.visualize}")
-        self._print_logs(f"{get_current_time()} Data loader: Print logs = {self.args.print_logs}")
+        self.labels = None
+        self.refined_labels = None
+        self.refined_data = None
+        self.labels_for_show = None
+        self.all_labels = None
+        self.data_path = data_path
 
     def input_data(self, args=None) -> None:
-        self._print_logs(f"{get_current_time()} Data loader: Start reading...")
+        self._print_logs(f"{time_now()} {self.name}: Start reading...")
 
     def run(self) -> None:
         self.all_labels = ["N", "DIST", "Xu", "Yu", "Zu", "Xd", "Yd", "Zd", "Vu", "Vd", "LAT", "LNG", "Time", "Depth"]
-        self._print_logs(f"{get_current_time()} Data loader: Try to read labels...")
-        self.labels = self._read_labels_csv_from_file(self.labels_path)
-        self._print_logs(f"{get_current_time()} Data loader: Labels read successful!")
-        self._print_logs(f"{get_current_time()} Data loader: Try to read data...")
+        self._print_logs(f"{time_now()} {self.name}: Try to read labels...")
+        self.labels = read_labels_csv_from_file(self.labels_path)
+        self._print_logs(f"{time_now()} {self.name}: Labels read successful!")
+        self._print_logs(f"{time_now()} {self.name}: Try to read data...")
         self.refined_data, self.labels_for_show, self.refined_labels = self._read_data_csv_in_folder(self.data_path)
-        self._print_logs(f"{get_current_time()} Data loader: Data is ready!")
+        self._print_logs(f"{time_now()} {self.name}: Data is ready!")
 
     def output_data(self) -> dict:
         return dict(data_type=CLEAR_DATA,
@@ -65,46 +49,13 @@ class DataReader:
                                },
                     data_flags={})
 
-    def _read_labels_csv_from_file(self, filename: str) -> list:
-        temp_list = []
-        # in labels 5 columns
-        temp_list = [[], [], [], [], []]
-
-        with open(filename, 'r') as file:
-            lines = file.readlines()
-
-        for i in tqdm(range(0, len(lines), 1)):  # len(lines)-2
-            temp_line = lines[i].strip().split(";")
-            for j in range(len(temp_list)):
-                temp_list[j].append(temp_line[j])
-        out_list = []
-        current_filename = ""
-        temp_element = []
-        temp_anomalies_list = []
-        for i in range(len(temp_list[0])):
-            if current_filename == "":
-                current_filename = temp_list[0][i].strip()
-                temp_anomalies_list.append([temp_list[1][i], temp_list[2][i], temp_list[3][i], temp_list[4][i]])
-                continue
-            if current_filename != temp_list[0][i].strip():
-                temp_element = [current_filename, temp_anomalies_list]
-                out_list.append(temp_element)
-                current_filename = temp_list[0][i].strip()
-                temp_anomalies_list = []
-                temp_anomalies_list.append([temp_list[1][i], temp_list[2][i], temp_list[3][i], temp_list[4][i]])
-            else:
-                temp_anomalies_list.append([temp_list[1][i], temp_list[2][i], temp_list[3][i], temp_list[4][i]])
-        temp_element = [current_filename, temp_anomalies_list]
-        out_list.append(temp_element)
-        return out_list
-
     def _read_data_csv_in_folder(self, path_to_folder: str):
         files = []
-        self._print_logs(f"{get_current_time()} Data loader: Creating file list...")
+        self._print_logs(f"{time_now()} {self.name}: Creating file list...")
         for file in os.listdir(path_to_folder):
             if file.endswith(".CSV"):
                 files.append(os.path.join(self.data_path, file))
-        self._print_logs(f"{get_current_time()} Data loader: File list created! {len(files)} files found!")
+        self._print_logs(f"{time_now()} {self.name}: File list created! {len(files)} files found!")
         formatted_data = []
         formatted_labels = []
         labels_for_show = []
@@ -149,6 +100,5 @@ class DataReader:
             list_to_save.append(temp_arr)
         return list_to_save
 
-    def _print_logs(self, log_message: str) -> None:
-        if self.args.print_logs:
-            print(log_message)
+    def _do_analysis(self) -> None:
+        pass

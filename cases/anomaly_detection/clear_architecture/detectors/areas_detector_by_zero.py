@@ -21,7 +21,7 @@ class AreasDetectorByZero(AbstractDetector):
         self.filtering = filtering
         self.divider = divider_for_anomaly_len_influence
 
-        super().__init__(name="AreasDetectorByZero")
+        super().__init__(name="AreasDetectorByZero", operation="detection")
 
     def _do_analysis(self) -> None:
 

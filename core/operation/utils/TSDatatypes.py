@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import List
 
+import numpy as np
 import pandas as pd
 
 from core.operation.utils.analyzer import PerformanceAnalyzer
@@ -20,7 +21,11 @@ class AbstractObject(ABC):
 
 class FeatureList(AbstractObject):
     """
-    Class responsible for creation of feature list
+    Class responsible for creation of feature list.
+
+    :param list_of_generators: list of generators from config
+    :param data: pandas.DataFrame with train/test data
+    :param dataset_name: name of dataset
     """
 
     def __init__(self,
@@ -38,23 +43,33 @@ class FeatureList(AbstractObject):
 
 class PredictorList(AbstractObject):
     """
-    Class responsible for creation of predictors list
+    Class responsible for creation of predictors list.
+
+    :param train_labels_set: numpy.ndarray with train labels
+    :param feature_list: list of pandas.DataFrame with features
+    :param operation: callable function (fitting Fedot model)
     """
 
-    def __init__(self, train_feature_set, feature_list, operation: callable):
+    def __init__(self, train_labels_set: np.ndarray,
+                 feature_list: list,
+                 operation: callable):
         super().__init__()
-        self.train_feature_set = train_feature_set
+        self.train_labels_set = train_labels_set
         self.feature_list = feature_list
         self.operation = operation
 
     def create(self):
-        return list(map(lambda x: self.operation(x, self.train_feature_set), self.feature_list))
+        fedot_models_list = list(map(lambda x: self.operation(x, self.train_labels_set), self.feature_list))
+        return fedot_models_list
 
 
 class PredictionsList(AbstractObject):
     """
-    Class responsible for creation of predictions list for predictors
-    and features
+    Class responsible for creation of predictions list for predictors and features.
+
+    :param predictor_list: list of predictors (Fedot models)
+    :param feature_list: list of pandas.DataFrame with features
+    :param operation: callable function to obtain predictions
     """
 
     def __init__(self, predictor_list, feature_list, operation):
@@ -75,7 +90,11 @@ class MetricsDict:
     Class responsible for creation metrics dict based on predictions_list,
     predictions probability list and target. Apply methods of
     PerformanceAnalyzer class for chosen metrics:
-    ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
+    ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'].
+
+    :param predictions_list: list of numpy.ndarray with predictions
+    :param predictions_proba_list: list of numpy.ndarray with predictions probability
+    :param target: numpy.ndarray with target
     """
 
     def __init__(self, predictions_list, predictions_proba_list, target):

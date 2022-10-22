@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 
 from cases.anomaly_detection.clear_architecture.detectors.AbstractDetector import AbstractDetector
-from cases.anomaly_detection.clear_architecture.utils.get_time import get_current_time
+from cases.anomaly_detection.clear_architecture.utils.get_time import time_now
 
 """
 input format:
@@ -16,10 +16,10 @@ Output
 class RawVectorDetector(AbstractDetector):
 
     def __init__(self):
-        super().__init__(name="RawVector Detector")
+        super().__init__(name="RawVector Detector", operation="detection")
 
     def input_data(self, dictionary: dict) -> None:
-        self._print_logs(f"{get_current_time()} {self.name}: Data read!")
+        self._print_logs(f"{time_now()} {self.name}: Data read!")
         self.input_dict = dictionary
         self.data = self.input_dict["data_body"]["elected_data"]
 
