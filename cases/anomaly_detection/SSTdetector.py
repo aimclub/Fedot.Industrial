@@ -1,17 +1,35 @@
 import numpy as np
-from numba import jit
+import pandas as pd
 from scipy.spatial import distance_matrix
 from sklearn.preprocessing import MinMaxScaler
-from core.models.spectral.SSA import Spectrum
-import pandas as pd
-from core.models.statistical.Stat_features import AggregationFeatures
-from scipy.spatial import distance
+
+from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
+from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
+
 import matplotlib.pyplot as plt
 
 
 class SingularSpectrumTransformation:
-    """SingularSpectrumTransformation class."""
+    """SingularSpectrumTransformation class.
 
+    Change point detection with Singular Spectrum Transformation.
+    Parameters
+    ----------
+    ts_window_length : int
+        window length of Hankel matrix.
+    trajectory_window_length : int
+        window lenght of vectors in Hankel matrixes
+    lag : int
+        interval between history Hankel matrix and test Hankel matrix.
+    is_scaled : bool
+        if false, min-max scaling will be applied(recommended).
+    quantile_rate : float
+        anomaly coefficient for change point detection(0,95 recommended).
+    n_components : int
+        PCA components number describes changes in time-data (usually we have 1,2 or 3).
+    view : bool
+        test parameter to plot data for experiments (default == True)
+    """
     def __init__(self,
                  time_series,
                  quantile_rate: float = None,
@@ -21,31 +39,8 @@ class SingularSpectrumTransformation:
                  is_scaled=False,
                  view: bool = True,
                  n_components: int = None):
-        """Change point detection with Singular Spectrum Transformation.
-        Parameters
-        ----------
-        ts_window_length : int
-            window length of Hankel matrix.
-            длина окна для Ханкелевой матрицы.
-        trajectory_window_length : int
-            window lenght of vectors in Hankel matrixes
-        lag : int
-            interval between history Hankel matrix and test Hankel matrix.
-            интервал между предыдущей и следующей по списку Ханкелевой матрицей.
-        is_scaled : bool
-            if false, min-max scaling will be applied(recommended).
-            если отрицательно, то минимум-максимум вычисление будет выполнено(рекомендовано).
-        quantile_rate : float
-            anomaly coefficient for change point detection(0,95 recommended).
-            коэффициент аномалии для регистрации точек изменения(0,95 рекомендовано).
-        n_components : int
-            PCA components number describes changes in time-data (usually we have 1,2 or 3).
-            количество компонент PCA объясняющая изменения в временном ряду (обычно имеем дело с 1,2 или 3).
-        view : bool
-            test parameter to plot data for experiments (default == True)
-            тестовый параметр для построения экспериментальных графиков (по умолчанию == True)
-        """
-        self.spectrum_extractor = Spectrum(time_series=time_series, window_length=trajectory_window_length)
+
+        self.spectrum_extractor = SpectrumDecomposer(time_series=time_series, window_length=trajectory_window_length)
         self.ts = time_series
         self.ts_window_length = ts_window_length
         self.trajectory_window_length = trajectory_window_length  # equal self.L
@@ -54,7 +49,7 @@ class SingularSpectrumTransformation:
         self.quantile_rate = quantile_rate
         self.n_components = n_components
         self.view = view
-        self.aggregator = AggregationFeatures()
+        self.aggregator = StatFeaturesExtractor()
 
         if self.ts_window_length is None:
             self.ts_window_length = self.L
@@ -86,6 +81,8 @@ class SingularSpectrumTransformation:
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
+        score = self._score_offline_2d_average(x_scaled, dynamic_mode=dynamic_mode)
+        return score
 
     def _get_window_from_ts_complex(self, ts_complex, start: int, end: int) -> list:
         window: list = []
