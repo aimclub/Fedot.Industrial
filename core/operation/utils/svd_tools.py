@@ -15,7 +15,7 @@ def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) ->
     for i, s in enumerate(S):
         sum -= s ** 2
         if sum < threshold:
-            conv.set_U_S_Vh(U[:, i:], S[i:], Vh[i:, :])
+            conv.set_U_S_Vh(U[:, i:].clone(), S[i:].clone(), Vh[i:, :].clone())
             break
 
 

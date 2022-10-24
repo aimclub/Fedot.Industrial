@@ -1,11 +1,9 @@
-import torch
-
-from torch import Tensor
-from torch.nn.modules.conv import Conv2d
-from torch.nn.parameter import Parameter
-from torch.nn.common_types import _size_2_t
-
 from typing import Union
+
+import torch
+from torch import Tensor
+from torch.nn import Conv2d, Parameter
+from torch.nn.common_types import _size_2_t
 
 __all__ = ["DecomposedConv2d"]
 
