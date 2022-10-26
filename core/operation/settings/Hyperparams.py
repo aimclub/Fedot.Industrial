@@ -32,9 +32,9 @@ stat_methods_full = {
     'dif_': np.diff
 }
 
-hyperparam_dict = {'statistical_methods': stat_methods_default,
-                   'statistical_methods_extra': stat_methods_full}
+hyper_param_dict = {'statistical_methods': stat_methods_default,
+                    'statistical_methods_extra': stat_methods_full}
 
 
-def ParamSelector(param_name):
-    return hyperparam_dict[param_name]
+def select_hyper_param(param_name):
+    return hyper_param_dict[param_name]

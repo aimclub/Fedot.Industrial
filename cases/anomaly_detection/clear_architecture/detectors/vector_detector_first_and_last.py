@@ -17,7 +17,7 @@ class VectorDetectorFaL(AbstractDetector):
 
     def __init__(self, quantile: float):
         self.quantile = quantile
-        super().__init__(name='VectorDetectorFaL')
+        super().__init__(name='VectorDetectorFaL', operation='vector detection')
 
     def output_data(self) -> dict:
         if "detection" in self.input_dict["data_body"]:

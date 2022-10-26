@@ -1,0 +1,120 @@
+feature_generator: [
+#  'window_quantile',
+#  'quantile',
+#  'spectral_window',
+#  'spectral',
+#  'wavelet',
+  'recurrence',
+#  'topological'
+
+#  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
+]
+error_correction: False
+n_ecm_cycles: 3
+
+datasets_list: [
+#  'Lightning7',
+  'UMD',
+#  'Earthquakes',
+#  'EthanolLevel',
+#  'Beef',
+#  'Wafer'
+]
+
+'launches': 1
+
+feature_generator_params: {
+  'window_quantile':
+    {
+      'window_mode': True,
+    },
+
+  'recurrence':
+    {
+      'window_mode': True,
+    },
+
+  'quantile':
+    {
+      'window_mode': False,
+    },
+
+  'wavelet':
+    {
+      'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
+    },
+
+  'spectral_window':
+    {
+      'window_sizes': {
+        'ItalyPowerDemand': [ 3, 6, 9 ],
+        'Herring': [ 48, 128, 170 ],
+        'Haptics': [ 110, 220, 330 ],
+        'DodgerLoopDay': [ 28, 56, 84 ],
+        'Earthquakes': [ 48, 128, 170 ],
+        'FordA': [ 50, 100, 150 ],
+        'FordB': [ 50, 100, 150 ],
+        'Plane': [ 14, 28, 42 ],
+        'Trace': [ 27, 54, 81 ],
+        'Lightning7': [ 32, 64, 96 ],
+        'EthanolLevel': [ 170, 340, 510 ],
+        'ElectricDevices': [ 10, 20, 30 ],
+        'Beef': [ 100, 150, 200 ],
+        'PowerCons': [ 30, 45, 60 ],
+        'ShapesAll': [ 100, 150, 200 ],
+        'Wafer': [ 100, 150, 200 ]
+      },
+      'window_mode': True,
+
+    },
+
+  'spectral':
+    {
+      'window_sizes': {
+        'ItalyPowerDemand': [ 3, 6, 9 ],
+        'Herring': [ 48, 128, 170 ],
+        'Haptics': [ 110, 220, 330 ],
+        'DodgerLoopDay': [ 28, 56, 84 ],
+        'Earthquakes': [ 48, 128, 170 ],
+        'FordA': [ 50, 100, 150 ],
+        'FordB': [ 50, 100, 150 ],
+        'Plane': [ 14, 28, 42 ],
+        'Trace': [ 27, 54, 81 ],
+        'Lightning7': [ 32, 64, 96 ],
+        'EthanolLevel': [ 170, 340, 510 ],
+        'ElectricDevices': [ 10, 20, 30 ],
+        'Beef': [ 100, 150, 200 ],
+        'PowerCons': [ 30, 45, 60 ],
+        'ShapesAll': [ 100, 150, 200 ],
+        'Wafer': [ 10, 30, 40 ]
+      },
+    },
+
+  'topological': {
+    topological_params:
+      {
+        'max_simplex_dim': 2,
+        'epsilon': 100,
+        'persistence_params': None,
+        'window_length': 6
+      },
+  },
+
+  'ensemble': {
+    'list_of_generators': { }
+  }
+}
+
+fedot_params:
+  {
+    'problem': 'classification',
+    'seed': 42,
+    'timeout': 1,
+    'max_depth': 10,
+    'max_arity': 4,
+    'cv_folds': 2,
+    'logging_level': 20,
+    'n_jobs': 4
+  }
+task: 'classification'
+logger: 'logger'
