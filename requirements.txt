@@ -1,4 +1,4 @@
-fedot==0.5.2
+fedot==0.6.0
 cycler==0.11.0
 ripser==0.6.1
 torch~=1.12.1
