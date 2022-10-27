@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os.path
+from logging.handlers import RotatingFileHandler
 
 from core.operation.utils.utils import PROJECT_PATH
 
@@ -35,6 +36,9 @@ class Logger(object, metaclass=SingletonMetaLogger):
 
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
+        # file_handler = RotatingFileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log",
+        #                                    maxBytes=100000000,
+        #                                    backupCount=1)
         file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log",
                                            delay=True,
                                            mode='w')

@@ -6,6 +6,7 @@ from numpy import ndarray
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.utils.analyzer import PerformanceAnalyzer
 from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
+from core.operation.utils.LoggerSingleton import Logger
 
 
 class TimeSeriesClassifier:
@@ -22,6 +23,7 @@ class TimeSeriesClassifier:
                  generator_runner: ExperimentRunner,
                  model_hyperparams: dict,
                  ecm_model_flag: False):
+        self.logger = Logger(self.__class__.__name__).get_logger()
         self.predictor = None
         self.y_train = None
         self.predictor_list = None
@@ -54,6 +56,7 @@ class TimeSeriesClassifier:
         return fedot_model
 
     def fit(self, train_tuple: tuple, dataset_name: str) -> tuple:
+        self.logger.info('START TRAINING')
         self.y_train = train_tuple[1]
         self.train_features = self.generator_runner.extract_features(train_tuple[0], dataset_name)
         self.predictor = self._fit_fedot_model(self.train_features, train_tuple[1])
