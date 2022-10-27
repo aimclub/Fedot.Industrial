@@ -1,4 +1,4 @@
-fedot==0.5.2
+fedot==0.6.0
 cycler==0.11.0
 ripser==0.6.1
 torch~=1.12.1
@@ -22,6 +22,6 @@ scikit-learn~=1.0.2
 matplotlib~=3.5.1
 scipy~=1.8.0
 sphinx~=5.2.3
-joblib==1.2.0
+joblib>=1.2.0
 docker~=6.0.0
 seaborn~=0.11.2
