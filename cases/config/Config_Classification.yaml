@@ -1,17 +1,17 @@
 feature_generator: [
 #  'window_quantile',
-#  'quantile',
+  'quantile',
 #  'spectral_window',
-#  'spectral',
-#  'wavelet',
+  'spectral',
+  'wavelet',
   'recurrence',
-#  'topological'
+  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: False
 n_ecm_cycles: 3
-use_cache: False
+use_cache: True
 
 datasets_list: [
   'Lightning7',
