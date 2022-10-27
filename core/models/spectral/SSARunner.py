@@ -1,16 +1,17 @@
 import os
-import timeit
 from collections import Counter
 from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
+from core.operation.utils.Decorators import time_it
 
 
 class SSARunner(ExperimentRunner):
@@ -21,10 +22,11 @@ class SSARunner(ExperimentRunner):
     """
 
     def __init__(self, window_sizes: list,
-                 window_mode: bool = False):
+                 window_mode: bool = False,
+                 use_cache: bool = False):
 
         super().__init__()
-
+        self.use_cache = use_cache
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
@@ -71,27 +73,29 @@ class SSARunner(ExperimentRunner):
     def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
 
         ts = self.check_for_nan(ts_data)
+        specter = self.spectrum_extractor(time_series=ts, window_length=self.window_length)
 
-        specter = self.spectrum_extractor(time_series=ts,
-                                          window_length=self.window_length)
         ts_comps, x_elem, v, components_df, _, n_components, explained_dispersion = specter.decompose(
             rank_hyper=self.rank_hyper)
 
-        self.count += 1
         return [components_df, n_components, explained_dispersion]
 
     def generate_vector_from_ts(self, ts_frame):
-        start = timeit.default_timer()
         self.ts_samples_count = ts_frame.shape[0]
-        components_and_vectors = self.threading_operation(ts_frame=ts_frame.values,
-                                                          function_for_feature_extraction=self._ts_chunk_function)
-        self.logger.info(f'Time spent on eigenvectors extraction - {round((timeit.default_timer() - start), 2)} sec')
+
+        components_and_vectors = list()
+        with tqdm(total=self.ts_samples_count,
+                  desc='Feature Generation. Samples processed: ',
+                  unit=' samples', initial=0, colour='black') as pbar:
+            for ts in ts_frame.values:
+                v = self._ts_chunk_function(ts)
+                components_and_vectors.append(v)
+                pbar.update(1)
         return components_and_vectors
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        self.logger.info('Spectral features extraction started')
+    @time_it
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
 
-        start = timeit.default_timer()
         if self.window_length is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = self.delete_col_by_var(self.train_feats)
@@ -105,15 +109,9 @@ class SSARunner(ExperimentRunner):
             for col in aggregation_df.columns:
                 aggregation_df[col].fillna(value=aggregation_df[col].mean(), inplace=True)
 
-            self.window_length = None
-            self.test_feats = None
-
-        time_spent = round((timeit.default_timer() - start), 2)
-        self.logger.info(f'Time spent on feature generation - {time_spent} sec')
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
-        start = timeit.default_timer()
 
         if window_mode:
             lambda_function_for_stat_features = lambda x: self.apply_window_for_statistical_feature(x.T,
@@ -138,7 +136,6 @@ class SSARunner(ExperimentRunner):
 
         aggregation_df.columns = new_column_names
 
-        self.logger.info(f'Time spent on feature generation - {round((timeit.default_timer() - start), 2)} sec')
         return aggregation_df
 
     def _choose_best_window_size(self, X_train, dataset_name) -> pd.DataFrame:
