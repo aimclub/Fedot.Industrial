@@ -177,6 +177,16 @@ class Industrial:
 
                     fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
+                    from dockerizer.docker_riser import DockerMaker
+
+                    dm = DockerMaker(fedot_pipeline=fitted_predictor,
+                                     docker_name='test_docker',
+                                     feature_generator=runner)
+                    dm.make_docker()
+
+                    fedot_model, feature_generator = dm.load_models()
+
+
                     self.logger.info('START PREDICTION')
                     predictions = classificator.predict(test_data, dataset_name)
 
