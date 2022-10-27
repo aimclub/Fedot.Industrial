@@ -1,11 +1,10 @@
 import copy
 import os
-from typing import Any, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
 import yaml
-from fedot.api.main import Fedot
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
@@ -113,11 +112,12 @@ class Industrial:
                     config_dict_template = yaml.safe_load(input_stream)
                 self.config_dict = {**config_dict_template, **self.config_dict}
                 del self.config_dict['path_to_config']
-            # self.config_dict['logger'] = self.logger
-            self.logger.info(
-                f"Experiment setup:"
-                f"\ndatasets - {self.config_dict['datasets_list']},"
-                f"\nfeature generators - {self.config_dict['feature_generator']}")
+
+            self.logger.info(f'''Experiment setup:
+            datasets - {self.config_dict['datasets_list']},
+            feature generators - {self.config_dict['feature_generator']},
+            use_cache - {self.config_dict['use_cache']},
+            error_correction - {self.config_dict['error_correction']}''')
 
     def run_experiment(self, config_name):
         """
@@ -205,7 +205,7 @@ class Industrial:
                      path_to_save: str,
                      prediction: dict,
                      train_features: Union[np.ndarray, pd.DataFrame],
-                     fitted_predictor: Fedot,
+                     fitted_predictor,
                      ecm_results: dict):
 
         metrics, predictions = prediction['metrics'], prediction['prediction']
