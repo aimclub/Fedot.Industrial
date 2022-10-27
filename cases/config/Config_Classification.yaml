@@ -11,7 +11,7 @@ feature_generator: [
 ]
 error_correction: False
 n_ecm_cycles: 3
-use_cache: False
+use_cache: True
 
 datasets_list: [
   'Lightning7',
@@ -102,7 +102,7 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 15,
+    'timeout': 2,
     'max_depth': 10,
     'max_arity': 4,
     'cv_folds': 2,

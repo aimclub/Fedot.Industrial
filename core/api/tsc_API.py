@@ -27,7 +27,7 @@ class Industrial:
 
     def __init__(self):
         self.config_dict = None
-        self.logger = Logger.__call__().get_logger()
+        self.logger = Logger().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
@@ -153,7 +153,7 @@ class Industrial:
 
                 for launch in range(1, launches + 1):
                     self.logger.info(f'START LAUNCH {launch}')
-                    self.logger.info('START TRAINING')
+
                     fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
                     self.logger.info('START PREDICTION')
