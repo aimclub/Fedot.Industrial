@@ -15,7 +15,7 @@ dash~=2.6.1
 giotto-tda==0.6.0
 autodocsumm
 sphinx_rtd_theme
-numpy~=1.23.2
+numpy~=1.21.6
 pandas~=1.4.1
 typing~=3.7.4.3
 scikit-learn~=1.0.2
