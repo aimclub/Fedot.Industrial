@@ -32,7 +32,7 @@ class Industrial:
 
     def __init__(self):
         self.config_dict = None
-        self.logger = Logger.__call__().get_logger()
+        self.logger = Logger().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
