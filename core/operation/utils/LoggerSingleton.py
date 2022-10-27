@@ -48,7 +48,7 @@ class Logger(object, metaclass=SingletonMetaLogger):
         file_handler.setFormatter(formatter)
         stream_handler.setFormatter(formatter)
 
-        # self._logger.addHandler(file_handler)
+        self._logger.addHandler(file_handler)
         self._logger.addHandler(stream_handler)
 
     def get_logger(self):
