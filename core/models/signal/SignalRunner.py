@@ -113,11 +113,13 @@ class SignalRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self, ts_data: pd.DataFrame,
+                     dataset_name: str = None,
+                     target: np.ndarray = None) -> pd.DataFrame:
 
         if not self.wavelet:
             (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
-            train_feats = self._choose_best_wavelet(ts_data, y_train)
+            train_feats = self._choose_best_wavelet(ts_data, target)
             self.train_feats = train_feats
             return self.train_feats
         else:

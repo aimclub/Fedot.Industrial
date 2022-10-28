@@ -123,7 +123,7 @@ class ExperimentRunner:
         """
         Method responsible for checking if there are any NaN values in the time series dataframe
         and replacing them with 0
-        
+
         :param ts: dataframe with time series data
         :return: dataframe with time series data without NaN values
         """

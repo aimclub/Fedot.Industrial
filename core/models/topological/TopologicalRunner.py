@@ -46,7 +46,7 @@ class TopologicalRunner(ExperimentRunner):
         return ts_data_transformed
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None):
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:

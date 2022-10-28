@@ -1,5 +1,5 @@
 import pandas as pd
-
+import numpy as np
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
@@ -27,7 +27,7 @@ class EnsembleRunner(ExperimentRunner):
                                    topological=TopologicalRunner,
                                    ensemble=EnsembleRunner)
 
-    def get_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self, input_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
         return self.ensemble_features(input_data, dataset_name)
 
     def ensemble_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:

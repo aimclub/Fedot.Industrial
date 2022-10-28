@@ -1,5 +1,7 @@
 import pandas as pd
 
+import numpy as np
+
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 from core.operation.utils.Decorators import time_it
@@ -42,5 +44,5 @@ class StatsRunner(ExperimentRunner):
         return aggregation_df
 
     @time_it
-    def get_features(self, ts_data, dataset_name: str = None):
+    def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
         return self.generate_features_from_ts(ts_data)
