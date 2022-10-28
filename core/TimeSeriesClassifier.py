@@ -73,7 +73,7 @@ class TimeSeriesClassifier:
         return self.predictor, self.train_features
 
     def predict(self, test_tuple, dataset_name) -> dict:
-        features = self.generator_runner.extract_features(test_tuple[0], dataset_name)
+        features = self.generator_runner.extract_features(test_tuple[0], dataset_name, test_tuple[1])
         prediction_label = self.predictor.predict(features)
         prediction_proba = self.predictor.predict_proba(features)
         metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
