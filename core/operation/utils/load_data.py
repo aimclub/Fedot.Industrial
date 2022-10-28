@@ -195,6 +195,7 @@ if __name__ == '__main__':
         loader = DataLoader(ds)
         train, test = loader.load_data()
         if train:
-            print(f'{ds} train: {train[0].shape}, test: {test[0].shape}')
+            print(f'{ds} train_X: {train[0].shape}, test_X: {test[0].shape}')
+            print(f'{ds} train_y: {train[1].shape}, test_y: {test[1].shape}')
         else:
             continue
