@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 import os
 import timeit
 from collections import Counter
@@ -88,7 +89,7 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Time spent on eigenvectors extraction - {round((timeit.default_timer() - start), 2)} sec')
         return components_and_vectors
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
         self.logger.info('Spectral features extraction started')
 
         start = timeit.default_timer()

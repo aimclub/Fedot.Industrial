@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Any, Dict, List, Union
 
 import numpy as np
@@ -69,7 +70,7 @@ class TimeSeriesClassifier:
     def fit(self, train_tuple: tuple, dataset_name: str) -> dict:
         self.y_train = train_tuple[1]
         self.train_features = FeatureList(list_of_generators=self.list_of_generators,
-                                          data=train_tuple[0],
+                                          data=train_tuple,
                                           dataset_name=dataset_name).create()
 
         self.predictor_list = PredictorList(train_labels_set=train_tuple[1],
@@ -82,7 +83,7 @@ class TimeSeriesClassifier:
     def predict(self, predictor_list, test_tuple, dataset_name) -> List[Dict[str, Union[DataFrame, Any]]]:
 
         feature_list = FeatureList(list_of_generators=self.list_of_generators,
-                                   data=test_tuple[0],
+                                   data=test_tuple,
                                    dataset_name=dataset_name).create()
 
         predictions_list = PredictionsList(predictor_list=predictor_list,
@@ -106,3 +107,17 @@ class TimeSeriesClassifier:
                                                        operation='predictions_proba').create()
 
         return predictions_proba_list_train
+
+    def predict_on_validation(self,
+                              validatiom_dataset: tuple,
+                              dataset_name: str) -> List[Dict[str, Union[DataFrame, Any]]]:
+
+        val_feature_list = FeatureList(list_of_generators=self.list_of_generators,
+                                       data=validatiom_dataset,
+                                       dataset_name=dataset_name).create()
+
+        predictions_proba_list_validation = PredictionsList(predictor_list=self.predictor_list,
+                                                            feature_list=val_feature_list,
+                                                            operation='predictions_proba').create()
+
+        return predictions_proba_list_validation

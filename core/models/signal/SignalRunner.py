@@ -118,13 +118,14 @@ class SignalRunner(ExperimentRunner):
         self.logger.info(f'Time spent on wavelet extraction - {time_elapsed} sec')
         return components_and_vectors
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None,
+                         target: np.ndarray = None) -> pd.DataFrame:
         self.logger.info('Wavelet feature extraction started')
 
-        (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
+        #(_, y_train), (_, _) = DataLoader(dataset_name).load_data()
 
         if not self.wavelet:
-            train_feats = self._choose_best_wavelet(ts_data, y_train)
+            train_feats = self._choose_best_wavelet(ts_data, target)
             self.train_feats = train_feats
             return self.train_feats
         else:

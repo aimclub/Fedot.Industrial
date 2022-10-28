@@ -57,7 +57,7 @@ class TopologicalRunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')
         return ts_data_transformed
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None):
         self.logger.info('Topological features extraction started')
         return self.generate_topological_features(ts_data=ts_data)
 

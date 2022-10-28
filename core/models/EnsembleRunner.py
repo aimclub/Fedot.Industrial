@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from core.models.ExperimentRunner import ExperimentRunner
@@ -27,7 +28,7 @@ class EnsembleRunner(ExperimentRunner):
                                    topological=TopologicalRunner,
                                    ensemble=EnsembleRunner)
 
-    def extract_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def extract_features(self, input_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
         self.logger.info('Ensemble features extraction started')
         return self.ensemble_features(input_data, dataset_name)
 

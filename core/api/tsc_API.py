@@ -5,7 +5,9 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 import yaml
-
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from core.ensemble.baseline.AggEnsembler import AggregationEnsemble
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
 from core.models.signal.RecurrenceRunner import RecurrenceRunner
@@ -34,10 +36,13 @@ class Industrial:
             'window_quantile': StatsRunner,
             'wavelet': SignalRunner,
             'spectral': SSARunner,
-            'spectral_window': SSARunner,
+            'window_spectral': SSARunner,
             'topological': TopologicalRunner,
             'recurrence': RecurrenceRunner,
             'ensemble': EnsembleRunner}
+
+        self.ensemble_methods_dict = {'AGG_voting': AggregationEnsemble
+                                      }
 
     def _init_experiment_setup(self, config_name):
         self.read_yaml_config(config_name=config_name)
@@ -74,7 +79,7 @@ class Industrial:
 
     def _check_window_sizes(self, dataset_name, train_data):
         for key in self.config_dict['feature_generator_params'].keys():
-            if key.startswith('spectral'):
+            if key.startswith('spectral') or 'spectral' in key:
                 self.logger.info(f'CHECK WINDOW SIZES FOR DATASET-{dataset_name} AND {key} method')
                 if dataset_name not in self.config_dict['feature_generator_params'][key].keys():
                     ts_length = train_data[0].shape[1]
@@ -121,14 +126,13 @@ class Industrial:
         self.logger.info(f'START EXPERIMENT')
         experiment_dict = self._init_experiment_setup(config_name)
         launches = self.config_dict['launches']
-
         classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
                                              model_hyperparams=experiment_dict['fedot_params'],
                                              ecm_model_flag=experiment_dict['error_correction'])
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-            try: # to load data
+            try:  # to load data
                 train_data, test_data = DataLoader(dataset_name).load_data()
                 self.logger.info(f'Loaded data from {dataset_name} dataset')
             except Exception:
@@ -144,8 +148,13 @@ class Industrial:
                 self.logger.info(f'START LAUNCH {launch}')
                 paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
                                          list(experiment_dict['feature_generator'].keys())))
-
+                ecm_results = [[]] * len(paths_to_save)
                 self.logger.info('START TRAINING')
+                X_train, X_val, y_train, y_val = train_test_split(train_data[0],
+                                                                  train_data[1],
+                                                                  test_size=0.2,
+                                                                  random_state=42)
+                train_data, validation_data = (X_train, y_train), (X_val, y_val)
                 fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
                 fitted_predictor = fitted_results[0]['predictors']
                 train_features = fitted_results[0]['train_features']
@@ -153,7 +162,8 @@ class Industrial:
                 self.logger.info('START PREDICTION')
                 predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
                 predict_on_train = classificator.predict_on_train()
-
+                predict_on_val = classificator.predict_on_validation(validatiom_dataset=validation_data,
+                                                                     dataset_name=dataset_name)
                 # n_ecm_cycles = experiment_dict['n_ecm_cycles']
 
                 if self.config_dict['error_correction']:
@@ -170,14 +180,14 @@ class Industrial:
                                       dataset_name=dataset_name,
                                       save_models=False,
                                       fedot_params=ecm_fedot_params)
-                    ecm_results = [[]] * len(paths_to_save)
                     try:
                         self.logger.info('START COMPOSE ECM')
                         ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
                                                                                        results_on_test=x,
                                                                                        results_on_train=y,
                                                                                        train_data=(z, train_data[1]),
-                                                                                       test_data=(m, test_data[1])).run(),
+                                                                                       test_data=(
+                                                                                           m, test_data[1])).run(),
                                                predictions,
                                                predict_on_train,
                                                train_features,
@@ -200,7 +210,22 @@ class Industrial:
                 # if len(spectral_generators) != 0:
                 #     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
+                if 'ensemble_algorithm' in self.config_dict.keys():
+                    self.apply_model_ensembling(train_target=train_data[1],
+                                                train_predictions=predict_on_train,
+                                                test_predictions=predictions)
+
         self.logger.info('END EXPERIMENT')
+
+    def apply_model_ensembling(self,
+                               train_target,
+                               train_predictions,
+                               test_predictions):
+
+        ensemble_method = self.ensemble_methods_dict[self.config_dict['ensemble_algorithm']](
+            train_predictions=train_predictions,
+            train_target=train_target)
+        return ensemble_method.ensemble(predictions=test_predictions)
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],

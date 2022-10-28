@@ -30,7 +30,7 @@ class FeatureList(AbstractObject):
 
     def __init__(self,
                  list_of_generators: list,
-                 data: pd.DataFrame,
+                 data: tuple,
                  dataset_name: str) -> None:
         super().__init__()
         self.list_of_generators = list_of_generators
@@ -38,7 +38,9 @@ class FeatureList(AbstractObject):
         self.dataset_name = dataset_name
 
     def create(self) -> List[pd.DataFrame]:
-        return list(map(lambda x: x.extract_features(self.data, self.dataset_name), self.list_of_generators))
+        return list(map(lambda x: x.extract_features(ts_data=self.data[0],
+                                                     dataset_name=self.dataset_name,
+                                                     target=self.data[1]), self.list_of_generators))
 
 
 class PredictorList(AbstractObject):

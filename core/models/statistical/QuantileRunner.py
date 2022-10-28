@@ -1,4 +1,7 @@
+# -*- coding: utf-8 -*-
 import timeit
+
+import numpy as np
 
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
@@ -45,6 +48,6 @@ class StatsRunner(ExperimentRunner):
         self.logger.info(f'Time spent on feature generation - {time_elapsed} sec')
         return aggregation_df
 
-    def extract_features(self, ts_data, dataset_name: str = None):
+    def extract_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
         self.logger.info('Statistical features extraction started')
         return self.generate_features_from_ts(ts_data)

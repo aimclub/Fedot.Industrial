@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 from core.metrics.metrics_implementation import *
 from core.operation.utils.Decorators import exception_decorator
 from core.operation.utils.LoggerSingleton import Logger
@@ -35,9 +36,10 @@ class ExperimentRunner:
         """
         pass
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
+    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None):
         """
         Method responsible for extracting features from time series dataframe
+        :param target: target for metric evaluation during hyperparameters validation
         :param ts_data: dataframe with time series data
         :param dataset_name:
         :return: pd.DataFrame with extracted features
