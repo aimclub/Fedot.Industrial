@@ -1,4 +1,4 @@
-fedot==0.5.2
+fedot==0.6.0
 cycler==0.11.0
 ripser==0.6.1
 torch~=1.12.1
@@ -15,13 +15,12 @@ dash~=2.6.1
 giotto-tda==0.6.0
 autodocsumm
 sphinx_rtd_theme
-numpy~=1.23.2
-pandas~=1.4.1
+numpy~=1.21.6
+pandas==1.2.5
 typing~=3.7.4.3
 scikit-learn~=1.0.2
-matplotlib~=3.5.1
-scipy~=1.8.0
+matplotlib==3.0.2
+scipy==1.7.3
 sphinx~=5.2.3
-joblib==1.2.0
+joblib>=1.2.0
 docker~=6.0.0
-seaborn~=0.11.2

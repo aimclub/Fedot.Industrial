@@ -56,7 +56,7 @@ class ExperimentRunner:
             self.logger.info(f'Window mode: {self.window_mode}')
 
         if self.use_cache:
-            generator_info = {key: value for key, value in self.__dict__.items() if key != 'aggregator'}
+            generator_info = {k: v for k, v in self.__dict__.items() if k not in ['aggregator']}
             hashed_info = self.hash_info(dataframe=ts_data,
                                          name=dataset_name,
                                          obj_info_dict=generator_info)
