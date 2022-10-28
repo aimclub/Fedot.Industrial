@@ -67,7 +67,7 @@ class TimeSeriesClassifier:
     def fit(self, train_tuple: tuple, dataset_name: str) -> tuple:
         self.logger.info('START TRAINING')
         self.y_train = train_tuple[1]
-        self.train_features = self.generator_runner.extract_features(train_tuple[0], dataset_name)
+        self.train_features = self.generator_runner.extract_features(train_tuple[0], dataset_name, train_tuple[1])
         self.predictor = self._fit_fedot_model(self.train_features, train_tuple[1])
 
         return self.predictor, self.train_features
