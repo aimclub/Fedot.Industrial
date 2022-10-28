@@ -74,7 +74,5 @@ class TimeSeriesClassifier:
         return dict(prediction=prediction_label, predictions_proba=prediction_proba,
                     metrics=metrics_dict, test_features=features)
 
-    def predict_on_train(self) -> Union[ndarray, ndarray]:
-        prediction_proba = self.predictor.predict_proba(self.train_features)
-
-        return prediction_proba
+    def predict_on_train(self) -> ndarray:
+        return self.predictor.predict_proba(self.train_features)

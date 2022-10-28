@@ -102,12 +102,12 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 2,
+    'timeout': 1,
     'max_depth': 10,
     'max_arity': 4,
     'cv_folds': 2,
     'logging_level': 20,
-    'n_jobs': 2
+    'n_jobs': 4
   }
 task: 'classification'
 logger: 'logger'

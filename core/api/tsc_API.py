@@ -5,6 +5,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import yaml
+from fedot.api.main import Fedot
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
@@ -27,7 +28,7 @@ class Industrial:
 
     def __init__(self):
         self.config_dict = None
-        self.logger = Logger().get_logger()
+        self.logger = Logger.__call__().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
@@ -205,7 +206,7 @@ class Industrial:
                      path_to_save: str,
                      prediction: dict,
                      train_features: Union[np.ndarray, pd.DataFrame],
-                     fitted_predictor,
+                     fitted_predictor: Fedot,
                      ecm_results: dict):
 
         metrics, predictions = prediction['metrics'], prediction['prediction']
