@@ -159,8 +159,7 @@ class Industrial:
                 predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
                 predict_on_train = classificator.predict_on_train()
 
-                # n_ecm_cycles = experiment_dict['n_ecm_cycles']
-
+                ecm_results = [[]] * len(paths_to_save)
                 if self.config_dict['error_correction']:
                     ecm_fedot_params = dict(problem='regression',
                                             seed=14,
@@ -175,7 +174,7 @@ class Industrial:
                                       dataset_name=dataset_name,
                                       save_models=False,
                                       fedot_params=ecm_fedot_params)
-                    ecm_results = [[]] * len(paths_to_save)
+
                     try:
                         self.logger.info('START COMPOSE ECM')
                         ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
@@ -199,7 +198,7 @@ class Industrial:
                                       train_features=train_features[i],
                                       prediction=predictions[i],
                                       fitted_predictor=fitted_predictor,
-                                      ecm_results=ecm_results[i]),
+                                      ecm_results=ecm_results[i])
 
                 # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
                 # if len(spectral_generators) != 0:
