@@ -7,7 +7,6 @@ import pandas as pd
 import yaml
 from fedot.api.main import Fedot
 
-from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 from core.ensemble.baseline.AggEnsembler import AggregationEnsemble
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
@@ -148,24 +147,24 @@ class Industrial:
             n_classes = len(np.unique(train_data[1]))
             self.logger.info(f'{n_classes} classes detected')
 
+            X_train, X_val, y_train, y_val = train_test_split(train_data[0],
+                                                              train_data[1],
+                                                              test_size=0.2,
+                                                              random_state=42)
+            train_data, validation_data = (X_train, y_train), (X_val, y_val)
+            validation_predictions = dict()
+            test_predictions = dict()
+
             for runner_name, runner in experiment_dict['feature_generator'].items():
                 self.logger.info(f'{runner_name} runner is on duty')
-
                 classificator = TimeSeriesClassifier(generator_name=runner_name,
                                                      generator_runner=runner,
                                                      model_hyperparams=experiment_dict['fedot_params'],
                                                      ecm_model_flag=experiment_dict['error_correction'])
                 classificator.feature_generator_params = self.config_dict['feature_generator_params']
                 classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
-
                 for launch in range(1, launches + 1):
                     self.logger.info(f'START LAUNCH {launch}')
-                    X_train, X_val, y_train, y_val = train_test_split(train_data[0],
-                                                                      train_data[1],
-                                                                      test_size=0.2,
-                                                                      random_state=42)
-                    train_data, validation_data = (X_train, y_train), (X_val, y_val)
-
                     fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
                     self.logger.info('START PREDICTION')
@@ -208,16 +207,16 @@ class Industrial:
                                       prediction=predictions,
                                       fitted_predictor=fitted_predictor,
                                       ecm_results=ecm_results),
-
+                    validation_predictions[f'{runner_name}-launch_{launch}_val'] = predict_on_val
+                    test_predictions[f'{runner_name}-launch_{launch}_test'] = predictions
                     # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
                     # if len(spectral_generators) != 0:
                     #     self._save_spectrum(classificator, path_to_save=spectral_generators)
-                    if 'ensemble_algorithm' in self.config_dict.keys():
-                        self.apply_model_ensembling(train_target=validation_data[1],
-                                                    train_predictions=predict_on_val,
-                                                    test_predictions=predictions)
-        self.logger.info('END OF EXPERIMENT')
-
+            if 'ensemble_algorithm' in self.config_dict.keys():
+                self.apply_model_ensembling(train_target=validation_data[1],
+                                            train_predictions=validation_predictions,
+                                            test_predictions=test_predictions)
+            self.logger.info('END OF EXPERIMENT')
 
     def apply_model_ensembling(self,
                                train_target,
@@ -256,7 +255,6 @@ class Industrial:
 
         for name, features in zip(features_names, features_list):
             pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
-
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)

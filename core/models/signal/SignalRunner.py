@@ -118,7 +118,6 @@ class SignalRunner(ExperimentRunner):
                      target: np.ndarray = None) -> pd.DataFrame:
 
         if not self.wavelet:
-            (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
             train_feats = self._choose_best_wavelet(ts_data, target)
             self.train_feats = train_feats
             return self.train_feats

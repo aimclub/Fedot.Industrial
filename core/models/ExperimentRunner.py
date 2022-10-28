@@ -69,11 +69,11 @@ class ExperimentRunner:
                 return self.load_features_from_cache(cache_path)
             except FileNotFoundError:
                 self.logger.info('Cache not found. Generating features...')
-                features = self.get_features(ts_data, dataset_name,target)
+                features = self.get_features(ts_data, dataset_name, target)
                 self.save_features_to_cache(hashed_info, features)
                 return features
         else:
-            return self.get_features(ts_data, dataset_name,target)
+            return self.get_features(ts_data, dataset_name, target)
 
     @staticmethod
     def hash_info(dataframe, name, obj_info_dict):
