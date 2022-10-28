@@ -38,7 +38,7 @@ class AggregationEnsemble(BaseEnsemble):
 
         return self.majority_voting_rule(classifier_votes)
 
-    def weighted_majority_voting(self, model_votes, model_weights, estimator_weights):
+    def weighted_majority_voting(self, model_votes, model_weights):
         """Apply the weighted majority voting rule to predict the label of each
         sample in X. The size of the weights vector should be equal to the size of
         the ensemble.
@@ -159,7 +159,8 @@ class AggregationEnsemble(BaseEnsemble):
         for predict in self.train_predictions:
             cm = confusion_matrix(np.argmax(predict, axis=1), self.train_target)
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-            model_weights.append(cm.diagonal())
+            weigths = np.nan_to_num(cm.diagonal())
+            model_weights.append(weigths)
         return model_weights
 
     def ensemble(self, predictions: dict) -> object:
@@ -203,9 +204,6 @@ class AggregationEnsemble(BaseEnsemble):
         model_weights = [model_probs['predictions_proba'][:, -1:] for model_probs in
                          predictions_copy]
         model_votes = [model_prediction['prediction'] for model_prediction in predictions_copy]
-        n_samples = len(model_weights[0])
-        n_models = len(model_weights)
 
         del predictions_copy
-        return np.asarray(model_votes).reshape(n_samples, n_models), np.asarray(model_weights).reshape(n_samples,
-                                                                                                       n_models)
+        return np.concatenate(model_votes, axis=1), np.concatenate(model_weights, axis=1)
