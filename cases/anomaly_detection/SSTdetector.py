@@ -116,7 +116,7 @@ class SingularSpectrumTransformation:
                 current_features = np.asarray(current_features)
                 for i in range(len(x_scaled)):
                     temp_average_features[i].append(current_features[i])
-            average_features = self.features_average_(temp_average_features)
+            average_features = self.features_average_(temp_average_features)  # 1
 
             for current_index in range(start_idx, end_idx, step):
                 current_window = self._get_window_from_ts_complex(x_scaled, current_index, current_index + step)

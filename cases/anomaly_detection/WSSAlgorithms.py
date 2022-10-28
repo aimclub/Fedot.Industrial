@@ -79,7 +79,7 @@ class WindowSizeSelection:
         """
         Find global max value id for the highest_autocorrelation method.
 
-        :param score_list: a list of scores obtained ....
+        :param score_list: a list of scores obtained
         :return: a tuple of window_size_selected and list_score
         """
         list_probably_peaks = find_peaks(score_list)[0][1:]
@@ -123,10 +123,12 @@ class WindowSizeSelection:
 
         :return: selected window size and a list of score
         """
-        stats_ts = [np.mean(self.time_series), np.std(self.time_series), np.var(self.time_series)]
-        list_score = [self.suss_score(self.time_series, window_size, stats_ts) for window_size
+        ts = (self.time_series - np.min(self.time_series)) / (np.max(self.time_series) - np.min(self.time_series))
+
+        stats_ts = [np.mean(ts), np.std(ts), np.max(ts) - np.min(ts)]
+        list_score = [self.suss_score(ts, window_size, stats_ts) for window_size
                       in range(self.window_min, self.window_max)]
-        window_size_selected = next(x[0] for x in enumerate(score_list) if x[1] > 0.89) + self.window_min
+        window_size_selected = next(x[0] for x in enumerate(list_score) if x[1] > 0.89) + self.window_min
         return window_size_selected, list_score
 
     def stats_diff(self, ts, window_size, stats_ts):
@@ -139,8 +141,8 @@ class WindowSizeSelection:
         :param stats_ts: statistic over all ts for calculations
         :return: not normalized euclidian distance between selected window size and general statistic for ts
         """
-        stat_w = [[np.mean(ts[i:i + window_size]), np.std(ts[i:i + window_size]), np.var(ts[i:i + window_size])] \
-                  for i in range(self.length_ts)]
+        stat_w = [[np.mean(ts[i:i + window_size]), np.std(ts[i:i + window_size]),
+                   np.max(ts[i:i + window_size]) - np.min(ts[i:i + window_size])] for i in range(self.length_ts)]
         stat_diff = [[(1 / window_size) * np.sqrt((stats_ts[0] - stat_w[i][0]) ** 2 \
                                                   + (stats_ts[1] - stat_w[i][1]) ** 2 \
                                                   + (stats_ts[2] - stat_w[i][2]) ** 2)] for i in range(len(stat_w))]
@@ -167,8 +169,9 @@ class WindowSizeSelection:
         :return: selected window size and a list of scores for this method
         """
         distance_scores = [self.mwf_metric(i) for i in range(self.window_min, self.window_max)]
-        top_minimum_list_window, id_max = self.top_local_minimum(distance_scores)
-        window_size_selected = top_minimum_list_window[0] + self.window_min + id_max
+        minimum_id_list, id_max = self.top_local_minimum(distance_scores)
+        print(minimum_id_list)
+        window_size_selected = minimum_id_list[1] * 10 + self.window_min + id_max
         return window_size_selected, distance_scores
 
     def mwf_metric(self, window_selected_temp):
@@ -191,11 +194,16 @@ class WindowSizeSelection:
         Find a list of local minimum for multi_window_finder method
 
         :param distance_scores: list of distance scores from mwf_metric
-        :return: list of index where narray has minimum
+        :return: list of index where narray has minimum, max id for distance_scores list
         """
         id_max = distance_scores.index(max(distance_scores))
-        top_list_minimum = argrelextrema(np.array(distance_scores[id_max:]), np.less)[0]
-        return top_list_minimum, id_max
+        score_temp = distance_scores[id_max:]
+        number_windows_temp = len(score_temp) // 10
+        scorer_list = [sum(abs(score_temp[i:i + 10] \
+                               - np.mean(score_temp[i:i + 10]))) \
+                       for i in range(number_windows_temp)]
+        id_local_minimum_list = argrelextrema(np.array(scorer_list), np.less)[0]
+        return id_local_minimum_list, id_max
 
     def runner_wss(self):
         if int(len(self.time_series)) <= self.window_min:
