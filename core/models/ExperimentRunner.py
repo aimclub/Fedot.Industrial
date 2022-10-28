@@ -37,8 +37,10 @@ class ExperimentRunner:
         """
         pass
 
-    def extract_features(self, ts_data: pd.DataFrame,
-                         dataset_name: str = None) -> pd.DataFrame:
+    def extract_features(self,
+                         ts_data: pd.DataFrame,
+                         dataset_name: str = None,
+                         target: np.ndarray = None) -> pd.DataFrame:
         """
         Wrapper method for feature extraction method get_features() with caching results into pickle file. The idea
         is to create a unique pointer from dataset name, subsample (test or train) and feature generator object. We
@@ -67,11 +69,11 @@ class ExperimentRunner:
                 return self.load_features_from_cache(cache_path)
             except FileNotFoundError:
                 self.logger.info('Cache not found. Generating features...')
-                features = self.get_features(ts_data, dataset_name)
+                features = self.get_features(ts_data, dataset_name,target)
                 self.save_features_to_cache(hashed_info, features)
                 return features
         else:
-            return self.get_features(ts_data, dataset_name)
+            return self.get_features(ts_data, dataset_name,target)
 
     @staticmethod
     def hash_info(dataframe, name, obj_info_dict):

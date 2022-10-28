@@ -1,16 +1,15 @@
 feature_generator: [
-'quantile',
-'spectral',
+'wavelet'
 ]
 error_correction: False
-
+n_ecm_cycles: 3
 datasets_list: [
-  'Earthquakes',
-  'ItalyPowerDemand',
-  'Beef'
+  #'Lightning7',
+  'ElectricDevices'
 ]
 
-'launches': 1
+launches: 1
+
 
 feature_generator_params: {
   'quantile':
@@ -24,6 +23,10 @@ feature_generator_params: {
         'Earthquakes': [48],
         'Beef': [100]
       },
+    },
+  'wavelet':
+    {
+      'wavelet_types': ['sym10']
     }
 }
 
@@ -31,11 +34,12 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 15,
+    'timeout': 30,
     'max_depth': 10,
     'max_arity': 4,
-    'cv_folds': 2,
-    'stopping_after_n_generation': 20,
+    'cv_folds': 3,
+    'metric':'f1',
+    'stopping_after_n_generation': 10,
     'logging_level': 20,
     'n_jobs': 4
   }

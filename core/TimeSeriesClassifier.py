@@ -78,15 +78,10 @@ class TimeSeriesClassifier:
         return self.predictor.predict_proba(self.train_features)
 
     def predict_on_validation(self,
-                              validatiom_dataset: tuple,
-                              dataset_name: str) -> List[Dict[str, Union[DataFrame, Any]]]:
+                              validatiom_tuple: tuple,
+                              dataset_name: str) -> ndarray:
+        val_feature_list = self.generator_runner.extract_features(validatiom_tuple[0],
+                                                                  dataset_name,
+                                                                  validatiom_tuple[1])
 
-        val_feature_list = FeatureList(list_of_generators=self.list_of_generators,
-                                       data=validatiom_dataset,
-                                       dataset_name=dataset_name).create()
-
-        predictions_proba_list_validation = PredictionsList(predictor_list=self.predictor_list,
-                                                            feature_list=val_feature_list,
-                                                            operation='predictions_proba').create()
-
-        return predictions_proba_list_validation
+        return self.predictor.predict_proba(val_feature_list)

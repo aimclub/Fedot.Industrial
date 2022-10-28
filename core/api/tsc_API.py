@@ -170,12 +170,9 @@ class Industrial:
 
                     self.logger.info('START PREDICTION')
                     predictions = classificator.predict(test_data, dataset_name)
-                self.logger.info('START PREDICTION')
-                predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
-                predict_on_train = classificator.predict_on_train()
-                predict_on_val = classificator.predict_on_validation(validatiom_dataset=validation_data,
-                                                                     dataset_name=dataset_name)
-                # n_ecm_cycles = experiment_dict['n_ecm_cycles']
+                    predict_on_train = classificator.predict_on_train()
+                    predict_on_val = classificator.predict_on_validation(validatiom_tuple=validation_data,
+                                                                         dataset_name=dataset_name)
 
                     if self.config_dict['error_correction']:
                         predict_on_train = classificator.predict_on_train()
@@ -215,14 +212,12 @@ class Industrial:
                     # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
                     # if len(spectral_generators) != 0:
                     #     self._save_spectrum(classificator, path_to_save=spectral_generators)
-
+                    if 'ensemble_algorithm' in self.config_dict.keys():
+                        self.apply_model_ensembling(train_target=validation_data[1],
+                                                    train_predictions=predict_on_val,
+                                                    test_predictions=predictions)
         self.logger.info('END OF EXPERIMENT')
-                if 'ensemble_algorithm' in self.config_dict.keys():
-                    self.apply_model_ensembling(train_target=train_data[1],
-                                                train_predictions=predict_on_train,
-                                                test_predictions=predictions)
 
-        self.logger.info('END EXPERIMENT')
 
     def apply_model_ensembling(self,
                                train_target,
