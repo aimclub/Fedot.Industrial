@@ -108,7 +108,7 @@ class SSARunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
 
         if self.current_window is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)

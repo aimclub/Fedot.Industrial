@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 from typing import Union
 
 import pandas as pd

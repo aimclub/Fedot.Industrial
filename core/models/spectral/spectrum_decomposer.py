@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 from typing import Union
 
 import matplotlib.pyplot as plt
