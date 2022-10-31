@@ -7,8 +7,12 @@ from core.operation.utils.utils import PROJECT_PATH
 
 
 class ResultsParser:
-    """
-    Class for parsing results of experiments.
+    """Class for parsing results of experiments.
+
+    Examples:
+        >>> parser = ResultsParser()
+        >>> results = parser.run()
+
     """
     exp_folders = ['ensemble', 'quantile', 'spectral', 'wavelet','window_quantile']
 
@@ -67,10 +71,14 @@ class ResultsParser:
 
     @staticmethod
     def list_dir(path):
-        """
-        Function used instead of os.listdir() to get list of non-hidden directories
-        :param path: path to scan
-        :return: list of available directories
+        """Function used instead of os.listdir() to get list of non-hidden directories.
+
+        Args:
+            path (str): Path to the directory.
+
+        Returns:
+            list: List of non-hidden directories.
+
         """
         path_list = []
         for f in os.listdir(path):

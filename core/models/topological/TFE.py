@@ -9,8 +9,8 @@ from gtda.time_series import TakensEmbedding
 
 
 class PersistenceDiagramFeatureExtractor(ABC):
-    """
-    Abstract class persistence diagrams features extractor.
+    """Abstract class persistence diagrams features extractor.
+
     """
 
     def extract_feature_(self, persistence_diagram):
@@ -21,6 +21,17 @@ class PersistenceDiagramFeatureExtractor(ABC):
 
 
 class PersistenceDiagramsExtractor:
+    """Class to extract persistence diagrams from time series.
+
+    Args:
+        takens_embedding_dim (int): Dimension of the Takens embedding.
+        takens_embedding_delay (int): Delay of the Takens embedding.
+        homology_dimensions (list): Homology dimensions to compute.
+        filtering (bool): Whether to filter the persistence diagrams.
+        filtering_dimensions (tuple): Homology dimensions to filter.
+        parallel (bool): Whether to parallelize the computation.
+
+    """
     def __init__(self, takens_embedding_dim, takens_embedding_delay, homology_dimensions,
                  filtering=False, filtering_dimensions=(1, 2), parallel=False):
         self.takens_embedding_dim_ = takens_embedding_dim
@@ -29,7 +40,6 @@ class PersistenceDiagramsExtractor:
         self.filtering_ = filtering
         self.filtering_dimensions_ = filtering_dimensions
         self.parallel_ = parallel
-        # self.n_job = -1 if self.parallel_ else None
         self.n_job = None
 
     def takens_embeddings_(self, data):

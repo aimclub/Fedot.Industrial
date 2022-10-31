@@ -15,10 +15,24 @@ from core.operation.utils.Decorators import time_it
 
 
 class SSARunner(ExperimentRunner):
-    """
-    Class responsible for spectral feature generator experiment
-        :param window_sizes: list of window sizes to be used for feature extraction
-        :param window_mode: boolean flag - if True, window mode is used
+    """Class responsible for spectral feature generator experiment.
+
+    Args:
+        window_sizes (list): list of window sizes for SSA algorithm.
+        window_mode (bool): flag for window mode. If True, SSA algorithm will be applied to each window of time series.
+        use_cache (bool): flag for cache usage. If True, SSA algorithm will be applied to each window of time series.
+
+    Attributes:
+        use_cache (bool): flag for cache usage. If True, SSA algorithm will be applied to each window of time series.
+        aggregator (StatFeaturesExtractor): class for statistical features extraction.
+        spectrum_extractor (SpectrumDecomposer): class for SSA algorithm.
+        pareto_front (ParetoMetrics): class for pareto front calculation.
+        window_length_list (list): list of window sizes for SSA algorithm.
+        vis_flag (bool): flag for visualization.
+        rank_hyper (int): ...
+        train_feats (pd.DataFrame): extracted features for train data.
+        test_feats (pd.DataFrame): extracted features for test data.
+
     """
 
     def __init__(self, window_sizes: list,
@@ -27,7 +41,6 @@ class SSARunner(ExperimentRunner):
 
         super().__init__()
         self.use_cache = use_cache
-        self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
@@ -81,10 +94,10 @@ class SSARunner(ExperimentRunner):
         return [components_df, n_components, explained_dispersion]
 
     def generate_vector_from_ts(self, ts_frame):
-        self.ts_samples_count = ts_frame.shape[0]
+        ts_samples_count = ts_frame.shape[0]
 
         components_and_vectors = list()
-        with tqdm(total=self.ts_samples_count,
+        with tqdm(total=ts_samples_count,
                   desc='Feature Generation. Samples processed: ',
                   unit=' samples', initial=0, colour='black') as pbar:
             for ts in ts_frame.values:
@@ -139,11 +152,15 @@ class SSARunner(ExperimentRunner):
         return aggregation_df
 
     def _choose_best_window_size(self, X_train, dataset_name) -> pd.DataFrame:
-        """
-        Chooses the best window for feature extraction
-        :param X_train: train features dataframe
-        :param dataset_name: name of the dataset
-        :return: dataframe of features extracted with the best window size
+        """Chooses the best window for feature extraction.
+
+        Args:
+            X_train (pd.DataFrame): train data.
+            dataset_name (str): name of dataset.
+
+        Returns:
+            pd.DataFrame: extracted features for train data.
+
         """
         metric_list = []
         n_comp_list = []

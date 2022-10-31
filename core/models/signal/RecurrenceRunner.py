@@ -8,10 +8,11 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class RecurrenceRunner(ExperimentRunner):
-    """
-    Class responsible for wavelet feature generator experiment.
+    """Class responsible for wavelet feature generator experiment.
 
-    :window_mode: if True, then window mode is used
+    Args:
+        window_mode (bool): boolean flag - if True, window mode is used. Defaults to False.
+        use_cache (bool): boolean flag - if True, cache is used. Defaults to False.
     """
 
     def __init__(self, window_mode: bool = False, use_cache: bool = False):
@@ -34,11 +35,13 @@ class RecurrenceRunner(ExperimentRunner):
         return feature_df
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
-        """
-        Generate vector from time series.
+        """Generate vector from time series.
 
-        :param ts_frame: time series dataframe
-        :return:
+        Args:
+            ts_frame (pd.DataFrame): time series frame
+
+        Returns:
+            pd.DataFrame: feature vector
         """
         self.ts_samples_count = ts_frame.shape[0]
 

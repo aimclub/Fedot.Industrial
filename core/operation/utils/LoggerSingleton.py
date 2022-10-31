@@ -6,8 +6,8 @@ from core.operation.utils.utils import PROJECT_PATH
 
 
 class SingletonMetaLogger(type):
-    """
-    Singleton metaclass for Logger
+    """Singleton metaclass for Logger.
+
     """
     _instances = {}
 
@@ -18,8 +18,12 @@ class SingletonMetaLogger(type):
 
 
 class Logger(object, metaclass=SingletonMetaLogger):
-    """
-    Class for implementing singleton Logger
+    """Class for implementing singleton Logger.
+
+    Examples:
+        >>> logger = Logger().get_logger()
+        >>> logger.info('Your message')
+
     """
     _logger = None
 

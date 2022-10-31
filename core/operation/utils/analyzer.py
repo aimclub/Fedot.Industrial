@@ -7,8 +7,8 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class PerformanceAnalyzer:
-    """
-    Class responsible for calculating metrics for predictions.
+    """Class responsible for calculating metrics for predictions.
+
     """
     metric_list = ['roc_auc', 'f1', 'precision', 'accuracy', 'logloss']
     logger = Logger().get_logger()

@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Any, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -22,8 +22,12 @@ from core.TimeSeriesClassifier import TimeSeriesClassifier
 
 
 class Industrial:
-    """
-    Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
+    """Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
+
+    Attributes:
+        config_dict (dict): dictionary with the parameters of the experiment
+        logger (Logger): logger instance for logging
+        feature_generator_dict (dict): dictionary with the names of the generators and their classes
     """
 
     def __init__(self):
@@ -46,32 +50,43 @@ class Industrial:
             train_data, _ = DataLoader(dataset_name).load_data()
             self._check_window_sizes(dataset_name=dataset_name, train_data=train_data)
         experiment_dict = copy.deepcopy(self.config_dict)
+        self.use_cache = experiment_dict['use_cache']
 
         experiment_dict['feature_generator'].clear()
         experiment_dict['feature_generator'] = dict()
 
-        for idx, feature_generator in enumerate(self.config_dict['feature_generator']):
-            if feature_generator.startswith('ensemble'):
-                models = feature_generator.split(': ')[1].split(' ')
-                for model in models:
-                    feature_generator_class = {
-                        model: self.feature_generator_dict[model](**experiment_dict['feature_generator_params'][model])}
-
+        for idx, generator in enumerate(self.config_dict['feature_generator']):
+            if generator.startswith('ensemble'):
+                generators = generator.split(': ')[1].split(' ')
+                for gen_name in generators:
+                    feature_gen_class = self.get_generator_class(experiment_dict, gen_name)
                     experiment_dict['feature_generator_params']['ensemble']['list_of_generators'].update(
-                        feature_generator_class)
+                        feature_gen_class)
 
-                ensemble_generator = {'ensemble': self.feature_generator_dict['ensemble']
-                (**experiment_dict['feature_generator_params']['ensemble'])}
-
-                experiment_dict['feature_generator'].update(ensemble_generator)
+                ensemble_class = self.get_generator_class(experiment_dict, 'ensemble')
+                experiment_dict['feature_generator'].update(ensemble_class)
 
             else:
-                feature_generator_class = {feature_generator: self.feature_generator_dict[feature_generator]
-                (**experiment_dict['feature_generator_params'][feature_generator])}
-
-                experiment_dict['feature_generator'].update(feature_generator_class)
+                feature_gen_class = self.get_generator_class(experiment_dict, generator)
+                experiment_dict['feature_generator'].update(feature_gen_class)
 
         return experiment_dict
+
+    def get_generator_class(self, experiment_dict, gen_name):
+        """Combines the name of the generator with the parameters from the config file.
+
+        Args:
+            experiment_dict (dict): dictionary with the parameters of the experiment
+            gen_name (str): name of the generator
+
+        Returns:
+            dict: dictionary with the name of the generator and its class
+
+        """
+        feature_gen_model = self.feature_generator_dict[gen_name]
+        feature_gen_params = experiment_dict['feature_generator_params'].get(gen_name, dict())
+        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
+        return feature_gen_class
 
     def _check_window_sizes(self, dataset_name, train_data):
         for key in self.config_dict['feature_generator_params'].keys():
@@ -94,9 +109,11 @@ class Industrial:
             return 'roc_auc'
 
     def read_yaml_config(self, config_name: str) -> None:
-        """
-        Read yaml config from './experiments/configs/config_name' directory as dictionary file
-        :param config_name: yaml-config name
+        """Read yaml config from './cases/config/config_name' directory as dictionary file.
+
+        Args:
+            config_name (str): name of the config file
+
         """
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
@@ -108,16 +125,19 @@ class Industrial:
                     config_dict_template = yaml.safe_load(input_stream)
                 self.config_dict = {**config_dict_template, **self.config_dict}
                 del self.config_dict['path_to_config']
-            # self.config_dict['logger'] = self.logger
-            self.logger.info(
-                f"Experiment setup:"
-                f"\ndatasets - {self.config_dict['datasets_list']},"
-                f"\nfeature generators - {self.config_dict['feature_generator']}")
+
+            self.logger.info(f'''Experiment setup:
+            datasets - {self.config_dict['datasets_list']},
+            feature generators - {self.config_dict['feature_generator']},
+            use_cache - {self.config_dict['use_cache']},
+            error_correction - {self.config_dict['error_correction']}''')
 
     def run_experiment(self, config_name):
-        """
-        Run experiment with corresponding config_name
-        :param config_name: configuration file name [Config_Classification.yaml]
+        """Run experiment with corresponding config_name.
+
+        Args:
+            config_name (str): name of the config file
+
         """
         self.logger.info(f'START EXPERIMENT')
         experiment_dict = self._init_experiment_setup(config_name)
@@ -148,7 +168,7 @@ class Industrial:
 
                 for launch in range(1, launches + 1):
                     self.logger.info(f'START LAUNCH {launch}')
-                    self.logger.info('START TRAINING')
+
                     fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
                     self.logger.info('START PREDICTION')
@@ -193,7 +213,7 @@ class Industrial:
                     # if len(spectral_generators) != 0:
                     #     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
-        self.logger.info('END EXPERIMENT')
+        self.logger.info('END OF EXPERIMENT')
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
@@ -207,8 +227,8 @@ class Industrial:
         predictions_proba, test_features = prediction['predictions_proba'], prediction['test_features']
 
         path_results = os.path.join(path_to_save, 'test_results')
-        if not os.path.exists(path_results):
-            os.makedirs(path_results)
+        os.makedirs(path_results, exist_ok=True)
+
         try:
             fitted_predictor.current_pipeline.save(path_results)
         except Exception as ex:
@@ -222,6 +242,7 @@ class Industrial:
 
         for name, features in zip(features_names, features_list):
             pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
+
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)
