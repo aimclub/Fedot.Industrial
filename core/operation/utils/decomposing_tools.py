@@ -5,13 +5,17 @@ from core.models.cnn.decomposed_conv import DecomposedConv2d
 
 
 class StructureOptimizer:
-    """Base class for structure optimizers."""
+    """Base class for structure optimizers.
+
+    """
     def __init__(self) -> None:
         super(StructureOptimizer, self).__init__()
 
 
 class EnergyThresholdPruning(StructureOptimizer):
-    """Prune the weight matrices to the energy threshold."""
+    """Prune the weight matrices to the energy threshold.
+
+    """
 
     def __init__(self, energy_threshold: float) -> None:
         super(StructureOptimizer, self).__init__()
@@ -19,7 +23,10 @@ class EnergyThresholdPruning(StructureOptimizer):
 
     def optimize(self, conv: DecomposedConv2d) -> (int, int):
         """Prune the weight matrices to the self.energy_threshold.
-        Return the number of parameters before and after pruning.
+
+        Returns:
+            (int, int): The number of parameters before and after pruning.
+
         """
 
         assert conv.decomposing, "for pruning, the model must be decomposed"
@@ -64,7 +71,10 @@ def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
 
 def prune_model(model: Module, optimizer: StructureOptimizer) -> (int, int):
     """Prune DecomposedConv2d layers of the model with pruning_fn.
-    Return the number of parameters before and after pruning.
+
+    Returns:
+        (int, int): The number of parameters before and after pruning.
+
     """
     old_params_counter = 0
     new_params_counter = 0

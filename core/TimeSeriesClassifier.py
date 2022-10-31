@@ -10,12 +10,20 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class TimeSeriesClassifier:
-    """
-    Class responsible for interaction with Fedot classifier.
+    """Class responsible for interaction with Fedot classifier.
 
-    :param feature_generator_dict: dict with feature generators
-    :param model_hyperparams: dict with hyperparams for Fedot model
-    :param ecm_model_flag: bool if error correction model is used
+    Args:
+        generator_name (str): name of the generator for feature extraction
+        generator_runner (ExperimentRunner): generator runner instance for feature extraction
+        model_hyperparams (dict): hyperparameters for Fedot model
+        ecm_model_flag (bool): flag for error correction model
+
+    Attributes:
+        logger (Logger): logger instance
+        predictor (Fedot): Fedot model instance
+        y_train (np.ndarray): target for training
+        train_features (pd.DataFrame): features for training
+
     """
 
     def __init__(self,
@@ -23,10 +31,9 @@ class TimeSeriesClassifier:
                  generator_runner: ExperimentRunner,
                  model_hyperparams: dict,
                  ecm_model_flag: False):
-        self.logger = Logger(self.__class__.__name__).get_logger()
+        self.logger = Logger().get_logger()
         self.predictor = None
         self.y_train = None
-        self.predictor_list = None
         self.train_features = None
         self.generator_name = generator_name
         self.generator_runner = generator_runner
@@ -36,20 +43,21 @@ class TimeSeriesClassifier:
         self._init_builder()
 
     def _init_builder(self) -> None:
-        """
-        Initialize builder with all operations combining generator name and transformation method.
+        """Initialize builder with all operations combining generator name and transformation method.
 
-        :return: None
         """
         for name, runner in self.feature_generator_dict.items():
             self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
 
     def _fit_fedot_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
-        """
-        Fit Fedot model with feature and target
-        :param features: pandas.DataFrame with features
-        :param target: numpy.ndarray with target
-        :return: Fedot model
+        """Fit Fedot model with feature and target.
+
+        Args:
+            features (pd.DataFrame): features for training
+            target (np.ndarray): target for training
+
+        Returns:
+            Fedot: fitted Fedot model
         """
         fedot_model = Fedot(**self.model_hyperparams)
         fedot_model.fit(features, target)

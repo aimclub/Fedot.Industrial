@@ -12,9 +12,14 @@ from core.operation.utils.utils import PROJECT_PATH
 
 
 class DataLoader:
-    """
-    Class for reading data from tsv files and downloading from UCR archive if not found.
-        :param dataset_name: name of dataset.
+    """Class for reading data from tsv files and downloading from UCR archive if not found.
+
+    Args:
+        dataset_name (str): name of dataset
+
+    Examples:
+        >>> data_loader = DataLoader('ItalyPowerDemand')
+        >>> train_data, test_data = data_loader.load_data()
     """
 
     def __init__(self, dataset_name: str):
@@ -22,9 +27,10 @@ class DataLoader:
         self.dataset_name = dataset_name
 
     def load_data(self) -> tuple:
-        """
-        Load data for classification experiment locally or externally from UCR archive.
-        :return: (x_train, y_train) - pandas dataframes and (x_test, y_test) - numpy arrays
+        """Load data for classification experiment locally or externally from UCR archive.
+
+        Returns:
+            tuple: train and test data
         """
         dataset_name = self.dataset_name
         self.logger.info(f'Reading {dataset_name} data locally')
@@ -58,11 +64,15 @@ class DataLoader:
         return train_data, test_data
 
     def extract_data(self, dataset_name: str, temp_data_path: str):
-        """
-        Unpacks data from downloaded file and saves it into Data folder with .tsv extension.
-        :param dataset_name: name of dataset
-        :param temp_data_path: path to temporary folder with downloaded data
-        :return:
+        """Unpacks data from downloaded file and saves it into Data folder with .tsv extension.
+
+        Args:
+            dataset_name (str): name of dataset
+            temp_data_path (str): path to temporary folder with downloaded data
+
+        Returns:
+            tuple: train and test data
+
         """
 
         # If data unpacked as .txt file
@@ -100,6 +110,9 @@ class DataLoader:
         return (pd.DataFrame(x_train), y_train), (pd.DataFrame(x_test), y_test)
 
     def read_arff(self, dataset_name, temp_data_path):
+        """Reads data from .arff file.
+
+        """
         train = loadarff(temp_data_path + dataset_name + '_TRAIN.arff')
         test = loadarff(temp_data_path + dataset_name + '_TEST.arff')
         try:
@@ -117,6 +130,15 @@ class DataLoader:
 
     @staticmethod
     def read_txt(dataset_name, temp_data_path):
+        """
+        Reads data from .txt file.
+        Args:
+            dataset_name (str): name of dataset
+            temp_data_path (str): path to temporary folder with downloaded data
+
+        Returns:
+            tuple: train and test data
+        """
         data_train = np.genfromtxt(temp_data_path + '/' + dataset_name + '_TRAIN.txt')
         data_test = np.genfromtxt(temp_data_path + '/' + dataset_name + '_TEST.txt')
         x_train, y_train = data_train[:, 1:], data_train[:, 0]
@@ -125,11 +147,15 @@ class DataLoader:
 
     @staticmethod
     def read_tsv(file_name: str):
-        """
-        Read tsv file that contains data for classification experiment. Data must be placed
+        """Read tsv file that contains data for classification experiment. Data must be placed
         in 'data' folder with .tsv extension.
-        :param file_name:
-        :return: (x_train, x_test) - pandas dataframes and (y_train, y_test) - numpy arrays
+
+        Args:
+            file_name (str): name of file with data
+
+        Returns:
+            tuple: (x_train, x_test) and (y_train, y_test)
+
         """
         try:
             df_train = pd.read_csv(os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TRAIN.tsv'),
@@ -153,6 +179,14 @@ class DataLoader:
 
     @staticmethod
     def load_re_arff(data):
+        """
+        Reads data from relational .arff file.
+        Args:
+            data: ...
+
+        Returns:
+
+        """
         x_data = np.asarray(data[0])
         n_samples = len(x_data)
         x_ls, y_ls = [], []

@@ -11,14 +11,27 @@ from core.models.signal.wavelet_extractor import WaveletExtractor
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 from core.operation.utils.Decorators import time_it
 from core.operation.utils.load_data import DataLoader
-from core.operation.utils.LoggerSingleton import Logger
 
 
 class SignalRunner(ExperimentRunner):
-    """
-    Class responsible for wavelet feature generator experiment.
+    """Class responsible for wavelet feature generator experiment.
 
-    :wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml
+    Args:
+        wavelet_types (list): list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.
+        use_cache (bool): flag to use cache or not. Defined in Config_Classification.yaml
+
+    Attributes:
+        use_cache (bool): flag to use cache or not. Defined in Config_Classification.yaml
+        ts_samples_count (int): number of samples in time series
+        aggregator (StatFeaturesExtractor): class to aggregate features
+        wavelet_extractor (WaveletExtractor): class to extract wavelet features
+        wavelet_list (list): list of wavelet types to be used in experiment.
+        wavelet (str): current wavelet type
+        vis_flag (bool): flag to visualize or not
+        train_feats (pd.DataFrame): train features
+        test_feats (pd.DataFrame): test features
+        dict_of_methods (dict): dictionary of methods to extract features
+
     """
 
     def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4'),
@@ -34,7 +47,6 @@ class SignalRunner(ExperimentRunner):
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
-        self.n_components = None
         self.dict_of_methods = {'Peaks': self._method_of_peaks,
                                 'AC': self._method_of_AC}
 
@@ -93,12 +105,14 @@ class SignalRunner(ExperimentRunner):
         return feature_df
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
-        """
-        Generate vector from time series.
+        """Generate vector from time series.
 
-        :param ts_frame: time series dataframe
-        :param method_name: method name
-        :return:
+        Args:
+            ts_frame (pd.DataFrame): time series to be transformed.
+            method_name (str): method to be used for transformation.
+
+        Returns:
+            list: list of components and vectors.
         """
         self.ts_samples_count = ts_frame.shape[0]
 
@@ -128,12 +142,14 @@ class SignalRunner(ExperimentRunner):
         return self.test_feats
 
     def _validate_window_length(self, features: pd.DataFrame, target: np.ndarray):
-        """
-        Validate window length using one-node (random forest) Fedot model.
+        """Validate window length using one-node (random forest) Fedot model.
 
-        :param features: features dataframe
-        :param target: array of target labels
-        :return:
+        Args:
+            features (pd.DataFrame): features to be validated.
+            target (np.ndarray): target values.
+
+        Returns:
+            tuple: tuple of score_f1, score_roc_auc scores.
         """
         node = PrimaryNode('rf')
         pipeline = Pipeline(node)
@@ -163,12 +179,14 @@ class SignalRunner(ExperimentRunner):
         return score_f1, score_roc_auc
 
     def _choose_best_wavelet(self, X_train: pd.DataFrame, y_train: np.ndarray) -> pd.DataFrame:
-        """
-        Chooses the best wavelet for feature extraction.
+        """Chooses the best wavelet for feature extraction.
 
-        :param X_train: train features dataframe
-        :param y_train: train target labels
-        :return:
+        Args:
+            X_train (pd.DataFrame): train features.
+            y_train (np.ndarray): train target.
+
+        Returns:
+            pd.DataFrame: features with the best wavelet.
         """
         metric_list = []
         feature_list = []

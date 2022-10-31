@@ -22,8 +22,12 @@ from core.TimeSeriesClassifier import TimeSeriesClassifier
 
 
 class Industrial:
-    """
-    Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
+    """Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
+
+    Attributes:
+        config_dict (dict): dictionary with the parameters of the experiment
+        logger (Logger): logger instance for logging
+        feature_generator_dict (dict): dictionary with the names of the generators and their classes
     """
 
     def __init__(self):
@@ -69,9 +73,15 @@ class Industrial:
         return experiment_dict
 
     def get_generator_class(self, experiment_dict, gen_name):
-        """
-        Combines the name of the generator with the parameters from the config file
-        :return: dictionary with the name of the generator and its parameters
+        """Combines the name of the generator with the parameters from the config file.
+
+        Args:
+            experiment_dict (dict): dictionary with the parameters of the experiment
+            gen_name (str): name of the generator
+
+        Returns:
+            dict: dictionary with the name of the generator and its class
+
         """
         feature_gen_model = self.feature_generator_dict[gen_name]
         feature_gen_params = experiment_dict['feature_generator_params'].get(gen_name, dict())
@@ -99,9 +109,11 @@ class Industrial:
             return 'roc_auc'
 
     def read_yaml_config(self, config_name: str) -> None:
-        """
-        Read yaml config from './cases/config/config_name' directory as dictionary file
-        :param config_name: yaml-config name, e.g. 'Config_Classification.yaml'
+        """Read yaml config from './cases/config/config_name' directory as dictionary file.
+
+        Args:
+            config_name (str): name of the config file
+
         """
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
@@ -121,9 +133,11 @@ class Industrial:
             error_correction - {self.config_dict['error_correction']}''')
 
     def run_experiment(self, config_name):
-        """
-        Run experiment with corresponding config_name
-        :param config_name: configuration file name [Config_Classification.yaml]
+        """Run experiment with corresponding config_name.
+
+        Args:
+            config_name (str): name of the config file
+
         """
         self.logger.info(f'START EXPERIMENT')
         experiment_dict = self._init_experiment_setup(config_name)

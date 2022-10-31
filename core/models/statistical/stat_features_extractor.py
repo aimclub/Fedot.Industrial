@@ -15,8 +15,8 @@ quantile_dict = {'q5_': 0.05,
 
 
 class StatFeaturesExtractor:
-    """
-    Class for generating statistical features for a given time series.
+    """Class for generating statistical features for a given time series.
+
     """
 
     @staticmethod
@@ -111,13 +111,20 @@ class StatFeaturesExtractor:
 
     @staticmethod
     def _get_intervals(n_intervals, min_interval, series_length, rng):
-        """
-        Generate random intervals for given parameters
+        """Generate random intervals for given parameters.
+
+        Args:
+            n_intervals (int): Number of intervals to generate
+            min_interval (int): Minimum length of an interval
+            series_length (int): Length of the time series
+            rng (np.random.RandomState): Random number generator
             :param n_intervals: int. Number of intervals to generate
             :param min_interval: int. Minimum length of interval
             :param series_length: int. Length of series
-            :param rng:
-            :return: np.ndarray. Intervals
+            :param rng: ...
+
+        Returns:
+            np.ndarray: Array containing the intervals
         """
         intervals = np.zeros((n_intervals, 2), dtype=int)
         for j in range(n_intervals):
