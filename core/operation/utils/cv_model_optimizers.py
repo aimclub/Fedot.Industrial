@@ -10,7 +10,7 @@ from core.models.cnn.decomposed_conv import DecomposedConv2d
 from core.operation.utils.svd_tools import energy_threshold_pruning, decompose_module
 
 
-class _GeneralizedStructureOptimization:
+class GeneralizedStructureOptimization:
     """Generalized class for model structure optimization."""
 
     def __init__(
