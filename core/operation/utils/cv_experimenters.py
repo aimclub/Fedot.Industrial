@@ -187,15 +187,15 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         gpu: bool = True,
     ) -> None:
 
-        parameter_value_check(
+        _parameter_value_check(
             parameter="model", value=model, valid_values=set(MODELS.keys())
         )
-        parameter_value_check(
+        _parameter_value_check(
             parameter="structure_optimization",
             value=structure_optimization,
             valid_values=set(OPTIMIZATIONS.keys()),
         )
-        parameter_value_check(
+        _parameter_value_check(
             parameter="target_metric",
             value=target_metric,
             valid_values={"f1", "accuracy", "precision", "recall", "roc_auc"},
@@ -303,12 +303,12 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         gpu: bool = True,
     ) -> None:
 
-        parameter_value_check(
+        _parameter_value_check(
             parameter="structure_optimization",
             value=structure_optimization,
             valid_values=set(OPTIMIZATIONS.keys()),
         )
-        parameter_value_check(
+        _parameter_value_check(
             parameter="target_metric",
             value=target_metric,
             valid_values={"map", "map_50", "map_75"},
