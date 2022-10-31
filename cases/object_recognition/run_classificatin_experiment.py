@@ -1,6 +1,6 @@
 import torch
 
-from core.operation.utils.cv_optimization_experimenter import run_experiment
+from core.operation.utils.cv_experimenters import ClassificationExperimenter
 
 if __name__ == "__main__":
     root = "/media/n31v/data/"
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     svd_parameters = {
         "decomposing_mode": "spatial",
         "orthogonal_loss_factor": 10,
-        "hoer_loss_factor": 0.01,
+        "hoer_loss_factor": 0.001,
         "energy_thresholds": [
             0.1, 0.3, 0.5, 0.7, 0.9,
             0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99,
@@ -31,10 +31,13 @@ if __name__ == "__main__":
         "finetuning_epochs": 5
     }
     sfp_parameters = {
-        "pruning_ratio": 0.7
+        "pruning_ratio": 0.5
     }
+    modes = {"none": {}, "SVD": svd_parameters, "SFP": sfp_parameters}
 
-    # run_experiment("base", experiment_parameters, {}, 30)
-    # run_experiment("SFP", experiment_parameters, sfp_parameters, 30)
-    run_experiment("SVD", experiment_parameters, svd_parameters, 30)
+    mode = "SVD"
 
+    experiment_parameters["structure_optimization"] = mode
+    experiment_parameters["structure_optimization_params"] = modes[mode]
+    experimenter = ClassificationExperimenter(**experiment_parameters)
+    experimenter.run(30)

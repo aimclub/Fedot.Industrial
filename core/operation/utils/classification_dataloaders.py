@@ -105,10 +105,10 @@ DATASETS_PARAMETERS = {
 }
 
 
-def get_dataloaders(
+def get_classification_dataloaders(
     dataset_name: str, datasets_folder: str, batch_size: int
 ) -> Tuple[DataLoader, DataLoader, int]:
-
+    """Get dataloaders and return train and validation dataloaders, number of classes."""
     if dataset_name not in DATASETS_PARAMETERS.keys():
         raise ValueError(
             "dataset_name must be one of {}, but got dataset_name='{}'".format(
@@ -119,16 +119,14 @@ def get_dataloaders(
 
     train_dataloader = DataLoader(
         dataset=params["getter"](
-            root=path.join(datasets_folder, dataset_name),
-            **params["train"]
+            root=path.join(datasets_folder, dataset_name), **params["train"]
         ),
         batch_size=batch_size,
         shuffle=True,
     )
     test_dataloader = DataLoader(
         dataset=params["getter"](
-            root=path.join(datasets_folder, dataset_name),
-            **params["val"]
+            root=path.join(datasets_folder, dataset_name), **params["val"]
         ),
         batch_size=batch_size,
         shuffle=False,
