@@ -150,7 +150,8 @@ class Industrial:
             X_train, X_val, y_train, y_val = train_test_split(train_data[0],
                                                               train_data[1],
                                                               test_size=0.2,
-                                                              random_state=42)
+                                                              random_state=42,
+                                                              stratify=train_data[1])
             train_data, validation_data = (X_train, y_train), (X_val, y_val)
             validation_predictions = dict()
             test_predictions = dict()
@@ -206,35 +207,56 @@ class Industrial:
                                       train_features=train_features,
                                       prediction=predictions,
                                       fitted_predictor=fitted_predictor,
-                                      ecm_results=ecm_results),
-                    validation_predictions[f'{runner_name}-launch_{launch}_val'] = predict_on_val
-                    test_predictions[f'{runner_name}-launch_{launch}_test'] = predictions
-                    # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
-                    # if len(spectral_generators) != 0:
-                    #     self._save_spectrum(classificator, path_to_save=spectral_generators)
+                                      ecm_results=ecm_results)
+
+                    if launch not in validation_predictions.keys():
+                        validation_predictions[launch] = {}
+                    validation_predictions[launch].update({f'{runner_name}_val': predict_on_val})
+
+                    if launch not in test_predictions.keys():
+                        test_predictions[launch] = {}
+                    test_predictions[launch].update({f'{runner_name}_test': predictions})
+
             if 'ensemble_algorithm' in self.config_dict.keys():
-                self.apply_model_ensembling(train_target=validation_data[1],
-                                            train_predictions=validation_predictions,
-                                            test_predictions=test_predictions)
+                ensemble_dict = self.apply_model_ensembling(train_target=validation_data[1],
+                                                            test_target=test_data[1],
+                                                            train_predictions=validation_predictions,
+                                                            test_predictions=test_predictions)
+                path_to_save = os.path.join(path_to_save_results(), 'ensemble_models', dataset_name)
+                self.save_results(train_target=validation_data[1],
+                                  test_target=test_data[1],
+                                  path_to_save=path_to_save,
+                                  prediction=ensemble_dict),
             self.logger.info('END OF EXPERIMENT')
 
     def apply_model_ensembling(self,
                                train_target,
+                               test_target,
                                train_predictions,
                                test_predictions):
 
         ensemble_method = self.ensemble_methods_dict[self.config_dict['ensemble_algorithm']](
             train_predictions=train_predictions,
-            train_target=train_target)
+            train_target=train_target,
+            test_target=test_target)
         return ensemble_method.ensemble(predictions=test_predictions)
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
                      path_to_save: str,
                      prediction: dict,
-                     train_features: Union[np.ndarray, pd.DataFrame],
-                     fitted_predictor: Fedot,
-                     ecm_results: dict):
+                     train_features: Union[np.ndarray, pd.DataFrame] = None,
+                     fitted_predictor: Fedot = None,
+                     ecm_results: dict = None):
+        if fitted_predictor is None:
+            for launch in prediction:
+                metric_at_launch = prediction[launch]
+                metric_df = pd.concat([pd.Series(metric_at_launch[key]).to_frame() for key in metric_at_launch], axis=1)
+                metric_df.columns = metric_at_launch.keys()
+                path_to_save_launch = os.path.join(path_to_save, str(launch))
+                if not os.path.exists(path_to_save_launch):
+                    os.makedirs(path_to_save_launch)
+                metric_df.to_csv(os.path.join(path_to_save_launch, 'ensemble_metrics.csv'))
 
         metrics, predictions = prediction['metrics'], prediction['prediction']
         predictions_proba, test_features = prediction['predictions_proba'], prediction['test_features']

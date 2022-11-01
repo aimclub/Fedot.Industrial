@@ -54,7 +54,10 @@ class RecurrenceRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self,
+                     ts_data: pd.DataFrame,
+                     dataset_name: str = None,
+                     target: np.ndarray = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:
