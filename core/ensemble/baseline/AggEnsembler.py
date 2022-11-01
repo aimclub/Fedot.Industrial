@@ -16,14 +16,20 @@ class AggregationEnsemble(BaseEnsemble):
                  train_predictions,
                  train_target,
                  test_target,
-                 ensemble_strategy: str = 'Weighted'):
+                 ensemble_strategy: list = None):
         super().__init__()
         self.train_predictions = train_predictions
         self.train_target = train_target
         self.test_target = test_target
-        self.ensemle_strategy = ensemble_strategy
+        self.launch = None
         self.ensemle_strategy_dict = select_hyper_param('stat_methods_ensemble')
-        self.estimator_weight = True
+        self.ensemle_strategy_dict['WeightedEnsemble'] = self.weighted_strategy
+
+        self.ensemle_strategy = ensemble_strategy
+        if self.ensemle_strategy is None:
+            self.ensemle_strategy = self.ensemle_strategy_dict.keys()
+
+        self.strategy_exclude_list = ['WeightedEnsemble']
 
     def majority_voting(self, classifier_votes):
         """Apply the majority voting rule to predict the label of each sample in X.
@@ -157,49 +163,65 @@ class AggregationEnsemble(BaseEnsemble):
 
         return softmax(predicted_proba)
 
-    def get_weighted_models(self):
+    def get_model_class_weights(self):
         model_weights = []
-        for model_at_launch in self.train_predictions:
-            cm = confusion_matrix(y_pred=np.argmax(self.train_predictions[model_at_launch], axis=1),
+        validation_preds = self.train_predictions[self.launch]
+        for model_at_val in validation_preds:
+            cm = confusion_matrix(y_pred=np.argmax(validation_preds[model_at_val], axis=1),
                                   y_true=self.train_target)
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             weigths = np.nan_to_num(cm.diagonal())
             model_weights.append(weigths)
         return model_weights
 
-    def ensemble(self, predictions: dict) -> object:
+    def weighted_strategy(self, predictions, axis=1):
+        estimator_weights_on_validation = self.get_model_class_weights()
+        model_votes, model_weights = self._get_votes_and_weights(predictions, estimator_weights_on_validation)
+        ensemble_predict = self.weighted_majority_voting(model_votes, model_weights)
+        return ensemble_predict
 
-        if self.ensemle_strategy == 'Weighted':
-            estimator_weights_on_validation = self.get_weighted_models()
-            model_votes, model_weights = self._get_votes_and_weights(predictions, estimator_weights_on_validation)
-            ensemble_predict = self.weighted_majority_voting(model_votes, model_weights)
-            ensemble_dict = {'ensemble_predict': ensemble_predict,
-                             'estimator_weights_on_validation': estimator_weights_on_validation,
-                             }
+    def ensemble(self, predictions: dict) -> dict:
+        ensemble_dict = {}
+        for launch in predictions:
+            ensemble_dict[launch] = {}
+            self.launch = launch
+            for model in predictions[launch]:
+                ensemble_dict[launch].update({model: predictions[launch][model]['metrics']})
 
-            for model in predictions:
-                metrics_dict = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
-                                                                       predicted_labels=ensemble_predict)
-                ensemble_dict[f'{model}_metrics_after_ensemble'] = metrics_dict
-                ensemble_dict[f'{model}_metrics_before_ensemble'] = predictions[model]['metrics']
-            return ensemble_dict
+            for strategy in self.ensemle_strategy:
+                ensemble_dict[launch].update({strategy: self._ensemble_by_method(predictions[launch],
+                                                                                 strategy=strategy)})
+        return ensemble_dict
+
+    def _ensemble_by_method(self, predictions, strategy):
+        transformed_predictions = self._check_predictions(predictions, strategy_name=strategy)
+        average_predictions = self.ensemle_strategy_dict[strategy](transformed_predictions, axis=1)
+
+        if average_predictions.ndim != 1:
+            label_predictions = np.argmax(average_predictions, axis=1)
         else:
-            predictions = self._check_predictions(predictions)
-            average_predictions = self.ensemle_strategy_dict[self.ensemle_strategy](predictions, axis=1)
-            return np.argmax(average_predictions, axis=1)
+            label_predictions = average_predictions
 
-    def _check_predictions(self, predictions):
+        metrics_dict = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
+                                                               predicted_labels=label_predictions)
+
+        return metrics_dict
+
+    def _check_predictions(self, predictions, strategy_name):
         """Check if the predictions array has the correct size.
 
         Raises a value error if the array do not contain exactly 3 dimensions:
         [n_samples, n_classifiers, n_classes]
 
         """
-        if type(predictions) == list or predictions.ndim != 3:
+        if strategy_name in self.strategy_exclude_list:
+            return predictions
+
+        if type(predictions) == dict:
             try:
                 list_proba = []
                 for model_preds in predictions:
-                    list_proba.append(model_preds['predictions_proba'])
+                    list_proba.append(predictions[model_preds]['predictions_proba'])
                 return np.array(list_proba).transpose((1, 0, 2))
             except Exception:
                 raise ValueError(
@@ -210,10 +232,9 @@ class AggregationEnsemble(BaseEnsemble):
         model_votes = []
         model_weights = []
 
-        if self.estimator_weight:
-            for model, weights in zip(predictions_copy, estimator_weights):
-                probs = predictions_copy[model]['predictions_proba']
-                predictions_copy[model]['predictions_proba'] = probs * weights
+        for model, weights in zip(predictions_copy, estimator_weights):
+            probs = predictions_copy[model]['predictions_proba']
+            predictions_copy[model]['predictions_proba'] = probs * weights
 
         for model in predictions_copy:
             predictions_copy[model]['predictions_proba'].partition(-1, axis=1)
