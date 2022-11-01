@@ -7,18 +7,18 @@ from scipy.spatial.distance import pdist, squareform
 class TSTransformer:
     def __init__(self, time_series):
         self.time_series = time_series
-        self.reccurancy_matrix = None
+        self.recurrence_matrix = None
         self.threshold_baseline = [10, 15, 20]
 
-    def ts_to_reccurancy_matrix(self,
+    def ts_to_recurrence_matrix(self,
                                 eps=0.10,
                                 steps=None):
         distance_matrix = pdist(metric='euclidean', X=self.time_series[:, None])
         distance_matrix = np.floor(distance_matrix / eps)
         distance_matrix, steps = self.binarization(distance_matrix, threshold=steps)
         distance_matrix[distance_matrix > steps] = steps
-        self.reccurancy_matrix = squareform(distance_matrix)
-        return self.reccurancy_matrix
+        self.recurrence_matrix = squareform(distance_matrix)
+        return self.recurrence_matrix
 
     def binarization(self, distance_matrix, threshold):
         best_threshold_flag = False
@@ -128,9 +128,9 @@ class TSTransformer:
         return entropy_white_vertical_lines, longest_white_vertical_line_length
 
     def get_reccurancy_metrics(self):
-        if self.reccurancy_matrix is None:
-            self.ts_to_reccurancy_matrix()
-        return self.recurrence_quantification_analysis(self.reccurancy_matrix)
+        if self.recurrence_matrix is None:
+            self.ts_to_recurrence_matrix()
+        return self.recurrence_quantification_analysis(self.recurrence_matrix)
 
     def recurrence_quantification_analysis(self,
                                            recurrence_matrix,
