@@ -1,11 +1,10 @@
-import torch
+from typing import Union
 
+import torch
 from torch import Tensor
+from torch.nn.common_types import _size_2_t
 from torch.nn.modules.conv import Conv2d
 from torch.nn.parameter import Parameter
-from torch.nn.common_types import _size_2_t
-
-from typing import Union
 
 __all__ = ["DecomposedConv2d"]
 
@@ -13,6 +12,7 @@ __all__ = ["DecomposedConv2d"]
 class DecomposedConv2d(Conv2d):
     """Extends the Conv2d layer by implementing the singular value decomposition of
     the weight matrix.
+
     """
 
     def __init__(
@@ -61,7 +61,9 @@ class DecomposedConv2d(Conv2d):
             self.decomposing = False
 
     def decompose(self, decomposing_mode: str) -> None:
-        """Decompose the weight matrix in singular value decomposition."""
+        """Decompose the weight matrix in singular value decomposition.
+
+        """
 
         if decomposing_mode not in self.decomposing_modes_dict.keys():
             raise ValueError(
@@ -79,7 +81,9 @@ class DecomposedConv2d(Conv2d):
         self.decomposing = True
 
     def compose(self) -> None:
-        """Compose the weight matrix from singular value decomposition."""
+        """Compose the weight matrix from singular value decomposition.
+
+        """
 
         W = self.U @ torch.diag(self.S) @ self.Vh
         self.weight = Parameter(
@@ -93,12 +97,12 @@ class DecomposedConv2d(Conv2d):
         self.register_parameter("Vh", None)
         self.decomposing = False
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input_: Tensor) -> Tensor:
 
         if self.decomposing:
             W = self.U @ torch.diag(self.S) @ self.Vh
             return self._conv_forward(
-                input,
+                input_,
                 W.view(
                     self.out_channels,
                     self.in_channels // self.groups,
@@ -107,10 +111,12 @@ class DecomposedConv2d(Conv2d):
                 self.bias,
             )
         else:
-            return self._conv_forward(input, self.weight, self.bias)
+            return self._conv_forward(input_, self.weight, self.bias)
 
     def set_U_S_Vh(self, u: Tensor, s: Tensor, vh: Tensor) -> None:
-        """Update U, S, Vh matrices."""
+        """Update U, S, Vh matrices.
+
+        """
 
         assert self.decomposing, "for setting U, S and Vh, the model must be decomposed"
         self.U = Parameter(u)

@@ -11,23 +11,23 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 class Booster:
-    """
-    Class to implement error correction model (ECM) for classification prediction improvement.
+    """Class to implement error correction model (ECM) for classification prediction improvement.
 
-    :param features_train: X_train
-    :param target_train: y_train
-    :param base_predict: prediction, derived from main model (Quantile, Spectral, Topological, or Wavelet)
-    :param timeout: defines the amount of time to compose and tune regression model
-    :param threshold: parameter used as round boundary for custom_round() method
-    :param n_cycles: number of boosting cycles
-    :param reshape_flag: ...
+    Args:
+        features_train (np.ndarray): X_train
+        target_train (np.ndarray): y_train
+        base_predict (np.ndarray): prediction, derived from main model (Quantile, Spectral, Topological, or Wavelet)
+        timeout (int): defines the amount of time to compose and tune regression model
+        threshold (float): parameter used as round boundary for custom_round() method
+        n_cycles (int): number of boosting cycles
+        reshape_flag: ...
     """
 
     def __init__(self, features_train: np.ndarray,
                  target_train: np.array,
                  base_predict: np.array,
                  timeout: int,
-                 threshold: Union[int, float] = 0,
+                 threshold: float = 0.5,
                  reshape_flag: bool = False,
                  n_cycles: int = 3):
         self.logger = Logger().get_logger()
@@ -46,16 +46,21 @@ class Booster:
         self.ecm_predictions = [self.base_predict, ]
 
     def fit(self) -> tuple:
-        """
-        Method to run the boosting process
+        """Method to fit error correction models.
+
+        Returns:
+            tuple: tuple with ensemble prediction and ensemble model
         """
         self.logger.info('Started boosting')
         model_list = list()
 
         for i in range(self.n_cycles):
             self.logger.info(f'Starting cycle {1 + i} of boosting')
-            target_diff = self.decompose_target(previous_predict=self.ecm_predictions[i],
-                                                previous_target=self.ecm_targets[i])
+            # target_diff = self.decompose_target(previous_predict=self.ecm_predictions[i],
+            #                                     previous_target=self.ecm_targets[i])
+            #
+            target_diff = np.subtract(previous_predict=self.ecm_predictions[i],
+                                      previous_target=self.ecm_targets[i])
             self.ecm_targets.append(target_diff)
 
             prediction, fedot_model = self.api_model(target_diff=target_diff)
@@ -67,8 +72,13 @@ class Booster:
         return final_prediction, model_list, model_ensemble
 
     def api_model(self, target_diff: np.ndarray) -> tuple:
-        """
-        Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
+        """Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
+
+        Args:
+            target_diff (np.ndarray): target difference between previous prediction and target
+
+        Returns:
+            tuple: tuple with prediction and FEDOT model
         """
         fedot_model = Fedot(problem='regression', seed=42,
                             timeout=self.timeout, max_depth=10,
@@ -87,19 +97,18 @@ class Booster:
     @staticmethod
     def decompose_target(previous_predict: np.ndarray,
                          previous_target: np.ndarray):
-        """
-        Method that returns difference between two arrays: last target and last predict.
-
-        :param previous_predict: last prediction
-        :param previous_target: last target
-        :return: difference between last target and last predict
-        """
         return previous_target - previous_predict
 
     def ensemble(self, features) -> tuple:
-        """
-        Method that ensembles results of all stages of boosting. Depending on number of classes ensemble method
-        could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem)
+        """Method that ensembles results of all stages of boosting. Depending on number of classes ensemble method
+        could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem).
+
+        Args:
+            features (list): list of predictions from all boosting stages
+
+        Returns:
+            tuple: tuple with ensemble prediction and ensemble model
+
         """
         self.logger.info('Starting to ensemble boosting results')
 
