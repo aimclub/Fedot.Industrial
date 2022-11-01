@@ -29,7 +29,7 @@ class RecurrenceRunner(ExperimentRunner):
 
         ts = self.check_for_nan(ts)
         specter = self.transformer(time_series=ts)
-        feature_df = pd.Series(specter.get_reccurancy_metrics())
+        feature_df = pd.Series(specter.get_recurrence_metrics())
         return feature_df
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:

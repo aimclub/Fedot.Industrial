@@ -22,7 +22,6 @@ class TSTransformer:
 
     def binarization(self, distance_matrix, threshold):
         best_threshold_flag = False
-        best_ratio = None
         if threshold is None:
             for threshold_baseline in self.threshold_baseline:
                 threshold = threshold_baseline
@@ -127,7 +126,7 @@ class TSTransformer:
 
         return entropy_white_vertical_lines, longest_white_vertical_line_length
 
-    def get_reccurancy_metrics(self):
+    def get_recurrence_metrics(self):
         if self.recurrence_matrix is None:
             self.ts_to_recurrence_matrix()
         return self.recurrence_quantification_analysis(self.recurrence_matrix)
