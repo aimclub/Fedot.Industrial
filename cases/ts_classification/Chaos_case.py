@@ -42,7 +42,7 @@ def plot_rec_plot_by_class(df):
         plt.plot(ru)
         plt.title("Unitary")
         plt.subplot(223)
-        plt.imshow(transformer.ts_to_reccurancy_matrix(eps=eps, steps=steps))
+        plt.imshow(transformer.ts_to_recurrence_matrix(eps=eps, steps=steps))
         plt.show()
 
 

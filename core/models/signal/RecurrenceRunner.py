@@ -4,7 +4,6 @@ from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.TS import TSTransformer
 from core.operation.utils.Decorators import time_it
-from core.operation.utils.LoggerSingleton import Logger
 
 
 class RecurrenceRunner(ExperimentRunner):
