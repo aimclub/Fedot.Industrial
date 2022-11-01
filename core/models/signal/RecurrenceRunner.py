@@ -25,7 +25,6 @@ class RecurrenceRunner(ExperimentRunner):
         self.transformer = TSTransformer
         self.train_feats = None
         self.test_feats = None
-        self.logger = Logger().get_logger()
 
     def _ts_chunk_function(self, ts):
 
