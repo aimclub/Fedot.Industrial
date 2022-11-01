@@ -16,8 +16,8 @@ class PersistenceDiagramFeatureExtractor(ABC):
     def extract_feature_(self, persistence_diagram):
         pass
 
-    def fit_transform(self, X_pd):
-        return np.array([self.extract_feature_(diagram) for diagram in X_pd])
+    def fit_transform(self, x_pd):
+        return np.array([self.extract_feature_(diagram) for diagram in x_pd])
 
 
 class PersistenceDiagramsExtractor:
@@ -26,14 +26,19 @@ class PersistenceDiagramsExtractor:
     Args:
         takens_embedding_dim (int): Dimension of the Takens embedding.
         takens_embedding_delay (int): Delay of the Takens embedding.
-        homology_dimensions (list): Homology dimensions to compute.
+        homology_dimensions (tuple): Homology dimensions to compute.
         filtering (bool): Whether to filter the persistence diagrams.
         filtering_dimensions (tuple): Homology dimensions to filter.
         parallel (bool): Whether to parallelize the computation.
 
     """
-    def __init__(self, takens_embedding_dim, takens_embedding_delay, homology_dimensions,
-                 filtering=False, filtering_dimensions=(1, 2), parallel=False):
+
+    def __init__(self, takens_embedding_dim: int,
+                 takens_embedding_delay: int,
+                 homology_dimensions: tuple,
+                 filtering: bool = False,
+                 filtering_dimensions: tuple = (1, 2),
+                 parallel: bool = False):
         self.takens_embedding_dim_ = takens_embedding_dim
         self.takens_embedding_delay_ = takens_embedding_delay
         self.homology_dimensions_ = homology_dimensions
@@ -47,18 +52,18 @@ class PersistenceDiagramsExtractor:
                              time_delay=self.takens_embedding_delay_)
         return te.fit_transform(data)
 
-    def persistence_diagrams_(self, X_embdeddings):
+    def persistence_diagrams_(self, x_embeddings):
         if self.parallel_:
             pool = ThreadPool()
-            X_transformed = pool.map(self.parallel_embed_, X_embdeddings)
+            x_transformed = pool.map(self.parallel_embed_, x_embeddings)
             pool.close()
             pool.join()
-            return X_transformed
+            return x_transformed
         else:
-            X_transformed = list()
-            for embedding in X_embdeddings:
-                X_transformed.append(self.parallel_embed_(embedding))
-            return X_transformed
+            x_transformed = list()
+            for embedding in x_embeddings:
+                x_transformed.append(self.parallel_embed_(embedding))
+            return x_transformed
 
     def parallel_embed_(self, embedding):
         vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_,
@@ -70,10 +75,10 @@ class PersistenceDiagramsExtractor:
             persistence_diagrams = diagram_filter.fit_transform(persistence_diagrams)
         return persistence_diagrams[0]
 
-    def fit_transform(self, X):
-        X_embeddings = self.takens_embeddings_(X)
-        X_persistence_diagrams = self.persistence_diagrams_(X_embeddings)
-        return X_persistence_diagrams
+    def fit_transform(self, x):
+        x_embeddings = self.takens_embeddings_(x)
+        x_persistence_diagrams = self.persistence_diagrams_(x_embeddings)
+        return x_persistence_diagrams
 
 
 class TopologicalFeaturesExtractor:
@@ -81,21 +86,21 @@ class TopologicalFeaturesExtractor:
         self.persistence_diagram_extractor_ = persistence_diagram_extractor
         self.persistence_diagram_features_ = persistence_diagram_features
 
-    def fit_transform(self, X):
+    def fit_transform(self, x):
 
-        x_pers_diag = self.persistence_diagram_extractor_.fit_transform(X)
+        x_pers_diag = self.persistence_diagram_extractor_.fit_transform(x)
         tmp = []
         column_list = []
         for feature_name, feature_model in self.persistence_diagram_features_.items():
             try:
-                X_features = feature_model.fit_transform(x_pers_diag)
-                tmp.append(X_features)
-                for dim in range(len(X_features.shape)):
+                x_features = feature_model.fit_transform(x_pers_diag)
+                tmp.append(x_features)
+                for dim in range(len(x_features.shape)):
                     column_list.append('{}_{}'.format(feature_name, dim))
             except Exception:
                 continue
-        X_transformed = pd.DataFrame(data=np.hstack(tmp), columns=column_list)
-        return X_transformed
+        x_transformed = pd.DataFrame(data=np.hstack(tmp), columns=column_list)
+        return x_transformed
 
 
 class HolesNumberFeature(PersistenceDiagramFeatureExtractor):
@@ -195,9 +200,8 @@ class SimultaneousAliveHolesFeature(PersistenceDiagramFeatureExtractor):
     def get_average_intersection_number_(segments):
         intersections = list()
         n_segments = segments.shape[0]
-        i = 0
 
-        for i in range(0, n_segments):
+        for i in range(n_segments):
             count = 1
             start = segments[i, 0]
             end = segments[i, 1]
