@@ -1,5 +1,9 @@
 from __future__ import division, print_function
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
