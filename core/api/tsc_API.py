@@ -135,99 +135,102 @@ class Industrial:
         launches = self.config_dict['launches']
 
         for dataset_name in self.config_dict['datasets_list']:
-            self.logger.info(f'START WORKING on {dataset_name} dataset')
+            try:
+                self.logger.info(f'START WORKING on {dataset_name} dataset')
 
-            # load data
-            train_data, test_data = DataLoader(dataset_name).load_data()
-            self.logger.info(f'Loaded data from {dataset_name} dataset')
-            if train_data is None:
-                self.logger.error(f'Some problem with {dataset_name} data. Skip it')
-                continue
+                # load data
+                train_data, test_data = DataLoader(dataset_name).load_data()
+                self.logger.info(f'Loaded data from {dataset_name} dataset')
+                if train_data is None:
+                    self.logger.error(f'Some problem with {dataset_name} data. Skip it')
+                    continue
 
-            n_classes = len(np.unique(train_data[1]))
-            self.logger.info(f'{n_classes} classes detected')
+                n_classes = len(np.unique(train_data[1]))
+                self.logger.info(f'{n_classes} classes detected')
 
-            X_train, X_val, y_train, y_val = train_test_split(train_data[0],
-                                                              train_data[1],
-                                                              test_size=0.2,
-                                                              random_state=42,
-                                                              stratify=train_data[1])
-            train_data, validation_data = (X_train, y_train), (X_val, y_val)
-            validation_predictions = dict()
-            test_predictions = dict()
+                X_train, X_val, y_train, y_val = train_test_split(train_data[0],
+                                                                  train_data[1],
+                                                                  test_size=0.2,
+                                                                  random_state=42,
+                                                                  stratify=train_data[1])
+                train_data, validation_data = (X_train, y_train), (X_val, y_val)
+                validation_predictions = dict()
+                test_predictions = dict()
 
-            for runner_name, runner in experiment_dict['feature_generator'].items():
-                self.logger.info(f'{runner_name} runner is on duty')
-                classificator = TimeSeriesClassifier(generator_name=runner_name,
-                                                     generator_runner=runner,
-                                                     model_hyperparams=experiment_dict['fedot_params'],
-                                                     ecm_model_flag=experiment_dict['error_correction'])
-                classificator.feature_generator_params = self.config_dict['feature_generator_params']
-                classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
-                for launch in range(1, launches + 1):
-                    self.logger.info(f'START LAUNCH {launch}')
-                    fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
+                for runner_name, runner in experiment_dict['feature_generator'].items():
+                    self.logger.info(f'{runner_name} runner is on duty')
+                    classificator = TimeSeriesClassifier(generator_name=runner_name,
+                                                         generator_runner=runner,
+                                                         model_hyperparams=experiment_dict['fedot_params'],
+                                                         ecm_model_flag=experiment_dict['error_correction'])
+                    classificator.feature_generator_params = self.config_dict['feature_generator_params']
+                    classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
+                    for launch in range(1, launches + 1):
+                        self.logger.info(f'START LAUNCH {launch}')
+                        fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
-                    self.logger.info('START PREDICTION')
-                    predictions = classificator.predict(test_data, dataset_name)
-                    predict_on_train = classificator.predict_on_train()
-                    predict_on_val = classificator.predict_on_validation(validatiom_tuple=validation_data,
-                                                                         dataset_name=dataset_name)
-
-                    if self.config_dict['error_correction']:
+                        self.logger.info('START PREDICTION')
+                        predictions = classificator.predict(test_data, dataset_name)
                         predict_on_train = classificator.predict_on_train()
-                        ecm_fedot_params = experiment_dict['fedot_params']
-                        ecm_fedot_params['problem'] = 'regression'
-                        ecm_fedot_params['timeout'] = round(experiment_dict['fedot_params']['timeout'] / 3)
+                        predict_on_val = classificator.predict_on_validation(validatiom_tuple=validation_data,
+                                                                             dataset_name=dataset_name)
 
-                        ecm_params = dict(n_classes=n_classes,
-                                          dataset_name=dataset_name,
-                                          save_models=False,
-                                          fedot_params=ecm_fedot_params)
+                        if self.config_dict['error_correction']:
+                            predict_on_train = classificator.predict_on_train()
+                            ecm_fedot_params = experiment_dict['fedot_params']
+                            ecm_fedot_params['problem'] = 'regression'
+                            ecm_fedot_params['timeout'] = round(experiment_dict['fedot_params']['timeout'] / 3)
 
-                        try:
-                            self.logger.info('START COMPOSE ECM')
-                            ecm_results = ErrorCorrectionModel(**ecm_params,
-                                                               results_on_test=predictions,
-                                                               results_on_train=predict_on_train,
-                                                               train_data=train_data,
-                                                               test_data=test_data,
-                                                               ).run()
-                        except Exception:
-                            self.logger.info('ECM COMPOSE WAS FAILED')
-                    else:
-                        ecm_results = None
+                            ecm_params = dict(n_classes=n_classes,
+                                              dataset_name=dataset_name,
+                                              save_models=False,
+                                              fedot_params=ecm_fedot_params)
 
-                    self.logger.info('*------------SAVING RESULTS------------*')
-                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+                            try:
+                                self.logger.info('START COMPOSE ECM')
+                                ecm_results = ErrorCorrectionModel(**ecm_params,
+                                                                   results_on_test=predictions,
+                                                                   results_on_train=predict_on_train,
+                                                                   train_data=train_data,
+                                                                   test_data=test_data,
+                                                                   ).run()
+                            except Exception:
+                                self.logger.info('ECM COMPOSE WAS FAILED')
+                        else:
+                            ecm_results = None
 
-                    self.save_results(train_target=train_data[1],
+                        self.logger.info('*------------SAVING RESULTS------------*')
+                        paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+
+                        self.save_results(train_target=train_data[1],
+                                          test_target=test_data[1],
+                                          path_to_save=paths_to_save,
+                                          train_features=train_features,
+                                          prediction=predictions,
+                                          fitted_predictor=fitted_predictor,
+                                          ecm_results=ecm_results)
+
+                        if launch not in validation_predictions.keys():
+                            validation_predictions[launch] = {}
+                        validation_predictions[launch].update({f'{runner_name}_val': predict_on_val})
+
+                        if launch not in test_predictions.keys():
+                            test_predictions[launch] = {}
+                        test_predictions[launch].update({f'{runner_name}_test': predictions})
+
+                if 'ensemble_algorithm' in self.config_dict.keys():
+                    ensemble_dict = self.apply_model_ensembling(train_target=validation_data[1],
+                                                                test_target=test_data[1],
+                                                                train_predictions=validation_predictions,
+                                                                test_predictions=test_predictions)
+                    path_to_save = os.path.join(path_to_save_results(), 'ensemble_models', dataset_name)
+                    self.save_results(train_target=validation_data[1],
                                       test_target=test_data[1],
-                                      path_to_save=paths_to_save,
-                                      train_features=train_features,
-                                      prediction=predictions,
-                                      fitted_predictor=fitted_predictor,
-                                      ecm_results=ecm_results)
-
-                    if launch not in validation_predictions.keys():
-                        validation_predictions[launch] = {}
-                    validation_predictions[launch].update({f'{runner_name}_val': predict_on_val})
-
-                    if launch not in test_predictions.keys():
-                        test_predictions[launch] = {}
-                    test_predictions[launch].update({f'{runner_name}_test': predictions})
-
-            if 'ensemble_algorithm' in self.config_dict.keys():
-                ensemble_dict = self.apply_model_ensembling(train_target=validation_data[1],
-                                                            test_target=test_data[1],
-                                                            train_predictions=validation_predictions,
-                                                            test_predictions=test_predictions)
-                path_to_save = os.path.join(path_to_save_results(), 'ensemble_models', dataset_name)
-                self.save_results(train_target=validation_data[1],
-                                  test_target=test_data[1],
-                                  path_to_save=path_to_save,
-                                  prediction=ensemble_dict),
-            self.logger.info('END OF EXPERIMENT')
+                                      path_to_save=path_to_save,
+                                      prediction=ensemble_dict),
+                self.logger.info('END OF EXPERIMENT')
+            except Exception:
+                self.logger.info(f'{dataset_name}_error')
 
     def apply_model_ensembling(self,
                                train_target,
@@ -257,44 +260,44 @@ class Industrial:
                 if not os.path.exists(path_to_save_launch):
                     os.makedirs(path_to_save_launch)
                 metric_df.to_csv(os.path.join(path_to_save_launch, 'ensemble_metrics.csv'))
-
-        metrics, predictions = prediction['metrics'], prediction['prediction']
-        predictions_proba, test_features = prediction['predictions_proba'], prediction['test_features']
-
-        path_results = os.path.join(path_to_save, 'test_results')
-        os.makedirs(path_results, exist_ok=True)
-
-        try:
-            fitted_predictor.current_pipeline.save(path_results)
-        except Exception as ex:
-            self.logger.error(f'Can not save pipeline: {ex}')
-
-        if ecm_results:
-            self.save_boosting_results(**ecm_results, path_to_save=path_results)
-
-        features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
-        features_list = [train_features, train_target, test_features, test_target]
-
-        for name, features in zip(features_names, features_list):
-            pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
-
-        if type(predictions_proba) is not pd.DataFrame:
-            df_preds = pd.DataFrame(predictions_proba)
-            df_preds['Target'] = test_target
-            df_preds['Preds'] = predictions
         else:
-            df_preds = predictions_proba
-            df_preds['Target'] = test_target.values
+            metrics, predictions = prediction['metrics'], prediction['prediction']
+            predictions_proba, test_features = prediction['predictions_proba'], prediction['test_features']
 
-        if type(metrics) is str:
-            df_metrics = pd.DataFrame()
-        else:
-            df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
+            path_results = os.path.join(path_to_save, 'test_results')
+            os.makedirs(path_results, exist_ok=True)
 
-        for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
-                        [df_preds, df_metrics]):
-            full_path = os.path.join(path_results, p)
-            d.to_csv(full_path)
+            try:
+                fitted_predictor.current_pipeline.save(path_results)
+            except Exception as ex:
+                self.logger.error(f'Can not save pipeline: {ex}')
+
+            if ecm_results:
+                self.save_boosting_results(**ecm_results, path_to_save=path_results)
+
+            features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
+            features_list = [train_features, train_target, test_features, test_target]
+
+            for name, features in zip(features_names, features_list):
+                pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
+
+            if type(predictions_proba) is not pd.DataFrame:
+                df_preds = pd.DataFrame(predictions_proba)
+                df_preds['Target'] = test_target
+                df_preds['Preds'] = predictions
+            else:
+                df_preds = predictions_proba
+                df_preds['Target'] = test_target.values
+
+            if type(metrics) is str:
+                df_metrics = pd.DataFrame()
+            else:
+                df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
+
+            for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
+                            [df_preds, df_metrics]):
+                full_path = os.path.join(path_results, p)
+                d.to_csv(full_path)
 
     def save_boosting_results(self, solution_table, metrics_table, model_list, ensemble_model, path_to_save):
         location = os.path.join(path_to_save, 'boosting')
