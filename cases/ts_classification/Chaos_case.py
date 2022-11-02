@@ -1,10 +1,12 @@
 import os
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
 import pylab as plt
 from fedot.api.main import Fedot
 from sklearn.metrics import roc_auc_score as roc_auc
+from tqdm import tqdm
 
 from core.operation.transformation.TS import TSTransformer
 
@@ -50,13 +52,26 @@ def plot_rec_plot_by_class(df):
 
 def create_chaos_features(df):
     converted_df = []
-    for index, row in df.iterrows():
-        transformer = TSTransformer(time_series=row.values[1:])
-        metrics = transformer.get_recurrence_metrics()
-        metrics['Label'] = row.values[0]
-        converted_df.append(pd.Series(metrics))
+    with tqdm(total=len(df),
+              desc='TS Processed',
+              colour='black',
+              unit='ts') as pbar:
+        with Pool(4) as pool:
+            for result in pool.imap_unordered(get_metrics, list(df.iterrows())):
+                converted_df.append(result)
+                pbar.update()
+
     converted_df = pd.concat(converted_df, axis=1).T
     return converted_df
+
+
+def get_metrics(row_):
+    row = row_[1]
+    transformer = TSTransformer(time_series=row.values[1:])
+    metrics = transformer.get_recurrence_metrics()
+    metrics['Label'] = row.values[0]
+    metrics = pd.Series(metrics)
+    return metrics
 
 
 def prepare_data_for_case(dataset_name):
