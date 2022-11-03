@@ -32,7 +32,7 @@ class ExperimentRunner:
         self.use_cache = use_cache
         self.feature_generator_dict = feature_generator_dict
         self.count = 0
-        self.window_length = None
+        self.current_window = None
         self.y_test = None
         self.logger = Logger().get_logger()
 
@@ -174,9 +174,9 @@ class ExperimentRunner:
         return dataframe
 
     @staticmethod
-    def apply_window_for_statistical_feature(ts_data: pd.DataFrame,
-                                             feature_generator: callable,
-                                             window_size: int = None):
+    def apply_window_for_stat_feature(ts_data: pd.DataFrame,
+                                      feature_generator: callable,
+                                      window_size: int = None):
         if window_size is None:
             window_size = round(ts_data.shape[1] / 10)
         tmp_list = []

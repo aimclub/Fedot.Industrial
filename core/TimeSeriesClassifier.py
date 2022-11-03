@@ -58,7 +58,7 @@ class TimeSeriesClassifier:
 
         Returns:
             Fitted Fedot model
-            
+
         """
         fedot_model = Fedot(**self.model_hyperparams)
         fedot_model.fit(features, target)
