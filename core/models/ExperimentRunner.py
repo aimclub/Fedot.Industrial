@@ -15,12 +15,10 @@ class ExperimentRunner:
     """Abstract class responsible for feature generators.
 
     Args:
-        feature_generator_dict (dict): that consists of {'generator_name': generator_class} pairs.
-        use_cache (bool): flag that indicates whether to use cache or not.
+        feature_generator_dict: that consists of {'generator_name': generator_class} pairs.
+        use_cache: flag that indicates whether to use cache or not.
 
     Attributes:
-        use_cache (bool): flag that indicates whether to use cache or not.
-        feature_generator_dict (dict): that consists of {'generator_name': generator_class} pairs.
         count (int): ...
         window_length (int): window length for feature generation.
         y_test (pd.DataFrame): ...

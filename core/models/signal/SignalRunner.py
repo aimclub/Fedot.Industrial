@@ -172,7 +172,8 @@ class SignalRunner(ExperimentRunner):
         metric_f1 = F1(target=prediction.target, predicted_labels=prediction.predict)
         score_f1 = metric_f1.metric()
 
-        score_roc_auc = self.get_roc_auc_score(pipeline, prediction, test_data)
+        score_roc_auc = self.get_roc_auc_score(prediction_labels=prediction.predict,
+                                               test_labels=prediction.target)
         if not score_roc_auc:
             score_roc_auc = 0.5
 

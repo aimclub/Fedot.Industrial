@@ -22,7 +22,7 @@ class TopologicalRunner(ExperimentRunner):
     """Class for extracting topological features from time series data.
 
     Args:
-        use_cache (bool): flag for using cache
+        use_cache: flag for using cache
 
     """
 
@@ -54,11 +54,11 @@ class TopologicalRunner(ExperimentRunner):
         """Method for getting optimal Takens embedding parameters.
 
         Args:
-            ts_data (pd.DataFrame): dataframe with time series data
-            method (str): method for getting optimal parameters
+            ts_data: dataframe with time series data
+            method: method for getting optimal parameters
 
         Returns:
-            tuple: optimal Takens embedding parameters
+            Optimal Takens embedding parameters
 
         """
         methods = {'mode': self._mode,

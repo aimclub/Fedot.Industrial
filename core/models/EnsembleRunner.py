@@ -11,13 +11,9 @@ class EnsembleRunner(ExperimentRunner):
     """Class for performing experiments with ensemble of feature generators.
 
     Args:
-        feature_generator_dict (dict, optional): Dictionary of feature generators consists of
-        'generator_name': generator_class pairs.
-        list_of_generators (list): List of feature generators.
-
-    Attributes:
-        feature_generator_dict (dict): Dictionary of feature generators.
-        list_of_generators (list): List of feature generators.
+        feature_generator_dict: Dictionary of feature generators consists of
+            'generator_name': generator_class pairs.
+        list_of_generators: List of feature generators.
 
     """
 
@@ -41,11 +37,11 @@ class EnsembleRunner(ExperimentRunner):
         """Extracts features using specified generator and combines them into one feature matrix.
 
         Args:
-            input_data (pd.DataFrame): Dataframe with time series data.
-            dataset_name (str): Dataset name.
+            input_data: Dataframe with time series data.
+            dataset_name: Dataset name.
 
         Returns:
-            pd.DataFrame: Dataframe with extracted features.
+            Dataframe with extracted features.
 
         """
         features = list()

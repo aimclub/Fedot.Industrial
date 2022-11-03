@@ -24,12 +24,12 @@ class PersistenceDiagramsExtractor:
     """Class to extract persistence diagrams from time series.
 
     Args:
-        takens_embedding_dim (int): Dimension of the Takens embedding.
-        takens_embedding_delay (int): Delay of the Takens embedding.
-        homology_dimensions (tuple): Homology dimensions to compute.
-        filtering (bool): Whether to filter the persistence diagrams.
-        filtering_dimensions (tuple): Homology dimensions to filter.
-        parallel (bool): Whether to parallelize the computation.
+        takens_embedding_dim: Dimension of the Takens embedding.
+        takens_embedding_delay: Delay of the Takens embedding.
+        homology_dimensions: Homology dimensions to compute.
+        filtering: Whether to filter the persistence diagrams.
+        filtering_dimensions: Homology dimensions to filter.
+        parallel: Whether to parallelize the computation.
 
     """
 

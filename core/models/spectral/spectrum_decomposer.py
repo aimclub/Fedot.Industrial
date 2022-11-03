@@ -30,9 +30,9 @@ class SpectrumDecomposer:
     recorded at equal intervals.
 
     Args:
-        time_series (Union[pd.DataFrame, pd.Series, np.ndarray, list]): The time series to decompose.
-        window_length (int, optional): The length of the window to use. Defaults to None.
-        save_memory (bool, optional): Whether to save memory by not storing the elementary matrices. Defaults to True.
+        time_series: The time series to decompose.
+        window_length: The length of the window to use. Defaults to None.
+        save_memory: Whether to save memory by not storing the elementary matrices. Defaults to True.
 
     """
 
@@ -181,16 +181,16 @@ class SpectrumDecomposer:
         return combined_components
 
     @staticmethod
-    def components_to_df(TS_comps, rank, n=0):
+    def components_to_df(TS_comps: np.ndarray, rank: int, n: int = 0) -> pd.DataFrame:
         """Converts all the time series components in a single Pandas DataFrame object.
 
         Args:
-            TS_comps (np.ndarray): ...
-            rank (int): The rank of the time series.
-            n (int): ...
+            TS_comps: ...
+            rank: The rank of the time series.
+            n: ...
 
         Returns:
-            df (pd.DataFrame): dataframe with all the time series components.
+            df: dataframe with all the time series components.
         """
         if n > 0:
             n = min(n, rank)
@@ -203,16 +203,16 @@ class SpectrumDecomposer:
         df.columns = cols
         return df
 
-    def reconstruct(self, indices):
+    def reconstruct(self, indices: Union[int, list, tuple, np.ndarray]) -> pd.Series:
         """Reconstructs the time series from its elementary components, using the given indices. Returns a Pandas Series
         object with the reconstructed time series.
 
         Args:
-            indices (list): An integer, list of integers or slice(n,m) object, representing the elementary
+            indices: An integer, list of integers or slice(n,m) object, representing the elementary
             components to sum.
 
         Returns:
-            (pd.Series): The reconstructed time series.
+            The reconstructed time series.
         """
         if isinstance(indices, int): indices = [indices]
 
