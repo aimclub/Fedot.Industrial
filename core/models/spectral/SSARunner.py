@@ -193,7 +193,6 @@ class SSARunner(ExperimentRunner):
 
             eigen_list.append(eigenvectors_list)
             n_comp_list.append(self.n_components)
-            self.count = 0
             if self.n_components > 15:
                 self.logger.info(f'SSA method find {self.n_components} PCT.'
                                  f'This is mean that SSA method does not find effective low rank structure for '

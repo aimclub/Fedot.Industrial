@@ -1,22 +1,21 @@
 feature_generator: [
-  'window_quantile',
-  'quantile',
-  'spectral_window',
-  'spectral',
+#  'window_quantile',
+#  'quantile',
+#  'spectral_window',
+#  'spectral',
   'wavelet',
-  'recurrence',
-  'topological'
+#  'recurrence',
+#  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: False
 n_ecm_cycles: 3
-use_cache: True
+use_cache: False
 
 datasets_list: [
   'Lightning7',
 #  'Coffee',
-#  'Lightning7',
 #  'UMD',
 #  'Earthquakes',
 #  'EthanolLevel',
