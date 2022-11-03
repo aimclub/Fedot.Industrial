@@ -19,8 +19,7 @@ class ExperimentRunner:
         use_cache: flag that indicates whether to use cache or not.
 
     Attributes:
-        count (int): ...
-        window_length (int): window length for feature generation.
+        current_window (int): window length for feature generation.
         y_test (pd.DataFrame): ...
         logger (logging.Logger): logger instance.
 
@@ -31,7 +30,6 @@ class ExperimentRunner:
                  use_cache: bool = False):
         self.use_cache = use_cache
         self.feature_generator_dict = feature_generator_dict
-        self.count = 0
         self.current_window = None
         self.y_test = None
         self.logger = Logger().get_logger()

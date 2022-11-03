@@ -3,19 +3,20 @@ feature_generator: [
 #  'quantile',
 #  'spectral_window',
 #  'spectral',
-#  'wavelet',
-  'recurrence',
+  'wavelet',
+#  'recurrence',
 #  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: False
 n_ecm_cycles: 3
+use_cache: False
 
 datasets_list: [
-#  'Lightning7',
-  'UMD',
-#  'SonyAIBORobotSurface1'
+  'Lightning7',
+#  'Coffee',
+#  'UMD',
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',
@@ -91,16 +92,6 @@ feature_generator_params: {
       },
     },
 
-  'topological': {
-    topological_params:
-      {
-        'max_simplex_dim': 2,
-        'epsilon': 100,
-        'persistence_params': None,
-        'window_length': 6
-      },
-  },
-
   'ensemble': {
     'list_of_generators': { }
   }
@@ -110,12 +101,12 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 15,
+    'timeout': 1,
     'max_depth': 10,
     'max_arity': 4,
     'cv_folds': 2,
     'logging_level': 20,
-    'n_jobs': 2
+    'n_jobs': 4
   }
 task: 'classification'
 logger: 'logger'

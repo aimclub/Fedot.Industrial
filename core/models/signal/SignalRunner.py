@@ -80,7 +80,6 @@ class SignalRunner(ExperimentRunner):
             features.extend(list(map(lambda_method, threshold_range)))
             features_names.extend(list(map(lambda_name, threshold_range)))
 
-        self.count += 1
         feature_df = pd.DataFrame(data=features)
         feature_df = feature_df.T
         feature_df.columns = features_names
@@ -208,7 +207,6 @@ class SignalRunner(ExperimentRunner):
 
             metric_list.append((score_f1, score_roc_auc))
             feature_list.append(train_feats)
-            self.count = 0
 
         max_score = [sum(x) for x in metric_list]
         index_of_window = int(max_score.index(max(max_score)))
