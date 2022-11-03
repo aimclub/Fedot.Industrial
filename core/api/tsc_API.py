@@ -90,15 +90,18 @@ class Industrial:
 
     def _check_window_sizes(self, dataset_name, train_data):
         for key in self.config_dict['feature_generator_params'].keys():
-            if key.startswith('spectral'):
+            spectral_datasets = self.config_dict['feature_generator_params']['spectral']['window_sizes'].keys()
+
+            if ('spectral' in key) and (dataset_name not in spectral_datasets):
                 self.logger.info(f'CHECK WINDOW SIZES FOR DATASET-{dataset_name} AND {key} method')
-                if dataset_name not in self.config_dict['feature_generator_params'][key].keys():
-                    ts_length = train_data[0].shape[1]
-                    list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
-                    self.config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
-                    self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
-                                     f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
-                                     f'THATS EQUAL 10/20/30% OF TS LENGTH')
+                ts_length = train_data[0].shape[1]
+
+                list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
+                self.config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
+
+                self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
+                                 f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
+                                 f'THATS EQUAL 10/20/30% OF TS LENGTH')
 
     def _check_metric(self, n_classes):
         if n_classes > 2:

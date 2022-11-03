@@ -42,8 +42,8 @@ class StatsRunner(ExperimentRunner):
 
         if self.window_mode:
             aggregator = self.aggregator.create_baseline_features
-            list_of_stat_features_on_interval = self.apply_window_for_statistical_feature(ts_data=ts,
-                                                                                          feature_generator=aggregator)
+            list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data=ts,
+                                                                                   feature_generator=aggregator)
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
