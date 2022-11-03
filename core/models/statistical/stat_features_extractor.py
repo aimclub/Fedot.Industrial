@@ -110,21 +110,18 @@ class StatFeaturesExtractor:
         return transformed_x.T
 
     @staticmethod
-    def _get_intervals(n_intervals, min_interval, series_length, rng):
+    def _get_intervals(n_intervals: int, min_interval: int, series_length: int, rng) -> np.ndarray:
         """Generate random intervals for given parameters.
 
         Args:
             n_intervals (int): Number of intervals to generate
             min_interval (int): Minimum length of an interval
             series_length (int): Length of the time series
-            rng (np.random.RandomState): Random number generator
-            :param n_intervals: int. Number of intervals to generate
-            :param min_interval: int. Minimum length of interval
-            :param series_length: int. Length of series
-            :param rng: ...
+            rng: ...
 
         Returns:
-            np.ndarray: Array containing the intervals
+            Array containing the intervals.
+
         """
         intervals = np.zeros((n_intervals, 2), dtype=int)
         for j in range(n_intervals):

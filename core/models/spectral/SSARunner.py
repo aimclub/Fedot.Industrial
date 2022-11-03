@@ -18,16 +18,14 @@ class SSARunner(ExperimentRunner):
     """Class responsible for spectral feature generator experiment.
 
     Args:
-        window_sizes (list): list of window sizes for SSA algorithm.
-        window_mode (bool): flag for window mode. If True, SSA algorithm will be applied to each window of time series.
-        use_cache (bool): flag for cache usage. If True, SSA algorithm will be applied to each window of time series.
+        window_sizes: list of window sizes for SSA algorithm.
+        window_mode: flag for window mode. If True, SSA algorithm will be applied to each window of time series.
+        use_cache: flag for cache usage. If True, SSA algorithm will be applied to each window of time series.
 
     Attributes:
-        use_cache (bool): flag for cache usage. If True, SSA algorithm will be applied to each window of time series.
         aggregator (StatFeaturesExtractor): class for statistical features extraction.
         spectrum_extractor (SpectrumDecomposer): class for SSA algorithm.
         pareto_front (ParetoMetrics): class for pareto front calculation.
-        window_length_list (list): list of window sizes for SSA algorithm.
         vis_flag (bool): flag for visualization.
         rank_hyper (int): ...
         train_feats (pd.DataFrame): extracted features for train data.
@@ -151,21 +149,23 @@ class SSARunner(ExperimentRunner):
 
         return aggregation_df
 
-    def _choose_best_window_size(self, X_train, dataset_name) -> pd.DataFrame:
+    def _choose_best_window_size(self, X_train: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
         """Chooses the best window for feature extraction.
 
         Args:
-            X_train (pd.DataFrame): train data.
-            dataset_name (str): name of dataset.
+            X_train: train data.
+            dataset_name: name of dataset.
 
         Returns:
-            pd.DataFrame: extracted features for train data.
+            Extracted features for train data.
 
         """
         metric_list = []
         n_comp_list = []
         eigen_list = []
-        for window_length in self.window_length_list[dataset_name]:
+        # TODO: check if it is possible to use multiprocessing here
+        # TODO: check window sizes
+        for window_length in self.window_sizes[dataset_name]:
             self.logger.info(f'Generate features for window length - {window_length}')
             self.window_length = window_length
 
@@ -201,7 +201,7 @@ class SSARunner(ExperimentRunner):
         # index_of_window = int(metric_list.index(max(metric_list)))
         index_of_window = self.pareto_front.pareto_metric_list(np.array(metric_list))
         index_of_window = np.where(index_of_window == True)[0][0]
-        self.window_length = self.window_length_list[dataset_name][index_of_window]
+        self.window_length = self.window_sizes[dataset_name][index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
         self.min_rank = round(np.mean([x.shape[1] for x in eigenvectors_list]))
         self.rank_hyper = self.min_rank

@@ -11,17 +11,14 @@ class Topological:
     recorded at equal intervals.
 
     Args:
-    time_series (Union[pd.Series, np.ndarray, list]): Time series to be decomposed.
-    max_simplex_dim (int): Maximum dimension of the simplices to be used in the Rips filtration.
-    epsilon (int): Maximum distance between two points to be considered connected by an edge in the Rips filtration.
-    persistence_params (dict): ...
-    window_length (int): Length of the window to be used in the rolling window function.
+        time_series: Time series to be decomposed.
+        max_simplex_dim: Maximum dimension of the simplices to be used in the Rips filtration.
+        epsilon: Maximum distance between two points to be considered connected by an edge in the Rips filtration.
+        persistence_params: ...
+        window_length: Length of the window to be used in the rolling window function.
 
     Attributes:
-        time_series (Union[pd.Series, np.ndarray, list]): Time series to be decomposed.
-        max_simplex_dim (int): Maximum dimension of the simplices to be used in the Rips filtration.
         epsilon_range (np.ndarray): Range of epsilon values to be used in the Rips filtration.
-        persistence_params (dict): ...
 
     """
     def __init__(self,
@@ -75,15 +72,15 @@ class Topological:
         ys = ys[ys < np.inf]
 
     @staticmethod
-    def rolling_window(array, window):
+    def rolling_window(array: np.array, window: int) -> np.array:
         """Takes in an array and return array of rolling windows of specified length.
 
         Args:
-            array (np.array): Array to be rolled.
-            window (int): Length of the window.
+            array: Array to be rolled.
+            window: Length of the window.
 
         Returns:
-            np.array: Array of rolling windows.
+            Array of rolling windows.
 
         """
         shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
@@ -91,17 +88,17 @@ class Topological:
         a_windowed = np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
         return a_windowed
 
-    def time_series_to_point_cloud(self, array: np.array = None, dimension_embed=2):
+    def time_series_to_point_cloud(self, array: np.array = None, dimension_embed=2) -> np.array:
         """Convert a time series into a point cloud in the dimension specified by dimension_embed.
 
         Args:
-            array (np.array): Time series to be converted.
-            dimension_embed (int): dimension of Euclidean space in which to embed the time series into by taking
+            array: Time series to be converted.
+            dimension_embed: dimension of Euclidean space in which to embed the time series into by taking
             windows of dimension_embed length, e.g. if the time series is [t_1,...,t_n] and dimension_embed is 2,
             then the point cloud would be [(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]
 
         Returns:
-            np.array: collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
+            Collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
             in the manner explained above.
 
         """

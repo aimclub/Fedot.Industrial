@@ -13,10 +13,10 @@ class TimeSeriesClassifier:
     """Class responsible for interaction with Fedot classifier.
 
     Args:
-        generator_name (str): name of the generator for feature extraction
-        generator_runner (ExperimentRunner): generator runner instance for feature extraction
-        model_hyperparams (dict): hyperparameters for Fedot model
-        ecm_model_flag (bool): flag for error correction model
+        generator_name: name of the generator for feature extraction
+        generator_runner: generator runner instance for feature extraction
+        model_hyperparams: hyperparameters for Fedot model
+        ecm_model_flag: flag for error correction model
 
     Attributes:
         logger (Logger): logger instance
@@ -53,11 +53,12 @@ class TimeSeriesClassifier:
         """Fit Fedot model with feature and target.
 
         Args:
-            features (pd.DataFrame): features for training
-            target (np.ndarray): target for training
+            features: features for training
+            target: target for training
 
         Returns:
-            Fedot: fitted Fedot model
+            Fitted Fedot model
+            
         """
         fedot_model = Fedot(**self.model_hyperparams)
         fedot_model.fit(features, target)

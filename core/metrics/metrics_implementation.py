@@ -11,11 +11,16 @@ class ParetoMetrics:
     def __init__(self):
         pass
 
-    def pareto_metric_list(self, costs, maximise=True):
-        """
-        :param costs: An (n_points, n_costs) array
-        :maximise: boolean. True for maximising, False for minimising
-        :return: A (n_points, ) boolean array, indicating whether each point is Pareto efficient
+    def pareto_metric_list(self, costs: list, maximise: bool = True):
+        """ Calculates the pareto front for a list of costs.
+
+        Args:
+            costs (list): list of costs. An (n_points, n_costs) array.
+            maximise (bool): flag for maximisation or minimisation.
+
+        Returns:
+            nd.array[bool]: A (n_points, ) boolean array, indicating whether each point is Pareto efficient
+
         """
         is_efficient = np.ones(costs.shape[0], dtype=bool)
         for i, c in enumerate(costs):

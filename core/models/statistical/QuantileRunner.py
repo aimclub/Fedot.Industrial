@@ -9,8 +9,8 @@ class StatsRunner(ExperimentRunner):
     """Class responsible for quantile feature generator experiment.
 
     Args:
-        window_mode (bool, optional): Flag for window mode. Defaults to False.
-        use_cache (bool, optional): Flag for cache usage. Defaults to False.
+        window_mode: Flag for window mode. Defaults to False.
+        use_cache: Flag for cache usage. Defaults to False.
 
     Attributes:
         use_cache (bool): Flag for cache usage.
