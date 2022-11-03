@@ -159,9 +159,8 @@ class ExperimentRunner:
             ts = np.nan_to_num(ts, nan=0)
         return ts
 
-    @exception_decorator(exception_return=0.5)
-    def get_roc_auc_score(self, prediction, test_data):
-        metric_roc = ROCAUC(target=test_data, predicted_labels=prediction.predict)
+    def get_roc_auc_score(self, prediction_labels, test_labels):
+        metric_roc = ROCAUC(target=test_labels, predicted_labels=prediction_labels)
         try:
             score_roc_auc = metric_roc.metric()
         except ValueError:

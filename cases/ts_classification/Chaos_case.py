@@ -56,8 +56,9 @@ def create_chaos_features(df):
               desc='TS Processed',
               colour='black',
               unit='ts') as pbar:
+
         with Pool(4) as pool:
-            for result in pool.imap_unordered(get_metrics, list(df.iterrows())):
+            for result in pool.imap(get_metrics, df.iterrows(), chunksize=1):
                 converted_df.append(result)
                 pbar.update()
 
@@ -111,9 +112,12 @@ def run_case(df_encoded_train, df_encoded_test, train_label, test_label):
 
 
 if __name__ == "__main__":
-    eps = 0.1
-    steps = 20
-    dataset = 'ElectricDevices'
-    df_encoded_train, df_encoded_test, train_label, test_label = prepare_data_for_case(dataset)
-    model, roc_auc = run_case(df_encoded_train, df_encoded_test, train_label, test_label)
-    print(roc_auc)
+    # eps = 0.1
+    # steps = 20
+    # dataset = 'ElectricDevices'
+    # df_encoded_train, df_encoded_test, train_label, test_label = prepare_data_for_case(dataset)
+    # model, roc_auc = run_case(df_encoded_train, df_encoded_test, train_label, test_label)
+    # print(roc_auc)
+
+    df_example = pd.DataFrame(np.random.rand(1000, 1000))
+    df = create_chaos_features(df_example)

@@ -67,19 +67,16 @@ class F1(QualityMetric):
     def metric(self) -> float:
         target = self.target
         prediction = self.predicted_labels
-        self.default_value = 0
+        self.default_value = 0.0
         n_classes = len(np.unique(target))
         n_classes_pred = len(np.unique(prediction))
-        if n_classes > 2 or n_classes_pred > 2:
-            additional_params = {'average': 'weighted'}
-        else:
-            additional_params = {'average': 'binary'}
         try:
-            return f1_score(y_true=target, y_pred=prediction,
-                            **additional_params)
-        except Exception:
-            return f1_score(y_true=target, y_pred=prediction,
-                            average='weighted')
+            if n_classes > 2 or n_classes_pred > 2:
+                return f1_score(y_true=target, y_pred=prediction, average='weighted')
+            else:
+                return f1_score(y_true=target, y_pred=prediction, average='binary')
+        except ValueError:
+            return self.default_value
 
 
 class MAE(QualityMetric):
@@ -100,7 +97,10 @@ class ROCAUC(QualityMetric):
         if n_classes > 2:
             target = pd.get_dummies(self.target)
             additional_params = {'multi_class': 'ovr', 'average': 'macro'}
-            prediction = self.predicted_probs
+            if self.predicted_probs is None:
+                prediction = pd.get_dummies(self.predicted_labels)
+            else:
+                prediction = self.predicted_probs
         else:
             target = self.target
             additional_params = {}
