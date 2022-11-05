@@ -14,15 +14,20 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
 from core.models.cnn.classification_models import MODELS
-from core.operation.utils.classification_dataloaders import (
-    get_classification_dataloaders,
-)
+from core.operation.utils.classification_dataloaders import \
+    get_classification_dataloaders
 from core.operation.utils.cv_model_optimizers import OPTIMIZATIONS
 from core.operation.utils.object_detection_dataloaders import get_detection_dataloaders
 
 
 def _parameter_value_check(parameter: str, value: str, valid_values: Set[str]) -> None:
-    """Checks if the parameter is in the set of allowed."""
+    """Checks if the parameter is in the set of allowed.
+
+    Args:
+        parameter: Name of the checked parameter.
+        value: Value of the checked parameter.
+        valid_values: Set of the valid parameter values.
+    """
     if value not in valid_values:
         raise ValueError(
             f"{parameter} must be one of {valid_values}, but got {parameter}='{value}'"
@@ -30,7 +35,17 @@ def _parameter_value_check(parameter: str, value: str, valid_values: Set[str]) -
 
 
 class _GeneralizedExperimenter:
-    """Generalized class for working with models."""
+    """Generalized class for working with models.
+
+    Args:
+        model: Trainable model.
+        name: Description of the experiment.
+        models_path: Path to folder for saving models.
+        summary_path: Path to folder for writing experiment summary info.
+        summary_per_class: If ``True``, calculates the metrics for each class.
+        target_metric: Target metric by which models are compared.
+        gpu: If ``True``, uses GPU (default: ``True``).
+    """
 
     def __init__(
         self,
@@ -58,7 +73,12 @@ class _GeneralizedExperimenter:
         self.structure_optimization = None
 
     def save_model(self, postfix: str = "") -> None:
-        """Save all model with postfix."""
+        """Save all model.
+
+        Args:
+            postfix: A string appended to ``self.name`` in save file name
+                (default: ``''``).
+        """
         file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
         dir_path = "/".join(file_path.split("/")[:-1])
         os.makedirs(dir_path, exist_ok=True)
@@ -66,7 +86,12 @@ class _GeneralizedExperimenter:
         print("Model saved.")
 
     def save_model_state_dict(self, postfix: str = "") -> None:
-        """Save model state_dict with postfix."""
+        """Save model state_dict.
+
+        Args:
+            postfix: A string appended to ``self.name`` in save file name.
+                (default: ``''``).
+        """
         file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
         dir_path = "/".join(file_path.split("/")[:-1])
         os.makedirs(dir_path, exist_ok=True)
@@ -74,7 +99,12 @@ class _GeneralizedExperimenter:
         print("Model state dict saved.")
 
     def load_model_state_dict(self, postfix: str = "") -> None:
-        """Load model state_dict to self.model"""
+        """Load model state_dict to ``self.model``
+
+        Args:
+            postfix: A string appended to ``self.name`` in load file name.
+                (default: ``''``).
+        """
         file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
         if os.path.exists(file_path):
             self.model.load_state_dict(torch.load(file_path))
@@ -84,7 +114,12 @@ class _GeneralizedExperimenter:
             print(f"File '{file_path}' does not exist.")
 
     def load_model(self, postfix: str = "") -> None:
-        """Load model to self.model."""
+        """Load model to ``self.model``.
+
+        Args:
+            postfix: A string appended to ``self.name`` in load file name.
+                (default: ``''``).
+        """
         file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
         if os.path.exists(file_path):
             self.model = torch.load(file_path)
@@ -94,7 +129,7 @@ class _GeneralizedExperimenter:
             print(f"File '{file_path}' does not exist.")
 
     def size_of_model(self) -> float:
-        """Return size of model in Mb."""
+        """Returns size of model in Mb."""
         param_size = 0
         for param in self.model.parameters():
             param_size += param.nelement() * param.element_size()
@@ -104,7 +139,7 @@ class _GeneralizedExperimenter:
         return (param_size + buffer_size) / 1e6
 
     def number_of_params(self) -> int:
-        """Return number of model parameters."""
+        """Returns number of model parameters."""
         return sum(p.numel() for p in self.model.parameters())
 
     def train_loop(self) -> Dict[str, float]:
@@ -116,7 +151,7 @@ class _GeneralizedExperimenter:
         return {}
 
     def get_optimizable_module(self) -> torch.nn.Module:
-        """Return the module for optimization applying."""
+        """Returns the module for optimization applying."""
         return self.model
 
     def write_scores(
@@ -126,12 +161,23 @@ class _GeneralizedExperimenter:
         scores: Dict[str, float],
         x: int,
     ):
-        """Write scores from dictionary by SummaryWriter."""
+        """Write scores from dictionary by SummaryWriter.
+
+        Args:
+            writer: SummaryWriter object for writing scores.
+            phase: Experiment phase for grouping records, e.g. 'train'.
+            scores: Dictionary {metric_name: value}.
+            x: The independent variable.
+        """
         for key, score in scores.items():
             writer.add_scalar(f"{phase}/{key}", score, x)
 
     def run(self, num_epochs: int) -> None:
-        """Run optimization experiment."""
+        """Run optimization experiment.
+
+        Args:
+            num_epochs: Number of epochs.
+        """
         writer = SummaryWriter(os.path.join(self.summary_path, self.name))
         print(f"{self.name}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
@@ -147,11 +193,17 @@ class _GeneralizedExperimenter:
         self.structure_optimization.final_optimize()
         writer.close()
 
-    def finetune(self, num_epochs: int, postix: str = "") -> None:
-        """Run fine-tuning"""
+    def finetune(self, num_epochs: int, postfix: str = "") -> None:
+        """Run fine-tuning
+
+        Args:
+            num_epochs: Number of epochs.
+            postfix: A string appended to the name to identify the experiment.
+                (default: ``''``).
+        """
         best_score = 0
-        writer = SummaryWriter(os.path.join(self.summary_path, self.name) + postix)
-        print(f"{self.name + postix}, using device: {self.device}")
+        writer = SummaryWriter(os.path.join(self.summary_path, self.name) + postfix)
+        print(f"{self.name + postfix}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
             print(f"Fine-tuning epoch {epoch}")
             train_scores = self.train_loop()
@@ -160,13 +212,41 @@ class _GeneralizedExperimenter:
             self.write_scores(writer, "fine-tuning_val", val_scores, epoch)
             if val_scores[self.target_metric] > best_score:
                 best_score = val_scores[self.target_metric]
-                self.save_model_state_dict(postfix=postix)
-        self.load_model_state_dict(postfix=postix)
+                self.save_model_state_dict(postfix=postfix)
+        self.load_model_state_dict(postfix=postfix)
         writer.close()
 
 
 class ClassificationExperimenter(_GeneralizedExperimenter):
-    """Class for working with classification models."""
+    """Class for working with classification models.
+
+    Args:
+        dataset: Name of dataset.
+        dataset_params: Parameter dictionary passed to dataloaders getter.
+        model: Name of model.
+        model_params: Parameter dictionary passed to model initialization.
+        models_saving_path: Path to folder for saving models.
+        optimizer: Model optimizer, e.g. ``torch.optim.Adam``.
+        optimizer_params: Parameter dictionary passed to optimizer initialization.
+        target_loss: Loss function applied to model output,
+            e.g. ``torch.nn.CrossEntropyLoss``.
+        loss_params: Parameter dictionary passed to loss initialization.
+        structure_optimization: Structure optimizer, e.g. ``SVDOptimization``.
+        structure_optimization_params: Parameter dictionary passed to structure
+            optimization initialization.
+        target_metric: Target metric by which models are compared. May be ``'f1'``,
+            ``'accuracy'``, ``'precision'``, ``'recall'`` or ``'roc_auc'``
+            (default: ``'f1'``).
+        summary_path: Path to folder for writing experiment summary info
+            (default: ``'runs'``).
+        summary_per_class: If ``True``, calculates the metrics for each class
+            (default ``False``).
+        gpu: If ``True``, uses GPU (default: ``True``).
+
+        Raises:
+            ValueError: If ``model``, ``structure_optimization``, ``target_metric``
+                or ``dataset_name`` not in valid values.
+    """
 
     def __init__(
         self,
@@ -221,7 +301,11 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         self.optimizer = optimizer(self.model.parameters(), **optimizer_params)
 
     def train_loop(self) -> (Dict[str, float]):
-        """Training method of the model. Returns train_scores."""
+        """Training method of the model.
+
+        Returns:
+            Dictionary {metric_name: value}.
+        """
         self.model.train()
         train_scores = {"accuracy": 0, "loss": 0}
         for key in self.structure_optimization.losses:
@@ -248,7 +332,11 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         return train_scores
 
     def val_loop(self) -> Dict[Union[str, int], float]:
-        """Validation method of the model. Returns val_scores."""
+        """Validation method of the model. Returns val_scores
+
+        Returns:
+            Dictionary {metric_name: value}.
+        """
         self.model.eval()
         val_loss = 0
         y_true = []
@@ -284,7 +372,31 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
 
 
 class FasterRCNNExperimenter(_GeneralizedExperimenter):
-    """Class for working with Faster R-CNN model."""
+    """Class for working with Faster R-CNN model.
+
+        Args:
+        dataset: Name of dataset.
+        dataset_params: Parameter dictionary passed to dataloaders getter.
+        model_params: Parameter dictionary passed to ``fasterrcnn_resnet50_fpn``.
+        models_saving_path: Path to folder for saving models.
+        optimizer: Model optimizer, e.g. ``torch.optim.SGD``.
+        optimizer_params: Parameter dictionary passed to optimizer initialization.
+        scheduler_params: Parameter dictionary passed to ``StepLR`` initialization.
+        structure_optimization: Structure optimizer, e.g. ``SVDOptimization``.
+        structure_optimization_params: Parameter dictionary passed to structure
+            optimization initialization.
+        target_metric: Target metric by which models are compared. May be ``'map'``,
+            ``'map_50'`` or ``'map_75'`` (default: ``'map_50'``).
+        summary_path: Path to folder for writing experiment summary info
+            (default: ``'runs'``).
+        summary_per_class: If ``True``, calculates the metrics for each class
+            (default ``False``).
+        gpu: If ``True``, uses GPU (default: ``True``).
+
+        Raises:
+            ValueError: If ``model``, ``structure_optimization``, ``target_metric``
+                or ``dataset_name`` not in valid values.
+    """
 
     def __init__(
         self,
@@ -297,7 +409,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         scheduler_params: Dict,
         structure_optimization: str,
         structure_optimization_params: Dict,
-        target_metric: str = "f1",
+        target_metric: str = "map_50",
         summary_path: str = "runs",
         summary_per_class: bool = False,
         gpu: bool = True,
@@ -345,7 +457,11 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         return self.model.backbone
 
     def train_loop(self):
-        """Training method of the model. Returns train_scores."""
+        """Training method of the model.
+
+        Returns:
+            Dictionary {metric_name: value}.
+        """
         self.model.train()
         batches = tqdm(self.train_dl)
         train_scores = {"loss": 0}
@@ -374,7 +490,11 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         return train_scores
 
     def val_loop(self):
-        """Validation method of the model. Returns val_scores."""
+        """Validation method of the model.
+
+        Returns:
+            Dictionary {metric_name: value}.
+        """
         metric = MeanAveragePrecision()
         tk = tqdm(self.val_dl)
         for images, targets in tk:
@@ -384,7 +504,11 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         return metric.compute()
 
     def predict(self, images):
-        """Predict model outputs from images."""
+        """Predict model outputs from images.
+
+        Args:
+            images: List of image tensors.
+        """
         self.model.eval()
         with torch.no_grad():
             images = list(image.to(self.device) for image in images)

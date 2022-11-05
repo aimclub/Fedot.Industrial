@@ -11,7 +11,12 @@ from core.operation.utils.svd_tools import energy_threshold_pruning, decompose_m
 
 
 class GeneralizedStructureOptimization:
-    """Generalized class for model structure optimization."""
+    """Generalized class for model structure optimization.
+
+    Args:
+        experimenter: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+    """
 
     def __init__(
         self,
@@ -30,6 +35,20 @@ class GeneralizedStructureOptimization:
 
 
 class SVDOptimization(GeneralizedStructureOptimization):
+    """Singular value decomposition for model structure optimization.
+
+    Args:
+        experimenter: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+        decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
+        hoer_loss_factor: The hyperparameter by which the Hoyer loss function is
+            multiplied.
+        orthogonal_loss_factor: The hyperparameter by which the orthogonal loss
+            function is multiplied.
+        energy_thresholds: List of pruning hyperparameters.
+        finetuning_epochs: Number of fine-tuning epochs.
+    """
+
     def __init__(
         self,
         experimenter,
@@ -82,13 +101,23 @@ class SVDOptimization(GeneralizedStructureOptimization):
             self.exp.save_model(postfix=f"_e-{e}")
 
     def prune_model(self, energy_threshold) -> None:
-        """Prune the model weights to the energy_threshold."""
+        """Prune the model weights to the energy_threshold.
+
+        Args:
+            energy_threshold: pruning hyperparameter, the lower the threshold, the more
+        singular values will be pruned.
+        """
         for module in self.exp.get_optimizable_module().modules():
             if isinstance(module, DecomposedConv2d):
                 energy_threshold_pruning(conv=module, energy_threshold=energy_threshold)
 
     def optimization_summary(self, e: int, writer: SummaryWriter) -> None:
-        """Validate model and write scores."""
+        """Validate model and write scores.
+
+        Args:
+            e: ``energy_threshold`` as integer for writing scores.
+            writer: SummaryWriter object for writing scores.
+        """
         val_scores = self.exp.val_loop()
         val_scores["size"] = self.exp.size_of_model()
         val_scores["n_params"] = self.exp.number_of_params()

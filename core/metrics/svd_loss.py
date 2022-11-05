@@ -1,25 +1,41 @@
 import torch
 from torch import Tensor
-from torch.nn.modules.module import Module
 from torch.linalg import vector_norm, matrix_norm
+from torch.nn.modules.module import Module
 
 
 class SVDLoss(Module):
-    """Base class for singular value decomposition losses."""
+    """Base class for singular value decomposition losses.
 
-    def __init__(self, factor: float = 1) -> None:
+    Args:
+        factor: The hyperparameter by which the calculated loss function is multiplied
+            (default: ``1``).
+    """
+
+    def __init__(self, factor: float = 1.) -> None:
         super().__init__()
         self.factor = factor
 
 
 class OrthogonalLoss(SVDLoss):
-    """Calculates orthogonality loss for complex unitary matrices."""
+    """Orthogonality regularizer for unitary matrices obtained by SVD decomposition.
 
-    def __init__(self, device: torch.device, factor: float = 1) -> None:
+    Args:
+        factor: The hyperparameter by which the calculated loss function is multiplied
+            (default: ``1``).
+        device: The torch.device object on which the model is training.
+    """
+
+    def __init__(self, device: torch.device, factor: float = 1.) -> None:
         super().__init__(factor=factor)
         self.device = device
 
     def forward(self, model: Module) -> Tensor:
+        """Calculates orthogonality loss.
+
+        Args:
+            model: Optimizable module containing SVD decomposed layers.
+        """
         loss = 0
         n = 0
         for name, parameter in model.named_parameters():
@@ -39,12 +55,22 @@ class OrthogonalLoss(SVDLoss):
 
 
 class HoyerLoss(SVDLoss):
-    """Calculates Hoyer Loss for diagonal matrix with singular values."""
+    """Hoyer regularizer for matrix with singular values obtained by SVD decomposition.
 
-    def __init__(self, factor: float = 1) -> None:
+        Args:
+        factor: The hyperparameter by which the calculated loss function is multiplied
+            (default: ``1``).
+    """
+
+    def __init__(self, factor: float = 1.) -> None:
         super().__init__(factor=factor)
 
     def forward(self, model: Module) -> Tensor:
+        """Calculates Hoyer loss.
+
+        Args:
+            model: Optimizable module containing SVD decomposed layers.
+        """
         loss = 0
         n = 0
         for name, parameter in model.named_parameters():

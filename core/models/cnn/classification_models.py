@@ -3,7 +3,11 @@ from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet15
 
 
 class SimpleConvNet2(nn.Module):
-    """Convolutional neural network with two convolutional layers"""
+    """Convolutional neural network with two convolutional layers
+
+    Args:
+        num_classes: number of classes.
+    """
 
     def __init__(self, num_classes: int):
         super(SimpleConvNet2, self).__init__()

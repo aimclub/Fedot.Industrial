@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Dict
 
 import numpy as np
 import torch
@@ -15,7 +15,15 @@ def collate_fn(batch):
 
 
 class COCODataset(Dataset):
-    """Class-loader for COCO json."""
+    """Class-loader for COCO json.
+
+    Args:
+        datasets_folder: Path to folder with datasets.
+        image_folder: Image folder path relative to ``datasets_folder``.
+        json_file: Json file path relative to ``datasets_folder``.
+        transform: A function/transform that takes in an PIL image and returns a
+            transformed version.
+    """
 
     def __init__(
         self,
@@ -31,8 +39,17 @@ class COCODataset(Dataset):
         path_to_json_file = os.path.join(datasets_folder, json_file)
         self._read_json(path_to_image_folder, path_to_json_file)
 
-    def __getitem__(self, idx):
-        """Get item method. Return list of images and list of targets."""
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """Returns list of images and list of targets.
+
+        Args:
+            idx: Index of sample.
+
+        Returns:
+            A tuple ``(image, targets)``, where image is image tensor,
+                and targets is dict with keys: ``'boxes'``, ``'labels'``,
+                ``'image_id'``, ``'area'``, ``'iscrowd'``.
+        """
         sample = self.samples[idx]
         image = Image.open(sample["image"]).convert("RGB")
         image = self.transform(image)
@@ -45,13 +62,17 @@ class COCODataset(Dataset):
         }
         return image, target
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return length of dataset"""
         return len(self.samples)
 
     def _read_json(self, images_path: str, json_path: str) -> None:
-        """Read annotations from json file"""
+        """Read annotations from json file
 
+        Args:
+            images_path: Image folder path.
+            json_path: Json file path.
+        """
         samples = {}
         with open(json_path) as f:
             data = json.load(f)
@@ -110,10 +131,24 @@ DATASETS_PARAMETERS = {
 def get_detection_dataloaders(
     dataset_name: str,
     datasets_folder: str,
-    batch_size: int,
-    num_workers: int,
+    batch_size: int = 1,
+    num_workers: int = 0,
 ) -> Tuple[DataLoader, DataLoader, int]:
-    """Get dataloaders and return train and validation dataloaders, number of classes."""
+    """Get dataloaders.
+
+    Args:
+        dataset_name: ``'ALET'``.
+        datasets_folder: Path to folder with datasets.
+        batch_size: How many samples per batch to load (default: ``1``).
+        num_workers: How many subprocesses to use for data loading. ``0`` means that
+            the data will be loaded in the main process. (default: ``0``)
+
+    Returns:
+        A tuple (train_dataloader, test_dataloader, num_classes)
+
+    Raises:
+        ValueError: If ``dataset_name`` not in valid values.
+    """
     if dataset_name not in DATASETS_PARAMETERS.keys():
         raise ValueError(
             "dataset_name must be one of {}, but got dataset_name='{}'".format(

@@ -106,9 +106,26 @@ DATASETS_PARAMETERS = {
 
 
 def get_classification_dataloaders(
-    dataset_name: str, datasets_folder: str, batch_size: int
+    dataset_name: str,
+    datasets_folder: str,
+    batch_size: int = 1,
+    num_workers: int = 0,
 ) -> Tuple[DataLoader, DataLoader, int]:
-    """Get dataloaders and return train and validation dataloaders, number of classes."""
+    """Get dataloaders.
+
+    Args:
+        dataset_name: ``'MNIST'``, ``'CIFAR10'``, ``'CIFAR100'`` or ``'ImageNet'``.
+        datasets_folder: Path to folder with datasets.
+        batch_size: How many samples per batch to load (default: ``1``).
+        num_workers: How many subprocesses to use for data loading. ``0`` means that
+            the data will be loaded in the main process. (default: ``0``)
+
+    Returns:
+        A tuple ``(train_dataloader, test_dataloader, num_classes)``
+
+    Raises:
+        ValueError: If ``dataset_name`` not in valid values.
+    """
     if dataset_name not in DATASETS_PARAMETERS.keys():
         raise ValueError(
             "dataset_name must be one of {}, but got dataset_name='{}'".format(
@@ -122,6 +139,7 @@ def get_classification_dataloaders(
             root=path.join(datasets_folder, dataset_name), **params["train"]
         ),
         batch_size=batch_size,
+        num_workers=num_workers,
         shuffle=True,
     )
     test_dataloader = DataLoader(
@@ -129,6 +147,7 @@ def get_classification_dataloaders(
             root=path.join(datasets_folder, dataset_name), **params["val"]
         ),
         batch_size=batch_size,
+        num_workers=num_workers,
         shuffle=False,
     )
     return train_dataloader, test_dataloader, params["num_classes"]
