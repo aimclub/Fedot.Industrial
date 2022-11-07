@@ -1,6 +1,7 @@
+import datetime
 import os
 from collections import Counter
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -92,15 +93,19 @@ class SSARunner(ExperimentRunner):
 
     def generate_vector_from_ts(self, ts_frame):
         ts_samples_count = ts_frame.shape[0]
+        n_processes = self.n_processes
+        self.logger.info(f'Number of processes: {n_processes}')
 
-        components_and_vectors = list()
-        with tqdm(total=ts_samples_count,
-                  desc='Feature Generation. Samples processed: ',
-                  unit=' samples', initial=0, colour='black') as pbar:
-            for ts in ts_frame.values:
-                v = self._ts_chunk_function(ts)
-                components_and_vectors.append(v)
-                pbar.update(1)
+        with Pool(n_processes) as p:
+            components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
+                                                      ts_frame.values),
+                                               total=ts_samples_count,
+                                               desc='Feature Generation. TS processed',
+                                               unit=' ts',
+                                               colour='black'
+                                               )
+                                          )
+        self.logger.info(f'Number of time series processed: {ts_samples_count}')
         return components_and_vectors
 
     @time_it
@@ -164,7 +169,6 @@ class SSARunner(ExperimentRunner):
         n_comp_list = []
         eigen_list = []
         # TODO: check if it is possible to use multiprocessing here
-        # TODO: check window sizes
         window_list = self.window_sizes[dataset_name]
 
         for window_length in window_list:
@@ -217,12 +221,3 @@ class SSARunner(ExperimentRunner):
         self.logger.info(f'Window length = {self.current_window} was chosen')
 
         return self.train_feats
-
-    @staticmethod
-    def threading_operation(ts_frame: pd.DataFrame,
-                            function_for_feature_extraction: callable):
-        pool = Pool(8)
-        features = pool.map(function_for_feature_extraction, ts_frame)
-        pool.close()
-        pool.join()
-        return features

@@ -1,9 +1,9 @@
 import hashlib
 import os
 import timeit
+from multiprocessing import cpu_count
 
 from core.metrics.metrics_implementation import *
-from core.operation.utils.Decorators import exception_decorator
 from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import PROJECT_PATH
 
@@ -22,6 +22,7 @@ class ExperimentRunner:
         current_window (int): window length for feature generation.
         y_test (pd.DataFrame): ...
         logger (logging.Logger): logger instance.
+        n_processes (int): number of processes for multiprocessing.
 
     """
     METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
@@ -33,6 +34,7 @@ class ExperimentRunner:
         self.current_window = None
         self.y_test = None
         self.logger = Logger().get_logger()
+        self.n_processes = cpu_count() // 2
 
     def get_features(self, *args, **kwargs) -> pd.DataFrame:
         """Method responsible for extracting features from time series dataframe.
