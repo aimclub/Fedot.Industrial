@@ -3,6 +3,7 @@ import pandas as pd
 from fedot.api.main import Fedot
 from numpy import ndarray
 
+from core.api.utils.checkers_collections import DataCheck
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.utils.analyzer import PerformanceAnalyzer
 from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
@@ -35,6 +36,8 @@ class TimeSeriesClassifier:
         self.predictor = None
         self.y_train = None
         self.train_features = None
+
+        self.datacheck = DataCheck(logger=self.logger)
         self.generator_name = generator_name
         self.generator_runner = generator_runner
         self.feature_generator_dict = {self.generator_name: self.generator_runner}
@@ -68,12 +71,14 @@ class TimeSeriesClassifier:
         self.logger.info('START TRAINING')
         self.y_train = train_tuple[1]
         self.train_features = self.generator_runner.extract_features(train_tuple[0], dataset_name, train_tuple[1])
+        self.train_features = self.datacheck.check_data(self.train_features)
         self.predictor = self._fit_fedot_model(self.train_features, train_tuple[1])
 
         return self.predictor, self.train_features
 
     def predict(self, test_tuple, dataset_name) -> dict:
         features = self.generator_runner.extract_features(test_tuple[0], dataset_name, test_tuple[1])
+        features = self.datacheck.check_data(features)
         prediction_label = self.predictor.predict(features)
         prediction_proba = self.predictor.predict_proba(features)
         metrics_dict = PerformanceAnalyzer().calculate_metrics(target=test_tuple[1],
