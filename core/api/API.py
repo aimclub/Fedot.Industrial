@@ -1,6 +1,6 @@
 from fedot.api.main import Fedot
 from sklearn.model_selection import train_test_split
-
+from typing import Callable
 from core.api.utils.method_collections import *
 from core.api.utils.checkers_collections import *
 from core.api.utils.reader_collections import *
@@ -10,15 +10,16 @@ from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import path_to_save_results
 
 
-class Industrial:
+class Industrial(Fedot):
     """
     Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
     """
 
     def __init__(self):
+        super(Fedot, self).__init__()
         self.config_dict = None
         self.logger = Logger.__call__().get_logger()
-
+        self.model = None
         self.feature_generator_dict = {method.name: method.value for method in FeatureGenerator}
         self.feature_generator_dict.update({method.name: method.value for method in WindowFeatureGenerator})
         self.ensemble_methods_dict = {method.name: method.value for method in EnsembleGenerator}
@@ -29,6 +30,52 @@ class Industrial:
         self.reader = DataReader(logger=self.logger)
         self.checker = ParameterCheck(logger=self.logger)
         self.saver = ResultSaver(logger=self.logger)
+
+    def fit(self, **kwargs):
+        self._define_data()
+        fitted_model, train_features = self._obtain_model(**kwargs)
+        return fitted_model, train_features
+
+    def predict(self,
+                test_data: tuple,
+                dataset_name: str = None):
+        if self.model is None:
+            self.logger.info(f'*------------YOU MUST FIT MODEL FIRST------------*')
+            prediction = None
+        else:
+            prediction = self.model.predict(test_data, dataset_name)
+        return prediction
+
+    def plot_prediction(self, **kwargs):
+        pass
+
+    def get_metrics(self, **kwargs) -> dict:
+        pass
+
+    def _define_data(self):
+        pass
+
+    def _obtain_model(self,
+                      model_name: str,
+                      dataset_name: str,
+                      task_type: str,
+                      train_data: tuple,
+                      model_params: dict,
+                      ECM_mode: bool = False,
+                      n_classes: int = None):
+
+        paths_to_save = os.path.join(path_to_save_results(), model_name, dataset_name)
+        self.model = self.task_pipeline_dict[task_type](generator_name=model_name,
+                                                        generator_runner=self.feature_generator_dict[model_name],
+                                                        model_hyperparams=model_params,
+                                                        ecm_model_flag=ECM_mode)
+        self.model.feature_generator_params = self.config_dict['feature_generator_params']
+        self.model.model_hyperparams['metric'] = self.checker.check_metric_type(
+            n_classes=n_classes)
+        self.logger.info(f'*------------{model_name} MODEL IS ON DUTY------------*')
+        self.logger.info(f'*------------START FIT MODEL------------*')
+        fitted_model, train_features = self.model.fit(train_data, dataset_name)
+        return fitted_model, train_features
 
     def run_experiment(self, config_name):
         """
@@ -55,8 +102,8 @@ class Industrial:
                 modelling_results=experiment_results[dataset_name]['Original'],
                 ensemble_mode='ensemble_algorithm' in self.config_dict.keys())
 
-            self._save_results(modelling_results=experiment_results)
-
+            self._save_results(dataset_name=dataset_name, modelling_results=experiment_results)
+            _ = 1
         self.logger.info('*------------END OF EXPERIMENT------------*')
 
     def _run_modelling_cycle(self,
@@ -79,29 +126,25 @@ class Industrial:
             try:
                 for launch in range(1, n_cycles + 1):
                     runner_result = {}
-                    self.logger.info(f'*------------{runner_name} MODEL IS ON DUTY------------*')
-                    model = self.task_pipeline_dict[task_type](generator_name=runner_name,
-                                                               generator_runner=runner,
-                                                               model_hyperparams=experiment_dict['model_params'],
-                                                               ecm_model_flag=experiment_dict['error_correction'])
-
-                    model.feature_generator_params = self.config_dict['feature_generator_params']
-                    model.model_hyperparams['metric'] = self.checker.check_metric_type(
-                        n_classes=dataset_metainfo['Number_of_classes'])
                     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
-                    self.logger.info(f'*------------START FIT MODEL AT LAUNCH-{launch}------------*')
-                    runner_result['fitted_predictor'], runner_result['train_features'] = model.fit(train_data,
-                                                                                                   dataset_name)
-                    runner_result['train_target'] = train_data[1]
+                    self.logger.info(f'*------------{runner_name} MODEL IS ON DUTY------------*')
                     runner_result['test_target'] = test_data[1]
                     runner_result['path_to_save'] = paths_to_save
+                    runner_result['fitted_predictor'], runner_result['train_features'] = self._obtain_model(
+                        model_name=runner_name,
+                        dataset_name=dataset_name,
+                        task_type=task_type,
+                        train_data=train_data,
+                        n_classes=dataset_metainfo['Number_of_classes'],
+                        model_params=experiment_dict['model_params'],
+                        ECM_mode=experiment_dict['error_correction'])
 
                     self.logger.info(f'*------------START PREDICTION AT LAUNCH-{launch}------------*')
-                    runner_result['prediction'] = model.predict(test_data, dataset_name)
-                    runner_result['predict_on_train'] = model.predict_on_train()
-                    runner_result['predict_on_val'] = model.predict_on_validation(validatiom_tuple=validation_data,
-                                                                                  dataset_name=dataset_name)
+                    runner_result.update(self.predict(test_data, dataset_name))
+                    runner_result['predict_on_train'] = self.model.predict_on_train()
+                    runner_result['predict_on_val'] = self.model.predict_on_validation(validatiom_tuple=validation_data,
+                                                                                       dataset_name=dataset_name)
                     runner_result['validation_predictions'] = {f'{runner_name}_val': runner_result['predict_on_val']}
                     runner_result['test_predictions'] = {f'{runner_name}_test': runner_result['prediction']}
 
@@ -113,8 +156,9 @@ class Industrial:
     def _save_results(self, dataset_name, modelling_results: dict):
         result_at_dataset = modelling_results[dataset_name]
         for approach in result_at_dataset:
-            for model in result_at_dataset[approach]:
-                self.saver.save_method_dict[approach](prediction=result_at_dataset[approach][model])
+            if approach is not None:
+                for model in result_at_dataset[approach]:
+                    self.saver.save_method_dict[approach](prediction=result_at_dataset[approach][model])
 
     def _apply_ECM(self, modelling_results: dict, ECM_mode: bool = False):
         if not ECM_mode:
