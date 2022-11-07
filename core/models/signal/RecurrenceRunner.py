@@ -1,3 +1,5 @@
+from multiprocessing import Pool
+
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
@@ -18,7 +20,6 @@ class RecurrenceRunner(ExperimentRunner):
 
         super().__init__()
 
-        self.ts_samples_count = None
         self.window_mode = window_mode
         self.use_cache = use_cache
         self.transformer = TSTransformer
@@ -41,17 +42,19 @@ class RecurrenceRunner(ExperimentRunner):
         Returns:
             pd.DataFrame: feature vector
         """
-        self.ts_samples_count = ts_frame.shape[0]
+        ts_samples_count = ts_frame.shape[0]
+        n_processes = self.n_processes
 
-        components_and_vectors = list()
-        with tqdm(total=ts_frame.shape[0],
-                  desc='Feature generation. Time series processed:',
-                  unit='ts', initial=0, colour='black') as pbar:
-            for ts in ts_frame.values:
-                components_and_vectors.append(self._ts_chunk_function(ts))
-                pbar.update(1)
+        with Pool(n_processes) as p:
+            components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
+                                                      ts_frame.values),
+                                               total=ts_samples_count,
+                                               desc='Feature Generation. TS processed',
+                                               unit=' ts',
+                                               colour='black'
+                                               )
+                                          )
         components_and_vectors = pd.concat(components_and_vectors, axis=1).T
-
         return components_and_vectors
 
     @time_it
