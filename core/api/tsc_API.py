@@ -135,11 +135,11 @@ class Industrial:
             use_cache - {self.config_dict['use_cache']},
             error_correction - {self.config_dict['error_correction']}''')
 
-    def run_experiment(self, config_name):
+    def run_experiment(self, config_name: str):
         """Run experiment with corresponding config_name.
 
         Args:
-            config_name (str): name of the config file
+            config_name: name of the config file or path to.
 
         """
         self.logger.info(f'START EXPERIMENT')
