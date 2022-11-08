@@ -39,14 +39,14 @@ class OrthogonalLoss(SVDLoss):
         loss = 0
         n = 0
         for name, parameter in model.named_parameters():
-            if name.split(".")[-1] == "U":
+            if name.split('.')[-1] == 'U':
                 n += 1
                 U = parameter
                 r = U.size()[1]
                 E = torch.eye(r, device=self.device)
                 loss += matrix_norm(U.transpose(0, 1) @ U - E) ** 2 / r
 
-            elif name.split(".")[-1] == "Vh":
+            elif name.split('.')[-1] == 'Vh':
                 Vh = parameter
                 r = Vh.size()[0]
                 E = torch.eye(r, device=self.device)
@@ -74,7 +74,7 @@ class HoyerLoss(SVDLoss):
         loss = 0
         n = 0
         for name, parameter in model.named_parameters():
-            if name.split(".")[-1] == "S":
+            if name.split('.')[-1] == 'S':
                 n += 1
                 S = parameter
                 loss += vector_norm(S, ord=1) / vector_norm(S, ord=2)

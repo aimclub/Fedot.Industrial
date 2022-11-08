@@ -59,20 +59,20 @@ class _GeneralizedExperimenter:
     ) -> None:
         self.model = model
         self.default_scores = {
-            "size": self.size_of_model(),
-            "n_params": self.number_of_params(),
+            'size': self.size_of_model(),
+            'n_params': self.number_of_params(),
         }
         print(f"Default size: {self.default_scores['size']:.2f} MB")
         self.name = name
         self.models_path = models_path
         self.summary_path = summary_path
         self.summary_per_class = summary_per_class
-        self.device = torch.device("cuda" if gpu else "cpu")
+        self.device = torch.device('cuda' if gpu else 'cpu')
         self.best_score = 0
         self.target_metric = target_metric
         self.structure_optimization = None
 
-    def save_model(self, postfix: str = "") -> None:
+    def save_model(self, postfix: str = '') -> None:
         """Save all model.
 
         Args:
@@ -80,12 +80,12 @@ class _GeneralizedExperimenter:
                 (default: ``''``).
         """
         file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
-        dir_path = "/".join(file_path.split("/")[:-1])
+        dir_path = '/'.join(file_path.split('/')[:-1])
         os.makedirs(dir_path, exist_ok=True)
         torch.save(self.model, file_path)
         print("Model saved.")
 
-    def save_model_state_dict(self, postfix: str = "") -> None:
+    def save_model_state_dict(self, postfix: str = '') -> None:
         """Save model state_dict.
 
         Args:
@@ -93,12 +93,12 @@ class _GeneralizedExperimenter:
                 (default: ``''``).
         """
         file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
-        dir_path = "/".join(file_path.split("/")[:-1])
+        dir_path = '/'.join(file_path.split('/')[:-1])
         os.makedirs(dir_path, exist_ok=True)
         torch.save(self.model.state_dict(), file_path)
         print("Model state dict saved.")
 
-    def load_model_state_dict(self, postfix: str = "") -> None:
+    def load_model_state_dict(self, postfix: str = '') -> None:
         """Load model state_dict to ``self.model``
 
         Args:
@@ -113,7 +113,7 @@ class _GeneralizedExperimenter:
         else:
             print(f"File '{file_path}' does not exist.")
 
-    def load_model(self, postfix: str = "") -> None:
+    def load_model(self, postfix: str = '') -> None:
         """Load model to ``self.model``.
 
         Args:
@@ -183,17 +183,17 @@ class _GeneralizedExperimenter:
         for epoch in range(1, num_epochs + 1):
             print(f"Epoch {epoch}")
             train_scores = self.train_loop()
-            self.write_scores(writer, "train", train_scores, epoch)
+            self.write_scores(writer, 'train', train_scores, epoch)
             self.structure_optimization.optimize_during_training()
             val_scores = self.val_loop()
-            self.write_scores(writer, "val", val_scores, epoch)
+            self.write_scores(writer, 'val', val_scores, epoch)
             if val_scores[self.target_metric] > self.best_score:
                 self.best_score = val_scores[self.target_metric]
                 self.save_model_state_dict()
         self.structure_optimization.final_optimize()
         writer.close()
 
-    def finetune(self, num_epochs: int, postfix: str = "") -> None:
+    def finetune(self, num_epochs: int, postfix: str = '') -> None:
         """Run fine-tuning
 
         Args:
@@ -207,9 +207,9 @@ class _GeneralizedExperimenter:
         for epoch in range(1, num_epochs + 1):
             print(f"Fine-tuning epoch {epoch}")
             train_scores = self.train_loop()
-            self.write_scores(writer, "fine-tuning_train", train_scores, epoch)
+            self.write_scores(writer, 'fine-tuning_train', train_scores, epoch)
             val_scores = self.val_loop()
-            self.write_scores(writer, "fine-tuning_val", val_scores, epoch)
+            self.write_scores(writer, 'fine-tuning_val', val_scores, epoch)
             if val_scores[self.target_metric] > best_score:
                 best_score = val_scores[self.target_metric]
                 self.save_model_state_dict(postfix=postfix)
@@ -222,7 +222,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
 
     Args:
         dataset: Name of dataset.
-        dataset_params: Parameter dictionary passed to dataloaders getter.
+        dataloader_params: Parameter dictionary passed to dataloaders getter.
         model: Name of model.
         model_params: Parameter dictionary passed to model initialization.
         models_saving_path: Path to folder for saving models.
@@ -251,7 +251,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
     def __init__(
         self,
         dataset: str,
-        dataset_params: Dict,
+        dataloader_params: Dict,
         model: str,
         model_params: Dict,
         models_saving_path: str,
@@ -261,28 +261,28 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         loss_params: Dict,
         structure_optimization: str,
         structure_optimization_params: Dict,
-        target_metric: str = "f1",
-        summary_path: str = "runs",
+        target_metric: str = 'f1',
+        summary_path: str = 'runs',
         summary_per_class: bool = False,
         gpu: bool = True,
     ) -> None:
 
         _parameter_value_check(
-            parameter="model", value=model, valid_values=set(MODELS.keys())
+            parameter='model', value=model, valid_values=set(MODELS.keys())
         )
         _parameter_value_check(
-            parameter="structure_optimization",
+            parameter='structure_optimization',
             value=structure_optimization,
             valid_values=set(OPTIMIZATIONS.keys()),
         )
         _parameter_value_check(
-            parameter="target_metric",
+            parameter='target_metric',
             value=target_metric,
-            valid_values={"f1", "accuracy", "precision", "recall", "roc_auc"},
+            valid_values={'f1', 'accuracy', 'precision', 'recall', 'roc_auc'},
         )
 
         self.train_dl, self.val_dl, num_classes = get_classification_dataloaders(
-            dataset, **dataset_params
+            dataset, **dataloader_params
         )
         super().__init__(
             model=MODELS[model](num_classes=num_classes, **model_params),
@@ -307,7 +307,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             Dictionary {metric_name: value}.
         """
         self.model.train()
-        train_scores = {"accuracy": 0, "loss": 0}
+        train_scores = {'accuracy': 0, 'loss': 0}
         for key in self.structure_optimization.losses:
             train_scores[key] = 0
         for x, y in tqdm(self.train_dl):
@@ -315,8 +315,8 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             y = y.to(self.device)
             pred = self.model(x)
             loss = self.target_loss(pred, y)
-            train_scores["loss"] += loss.item()
-            train_scores["accuracy"] += (
+            train_scores['loss'] += loss.item()
+            train_scores['accuracy'] += (
                 (pred.argmax(1) == y).type(torch.float).mean().item()
             )
             for key, loss_fn in self.structure_optimization.losses.items():
@@ -354,20 +354,20 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
                 val_loss += self.target_loss(pred, y).item()
         total_time = time.time() - start
         precision, recall, f1, _ = precision_recall_fscore_support(
-            y_true, y_pred, average="macro"
+            y_true, y_pred, average='macro'
         )
         val_scores = {
-            "loss": val_loss / len(self.val_dl),
-            "inference_time": total_time / len(self.val_dl),
-            "accuracy": accuracy_score(y_true, y_pred),
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "roc_auc": roc_auc_score(y_true, y_score, multi_class="ovo"),
+            'loss': val_loss / len(self.val_dl),
+            'inference_time': total_time / len(self.val_dl),
+            'accuracy': accuracy_score(y_true, y_pred),
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'roc_auc': roc_auc_score(y_true, y_score, multi_class='ovo'),
         }
         if self.summary_per_class:
             f1s = f1_score(y_true, y_pred, average=None)
-            val_scores.update({f"f1_class{i}": s for i, s in enumerate(f1s)})
+            val_scores.update({f'f1_class{i}': s for i, s in enumerate(f1s)})
         return val_scores
 
 
@@ -376,7 +376,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
 
         Args:
         dataset: Name of dataset.
-        dataset_params: Parameter dictionary passed to dataloaders getter.
+        dataloaderparams: Parameter dictionary passed to dataloaders getter.
         model_params: Parameter dictionary passed to ``fasterrcnn_resnet50_fpn``.
         models_saving_path: Path to folder for saving models.
         optimizer: Model optimizer, e.g. ``torch.optim.SGD``.
@@ -401,7 +401,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
     def __init__(
         self,
         dataset: str,
-        dataset_params: Dict,
+        dataloader_params: Dict,
         model_params: Dict,
         models_saving_path: str,
         optimizer: Type[torch.optim.Optimizer],
@@ -409,25 +409,25 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         scheduler_params: Dict,
         structure_optimization: str,
         structure_optimization_params: Dict,
-        target_metric: str = "map_50",
-        summary_path: str = "runs",
+        target_metric: str = 'map_50',
+        summary_path: str = 'runs',
         summary_per_class: bool = False,
         gpu: bool = True,
     ) -> None:
 
         _parameter_value_check(
-            parameter="structure_optimization",
+            parameter='structure_optimization',
             value=structure_optimization,
             valid_values=set(OPTIMIZATIONS.keys()),
         )
         _parameter_value_check(
-            parameter="target_metric",
+            parameter='target_metric',
             value=target_metric,
-            valid_values={"map", "map_50", "map_75"},
+            valid_values={'map', 'map_50', 'map_75'},
         )
 
         self.train_dl, self.val_dl, num_classes = get_detection_dataloaders(
-            dataset, **dataset_params
+            dataset, **dataloader_params
         )
 
         model = fasterrcnn_resnet50_fpn(**model_params)
@@ -464,7 +464,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         """
         self.model.train()
         batches = tqdm(self.train_dl)
-        train_scores = {"loss": 0}
+        train_scores = {'loss': 0}
         for key in self.structure_optimization.losses:
             train_scores[key] = 0
         i = 0
@@ -474,7 +474,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
             loss_dict = self.model(images, targets)
             losses = sum(loss_dict.values())
-            train_scores["loss"] += losses.item()
+            train_scores['loss'] += losses.item()
 
             for key, loss_fn in self.structure_optimization.losses.items():
                 opt_loss = loss_fn(self.get_optimizable_module())
@@ -483,7 +483,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             self.optimizer.zero_grad()
             losses.backward()
             self.optimizer.step()
-            batches.set_postfix({"loss": train_scores["loss"] / i})
+            batches.set_postfix({'loss': train_scores['loss'] / i})
 
         for key in train_scores:
             train_scores[key] /= len(self.train_dl)
@@ -513,5 +513,5 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         with torch.no_grad():
             images = list(image.to(self.device) for image in images)
             outputs = self.model(images)
-            outputs = [{k: v.to("cpu").detach() for k, v in t.items()} for t in outputs]
+            outputs = [{k: v.to('cpu').detach() for k, v in t.items()} for t in outputs]
         return outputs

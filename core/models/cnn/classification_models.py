@@ -36,10 +36,10 @@ class SimpleConvNet2(nn.Module):
 
 
 MODELS = {
-    "SimpleConvNet2": SimpleConvNet2,
-    "ResNet18": resnet18,
-    "ResNet34": resnet34,
-    "ResNet50": resnet50,
-    "ResNet101": resnet101,
-    "ResNet152": resnet152,
+    'SimpleConvNet2': SimpleConvNet2,
+    'ResNet18': resnet18,
+    'ResNet34': resnet34,
+    'ResNet50': resnet50,
+    'ResNet101': resnet101,
+    'ResNet152': resnet152,
 }

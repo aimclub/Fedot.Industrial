@@ -40,9 +40,9 @@ class DecomposedConv2d(Conv2d):
         dilation: _size_2_t = 1,
         groups: int = 1,
         bias: bool = True,
-        padding_mode: str = "zeros",
+        padding_mode: str = 'zeros',
         decomposing: bool = True,
-        decomposing_mode: str = "channel",
+        decomposing_mode: str = 'channel',
         device=None,
         dtype=None,
     ) -> None:
@@ -63,8 +63,8 @@ class DecomposedConv2d(Conv2d):
 
         n, c, w, h = self.weight.size()
         self.decomposing_modes_dict = {
-            "channel": (n, c * w * h),
-            "spatial": (n * w, c * h),
+            'channel': (n, c * w * h),
+            'spatial': (n * w, c * h),
         }
 
         if decomposing:
@@ -98,7 +98,7 @@ class DecomposedConv2d(Conv2d):
         self.U = Parameter(U)
         self.S = Parameter(S)
         self.Vh = Parameter(Vh)
-        self.register_parameter("weight", None)
+        self.register_parameter('weight', None)
         self.decomposing = True
 
     def compose(self) -> None:
@@ -114,9 +114,9 @@ class DecomposedConv2d(Conv2d):
             )
         )
 
-        self.register_parameter("U", None)
-        self.register_parameter("S", None)
-        self.register_parameter("Vh", None)
+        self.register_parameter('U', None)
+        self.register_parameter('S', None)
+        self.register_parameter('Vh', None)
         self.decomposing = False
 
     def forward(self, input: Tensor) -> Tensor:

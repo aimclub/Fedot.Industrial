@@ -28,7 +28,7 @@ def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) ->
             break
 
 
-def decompose_module(model: Module, decomposing_mode: str = "channel") -> None:
+def decompose_module(model: Module, decomposing_mode: str = 'channel') -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place).
 
     Args:

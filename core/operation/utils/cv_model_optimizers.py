@@ -63,8 +63,8 @@ class SVDOptimization(GeneralizedStructureOptimization):
         )
         decompose_module(experimenter.get_optimizable_module(), decomposing_mode)
         print(f"SVD decomposed size: {self.exp.size_of_model():.2f} MB")
-        self.losses["hoer_loss"] = HoyerLoss(hoer_loss_factor)
-        self.losses["orthogonal_loss"] = OrthogonalLoss(
+        self.losses['hoer_loss'] = HoyerLoss(hoer_loss_factor)
+        self.losses['orthogonal_loss'] = OrthogonalLoss(
             self.exp.device, orthogonal_loss_factor
         )
         self.energy_thresholds = energy_thresholds
@@ -77,12 +77,12 @@ class SVDOptimization(GeneralizedStructureOptimization):
     def final_optimize(self) -> None:
         """Apply optimization after training."""
         p_writer = SummaryWriter(
-            os.path.join(self.exp.summary_path, self.exp.name) + "_pruned"
+            os.path.join(self.exp.summary_path, self.exp.name) + '_pruned'
         )
         ft_writer = SummaryWriter(
-            os.path.join(self.exp.summary_path, self.exp.name) + "_fine-tuned"
+            os.path.join(self.exp.summary_path, self.exp.name) + '_fine-tuned'
         )
-        self.losses["hoer_loss"] = HoyerLoss(factor=0)
+        self.losses['hoer_loss'] = HoyerLoss(factor=0)
         self.exp.summary_per_class = False
         self.exp.load_model_state_dict()
         default_model = copy.deepcopy(self.exp.model)
@@ -94,9 +94,9 @@ class SVDOptimization(GeneralizedStructureOptimization):
             start = time.time()
             self.prune_model(e)
             pruning_time = time.time() - start
-            p_writer.add_scalar("abs(e)/pruning_time", pruning_time, int_e)
+            p_writer.add_scalar('abs(e)/pruning_time', pruning_time, int_e)
             self.optimization_summary(e=int_e, writer=p_writer)
-            self.exp.finetune(num_epochs=self.finetuning_epochs, postix=f"_e-{e}")
+            self.exp.finetune(num_epochs=self.finetuning_epochs, postfix=f"_e-{e}")
             self.optimization_summary(e=int_e, writer=ft_writer)
             self.exp.save_model(postfix=f"_e-{e}")
 
@@ -119,15 +119,15 @@ class SVDOptimization(GeneralizedStructureOptimization):
             writer: SummaryWriter object for writing scores.
         """
         val_scores = self.exp.val_loop()
-        val_scores["size"] = self.exp.size_of_model()
-        val_scores["n_params"] = self.exp.number_of_params()
+        val_scores['size'] = self.exp.size_of_model()
+        val_scores['n_params'] = self.exp.number_of_params()
         for key, score in val_scores.items():
             score_p = score / self.exp.default_scores[key] * 100
             delta_score = score - self.exp.default_scores[key]
-            key = key.split("/")[-1]
-            writer.add_scalar(f"abs(e)/{key}", score, e)
-            writer.add_scalar(f"percentage(e)/{key}", score_p, e)
-            writer.add_scalar(f"delta(e)/{key}", delta_score, e)
+            key = key.split('/')[-1]
+            writer.add_scalar(f'abs(e)/{key}', score, e)
+            writer.add_scalar(f'percentage(e)/{key}', score_p, e)
+            writer.add_scalar(f'delta(e)/{key}', delta_score, e)
 
 
-OPTIMIZATIONS = {"none": GeneralizedStructureOptimization, "SVD": SVDOptimization}
+OPTIMIZATIONS = {'none': GeneralizedStructureOptimization, 'SVD': SVDOptimization}
