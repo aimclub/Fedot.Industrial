@@ -185,7 +185,7 @@ class SpectrumDecomposer:
         """Converts all the time series components in a single Pandas DataFrame object.
 
         Args:
-            TS_comps: ...
+            TS_comps: The time series components.
             rank: The rank of the time series.
             n: ...
 

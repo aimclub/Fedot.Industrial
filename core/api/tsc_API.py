@@ -72,15 +72,15 @@ class Industrial:
 
         return experiment_dict
 
-    def get_generator_class(self, experiment_dict, gen_name):
+    def get_generator_class(self, experiment_dict: dict, gen_name: str) -> dict:
         """Combines the name of the generator with the parameters from the config file.
 
         Args:
-            experiment_dict (dict): dictionary with the parameters of the experiment
-            gen_name (str): name of the generator
+            experiment_dict: dictionary with the parameters of the experiment.
+            gen_name: name of the generator.
 
         Returns:
-            dict: dictionary with the name of the generator and its class
+            Dictionary with the name of the generator and its class.
 
         """
         feature_gen_model = self.feature_generator_dict[gen_name]
@@ -115,7 +115,10 @@ class Industrial:
         """Read yaml config from './cases/config/config_name' directory as dictionary file.
 
         Args:
-            config_name (str): name of the config file
+            config_name: name of the config file.
+
+        Returns:
+            None
 
         """
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)

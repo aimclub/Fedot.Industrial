@@ -13,7 +13,7 @@ class ParetoMetrics:
     def __init__(self):
         pass
 
-    def pareto_metric_list(self, costs: Union[list, np.ndarray], maximise: bool = True):
+    def pareto_metric_list(self, costs: Union[list, np.ndarray], maximise: bool = True) -> np.ndarray[bool]:
         """ Calculates the pareto front for a list of costs.
 
         Args:

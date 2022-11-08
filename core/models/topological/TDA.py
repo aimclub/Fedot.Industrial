@@ -88,7 +88,8 @@ class Topological:
         a_windowed = np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
         return a_windowed
 
-    def time_series_to_point_cloud(self, array: np.array = None, dimension_embed=2) -> np.array:
+    def time_series_to_point_cloud(self, array: np.array = None,
+                                   dimension_embed=2) -> np.array:
         """Convert a time series into a point cloud in the dimension specified by dimension_embed.
 
         Args:
@@ -152,17 +153,17 @@ class Topological:
         return homology
 
     def time_series_to_persistent_cohomology_ripser(self,
-                                                    time_series,
-                                                    max_simplex_dim):
+                                                    time_series: np.array,
+                                                    max_simplex_dim: int) -> dict:
         """Wrapper function that takes in a time series and outputs the persistent homology object, along with other
         auxiliary objects.
 
         Args:
-            time_series (np.array): Time series to be converted.
-            max_simplex_dim (int): Maximum dimension of the simplicial complex to be constructed.
+            time_series: Time series to be converted.
+            max_simplex_dim: Maximum dimension of the simplicial complex to be constructed.
 
         Returns:
-            dict: Persistent homology object. Dictionary with keys in range(max_simplex_dim) and, the value hom[i]
+            Persistent homology object. Dictionary with keys in range(max_simplex_dim) and, the value hom[i]
             is an array of length equal to len(epsilon_range) containing the betti numbers of the i-th homology
             groups for the Rips filtration.
 

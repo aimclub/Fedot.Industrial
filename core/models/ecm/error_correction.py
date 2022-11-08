@@ -14,12 +14,12 @@ class Booster:
     """Class to implement error correction model (ECM) for classification prediction improvement.
 
     Args:
-        features_train (np.ndarray): X_train
-        target_train (np.ndarray): y_train
-        base_predict (np.ndarray): prediction, derived from main model (Quantile, Spectral, Topological, or Wavelet)
-        timeout (int): defines the amount of time to compose and tune regression model
-        threshold (float): parameter used as round boundary for custom_round() method
-        n_cycles (int): number of boosting cycles
+        features_train: X_train
+        target_train: y_train
+        base_predict: prediction, derived from main model (Quantile, Spectral, Topological, or Wavelet)
+        timeout: defines the amount of time to compose and tune regression model
+        threshold: parameter used as round boundary for custom_round() method
+        n_cycles: number of boosting cycles
         reshape_flag: ...
     """
 
@@ -56,9 +56,6 @@ class Booster:
 
         for i in range(self.n_cycles):
             self.logger.info(f'Starting cycle {1 + i} of boosting')
-            # target_diff = self.decompose_target(previous_predict=self.ecm_predictions[i],
-            #                                     previous_target=self.ecm_targets[i])
-            #
             target_diff = np.subtract(previous_predict=self.ecm_predictions[i],
                                       previous_target=self.ecm_targets[i])
             self.ecm_targets.append(target_diff)
@@ -75,10 +72,10 @@ class Booster:
         """Method used to initiate FEDOT AutoML model to solve regression problem for boosting stage
 
         Args:
-            target_diff (np.ndarray): target difference between previous prediction and target
+            target_diff: target difference between previous prediction and target
 
         Returns:
-            tuple: tuple with prediction and FEDOT model
+            Tuple with prediction and FEDOT model
         """
         fedot_model = Fedot(problem='regression', seed=42,
                             timeout=self.timeout, max_depth=10,
@@ -94,20 +91,15 @@ class Booster:
 
         return prediction, fedot_model
 
-    @staticmethod
-    def decompose_target(previous_predict: np.ndarray,
-                         previous_target: np.ndarray):
-        return previous_target - previous_predict
-
-    def ensemble(self, features) -> tuple:
+    def ensemble(self, features: list) -> tuple:
         """Method that ensembles results of all stages of boosting. Depending on number of classes ensemble method
         could be a genetic AutoML model by FEDOT (for binary problem) or SUM method (for multi-class problem).
 
         Args:
-            features (list): list of predictions from all boosting stages
+            features: list of predictions from all boosting stages
 
         Returns:
-            tuple: tuple with ensemble prediction and ensemble model
+            Tuple with ensemble prediction and ensemble model
 
         """
         self.logger.info('Starting to ensemble boosting results')
@@ -132,17 +124,27 @@ class Booster:
 
     @staticmethod
     def proba_to_vector(matrix: np.array):
-        """
-        Method to convert probability matrix to vector of labels
-        :type matrix: probability matrix received as a result of prediction_proba for multi-class problem
+        """Method to convert probability matrix to vector of labels.
+
+        Args:
+            matrix: probability matrix
+
+        Returns:
+            Probability matrix received as a result of prediction_proba for multi-class problem
+
         """
         vector = np.array([x.argmax() + x[x.argmax()] for x in matrix])
         return vector
 
     def custom_round(self, num: float) -> int:
+        """Custom round method with predefined threshold.
+
+        Args:
+            num: number to round
+
+        Returns:
+            Rounded number
         """
-        Custom round method with predefined threshold
-        :param num: number to be rounded"""
         thr = self.threshold
         if num - int(num) >= thr:
             return int(num) + 1

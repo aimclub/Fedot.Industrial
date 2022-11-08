@@ -12,14 +12,14 @@ class ErrorCorrectionModel:
     and the final prediction is the sum of the predictions of all models or another Fedot AutoML pipeline.
 
     Args:
-        results_on_train (ndarray): np.ndarray with proba_predictions on train data
-        results_on_test (dict): dictionary with predictions, proba_predictions and metrics on test data
-        n_classes (int): number of classes
-        dataset_name (str): name of dataset
-        save_models (bool): flag for saving ECM models
-        fedot_params (dict): dictionary with parameters for Fedot AutoML model
-        train_data (tuple): train features and target
-        test_data (tuple): test features and target
+        results_on_train: np.ndarray with proba_predictions on train data
+        results_on_test: dictionary with predictions, proba_predictions and metrics on test data
+        n_classes: number of classes
+        dataset_name: name of dataset
+        save_models: flag for saving ECM models
+        fedot_params: dictionary with parameters for Fedot AutoML model
+        train_data: train features and target
+        test_data: test features and target
 
     """
 
@@ -52,7 +52,7 @@ class ErrorCorrectionModel:
         """Creates base predict for boosting and reshape flag for predictions.
 
         Args:
-            predictions_proba_train (np.ndarray): np.ndarray with proba_predictions on train data
+            predictions_proba_train: array with proba_predictions on train data
 
         """
         if self.n_classes > 2:
@@ -65,13 +65,14 @@ class ErrorCorrectionModel:
             self.base_predict = round(np.max(self.y_test) - np.max(predictions_proba_train)) + self.base_predict
             self.reshape_flag = True
 
-    def _predict_with_boosting(self, predictions_proba: np.ndarray, metrics_without_boosting: dict) -> dict:
+    def _predict_with_boosting(self, predictions_proba: np.ndarray,
+                               metrics_without_boosting: dict) -> dict:
         """Instantiates the Booster class and predicts on test features using boosting pipeline consists of
         several models and ensemble method.
 
         Args:
-            predictions_proba (np.ndarray): np.ndarray with proba_predictions on test data
-            metrics_without_boosting (dict): dictionary with metrics on test data without boosting
+            predictions_proba: np.ndarray with proba_predictions on test data
+            metrics_without_boosting: dictionary with metrics on test data without boosting
 
         Returns:
             boosting_results (dict): dictionary with predictions, proba_predictions
