@@ -1,7 +1,6 @@
-import datetime
 import os
 from collections import Counter
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -168,7 +167,6 @@ class SSARunner(ExperimentRunner):
         metric_list = []
         n_comp_list = []
         eigen_list = []
-        # TODO: check if it is possible to use multiprocessing here
         window_list = self.window_sizes[dataset_name]
 
         for window_length in window_list:

@@ -17,15 +17,13 @@ class SignalRunner(ExperimentRunner):
     """Class responsible for wavelet feature generator experiment.
 
     Args:
-        wavelet_types (list): list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.
-        use_cache (bool): flag to use cache or not. Defined in Config_Classification.yaml
+        wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.
+        use_cache: flag to use cache or not. Defined in Config_Classification.yaml
 
     Attributes:
-        use_cache (bool): flag to use cache or not. Defined in Config_Classification.yaml
         ts_samples_count (int): number of samples in time series
         aggregator (StatFeaturesExtractor): class to aggregate features
         wavelet_extractor (WaveletExtractor): class to extract wavelet features
-        wavelet_list (list): list of wavelet types to be used in experiment.
         wavelet (str): current wavelet type
         vis_flag (bool): flag to visualize or not
         train_feats (pd.DataFrame): train features

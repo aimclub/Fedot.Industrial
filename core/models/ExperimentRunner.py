@@ -7,9 +7,6 @@ from core.metrics.metrics_implementation import *
 from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import PROJECT_PATH
 
-dict_of_dataset = dict
-dict_of_win_list = dict
-
 
 class ExperimentRunner:
     """Abstract class responsible for feature generators.
@@ -20,7 +17,6 @@ class ExperimentRunner:
 
     Attributes:
         current_window (int): window length for feature generation.
-        y_test (pd.DataFrame): ...
         logger (logging.Logger): logger instance.
         n_processes (int): number of processes for multiprocessing.
 
@@ -32,7 +28,6 @@ class ExperimentRunner:
         self.use_cache = use_cache
         self.feature_generator_dict = feature_generator_dict
         self.current_window = None
-        self.y_test = None
         self.logger = Logger().get_logger()
         self.n_processes = cpu_count() // 2
 
@@ -44,7 +39,7 @@ class ExperimentRunner:
             **kwargs: ...
 
         Returns:
-            pd.DataFrame: dataframe with extracted features.
+            Dataframe with extracted features.
         """
         pass
 
@@ -57,11 +52,11 @@ class ExperimentRunner:
         case, and then associate it with the output data - the feature set.
 
         Args:
-            ts_data (pd.DataFrame): dataframe with time series.
-            dataset_name (str): name of dataset.
+            ts_data: dataframe with time series.
+            dataset_name: name of dataset.
 
         Returns:
-            pd.DataFrame: dataframe with extracted features.
+            Dataframe with extracted features.
 
         """
         generator_name = self.__class__.__name__
@@ -88,17 +83,17 @@ class ExperimentRunner:
             return self.get_features(ts_data, dataset_name)
 
     @staticmethod
-    def hash_info(dataframe, name, obj_info_dict):
+    def hash_info(dataframe: pd.DataFrame, name: str, obj_info_dict: dict) -> str:
         """Method responsible for hashing information about initial dataset, its name and feature generator.
         It utilizes md5 hashing algorithm.
 
         Args:
-            dataframe (pd.DataFrame): dataframe with time series.
-            name (str): name of dataset.
-            obj_info_dict (dict): dictionary with information about feature generator.
+            dataframe: dataframe with time series.
+            name: name of dataset.
+            obj_info_dict: dictionary with information about feature generator.
 
         Returns:
-            str: hashed string.
+            Hashed string.
         """
         key = (repr(dataframe) + repr(name) + repr(obj_info_dict)).encode('utf8')
         hsh = hashlib.md5(key).hexdigest()[:10]
@@ -111,12 +106,12 @@ class ExperimentRunner:
         self.logger.info(f'Features loaded from cache in {elapsed_time} sec')
         return features
 
-    def save_features_to_cache(self, hashed_data, features):
+    def save_features_to_cache(self, hashed_data: str, features: pd.DataFrame):
         """Method responsible for saving features to cache folder. It utilizes pickle format for saving data.
 
         Args:
-            hashed_data (str): hashed string.
-            features (pd.DataFrame): dataframe with extracted features.
+            hashed_data: hashed string.
+            features: dataframe with extracted features.
 
         """
         cache_folder = os.path.join(PROJECT_PATH, 'cache')
@@ -132,11 +127,11 @@ class ExperimentRunner:
         """Method responsible for generation of features from time series.
 
         Args:
-            ts_frame (pd.DataFrame): dataframe with time series.
-            window_length (int): window length for feature generation.
+            ts_frame: dataframe with time series.
+            window_length: window length for feature generation.
 
         Returns:
-            pd.DataFrame: dataframe with extracted features.
+            Dataframe with extracted features.
 
         """
         pass
@@ -147,10 +142,10 @@ class ExperimentRunner:
         and replacing them with 0.
 
         Args:
-            ts (pd.DataFrame): dataframe with time series.
+            ts: dataframe with time series.
 
         Returns:
-            pd.DataFrame: dataframe with time series without NaN values.
+            Dataframe with time series without NaN values.
 
         """
         if any(np.isnan(ts)):

@@ -12,8 +12,13 @@ class RecurrenceRunner(ExperimentRunner):
     """Class responsible for wavelet feature generator experiment.
 
     Args:
-        window_mode (bool): boolean flag - if True, window mode is used. Defaults to False.
-        use_cache (bool): boolean flag - if True, cache is used. Defaults to False.
+        window_mode: boolean flag - if True, window mode is used. Defaults to False.
+        use_cache: boolean flag - if True, cache is used. Defaults to False.
+
+    Attributes:
+        transformer: TSTransformer object.
+        train_feats: train features.
+        test_feats: test features.
     """
 
     def __init__(self, window_mode: bool = False, use_cache: bool = False):
@@ -37,10 +42,10 @@ class RecurrenceRunner(ExperimentRunner):
         """Generate vector from time series.
 
         Args:
-            ts_frame (pd.DataFrame): time series frame
+            ts_frame: time series frame
 
         Returns:
-            pd.DataFrame: feature vector
+            Feature vector
         """
         ts_samples_count = ts_frame.shape[0]
         n_processes = self.n_processes
