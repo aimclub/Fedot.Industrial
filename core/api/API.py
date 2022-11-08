@@ -46,7 +46,11 @@ class Industrial(Fedot):
         else:
             prediction = self.model_composer.predict(test_tuple=features)
             self.labels, self.test_features = prediction['prediction'], prediction['test_features']
-        return self.labels, self.test_features
+        if save_predictions:
+            return prediction
+        else:
+
+            return self.labels, self.test_features
 
     def predict_proba(self,
                       features: tuple,
@@ -148,6 +152,7 @@ class Industrial(Fedot):
                     self.logger.info(f'*------------{runner_name} MODEL IS ON DUTY------------*')
                     runner_result['test_target'] = test_data[1]
                     runner_result['path_to_save'] = paths_to_save
+                    runner_result['train_target'] = train_data[1]
                     runner_result['fitted_predictor'], runner_result['train_features'] = self._obtain_model(
                         model_name=runner_name,
                         task_type=task_type,
@@ -157,7 +162,9 @@ class Industrial(Fedot):
                         ECM_mode=experiment_dict['error_correction'])
 
                     self.logger.info(f'*------------START PREDICTION AT LAUNCH-{launch}------------*')
-                    runner_result.update(self.predict(test_data))
+
+                    runner_result.update(self.predict(features=test_data,
+                                                      save_predictions=True))
                     runner_result['predict_on_train'] = self.model_composer.predict_on_train()
                     runner_result['predict_on_val'] = self.model_composer.predict_on_validation(
                         validatiom_tuple=validation_data,
@@ -167,13 +174,13 @@ class Industrial(Fedot):
 
                     modelling_results[runner_name][launch] = runner_result
             except Exception as ex:
-                self.logger.info(f'PROBLEM WITH {runner_name} AT LAUCNH {launch}. REASON - {ex}')
+                self.logger.info(f'PROBLEM WITH {runner_name} AT LAUNCH {launch}. REASON - {ex}')
         return modelling_results
 
     def save_results(self, dataset_name, modelling_results: dict):
         result_at_dataset = modelling_results[dataset_name]
         for approach in result_at_dataset:
-            if approach is not None:
+            if result_at_dataset[approach] is not None:
                 for model in result_at_dataset[approach]:
                     self.saver.save_method_dict[approach](prediction=result_at_dataset[approach][model])
 
