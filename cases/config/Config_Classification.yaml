@@ -1,11 +1,11 @@
 feature_generator: [
-#  'window_quantile',
-#  'quantile',
-#  'spectral_window',
-#  'spectral',
+  'window_quantile',
+  'quantile',
+  'spectral_window',
+  'spectral',
   'wavelet',
-#  'recurrence',
-#  'topological'
+  'recurrence',
+  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
