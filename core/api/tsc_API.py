@@ -142,7 +142,7 @@ class Industrial:
             config_name: name of the config file or path to.
 
         """
-        self.logger.info(f'START EXPERIMENT')
+        self.logger.info(f'START EXPERIMENT'.center(50, '-'))
         experiment_dict = self._init_experiment_setup(config_name)
         launches = self.config_dict['launches']
 
@@ -201,7 +201,7 @@ class Industrial:
                     else:
                         ecm_results = None
 
-                    self.logger.info('*------------SAVING RESULTS------------*')
+                    self.logger.info('SAVING RESULTS'.center(50, '-'))
                     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
                     self.save_results(train_target=train_data[1],
