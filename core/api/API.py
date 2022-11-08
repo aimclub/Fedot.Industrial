@@ -1,12 +1,12 @@
 from fedot.api.main import Fedot
 from sklearn.model_selection import train_test_split
-from typing import Callable
 from core.api.utils.method_collections import *
 from core.api.utils.checkers_collections import *
 from core.api.utils.reader_collections import *
 from core.api.utils.saver_collections import ResultSaver
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.analyzer import PerformanceAnalyzer
 from core.operation.utils.utils import path_to_save_results
 
 
@@ -19,7 +19,9 @@ class Industrial(Fedot):
         super(Fedot, self).__init__()
         self.config_dict = None
         self.logger = Logger.__call__().get_logger()
-        self.model = None
+        self.fitted_model = None
+        self.labels, self.prediction_proba = None, None
+        self.test_features, self.train_features = None, None
         self.feature_generator_dict = {method.name: method.value for method in FeatureGenerator}
         self.feature_generator_dict.update({method.name: method.value for method in WindowFeatureGenerator})
         self.ensemble_methods_dict = {method.name: method.value for method in EnsembleGenerator}
@@ -33,48 +35,63 @@ class Industrial(Fedot):
 
     def fit(self, **kwargs):
         self._define_data()
-        fitted_model, train_features = self._obtain_model(**kwargs)
-        return fitted_model, train_features
+        self.fitted_model, self.train_features = self._obtain_model(**kwargs)
+        return self.fitted_model, self.train_features
 
     def predict(self,
-                test_data: tuple,
-                dataset_name: str = None):
-        if self.model is None:
+                features: tuple,
+                save_predictions: bool = False):
+        if self.model_composer is None:
             self.logger.info(f'*------------YOU MUST FIT MODEL FIRST------------*')
-            prediction = None
         else:
-            prediction = self.model.predict(test_data, dataset_name)
-        return prediction
+            prediction = self.model_composer.predict(test_tuple=features)
+            self.labels, self.test_features = prediction['prediction'], prediction['test_features']
+        return self.labels, self.test_features
 
-    def plot_prediction(self, **kwargs):
-        pass
+    def predict_proba(self,
+                      features: tuple,
+                      save_predictions: bool = False,
+                      probs_for_all_classes: bool = False):
+        if not self.prediction_proba:
+            prediction = self.predict(features)
+            self.prediction_proba = prediction['prediction_proba']
+        if save_predictions:
+            paths_to_save = os.path.join(path_to_save_results(), str(self.fitted_model))
+        return self.prediction_proba
 
-    def get_metrics(self, **kwargs) -> dict:
-        pass
+    def get_metrics(self,
+                    target: np.ndarray,
+                    prediction_label: np.ndarray,
+                    prediction_proba: np.ndarray) -> dict:
+        metrics_dict = PerformanceAnalyzer().calculate_metrics(target=target,
+                                                               predicted_labels=prediction_label,
+                                                               predicted_probs=prediction_proba)
+
+        return dict(prediction=prediction_label,
+                    predictions_proba=prediction_proba,
+                    metrics=metrics_dict)
 
     def _define_data(self):
         pass
 
     def _obtain_model(self,
                       model_name: str,
-                      dataset_name: str,
                       task_type: str,
                       train_data: tuple,
                       model_params: dict,
                       ECM_mode: bool = False,
                       n_classes: int = None):
-
-        paths_to_save = os.path.join(path_to_save_results(), model_name, dataset_name)
-        self.model = self.task_pipeline_dict[task_type](generator_name=model_name,
-                                                        generator_runner=self.feature_generator_dict[model_name],
-                                                        model_hyperparams=model_params,
-                                                        ecm_model_flag=ECM_mode)
-        self.model.feature_generator_params = self.config_dict['feature_generator_params']
-        self.model.model_hyperparams['metric'] = self.checker.check_metric_type(
+        generator_params = self.config_dict['feature_generator_params'][model_name]
+        self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
+                                                                 generator_runner=self.feature_generator_dict[
+                                                                     model_name](**generator_params),
+                                                                 model_hyperparams=model_params,
+                                                                 ecm_model_flag=ECM_mode)
+        self.model_composer.model_hyperparams['metric'] = self.checker.check_metric_type(
             n_classes=n_classes)
         self.logger.info(f'*------------{model_name} MODEL IS ON DUTY------------*')
         self.logger.info(f'*------------START FIT MODEL------------*')
-        fitted_model, train_features = self.model.fit(train_data, dataset_name)
+        fitted_model, train_features = self.model_composer.fit(train_tuple=train_data)
         return fitted_model, train_features
 
     def run_experiment(self, config_name):
@@ -94,15 +111,15 @@ class Industrial(Fedot):
                 n_cycles=self.config_dict['launches'],
                 dataset_name=dataset_name)
 
-            experiment_results[dataset_name]['ECM'] = self._apply_ECM(
+            experiment_results[dataset_name]['ECM'] = self.apply_ECM(
                 modelling_results=experiment_results[dataset_name]['Original'],
                 ECM_mode=self.config_dict['error_correction'])
 
-            experiment_results[dataset_name]['Ensemble'] = self._apply_ensemble(
+            experiment_results[dataset_name]['Ensemble'] = self.apply_ensemble(
                 modelling_results=experiment_results[dataset_name]['Original'],
                 ensemble_mode='ensemble_algorithm' in self.config_dict.keys())
 
-            self._save_results(dataset_name=dataset_name, modelling_results=experiment_results)
+            self.save_results(dataset_name=dataset_name, modelling_results=experiment_results)
             _ = 1
         self.logger.info('*------------END OF EXPERIMENT------------*')
 
@@ -133,7 +150,6 @@ class Industrial(Fedot):
                     runner_result['path_to_save'] = paths_to_save
                     runner_result['fitted_predictor'], runner_result['train_features'] = self._obtain_model(
                         model_name=runner_name,
-                        dataset_name=dataset_name,
                         task_type=task_type,
                         train_data=train_data,
                         n_classes=dataset_metainfo['Number_of_classes'],
@@ -141,10 +157,11 @@ class Industrial(Fedot):
                         ECM_mode=experiment_dict['error_correction'])
 
                     self.logger.info(f'*------------START PREDICTION AT LAUNCH-{launch}------------*')
-                    runner_result.update(self.predict(test_data, dataset_name))
-                    runner_result['predict_on_train'] = self.model.predict_on_train()
-                    runner_result['predict_on_val'] = self.model.predict_on_validation(validatiom_tuple=validation_data,
-                                                                                       dataset_name=dataset_name)
+                    runner_result.update(self.predict(test_data))
+                    runner_result['predict_on_train'] = self.model_composer.predict_on_train()
+                    runner_result['predict_on_val'] = self.model_composer.predict_on_validation(
+                        validatiom_tuple=validation_data,
+                        dataset_name=dataset_name)
                     runner_result['validation_predictions'] = {f'{runner_name}_val': runner_result['predict_on_val']}
                     runner_result['test_predictions'] = {f'{runner_name}_test': runner_result['prediction']}
 
@@ -153,14 +170,14 @@ class Industrial(Fedot):
                 self.logger.info(f'PROBLEM WITH {runner_name} AT LAUCNH {launch}. REASON - {ex}')
         return modelling_results
 
-    def _save_results(self, dataset_name, modelling_results: dict):
+    def save_results(self, dataset_name, modelling_results: dict):
         result_at_dataset = modelling_results[dataset_name]
         for approach in result_at_dataset:
             if approach is not None:
                 for model in result_at_dataset[approach]:
                     self.saver.save_method_dict[approach](prediction=result_at_dataset[approach][model])
 
-    def _apply_ECM(self, modelling_results: dict, ECM_mode: bool = False):
+    def apply_ECM(self, modelling_results: dict, ECM_mode: bool = False):
         if not ECM_mode:
             return None
         else:
@@ -187,8 +204,9 @@ class Industrial(Fedot):
             #     self.logger.info('ECM COMPOSE WAS FAILED')
         return predict_on_train
 
-    def _apply_ensemble(self, modelling_results: dict,
-                        ensemble_mode: bool = False):
+    def apply_ensemble(self,
+                       modelling_results: dict,
+                       ensemble_mode: bool = False):
         if not ensemble_mode:
             return None
         else:

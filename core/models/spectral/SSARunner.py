@@ -80,7 +80,7 @@ class SSARunner(ExperimentRunner):
             path_to_save = os.path.join(PROJECT_PATH, 'results_of_experiments', 'components', f'components_{idx}.png')
             plt.savefig(path_to_save)
 
-    def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
+    def _ts_chunk_function(self, ts_data: pd.DataFrame, window_length: int) -> list:
 
         ts = self.check_for_nan(ts_data)
         specter = self.spectrum_extractor(time_series=ts, window_length=self.current_window)
@@ -112,9 +112,9 @@ class SSARunner(ExperimentRunner):
 
         if self.current_window is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
-            aggregation_df = self.delete_col_by_var(self.train_feats)
+            aggregation_df = self.train_feats
         else:
-            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
+            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data, window_length=self.window_length)
             eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
 
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
@@ -122,7 +122,6 @@ class SSARunner(ExperimentRunner):
 
             for col in aggregation_df.columns:
                 aggregation_df[col].fillna(value=aggregation_df[col].mean(), inplace=True)
-
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
