@@ -1,5 +1,5 @@
 import os
-from multiprocessing import Pool
+from multiprocessing import cpu_count, Pool
 
 import numpy as np
 import pandas as pd
@@ -51,19 +51,17 @@ def plot_rec_plot_by_class(df):
 
 
 def create_chaos_features(df):
-    converted_df = []
-    with tqdm(total=len(df),
-              desc='TS Processed',
-              colour='black',
-              unit='ts') as pbar:
-
-        with Pool(4) as pool:
-            for result in pool.imap(get_metrics, df.iterrows(), chunksize=1):
-                converted_df.append(result)
-                pbar.update()
-
-    converted_df = pd.concat(converted_df, axis=1).T
-    return converted_df
+    n_processes = cpu_count() // 2
+    with Pool(n_processes) as p:
+        converted_df = list(tqdm(p.imap(get_metrics,
+                                        df.iterrows()),
+                                 total=len(df),
+                                 desc='TS Processed',
+                                 unit=' ts',
+                                 colour='black'
+                                 )
+                            )
+    return pd.concat(converted_df, axis=1).T
 
 
 def get_metrics(row_):
@@ -112,12 +110,9 @@ def run_case(df_encoded_train, df_encoded_test, train_label, test_label):
 
 
 if __name__ == "__main__":
-    # eps = 0.1
-    # steps = 20
-    # dataset = 'ElectricDevices'
-    # df_encoded_train, df_encoded_test, train_label, test_label = prepare_data_for_case(dataset)
-    # model, roc_auc = run_case(df_encoded_train, df_encoded_test, train_label, test_label)
-    # print(roc_auc)
-
-    df_example = pd.DataFrame(np.random.rand(1000, 1000))
-    df = create_chaos_features(df_example)
+    eps = 0.1
+    steps = 20
+    dataset = 'ElectricDevices'
+    df_encoded_train, df_encoded_test, train_label, test_label = prepare_data_for_case(dataset)
+    model, roc_auc = run_case(df_encoded_train, df_encoded_test, train_label, test_label)
+    print(roc_auc)
