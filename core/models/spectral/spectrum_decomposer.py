@@ -187,7 +187,7 @@ class SpectrumDecomposer:
 
         # Create list of columns - call them F0, F1, F2, ...
         cols = ["F{}".format(i) for i in range(n)]
-        df = pd.DataFrame(TS_comps).T.iloc[:,:rank]
+        df = pd.DataFrame(TS_comps).T.iloc[:, :rank]
         df.columns = cols
         return df
 

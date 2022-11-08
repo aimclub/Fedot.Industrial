@@ -48,6 +48,7 @@ class ExperimentRunner:
         while excluding some dynamic attributes. In this way we can create a hash of incoming data unique for each
         case, and then associate it with the output data - the feature set.
 
+        :param target:
         :param ts_data: dataframe with time series data.
         :param dataset_name: str dataset name :return: pd.DataFrame with extracted features
         :return: pd.DataFrame with extracted features

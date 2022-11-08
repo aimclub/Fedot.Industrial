@@ -70,17 +70,17 @@ class SSARunner(ExperimentRunner):
             plt.tight_layout()
             plt.savefig(os.path.join(self.path_to_save_png, f'components_for_ts_class_{idx}.png'))
 
-    def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
+    def _ts_chunk_function(self, ts_data: pd.DataFrame, window_length: int) -> list:
 
         ts = self.check_for_nan(ts_data)
-        specter = self.spectrum_extractor(time_series=ts, window_length=self.window_length)
+        specter = self.spectrum_extractor(time_series=ts, window_length=window_length)
 
         ts_comps, x_elem, v, components_df, _, n_components, explained_dispersion = specter.decompose(
             rank_hyper=self.rank_hyper)
 
         return [components_df, n_components, explained_dispersion]
 
-    def generate_vector_from_ts(self, ts_frame):
+    def generate_vector_from_ts(self, ts_frame, window_length):
         self.ts_samples_count = ts_frame.shape[0]
 
         components_and_vectors = list()
@@ -88,7 +88,7 @@ class SSARunner(ExperimentRunner):
                   desc='Feature Generation. Samples processed: ',
                   unit=' samples', initial=0, colour='black') as pbar:
             for ts in ts_frame.values:
-                v = self._ts_chunk_function(ts)
+                v = self._ts_chunk_function(ts, window_length)
                 components_and_vectors.append(v)
                 pbar.update(1)
         return components_and_vectors
@@ -98,9 +98,9 @@ class SSARunner(ExperimentRunner):
 
         if self.window_length is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
-            aggregation_df = self.delete_col_by_var(self.train_feats)
+            aggregation_df = self.train_feats
         else:
-            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
+            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data, window_length=self.window_length)
             eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
 
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
@@ -108,7 +108,6 @@ class SSARunner(ExperimentRunner):
 
             for col in aggregation_df.columns:
                 aggregation_df[col].fillna(value=aggregation_df[col].mean(), inplace=True)
-
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
@@ -149,37 +148,40 @@ class SSARunner(ExperimentRunner):
         n_comp_list = []
         eigen_list = []
         for window_length in self.window_length_list[dataset_name]:
-            self.logger.info(f'Generate features for window length - {window_length}')
-            self.window_length = window_length
+            try:
+                self.logger.info(f'Generate features for window length - {window_length}')
 
-            eigenvectors_and_rank = self.generate_vector_from_ts(X_train.sample(frac=0.5))
+                eigenvectors_and_rank = self.generate_vector_from_ts(X_train.sample(frac=0.5), window_length)
 
-            rank_list = [x[1] for x in eigenvectors_and_rank]
+                rank_list = [x[1] for x in eigenvectors_and_rank]
 
-            explained_dispersion = [x[2] for x in eigenvectors_and_rank]
-            mean_dispersion = np.mean(explained_dispersion)
-            self.explained_dispersion = round(float(mean_dispersion))
+                explained_dispersion = [x[2] for x in eigenvectors_and_rank]
+                mean_dispersion = np.mean(explained_dispersion)
+                self.explained_dispersion = round(float(mean_dispersion))
 
-            self.n_components = Counter(rank_list).most_common(n=1)[0][0]
+                self.n_components = Counter(rank_list).most_common(n=1)[0][0]
 
-            eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
+                eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
 
-            self.logger.info(f'Every eigenvector with impact less then 1 % percent was eliminated. '
-                             f'{self.explained_dispersion} % of explained dispersion '
-                             f'obtained by first - {self.n_components} components.')
-            signal_compression = 100 * (1 - (self.n_components / window_length))
-            explained_dispersion = self.explained_dispersion
-            metrics = [signal_compression, explained_dispersion]
-            metric_list.append(metrics)
+                self.logger.info(f'Every eigenvector with impact less then 1 % percent was eliminated. '
+                                 f'{self.explained_dispersion} % of explained dispersion '
+                                 f'obtained by first - {self.n_components} components.')
+                signal_compression = 100 * (1 - (self.n_components / window_length))
+                explained_dispersion = self.explained_dispersion
+                metrics = [signal_compression, explained_dispersion]
+                metric_list.append(metrics)
 
-            eigen_list.append(eigenvectors_list)
-            n_comp_list.append(self.n_components)
-            self.count = 0
-            if self.n_components > 15:
-                self.logger.info(f'SSA method find {self.n_components} PCT.'
-                                 f'This is mean that SSA method does not find effective low rank structure for '
-                                 f'this signal.')
-                break
+                eigen_list.append(eigenvectors_list)
+                n_comp_list.append(self.n_components)
+                self.count = 0
+                if self.n_components > 15:
+                    self.logger.info(f'SSA method find {self.n_components} PCT.'
+                                     f'This is mean that SSA method does not find effective low rank structure for '
+                                     f'this signal.')
+                    break
+            except Exception as ex:
+                self.logger.info(f'{ex}')
+                self.window_length = self.window_length_list[0]
 
         # index_of_window = int(metric_list.index(max(metric_list)))
         index_of_window = self.pareto_front.pareto_metric_list(np.array(metric_list))
@@ -188,7 +190,7 @@ class SSARunner(ExperimentRunner):
         eigenvectors_list = eigen_list[index_of_window]
         self.min_rank = round(np.mean([x.shape[1] for x in eigenvectors_list]))
         self.rank_hyper = self.min_rank
-        eigenvectors_and_rank = self.generate_vector_from_ts(X_train)
+        eigenvectors_and_rank = self.generate_vector_from_ts(X_train, window_length=self.window_length)
         self.eigenvectors_list_train = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
         self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)
         self.train_feats = self.delete_col_by_var(self.train_feats)
