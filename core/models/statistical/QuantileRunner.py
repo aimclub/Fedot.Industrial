@@ -6,9 +6,19 @@ from core.operation.utils.Decorators import time_it
 
 
 class StatsRunner(ExperimentRunner):
-    """
-    Class responsible for quantile feature generator experiment
-        :param window_mode: boolean flag that indicates whether to use window mode or not
+    """Class responsible for quantile feature generator experiment.
+
+    Args:
+        window_mode: Flag for window mode. Defaults to False.
+        use_cache: Flag for cache usage. Defaults to False.
+
+    Attributes:
+        use_cache (bool): Flag for cache usage.
+        aggregator (StatFeaturesExtractor): StatFeaturesExtractor object.
+        vis_flag (bool): Flag for visualization.
+        train_feats (pd.DataFrame): Train features.
+        test_feats (pd.DataFrame): Test features.
+
     """
 
     def __init__(self,
@@ -17,7 +27,6 @@ class StatsRunner(ExperimentRunner):
 
         super().__init__()
         self.use_cache = use_cache
-        self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.vis_flag = False
         self.train_feats = None
@@ -26,15 +35,15 @@ class StatsRunner(ExperimentRunner):
         self.window_mode = window_mode
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame, window_length: int = None) -> pd.DataFrame:
-        self.ts_samples_count = ts_frame.shape[0]
-        self.logger.info(f'Number of TS to be processed: {self.ts_samples_count}')
+        ts_samples_count = ts_frame.shape[0]
+        self.logger.info(f'Number of TS to be processed: {ts_samples_count}')
         ts = self.check_for_nan(ts_frame)
         ts = pd.DataFrame(ts, dtype=float)
 
         if self.window_mode:
             aggregator = self.aggregator.create_baseline_features
-            list_of_stat_features_on_interval = self.apply_window_for_statistical_feature(ts_data=ts,
-                                                                                          feature_generator=aggregator)
+            list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data=ts,
+                                                                                   feature_generator=aggregator)
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)

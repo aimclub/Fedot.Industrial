@@ -1,10 +1,11 @@
 import copy
 import os
-from typing import Any, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
 import yaml
+from fedot.api.main import Fedot
 
 from core.models.ecm.ErrorRunner import ErrorCorrectionModel
 from core.models.EnsembleRunner import EnsembleRunner
@@ -21,13 +22,17 @@ from core.TimeSeriesClassifier import TimeSeriesClassifier
 
 
 class Industrial:
-    """
-    Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
+    """Class-support for performing experiments for tasks (read yaml configs, create data folders and log files)
+
+    Attributes:
+        config_dict (dict): dictionary with the parameters of the experiment
+        logger (Logger): logger instance for logging
+        feature_generator_dict (dict): dictionary with the names of the generators and their classes
     """
 
     def __init__(self):
         self.config_dict = None
-        self.logger = Logger().get_logger()
+        self.logger = Logger.__call__().get_logger()
 
         self.feature_generator_dict = {
             'quantile': StatsRunner,
@@ -67,10 +72,16 @@ class Industrial:
 
         return experiment_dict
 
-    def get_generator_class(self, experiment_dict, gen_name):
-        """
-        Combines the name of the generator with the parameters from the config file
-        :return: dictionary with the name of the generator and its parameters
+    def get_generator_class(self, experiment_dict: dict, gen_name: str) -> dict:
+        """Combines the name of the generator with the parameters from the config file.
+
+        Args:
+            experiment_dict: dictionary with the parameters of the experiment.
+            gen_name: name of the generator.
+
+        Returns:
+            Dictionary with the name of the generator and its class.
+
         """
         feature_gen_model = self.feature_generator_dict[gen_name]
         feature_gen_params = experiment_dict['feature_generator_params'].get(gen_name, dict())
@@ -79,15 +90,18 @@ class Industrial:
 
     def _check_window_sizes(self, dataset_name, train_data):
         for key in self.config_dict['feature_generator_params'].keys():
-            if key.startswith('spectral'):
+            spectral_datasets = self.config_dict['feature_generator_params']['spectral']['window_sizes'].keys()
+
+            if ('spectral' in key) and (dataset_name not in spectral_datasets):
                 self.logger.info(f'CHECK WINDOW SIZES FOR DATASET-{dataset_name} AND {key} method')
-                if dataset_name not in self.config_dict['feature_generator_params'][key].keys():
-                    ts_length = train_data[0].shape[1]
-                    list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
-                    self.config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
-                    self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
-                                     f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
-                                     f'THATS EQUAL 10/20/30% OF TS LENGTH')
+                ts_length = train_data[0].shape[1]
+
+                list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
+                self.config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
+
+                self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
+                                 f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
+                                 f'THATS EQUAL 10/20/30% OF TS LENGTH')
 
     def _check_metric(self, n_classes):
         if n_classes > 2:
@@ -98,9 +112,14 @@ class Industrial:
             return 'roc_auc'
 
     def read_yaml_config(self, config_name: str) -> None:
-        """
-        Read yaml config from './cases/config/config_name' directory as dictionary file
-        :param config_name: yaml-config name, e.g. 'Config_Classification.yaml'
+        """Read yaml config from './cases/config/config_name' directory as dictionary file.
+
+        Args:
+            config_name: name of the config file.
+
+        Returns:
+            None
+
         """
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
@@ -112,106 +131,102 @@ class Industrial:
                     config_dict_template = yaml.safe_load(input_stream)
                 self.config_dict = {**config_dict_template, **self.config_dict}
                 del self.config_dict['path_to_config']
-            # self.config_dict['logger'] = self.logger
-            self.logger.info(
-                f"Experiment setup:"
-                f"\ndatasets - {self.config_dict['datasets_list']},"
-                f"\nfeature generators - {self.config_dict['feature_generator']}")
 
-    def run_experiment(self, config_name):
+            self.logger.info(f'''Experiment setup:
+            datasets - {self.config_dict['datasets_list']},
+            feature generators - {self.config_dict['feature_generator']},
+            use_cache - {self.config_dict['use_cache']},
+            error_correction - {self.config_dict['error_correction']}''')
+
+    def run_experiment(self, config_name: str):
+        """Run experiment with corresponding config_name.
+
+        Args:
+            config_name: name of the config file or path to.
+
         """
-        Run experiment with corresponding config_name
-        :param config_name: configuration file name [Config_Classification.yaml]
-        """
-        self.logger.info(f'START EXPERIMENT')
+        self.logger.info(f'START EXPERIMENT'.center(50, '-'))
         experiment_dict = self._init_experiment_setup(config_name)
-
-        classificator = TimeSeriesClassifier(feature_generator_dict=experiment_dict['feature_generator'],
-                                             model_hyperparams=experiment_dict['fedot_params'],
-                                             ecm_model_flag=experiment_dict['error_correction'])
         launches = self.config_dict['launches']
 
         for dataset_name in self.config_dict['datasets_list']:
             self.logger.info(f'START WORKING on {dataset_name} dataset')
-            try: # to load data
-                train_data, test_data = DataLoader(dataset_name).load_data()
-                self.logger.info(f'Loaded data from {dataset_name} dataset')
-            except Exception:
+
+            # load data
+            train_data, test_data = DataLoader(dataset_name).load_data()
+            self.logger.info(f'Loaded data from {dataset_name} dataset')
+            if train_data is None:
                 self.logger.error(f'Some problem with {dataset_name} data. Skip it')
                 continue
 
             n_classes = len(np.unique(train_data[1]))
             self.logger.info(f'{n_classes} classes detected')
 
-            classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
+            for runner_name, runner in experiment_dict['feature_generator'].items():
+                self.logger.info(f'{runner_name} runner is on duty')
 
-            for launch in range(1, launches + 1):
-                self.logger.info(f'START LAUNCH {launch}')
-                paths_to_save = list(map(lambda x: os.path.join(path_to_save_results(), x, dataset_name, str(launch)),
-                                         list(experiment_dict['feature_generator'].keys())))
+                classificator = TimeSeriesClassifier(generator_name=runner_name,
+                                                     generator_runner=runner,
+                                                     model_hyperparams=experiment_dict['fedot_params'],
+                                                     ecm_model_flag=experiment_dict['error_correction'])
+                classificator.feature_generator_params = self.config_dict['feature_generator_params']
+                classificator.model_hyperparams['metric'] = self._check_metric(n_classes)
 
-                self.logger.info('START TRAINING')
-                fitted_results = list(map(lambda x: classificator.fit(x, dataset_name), [train_data]))
-                fitted_predictor = fitted_results[0]['predictors']
-                train_features = fitted_results[0]['train_features']
+                for launch in range(1, launches + 1):
+                    self.logger.info(f'START LAUNCH {launch}')
 
-                self.logger.info('START PREDICTION')
-                predictions = classificator.predict(fitted_predictor, test_data, dataset_name)
-                predict_on_train = classificator.predict_on_train()
+                    fitted_predictor, train_features = classificator.fit(train_data, dataset_name)
 
-                ecm_results = [[]] * len(paths_to_save)
-                if self.config_dict['error_correction']:
-                    ecm_fedot_params = dict(problem='regression',
-                                            seed=14,
-                                            timeout=1,
-                                            max_depth=10,
-                                            max_arity=4,
-                                            cv_folds=2,
-                                            logging_level=20,
-                                            n_jobs=4)
+                    self.logger.info('START PREDICTION')
+                    predictions = classificator.predict(test_data, dataset_name)
 
-                    ecm_params = dict(n_classes=n_classes,
-                                      dataset_name=dataset_name,
-                                      save_models=False,
-                                      fedot_params=ecm_fedot_params)
+                    if self.config_dict['error_correction']:
+                        predict_on_train = classificator.predict_on_train()
+                        ecm_fedot_params = experiment_dict['fedot_params']
+                        ecm_fedot_params['problem'] = 'regression'
+                        ecm_fedot_params['timeout'] = round(experiment_dict['fedot_params']['timeout'] / 3)
 
-                    try:
-                        self.logger.info('START COMPOSE ECM')
-                        ecm_results = list(map(lambda x, y, z, m: ErrorCorrectionModel(**ecm_params,
-                                                                                       results_on_test=x,
-                                                                                       results_on_train=y,
-                                                                                       train_data=(z, train_data[1]),
-                                                                                       test_data=(m, test_data[1])).run(),
-                                               predictions,
-                                               predict_on_train,
-                                               train_features,
-                                               predictions))
-                    except Exception:
-                        self.logger.info('ECM COMPOSE WAS FAILED')
+                        ecm_params = dict(n_classes=n_classes,
+                                          dataset_name=dataset_name,
+                                          save_models=False,
+                                          fedot_params=ecm_fedot_params)
 
-                self.logger.info('SAVING RESULTS')
+                        try:
+                            self.logger.info('START COMPOSE ECM')
+                            ecm_results = ErrorCorrectionModel(**ecm_params,
+                                                               results_on_test=predictions,
+                                                               results_on_train=predict_on_train,
+                                                               train_data=train_data,
+                                                               test_data=test_data,
+                                                               ).run()
+                        except Exception:
+                            self.logger.info('ECM COMPOSE WAS FAILED')
+                    else:
+                        ecm_results = None
 
-                for i in range(len(paths_to_save)):
+                    self.logger.info('SAVING RESULTS'.center(50, '-'))
+                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+
                     self.save_results(train_target=train_data[1],
                                       test_target=test_data[1],
-                                      path_to_save=paths_to_save[i],
-                                      train_features=train_features[i],
-                                      prediction=predictions[i],
+                                      path_to_save=paths_to_save,
+                                      train_features=train_features,
+                                      prediction=predictions,
                                       fitted_predictor=fitted_predictor,
-                                      ecm_results=ecm_results[i])
+                                      ecm_results=ecm_results),
 
-                # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
-                # if len(spectral_generators) != 0:
-                #     self._save_spectrum(classificator, path_to_save=spectral_generators)
+                    # spectral_generators = [x for x in paths_to_save if 'spectral' in x]
+                    # if len(spectral_generators) != 0:
+                    #     self._save_spectrum(classificator, path_to_save=spectral_generators)
 
         self.logger.info('END OF EXPERIMENT')
 
     def save_results(self, train_target: Union[np.ndarray, pd.Series],
                      test_target: Union[np.ndarray, pd.Series],
                      path_to_save: str,
-                     prediction: Any,
+                     prediction: dict,
                      train_features: Union[np.ndarray, pd.DataFrame],
-                     fitted_predictor,
+                     fitted_predictor: Fedot,
                      ecm_results: dict):
 
         metrics, predictions = prediction['metrics'], prediction['prediction']
@@ -221,17 +236,19 @@ class Industrial:
         os.makedirs(path_results, exist_ok=True)
 
         try:
-            for predictor in fitted_predictor:
-                predictor.current_pipeline.save(path_results)
+            fitted_predictor.current_pipeline.save(path_results)
         except Exception as ex:
             self.logger.error(f'Can not save pipeline: {ex}')
 
-        if len(ecm_results) != 0:
+        if ecm_results:
             self.save_boosting_results(**ecm_results, path_to_save=path_results)
 
         features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
         features_list = [train_features, train_target, test_features, test_target]
-        _ = list(map(lambda x, y: pd.DataFrame(x).to_csv(os.path.join(path_to_save, y)), features_list, features_names))
+
+        for name, features in zip(features_names, features_list):
+            pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
+
 
         if type(predictions_proba) is not pd.DataFrame:
             df_preds = pd.DataFrame(predictions_proba)

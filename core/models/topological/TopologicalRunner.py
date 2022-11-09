@@ -19,14 +19,15 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
 
 
 class TopologicalRunner(ExperimentRunner):
-    """
-    Class for extracting topological features from time series data
-        :param list_of_dataset: list of dataset names that will be used for experiments
+    """Class for extracting topological features from time series data.
+
+    Args:
+        use_cache: flag for using cache
+
     """
 
-    def __init__(self, list_of_dataset: list = None,
-                 use_cache: bool = False):
-        super().__init__(list_of_dataset)
+    def __init__(self, use_cache: bool = False):
+        super().__init__()
         self.use_cache = use_cache
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
@@ -50,12 +51,15 @@ class TopologicalRunner(ExperimentRunner):
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
-        """
-        Method for getting optimal Takens embedding parameters.
+        """Method for getting optimal Takens embedding parameters.
 
-        :param ts_data: time series data
-        :param method: stat method for getting optimal parameters
-        :return: optimal dimension and time delay
+        Args:
+            ts_data: dataframe with time series data
+            method: method for getting optimal parameters
+
+        Returns:
+            Optimal Takens embedding parameters
+
         """
         methods = {'mode': self._mode,
                    'mean': np.mean,

@@ -7,20 +7,22 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class ErrorCorrectionModel:
-    """
-    Error correction model (ECM) for time series classification predictions.
+    """Error correction model (ECM) for time series classification predictions.
     It is based on the idea of boosting: the model is trained on the residuals of the previous model predictions
     and the final prediction is the sum of the predictions of all models or another Fedot AutoML pipeline.
 
-    :param results_on_train: np.ndarray with proba_predictions on train data
-    :param results_on_test: dict with predictions, proba_predictions and metrics on test data
-    :param n_classes: int number of classes
-    :param dataset_name: str name of dataset
-    :param save_models: bool flag for saving ECM models
-    :param fedot_params: dict with parameters for Fedot AutoML model
-    :param train_data: tuple with train features and target
-    :param test_data: tuple with test features and target
+    Args:
+        results_on_train: np.ndarray with proba_predictions on train data
+        results_on_test: dictionary with predictions, proba_predictions and metrics on test data
+        n_classes: number of classes
+        dataset_name: name of dataset
+        save_models: flag for saving ECM models
+        fedot_params: dictionary with parameters for Fedot AutoML model
+        train_data: train features and target
+        test_data: test features and target
+
     """
+
     def __init__(self, results_on_train: np.ndarray = None,
                  results_on_test: dict = None, n_classes=None,
                  dataset_name: str = None, save_models: bool = False,
@@ -33,7 +35,7 @@ class ErrorCorrectionModel:
         self.dataset_name = dataset_name
         self.save_models = save_models
         self.fedot_params = fedot_params
-        self.train_feats, self.test_features = train_data[0], test_data[0]['test_features']
+        self.train_feats, self.test_features = train_data[0], test_data[0]
         self.y_train, self.y_test = train_data[1], test_data[1]
         self.analyzer = PerformanceAnalyzer()
 
@@ -47,11 +49,11 @@ class ErrorCorrectionModel:
         return boosting_results
 
     def _get_dimension_params(self, predictions_proba_train: np.ndarray) -> None:
-        """
-        Creates base predict for boosting and reshape flag for predictions.
+        """Creates base predict for boosting and reshape flag for predictions.
 
-        :param predictions_proba_train: np.ndarray with proba_predictions on train data
-        :return: None
+        Args:
+            predictions_proba_train: array with proba_predictions on train data
+
         """
         if self.n_classes > 2:
             self.base_predict = predictions_proba_train
@@ -63,14 +65,19 @@ class ErrorCorrectionModel:
             self.base_predict = round(np.max(self.y_test) - np.max(predictions_proba_train)) + self.base_predict
             self.reshape_flag = True
 
-    def _predict_with_boosting(self, predictions_proba: np.ndarray, metrics_without_boosting: dict) -> dict:
-        """
-        Instantiates the Booster class and predicts on test features using boosting pipeline consists of
+    def _predict_with_boosting(self, predictions_proba: np.ndarray,
+                               metrics_without_boosting: dict) -> dict:
+        """Instantiates the Booster class and predicts on test features using boosting pipeline consists of
         several models and ensemble method.
 
-        :param predictions_proba: np.ndarray with proba_predictions on test data
-        :param metrics_without_boosting: dict with metrics on test data without boosting
-        :return: dict with predictions, proba_predictions and metrics on test data with boosting
+        Args:
+            predictions_proba: np.ndarray with proba_predictions on test data
+            metrics_without_boosting: dictionary with metrics on test data without boosting
+
+        Returns:
+            boosting_results (dict): dictionary with predictions, proba_predictions
+            and metrics on test data with boosting
+
         """
         booster = Booster(features_train=self.train_feats,
                           target_train=self.y_train,
@@ -81,20 +88,21 @@ class ErrorCorrectionModel:
         boosting_pipeline = self.genetic_boosting_pipeline
 
         _, model_list, ensemble_model = booster.fit()
-        results_on_test = boosting_pipeline(predictions_proba,
+        results_on_test = boosting_pipeline(self.results_on_test['prediction'],
                                             model_list,
                                             ensemble_model)
 
         results_on_test['base_probs_on_test'] = predictions_proba
 
+        proba_to_vector = booster.proba_to_vector
+
         solution_table = pd.DataFrame({'target': self.y_test,
-                                       'base_probs_on_test': self.proba_to_vector(
-                                           results_on_test['base_probs_on_test']),
-                                       'corrected_probs': self.proba_to_vector(results_on_test['corrected_probs']),
-                                       'corrected_labels': self.proba_to_vector(results_on_test['corrected_labels'])})
+                                       'base_probs_on_test': proba_to_vector(results_on_test['base_probs_on_test']),
+                                       'corrected_probs': proba_to_vector(results_on_test['corrected_probs']),
+                                       'corrected_labels': proba_to_vector(results_on_test['corrected_labels'])})
 
         self.metrics_name = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
-        metrics_boosting = self.analyzer.calculate_metrics(self.metrics_name,
+        metrics_boosting = self.analyzer.calculate_metrics(metric_list=self.metrics_name,
                                                            target=self.y_test,
                                                            predicted_labels=results_on_test['corrected_labels'],
                                                            predicted_probs=results_on_test['corrected_probs'])
@@ -111,7 +119,6 @@ class ErrorCorrectionModel:
 
     def genetic_boosting_pipeline(self, predictions_proba, model_list, ensemble_model) -> dict:
         self.logger.info('Predict on booster models')
-        # TODO: проверить лист()
         boosting_stages_predict = []
         input_data_test = self.test_features
 
@@ -168,21 +175,3 @@ class ErrorCorrectionModel:
         return dict(corrected_labels=corrected_labels,
                     corrected_probs=corrected_probs,
                     error_correction=error_correction)
-
-    @staticmethod
-    def proba_to_vector(matrix, dummy_flag=True):
-        """
-        Converts matrix of probabilities to vector of labels.
-
-        :param matrix: np.ndarray with probabilities
-        :param dummy_flag: ...
-        :return: np.ndarray with labels
-        """
-        if not dummy_flag:
-            dummy_val = -1
-        else:
-            dummy_val = 0
-        if len(matrix.shape) > 1:
-            vector = np.array([x.argmax() + x[x.argmax()] + dummy_val for x in matrix])
-            return vector
-        return matrix

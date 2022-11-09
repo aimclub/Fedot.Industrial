@@ -16,7 +16,6 @@ use_cache: False
 datasets_list: [
   'Lightning7',
 #  'Coffee',
-#  'Lightning7',
 #  'UMD',
 #  'Earthquakes',
 #  'EthanolLevel',
@@ -102,12 +101,12 @@ fedot_params:
   {
     'problem': 'classification',
     'seed': 42,
-    'timeout': 15,
+    'timeout': 1,
     'max_depth': 10,
     'max_arity': 4,
     'cv_folds': 2,
     'logging_level': 20,
-    'n_jobs': 2
+    'n_jobs': 4
   }
 task: 'classification'
 logger: 'logger'
