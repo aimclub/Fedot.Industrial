@@ -3,10 +3,12 @@ import os
 import time
 from typing import List
 
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
 from core.models.cnn.decomposed_conv import DecomposedConv2d
+from core.operation.utils.sfp_tools import zerolize_filters
 from core.operation.utils.svd_tools import energy_threshold_pruning, decompose_module
 
 
@@ -130,4 +132,35 @@ class SVDOptimization(GeneralizedStructureOptimization):
             writer.add_scalar(f'delta(e)/{key}', delta_score, e)
 
 
-OPTIMIZATIONS = {'none': GeneralizedStructureOptimization, 'SVD': SVDOptimization}
+class SFPOptimization(GeneralizedStructureOptimization):
+    """Soft filter pruning for model structure optimization.
+
+    Args:
+        experimenter: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+        pruning_ratio: pruning hyperparameter, percentage of pruned filters.
+    """
+
+    def __init__(
+            self,
+            experimenter,
+            pruning_ratio: float,
+    ) -> None:
+        super().__init__(
+            experimenter=experimenter,
+        )
+        self.pruning_ratio = pruning_ratio
+        self.exp.name += f"_SFP_P-{pruning_ratio:.2f}"
+
+    def optimize_during_training(self) -> None:
+        """ Apply optimization after train loop every epoch."""
+        for module in self.exp.get_optimizable_module().modules():
+            if isinstance(module, torch.nn.Conv2d):
+                zerolize_filters(conv=module, pruning_ratio=self.pruning_ratio)
+
+
+OPTIMIZATIONS = {
+    'none': GeneralizedStructureOptimization,
+    'SVD': SVDOptimization,
+    'SFP': SFPOptimization,
+}
