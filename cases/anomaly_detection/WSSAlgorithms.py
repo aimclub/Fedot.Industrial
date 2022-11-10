@@ -12,12 +12,12 @@ class WindowSizeSelection:
     At WSS class we have two group of algorithms. They are Whole-Series-Based (WSB) and subsequence-based (SB).
 
     Whole-Series-Based (WSB):
-        1. 'highest_autocorrelation'
-        2. 'dominant_fourier_frequency'
+        1. 'highest autocorrelation'
+        2. 'dominant fourier_frequency'
 
     Subsequence-based (SB):
-        1. 'multi_window_finder'
-        2. 'summary_statistics_subsequence'
+        1. 'multi window finder'
+        2. 'summary statistics subsequence'
 
     Note:
         All algorithms has O(n)! Important to set window_max and window_min parameters in case of big time series.

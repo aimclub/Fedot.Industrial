@@ -96,7 +96,8 @@ class SingularSpectrumTransformation:
         return window
 
     def _score_offline_2d_average(self, x_scaled, dynamic_mode: bool = True):
-        """Core implementation of offline score calculation. FOR 2D or more D"""
+        """Core implementation of offline score calculation. FOR 2D or more D.
+        """
         if not dynamic_mode:
             score_list = list(self.ts_window_length)
             step = self.lag
