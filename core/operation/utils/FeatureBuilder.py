@@ -4,11 +4,12 @@ import pandas as pd
 
 
 class FeatureBuilderSelector:
-    """
-    Selects the appropriate feature builder based on the operation name.
+    """Selects the appropriate feature builder based on the operation name.
 
-    :param operation_name: str
-    :param feature_generator: callable
+    Args:
+        operation_name (str): Name of the operation.
+        feature_generator (callable): Function that generates features.
+
     """
     def __init__(self, operation_name: str, feature_generator: callable):
         self.operation_name = operation_name
@@ -24,8 +25,8 @@ class FeatureBuilderSelector:
 
 
 class BuilderBase(ABC):
-    """
-    Abstract class for feature builders.
+    """Abstract class for feature builders.
+
     """
     def __init__(self, feature_generator: callable):
         self.feature_generator = feature_generator

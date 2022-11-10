@@ -1,20 +1,22 @@
 feature_generator: [
-#  'window_quantile',
-#  'quantile',
-#  'spectral_window',
-#  'spectral',
-#  'wavelet',
+  'window_quantile',
+  'quantile',
+  'spectral_window',
+  'spectral',
+  'wavelet',
   'recurrence',
-#  'topological'
+  'topological'
 
 #  'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 ]
 error_correction: False
 n_ecm_cycles: 3
+use_cache: False
 
 datasets_list: [
-#  'Lightning7',
-  'UMD',
+  'Lightning7',
+#  'Coffee',
+#  'UMD',
 #  'Earthquakes',
 #  'EthanolLevel',
 #  'Beef',
@@ -89,16 +91,6 @@ feature_generator_params: {
         'Wafer': [ 10, 30, 40 ]
       },
     },
-
-  'topological': {
-    topological_params:
-      {
-        'max_simplex_dim': 2,
-        'epsilon': 100,
-        'persistence_params': None,
-        'window_length': 6
-      },
-  },
 
   'ensemble': {
     'list_of_generators': { }

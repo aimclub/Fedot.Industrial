@@ -1,10 +1,14 @@
+import os
+from multiprocessing import cpu_count, Pool
+
 import numpy as np
 import pandas as pd
 import pylab as plt
-
-from core.operation.transformation.TS import TSTransformer
 from fedot.api.main import Fedot
 from sklearn.metrics import roc_auc_score as roc_auc
+from tqdm import tqdm
+
+from core.operation.transformation.TS import TSTransformer
 
 
 class FedotModel:
@@ -22,7 +26,7 @@ class FedotModel:
         self.fedot_model.fit(features=self.x_data,
                              target=self.y_data)
 
-    def evalutate(self, x_test):
+    def evaluate(self, x_test):
         return self.fedot_model.predict_proba(features=x_test)
 
     def get_metrics(self):
@@ -32,7 +36,7 @@ class FedotModel:
 
 
 def plot_rec_plot_by_class(df):
-    df.columns = ["Label" if len(x) == 1 else x for x in df.columns]
+    df.columns = ["Label" if x == 0 else x for x in df.columns]
     for val in df['Label'].unique():
         tmp = df[df['Label'] == val]
         ru = tmp.iloc[1:2, 1:].values.reshape(-1)
@@ -42,42 +46,57 @@ def plot_rec_plot_by_class(df):
         plt.plot(ru)
         plt.title("Unitary")
         plt.subplot(223)
-        plt.imshow(transformer.ts_to_reccurancy_matrix(eps=eps, steps=steps))
+        plt.imshow(transformer.ts_to_recurrence_matrix(eps=eps, steps=steps))
         plt.show()
 
 
 def create_chaos_features(df):
-    converted_df = []
-    for index, row in df.iterrows():
-        transformer = TSTransformer(time_series=row.values[1:])
-        metrics = transformer.get_reccurancy_metrics()
-        metrics['Label'] = row.values[0]
-        converted_df.append(pd.Series(metrics))
-    converted_df = pd.concat(converted_df, axis=1).T
-    return converted_df
+    n_processes = cpu_count() // 2
+    with Pool(n_processes) as p:
+        converted_df = list(tqdm(p.imap(get_metrics,
+                                        df.iterrows()),
+                                 total=len(df),
+                                 desc='TS Processed',
+                                 unit=' ts',
+                                 colour='black'
+                                 )
+                            )
+    return pd.concat(converted_df, axis=1).T
 
 
-def prepare_data_for_case(dataset):
-    df = pd.read_csv(
-        f'.\data\{dataset}\{dataset}_TRAIN.tsv',
-        sep="\t")
+def get_metrics(row_):
+    row = row_[1]
+    transformer = TSTransformer(time_series=row.values[1:])
+    metrics = transformer.get_recurrence_metrics()
+    metrics['Label'] = row.values[0]
+    metrics = pd.Series(metrics)
+    return metrics
+
+
+def prepare_data_for_case(dataset_name):
+    from core.operation.utils.utils import PROJECT_PATH
+
+    data_path = f'{PROJECT_PATH}/data/{dataset_name}/'
+
+    df = pd.read_csv(os.path.join(data_path, f'{dataset_name}_TRAIN.tsv'),
+                     sep="\t", header=None)
     plot_rec_plot_by_class(df)
     df_encoded_train = create_chaos_features(df)
     df_encoded_train.replace([np.inf, -np.inf], np.nan, inplace=True)
     df_encoded_train = df_encoded_train.fillna(0)
     train_label = df_encoded_train['Label'].values
-    #stat_train = df_encoded_train.groupby(by=['Label']).describe()
+    # stat_train = df_encoded_train.groupby(by=['Label']).describe()
 
     del df_encoded_train['Label']
 
-    df = pd.read_csv(
-        f'.\data\{dataset}\{dataset}_TEST.tsv',
-        sep="\t")
+    df = pd.read_csv(os.path.join(data_path, f'{dataset_name}_TEST.tsv'),
+                     sep="\t", header=None)
+
     df_encoded_test = create_chaos_features(df)
     df_encoded_test.replace([np.inf, -np.inf], np.nan, inplace=True)
     df_encoded_test = df_encoded_test.fillna(0)
     test_label = df_encoded_test['Label'].values
-    #stat_test = df_encoded_test.groupby(by=['Label']).describe()
+    # stat_test = df_encoded_test.groupby(by=['Label']).describe()
     del df_encoded_test['Label']
     return df_encoded_train, df_encoded_test, train_label, test_label
 
@@ -85,7 +104,7 @@ def prepare_data_for_case(dataset):
 def run_case(df_encoded_train, df_encoded_test, train_label, test_label):
     clf_model = FedotModel(x_data=df_encoded_train.values, y_data=train_label, time=30)
     clf_model.run_model()
-    predictions = clf_model.evalutate(df_encoded_test.values)
+    predictions = clf_model.evaluate(df_encoded_test.values)
     final_result = roc_auc(test_label, predictions, multi_class='ovo')
     return clf_model, final_result
 

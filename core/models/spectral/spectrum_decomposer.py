@@ -26,12 +26,14 @@ def plot_2d(m, title=""):
 
 
 class SpectrumDecomposer:
-    """
-    Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-    recorded at equal intervals
-        :param time_series: The original time series, in the form of a Pandas Series, NumPy array or list
-        :param window_length: The window length. Must be an integer 2 <= L <= N/2, where N is the length of the time series
-        :param save_memory: Conserve memory by not retaining the elementary matrices
+    """Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
+    recorded at equal intervals.
+
+    Args:
+        time_series: The time series to decompose.
+        window_length: The length of the window to use. Defaults to None.
+        save_memory: Whether to save memory by not storing the elementary matrices. Defaults to True.
+
     """
 
     def __init__(self,
@@ -127,10 +129,14 @@ class SpectrumDecomposer:
         return TS_comps, X_elem, V, components_df, Wcorr, n_components, explained_dispersion
 
     def calc_wcorr(self, TS_comps, rank):
-        """
-        Calculates the w-correlation matrix for the time series.
-        :param TS_comps: The time series components
-        :param rank: The rank of the time series
+        """Calculates the w-correlation matrix for the time series.
+
+        Args:
+            TS_comps (np.ndarray): The time series components.
+            rank (int): The rank of the time series.
+
+        Returns:
+            ...
         """
 
         # Calculate the weights
@@ -175,9 +181,16 @@ class SpectrumDecomposer:
         return combined_components
 
     @staticmethod
-    def components_to_df(TS_comps, rank, n=0):
-        """
-        Returns all the time series components in a single Pandas DataFrame object.
+    def components_to_df(TS_comps: np.ndarray, rank: int, n: int = 0) -> pd.DataFrame:
+        """Converts all the time series components in a single Pandas DataFrame object.
+
+        Args:
+            TS_comps: The time series components.
+            rank: The rank of the time series.
+            n: ...
+
+        Returns:
+            df: dataframe with all the time series components.
         """
         if n > 0:
             n = min(n, rank)
@@ -190,12 +203,16 @@ class SpectrumDecomposer:
         df.columns = cols
         return df
 
-    def reconstruct(self, indices):
-        """
-        Reconstructs the time series from its elementary components, using the given indices. Returns a Pandas Series
-        object with the reconstructed time series
-            :param indices: An integer, list of integers or slice(n,m) object, representing the elementary
+    def reconstruct(self, indices: Union[int, list, tuple, np.ndarray]) -> pd.Series:
+        """Reconstructs the time series from its elementary components, using the given indices. Returns a Pandas Series
+        object with the reconstructed time series.
+
+        Args:
+            indices: An integer, list of integers or slice(n,m) object, representing the elementary
             components to sum.
+
+        Returns:
+            The reconstructed time series.
         """
         if isinstance(indices, int): indices = [indices]
 
@@ -203,8 +220,8 @@ class SpectrumDecomposer:
         return pd.Series(ts_vals)
 
     def plot_wcorr(self, minimum=None, maximum=None):
-        """
-        Plots the w-correlation matrix for the decomposed time series.
+        """Plots the w-correlation matrix for the decomposed time series.
+
         """
         if minimum is None:
             minimum = 0

@@ -104,6 +104,14 @@ on the number of classes:
 linear regression, trained on predictions of correction stages. 
 - For `multiclass classification` the ensemble is a sum of previous predictions.
 
+#### Feature caching 
+If `use_cache` bool flag in `Config.yaml` is `True`, then every feature space generated during experiment is 
+cached into corresponding folder. To do so a hash from function `get_features` arguments and generator attributes 
+is obtained. Then resulting feature space is dumped via `pickle` library.
+
+The next time when the same feature space is requested, the hash is calculated again and the corresponding 
+feature space is loaded from the cache which is much faster than generating it from scratch.
+
 #### Anomaly detection
 *--work in progress--*
 
@@ -126,6 +134,9 @@ First article `AUTOMATED MACHINE LEARNING APPROACH FOR TIME SERIES
 CLASSIFICATION PIPELINES USING EVOLUTIONARY OPTIMISATION` by Ilya E. Revin,
 Vadim A. Potemkin, Nikita R. Balabanov, Nikolay O. Nikitin is under review.
 
+Second article `AUTOMATED ROCKBURST FORECASTING USING COMPOSITE MODELLING FOR SEISMIC SENSORS DATA`
+by Ilya E. Revin, Vadim A. Potemkin, and Nikolay O. Nikitin is under review.
+
 Stay tuned!
 
 ## Project structure
@@ -142,8 +153,9 @@ The repository includes the following directories:
 
 ## Current R&D and future plans
 
-- Development of meta-knowledge storage for data obtained from the experiments
-- Research on time series clusterization
+- [x] Implement feature space caching for feature generators
+- [ ] Development of meta-knowledge storage for data obtained from the experiments
+- [ ] Research on time series clusterization
 
 ## Documentation
 
@@ -151,7 +163,7 @@ Documentation will be available soon at `Read The Docs` after first stable relea
 
 ## Supported by
 
-The research is supported by Research Center
+The study is supported by Research Center
 [**Strong Artificial Intelligence in Industry**](<https://sai.itmo.ru/>)
 of [**ITMO University**](https://itmo.ru) (Saint Petersburg, Russia)
 

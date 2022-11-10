@@ -8,12 +8,17 @@ from core.models.statistical.stat_features_extractor import StatFeaturesExtracto
 
 
 class WaveletExtractor:
-    """
-    Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
+    """Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
     recorded at equal intervals.
 
-    :param: time_series: The original time series, in the form of a Pandas Series, NumPy array or list.
-    :param: wavelet_name: The name of the wavelet to use.
+    Args:
+        time_series: The time series to be decomposed.
+        wavelet_name: The name of the wavelet to be used for decomposition.
+
+    Attributes:
+        discrete_wavelets: List of discrete wavelets.
+        continuous_wavelets: List of continuous wavelets.
+
     """
 
     def __init__(self,
@@ -26,6 +31,11 @@ class WaveletExtractor:
 
     @property
     def decomposing_level(self):
+        """The level of decomposition of the time series.
+
+        Returns:
+            The level of decomposition of the time series.
+        """
         return pywt.dwt_max_level(len(self.time_series), self.wavelet_name)
 
     def decompose_signal(self, ts=None):
@@ -56,33 +66,31 @@ class WaveletExtractor:
         return feature_list
 
     @staticmethod
-    def detect_peaks(x,
-                     mph=None,
-                     mpd=1,
-                     threshold=0,
-                     edge='rising',
-                     kpsh=False,
-                     valley=False):
-        """
-        Detect peaks in data based on their amplitude and other features.
-        :param: x: 1D array_like data.
-        :param: mph: {None, number}, optional (default = None)
-            detect peaks that are greater than minimum peak height.
-        :param: mpd: positive integer, optional (default = 1)
-            detect peaks that are at least separated by minimum peak distance (in
-            number of data).
-        :param: threshold: positive number, optional (default = 0)
-            detect peaks (valleys) that are greater (smaller) than `threshold`
-            in relation to their immediate neighbors.
-        :param: edge: {None, 'rising', 'falling', 'both'}, optional (default = 'rising')
-            for a flat peak, keep only the rising edge ('rising'), only the
-            falling edge ('falling'), both edges ('both'), or don't detect a
-            flat peak (None).
-        :param: kpsh: bool, optional (default = False)
-            keep peaks with same height even if they are closer than `mpd`.
-        :param: valley: bool, optional (default = False)
-            if True (1), detect valleys (local minima) instead of peaks.
-        :return: 1D array containing the indices of the peaks in `x`.
+    def detect_peaks(x: np.ndarray,
+                     mph: int = None,
+                     mpd: int = 1,
+                     threshold: int = 0,
+                     edge: str = 'rising',
+                     kpsh: bool =False,
+                     valley: bool = False) -> np.ndarray:
+        """Detect peaks in data based on their amplitude and other features.
+
+        Args:
+            x: data.
+            mph: detect peaks that are greater than minimum peak height (if parameter `valley` is
+                False) or peaks that are smaller than maximum peak height (if parameter `valley` is True).
+            mpd: detect peaks that are at least separated by minimum peak distance (in number
+                of data points).
+            threshold: detect peaks (valleys) that are greater (smaller) than `threshold`
+                in relation to their immediate neighbors.
+            edge: for a flat peak, keep only the rising edge ('rising'), only the falling edge
+                ('falling'), both edges ('both'), or don't detect a flat peak (None).
+            kpsh: keep peaks with same height even if they are closer than `mpd`.
+            valley: if True (1), detect valleys (local minima) instead of peaks.
+
+        Returns:
+            Indices of the peaks in `x`.
+
         """
 
         x = np.atleast_1d(x).astype('float64')
