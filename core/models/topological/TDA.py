@@ -7,17 +7,22 @@ from scipy import sparse
 
 
 class Topological:
-    """
-    Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
-    recorded at equal intervals
-        :param time_series : The original time series, in the form of a Pandas Series, NumPy array or list
-        :param max_simplex_dim : integer that will be the maximum dimension of the simplices to be created
-        :param epsilon : float that will be the epsilon parameter for the Rips filtration
-        :param persistence_params : dictionary that will be the parameters for the topological experiment
-        :param window_length : integer that will be the length of the window
+    """Decomposes the given time series with a singular-spectrum analysis. Assumes the values of the time series are
+    recorded at equal intervals.
+
+    Args:
+        time_series: Time series to be decomposed.
+        max_simplex_dim: Maximum dimension of the simplices to be used in the Rips filtration.
+        epsilon: Maximum distance between two points to be considered connected by an edge in the Rips filtration.
+        persistence_params: ...
+        window_length: Length of the window to be used in the rolling window function.
+
+    Attributes:
+        epsilon_range (np.ndarray): Range of epsilon values to be used in the Rips filtration.
+
     """
     def __init__(self,
-                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list] = None,
+                 time_series: Union[pd.Series, np.ndarray, list] = None,
                  max_simplex_dim: int = None,
                  epsilon: int = None,
                  persistence_params: dict = None,
@@ -67,27 +72,36 @@ class Topological:
         ys = ys[ys < np.inf]
 
     @staticmethod
-    def rolling_window(array, window):
-        """
-        Take in an array and return array of rolling windows of specified length
+    def rolling_window(array: np.array, window: int) -> np.array:
+        """Takes in an array and return array of rolling windows of specified length.
 
-        :param: array: numpy array that will be windowed
-        :param: window: integer that will be the length of the window
-        :return: array where each entry is an array of length window
+        Args:
+            array: Array to be rolled.
+            window: Length of the window.
+
+        Returns:
+            Array of rolling windows.
+
         """
         shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
         strides = array.strides + (array.strides[-1],)
         a_windowed = np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
         return a_windowed
 
-    def time_series_to_point_cloud(self, array: np.array = None, dimension_embed=2):
-        """
-        Convert a time series into a point cloud in the dimension specified by dimension_embed
-            :param dimension_embed: dimension of Euclidean space in which to embed the time series into by taking windows of
-        dimension_embed length, e.g. if the time series is [t_1,...,t_n] and dimension_embed is 2,
-        then the point cloud would be [(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]
-            :return: collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
-        in the manner explained above
+    def time_series_to_point_cloud(self, array: np.array = None,
+                                   dimension_embed=2) -> np.array:
+        """Convert a time series into a point cloud in the dimension specified by dimension_embed.
+
+        Args:
+            array: Time series to be converted.
+            dimension_embed: dimension of Euclidean space in which to embed the time series into by taking
+            windows of dimension_embed length, e.g. if the time series is [t_1,...,t_n] and dimension_embed is 2,
+            then the point cloud would be [(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]
+
+        Returns:
+            Collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
+            in the manner explained above.
+
         """
 
         assert len(self.time_series) >= dimension_embed, 'dimension_embed larger than length of time_series'
@@ -139,16 +153,20 @@ class Topological:
         return homology
 
     def time_series_to_persistent_cohomology_ripser(self,
-                                                    time_series,
-                                                    max_simplex_dim):
-        """
-        Wrapper function that takes in a time series and outputs
-        the persistent homology object, along with other
-        auxiliary objects
-            :param time_series: Numpy array of time series values
-            :param max_simplex_dim: Integer denoting the maximum dimension of simplexes to create in filtration
-            :return: dictionary with keys in range(max_simplex_dim) and, the value hom[i] is an array of length
-        equal to len(epsilon_range) containing the betti numbers of the i-th homology groups for the Rips filtration
+                                                    time_series: np.array,
+                                                    max_simplex_dim: int) -> dict:
+        """Wrapper function that takes in a time series and outputs the persistent homology object, along with other
+        auxiliary objects.
+
+        Args:
+            time_series: Time series to be converted.
+            max_simplex_dim: Maximum dimension of the simplicial complex to be constructed.
+
+        Returns:
+            Persistent homology object. Dictionary with keys in range(max_simplex_dim) and, the value hom[i]
+            is an array of length equal to len(epsilon_range) containing the betti numbers of the i-th homology
+            groups for the Rips filtration.
+
         """
 
         homology = self.point_cloud_to_persistent_cohomology_ripser(point_cloud=time_series,

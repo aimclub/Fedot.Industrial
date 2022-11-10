@@ -8,16 +8,19 @@ from core.models.topological.TopologicalRunner import TopologicalRunner
 
 
 class EnsembleRunner(ExperimentRunner):
-    """
-    Class for performing experiments with ensemble of feature generators
-        :param feature_generator_dict: dict that consists of 'generator_name': generator_class pairs
-        :param list_of_generators: list of generator names that will be used for ensemble
+    """Class for performing experiments with ensemble of feature generators.
+
+    Args:
+        feature_generator_dict: Dictionary of feature generators consists of
+            'generator_name': generator_class pairs.
+        list_of_generators: List of feature generators.
+
     """
 
     def __init__(self, feature_generator_dict: dict = None,
-                 list_of_generators=None):
+                 list_of_generators=None, use_cache: bool = False):
         super().__init__(feature_generator_dict)
-
+        self.use_cache = use_cache
         self.list_of_generators = list_of_generators
         self.generator_dict = dict(quantile=StatsRunner,
                                    window_quantile=StatsRunner,
@@ -27,16 +30,19 @@ class EnsembleRunner(ExperimentRunner):
                                    topological=TopologicalRunner,
                                    ensemble=EnsembleRunner)
 
-    def extract_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        self.logger.info('Ensemble features extraction started')
+    def get_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         return self.ensemble_features(input_data, dataset_name)
 
     def ensemble_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        """
-        Extracts features using specified generator and combines them into one feature matrix
-        :param input_data: pandas.DataFrame with input data
-        :param dataset_name: name of dataset
-        :return: matrix of features
+        """Extracts features using specified generator and combines them into one feature matrix.
+
+        Args:
+            input_data: Dataframe with time series data.
+            dataset_name: Dataset name.
+
+        Returns:
+            Dataframe with extracted features.
+
         """
         features = list()
         for generator_name, generator in self.list_of_generators.items():

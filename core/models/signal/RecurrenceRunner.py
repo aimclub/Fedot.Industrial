@@ -1,57 +1,69 @@
+from multiprocessing import Pool
+
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.TS import TSTransformer
-from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.Decorators import time_it
 
 
 class RecurrenceRunner(ExperimentRunner):
-    """
-    Class responsible for wavelet feature generator experiment.
+    """Class responsible for wavelet feature generator experiment.
 
-    :window_mode: if True, then window mode is used
+    Args:
+        window_mode: boolean flag - if True, window mode is used. Defaults to False.
+        use_cache: boolean flag - if True, cache is used. Defaults to False.
+
+    Attributes:
+        transformer: TSTransformer object.
+        train_feats: train features.
+        test_feats: test features.
     """
 
-    def __init__(self, window_mode: bool = False):
+    def __init__(self, window_mode: bool = False, use_cache: bool = False):
 
         super().__init__()
 
-        self.ts_samples_count = None
         self.window_mode = window_mode
+        self.use_cache = use_cache
         self.transformer = TSTransformer
         self.train_feats = None
         self.test_feats = None
-        self.logger = Logger().get_logger()
 
     def _ts_chunk_function(self, ts):
 
         ts = self.check_for_nan(ts)
         specter = self.transformer(time_series=ts)
-        feature_df = pd.Series(specter.get_reccurancy_metrics())
+        feature_df = pd.Series(specter.get_recurrence_metrics())
         return feature_df
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
-        """
-        Generate vector from time series.
+        """Generate vector from time series.
 
-        :param ts_frame: time series dataframe
-        :return:
-        """
-        self.ts_samples_count = ts_frame.shape[0]
+        Args:
+            ts_frame: time series frame
 
-        components_and_vectors = list()
-        with tqdm(total=ts_frame.shape[0],
-                  desc='Feature generation. Time series processed:',
-                  unit='ts', initial=0, colour='black') as pbar:
-            for ts in ts_frame.values:
-                components_and_vectors.append(self._ts_chunk_function(ts))
-                pbar.update(1)
+        Returns:
+            Feature vector
+        """
+        ts_samples_count = ts_frame.shape[0]
+        n_processes = self.n_processes
+
+        with Pool(n_processes) as p:
+            components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
+                                                      ts_frame.values),
+                                               total=ts_samples_count,
+                                               desc='Feature Generation. TS processed',
+                                               unit=' ts',
+                                               colour='black'
+                                               )
+                                          )
         components_and_vectors = pd.concat(components_and_vectors, axis=1).T
-
         return components_and_vectors
 
-    def extract_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    @time_it
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:

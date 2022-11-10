@@ -14,24 +14,33 @@ class SingularSpectrumTransformation:
 
     Change point detection with Singular Spectrum Transformation.
 
+    Note:
+        In case of 1D time series to find appropriate hyperparameters value
+         for ts_window_length and trajectory_window_length
+         are recommended to use WSSAlgorithms.py, WindowSizeSelection class.
+
     Args:
-        time_series (list or np.array()): time series sequences to study.
-        ts_window_length (int): window length of vectors in Hankel matrices
-        trajectory_window_length (int): window length of subsequences in ts_window_length
-        lag (int): interval between the nearest ts_window_length sequences
-        n_components (int): PCA components number describes changes in time-data (usually 1,2 or 3).
-        quantile_rate (float): threshold coefficient for change point detection (0,95 recommended).
-        view (bool): test parameter for experiments. By default, view = True.
-        is_scaled (bool): if false, min-max scaling will be applied.
+        time_series: time series sequences to study.
+        ts_window_length: window length of vectors in Hankel matrices.
+        trajectory_window_length: window length of subsequences in ts_window_length.
+        lag: interval between the nearest ts_window_length sequences.
+        n_components: PCA components number describes changes in time-data (usually 1,2 or 3).
+        quantile_rate: threshold coefficient for change point detection (0,95 recommended).
+        view: if true, not filtered score will be returned.
+        is_scaled: if false, min-max scaling will be applied.
+
+    Attributes:
+        length_ts(int): length of the time_series.
+
     """
 
     def __init__(self,
-                 time_series,
+                 time_series: Union[list, np.array] = None,
                  quantile_rate: float = None,
                  trajectory_window_length: int = None,
                  ts_window_length: int = None,
                  lag: int = None,
-                 is_scaled=False,
+                 is_scaled = False,
                  view: bool = True,
                  n_components: int = None):
 
@@ -61,7 +70,7 @@ class SingularSpectrumTransformation:
 
         self.n_components = None
 
-    def score_offline_2d(self, dynamic_mode: bool = True):
+    def score_offline_2d(self, dynamic_mode: bool = True) -> list:
         if not self.is_scaled:
             x_scaled = MinMaxScaler(feature_range=(1, 2)) \
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
@@ -70,7 +79,7 @@ class SingularSpectrumTransformation:
 
         return self._score_offline_2d(x_scaled, dynamic_mode=dynamic_mode)
 
-    def score_offline_2d_average(self, dynamic_mode: bool = True):
+    def score_offline_2d_average(self, dynamic_mode: bool = True) -> list:
         if not self.is_scaled:
             x_scaled = MinMaxScaler(feature_range=(1, 2)) \
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
@@ -95,11 +104,19 @@ class SingularSpectrumTransformation:
                 window[j].append(ts_complex[j][i])
         return window
 
-    def _score_offline_2d_average(self, x_scaled, dynamic_mode: bool = True):
-        """Core implementation of offline score calculation. FOR 2D or more D.
+    def _score_offline_2d_average(self, x_scaled, dynamic_mode: bool = True) -> list:
+        """Core implementation of offline score calculation with average features. FOR 2D or more D.
+
+        Args:
+            x_scaled: normalized time series if is_scaled False
+            dynamic_mode: type of model to check differences in the sequence
+
+        Returns:
+            filtered_score: represented a list of values with 0 and 1 where 1 is an anomaly if view is True
+
         """
+        score_list = []
         if not dynamic_mode:
-            score_list = list(self.ts_window_length)
             step = self.lag
             start_idx = step
             end_idx = len(x_scaled[0]) - step
@@ -118,7 +135,6 @@ class SingularSpectrumTransformation:
                     horm_hist = np.linalg.norm(distance_matrix(average_features.T, current_features.T), 2)
                 score_list.append(np.linalg.norm(distance_matrix(average_features.T, current_features.T), 2))
         else:
-            score_list = []
             start_idx = self.ts_window_length + self.lag
             end_idx = len(x_scaled[0]) - self.ts_window_length - 1
             horm_hist = None
@@ -159,18 +175,39 @@ class SingularSpectrumTransformation:
                     self._sst_svd(x_test_arr, x_history_arr, self.n_components))
         score_diff = np.diff(score_list)
         q_95 = np.quantile(score_diff, self.quantile_rate)
-        filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
-
+        filtered_score = score_diff
         self.n_components = None
+        if self.view:
+            filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         return filtered_score
 
-    def current_features_2d(self, current_index, step, x_scaled):
+    def current_features_2d(self, current_index, step, x_scaled) -> np.asarray:
+        """Implementation of offline score calculation function - features. FOR 2D or more D.
+
+        Args:
+            x_scaled: normalized time series if is_scaled False
+            current_index: current index
+            step: lag between the nearest sequences
+
+        Returns:
+            current_features: represented a list of features in chosen subsequence
+
+        """
         current_window = self._get_window_from_ts_complex(x_scaled, current_index, current_index + step)
         current_features = self._get_features_vector_from_window(current_window)
         current_features = np.asarray(current_features)
         return current_features
 
-    def features_average(self, temp_average_features):
+    def features_average(self, temp_average_features) -> list:
+        """Implementation of offline score calculation function - features_average. FOR 2D or more D.
+
+        Args:
+            temp_average_features:
+
+        Returns:
+            average_features: a list of averages features in chosen subsequence
+
+        """
         temp_average_features = np.array(temp_average_features)
         average_features = []
         for i in range(len(temp_average_features)):
@@ -182,8 +219,17 @@ class SingularSpectrumTransformation:
         )
         return average_features
 
-    def _score_offline_2d(self, x_scaled, dynamic_mode: bool = True):
-        """Core implementation of offline score calculation. FOR 2D or more D"""
+    def _score_offline_2d(self, x_scaled, dynamic_mode: bool = True) -> list:
+        """Core implementation of offline score calculation. FOR 2D or more D.
+
+        Args:
+            x_scaled: normalized time series if is_scaled False
+            dynamic_mode: type of model to check differences in the sequence
+
+        Returns:
+            filtered_score: represented a list of values with 0 and 1 where 1 is an anomaly if view is True
+
+        """
         norm_list_real = []
         horm_hist = None
         if dynamic_mode:
@@ -211,19 +257,21 @@ class SingularSpectrumTransformation:
         score_list = [horm_hist] + norm_list_real
         score_diff = np.diff(score_list)
         q_95 = np.quantile(score_diff, self.quantile_rate)
-        filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         self.n_components = None
+        if self.view:
+            filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         return filtered_score
 
-    def score_offline(self, _x=None, dynamic_mode: bool = True):
-        """Calculate anomaly score (offline).
+    def score_offline(self, _x=None, dynamic_mode: bool = True) -> list:
+        """Calculate anomaly score (offline) for 1D.
 
         Args:
-            dynamic_mode (bool): mode for SST metrics calculation.
-            _x (list): input 1D time series data.
+            dynamic_mode: mode for SST metrics calculation.
+            _x: input 1D time series data.
 
         Returns
-            score (float): 1d array change point score.
+            score: 1d array change point score with 1 and 0 if view True.
+
         """
         _x = self.ts
         if not self.is_scaled:
@@ -233,8 +281,17 @@ class SingularSpectrumTransformation:
             x_scaled = _x
         return self._score_offline(x_scaled, dynamic_mode=dynamic_mode)
 
-    def _score_offline(self, _x, dynamic_mode=True):
-        """Core implementation of offline score calculation."""
+    def _score_offline(self, _x, dynamic_mode=True) -> list:
+        """Core implementation of offline score calculation.
+
+        Args:
+            dynamic_mode: mode for SST metrics calculation.
+            _x: input 1D time series data.
+
+        Returns
+            score: 1d array change point score with 1 and 0 if view True.
+
+        """
         _K, _L, lag = self.K, self.L, self.lag
         start_idx, end_idx = _L + lag + 1, _x.size + 1
         score_list = np.zeros_like(_x)
@@ -269,14 +326,34 @@ class SingularSpectrumTransformation:
             filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         return filtered_score
 
-    def _n_components(self, x_history, _l):
+    def _n_components(self, x_history, _l) -> int:
+        """Number of relevant components which represent changing in time series.
+
+        Args:
+            x_history: historical matrix of features
+            _l: window length of subsequences in ts_window_length.
+
+        Returns
+            self.n_components: number of relevant components
+
+        """
         _s = self.spectrum_extractor.decompose_trajectory_matrix(x_history)[1]
         var, exp_var_by_component = self.spectrum_extractor.sv_to_explained_variance_ratio(_s, _l)
         exp_var_by_component = list(filter(lambda _s: _s > 0.05, exp_var_by_component))
         self.n_components = len(exp_var_by_component)
 
-    def _sst_svd(self, x_test, x_history, n_components):
-        """Run sst algorithm with svd."""
+    def _sst_svd(self, x_test: list, x_history: list, n_components: int) -> float:
+        """Singular value decomposition to count distance score between matrixes
+
+        Args:
+            x_test: current matrix of features
+            x_history: historical matrix of features
+            n_components: number of components which represent  changing in time series
+
+        Returns
+            1 - s[0]: distance score between two matrixes
+
+        """
         u_test, s_test, _ = np.linalg.svd(x_test, full_matrices=False)
         u_history, s_hist, _ = np.linalg.svd(x_history, full_matrices=False)
         s_cov = u_test[:, :n_components].T @ u_history[:, :n_components]

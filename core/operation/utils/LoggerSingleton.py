@@ -1,50 +1,55 @@
+import datetime
 import logging
 import os.path
-from datetime import date, datetime
 
 from core.operation.utils.utils import PROJECT_PATH
 
-MSG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-DT_FORMAT = '%H:%M:%S'
-DATE_NOW = date.today()
-TIME_NOW = datetime.now().strftime("%H-%M")
-
-if not os.path.exists(PROJECT_PATH + '/log'):
-    os.mkdir(PROJECT_PATH + '/log')
-
 
 class SingletonMetaLogger(type):
-    """
-    Singleton metaclass for Logger
+    """Singleton metaclass for Logger.
+
     """
     _instances = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            log_path = os.path.join(PROJECT_PATH, 'log', f'Experiment-log-{DATE_NOW}_{TIME_NOW}.log')
-            instance = super().__call__(log_path)
-            cls._instances[cls] = instance
+            cls._instances[cls] = super(SingletonMetaLogger, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
 
 
 class Logger(object, metaclass=SingletonMetaLogger):
-    """
-    Class for implementing singleton Logger
-    """
+    """Class for implementing singleton Logger.
 
-    def __init__(self, log_path):
-        # logging.basicConfig(filename=log_path)
+    Examples:
+        >>> logger = Logger().get_logger()
+        >>> logger.info('Your message')
+
+    """
+    _logger = None
+
+    def __init__(self):
         self._logger = logging.getLogger('FEDOT-TSC')
         self._logger.setLevel(logging.INFO)
         self._logger.propagate = False
 
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s",
+                                      "%Y-%m-%d %H:%M:%S")
+        now = datetime.datetime.now()
+        dirname = os.path.join(PROJECT_PATH, 'log')
 
-        formatter = logging.Formatter(MSG_FORMAT, DT_FORMAT)
-        ch.setFormatter(formatter)
+        if not os.path.isdir(dirname):
+            os.mkdir(dirname)
+        file_handler = logging.FileHandler(dirname + "/log_" + now.strftime("%Y-%m-%d-%H:%M") + ".log",
+                                           delay=True,
+                                           mode='w')
 
-        self._logger.addHandler(ch)
+        stream_handler = logging.StreamHandler()
+
+        file_handler.setFormatter(formatter)
+        stream_handler.setFormatter(formatter)
+
+        # self._logger.addHandler(file_handler)
+        self._logger.addHandler(stream_handler)
 
     def get_logger(self):
         return self._logger

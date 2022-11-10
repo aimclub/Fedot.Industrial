@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (accuracy_score, f1_score,
@@ -11,11 +13,16 @@ class ParetoMetrics:
     def __init__(self):
         pass
 
-    def pareto_metric_list(self, costs, maximise=True):
-        """
-        :param costs: An (n_points, n_costs) array
-        :maximise: boolean. True for maximising, False for minimising
-        :return: A (n_points, ) boolean array, indicating whether each point is Pareto efficient
+    def pareto_metric_list(self, costs: Union[list, np.ndarray], maximise: bool = True) -> np.ndarray:
+        """ Calculates the pareto front for a list of costs.
+
+        Args:
+            costs: list of costs. An (n_points, n_costs) array.
+            maximise: flag for maximisation or minimisation.
+
+        Returns:
+            A (n_points, ) boolean array, indicating whether each point is Pareto efficient
+
         """
         is_efficient = np.ones(costs.shape[0], dtype=bool)
         for i, c in enumerate(costs):
@@ -67,19 +74,16 @@ class F1(QualityMetric):
     def metric(self) -> float:
         target = self.target
         prediction = self.predicted_labels
-        self.default_value = 0
+        self.default_value = 0.0
         n_classes = len(np.unique(target))
         n_classes_pred = len(np.unique(prediction))
-        if n_classes > 2 or n_classes_pred > 2:
-            additional_params = {'average': 'weighted'}
-        else:
-            additional_params = {'average': 'binary'}
         try:
-            return f1_score(y_true=target, y_pred=prediction,
-                            **additional_params)
-        except Exception:
-            return f1_score(y_true=target, y_pred=prediction,
-                            average='weighted')
+            if n_classes > 2 or n_classes_pred > 2:
+                return f1_score(y_true=target, y_pred=prediction, average='weighted')
+            else:
+                return f1_score(y_true=target, y_pred=prediction, average='binary')
+        except ValueError:
+            return self.default_value
 
 
 class MAE(QualityMetric):
@@ -100,7 +104,10 @@ class ROCAUC(QualityMetric):
         if n_classes > 2:
             target = pd.get_dummies(self.target)
             additional_params = {'multi_class': 'ovr', 'average': 'macro'}
-            prediction = self.predicted_probs
+            if self.predicted_probs is None:
+                prediction = pd.get_dummies(self.predicted_labels)
+            else:
+                prediction = self.predicted_probs
         else:
             target = self.target
             additional_params = {}
