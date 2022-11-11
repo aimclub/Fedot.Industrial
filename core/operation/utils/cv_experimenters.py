@@ -1,12 +1,14 @@
 import os
 import time
-from typing import Dict, Type, Set, Union
+from typing import Dict, Type, Set, Union, List
 
 import torch
+from PIL import Image
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from torch.nn.functional import softmax
 from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
@@ -39,6 +41,8 @@ class _GeneralizedExperimenter:
 
     Args:
         model: Trainable model.
+        train_dl: Train dataloader.
+        val_dl: Validation dataloader.
         name: Description of the experiment.
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
@@ -50,6 +54,8 @@ class _GeneralizedExperimenter:
     def __init__(
         self,
         model: torch.nn.Module,
+        train_dl: DataLoader,
+        val_dl: DataLoader,
         name: str,
         models_path: str,
         summary_path: str,
@@ -63,6 +69,8 @@ class _GeneralizedExperimenter:
             'n_params': self.number_of_params(),
         }
         print(f"Default size: {self.default_scores['size']:.2f} MB")
+        self.train_dl = train_dl
+        self.val_dl = val_dl
         self.name = name
         self.models_path = models_path
         self.summary_path = summary_path
@@ -142,6 +150,10 @@ class _GeneralizedExperimenter:
         """Returns number of model parameters."""
         return sum(p.numel() for p in self.model.parameters())
 
+    def _read_image(self, image_path: str):
+        image = Image.open(image_path).convert('RGB')
+        return self.val_dl.dataset.transform(image)
+
     def train_loop(self) -> Dict[str, float]:
         """Have to implement the training method of the model and return train_scores."""
         return {}
@@ -149,6 +161,34 @@ class _GeneralizedExperimenter:
     def val_loop(self) -> Dict[str, float]:
         """Have to implement the validation method of the model and return val_scores."""
         return {}
+
+    def _predict_on_image(self, image: torch.Tensor, proba: bool):
+        """Have to implement the prediction method on single image."""
+        pass
+
+    def _predict(self, image_folder: str, proba: bool) -> Dict:
+        """Generalized prediction method of the model."""
+        predicts = {}
+        for image_name in tqdm(os.listdir(image_folder)):
+            image_path = os.path.join(image_folder, image_name)
+            image = self._read_image(image_path)
+            predicts[image_name] = self._predict_on_image(image=image, proba=proba)
+        return predicts
+
+    def predict(self, image_folder: str) -> Dict:
+        """Computes predictions for images in image_folder.
+
+        Args:
+            image_folder: Image folder path."""
+        return self._predict(image_folder=image_folder, proba=False)
+
+    def predict_proba(self, image_folder: str) -> Dict:
+        """Computes probability predictions for images in image_folder.
+
+        Args:
+            image_folder: Image folder path.
+        """
+        return self._predict(image_folder=image_folder, proba=True)
 
     def get_optimizable_module(self) -> torch.nn.Module:
         """Returns the module for optimization applying."""
@@ -172,7 +212,7 @@ class _GeneralizedExperimenter:
         for key, score in scores.items():
             writer.add_scalar(f"{phase}/{key}", score, x)
 
-    def run(self, num_epochs: int) -> None:
+    def fit(self, num_epochs: int) -> None:
         """Run optimization experiment.
 
         Args:
@@ -281,11 +321,13 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             valid_values={'f1', 'accuracy', 'precision', 'recall', 'roc_auc'},
         )
 
-        self.train_dl, self.val_dl, num_classes = get_classification_dataloaders(
+        train_dl, val_dl, num_classes = get_classification_dataloaders(
             dataset, **dataloader_params
         )
         super().__init__(
             model=MODELS[model](num_classes=num_classes, **model_params),
+            train_dl=train_dl,
+            val_dl=val_dl,
             name=f"{dataset}/{model}",
             models_path=models_saving_path,
             summary_path=summary_path,
@@ -370,6 +412,18 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             val_scores.update({f'f1_class{i}': s for i, s in enumerate(f1s)})
         return val_scores
 
+    def _predict_on_image(self, image: torch.Tensor, proba: bool) -> Union[List, int]:
+        """Returns prediction for image."""
+        self.model.eval()
+        with torch.no_grad():
+            image = image.unsqueeze_(0).to(self.device)
+            pred = self.model(image)
+            if proba:
+                pred = softmax(pred, dim=1).cpu().detach().tolist()
+            else:
+                pred = pred.argmax(1).cpu().detach().item()
+        return pred
+
 
 class FasterRCNNExperimenter(_GeneralizedExperimenter):
     """Class for working with Faster R-CNN model.
@@ -426,7 +480,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             valid_values={'map', 'map_50', 'map_75'},
         )
 
-        self.train_dl, self.val_dl, num_classes = get_detection_dataloaders(
+        train_dl, val_dl, num_classes = get_detection_dataloaders(
             dataset, **dataloader_params
         )
 
@@ -436,6 +490,8 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
 
         super().__init__(
             model=model,
+            train_dl=train_dl,
+            val_dl=val_dl,
             name=f"{dataset}/FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
@@ -499,11 +555,23 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         tk = tqdm(self.val_dl)
         for images, targets in tk:
             images = list(image.to(self.device) for image in images)
-            preds = self.predict(images)
+            preds = self.forward(images)
             metric.update(preds, targets)
         return metric.compute()
 
-    def predict(self, images):
+    def _predict_on_image(self, image: torch.Tensor, proba: bool) -> Dict:
+        """Returns prediction for image."""
+        pred = self.forward([image])[0]
+        if not proba:
+            not_thresh = pred['scores'] > 0.5
+            pred['boxes'] = pred['boxes'][not_thresh]
+            pred['labels'] = pred['labels'][not_thresh]
+            pred.pop('scores')
+        for key in pred:
+            pred[key] = pred[key].tolist()
+        return pred
+
+    def forward(self, images):
         """Predict model outputs from images.
 
         Args:
