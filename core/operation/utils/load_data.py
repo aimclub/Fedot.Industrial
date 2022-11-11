@@ -12,7 +12,8 @@ from core.operation.utils.utils import PROJECT_PATH
 
 
 class DataLoader:
-    """Class for reading data from tsv files and downloading from UCR archive if not found.
+    """Class for reading data from tsv files and downloading from UCR archive if not found locally.
+    At the moment supports only .txt and .arff formats, but not relational .arff or .ts files.
 
     Args:
         dataset_name (str): name of dataset
@@ -76,29 +77,39 @@ class DataLoader:
         """
 
         # If data unpacked as .txt file
-        if os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.txt'):
-            x_test, x_train, y_test, y_train = self.read_txt(dataset_name, temp_data_path)
+        try:
+            if os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.txt'):
+                x_test, x_train, y_test, y_train = self.read_txt(dataset_name, temp_data_path)
 
-        # If data unpacked as .arff file
-        elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.arff'):
-            x_test, x_train, y_test, y_train = self.read_arff(dataset_name, temp_data_path)
+            # If data unpacked as .arff file
+            elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.arff'):
+                x_test, x_train, y_test, y_train = self.read_arff(dataset_name, temp_data_path)
 
-        else:
-            self.logger.error('Data unpacking error')
+            # elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.ts'):
+            #     from sktime.datasets._data_io import load_from_tsfile_to_dataframe
+            #
+            #     x_test, y_test = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TEST.ts',
+            #                                                    return_separate_X_and_y=True)
+            #     x_train, y_train = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TRAIN.ts',
+            #                                                      return_separate_X_and_y=True)
+            else:
+                self.logger.error('Loaded data is of unknown format')
+                return None, None
+        except Exception as e:
+            self.logger.error(f'Error while unpacking data: {e}')
             return None, None
 
         # Conversion of target values to int or str
         try:
-            y_train = y_train.astype('float64').astype('int64')
-            y_test = y_test.astype('float64').astype('int64')
+            y_train = y_train.astype('int64')
+            y_test = y_test.astype('int64')
         except ValueError:
             y_train = y_train.astype(str)
             y_test = y_test.astype(str)
 
         # Save data to tsv files
         data_path = os.path.join(PROJECT_PATH, 'data', dataset_name)
-        if not os.path.exists(data_path):
-            os.makedirs(data_path)
+        os.makedirs(data_path, exist_ok=True)
 
         self.logger.info(f'Saving {dataset_name} data to tsv files')
         for subset in ('TRAIN', 'TEST'):
@@ -171,7 +182,10 @@ class DataLoader:
 
             x_test = df_test.iloc[:, 1:]
             y_test = df_test[0].values
-            y_train, y_test = y_train.astype(int), y_test.astype(int)
+            try:
+                y_train, y_test = y_train.astype(int), y_test.astype(int)
+            except ValueError:
+                y_train, y_test = y_train.astype(str), y_test.astype(str)
 
             return (x_train, y_train), (x_test, y_test)
         except FileNotFoundError:
@@ -211,25 +225,3 @@ class DataLoader:
             y_arr = y_arr.astype(str)
 
         return x_arr, y_arr
-
-
-# Example of usage
-if __name__ == '__main__':
-    ds_name = [
-        'DodgerLoopDay',
-        'Beef',
-        'Coffee',
-        'SonyAIBORobotSurface1',
-        'SonyAIBORobotSurface122',  # fake dataset
-        'Lightning7',
-        'UMD',
-    ]
-
-    for ds in ds_name:
-        loader = DataLoader(ds)
-        train, test = loader.load_data()
-        if train:
-            print(f'{ds} train_X: {train[0].shape}, test_X: {test[0].shape}')
-            print(f'{ds} train_y: {train[1].shape}, test_y: {test[1].shape}')
-        else:
-            continue
