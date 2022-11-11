@@ -20,9 +20,11 @@ class FeatureGenerator(Enum):
     recurrence = RecurrenceRunner
     ensemble = EnsembleRunner
 
+
 class WindowFeatureGenerator(Enum):
     window_quantile = StatsRunner
     window_spectral = SSARunner
+
 
 class EnsembleGenerator(Enum):
     AGG_voting = AggregationEnsemble

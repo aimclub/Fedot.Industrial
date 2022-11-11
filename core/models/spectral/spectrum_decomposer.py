@@ -90,7 +90,9 @@ class SpectrumDecomposer:
         components_df = None
         Wcorr = None
         U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
-        rank = np.linalg.matrix_rank(self.__trajectory_matrix)
+        rank = self.singular_value_hard_threshold(singular_values=Sigma)
+        if rank_hyper is not None:
+            rank = rank_hyper
         # Decompose the trajectory matrix
         TS_comps = np.zeros((self.__ts_length, rank))
 

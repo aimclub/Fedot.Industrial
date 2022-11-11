@@ -1,5 +1,8 @@
 import timeit
 
+import numpy as np
+import pandas as pd
+
 from core.operation.utils.LoggerSingleton import Logger
 
 
@@ -10,8 +13,25 @@ def exception_decorator(exception_return='Problem'):
                 function(*args, **kwargs)
             except:
                 return print(exception_return)
+
         return exception_wrapper
+
     return decorate
+
+
+def input_data_decorator(func):
+    def wrapper(*args, **kwargs):
+        data_type = type(kwargs['modelling_results'])
+        if data_type != dict:
+            if data_type == list:
+                modelling_result = [pd.read_csv(element, index_col=0) for element in kwargs['modelling_results']]
+                kwargs['modelling_results'] = {str(idx): element for idx, element in enumerate(modelling_result)}
+            else:
+                kwargs['modelling_results'] = pd.DataFrame(kwargs['modelling_results'])
+        result = func(*args, **kwargs)
+        return result
+
+    return wrapper
 
 
 def type_check_decorator(object_type: type, types_list: tuple):
@@ -22,6 +42,7 @@ def type_check_decorator(object_type: type, types_list: tuple):
             else:
                 function_to_decorate(*args, **kwargs)
             return wrapper
+
         return type_check_wrapper
 
 
@@ -33,4 +54,5 @@ def time_it(func):
         end = timeit.default_timer()
         logger.info(f'Time spent on feature generation - {round((end - start), 2)} sec')
         return result
+
     return wrapper

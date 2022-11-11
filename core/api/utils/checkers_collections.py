@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import Union
 
+from core.api.utils.decorator_collections import Decorators
 from core.operation.utils.LoggerSingleton import Logger
 
 
@@ -60,9 +61,12 @@ class DataCheck:
             input_data = np.nan_to_num(input_data, nan=0)
         return input_data
 
-    def check_data(self, input_data: np.ndarray):
-        if type(input_data) != np.ndarray:
-            input_data = input_data.values
-        input_data = self._replace_inf_with_nans(input_data)
-        input_data = self._check_for_nan(input_data)
-        return input_data
+    def check_data(self, input_data: pd.DataFrame, return_df: bool = False) -> np.ndarray:
+        filled_data = input_data.apply(lambda x: self._replace_inf_with_nans(x))
+        filled_data = filled_data.apply(lambda x: self._check_for_nan(x))
+        if filled_data.shape[0] == input_data.shape[0] and filled_data.shape[1] == input_data.shape[1]:
+            input_data = filled_data
+        if return_df:
+            return input_data
+        else:
+            return input_data.values

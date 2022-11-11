@@ -14,7 +14,6 @@ class ResultsParser:
         >>> results = parser.run()
 
     """
-    exp_folders = ['ensemble', 'quantile', 'spectral', 'wavelet','window_quantile']
 
     def __init__(self):
         self.exp_path = os.path.join(PROJECT_PATH, 'results_of_experiments')
@@ -31,6 +30,48 @@ class ResultsParser:
 
         return exp_results
 
+    def read_proba(self, launch: int = 1, path=None):
+        exp_folders = ['window_spectral',
+                       'ensemble',
+                       'quantile',
+                       'spectral',
+                       'wavelet',
+                       'window_quantile']
+        current = []
+        proba_dict = {}
+        metric_dict = {}
+        filtred_folders = []
+        for folder in exp_folders:
+            try:
+                path = os.path.join(self.exp_path, folder)
+                datasets = os.listdir(path)
+                current.append(datasets)
+                filtred_folders.append(folder)
+            except Exception:
+                print(f'{folder} is empty')
+        dataset_filtred = set.intersection(*map(set, current))
+        for filtred in filtred_folders:
+            for dataset in dataset_filtred:
+                try:
+                    if dataset not in proba_dict.keys():
+                        proba_dict[dataset] = {}
+                    if dataset not in metric_dict.keys():
+                        metric_dict[dataset] = {}
+                    metric_path = os.path.join(self.exp_path, filtred, dataset, str(launch), 'test_results',
+                                               'metrics.csv')
+                    proba_path = os.path.join(self.exp_path, filtred, dataset, str(launch), 'test_results',
+                                              'probs_preds_target.csv')
+                    proba_dict[dataset].update({filtred: pd.read_csv(proba_path, index_col=0)})
+                    metrics = pd.read_csv(metric_path, index_col=0)
+                    del metrics['index']
+                    metrics = metrics.T
+                    metrics = metrics.rename(columns=metrics.iloc[0])
+                    metrics = metrics[1:]
+                    metric_dict[dataset].update({filtred: metrics})
+                except Exception:
+                    print(f'{folder} and {dataset} doesnt exist.')
+        return proba_dict, metric_dict
+
     def retrieve_data(self):
         experiments = self.list_dir(self.exp_path)
         final_dfs = list()
@@ -38,7 +79,7 @@ class ResultsParser:
             exp_path = os.path.join(self.exp_path, exp)
             result = self.read_exp_folder(exp_path)
             n = result.values.shape[0]
-            result.insert(3, 'generator', [exp]*n)
+            result.insert(3, 'generator', [exp] * n)
             final_dfs.append(result)
             del result
         return pd.concat(final_dfs, axis=0, ignore_index=True)

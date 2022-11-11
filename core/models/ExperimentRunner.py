@@ -43,7 +43,7 @@ class ExperimentRunner:
         """
         pass
 
-    def extract_features(self, ts_data: pd.DataFrame,
+    def extract_features(self, train_features: pd.DataFrame,
                          dataset_name: str = None) -> pd.DataFrame:
         """Wrapper method for feature extraction method get_features() with caching results into pickle file. The idea
         is to create a unique pointer from dataset name, subsample (test or train) and feature generator object. We
@@ -52,7 +52,7 @@ class ExperimentRunner:
         case, and then associate it with the output data - the feature set.
 
         Args:
-            ts_data: dataframe with time series.
+            train_features: dataframe with time series.
             dataset_name: name of dataset.
 
         Returns:
@@ -68,7 +68,7 @@ class ExperimentRunner:
             generator_info = {k: v for k, v in self.__dict__.items() if k not in ['aggregator',
                                                                                   'pareto_front',
                                                                                   'spectrum_extractor']}
-            hashed_info = self.hash_info(dataframe=ts_data,
+            hashed_info = self.hash_info(dataframe=train_features,
                                          name=dataset_name,
                                          obj_info_dict=generator_info)
             cache_path = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_info + '.pkl')
@@ -78,11 +78,11 @@ class ExperimentRunner:
                 return self.load_features_from_cache(cache_path)
             except FileNotFoundError:
                 self.logger.info('Cache not found. Generating features...')
-                features = self.get_features(ts_data, dataset_name)
+                features = self.get_features(train_features, dataset_name)
                 self.save_features_to_cache(hashed_info, features)
                 return features
         else:
-            return self.get_features(ts_data, dataset_name)
+            return self.get_features(train_features, dataset_name)
 
     @staticmethod
     def hash_info(dataframe: pd.DataFrame, name: str, obj_info_dict: dict) -> str:

@@ -44,6 +44,17 @@ class PerformanceAnalyzer:
                           metric_list: list = ('roc_auc', 'f1', 'precision', 'accuracy', 'logloss'),
                           predicted_labels: list = None,
                           predicted_probs: list = None) -> Dict:
+        labels_diff = max(target) - max(predicted_labels)
+
+        if min(predicted_labels) != min(target):
+            if min(target) == -1:
+                np.place(predicted_labels, predicted_labels == 1, [-1])
+                np.place(predicted_labels, predicted_labels == 0, [1])
+
+        if labels_diff > 0:
+            predicted_labels = predicted_labels + abs(labels_diff)
+        else:
+            target = target + abs(labels_diff)
 
         metric_dict = dict(roc_auc=ROCAUC, f1=F1, precision=Precision,
                            accuracy=Accuracy, logloss=Logloss, rmse=RMSE,

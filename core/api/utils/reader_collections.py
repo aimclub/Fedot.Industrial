@@ -21,9 +21,14 @@ class YamlReader:
         self.use_cache = None
 
     def read_yaml_config(self, config_name: str) -> None:
-        """
-        Read yaml config from './cases/config/config_name' directory as dictionary file
-        :param config_name: yaml-config name, e.g. 'Config_Classification.yaml'
+        """Read yaml config from './cases/config/config_name' directory as dictionary file.
+
+        Args:
+            config_name: name of the config file.
+
+        Returns:
+            None
+
         """
         path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
         with open(path, "r") as input_stream:
@@ -71,15 +76,20 @@ class YamlReader:
 
         return experiment_dict
 
-    def get_generator_class(self, experiment_dict, gen_name):
-        """
-        Combines the name of the generator with the parameters from the config file
-        :return: dictionary with the name of the generator and its parameters
+    def get_generator_class(self, experiment_dict: dict, gen_name: str) -> dict:
+        """Combines the name of the generator with the parameters from the config file.
+
+        Args:
+            experiment_dict: dictionary with the parameters of the experiment.
+            gen_name: name of the generator.
+
+        Returns:
+            Dictionary with the name of the generator and its class.
+
         """
         feature_gen_model = self.feature_generator[gen_name]
         feature_gen_params = experiment_dict['feature_generator_params'].get(gen_name, dict())
-        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params,
-                                                         use_cache=self.use_cache)}
+        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
         return feature_gen_class
 
 

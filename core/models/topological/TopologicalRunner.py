@@ -1,11 +1,13 @@
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
-
+import gc
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.topological.TFE import *
 from core.operation.utils.Decorators import time_it
+import sys
 
+sys.setrecursionlimit(1000000000)
 PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                 'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
                                 'RelevantHolesNumber': RelevantHolesNumber(),
@@ -29,25 +31,33 @@ class TopologicalRunner(ExperimentRunner):
     def __init__(self, use_cache: bool = False):
         super().__init__()
         self.use_cache = use_cache
+        self.filtred_features = None
+        self.feature_extractor = None
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
-        te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
-        persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
-                                                                     takens_embedding_delay=te_time_delay,
-                                                                     homology_dimensions=(0, 1),
-                                                                     parallel=True)
+        if self.feature_extractor is None:
+            te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
-        feature_extractor = TopologicalFeaturesExtractor(persistence_diagram_extractor=persistence_diagram_extractor,
-                                                         persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
+            persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
+                                                                         takens_embedding_delay=te_time_delay,
+                                                                         homology_dimensions=(0, 1),
+                                                                         parallel=True)
 
-        ts_data_transformed = feature_extractor.fit_transform(ts_data.values)
-        ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
+            self.feature_extractor = TopologicalFeaturesExtractor(
+                persistence_diagram_extractor=persistence_diagram_extractor,
+                persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
 
-        return ts_data_transformed
+        ts_data_transformed = self.feature_extractor.fit_transform(ts_data.values)
+
+        if self.filtred_features is None:
+            ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
+            self.filtred_features = ts_data_transformed.columns.tolist()
+        gc.collect()
+        return ts_data_transformed[self.filtred_features]
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None):
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
@@ -74,8 +84,8 @@ class TopologicalRunner(ExperimentRunner):
                       unit='ts', colour='black'):
             single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
             delay, dim = takens_embedding_optimal_parameters(X=single_time_series.values,
-                                                             max_time_delay=10,
-                                                             max_dimension=10,
+                                                             max_time_delay=5,
+                                                             max_dimension=5,
                                                              n_jobs=-1)
             delay_list.append(delay)
             dim_list.append(dim)

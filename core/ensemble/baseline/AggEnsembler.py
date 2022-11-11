@@ -13,17 +13,14 @@ from core.operation.utils.analyzer import PerformanceAnalyzer
 class AggregationEnsemble(BaseEnsemble):
 
     def __init__(self,
-                 train_predictions,
-                 train_target,
-                 test_target,
                  ensemble_strategy: list = None):
         super().__init__()
-        self.train_predictions = train_predictions
-        self.train_target = train_target
-        self.test_target = test_target
+        self.train_predictions = None
+        self.train_target = None
+        self.test_target = None
         self.launch = None
         self.ensemle_strategy_dict = select_hyper_param('stat_methods_ensemble')
-        self.ensemle_strategy_dict['WeightedEnsemble'] = self.weighted_strategy
+        # self.ensemle_strategy_dict['WeightedEnsemble'] = self.weighted_strategy
 
         self.ensemle_strategy = ensemble_strategy
         if self.ensemle_strategy is None:
@@ -180,32 +177,37 @@ class AggregationEnsemble(BaseEnsemble):
         ensemble_predict = self.weighted_majority_voting(model_votes, model_weights)
         return ensemble_predict
 
-    def ensemble(self, predictions: dict) -> dict:
+    def ensemble(self, predictions: dict, single_mode=False) -> dict:
         ensemble_dict = {}
-        for launch in predictions:
-            ensemble_dict[launch] = {}
-            self.launch = launch
-            for model in predictions[launch]:
-                ensemble_dict[launch].update({model: predictions[launch][model]['metrics']})
-
+        if single_mode:
             for strategy in self.ensemle_strategy:
-                ensemble_dict[launch].update({strategy: self._ensemble_by_method(predictions[launch],
-                                                                                 strategy=strategy)})
+                ensemble_dict.update({f'{strategy}': self._ensemble_by_method(predictions,
+                                                                              strategy=strategy)})
+        else:
+            for launch in predictions:
+                ensemble_dict[launch] = {}
+                self.launch = launch
+                for model in predictions[launch]:
+                    ensemble_dict[launch].update({model: predictions[launch][model]['metrics']})
+
+                for strategy in self.ensemle_strategy:
+                    ensemble_dict[launch].update({strategy: self._ensemble_by_method(predictions[launch],
+                                                                                     strategy=strategy)})
         return ensemble_dict
 
     def _ensemble_by_method(self, predictions, strategy):
         transformed_predictions = self._check_predictions(predictions, strategy_name=strategy)
-        average_predictions = self.ensemle_strategy_dict[strategy](transformed_predictions, axis=1)
+        average_proba_predictions = self.ensemle_strategy_dict[strategy](transformed_predictions, axis=1)
 
-        if average_predictions.ndim != 1:
-            label_predictions = np.argmax(average_predictions, axis=1)
-        else:
-            label_predictions = average_predictions
+        if average_proba_predictions.shape[1] == 1:
+            average_proba_predictions = np.concatenate([average_proba_predictions, 1 - average_proba_predictions],
+                                                       axis=1)
 
-        metrics_dict = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
-                                                               predicted_labels=label_predictions)
+        label_predictions = np.argmax(average_proba_predictions, axis=1)
 
-        return metrics_dict
+        return {'target': self.target,
+                'label': label_predictions,
+                'proba': average_proba_predictions}
 
     def _check_predictions(self, predictions, strategy_name):
         """Check if the predictions array has the correct size.
@@ -221,7 +223,13 @@ class AggregationEnsemble(BaseEnsemble):
             try:
                 list_proba = []
                 for model_preds in predictions:
-                    list_proba.append(predictions[model_preds]['predictions_proba'])
+                    proba_frame = predictions[model_preds]
+                    try:
+                        list_proba.append(proba_frame['predictions_proba'])
+                    except KeyError:
+                        self.target = proba_frame['Target'].values
+                        proba_frame = proba_frame.loc[:, ~proba_frame.columns.isin(['Target', 'Preds'])]
+                        list_proba.append(proba_frame.values)
                 return np.array(list_proba).transpose((1, 0, 2))
             except Exception:
                 raise ValueError(

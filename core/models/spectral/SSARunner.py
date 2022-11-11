@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
+from core.api.utils.checkers_collections import DataCheck
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
@@ -43,6 +43,7 @@ class SSARunner(ExperimentRunner):
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
+        self.datacheck = DataCheck(logger=self.logger)
         self.window_sizes = window_sizes
         self.vis_flag = False
         self.rank_hyper = None
@@ -80,7 +81,7 @@ class SSARunner(ExperimentRunner):
             path_to_save = os.path.join(PROJECT_PATH, 'results_of_experiments', 'components', f'components_{idx}.png')
             plt.savefig(path_to_save)
 
-    def _ts_chunk_function(self, ts_data: pd.DataFrame, window_length: int) -> list:
+    def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
 
         ts = self.check_for_nan(ts_data)
         specter = self.spectrum_extractor(time_series=ts, window_length=self.current_window)
@@ -114,7 +115,7 @@ class SSARunner(ExperimentRunner):
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = self.train_feats
         else:
-            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data, window_length=self.window_length)
+            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
             eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
 
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
@@ -125,7 +126,7 @@ class SSARunner(ExperimentRunner):
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
-
+        eigenvectors_list = list(map(lambda x: self.datacheck.check_data(x,return_df=True), eigenvectors_list))
         if window_mode:
             gen = self.aggregator.create_baseline_features
             lambda_function_for_stat_features = lambda x: self.apply_window_for_stat_feature(x.T,
@@ -206,7 +207,6 @@ class SSARunner(ExperimentRunner):
         self.current_window = window_list[index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
         self.min_rank = int(np.round(np.mean([x.shape[1] for x in eigenvectors_list])))
-        self.rank_hyper = self.min_rank
         eigenvectors_and_rank = self.generate_vector_from_ts(x_train)
         self.eigenvectors_list_train = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
         self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)

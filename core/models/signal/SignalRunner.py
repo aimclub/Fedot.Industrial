@@ -125,11 +125,10 @@ class SignalRunner(ExperimentRunner):
 
     @time_it
     def get_features(self, ts_data: pd.DataFrame,
-                     dataset_name: str = None,
-                     target: np.ndarray = None) -> pd.DataFrame:
+                     dataset_name: str = None) -> pd.DataFrame:
 
         if not self.wavelet:
-            train_feats = self._choose_best_wavelet(ts_data, target)
+            train_feats = self._choose_best_wavelet(ts_data)
             self.train_feats = train_feats
             return self.train_feats
         else:
@@ -139,45 +138,7 @@ class SignalRunner(ExperimentRunner):
             self.test_feats = test_feats
         return self.test_feats
 
-    def _validate_window_length(self, features: pd.DataFrame, target: np.ndarray):
-        """Validate window length using one-node (random forest) Fedot model.
-
-        Args:
-            features (pd.DataFrame): features to be validated.
-            target (np.ndarray): target values.
-
-        Returns:
-            tuple: tuple of score_f1, score_roc_auc scores.
-        """
-        node = PrimaryNode('rf')
-        pipeline = Pipeline(node)
-        n_samples = round(features.shape[0] * 0.7)
-
-        train_data = InputData(features=features.values[:n_samples, :],
-                               target=target[:n_samples],
-                               idx=np.arange(0, len(target[:n_samples])),
-                               task=Task(TaskTypesEnum('classification')),
-                               data_type=DataTypesEnum.table)
-
-        test_data = InputData(features=features.values[n_samples:, :],
-                              target=target[n_samples:],
-                              idx=np.arange(0, len(target[n_samples:])),
-                              task=Task(TaskTypesEnum('classification')),
-                              data_type=DataTypesEnum.table)
-
-        pipeline.fit(input_data=train_data)
-        prediction = pipeline.predict(input_data=test_data, output_mode='labels')
-        metric_f1 = F1(target=prediction.target, predicted_labels=prediction.predict)
-        score_f1 = metric_f1.metric()
-
-        score_roc_auc = self.get_roc_auc_score(prediction_labels=prediction.predict,
-                                               test_labels=prediction.target)
-        if not score_roc_auc:
-            score_roc_auc = 0.5
-
-        return score_f1, score_roc_auc
-
-    def _choose_best_wavelet(self, X_train: pd.DataFrame, y_train: np.ndarray) -> pd.DataFrame:
+    def _choose_best_wavelet(self, X_train: pd.DataFrame) -> pd.DataFrame:
         """Chooses the best wavelet for feature extraction.
 
         Args:
@@ -196,16 +157,9 @@ class SignalRunner(ExperimentRunner):
 
             train_feats = self.generate_vector_from_ts(X_train)
             train_feats = pd.concat(train_feats)
-
-            self.logger.info(f'Validate model for wavelet  - {wavelet}')
-
-            score_f1, score_roc_auc = self._validate_window_length(features=train_feats, target=y_train)
-            score_f1, score_roc_auc = round(score_f1, 3), round(score_roc_auc, 3)
-
-            self.logger.info(f'Obtained metric for wavelet {wavelet}  - F1, ROC_AUC - {score_f1, score_roc_auc}')
-
-            metric_list.append((score_f1, score_roc_auc))
+            filtred_df = self.delete_col_by_var(train_feats)
             feature_list.append(train_feats)
+            metric_list.append((filtred_df.shape[0], filtred_df.shape[1]))
 
         max_score = [sum(x) for x in metric_list]
         index_of_window = int(max_score.index(max(max_score)))
