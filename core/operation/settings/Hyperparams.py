@@ -92,6 +92,7 @@ DATASETS_PARAMETERS = {
             'download': False,
             'transform': Compose(
                 [
+                    Resize((32, 32)),
                     ToTensor(),
                     Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
                 ]
@@ -114,6 +115,7 @@ DATASETS_PARAMETERS = {
             'download': False,
             'transform': Compose(
                 [
+                    Resize((32, 32)),
                     ToTensor(),
                     Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
                 ]
