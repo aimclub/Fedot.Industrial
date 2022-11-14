@@ -1,0 +1,5 @@
+DELIMITER = ";"
+DATA_FORMAT = "iso-8859-1"
+
+
+APPROX_COUNT = 30
