@@ -8,7 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
 from core.models.cnn.decomposed_conv import DecomposedConv2d
-from core.operation.utils.sfp_tools import zerolize_filters
+from core.models.cnn.sfp_models import SFP_MODELS
+from core.operation.utils.sfp_tools import zerolize_filters, prune_resnet_state_dict
 from core.operation.utils.svd_tools import energy_threshold_pruning, decompose_module
 
 
@@ -138,7 +139,7 @@ class SFPOptimization(GeneralizedStructureOptimization):
     Args:
         experimenter: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
-        pruning_ratio: pruning hyperparameter, percentage of pruned filters.
+        pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
     """
 
     def __init__(
@@ -157,6 +158,24 @@ class SFPOptimization(GeneralizedStructureOptimization):
         for module in self.exp.get_optimizable_module().modules():
             if isinstance(module, torch.nn.Conv2d):
                 zerolize_filters(conv=module, pruning_ratio=self.pruning_ratio)
+
+    def final_optimize(self) -> None:
+        """Apply optimization after training."""
+        self.exp.load_model_state_dict()
+        self.exp.summary_per_class = False
+        default_scores = self.exp.val_loop()
+        pruned_sd = prune_resnet_state_dict(self.exp.model.state_dict())
+        self.exp.model = SFP_MODELS[self.exp.optimizable_module_name](
+            num_classes=self.exp.num_classes,
+            pruning_ratio=self.pruning_ratio
+        )
+        self.exp.model.load_state_dict(pruned_sd)
+        self.exp.model.to(self.exp.device)
+        val_scores = self.exp.val_loop()
+        for key, score in val_scores.items():
+            print(f"{key}: {default_scores[key]:.2f}, {score:.2f}")
+        print(f"SFP pruned size: {self.exp.size_of_model():.2f} MB")
+        self.exp.save_model()
 
 
 OPTIMIZATIONS = {
