@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from torch.nn.functional import softmax
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
@@ -16,10 +16,7 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
 from core.models.cnn.classification_models import MODELS
-from core.operation.utils.classification_dataloaders import \
-    get_classification_dataloaders
 from core.operation.utils.cv_model_optimizers import OPTIMIZATIONS
-from core.operation.utils.object_detection_dataloaders import get_detection_dataloaders
 
 
 def _parameter_value_check(parameter: str, value: str, valid_values: Set[str]) -> None:
@@ -41,8 +38,11 @@ class _GeneralizedExperimenter:
 
     Args:
         model: Trainable model.
-        train_dl: Train dataloader.
-        val_dl: Validation dataloader.
+        optimizable_module_name: Name of the module whose structure will be optimized.
+        train_ds: Train dataset.
+        val_ds: Validation dataset.
+        num_classes: Number of classes in the dataset.
+        dataloader_params: Parameter dictionary passed to dataloaders.
         name: Description of the experiment.
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
@@ -54,8 +54,11 @@ class _GeneralizedExperimenter:
     def __init__(
         self,
         model: torch.nn.Module,
-        train_dl: DataLoader,
-        val_dl: DataLoader,
+        optimizable_module_name: str,
+        train_ds: Dataset,
+        val_ds: Dataset,
+        num_classes: int,
+        dataloader_params: Dict,
         name: str,
         models_path: str,
         summary_path: str,
@@ -64,13 +67,15 @@ class _GeneralizedExperimenter:
         gpu: bool = True,
     ) -> None:
         self.model = model
+        self.optimizable_module_name = optimizable_module_name
         self.default_scores = {
             'size': self.size_of_model(),
             'n_params': self.number_of_params(),
         }
         print(f"Default size: {self.default_scores['size']:.2f} MB")
-        self.train_dl = train_dl
-        self.val_dl = val_dl
+        self.num_classes = num_classes
+        self.train_dl = DataLoader(dataset=train_ds, shuffle=True, **dataloader_params)
+        self.val_dl = DataLoader(dataset=val_ds, shuffle=False, **dataloader_params)
         self.name = name
         self.models_path = models_path
         self.summary_path = summary_path
@@ -261,8 +266,11 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
     """Class for working with classification models.
 
     Args:
-        dataset: Name of dataset.
-        dataloader_params: Parameter dictionary passed to dataloaders getter.
+        dataset_name: Name of dataset.
+        train_dataset: Train dataset.
+        val_dataset: Validation dataset.
+        num_classes: Number of classes in the dataset.
+        dataloader_params: Parameter dictionary passed to dataloaders.
         model: Name of model.
         model_params: Parameter dictionary passed to model initialization.
         models_saving_path: Path to folder for saving models.
@@ -290,7 +298,10 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
 
     def __init__(
         self,
-        dataset: str,
+        dataset_name: str,
+        train_dataset: Dataset,
+        val_dataset: Dataset,
+        num_classes: int,
         dataloader_params: Dict,
         model: str,
         model_params: Dict,
@@ -321,14 +332,14 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             valid_values={'f1', 'accuracy', 'precision', 'recall', 'roc_auc'},
         )
 
-        train_dl, val_dl, num_classes = get_classification_dataloaders(
-            dataset, **dataloader_params
-        )
         super().__init__(
             model=MODELS[model](num_classes=num_classes, **model_params),
-            train_dl=train_dl,
-            val_dl=val_dl,
-            name=f"{dataset}/{model}",
+            optimizable_module_name=model,
+            train_ds=train_dataset,
+            val_ds=val_dataset,
+            num_classes=num_classes,
+            dataloader_params=dataloader_params,
+            name=f"{dataset_name}/{model}",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
@@ -429,8 +440,11 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
     """Class for working with Faster R-CNN model.
 
         Args:
-        dataset: Name of dataset.
-        dataloaderparams: Parameter dictionary passed to dataloaders getter.
+        dataset_name: Name of dataset.
+        train_dataset: Train dataset.
+        val_dataset: Validation dataset.
+        num_classes: Number of classes in the dataset.
+        dataloader_params: Parameter dictionary passed to dataloaders.
         model_params: Parameter dictionary passed to ``fasterrcnn_resnet50_fpn``.
         models_saving_path: Path to folder for saving models.
         optimizer: Model optimizer, e.g. ``torch.optim.SGD``.
@@ -454,7 +468,10 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
 
     def __init__(
         self,
-        dataset: str,
+        dataset_name: str,
+        train_dataset: Dataset,
+        val_dataset: Dataset,
+        num_classes: int,
         dataloader_params: Dict,
         model_params: Dict,
         models_saving_path: str,
@@ -480,19 +497,18 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             valid_values={'map', 'map_50', 'map_75'},
         )
 
-        train_dl, val_dl, num_classes = get_detection_dataloaders(
-            dataset, **dataloader_params
-        )
-
         model = fasterrcnn_resnet50_fpn(**model_params)
         in_features = model.roi_heads.box_predictor.cls_score.in_features
         model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
         super().__init__(
             model=model,
-            train_dl=train_dl,
-            val_dl=val_dl,
-            name=f"{dataset}/FasterR-CNN/ResNet50",
+            optimizable_module_name="ResNet50",
+            train_ds=train_dataset,
+            val_ds=val_dataset,
+            num_classes=num_classes,
+            dataloader_params=dataloader_params,
+            name=f"{dataset_name}/FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
