@@ -103,7 +103,8 @@ class Industrial(Fedot):
         self.logger.info(f'*------------START FIT MODEL------------*')
         fitted_model, train_features = self.model_composer.fit(train_features=train_features,
                                                                train_target=train_target,
-                                                               dataset_name=dataset_name)
+                                                               dataset_name=dataset_name,
+                                                               baseline_type=self.config_dict['baseline'])
         return fitted_model, train_features
 
     def run_experiment(self, config_name):
@@ -118,9 +119,9 @@ class Industrial(Fedot):
         self.config_dict = self.YAML.init_experiment_setup(config_name)
         for dataset_name in self.config_dict['datasets_list']:
             experiment_results[dataset_name] = {}
-
+            experiment_dict = copy.deepcopy(self.config_dict)
             experiment_results[dataset_name]['Original'] = self._run_modelling_cycle(
-                experiment_dict=self.config_dict,
+                experiment_dict=experiment_dict,
                 task_type=self.config_dict['task'],
                 n_cycles=self.config_dict['launches'],
                 dataset_name=dataset_name)
@@ -147,11 +148,15 @@ class Industrial(Fedot):
         self.logger.info(f'*------------TYPE OF ML TASK - {task_type}------------*')
         modelling_results = dict()
         train_data, test_data, dataset_metainfo = self.reader.read(dataset_name=dataset_name)
-
         if train_data is None:
             return None
 
         # train_data, validation_data = self._create_validation_dataset(train_data=train_data)
+        if train_data[0].shape[1] > 800:
+            for exclude in ['topological', 'spectral', 'window_spectral']:
+                self.logger.info(f'*------------{exclude} MODEL WAS EXCLUDE. '
+                                 f'REASON: TS DATA LENGTH - {train_data[0].shape[1]}------------*')
+                experiment_dict['feature_generator'].pop(exclude, None)
 
         for runner_name, runner in experiment_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
@@ -184,6 +189,11 @@ class Industrial(Fedot):
                     runner_result['metrics'] = self.get_metrics(target=runner_result['test_target'],
                                                                 prediction_proba=runner_result['class_probability'],
                                                                 prediction_label=runner_result['label'])
+                    self.logger.info(f'*------------METRICS AT TEST DATASET------------*')
+                    metric_df = runner_result['metrics']['metrics']
+                    self.logger.info(f'*-----------------------------------*')
+                    self.logger.info(f'*------------{metric_df}------------*')
+                    self.logger.info(f'*-----------------------------------*')
                     modelling_results[runner_name][launch] = runner_result
             except Exception as ex:
                 self.logger.info(f'PROBLEM WITH {runner_name} AT LAUNCH {launch}. REASON - {ex}')

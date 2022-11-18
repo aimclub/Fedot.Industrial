@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,14 @@ class ResultsParser:
     def __init__(self):
         self.exp_path = os.path.join(PROJECT_PATH, 'results_of_experiments')
         self._metrics = ('f1', 'roc_auc')
+        self.exp_folders = ['window_spectral',
+                            'topological',
+                            'recurrence',
+                            'ensemble',
+                            'quantile',
+                            'spectral',
+                            'wavelet',
+                            'window_quantile']
         self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.plk')
 
     def run(self):
@@ -30,26 +39,27 @@ class ResultsParser:
 
         return exp_results
 
-    def read_proba(self, launch: int = 1, path=None):
-        exp_folders = ['window_spectral',
-                       'ensemble',
-                       'quantile',
-                       'spectral',
-                       'wavelet',
-                       'window_quantile']
+    def read_proba(self, launch: Union[int, str] = 1, path=None, exp_folders: list = None):
+        if exp_folders is None:
+            exp_folders = self.exp_folders
         current = []
         proba_dict = {}
         metric_dict = {}
         filtred_folders = []
         for folder in exp_folders:
             try:
-                path = os.path.join(self.exp_path, folder)
-                datasets = os.listdir(path)
+                path_to_results = os.path.join(self.exp_path, path, folder)
+                datasets = os.listdir(path_to_results)
                 current.append(datasets)
                 filtred_folders.append(folder)
             except Exception:
                 print(f'{folder} is empty')
-        dataset_filtred = set.intersection(*map(set, current))
+        current = sorted(current, key=lambda x: len(x), reverse=True)
+        dataset_path = [list(filter(lambda x: x in current[0], sublist)) for sublist in current[1:]]
+        _ = []
+        for pth in dataset_path:
+            _.extend(pth)
+        dataset_filtred = list(set(_))
         for filtred in filtred_folders:
             for dataset in dataset_filtred:
                 try:
@@ -57,16 +67,34 @@ class ResultsParser:
                         proba_dict[dataset] = {}
                     if dataset not in metric_dict.keys():
                         metric_dict[dataset] = {}
-                    metric_path = os.path.join(self.exp_path, filtred, dataset, str(launch), 'test_results',
-                                               'metrics.csv')
-                    proba_path = os.path.join(self.exp_path, filtred, dataset, str(launch), 'test_results',
-                                              'probs_preds_target.csv')
+                    if type(launch) == str:
+                        best_metric = 0
+                        launch = 1
+                        for dir in os.listdir(os.path.join(self.exp_path, path, filtred, dataset)):
+                            metric_path = os.path.join(self.exp_path, path, filtred, dataset, dir, 'test_results',
+                                                       'metrics.csv')
+                            metrics = pd.read_csv(metric_path, index_col=0)
+                            if 'index' in metrics.columns:
+                                del metrics['index']
+                                metrics = metrics.T
+                                metrics = metrics.rename(columns=metrics.iloc[0])
+                                metrics = metrics[1:]
+                            metric_sum = metrics['roc_auc'].values[0] + metrics['f1'].values[0]
+                            if metric_sum > best_metric:
+                                best_metric = metric_sum
+                                launch = dir
+
+                    metric_path = os.path.join(self.exp_path, path, filtred, dataset, str(launch), 'test_results',
+                                                   'metrics.csv')
+                    proba_path = os.path.join(self.exp_path, path, filtred, dataset, str(launch), 'test_results',
+                                                  'probs_preds_target.csv')
                     proba_dict[dataset].update({filtred: pd.read_csv(proba_path, index_col=0)})
                     metrics = pd.read_csv(metric_path, index_col=0)
-                    del metrics['index']
-                    metrics = metrics.T
-                    metrics = metrics.rename(columns=metrics.iloc[0])
-                    metrics = metrics[1:]
+                    if 'index' in metrics.columns:
+                        del metrics['index']
+                        metrics = metrics.T
+                        metrics = metrics.rename(columns=metrics.iloc[0])
+                        metrics = metrics[1:]
                     metric_dict[dataset].update({filtred: metrics})
                 except Exception:
                     print(f'{folder} and {dataset} doesnt exist.')

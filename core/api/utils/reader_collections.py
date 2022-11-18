@@ -41,6 +41,9 @@ class YamlReader:
                 self.config_dict = {**config_dict_template, **self.config_dict}
                 del self.config_dict['path_to_config']
 
+            if 'baseline' not in self.config_dict.keys():
+                self.config_dict['baseline'] = None
+
             self.logger.info(f'''Experiment setup:
             datasets - {self.config_dict['datasets_list']},
             feature generators - {self.config_dict['feature_generator']},
@@ -49,6 +52,7 @@ class YamlReader:
 
     def init_experiment_setup(self, config_name):
         self.read_yaml_config(config_name=config_name)
+
         for dataset_name in self.config_dict['datasets_list']:
             train_data, _ = DataLoader(dataset_name).load_data()
             self.experiment_check.check_window_sizes(config_dict=self.config_dict,

@@ -32,3 +32,4 @@ class EnsembleGenerator(Enum):
 
 class TaskGenerator(Enum):
     TSC = TimeSeriesClassifier
+    TSCImage = TimeSeriesClassifier

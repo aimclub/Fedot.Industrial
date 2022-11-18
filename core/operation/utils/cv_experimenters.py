@@ -291,20 +291,20 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
     def __init__(
         self,
         dataset: str,
-        dataloader_params: Dict,
         model: str,
         model_params: Dict,
         models_saving_path: str,
-        optimizer: Type[torch.optim.Optimizer],
         optimizer_params: Dict,
-        target_loss: Type[torch.nn.Module],
         loss_params: Dict,
-        structure_optimization: str,
-        structure_optimization_params: Dict,
+        dataloader_params: Dict = None,
+        structure_optimization: str = None,
+        structure_optimization_params: Dict = None,
+        optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
+        target_loss: Type[torch.nn.Module] = torch.nn.CrossEntropyLoss,
         target_metric: str = 'f1',
         summary_path: str = 'runs',
         summary_per_class: bool = False,
-        gpu: bool = True,
+        gpu: bool = False,
     ) -> None:
 
         _parameter_value_check(
@@ -321,9 +321,12 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             valid_values={'f1', 'accuracy', 'precision', 'recall', 'roc_auc'},
         )
 
-        train_dl, val_dl, num_classes = get_classification_dataloaders(
-            dataset, **dataloader_params
-        )
+        if dataloader_params is not None:
+            train_dl, val_dl, num_classes = get_classification_dataloaders(
+                dataset, **dataloader_params)
+        else:
+            train_dl, val_dl, num_classes = get_classification_dataloaders(
+                dataset, **dataloader_params)
         super().__init__(
             model=MODELS[model](num_classes=num_classes, **model_params),
             train_dl=train_dl,
@@ -335,6 +338,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             target_metric=target_metric,
             gpu=gpu,
         )
+
         self.structure_optimization = OPTIMIZATIONS[structure_optimization](
             experimenter=self, **structure_optimization_params
         )

@@ -18,37 +18,40 @@ class ResultSaver:
                      prediction: dict
                      ):
         for launch in prediction:
-            metrics = prediction[launch]['metrics']
-            predictions_proba, predictions = prediction[launch]['predictions_proba'], prediction[launch]['prediction']
-            train_features, test_features = prediction[launch]['train_features'], prediction[launch]['test_features']
-            train_target, test_target = prediction[launch]['train_target'], prediction[launch]['test_target']
-            path_to_save = prediction[launch]['path_to_save']
-            path_results = os.path.join(path_to_save, 'test_results')
+            result_at_launch = prediction[launch]
+            features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
+            features_list = [result_at_launch['train_features'],
+                             result_at_launch['train_target'],
+                             result_at_launch['test_features'],
+                             result_at_launch['test_target']]
+            path_results = os.path.join(result_at_launch['path_to_save'], 'test_results')
             os.makedirs(path_results, exist_ok=True)
 
             try:
-                prediction[launch]['fitted_predictor'].current_pipeline.save(path_results)
+                result_at_launch['fitted_predictor'].current_pipeline.save(path_results)
             except Exception as ex:
                 self.logger.error(f'Can not save pipeline: {ex}')
 
-            features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
-            features_list = [train_features, train_target, test_features, test_target]
-
             for name, features in zip(features_names, features_list):
-                pd.DataFrame(features).to_csv(os.path.join(path_to_save, name))
+                pd.DataFrame(features).to_csv(os.path.join(result_at_launch['path_to_save'], name))
 
-            if type(predictions_proba) is not pd.DataFrame:
-                df_preds = pd.DataFrame(predictions_proba)
-                df_preds['Target'] = test_target
-                df_preds['Preds'] = predictions
+            if type(result_at_launch['class_probability']) is not pd.DataFrame:
+                df_preds = pd.DataFrame(result_at_launch['class_probability'])
+                df_preds.columns = [f'Class_{x}' for x in df_preds.columns]
+                df_preds['Target'] = result_at_launch['test_target']
+                df_preds['Predicted_labels'] = result_at_launch['label']
             else:
-                df_preds = predictions_proba
-                df_preds['Target'] = test_target.values
+                df_preds = result_at_launch['class_probability']
+                df_preds['Target'] = result_at_launch['test_target'].values
 
-            if type(metrics) is str:
+            if type(result_at_launch['metrics']) is str:
                 df_metrics = pd.DataFrame()
             else:
-                df_metrics = pd.DataFrame.from_records(data=[x for x in metrics.items()]).reset_index()
+                df_metrics = pd.DataFrame.from_records(data=[x for x in result_at_launch['metrics']['metrics'].items()],
+                                                       columns=['Metric_name', 'Metric_value']).reset_index()
+                del df_metrics['index']
+                df_metrics = df_metrics.T
+                df_metrics = pd.DataFrame(df_metrics.values[1:], columns=df_metrics.iloc[0])
 
             for p, d in zip(['probs_preds_target.csv', 'metrics.csv'],
                             [df_preds, df_metrics]):

@@ -228,7 +228,11 @@ class AggregationEnsemble(BaseEnsemble):
                         list_proba.append(proba_frame['predictions_proba'])
                     except KeyError:
                         self.target = proba_frame['Target'].values
-                        proba_frame = proba_frame.loc[:, ~proba_frame.columns.isin(['Target', 'Preds'])]
+                        if 'Preds' in proba_frame.columns:
+                            filter_col = ['Target', 'Preds']
+                        else:
+                            filter_col = ['Target', 'Predicted_labels']
+                        proba_frame = proba_frame.loc[:, ~proba_frame.columns.isin(filter_col)]
                         list_proba.append(proba_frame.values)
                 return np.array(list_proba).transpose((1, 0, 2))
             except Exception:
