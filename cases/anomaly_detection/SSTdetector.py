@@ -1,3 +1,5 @@
+from typing import Union, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance_matrix
@@ -29,9 +31,6 @@ class SingularSpectrumTransformation:
         view: if true, not filtered score will be returned.
         is_scaled: if false, min-max scaling will be applied.
 
-    Attributes:
-        length_ts(int): length of the time_series.
-
     """
 
     def __init__(self,
@@ -40,7 +39,7 @@ class SingularSpectrumTransformation:
                  trajectory_window_length: int = None,
                  ts_window_length: int = None,
                  lag: int = None,
-                 is_scaled = False,
+                 is_scaled: bool = False,
                  view: bool = True,
                  n_components: int = None):
 
@@ -71,24 +70,40 @@ class SingularSpectrumTransformation:
         self.n_components = None
 
     def score_offline_2d(self, dynamic_mode: bool = True) -> list:
+        """Run function of offline score calculation. FOR 2D or more D.
+
+        Args:
+            dynamic_mode: type of model to check differences in the sequence
+
+        Returns:
+            filtered_score: represented a list of values with 0 and 1 where 1 is an anomaly if view is True
+
+        """
         if not self.is_scaled:
             x_scaled = MinMaxScaler(feature_range=(1, 2)) \
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
-
         return self._score_offline_2d(x_scaled, dynamic_mode=dynamic_mode)
 
     def score_offline_2d_average(self, dynamic_mode: bool = True) -> list:
+        """Run function of offline score calculation with average features. FOR 2D or more D.
+
+        Args:
+            dynamic_mode: type of model to check differences in the sequence
+
+        Returns:
+            filtered_score: represented a list of values with 0 and 1 where 1 is an anomaly if view is True
+
+        """
         if not self.is_scaled:
             x_scaled = MinMaxScaler(feature_range=(1, 2)) \
                            .fit_transform(self.ts.reshape(-1, 1))[:, 0]
         else:
             x_scaled = self.ts
-        score = self._score_offline_2d_average(x_scaled, dynamic_mode=dynamic_mode)
-        return score
+        return self._score_offline_2d_average(x_scaled, dynamic_mode=dynamic_mode)
 
-    def _get_window_from_ts_complex(self, ts_complex, start: int, end: int) -> list:
+    def _get_window_from_ts_complex(self, ts_complex: list, start: int, end: int) -> list:
         window: list = []
         if start < 0 or start >= len(ts_complex[0]):
             raise ValueError("Start value is less than zero or more then length of time series!")
@@ -104,7 +119,7 @@ class SingularSpectrumTransformation:
                 window[j].append(ts_complex[j][i])
         return window
 
-    def _score_offline_2d_average(self, x_scaled, dynamic_mode: bool = True) -> list:
+    def _score_offline_2d_average(self, x_scaled: list, dynamic_mode: bool = True) -> list:
         """Core implementation of offline score calculation with average features. FOR 2D or more D.
 
         Args:
@@ -121,12 +136,7 @@ class SingularSpectrumTransformation:
             start_idx = step
             end_idx = len(x_scaled[0]) - step
             horm_hist = None
-            temp_average_features = [[]] * len(x_scaled)
-            for current_index in range(start_idx, end_idx, step):
-                current_features = self.current_features_2d(current_index, step, x_scaled)
-                for i in range(len(x_scaled)):
-                    temp_average_features[i].append(current_features[i])
-            average_features = self.features_average(temp_average_features)  # 1
+            average_features = self.average_features_2d(end_idx, start_idx, x_scaled)
 
             for current_index in range(start_idx, end_idx, step):
                 current_features = self.current_features_2d(current_index, step, x_scaled)
@@ -139,12 +149,8 @@ class SingularSpectrumTransformation:
             end_idx = len(x_scaled[0]) - self.ts_window_length - 1
             horm_hist = None
             x_history_arr = []
-            temp_average_features = [[]] * len(x_scaled)
-            for current_index in range(start_idx, end_idx, self.lag):
-                current_features = self.current_features_2d(current_index, self.lag, x_scaled)
-                for i in range(len(x_scaled)):
-                    temp_average_features[i].append(current_features[i])
-            average_features = self.features_average(temp_average_features)
+            average_features = self.average_features_2d(end_idx, start_idx, x_scaled)
+            x_history = None
             for ts_number in range(len(average_features)):
                 x_history = self.spectrum_extractor.ts_vector_to_trajectory_matrix(
                     timeseries=average_features[ts_number],
@@ -161,6 +167,7 @@ class SingularSpectrumTransformation:
                                                             (current_features.shape[1] * current_features.shape[2]))
 
                 x_test_arr = []
+                x_test = None
                 for ts_number in range(len(current_features)):
                     x_test = self.spectrum_extractor.ts_vector_to_trajectory_matrix(
                         timeseries=current_features[ts_number],
@@ -172,7 +179,7 @@ class SingularSpectrumTransformation:
                     self._n_components(x_test, x_history)
 
                 score_list.append(
-                    self._sst_svd(x_test_arr, x_history_arr, self.n_components))
+                    self._sst_svd(x_test_arr, x_history_arr))
         score_diff = np.diff(score_list)
         q_95 = np.quantile(score_diff, self.quantile_rate)
         filtered_score = score_diff
@@ -181,7 +188,27 @@ class SingularSpectrumTransformation:
             filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         return filtered_score
 
-    def current_features_2d(self, current_index, step, x_scaled) -> np.asarray:
+    def average_features_2d(self, end_idx: int = None, start_idx: int = None, x_scaled: list = None) -> list:
+        """Core implementation of extracting average features. FOR 2D or more D.
+
+        Args:
+            end_idx: end index for time series
+            start_idx: start index for time series
+            x_scaled: normalized time series if is_scaled False
+
+        Returns:
+            filtered_score: represented a list of values with 0 and 1 where 1 is an anomaly if view is True
+
+        """
+        temp_average_features = [[]] * len(x_scaled)
+        for current_index in range(start_idx, end_idx, self.lag):
+            current_features = self.current_features_2d(current_index, self.lag, x_scaled)
+            for i in range(len(x_scaled)):
+                temp_average_features[i].append(current_features[i])
+        average_features = self.features_average(temp_average_features)
+        return average_features
+
+    def current_features_2d(self, current_index: int, step: int, x_scaled: list) -> np.asarray:
         """Implementation of offline score calculation function - features. FOR 2D or more D.
 
         Args:
@@ -198,11 +225,11 @@ class SingularSpectrumTransformation:
         current_features = np.asarray(current_features)
         return current_features
 
-    def features_average(self, temp_average_features) -> list:
+    def features_average(self, temp_average_features: list) -> list:
         """Implementation of offline score calculation function - features_average. FOR 2D or more D.
 
         Args:
-            temp_average_features:
+            temp_average_features: list of matrixes for a range of indexes over time series
 
         Returns:
             average_features: a list of averages features in chosen subsequence
@@ -219,7 +246,7 @@ class SingularSpectrumTransformation:
         )
         return average_features
 
-    def _score_offline_2d(self, x_scaled, dynamic_mode: bool = True) -> list:
+    def _score_offline_2d(self, x_scaled: list = None, dynamic_mode: bool = True) -> list:
         """Core implementation of offline score calculation. FOR 2D or more D.
 
         Args:
@@ -258,11 +285,12 @@ class SingularSpectrumTransformation:
         score_diff = np.diff(score_list)
         q_95 = np.quantile(score_diff, self.quantile_rate)
         self.n_components = None
+        filtered_score = score_diff
         if self.view:
             filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         return filtered_score
 
-    def score_offline(self, _x=None, dynamic_mode: bool = True) -> list:
+    def score_offline(self, _x: list = None, dynamic_mode: bool = True) -> list:
         """Calculate anomaly score (offline) for 1D.
 
         Args:
@@ -281,7 +309,7 @@ class SingularSpectrumTransformation:
             x_scaled = _x
         return self._score_offline(x_scaled, dynamic_mode=dynamic_mode)
 
-    def _score_offline(self, _x, dynamic_mode=True) -> list:
+    def _score_offline(self, _x: list = None, dynamic_mode=True) -> list:
         """Core implementation of offline score calculation.
 
         Args:
@@ -306,7 +334,7 @@ class SingularSpectrumTransformation:
                     timeseries=self.ts[start_idx_test:end_idx_test], K=_K, L=_L)
                 if self.n_components is None:
                     self._n_components(x_history, _L)
-                score_list[t - 1] = self._sst_svd(x_test, x_history, self.n_components)
+                score_list[t - 1] = self._sst_svd(x_test, x_history)
 
         else:
             x_history = self.spectrum_extractor.ts_vector_to_trajectory_matrix(
@@ -317,7 +345,7 @@ class SingularSpectrumTransformation:
                     timeseries=self.ts[start_idx_test:end_idx_test], K=_K, L=_L)
                 if self.n_components is None:
                     self._n_components(x_history, _L)
-                score_list[t - 1] = self._sst_svd(x_test, x_history, self.n_components)
+                score_list[t - 1] = self._sst_svd(x_test, x_history)
 
         score_diff = np.diff(score_list)
         q_95 = np.quantile(score_diff, self.quantile_rate)
@@ -326,7 +354,7 @@ class SingularSpectrumTransformation:
             filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
         return filtered_score
 
-    def _n_components(self, x_history, _l) -> int:
+    def _n_components(self, x_history: list = None, _l: int = None):
         """Number of relevant components which represent changing in time series.
 
         Args:
@@ -342,18 +370,18 @@ class SingularSpectrumTransformation:
         exp_var_by_component = list(filter(lambda _s: _s > 0.05, exp_var_by_component))
         self.n_components = len(exp_var_by_component)
 
-    def _sst_svd(self, x_test: list, x_history: list, n_components: int) -> float:
+    def _sst_svd(self, x_test: list = None, x_history: list = None) -> float:
         """Singular value decomposition to count distance score between matrixes
 
         Args:
             x_test: current matrix of features
             x_history: historical matrix of features
-            n_components: number of components which represent  changing in time series
 
         Returns
             1 - s[0]: distance score between two matrixes
 
         """
+        n_components = self.n_components
         u_test, s_test, _ = np.linalg.svd(x_test, full_matrices=False)
         u_history, s_hist, _ = np.linalg.svd(x_history, full_matrices=False)
         s_cov = u_test[:, :n_components].T @ u_history[:, :n_components]

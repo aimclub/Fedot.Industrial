@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -100,7 +100,7 @@ class WindowSizeSelection:
         a_score = max(score_list) * temp_coef
         return a_score
 
-    def local_max_search(self, score_list: list) -> [int, list]:
+    def local_max_search(self, score_list: list) -> Tuple[int, list]:
         """Find global max id in time series over score list for AC
 
         Args:
@@ -147,7 +147,7 @@ class WindowSizeSelection:
         score_coeff = np.sqrt(complex_coeff.real ** 2 + complex_coeff.imag ** 2)
         return score_coeff
 
-    def summary_statistics_subsequence(self, lbound: int(20), threshold: float(.89)) -> [int, list]:
+    def summary_statistics_subsequence(self, lbound: int = 20, threshold: float = 0.89) -> Tuple[int, list]:
         """Main function for the summary_statistics_subsequence (SuSS) to find an appropriate window size.
 
         Note:
@@ -303,4 +303,5 @@ class WindowSizeSelection:
         else:
             window_size_selected, list_score = self.dict_methods[self.wss_algorithm]()
         return window_size_selected, list_score
+
 
