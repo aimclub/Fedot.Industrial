@@ -1,14 +1,20 @@
+import os
+
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import InputData, array_to_input_data
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
+from typing import Tuple, Union, Any
+
 from core.api.utils.checkers_collections import DataCheck
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
 from core.operation.utils.LoggerSingleton import Logger
+from core.operation.utils.classification_datasets import CustomClassificationDataset
 from core.operation.utils.cv_experimenters import ClassificationExperimenter
+from core.operation.utils.utils import path_to_save_results
 
 
 class TimeSeriesClassifier:
@@ -133,7 +139,32 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                  ecm_model_flag: False):
         super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)
 
-    def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
+    def _init_model_param(self, target) -> Tuple[int, np.ndarray]:
+
+        num_epochs = self.model_hyperparams['epoch']
+        del self.model_hyperparams['epoch']
+
+        if 'optimization_method' in self.model_hyperparams.keys():
+            modes = {'none': {},
+                     'SVD': self.model_hyperparams['optimization_method']['svd_parameters'],
+                     'SFP': self.model_hyperparams['optimization_method']['sfp_parameters']}
+            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['optimization_method']['mode']
+            self.model_hyperparams['structure_optimization_params'] = modes[
+                self.model_hyperparams['optimization_method']['mode']]
+            del self.model_hyperparams['optimization_method']
+
+        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
+                                                             'models')
+        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
+                                                              'runs')
+        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
+
+        if target.min() != 0:
+            target = target - 1
+
+        return num_epochs, target
+
+    def _fit_model(self, features: np.ndarray, target: np.ndarray) -> ClassificationExperimenter:
         """Fit Fedot model with feature and target.
 
         Args:
@@ -144,13 +175,22 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
             Fitted Fedot model
 
         """
-        if 'structure_optimization' not in self.model_hyperparams.keys():
-            modes = {'none': {},
-                     'SVD': self.model_hyperparams['svd_parameters'],
-                     'SFP': self.model_hyperparams['sfp_parameters']}
-            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['mode']
-            self.model_hyperparams['structure_optimization_params'] = modes[self.model_hyperparams['mode']]
+        num_epochs, target = self._init_model_param(target)
 
-        NN_model = ClassificationExperimenter(**self.model_hyperparams)
-        NN_model.fit(num_epochs=self.model_hyperparams['epoch'])
+        train_dataset = CustomClassificationDataset(images=features, targets=target)
+        NN_model = ClassificationExperimenter(train_dataset=train_dataset,
+                                              val_dataset=train_dataset,
+                                              **self.model_hyperparams)
+        NN_model.fit(num_epochs=num_epochs)
         return NN_model
+
+    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
+        self.test_features = self.datacheck.check_data(self.test_features)
+
+        if type(self.predictor) == Pipeline:
+            self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
+            prediction_label = self.predictor.predict(self.input_test_data, output_mode='labels').predict
+        else:
+            prediction_label = self.predictor.predict(self.test_features)
+        return dict(label=prediction_label, test_features=self.test_features)

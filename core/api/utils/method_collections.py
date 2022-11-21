@@ -7,7 +7,7 @@ from core.models.spectral.SSARunner import SSARunner
 from core.models.statistical.QuantileRunner import StatsRunner
 from core.models.topological.TopologicalRunner import TopologicalRunner
 from core.ensemble.baseline.AggEnsembler import AggregationEnsemble
-from core.TimeSeriesClassifier import TimeSeriesClassifier
+from core.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
 
 
 class FeatureGenerator(Enum):
@@ -32,4 +32,4 @@ class EnsembleGenerator(Enum):
 
 class TaskGenerator(Enum):
     TSC = TimeSeriesClassifier
-    TSCImage = TimeSeriesClassifier
+    TSCImage = TimeSeriesImageClassifier

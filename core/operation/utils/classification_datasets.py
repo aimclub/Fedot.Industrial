@@ -18,8 +18,8 @@ class CustomClassificationDataset(Dataset):
         images: np.ndarray,
         targets: np.ndarray,
     ) -> None:
-        self.images = torch.from_numpy(images)
-        self.targets = targets
+        self.images = torch.from_numpy(images).float()
+        self.targets = torch.from_numpy(targets).type(torch.long)
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, int]:
         """Returns a sample from a dataset.
@@ -35,4 +35,4 @@ class CustomClassificationDataset(Dataset):
 
     def __len__(self) -> int:
         """Return length of dataset"""
-        return self.targets.size
+        return self.targets.size()[0]

@@ -47,24 +47,24 @@ class _GeneralizedExperimenter:
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
         summary_per_class: If ``True``, calculates the metrics for each class.
-        target_metric: Target metric by which models are compared.
+        metric: Target metric by which models are compared.
         gpu: If ``True``, uses GPU (default: ``True``).
     """
 
     def __init__(
-        self,
-        model: torch.nn.Module,
-        optimizable_module_name: str,
-        train_ds: Dataset,
-        val_ds: Dataset,
-        num_classes: int,
-        dataloader_params: Dict,
-        name: str,
-        models_path: str,
-        summary_path: str,
-        summary_per_class: bool,
-        target_metric: str,
-        gpu: bool = True,
+            self,
+            model: torch.nn.Module,
+            optimizable_module_name: str,
+            train_ds: Dataset,
+            val_ds: Dataset,
+            num_classes: int,
+            dataloader_params: Dict,
+            name: str,
+            models_path: str,
+            summary_path: str,
+            summary_per_class: bool,
+            metric: str,
+            gpu: bool = True,
     ) -> None:
         self.model = model
         self.optimizable_module_name = optimizable_module_name
@@ -74,15 +74,17 @@ class _GeneralizedExperimenter:
         }
         print(f"Default size: {self.default_scores['size']:.2f} MB")
         self.num_classes = num_classes
+
         self.train_dl = DataLoader(dataset=train_ds, shuffle=True, **dataloader_params)
         self.val_dl = DataLoader(dataset=val_ds, shuffle=False, **dataloader_params)
+
         self.name = name
         self.models_path = models_path
         self.summary_path = summary_path
         self.summary_per_class = summary_per_class
         self.device = torch.device('cuda' if gpu else 'cpu')
         self.best_score = 0
-        self.target_metric = target_metric
+        self.metric = metric
         self.structure_optimization = None
 
     def save_model(self, postfix: str = '') -> None:
@@ -200,11 +202,11 @@ class _GeneralizedExperimenter:
         return self.model
 
     def write_scores(
-        self,
-        writer: SummaryWriter,
-        phase: str,
-        scores: Dict[str, float],
-        x: int,
+            self,
+            writer: SummaryWriter,
+            phase: str,
+            scores: Dict[str, float],
+            x: int,
     ):
         """Write scores from dictionary by SummaryWriter.
 
@@ -232,8 +234,8 @@ class _GeneralizedExperimenter:
             self.structure_optimization.optimize_during_training()
             val_scores = self.val_loop()
             self.write_scores(writer, 'val', val_scores, epoch)
-            if val_scores[self.target_metric] > self.best_score:
-                self.best_score = val_scores[self.target_metric]
+            if val_scores[self.metric] > self.best_score:
+                self.best_score = val_scores[self.metric]
                 self.save_model_state_dict()
         self.structure_optimization.final_optimize()
         writer.close()
@@ -255,8 +257,8 @@ class _GeneralizedExperimenter:
             self.write_scores(writer, 'fine-tuning_train', train_scores, epoch)
             val_scores = self.val_loop()
             self.write_scores(writer, 'fine-tuning_val', val_scores, epoch)
-            if val_scores[self.target_metric] > best_score:
-                best_score = val_scores[self.target_metric]
+            if val_scores[self.metric] > best_score:
+                best_score = val_scores[self.metric]
                 self.save_model_state_dict(postfix=postfix)
         self.load_model_state_dict(postfix=postfix)
         writer.close()
@@ -282,7 +284,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         structure_optimization: Structure optimizer, e.g. ``SVDOptimization``.
         structure_optimization_params: Parameter dictionary passed to structure
             optimization initialization.
-        target_metric: Target metric by which models are compared. May be ``'f1'``,
+        metric: Target metric by which models are compared. May be ``'f1'``,
             ``'accuracy'``, ``'precision'``, ``'recall'`` or ``'roc_auc'``
             (default: ``'f1'``).
         summary_path: Path to folder for writing experiment summary info
@@ -292,30 +294,30 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
-            ValueError: If ``model``, ``structure_optimization``, ``target_metric``
+            ValueError: If ``model``, ``structure_optimization``, ``metric``
                 or ``dataset_name`` not in valid values.
     """
 
     def __init__(
-        self,
-        dataset_name: str,
-        train_dataset: Dataset,
-        val_dataset: Dataset,
-        num_classes: int,
-        model: str,
-        model_params: Dict,
-        models_saving_path: str,
-        optimizer_params: Dict,
-        loss_params: Dict,
-        dataloader_params: Dict = None,
-        structure_optimization: str = None,
-        structure_optimization_params: Dict = None,
-        optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
-        target_loss: Type[torch.nn.Module] = torch.nn.CrossEntropyLoss,
-        target_metric: str = 'f1',
-        summary_path: str = 'runs',
-        summary_per_class: bool = False,
-        gpu: bool = False,
+            self,
+            model: str,
+            train_dataset: Dataset,
+            dataset_name: str = None,
+            val_dataset: Dataset = None,
+            num_classes: int = None,
+            model_params: Dict = None,
+            models_saving_path: str = None,
+            optimizer_params: Dict = None,
+            loss_params: Dict = None,
+            dataloader_params: Dict = None,
+            structure_optimization: str = None,
+            structure_optimization_params: Dict = None,
+            optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
+            target_loss: Type[torch.nn.Module] = torch.nn.CrossEntropyLoss,
+            metric: str = 'f1',
+            summary_path: str = 'runs',
+            summary_per_class: bool = False,
+            gpu: bool = False,
     ) -> None:
 
         _parameter_value_check(
@@ -327,8 +329,8 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             valid_values=set(OPTIMIZATIONS.keys()),
         )
         _parameter_value_check(
-            parameter='target_metric',
-            value=target_metric,
+            parameter='metric',
+            value=metric,
             valid_values={'f1', 'accuracy', 'precision', 'recall', 'roc_auc'},
         )
 
@@ -343,7 +345,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
-            target_metric=target_metric,
+            metric=metric,
             gpu=gpu,
         )
 
@@ -454,7 +456,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         structure_optimization: Structure optimizer, e.g. ``SVDOptimization``.
         structure_optimization_params: Parameter dictionary passed to structure
             optimization initialization.
-        target_metric: Target metric by which models are compared. May be ``'map'``,
+        metric: Target metric by which models are compared. May be ``'map'``,
             ``'map_50'`` or ``'map_75'`` (default: ``'map_50'``).
         summary_path: Path to folder for writing experiment summary info
             (default: ``'runs'``).
@@ -463,28 +465,28 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
-            ValueError: If ``model``, ``structure_optimization``, ``target_metric``
+            ValueError: If ``model``, ``structure_optimization``, ``metric``
                 or ``dataset_name`` not in valid values.
     """
 
     def __init__(
-        self,
-        dataset_name: str,
-        train_dataset: Dataset,
-        val_dataset: Dataset,
-        num_classes: int,
-        dataloader_params: Dict,
-        model_params: Dict,
-        models_saving_path: str,
-        optimizer: Type[torch.optim.Optimizer],
-        optimizer_params: Dict,
-        scheduler_params: Dict,
-        structure_optimization: str,
-        structure_optimization_params: Dict,
-        target_metric: str = 'map_50',
-        summary_path: str = 'runs',
-        summary_per_class: bool = False,
-        gpu: bool = True,
+            self,
+            dataset_name: str,
+            train_dataset: Dataset,
+            val_dataset: Dataset,
+            num_classes: int,
+            dataloader_params: Dict,
+            model_params: Dict,
+            models_saving_path: str,
+            optimizer: Type[torch.optim.Optimizer],
+            optimizer_params: Dict,
+            scheduler_params: Dict,
+            structure_optimization: str,
+            structure_optimization_params: Dict,
+            metric: str = 'map_50',
+            summary_path: str = 'runs',
+            summary_per_class: bool = False,
+            gpu: bool = True,
     ) -> None:
 
         _parameter_value_check(
@@ -493,8 +495,8 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             valid_values=set(OPTIMIZATIONS.keys()),
         )
         _parameter_value_check(
-            parameter='target_metric',
-            value=target_metric,
+            parameter='metric',
+            value=metric,
             valid_values={'map', 'map_50', 'map_75'},
         )
 
@@ -513,7 +515,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
-            target_metric=target_metric,
+            metric=metric,
             gpu=gpu,
         )
         self.structure_optimization = OPTIMIZATIONS[structure_optimization](

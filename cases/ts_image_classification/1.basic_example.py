@@ -2,6 +2,6 @@ from core.api.API import Industrial
 
 
 if __name__ == '__main__':
-    config_name = 'cases/ts_image_classification/configs_for_examples/BasicConfigIMAGECLF.yaml'
+    config_name = 'ImageCLF/BasicConfigIMAGECLF.yaml'
     ExperimentHelper = Industrial()
     ExperimentHelper.run_experiment(config_name)

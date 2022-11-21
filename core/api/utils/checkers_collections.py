@@ -62,11 +62,14 @@ class DataCheck:
         return input_data
 
     def check_data(self, input_data: pd.DataFrame, return_df: bool = False) -> np.ndarray:
-        filled_data = input_data.apply(lambda x: self._replace_inf_with_nans(x))
-        filled_data = filled_data.apply(lambda x: self._check_for_nan(x))
-        if filled_data.shape[0] == input_data.shape[0] and filled_data.shape[1] == input_data.shape[1]:
-            input_data = filled_data
-        if return_df:
+        if type(input_data) != pd.DataFrame:
             return input_data
         else:
-            return input_data.values
+            filled_data = input_data.apply(lambda x: self._replace_inf_with_nans(x))
+            filled_data = filled_data.apply(lambda x: self._check_for_nan(x))
+            if filled_data.shape[0] == input_data.shape[0] and filled_data.shape[1] == input_data.shape[1]:
+                input_data = filled_data
+            if return_df:
+                return input_data
+            else:
+                return input_data.values
