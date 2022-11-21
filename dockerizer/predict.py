@@ -10,9 +10,9 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from core.operation.utils.load_data import DataLoader
 from core.operation.utils.utils import PROJECT_PATH
 
-docker_file = os.path.join(PROJECT_PATH, 'dockerizer', 'dockerfiles', 'Dockerfile')
-fedot_model_path = os.path.join(PROJECT_PATH, 'dockerizer', 'dockerfiles', 'fedot_model.joblib')
-feature_gen_path = os.path.join(PROJECT_PATH, 'dockerizer', 'dockerfiles', 'feature_generator.joblib')
+docker_file = os.path.join(PROJECT_PATH, 'dockerizer', '../dockerfiles', '../dockerfiles/Dockerfile')
+fedot_model_path = os.path.join(PROJECT_PATH, 'dockerizer', '../dockerfiles', 'fedot_model.joblib')
+feature_gen_path = os.path.join(PROJECT_PATH, 'dockerizer', '../dockerfiles', '../dockerfiles/feature_generator.joblib')
 
 
 def get_score(y_test, predict):
@@ -75,24 +75,3 @@ def get_predictions():
 
 if __name__ == "__main__":
     get_predictions()
-
-# data_path = os.path.join(PROJECT_PATH, 'data', 'Beef')
-
-# def booster_pipeline(booster_models, input_data, ensemble_model):
-#     booster_predicts = list()
-#
-#     for model in booster_models:
-#         predict = model.predict(input_data)
-#         booster_predicts.append(predict)
-#
-#     if ensemble_model:
-#         boosting_predict_list = pd.DataFrame(i.reshape(-1) for i in booster_predicts).T
-#     else:
-#         boosting_predict_list = [np.array(_) for _ in booster_predicts]
-
-
-# def _pipeline(predictor, ecm_models, data):
-#     fedot_predict = predictor.predict(data)
-#     # booster_models = ecm_models[:-1]
-#     # ensemble_model = ecm_models[-1]
-#     # for model in booster_models:
