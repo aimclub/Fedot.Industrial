@@ -1,6 +1,4 @@
 FEDOT.Industrial
 =========================
 
-.. autoclass:: core.api.tsc_API.Industrial
-   :members:
-   :undoc-members:
+Here is a list of the main features of FEDOT:
