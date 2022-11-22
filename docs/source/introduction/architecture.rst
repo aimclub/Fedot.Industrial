@@ -1,0 +1,2 @@
+Architecture of FEDOT.Industrial
+================================

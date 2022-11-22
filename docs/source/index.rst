@@ -11,7 +11,10 @@ Content:
 .. toctree::
    :maxdepth: 1
 
-   Industrial/index
+   introduction/index
+   Basics/index
+   examples/index
+   Advanced/index
    contribution
    faq
    about
