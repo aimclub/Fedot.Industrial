@@ -174,7 +174,7 @@ Here will be provided a list of citations for the project.
 So far you can use citation for this repository:
 
     @online{fedot_industrial,
-      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Mikitin, Nikolay},
+      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Nikitin, Nikolay},
       title = {FEDOT.Industrial - Framework for automated time series analysis},
       year = 2022,
       url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},
