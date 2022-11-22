@@ -65,7 +65,7 @@ class WindowSizeSelection:
         if self.window_min is None:
             self.window_min = 10
 
-    def autocorrelation(self) -> [int, list]:
+    def autocorrelation(self) -> Tuple[int, list]:
         """Main function for the highest_autocorrelation (AC) to find an appropriate window size.
 
         Note:
@@ -117,7 +117,7 @@ class WindowSizeSelection:
         window_size_selected = score_list.index(max_score) + self.window_min
         return window_size_selected, list_score_peaks
 
-    def dominant_fourier_frequency(self) -> [int, list]:
+    def dominant_fourier_frequency(self) -> Tuple[int, list]:
         """Main function for the dominant_fourier_frequency (DFF) to find an appropriate window size.
 
         Returns:
@@ -226,7 +226,7 @@ class WindowSizeSelection:
         x = np.sqrt(np.sum(np.square(x), axis=0)) / np.sqrt(window_size)
         return np.mean(x)
 
-    def multi_window_finder(self) -> [int, list]:
+    def multi_window_finder(self) -> Tuple[int, list]:
         """Main multi_window_finder (MWF) function to find an appropriate window size.
 
         Note:
@@ -263,7 +263,7 @@ class WindowSizeSelection:
         distance_k = sum(np.log10(abs(m_values - np.mean(m_values))))
         return distance_k
 
-    def top_local_minimum(self, distance_scores: list) -> [int, list]:
+    def top_local_minimum(self, distance_scores: list) -> Tuple[int, list]:
         """Find top list of local minimum in scores for MWF method.
 
         Args:
@@ -283,7 +283,7 @@ class WindowSizeSelection:
         id_local_minimum_list = argrelextrema(np.array(scorer_list), np.less)[0]
         return id_local_minimum_list, id_max
 
-    def runner_wss(self) -> [int, list]:
+    def runner_wss(self) -> Tuple[int, list]:
         """Main function to run WSS class over selected time series
 
         Note:
