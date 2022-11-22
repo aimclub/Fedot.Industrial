@@ -164,16 +164,20 @@ class SFPOptimization(GeneralizedStructureOptimization):
         self.exp.load_model_state_dict()
         self.exp.summary_per_class = False
         default_scores = self.exp.val_loop()
-        pruned_sd = prune_resnet_state_dict(self.exp.model.state_dict())
+        pruned_sd, input_size, output_size = prune_resnet_state_dict(
+            self.exp.model.state_dict()
+        )
         self.exp.model = SFP_MODELS[self.exp.optimizable_module_name](
             num_classes=self.exp.num_classes,
+            input_size=input_size,
+            output_size=output_size,
             pruning_ratio=self.pruning_ratio
         )
         self.exp.model.load_state_dict(pruned_sd)
         self.exp.model.to(self.exp.device)
         val_scores = self.exp.val_loop()
         for key, score in val_scores.items():
-            print(f"{key}: {default_scores[key]:.2f}, {score:.2f}")
+            print(f"{key}: {default_scores[key]:.3f}, {score:.3f}")
         print(f"SFP pruned size: {self.exp.size_of_model():.2f} MB")
         self.exp.save_model()
 
