@@ -12,6 +12,7 @@ Content:
    :maxdepth: 1
 
    introduction/index
+   API/index
    Basics/index
    examples/index
    Advanced/index
@@ -19,6 +20,12 @@ Content:
    faq
    about
 
-**FEDOT.Industrial** provides a high-level API that allows you to use its capabilities in a simple way
+**FEDOT.Industrial** provides a high-level API that allows you to use its capabilities in a simple way.
+
 
 .. |logo| image:: ../img/fedot-industrial.png
+
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
