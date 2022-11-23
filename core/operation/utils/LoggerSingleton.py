@@ -52,4 +52,7 @@ class Logger(object, metaclass=SingletonMetaLogger):
         self._logger.addHandler(stream_handler)
 
     def get_logger(self):
+        """
+        Base method for getting logger in any place of project.
+        """
         return self._logger
