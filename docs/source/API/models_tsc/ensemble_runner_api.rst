@@ -1,6 +1,6 @@
-ExperimentRunner
+EnsembleRunner
 ================
 
 .. autoclass:: core.models.EnsembleRunner.EnsembleRunner
-   :members:
-   :inherited-members:
+    :no-inherited-members:
+    :no-undoc-members:

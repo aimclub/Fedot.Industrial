@@ -2,5 +2,5 @@ ExperimentRunner
 ================
 
 .. autoclass:: core.models.ExperimentRunner.ExperimentRunner
-   :members:
-   :inherited-members:
+    :no-inherited-members:
+    :no-undoc-members:
