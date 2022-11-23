@@ -1,7 +1,7 @@
 import copy
 import os
 import time
-from typing import List
+from typing import List, Dict
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -80,10 +80,10 @@ class SVDOptimization(GeneralizedStructureOptimization):
     def final_optimize(self) -> None:
         """Apply optimization after training."""
         p_writer = SummaryWriter(
-            os.path.join(self.exp.summary_path, self.exp.name) + '_pruned'
+            os.path.join(self.exp.summary_path, self.exp.name, 'pruned')
         )
         ft_writer = SummaryWriter(
-            os.path.join(self.exp.summary_path, self.exp.name) + '_fine-tuned'
+            os.path.join(self.exp.summary_path, self.exp.name, 'fine-tuned')
         )
         self.losses['hoer_loss'] = HoyerLoss(factor=0)
         self.exp.summary_per_class = False
@@ -99,9 +99,9 @@ class SVDOptimization(GeneralizedStructureOptimization):
             pruning_time = time.time() - start
             p_writer.add_scalar('abs(e)/pruning_time', pruning_time, int_e)
             self.optimization_summary(e=int_e, writer=p_writer)
-            self.exp.finetune(num_epochs=self.finetuning_epochs, postfix=f"_e-{e}")
+            self.exp.finetune(num_epochs=self.finetuning_epochs, name=f"e_{e}")
             self.optimization_summary(e=int_e, writer=ft_writer)
-            self.exp.save_model(postfix=f"_e-{e}")
+            self.exp.save_model(name=f"e_{e}")
 
     def prune_model(self, energy_threshold) -> None:
         """Prune the model weights to the energy_threshold.
@@ -140,17 +140,20 @@ class SFPOptimization(GeneralizedStructureOptimization):
         experimenter: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
         pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
+        finetuning_epochs: Number of fine-tuning epochs.
     """
 
     def __init__(
             self,
             experimenter,
             pruning_ratio: float,
+            finetuning_epochs: int,
     ) -> None:
         super().__init__(
             experimenter=experimenter,
         )
         self.pruning_ratio = pruning_ratio
+        self.finetuning_epochs = finetuning_epochs
         self.exp.name += f"_SFP_P-{pruning_ratio:.2f}"
 
     def optimize_during_training(self) -> None:
@@ -163,7 +166,8 @@ class SFPOptimization(GeneralizedStructureOptimization):
         """Apply optimization after training."""
         self.exp.load_model_state_dict()
         self.exp.summary_per_class = False
-        default_scores = self.exp.val_loop()
+        results = {'default_scores': self.optimization_summary()}
+
         pruned_sd, input_size, output_size = prune_resnet_state_dict(
             self.exp.model.state_dict()
         )
@@ -175,11 +179,29 @@ class SFPOptimization(GeneralizedStructureOptimization):
         )
         self.exp.model.load_state_dict(pruned_sd)
         self.exp.model.to(self.exp.device)
-        val_scores = self.exp.val_loop()
-        for key, score in val_scores.items():
-            print(f"{key}: {default_scores[key]:.3f}, {score:.3f}")
-        print(f"SFP pruned size: {self.exp.size_of_model():.2f} MB")
-        self.exp.save_model()
+        results['pruned_scores'] = self.optimization_summary()
+        self.exp.save_model(name='pruned')
+
+        self.exp.finetune(num_epochs=self.finetuning_epochs)
+        results['finetuned_scores'] = self.optimization_summary()
+        self.exp.save_model(name='fine-tuned')
+
+        for k in results['default_scores']:
+            print(
+                f"{k}: {results['default_scores'][k]:.3f}, "
+                f"{results['pruned_scores'][k]:.3f}, "
+                f"{results['finetuned_scores'][k]:.3f}"
+            )
+        torch.save(results, os.path.join(
+            self.exp.summary_path, self.exp.name, 'results.pt'
+        ))
+
+    def optimization_summary(self) -> Dict:
+        """Validate model and return scores."""
+        scores = self.exp.val_loop()
+        scores['size'] = self.exp.size_of_model()
+        scores['n_params'] = self.exp.number_of_params()
+        return scores
 
 
 OPTIMIZATIONS = {
