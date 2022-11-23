@@ -85,40 +85,37 @@ class _GeneralizedExperimenter:
         self.target_metric = target_metric
         self.structure_optimization = None
 
-    def save_model(self, postfix: str = '') -> None:
+    def save_model(self, name: str = 'trained_model') -> None:
         """Save all model.
 
         Args:
-            postfix: A string appended to ``self.name`` in save file name
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
-        dir_path = '/'.join(file_path.split('/')[:-1])
+        dir_path = os.path.join(self.models_path, self.name)
+        file_path = os.path.join(dir_path, f"{name}.model.pt")
         os.makedirs(dir_path, exist_ok=True)
         torch.save(self.model, file_path)
         print("Model saved.")
 
-    def save_model_state_dict(self, postfix: str = '') -> None:
+    def save_model_state_dict(self, name: str = 'trained_model') -> None:
         """Save model state_dict.
 
         Args:
-            postfix: A string appended to ``self.name`` in save file name.
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
-        dir_path = '/'.join(file_path.split('/')[:-1])
+        dir_path = os.path.join(self.models_path, self.name)
+        file_path = os.path.join(dir_path, f"{name}.sd.pt")
         os.makedirs(dir_path, exist_ok=True)
         torch.save(self.model.state_dict(), file_path)
         print("Model state dict saved.")
 
-    def load_model_state_dict(self, postfix: str = '') -> None:
+    def load_model_state_dict(self, name: str = 'trained_model') -> None:
         """Load model state_dict to ``self.model``
 
         Args:
-            postfix: A string appended to ``self.name`` in load file name.
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
+        file_path = os.path.join(self.models_path, self.name, f"{name}.sd.pt")
         if os.path.exists(file_path):
             self.model.load_state_dict(torch.load(file_path))
             self.model.to(self.device)
@@ -126,14 +123,13 @@ class _GeneralizedExperimenter:
         else:
             print(f"File '{file_path}' does not exist.")
 
-    def load_model(self, postfix: str = '') -> None:
+    def load_model(self, name: str = 'trained_model') -> None:
         """Load model to ``self.model``.
 
         Args:
-            postfix: A string appended to ``self.name`` in load file name.
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
+        file_path = os.path.join(self.models_path, self.name, f"{name}.model.pt")
         if os.path.exists(file_path):
             self.model = torch.load(file_path)
             self.model.to(self.device)
@@ -223,7 +219,7 @@ class _GeneralizedExperimenter:
         Args:
             num_epochs: Number of epochs.
         """
-        writer = SummaryWriter(os.path.join(self.summary_path, self.name))
+        writer = SummaryWriter(os.path.join(self.summary_path, self.name, 'train'))
         print(f"{self.name}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
             print(f"Epoch {epoch}")
@@ -238,17 +234,16 @@ class _GeneralizedExperimenter:
         self.structure_optimization.final_optimize()
         writer.close()
 
-    def finetune(self, num_epochs: int, postfix: str = '') -> None:
+    def finetune(self, num_epochs: int, name: str = 'fine-tuning') -> None:
         """Run fine-tuning
 
         Args:
             num_epochs: Number of epochs.
-            postfix: A string appended to the name to identify the experiment.
-                (default: ``''``).
+            name: Description of the experiment (default: ``'fine-tuning'``).
         """
         best_score = 0
-        writer = SummaryWriter(os.path.join(self.summary_path, self.name) + postfix)
-        print(f"{self.name + postfix}, using device: {self.device}")
+        writer = SummaryWriter(os.path.join(self.summary_path, self.name, name))
+        print(f"{self.name}/{name}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
             print(f"Fine-tuning epoch {epoch}")
             train_scores = self.train_loop()
@@ -257,8 +252,8 @@ class _GeneralizedExperimenter:
             self.write_scores(writer, 'fine-tuning_val', val_scores, epoch)
             if val_scores[self.target_metric] > best_score:
                 best_score = val_scores[self.target_metric]
-                self.save_model_state_dict(postfix=postfix)
-        self.load_model_state_dict(postfix=postfix)
+                self.save_model_state_dict(name=name)
+        self.load_model_state_dict(name=name)
         writer.close()
 
 
