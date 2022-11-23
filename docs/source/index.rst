@@ -4,7 +4,18 @@ Welcome to FEDOT Industrial's documentation!
 .. container::
 
    | |logo|
-   | There is contained main documentation for the `FEDOT.Industrial framework <https://github.com/ITMO-NSS-team/Fedot.Industrial>`__.
+
+Here you can find comprehensive documentation for the
+`FEDOT.Industrial framework <https://github.com/ITMO-NSS-team/Fedot.Industrial>`__.
+
+FEDOT.Industrial is a framework for automated machine learning. It provides
+a set of tools for solving several problems related to time series:
+anomaly detection, classification, change point detection, and object detection.
+
+The framework is based on the FEDOT_ framework using its algorithmic
+kernel in terms of evolutionary optimization and obtaining graph-like
+pipelines for classification.
+
 
 Content:
 ========
@@ -20,10 +31,9 @@ Content:
    faq
    about
 
-**FEDOT.Industrial** provides a high-level API that allows you to use its capabilities in a simple way.
-
 
 .. |logo| image:: ../img/fedot-industrial.png
+.. _FEDOT: https://fedot.readthedocs.io/
 
 
 * :ref:`genindex`
