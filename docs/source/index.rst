@@ -30,6 +30,7 @@ Content:
    contribution
    faq
    about
+   citation
 
 
 .. |logo| image:: ../img/fedot-industrial.png

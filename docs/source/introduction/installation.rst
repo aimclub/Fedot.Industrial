@@ -1,8 +1,11 @@
+.. _installation:
+
 How to install
 ================
 
 At the moment the only way to install is to clone the repository.
 Later the framework will be available to install via pip.
+
 from GitHub
 ------------------------
 
