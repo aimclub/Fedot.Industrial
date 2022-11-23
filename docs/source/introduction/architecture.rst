@@ -21,10 +21,24 @@ approach, which main idea is to combine selection of features in one
 feature space and an automated classification model design using a
 graph-based pipeline representation and evolutionary optimization.
 
+The end-to-end workflow of the FEDOT-TSC is presented in figure
+below. There are three major blocks: (1) feature design, (2) pipeline design,
+and (3) ensembling models or features.
+
 .. image:: img_introduction/architecture.png
    :width: 700px
    :align: center
    :alt: Architecture of FEDOT
+
+According to the scheme, the input data (Input Data block) in the form of
+time series goes to the Feature Design block. The selected features are the
+input data for the Model Design block, where the evolutionary algorithm
+(Evolutionary Optimizer block) selects the optimal Pipeline for solving the
+classification problem, and, if necessary, an error correction model is
+applied. The final pipelines are then applied to obtain predictions, which
+are interpreted with application in the corresponding block. To evaluate
+the quality of the intermediate results and the final predictions, the
+Quality Analyzer block is created, implementing various evaluation metrics.
 
 For the machine learning pipeline creation, represented as an acyclic
 graph, we used an approach based on an evolutionary algorithm [8]_.

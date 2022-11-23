@@ -4,6 +4,31 @@ Time series classification is a problem where a time series is classified into o
 The time series can be of any length and can be univariate or multivariate.
 The classes can be of string or integer type.
 
+The classification of time series is the task of constructing a classifier based
+on input data presented as a time-ordered data sequence. The mathematical
+formulation of the problem can be presented in the following form:
+
+.. math::
+
+    \begin{equation}
+      F: X\rightarrow  \mathbb{D}
+    \end{equation}
+
+where:
+
+- :math:`X` is a time series of length :math:`t = [x_1, x_2, ..., x_t], x_i \in R`;
+- :math:`F` is a trained classifier with some hyperparameters;
+- :math:`D= {(X_1, Y_1),...,(X_n, Y_n )}` a collection of a time series :math:`X` paired with labels :math:`Y\in \mathbb{N}`.
+
+The time series classification experiment consists of the following steps:
+
+- First, the time series is transformed into some feature vector.
+- The next step is to select a classifier, which is a specific machine-learning
+  model. Here we use the evolutionary capabilities of FEDOT Framework.
+- The final stage is to obtain a vector (for binary classification problems) or a matrix (for multiclass classification problems) of the probabilities of class labels, which is further transformed into a vector of classes.
+
+Within the framework we use the following feature generators:
+
 
 Feature generation algorithms
 -----------------------------
@@ -99,3 +124,19 @@ ML models enseble approach
 --------------------------
 The ML models ensemble approach is a method of combining predictions
 from different ML models.
+
+Error correction
+----------------
+The essence of the proposed approach is to iteratively perform compositing
+with the step of "freezing" the previous model. Each subsequent model is
+trained on the previous model error, allowing to obtain the correction of
+the initial prediction error.
+
+The error correction model is a regression model where the target for each
+subsequent step is the difference between the last target and the
+last prediction.
+
+.. image:: img_basics/error-correction-algorithm.png
+   :alt: error correction algorithm
+   :width: 400px
+   :align: center

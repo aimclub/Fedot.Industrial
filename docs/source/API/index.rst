@@ -28,6 +28,7 @@ Time series classification
     models_tsc/wavelet_runner_api
     models_tsc/ensemble_runner_api
     results_parser_api
+    models_tsc/error_correction_api
 
 
 Anomaly detection

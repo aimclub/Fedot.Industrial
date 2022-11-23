@@ -1,5 +1,4 @@
 import warnings
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -21,6 +20,21 @@ class Booster:
         threshold: parameter used as round boundary for custom_round() method
         n_cycles: number of boosting cycles
         reshape_flag: ...
+
+    Examples:
+        >>> X_train = pd.read_csv('X_train.csv')
+        >>> y_train = pd.read_csv('y_train.csv')
+        >>> base_predict = pd.read_csv('base_predict.csv')
+
+        >>> y_train = y_train.values
+        >>> base_predict = base_predict.values
+
+        >>> booster = Booster(features_train=X_train,
+                              target_train=y_train,
+                              base_predict=base_predict,
+                              timeout=1)
+
+        >>> result = booster.fit()
     """
 
     def __init__(self, features_train: np.ndarray,
