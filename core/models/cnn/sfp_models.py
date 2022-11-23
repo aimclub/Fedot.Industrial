@@ -82,6 +82,11 @@ class Bottleneck(nn.Module):
         downsample: Optional[nn.Module] = None,
     ) -> None:
         super().__init__()
+        if downsample is not None:
+            s = planes * self.expansion - int(planes * self.expansion * pruning_ratio)
+            self.register_buffer('indexes', torch.zeros(s, dtype=torch.int))
+        else:
+            self.register_buffer('indexes', torch.zeros(input_size, dtype=torch.int))
         norm_layer = nn.BatchNorm2d
         planes = planes - int(pruning_ratio * planes)
         self.conv1 = conv1x1(input_size, planes)
@@ -93,12 +98,6 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
-        if downsample is not None:
-            self.register_buffer(
-                'indexes', torch.zeros(planes * self.expansion, dtype=torch.int)
-            )
-        else:
-            self.register_buffer('indexes', torch.zeros(input_size, dtype=torch.int))
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
