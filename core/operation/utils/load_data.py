@@ -16,7 +16,7 @@ class DataLoader:
     At the moment supports only ``.txt`` and ``.arff`` formats, but not relational ``.arff`` or ``.ts`` files.
 
     Args:
-        dataset_name (str): name of dataset
+        dataset_name: name of dataset
 
     Examples:
         >>> data_loader = DataLoader('ItalyPowerDemand')

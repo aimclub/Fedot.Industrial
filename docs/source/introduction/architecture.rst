@@ -4,8 +4,11 @@ Architecture of FEDOT.Industrial
 The FEDOT.Industrial framework is a versatile tool for the time-series
 engineer. The software is designed to minimize user involvement in the
 programming area while maximizing the quality of the results obtained
-for tasks such as: time series classification, anomaly detection and
-change point detection.
+for tasks such as: :ref:`time series classification<ts_classification>`,
+:ref:`anomaly detection<anomaly>` and :ref:`change point detection<chp_detection>`,
+and :ref:`object recognition<object_recognition>`.
+
+.. _`ts_classification`:
 
 Time Series Classification
 --------------------------
@@ -47,6 +50,8 @@ It could be used by specialists without machine learning or data
 science experience for application tasks in their professional domain,
 where the primary data type is time series.
 
+.. _`anomaly`:
+
 Anomaly Detection
 -----------------
 
@@ -59,6 +64,8 @@ distinguish between real anomalies and normal data. Anomaly detection
 is a common problem in many fields, such as network intrusion detection,
 fault detection, fraud detection, and healthcare.
 
+.. _`chp_detection`:
+
 Change Point Detection
 ----------------------
 
@@ -67,6 +74,8 @@ changes in the mean of a time series. It is used in many fields, such
 as signal processing, statistics, and machine learning. The change point
 detection problem is a challenging problem in data mining, as it is
 often difficult to distinguish between real changes and normal data.
+
+.. _`object_recognition`:
 
 Object Detection
 ----------------
