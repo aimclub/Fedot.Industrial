@@ -1,8 +1,6 @@
 Quickstart
 ==========
 
-FEDOT.Industrial quick start guide.
-
 First of all, you need to :ref:`install <installation>` FEDOT.Industrial.
 
 To conduct time series classification you need to first
