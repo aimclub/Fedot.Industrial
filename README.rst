@@ -7,21 +7,24 @@
 
 .. container:: center
 
-    .. image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge
+    .. image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
         :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
         :alt: Issues
-    .. image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge
+    .. image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=flat-square
         :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers
         :alt: Stars
-    .. image:: https://img.shields.io/badge/python-3.8-limegreen?style=for-the-badge&logo=python
+    .. image:: https://img.shields.io/badge/python-3.8-44cc12?style=flat-square&logo=python
         :target: https://www.python.org/downloads/release/python-380/
         :alt: Python 3.8
-    .. image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=for-the-badge
+    .. image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=flat-square
         :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md
         :alt: License
-    .. image:: https://readthedocs.org/projects/ebonite/badge/?style=for-the-badge
+    .. image:: https://readthedocs.org/projects/ebonite/badge/?style=flat-square
         :target: https://fedotindustrial.readthedocs.io/en/latest/
         :alt: Documentation Status
+    .. image:: https://img.shields.io/badge/Telegram-Group-blue.svg
+        :target: https://t.me/fedotindustrial_support
+        :alt: Support
 
 Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
 solutions, we propose using a combination of feature extractors with an ensemble of lightweight models obtained by the
