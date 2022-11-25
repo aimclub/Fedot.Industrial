@@ -25,6 +25,7 @@
     .. image:: https://img.shields.io/badge/Telegram-Group-blue.svg
         :target: https://t.me/fedotindustrial_support
         :alt: Support
+================================================================================
 
 Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
 solutions, we propose using a combination of feature extractors with an ensemble of lightweight models obtained by the
