@@ -2,10 +2,8 @@
 
     .. image:: docs/img/fedot-industrial.png
         :width: 600px
-        :align: center
+        :align: left
         :alt: Fedot Industrial logo
-
-.. container::
 
     |issues|  |stars|  |python| |license| |docs| |support|
 
@@ -15,6 +13,7 @@
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
             :alt: Issues
+
 
 .. |stars| image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers
