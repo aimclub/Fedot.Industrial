@@ -159,7 +159,7 @@ The repository includes the following directories:
 
 ## Documentation
 
-Documentation will be available soon at `Read The Docs` after first stable release
+Comprehensive documentation is available [**here**](<https://fedotindustrial.readthedocs.io>).
 
 ## Supported by
 
