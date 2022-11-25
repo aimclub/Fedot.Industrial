@@ -1,7 +1,9 @@
-.. image:: docs/img/fedot-industrial.png
-    :width: 600px
-    :align: center
-    :alt: Fedot Industrial logo
+.. container::
+
+    .. image:: docs/img/fedot-industrial.png
+        :width: 600px
+        :align: center
+        :alt: Fedot Industrial logo
 
 .. container:: center
 
