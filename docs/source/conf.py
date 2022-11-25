@@ -65,7 +65,11 @@ StandaloneHTMLBuilder.supported_image_types = [
     'image/jpeg'
 ]
 html_theme = "sphinx_rtd_theme"
-
+html_logo = '../img/fedot-industrial.png'
+html_theme_options = {
+    'logo_only': True,
+    'display_version': False,
+}
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
@@ -101,3 +105,5 @@ autoclass_content = 'class'
 autodoc_typehints = 'signature'
 autodoc_typehints_format = 'short'
 autodoc_mock_imports = ['objgraph', 'memory_profiler', 'gprof2dot', 'snakeviz']
+
+
