@@ -196,11 +196,11 @@ The repository includes the following directories:
 Current R&D and future plans
 ----------------------------
 
-- |check_| Implement feature space caching for feature generators
+|check_| Implement feature space caching for feature generators
 
-- |uncheck_| Development of meta-knowledge storage for data obtained from the experiments
+|uncheck_| Development of meta-knowledge storage for data obtained from the experiments
 
-- |uncheck_| Research on time series clusterization
+|uncheck_| Research on time series clusterization
 
 Documentation
 -------------
