@@ -44,6 +44,8 @@ class PerformanceAnalyzer:
                           metric_list: list = ('roc_auc', 'f1', 'precision', 'accuracy', 'logloss'),
                           predicted_labels: list = None,
                           predicted_probs: list = None) -> Dict:
+
+        predicted_labels = np.array(predicted_labels)
         labels_diff = max(target) - max(predicted_labels)
 
         if min(predicted_labels) != min(target):
