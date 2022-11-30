@@ -71,7 +71,8 @@ class ResultsParser:
         roc_list = list()
         for launch in launches:
             single_exp_path = os.path.join(path, launch, 'test_results', 'metrics.csv')
-            f1, roc = pd.read_csv(single_exp_path, index_col=0)['1'][:2]
+            f1 = pd.read_csv(single_exp_path, index_col=0).loc[0]['f1']
+            roc = pd.read_csv(single_exp_path, index_col=0).loc[0]['roc_auc']
             f1_list.append(f1)
             roc_list.append(roc)
         return np.mean(f1_list), np.mean(roc_list)
@@ -96,6 +97,7 @@ class ResultsParser:
 
 # Example of usage:
 if __name__ == '__main__':
+
     # mega_table_path = '/results_of_experiments/MegaComparisonResultsSheet.xls'
     # mega_table_f1 = pd.read_excel(mega_table_path, sheet_name='F1Test')
     # mega_table_roc = pd.read_excel(mega_table_path, sheet_name='AUROCTest')
