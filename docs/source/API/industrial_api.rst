@@ -1,3 +1,5 @@
+.. _industrial-class-label:
+
 FEDOT.Industrial API
 ====================
 
