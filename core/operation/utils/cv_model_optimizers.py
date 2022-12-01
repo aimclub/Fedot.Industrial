@@ -99,9 +99,12 @@ class SVDOptimization(GeneralizedStructureOptimization):
             pruning_time = time.time() - start
             p_writer.add_scalar('abs(e)/pruning_time', pruning_time, int_e)
             self.optimization_summary(e=int_e, writer=p_writer)
-            self.exp.finetune(num_epochs=self.finetuning_epochs, name=f"e_{e}")
+            self.exp.finetune(
+                num_epochs=self.finetuning_epochs,
+                name=f"fine-tuning_e_{e}"
+            )
             self.optimization_summary(e=int_e, writer=ft_writer)
-            self.exp.save_model(name=f"e_{e}")
+            self.exp.save_model(name=f"fine-tuned_e_{e}")
 
     def prune_model(self, energy_threshold) -> None:
         """Prune the model weights to the energy_threshold.
