@@ -11,31 +11,48 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class YamlReader:
-    def __init__(self,
-                 feature_generator: dict = None,
-                 logger: Logger = None):
 
+    """
+    Class for reading the config file for the experiment.
+
+    Args:
+        feature_generator: dictionary with the names of the generators and their classes.
+
+    Attributes:
+        config_dict: dictionary with the parameters of the experiment.
+        experiment_check: class for checking the correctness of the parameters.
+        use_cache: flag that indicates whether to use the cache.
+    """
+
+    def __init__(self, feature_generator: dict = None):
+
+        self.config_dict = None
         self.feature_generator = feature_generator
-        self.logger = logger
-        self.experiment_check = ParameterCheck(logger=self.logger)
+        self.logger = Logger().get_logger()
+        self.experiment_check = ParameterCheck()
         self.use_cache = None
 
-    def read_yaml_config(self, config_name: str) -> None:
+    def read_yaml_config(self, config_path: str,
+                         direct_path: bool = False) -> None:
         """Read yaml config from './cases/config/config_name' directory as dictionary file.
 
-        Args:
-            config_name: name of the config file.
+        Args: direct_path: flag that indicates whether to use direct path to config file or read it from framework
+        directory. config_path: name of the config file.
 
         Returns:
             None
 
         """
-        path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
+        if direct_path:
+            path = config_path
+        else:
+            path = os.path.join(PROJECT_PATH, config_path)
+
         with open(path, "r") as input_stream:
             self.config_dict = yaml.safe_load(input_stream)
             if 'path_to_config' in list(self.config_dict.keys()):
-                config_name = self.config_dict['path_to_config']
-                path = os.path.join(PROJECT_PATH, config_name)
+                config_path = self.config_dict['path_to_config']
+                path = os.path.join(PROJECT_PATH, config_path)
                 with open(path, "r") as input_stream:
                     config_dict_template = yaml.safe_load(input_stream)
                 self.config_dict = {**config_dict_template, **self.config_dict}
@@ -50,8 +67,10 @@ class YamlReader:
             use_cache - {self.config_dict['use_cache']},
             error_correction - {self.config_dict['error_correction']}''')
 
-    def init_experiment_setup(self, config_name):
-        self.read_yaml_config(config_name=config_name)
+    def init_experiment_setup(self, config_path: str, direct_path: bool = False) -> dict:
+
+        self.read_yaml_config(config_path=config_path,
+                              direct_path=direct_path)
 
         for dataset_name in self.config_dict['datasets_list']:
             train_data, _ = DataLoader(dataset_name).load_data()
@@ -98,23 +117,24 @@ class YamlReader:
 
 
 class DataReader:
-    def __init__(self,
-                 logger: Logger = None):
+    """
+    Class for reading train and test data from the dataset.
+    """
+    def __init__(self):
 
-        self.logger = logger
+        self.logger = Logger().get_logger()
 
     def read(self, dataset_name: str):
 
         self.logger.info(f'START WORKING on {dataset_name} dataset')
-        meta_dict = {}
         # load data
         train_data, test_data = DataLoader(dataset_name).load_data()
         self.logger.info(f'Loaded data from {dataset_name} dataset')
         if train_data is None:
             self.logger.error(f'Some problem with {dataset_name} data. Skip it')
-            return None, None, meta_dict
+            return None, None, None
         else:
             n_classes = len(np.unique(train_data[1]))
-            meta_dict['Number_of_classes'] = n_classes
+
             self.logger.info(f'{n_classes} classes detected')
-            return train_data, test_data, meta_dict
+            return train_data, test_data, n_classes

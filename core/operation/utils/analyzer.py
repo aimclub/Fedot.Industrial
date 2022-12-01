@@ -40,10 +40,10 @@ class PerformanceAnalyzer:
         return converted_target, converted_predictions
 
     def calculate_metrics(self,
-                          target: list,
-                          metric_list: list = ('roc_auc', 'f1', 'precision', 'accuracy', 'logloss'),
-                          predicted_labels: list = None,
-                          predicted_probs: list = None) -> Dict:
+                          target: Union[np.ndarray, List],
+                          predicted_labels: Union[np.ndarray, list] = None,
+                          predicted_probs: np.ndarray = None) -> Dict:
+
         labels_diff = max(target) - max(predicted_labels)
 
         if min(predicted_labels) != min(target):
@@ -61,7 +61,7 @@ class PerformanceAnalyzer:
                            r2=R2, mae=MAE, mse=MSE, mape=MAPE)
 
         result_metric = []
-        for metric_name in metric_list:
+        for metric_name in self.metric_list:
             chosen_metric = metric_dict[metric_name]
             try:
                 score = chosen_metric(target=target,
@@ -74,6 +74,6 @@ class PerformanceAnalyzer:
                 self.logger.info(err)
                 result_metric.append(0)
 
-        result_dict = dict(zip(metric_list, result_metric))
+        result_dict = dict(zip(self.metric_list, result_metric))
 
         return result_dict

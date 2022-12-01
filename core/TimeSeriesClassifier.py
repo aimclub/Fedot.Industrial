@@ -1,19 +1,19 @@
 import os
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.data.data import InputData, array_to_input_data
+from fedot.core.data.data import array_to_input_data
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
-from typing import Tuple, Union, Any
 
 from core.api.utils.checkers_collections import DataCheck
 from core.models.ExperimentRunner import ExperimentRunner
-from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
-from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.classification_datasets import CustomClassificationDataset
 from core.operation.utils.cv_experimenters import ClassificationExperimenter
+from core.operation.utils.FeatureBuilder import FeatureBuilderSelector
+from core.operation.utils.LoggerSingleton import Logger
 from core.operation.utils.utils import path_to_save_results
 
 
@@ -77,37 +77,51 @@ class TimeSeriesClassifier:
         fedot_model.fit(features, target)
         return fedot_model
 
-    def _fit_baseline_model(self, features: pd.DataFrame, target: np.ndarray, baseline_type: str) -> Pipeline:
-        """
-        Returns pipeline with the following structure:
+    def _fit_baseline_model(self, features: pd.DataFrame, target: np.ndarray, baseline_type: str = 'rf') -> Pipeline:
+        """Returns pipeline with the following structure:
+            ``[initial data] -> [scaling] -> [baseline type]``
 
-        .. image:: img_classification_pipelines/random_forest.png
-          :width: 55%
+        By default, baseline type is random forest, but it can be changed to any other model from Fedot library:
+        logit, knn, svc, qda, xgboost.
+
+        Args:
+            features: features for training
+            target: target for training
+            baseline_type: type of baseline model
+
+        Returns:
+            Fitted Fedot pipeline with baseline model
 
         """
+        self.logger.info(f'Baseline model pipeline: scaling -> {baseline_type}. Fitting...')
         node_scaling = PrimaryNode('scaling')
-        node_final = SecondaryNode('rf', nodes_from=[node_scaling])
+        node_final = SecondaryNode(baseline_type,
+                                   nodes_from=[node_scaling])
         baseline_pipeline = Pipeline(node_final)
-        input_data = array_to_input_data(features_array=features, target_array=target)
+        input_data = array_to_input_data(features_array=features,
+                                         target_array=target)
         baseline_pipeline.fit(input_data)
+        self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
-    def fit(self, train_features: np.ndarray, train_target: np.ndarray, dataset_name: str = None,
+    def fit(self, train_features: pd.DataFrame, train_target: np.ndarray, dataset_name: str = None,
             baseline_type: str = None) -> tuple:
-        self.logger.info('START TRAINING')
+        self.logger.info('Start fitting model')
         self.y_train = train_target
         self.train_features = self.generator_runner.extract_features(train_features=train_features,
                                                                      dataset_name=dataset_name)
-        self.train_features = self.datacheck.check_data(self.train_features)
+        self.train_features = self.datacheck.check_data(input_data=self.train_features,
+                                                        return_df=True)
 
         if baseline_type is not None:
             self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
         else:
             self.predictor = self._fit_model(self.train_features, train_target)
 
+        self.logger.info(f'Model fitted')
         return self.predictor, self.train_features
 
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+    def predict(self, test_features: pd.DataFrame, dataset_name: str = None) -> dict:
         self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
         self.test_features = self.datacheck.check_data(self.test_features)
 
@@ -118,7 +132,7 @@ class TimeSeriesClassifier:
             prediction_label = self.predictor.predict(self.test_features)
         return dict(label=prediction_label, test_features=self.test_features)
 
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+    def predict_proba(self, test_features: pd.DataFrame, dataset_name: str = None) -> dict:
         if self.test_features is None:
             self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
             self.test_features = self.datacheck.check_data(self.test_features)
@@ -153,10 +167,15 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                 self.model_hyperparams['optimization_method']['mode']]
             del self.model_hyperparams['optimization_method']
 
-        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
-                                                             'models')
-        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
+        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(),
+                                                                    'TSCImage',
+                                                                    self.generator_name,
+                                                                    'models')
+        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(),
+                                                              'TSCImage',
+                                                              self.generator_name,
                                                               'runs')
+
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 
         if target.min() != 0:
@@ -183,14 +202,3 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                                               **self.model_hyperparams)
         NN_model.fit(num_epochs=num_epochs)
         return NN_model
-
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
-        self.test_features = self.datacheck.check_data(self.test_features)
-
-        if type(self.predictor) == Pipeline:
-            self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
-            prediction_label = self.predictor.predict(self.input_test_data, output_mode='labels').predict
-        else:
-            prediction_label = self.predictor.predict(self.test_features)
-        return dict(label=prediction_label, test_features=self.test_features)

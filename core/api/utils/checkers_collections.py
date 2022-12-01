@@ -1,14 +1,14 @@
-import numpy as np
-import pandas as pd
 from typing import Union
 
-from core.api.utils.decorator_collections import Decorators
+import numpy as np
+import pandas as pd
+
 from core.operation.utils.LoggerSingleton import Logger
 
 
 class ParameterCheck:
-    def __init__(self, logger: Logger):
-        self.logger = logger
+    def __init__(self):
+        self.logger = Logger().get_logger()
 
     def check_window_sizes(self, config_dict: dict,
                            dataset_name: str,
@@ -28,10 +28,10 @@ class ParameterCheck:
 
     def check_metric_type(self, n_classes):
         if n_classes > 2:
-            self.logger.info('Metric for optimization - F1')
+            self.logger.info('Metric for evaluation - F1')
             return 'f1'
         else:
-            self.logger.info('Metric for optimization - ROC_AUC')
+            self.logger.info('Metric for evaluation - ROC-AUC')
             return 'roc_auc'
 
 
@@ -61,7 +61,7 @@ class DataCheck:
             input_data = np.nan_to_num(input_data, nan=0)
         return input_data
 
-    def check_data(self, input_data: pd.DataFrame, return_df: bool = False) -> np.ndarray:
+    def check_data(self, input_data: pd.DataFrame, return_df: bool = False) -> Union[pd.DataFrame, np.ndarray]:
         if type(input_data) != pd.DataFrame:
             return input_data
         else:
@@ -69,6 +69,7 @@ class DataCheck:
             filled_data = filled_data.apply(lambda x: self._check_for_nan(x))
             if filled_data.shape[0] == input_data.shape[0] and filled_data.shape[1] == input_data.shape[1]:
                 input_data = filled_data
+
             if return_df:
                 return input_data
             else:

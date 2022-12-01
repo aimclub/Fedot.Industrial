@@ -1,8 +1,6 @@
-from fedot.core.data.data import InputData
-from fedot.core.pipelines.node import PrimaryNode
-from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
+from itertools import repeat
+from multiprocessing import Pool
+
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
@@ -10,7 +8,6 @@ from core.models.ExperimentRunner import ExperimentRunner
 from core.models.signal.wavelet_extractor import WaveletExtractor
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
 from core.operation.utils.Decorators import time_it
-from core.operation.utils.load_data import DataLoader
 
 
 class SignalRunner(ExperimentRunner):
@@ -110,16 +107,21 @@ class SignalRunner(ExperimentRunner):
 
         Returns:
             list: list of components and vectors.
-        """
-        self.ts_samples_count = ts_frame.shape[0]
 
-        components_and_vectors = list()
-        with tqdm(total=ts_frame.shape[0],
-                  desc='Feature generation. Time series processed:',
-                  unit='ts', initial=0, colour='black') as pbar:
-            for ts in ts_frame.values:
-                components_and_vectors.append(self._ts_chunk_function(ts, method_name=method_name))
-                pbar.update(1)
+        """
+        ts_samples_count = ts_frame.shape[0]
+        n_processes = self.n_processes
+        with Pool(n_processes) as p:
+
+            components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
+                                                         zip(ts_frame.values, repeat(method_name))),
+                                               total=ts_samples_count,
+                                               desc='Feature Generation. TS processed',
+                                               unit=' ts',
+                                               colour='black'
+                                               )
+                                          )
+
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
         return components_and_vectors
 
@@ -138,12 +140,11 @@ class SignalRunner(ExperimentRunner):
             self.test_feats = test_feats
         return self.test_feats
 
-    def _choose_best_wavelet(self, X_train: pd.DataFrame) -> pd.DataFrame:
+    def _choose_best_wavelet(self, x_train: pd.DataFrame) -> pd.DataFrame:
         """Chooses the best wavelet for feature extraction.
 
         Args:
-            X_train (pd.DataFrame): train features.
-            y_train (np.ndarray): train target.
+            x_train: train features.
 
         Returns:
             pd.DataFrame: features with the best wavelet.
@@ -155,11 +156,11 @@ class SignalRunner(ExperimentRunner):
             self.logger.info(f'Generate features wavelet - {wavelet}')
             self.wavelet = wavelet
 
-            train_feats = self.generate_vector_from_ts(X_train)
+            train_feats = self.generate_vector_from_ts(x_train)
             train_feats = pd.concat(train_feats)
-            filtred_df = self.delete_col_by_var(train_feats)
+            filtered_df = self.delete_col_by_var(train_feats)
             feature_list.append(train_feats)
-            metric_list.append((filtred_df.shape[0], filtred_df.shape[1]))
+            metric_list.append((filtered_df.shape[0], filtered_df.shape[1]))
 
         max_score = [sum(x) for x in metric_list]
         index_of_window = int(max_score.index(max(max_score)))

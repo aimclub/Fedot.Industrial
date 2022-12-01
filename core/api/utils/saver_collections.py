@@ -6,10 +6,9 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class ResultSaver:
-    def __init__(self,
-                 logger: Logger = None):
+    def __init__(self):
 
-        self.logger = logger
+        self.logger = Logger().get_logger()
         self.save_method_dict = {'ECM': self.save_boosting_results,
                                  'Ensemble': self.save_ensemble_results,
                                  'Original': self.save_results}
@@ -19,11 +18,10 @@ class ResultSaver:
                      ):
         for launch in prediction:
             result_at_launch = prediction[launch]
-            features_names = ['train_features.csv', 'train_target.csv', 'test_features.csv', 'test_target.csv']
-            features_list = [result_at_launch['train_features'],
-                             result_at_launch['train_target'],
-                             result_at_launch['test_features'],
-                             result_at_launch['test_target']]
+            feature_target_dict = {'train_features.csv': result_at_launch['train_features'],
+                                   'train_target.csv': result_at_launch['train_target'],
+                                   'test_features.csv': result_at_launch['test_features'],
+                                   'test_target.csv': result_at_launch['test_target']}
             path_results = os.path.join(result_at_launch['path_to_save'], 'test_results')
             os.makedirs(path_results, exist_ok=True)
 
@@ -32,22 +30,22 @@ class ResultSaver:
             except Exception as ex:
                 self.logger.error(f'Can not save pipeline: {ex}')
 
-            for name, features in zip(features_names, features_list):
+            for name, features in feature_target_dict.items():
                 pd.DataFrame(features).to_csv(os.path.join(result_at_launch['path_to_save'], name))
 
-            if type(result_at_launch['class_probability']) is not pd.DataFrame:
-                df_preds = pd.DataFrame(result_at_launch['class_probability'])
-                df_preds.columns = [f'Class_{x}' for x in df_preds.columns]
+            if not isinstance(result_at_launch['class_probability'], pd.DataFrame):
+                df_preds = pd.DataFrame(result_at_launch['class_probability'].round(3), dtype=float)
+                df_preds.columns = [f'Class_{x+1}' for x in df_preds.columns]
                 df_preds['Target'] = result_at_launch['test_target']
                 df_preds['Predicted_labels'] = result_at_launch['label']
             else:
                 df_preds = result_at_launch['class_probability']
                 df_preds['Target'] = result_at_launch['test_target'].values
 
-            if type(result_at_launch['metrics']) is str:
+            if isinstance(result_at_launch['metrics'], str):
                 df_metrics = pd.DataFrame()
             else:
-                df_metrics = pd.DataFrame.from_records(data=[x for x in result_at_launch['metrics']['metrics'].items()],
+                df_metrics = pd.DataFrame.from_records(data=[x for x in result_at_launch['metrics'].items()],
                                                        columns=['Metric_name', 'Metric_value']).reset_index()
                 del df_metrics['index']
                 df_metrics = df_metrics.T
