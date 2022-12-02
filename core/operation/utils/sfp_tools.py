@@ -6,6 +6,8 @@ from torch import Tensor
 from torch.linalg import vector_norm
 from torch.nn import Conv2d
 
+from core.models.cnn.sfp_models import SFP_MODELS
+
 
 def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
     """Zerolize filters of convolutional layer to the pruning_ratio (in-place).
@@ -197,3 +199,44 @@ def prune_resnet_state_dict(
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_resnet_sd(sd)
     return sd, input_size, output_size
+
+
+def load_sfp_rsnet_model(
+        model_name: str,
+        num_classes: int,
+        state_dict_path: str,
+        pruning_ratio: float,
+) -> torch.nn.Module:
+    """Loads SFP state_dict to model.
+
+    Args:
+        model_name: Name of the model.
+        num_classes: Number of classes.
+        state_dict_path: Path to state_dict file.
+        pruning_ratio: pruning hyperparameter used in training.
+    """
+    if model_name not in SFP_MODELS.keys():
+        raise ValueError(
+            f"model_name must be one of {SFP_MODELS.keys()}, but got '{model_name}'"
+        )
+    state_dict = torch.load(state_dict_path, map_location='cpu')
+    input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
+    output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
+    last_layer = ''
+    for k, v in state_dict.items():
+        k = k.split('.')
+        if len(k) > 3 and k[2] == 'conv1':
+            input_size[k[0]].append(v.size()[1])
+            if last_layer in output_size.keys():
+                output_size[last_layer].append(v.size()[1])
+            last_layer = k[0]
+    output_size['layer4'].append(state_dict['fc.weight'].size()[1])
+
+    model = SFP_MODELS[model_name](
+        num_classes=num_classes,
+        input_size=input_size,
+        output_size=output_size,
+        pruning_ratio=pruning_ratio
+    )
+    model.load_state_dict(state_dict)
+    return model

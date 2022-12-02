@@ -1,3 +1,4 @@
+import torch
 from torch.nn.modules import Module
 from torch.nn.modules.conv import Conv2d
 
@@ -56,3 +57,35 @@ def decompose_module(model: Module, decomposing_mode: str = 'channel') -> None:
             new_module.load_state_dict(module.state_dict())
             new_module.decompose(decomposing_mode=decomposing_mode)
             setattr(model, name, new_module)
+
+
+def _load_svd_params(model, state_dict, prefix='') -> None:
+    """Loads state_dict to DecomposedConv2d layers in model."""
+    for name, module in model.named_children():
+        if len(list(module.children())) > 0:
+            _load_svd_params(module, state_dict, prefix=f'{prefix}{name}.')
+
+        if isinstance(module, DecomposedConv2d):
+            module.set_U_S_Vh(
+                u=state_dict[f'{prefix}{name}.U'],
+                s=state_dict[f'{prefix}{name}.S'],
+                vh=state_dict[f'{prefix}{name}.Vh']
+            )
+
+
+def load_svd_state_dict(
+        model: Module,
+        decomposing_mode: str,
+        state_dict_path: str
+) -> None:
+    """Loads SVD state_dict to model.
+
+    Args:
+        model: An instance of the base model.
+        decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
+        state_dict_path: Path to state_dict file.
+    """
+    state_dict = torch.load(state_dict_path, map_location='cpu')
+    decompose_module(model=model, decomposing_mode=decomposing_mode)
+    _load_svd_params(model, state_dict)
+    model.load_state_dict(state_dict)
