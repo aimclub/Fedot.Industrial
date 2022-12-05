@@ -85,7 +85,10 @@ class Industrial(Fedot):
                       dataset_name: str = None,
                       ecm_mode: bool = False,
                       n_classes: int = None):
-        generator_params = self.config_dict['feature_generator_params'][model_name]
+        try:
+            generator_params = self.config_dict['feature_generator_params'][model_name]
+        except KeyError:
+            generator_params = dict()
         generator = self.feature_generator_dict[model_name](**generator_params)
 
         self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
@@ -266,7 +269,8 @@ class Industrial(Fedot):
             ensemble_mode = self.config_dict['ensemble_algorithm']
             single_mode = False
         ensemble_model = self.ensemble_methods_dict[ensemble_mode]()
-        ensemble_results = ensemble_model.ensemble(predictions=modelling_results, single_mode=single_mode)
+        ensemble_results = ensemble_model.ensemble(modelling_results=modelling_results,
+                                                   single_mode=single_mode)
         return ensemble_results
 
     @staticmethod

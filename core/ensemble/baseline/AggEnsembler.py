@@ -18,13 +18,13 @@ class AggregationEnsemble(BaseEnsemble):
         self.train_predictions = None
         self.train_target = None
         self.test_target = None
-        self.launch = None
-        self.ensemle_strategy_dict = select_hyper_param('stat_methods_ensemble')
-        # self.ensemle_strategy_dict['WeightedEnsemble'] = self.weighted_strategy
+        self.generator = None
+        self.ensemble_strategy_dict = select_hyper_param('stat_methods_ensemble')
+        # self.ensemble_strategy_dict['WeightedEnsemble'] = self.weighted_strategy
 
-        self.ensemle_strategy = ensemble_strategy
-        if self.ensemle_strategy is None:
-            self.ensemle_strategy = self.ensemle_strategy_dict.keys()
+        self.ensemble_strategy = ensemble_strategy
+        if self.ensemble_strategy is None:
+            self.ensemble_strategy = self.ensemble_strategy_dict.keys()
 
         self.strategy_exclude_list = ['WeightedEnsemble']
 
@@ -162,13 +162,13 @@ class AggregationEnsemble(BaseEnsemble):
 
     def get_model_class_weights(self):
         model_weights = []
-        validation_preds = self.train_predictions[self.launch]
+        validation_preds = self.train_predictions[self.generator]
         for model_at_val in validation_preds:
             cm = confusion_matrix(y_pred=np.argmax(validation_preds[model_at_val], axis=1),
                                   y_true=self.train_target)
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-            weigths = np.nan_to_num(cm.diagonal())
-            model_weights.append(weigths)
+            weights = np.nan_to_num(cm.diagonal())
+            model_weights.append(weights)
         return model_weights
 
     def weighted_strategy(self, predictions, axis=1):
@@ -177,27 +177,27 @@ class AggregationEnsemble(BaseEnsemble):
         ensemble_predict = self.weighted_majority_voting(model_votes, model_weights)
         return ensemble_predict
 
-    def ensemble(self, predictions: dict, single_mode=False) -> dict:
+    def ensemble(self, modelling_results: dict, single_mode: bool = False) -> dict:
         ensemble_dict = {}
         if single_mode:
-            for strategy in self.ensemle_strategy:
-                ensemble_dict.update({f'{strategy}': self._ensemble_by_method(predictions,
+            for strategy in self.ensemble_strategy:
+                ensemble_dict.update({f'{strategy}': self._ensemble_by_method(modelling_results,
                                                                               strategy=strategy)})
         else:
-            for launch in predictions:
-                ensemble_dict[launch] = {}
-                self.launch = launch
-                for model in predictions[launch]:
-                    ensemble_dict[launch].update({model: predictions[launch][model]['metrics']})
+            for generator in modelling_results:
+                ensemble_dict[generator] = {}
+                self.generator = generator
+                for launch in modelling_results[generator]:
+                    ensemble_dict[generator].update({launch: modelling_results[generator][launch]['metrics']})
 
-                for strategy in self.ensemle_strategy:
-                    ensemble_dict[launch].update({strategy: self._ensemble_by_method(predictions[launch],
-                                                                                     strategy=strategy)})
+                for strategy in self.ensemble_strategy:
+                    ensemble_dict[generator].update({strategy: self._ensemble_by_method(modelling_results[generator],
+                                                                                        strategy=strategy)})
         return ensemble_dict
 
     def _ensemble_by_method(self, predictions, strategy):
         transformed_predictions = self._check_predictions(predictions, strategy_name=strategy)
-        average_proba_predictions = self.ensemle_strategy_dict[strategy](transformed_predictions, axis=1)
+        average_proba_predictions = self.ensemble_strategy_dict[strategy](transformed_predictions, axis=1)
 
         if average_proba_predictions.shape[1] == 1:
             average_proba_predictions = np.concatenate([average_proba_predictions, 1 - average_proba_predictions],
@@ -211,10 +211,8 @@ class AggregationEnsemble(BaseEnsemble):
 
     def _check_predictions(self, predictions, strategy_name):
         """Check if the predictions array has the correct size.
-
         Raises a value error if the array do not contain exactly 3 dimensions:
         [n_samples, n_classifiers, n_classes]
-
         """
         if strategy_name in self.strategy_exclude_list:
             return predictions

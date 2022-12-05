@@ -28,9 +28,11 @@ class ResultsParser:
                             'wavelet',
                             'window_quantile']
         self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.plk')
+        # self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.csv')
 
     def run(self):
         ds_info = pd.read_pickle(self.ds_info_path)
+        # ds_info = pd.read_csv(self.ds_info_path, index_col=0)
         exp_results = self.retrieve_data()
         ls = []
         for ds in exp_results['dataset']:
@@ -45,13 +47,13 @@ class ResultsParser:
         current = []
         proba_dict = {}
         metric_dict = {}
-        filtred_folders = []
+        filtered_folders = []
         for folder in exp_folders:
             try:
                 path_to_results = os.path.join(self.exp_path, path, folder)
                 datasets = os.listdir(path_to_results)
                 current.append(datasets)
-                filtred_folders.append(folder)
+                filtered_folders.append(folder)
             except Exception:
                 print(f'{folder} is empty')
         current = sorted(current, key=lambda x: len(x), reverse=True)
@@ -59,9 +61,9 @@ class ResultsParser:
         _ = []
         for pth in dataset_path:
             _.extend(pth)
-        dataset_filtred = list(set(_))
-        for filtred in filtred_folders:
-            for dataset in dataset_filtred:
+        dataset_filtered = list(set(_))
+        for filtered in filtered_folders:
+            for dataset in dataset_filtered:
                 try:
                     if dataset not in proba_dict.keys():
                         proba_dict[dataset] = {}
@@ -70,8 +72,8 @@ class ResultsParser:
                     if type(launch) == str:
                         best_metric = 0
                         launch = 1
-                        for dir in os.listdir(os.path.join(self.exp_path, path, filtred, dataset)):
-                            metric_path = os.path.join(self.exp_path, path, filtred, dataset, dir, 'test_results',
+                        for dir in os.listdir(os.path.join(self.exp_path, path, filtered, dataset)):
+                            metric_path = os.path.join(self.exp_path, path, filtered, dataset, dir, 'test_results',
                                                        'metrics.csv')
                             metrics = pd.read_csv(metric_path, index_col=0)
                             if 'index' in metrics.columns:
@@ -84,18 +86,18 @@ class ResultsParser:
                                 best_metric = metric_sum
                                 launch = dir
 
-                    metric_path = os.path.join(self.exp_path, path, filtred, dataset, str(launch), 'test_results',
+                    metric_path = os.path.join(self.exp_path, path, filtered, dataset, str(launch), 'test_results',
                                                    'metrics.csv')
-                    proba_path = os.path.join(self.exp_path, path, filtred, dataset, str(launch), 'test_results',
+                    proba_path = os.path.join(self.exp_path, path, filtered, dataset, str(launch), 'test_results',
                                                   'probs_preds_target.csv')
-                    proba_dict[dataset].update({filtred: pd.read_csv(proba_path, index_col=0)})
+                    proba_dict[dataset].update({filtered: pd.read_csv(proba_path, index_col=0)})
                     metrics = pd.read_csv(metric_path, index_col=0)
                     if 'index' in metrics.columns:
                         del metrics['index']
                         metrics = metrics.T
                         metrics = metrics.rename(columns=metrics.iloc[0])
                         metrics = metrics[1:]
-                    metric_dict[dataset].update({filtred: metrics})
+                    metric_dict[dataset].update({filtered: metrics})
                 except Exception:
                     print(f'{folder} and {dataset} doesnt exist.')
         return proba_dict, metric_dict
@@ -133,7 +135,11 @@ class ResultsParser:
         roc_list = list()
         for launch in launches:
             single_exp_path = os.path.join(path, launch, 'test_results', 'metrics.csv')
-            f1, roc = pd.read_csv(single_exp_path, index_col=0)['1'][:2]
+            try:
+                f1, roc = pd.read_csv(single_exp_path, index_col=0)['1'][:2]
+            except KeyError:
+                f1 = pd.read_csv(single_exp_path, index_col=0).loc[0, 'f1']
+                roc = pd.read_csv(single_exp_path, index_col=0).loc[0, 'roc_auc']
             f1_list.append(f1)
             roc_list.append(roc)
         return np.mean(f1_list), np.mean(roc_list)
@@ -164,3 +170,4 @@ if __name__ == '__main__':
 
     parser = ResultsParser()
     results_table = parser.run()
+    results_table.to_csv('results_4.csv', index=False)

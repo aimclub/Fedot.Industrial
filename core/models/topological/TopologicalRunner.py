@@ -1,13 +1,16 @@
+import gc
+import sys
+
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
-import gc
+
 from core.models.ExperimentRunner import ExperimentRunner
 from core.models.topological.TFE import *
 from core.operation.utils.Decorators import time_it
-import sys
 
 sys.setrecursionlimit(1000000000)
+
 PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                 'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
                                 'RelevantHolesNumber': RelevantHolesNumber(),
@@ -31,7 +34,7 @@ class TopologicalRunner(ExperimentRunner):
     def __init__(self, use_cache: bool = False):
         super().__init__()
         self.use_cache = use_cache
-        self.filtred_features = None
+        self.filtered_features = None
         self.feature_extractor = None
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
@@ -50,11 +53,11 @@ class TopologicalRunner(ExperimentRunner):
 
         ts_data_transformed = self.feature_extractor.fit_transform(ts_data.values)
 
-        if self.filtred_features is None:
+        if self.filtered_features is None:
             ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
-            self.filtred_features = ts_data_transformed.columns.tolist()
+            self.filtered_features = ts_data_transformed.columns.tolist()
         gc.collect()
-        return ts_data_transformed[self.filtred_features]
+        return ts_data_transformed[self.filtered_features]
 
     @time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
@@ -90,11 +93,11 @@ class TopologicalRunner(ExperimentRunner):
             delay_list.append(delay)
             dim_list.append(dim)
 
-        _dimension = int(methods[method](dim_list))
-        _delay = int(methods[method](delay_list))
-        self.logger.info(f'Optimal TE parameters: dimension = {_dimension}, time_delay = {_delay}')
+        dimension = int(methods[method](dim_list))
+        delay = int(methods[method](delay_list))
+        self.logger.info(f'Optimal TE parameters: dimension = {dimension}, time_delay = {delay}')
 
-        return _dimension, _delay
+        return dimension, delay
 
     @staticmethod
     def _mode(arr: list) -> int:
