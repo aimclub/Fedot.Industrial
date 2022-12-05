@@ -1,7 +1,9 @@
 import os
+import shutil
 import time
-from typing import Dict, Type, Set, Union, List
+from typing import Dict, Type, Set, Union, List, Any
 
+import numpy as np
 import torch
 from PIL import Image
 from sklearn.metrics import accuracy_score, roc_auc_score
@@ -87,40 +89,47 @@ class _GeneralizedExperimenter:
         self.metric = metric
         self.structure_optimization = None
 
-    def save_model(self, postfix: str = '') -> None:
+    def save_model(self, name: str = 'trained_model') -> None:
         """Save all model.
 
         Args:
-            postfix: A string appended to ``self.name`` in save file name
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
-        dir_path = '/'.join(file_path.split('/')[:-1])
+        dir_path = os.path.join(self.models_path, self.name)
+        model_name = f"{name}.model.pt"
+        file_path = os.path.join(dir_path, model_name)
         os.makedirs(dir_path, exist_ok=True)
-        torch.save(self.model, file_path)
+        try:
+            torch.save(self.model, file_path)
+        except Exception:
+            torch.save(self.model, model_name)
+            shutil.move(model_name, dir_path)
         print("Model saved.")
 
-    def save_model_state_dict(self, postfix: str = '') -> None:
+    def save_model_state_dict(self, name: str = 'trained_model') -> None:
         """Save model state_dict.
 
         Args:
-            postfix: A string appended to ``self.name`` in save file name.
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
-        dir_path = '/'.join(file_path.split('/')[:-1])
+        dir_path = os.path.join(self.models_path, self.name)
+        model_name = f"{name}.model.sd.pt"
+        file_path = os.path.join(dir_path, model_name)
         os.makedirs(dir_path, exist_ok=True)
-        torch.save(self.model.state_dict(), file_path)
+        try:
+            torch.save(self.model.state_dict(), file_path)
+        except Exception:
+            torch.save(self.model.state_dict(), model_name)
+            shutil.move(model_name, dir_path)
         print("Model state dict saved.")
 
-    def load_model_state_dict(self, postfix: str = '') -> None:
+    def load_model_state_dict(self, name: str = 'trained_model') -> None:
         """Load model state_dict to ``self.model``
 
         Args:
-            postfix: A string appended to ``self.name`` in load file name.
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.sd.pt")
+        file_path = os.path.join(self.models_path, self.name, f"{name}.sd.pt")
         if os.path.exists(file_path):
             self.model.load_state_dict(torch.load(file_path))
             self.model.to(self.device)
@@ -128,14 +137,13 @@ class _GeneralizedExperimenter:
         else:
             print(f"File '{file_path}' does not exist.")
 
-    def load_model(self, postfix: str = '') -> None:
+    def load_model(self, name: str = 'trained_model') -> None:
         """Load model to ``self.model``.
 
         Args:
-            postfix: A string appended to ``self.name`` in load file name.
-                (default: ``''``).
+            name: File name (default: 'trained_model').
         """
-        file_path = os.path.join(self.models_path, f"{self.name}{postfix}.model.pt")
+        file_path = os.path.join(self.models_path, self.name, f"{name}.model.pt")
         if os.path.exists(file_path):
             self.model = torch.load(file_path)
             self.model.to(self.device)
@@ -173,8 +181,7 @@ class _GeneralizedExperimenter:
         """Have to implement the prediction method on single image."""
         pass
 
-    def _predict(self, image_folder: str, proba: bool) -> Dict:
-        """Generalized prediction method of the model."""
+    def __predict_from_folder(self, image_folder: str, proba: bool) -> Dict:
         predicts = {}
         for image_name in tqdm(os.listdir(image_folder)):
             image_path = os.path.join(image_folder, image_name)
@@ -182,14 +189,29 @@ class _GeneralizedExperimenter:
             predicts[image_name] = self._predict_on_image(image=image, proba=proba)
         return predicts
 
-    def predict(self, image_folder: str) -> Dict:
+    def __predict_from_array(self, image_folder: np.ndarray, proba: bool) -> Dict:
+        predicts = {}
+        array_iter = enumerate(image_folder)
+        for idx, array in tqdm(array_iter):
+            image = torch.from_numpy(array).float()
+            predicts[str(idx)] = self._predict_on_image(image=image, proba=proba)
+        return predicts
+
+    def _predict(self, image_folder: Union[str, np.ndarray], proba: bool) -> Dict:
+        """Generalized prediction method of the model."""
+        if type(image_folder) == str:
+            return self.__predict_from_folder(image_folder, proba)
+        else:
+            return self.__predict_from_array(image_folder, proba)
+
+    def predict(self, image_folder: Union[str, np.ndarray]) -> Dict:
         """Computes predictions for images in image_folder.
 
         Args:
             image_folder: Image folder path."""
         return self._predict(image_folder=image_folder, proba=False)
 
-    def predict_proba(self, image_folder: str) -> Dict:
+    def predict_proba(self, image_folder: Union[str, np.ndarray]) -> Dict:
         """Computes probability predictions for images in image_folder.
 
         Args:
@@ -225,7 +247,7 @@ class _GeneralizedExperimenter:
         Args:
             num_epochs: Number of epochs.
         """
-        writer = SummaryWriter(os.path.join(self.summary_path, self.name))
+        writer = SummaryWriter(os.path.join(self.summary_path, self.name, 'train'))
         print(f"{self.name}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
             print(f"Epoch {epoch}")
@@ -236,21 +258,21 @@ class _GeneralizedExperimenter:
             self.write_scores(writer, 'val', val_scores, epoch)
             if val_scores[self.metric] > self.best_score:
                 self.best_score = val_scores[self.metric]
+                print(f'Best score - {self.best_score}')
                 self.save_model_state_dict()
         self.structure_optimization.final_optimize()
         writer.close()
 
-    def finetune(self, num_epochs: int, postfix: str = '') -> None:
+    def finetune(self, num_epochs: int, name: str = 'fine-tuning') -> None:
         """Run fine-tuning
 
         Args:
             num_epochs: Number of epochs.
-            postfix: A string appended to the name to identify the experiment.
-                (default: ``''``).
+            name: Description of the experiment (default: ``'fine-tuning'``).
         """
         best_score = 0
-        writer = SummaryWriter(os.path.join(self.summary_path, self.name) + postfix)
-        print(f"{self.name + postfix}, using device: {self.device}")
+        writer = SummaryWriter(os.path.join(self.summary_path, self.name, name))
+        print(f"{self.name}/{name}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
             print(f"Fine-tuning epoch {epoch}")
             train_scores = self.train_loop()
@@ -259,8 +281,8 @@ class _GeneralizedExperimenter:
             self.write_scores(writer, 'fine-tuning_val', val_scores, epoch)
             if val_scores[self.metric] > best_score:
                 best_score = val_scores[self.metric]
-                self.save_model_state_dict(postfix=postfix)
-        self.load_model_state_dict(postfix=postfix)
+                self.save_model_state_dict(name=name)
+        self.load_model_state_dict(name=name)
         writer.close()
 
 
@@ -302,7 +324,6 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             self,
             model: str,
             train_dataset: Dataset,
-            dataset_name: str = None,
             val_dataset: Dataset = None,
             num_classes: int = None,
             model_params: Dict = None,
@@ -341,7 +362,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{dataset_name}/{model}",
+            name=f"{model}",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
@@ -430,8 +451,13 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         """Returns prediction for image."""
         self.model.eval()
         with torch.no_grad():
-            image = image.unsqueeze_(0).to(self.device)
-            pred = self.model(image)
+
+            try:
+                pred = self.model(image)
+            except Exception:
+                image = image.unsqueeze_(0).to(self.device)
+                pred = self.model(image)
+
             if proba:
                 pred = softmax(pred, dim=1).cpu().detach().tolist()
             else:
@@ -471,7 +497,6 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
 
     def __init__(
             self,
-            dataset_name: str,
             train_dataset: Dataset,
             val_dataset: Dataset,
             num_classes: int,
@@ -511,7 +536,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{dataset_name}/FasterR-CNN/ResNet50",
+            name=f"FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,

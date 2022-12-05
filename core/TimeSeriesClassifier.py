@@ -104,43 +104,55 @@ class TimeSeriesClassifier:
         self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
-    def fit(self, train_features: pd.DataFrame, train_target: np.ndarray, dataset_name: str = None,
-            baseline_type: str = None) -> tuple:
-        self.logger.info('Start fitting model')
+    def __fit_abstraction(self,
+                          train_features: np.ndarray,
+                          train_target: np.ndarray,
+                          dataset_name: str = None,
+                          baseline_type: str = None):
+        self.logger.info('START TRAINING')
         self.y_train = train_target
         self.train_features = self.generator_runner.extract_features(train_features=train_features,
                                                                      dataset_name=dataset_name)
-        self.train_features = self.datacheck.check_data(input_data=self.train_features,
-                                                        return_df=True)
+        self.train_features = self.datacheck.check_data(self.train_features)
 
         if baseline_type is not None:
             self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
         else:
             self.predictor = self._fit_model(self.train_features, train_target)
 
-        self.logger.info(f'Model fitted')
-        return self.predictor, self.train_features
-
-    def predict(self, test_features: pd.DataFrame, dataset_name: str = None) -> dict:
+    def __predict_abstraction(self,
+                              test_features: np.ndarray,
+                              mode: str = 'labels',
+                              dataset_name: str = None):
         self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
         self.test_features = self.datacheck.check_data(self.test_features)
 
         if type(self.predictor) == Pipeline:
             self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
-            prediction_label = self.predictor.predict(self.input_test_data, output_mode='labels').predict
+            prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
+            return prediction_label
         else:
-            prediction_label = self.predictor.predict(self.test_features)
+            if mode == 'labels':
+                prediction_label = self.predictor.predict(self.test_features)
+            else:
+                prediction_label = self.predictor.predict_proba(self.test_features)
+            return prediction_label
+
+    def fit(self, train_features: np.ndarray,
+            train_target: np.ndarray,
+            dataset_name: str = None,
+            baseline_type: str = None) -> tuple:
+        self.__fit_abstraction(train_features, train_target, dataset_name, baseline_type)
+        return self.predictor, self.train_features
+
+    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_label = self.__predict_abstraction(test_features, dataset_name)
         return dict(label=prediction_label, test_features=self.test_features)
 
-    def predict_proba(self, test_features: pd.DataFrame, dataset_name: str = None) -> dict:
-        if self.test_features is None:
-            self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
-            self.test_features = self.datacheck.check_data(self.test_features)
-
-        if self.input_test_data is not None:
-            prediction_proba = self.predictor.predict(self.input_test_data, output_mode='probs').predict
-        else:
-            prediction_proba = self.predictor.predict_proba(self.test_features)
+    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_proba = self.__predict_abstraction(test_features=test_features,
+                                                      mode='probs',
+                                                      dataset_name=dataset_name)
         return dict(class_probability=prediction_proba, test_features=self.test_features)
 
 
@@ -153,7 +165,7 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                  ecm_model_flag: False):
         super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)
 
-    def _init_model_param(self, target) -> Tuple[int, np.ndarray]:
+    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
 
         num_epochs = self.model_hyperparams['epoch']
         del self.model_hyperparams['epoch']
@@ -167,15 +179,11 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                 self.model_hyperparams['optimization_method']['mode']]
             del self.model_hyperparams['optimization_method']
 
-        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(),
-                                                                    'TSCImage',
+        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(), 'TSCImage',
                                                                     self.generator_name,
                                                                     'models')
-        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(),
-                                                              'TSCImage',
-                                                              self.generator_name,
+        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
                                                               'runs')
-
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 
         if target.min() != 0:
@@ -202,3 +210,15 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                                               **self.model_hyperparams)
         NN_model.fit(num_epochs=num_epochs)
         return NN_model
+
+    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_label = self.__predict_abstraction(test_features, dataset_name)
+        prediction_label = list(prediction_label.values())
+        return dict(label=prediction_label, test_features=self.test_features)
+
+    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_proba = self.__predict_abstraction(test_features=test_features,
+                                                      mode='probs',
+                                                      dataset_name=dataset_name)
+        prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
+        return dict(class_probability=prediction_proba, test_features=self.test_features)

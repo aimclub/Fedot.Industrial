@@ -46,13 +46,15 @@ set experiment configuration using file `cases/config/Config_Classification.yaml
 and then run `cases/classification_experiment.py` script, or create your own
 with the following code:
 
-    from core.api.tsc_API import Industrial
+```python
+from core.api.tsc_API import Industrial
 
 
-    if __name__ == '__main__':
-        config_name = 'Config_Classification.yaml'
-        ExperimentHelper = Industrial()
-        ExperimentHelper.run_experiment(config_name)
+if __name__ == '__main__':
+    config_name = 'Config_Classification.yaml'
+    ExperimentHelper = Industrial()
+    ExperimentHelper.run_experiment(config_name)
+```
 
 Config file contains the following parameters:
 
@@ -159,7 +161,7 @@ The repository includes the following directories:
 
 ## Documentation
 
-Documentation will be available soon at `Read The Docs` after first stable release
+Comprehensive documentation is available [**here**](<https://fedotindustrial.readthedocs.io>).
 
 ## Supported by
 
@@ -174,7 +176,7 @@ Here will be provided a list of citations for the project.
 So far you can use citation for this repository:
 
     @online{fedot_industrial,
-      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Mikitin, Nikolay},
+      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Nikitin, Nikolay},
       title = {FEDOT.Industrial - Framework for automated time series analysis},
       year = 2022,
       url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},

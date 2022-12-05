@@ -8,7 +8,8 @@ from core.operation.utils.utils import PROJECT_PATH
 
 
 class ResultsParser:
-    """Class for parsing results of experiments.
+    """Class for parsing results of experiments. It parses all experiments in ``results_of_experiments``
+    folder and creates dataframe table that availible for further analysis.
 
     Examples:
         >>> parser = ResultsParser()
@@ -30,7 +31,14 @@ class ResultsParser:
         self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.plk')
         # self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.csv')
 
-    def run(self):
+    def run(self) -> pd.DataFrame:
+        """
+        Base method for parsing results of experiments.
+
+        Returns:
+            Table with results of experiments.
+
+        """
         ds_info = pd.read_pickle(self.ds_info_path)
         # ds_info = pd.read_csv(self.ds_info_path, index_col=0)
         exp_results = self.retrieve_data()
@@ -146,7 +154,7 @@ class ResultsParser:
 
     @staticmethod
     def list_dir(path):
-        """Function used instead of os.listdir() to get list of non-hidden directories.
+        """Function used instead of ``os.listdir()`` to get list of non-hidden directories.
 
         Args:
             path (str): Path to the directory.

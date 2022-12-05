@@ -12,12 +12,15 @@ class TSTransformer:
     def __init__(self, time_series):
         self.time_series = time_series
         self.recurrence_matrix = None
-        self.threshold_baseline = [10, 15, 20]
+        self.threshold_baseline = [1, 5, 10, 15, 20, 25, 30]
+        self.min_signal_ratio = 0.65
+        self.max_signal_ratio = 0.75
+        self.rec_metric = 'euclidean'
 
     def ts_to_recurrence_matrix(self,
                                 eps=0.10,
                                 steps=None):
-        distance_matrix = pdist(metric='euclidean', X=self.time_series[:, None])
+        distance_matrix = pdist(metric=self.rec_metric, X=self.time_series[:, None])
         distance_matrix = np.floor(distance_matrix / eps)
         distance_matrix, steps = self.binarization(distance_matrix, threshold=steps)
         distance_matrix[distance_matrix > steps] = steps
@@ -26,6 +29,7 @@ class TSTransformer:
 
     def binarization(self, distance_matrix, threshold):
         best_threshold_flag = False
+        signal_ratio_list = []
         if threshold is None:
             for threshold_baseline in self.threshold_baseline:
                 threshold = threshold_baseline
@@ -34,16 +38,19 @@ class TSTransformer:
                 tmp_array[tmp_array >= threshold_baseline] = 1.0
                 signal_ratio = np.where(tmp_array == 0)[0].shape[0] / tmp_array.shape[0]
 
-                if 0.6 < signal_ratio < 0.8:
+                if self.min_signal_ratio < signal_ratio < self.max_signal_ratio:
                     best_ratio = signal_ratio
                     distance_matrix = tmp_array
                     best_threshold_flag = True
                     if signal_ratio > best_ratio:
                         distance_matrix = tmp_array
+                else:
+                    signal_ratio_list.append(abs(self.max_signal_ratio-signal_ratio))
 
                 del tmp_array
 
         if not best_threshold_flag:
+            threshold = self.threshold_baseline[signal_ratio_list.index(min(signal_ratio_list))]
             distance_matrix[distance_matrix < threshold] = 0.0
             distance_matrix[distance_matrix >= threshold] = 1.0
         return distance_matrix, threshold
