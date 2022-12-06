@@ -32,7 +32,8 @@ class RankEnsemble(BaseEnsemble):
         self.best_ensemble_metric = 0
 
     def _create_models_rank_dict(self):
-        """Returns a dictionary best metric values of base models``
+        """
+        Method that returns a dictionary best metric values of base models
 
         Returns:
             dictionary with structure {'ModelName': best metric values}
@@ -53,7 +54,8 @@ class RankEnsemble(BaseEnsemble):
         return model_rank
 
     def _sort_models(self, model_rank):
-        """Returns sorted dictionary with models results ``
+        """
+        Method that returns sorted dictionary with models results ``
 
         Args:
             model_rank: dictionary with structure {'ModelName': best metric values}
@@ -70,18 +72,16 @@ class RankEnsemble(BaseEnsemble):
         best_metric = self.sorted_dict[best_base_model]
 
         self.logger.info(f'CURRENT BEST METRIC - {best_metric}. MODEL - {best_base_model}'.center(50, '-'))
+        self.experiment_results.update({'Base_model': best_base_model, 'Base_metric': best_metric})
         return {'Base_model': best_base_model, 'Base_metric': best_metric}
 
     def __iterative_model_selection(self):
-        """Returns pipeline with the following structure:
-            ``[initial data] -> [scaling] -> [baseline type]``
-
-        By default, baseline type is random forest, but it can be changed to any other model from Fedot library:
-        logit, knn, svc, qda, xgboost.
-
+        """
+        Method that iterative adding models to a single composite model and ensemble their predictions
 
         Returns:
-            Fitted Fedot pipeline with baseline model
+            dictionary with structure {'Ensemble_models': best ensemble metric,
+                                        'Base_model': best base model metric}
 
         """
         for top_K_models in range(self.n_models):
@@ -105,9 +105,16 @@ class RankEnsemble(BaseEnsemble):
                     self.experiment_results.update({'Ensemble_models': f'Models: {model_combination}. '
                                                                        f'Ensemble_method: {current_ensemble_method}'})
                     self.experiment_results.update({'Best_ensemble_metric': best_ensemble_metric})
-        return
+        return self.experiment_results
 
     def __select_best_ensemble_method(self, ensemble_results: dict):
+        """
+        A method that iteratively searches for an ensemble algorithm that improves the current best result
+
+        Returns:
+            sorted dictionary with structure {'Ensemble_models': best ensemble metric}
+
+        """
         top_ensemble_dict = {}
         for ensemble_method in ensemble_results:
             ensemble_dict = ensemble_results[ensemble_method]
@@ -142,5 +149,5 @@ class RankEnsemble(BaseEnsemble):
         """
         model_rank_dict = self._create_models_rank_dict()
         self.best_base_results = self._sort_models(model_rank_dict)
-        self.__iterative_model_selection()
-        return self.experiment_results
+
+        return self.__iterative_model_selection()
