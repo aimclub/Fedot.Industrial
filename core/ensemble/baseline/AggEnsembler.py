@@ -1,13 +1,8 @@
 import copy
-
 from sklearn.metrics import confusion_matrix
-
 from core.ensemble.BaseEnsembler import BaseEnsemble
-import numpy as np
 from scipy.stats.mstats import mode
-from sklearn.utils.validation import check_array
 from core.operation.settings.Hyperparams import *
-from core.operation.utils.analyzer import PerformanceAnalyzer
 
 
 class AggregationEnsemble(BaseEnsemble):

@@ -95,9 +95,9 @@ class ResultsParser:
                                 launch = dir
 
                     metric_path = os.path.join(self.exp_path, path, filtered, dataset, str(launch), 'test_results',
-                                                   'metrics.csv')
+                                               'metrics.csv')
                     proba_path = os.path.join(self.exp_path, path, filtered, dataset, str(launch), 'test_results',
-                                                  'probs_preds_target.csv')
+                                              'probs_preds_target.csv')
                     proba_dict[dataset].update({filtered: pd.read_csv(proba_path, index_col=0)})
                     metrics = pd.read_csv(metric_path, index_col=0)
                     if 'index' in metrics.columns:

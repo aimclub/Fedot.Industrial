@@ -15,5 +15,5 @@ class BaseEnsemble:
         self.feature_generator_dict = feature_generator_dict
         self.logger = Logger().get_logger()
 
-    def ensemble(self, modelling_results: dict, single_mode=False) -> dict:
+    def ensemble(self, modelling_results: dict = None, single_mode=False) -> dict:
         pass
