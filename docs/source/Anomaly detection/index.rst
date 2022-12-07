@@ -151,15 +151,21 @@ sum of distance of compress zone to 40 points
        :align: center
        :alt: Typical time series configuration
 
-       Examples of vectors of anomaly zones of four types: from noice(grean) to critical(red) with light(dark blue) and heavy(yellow)
+       Examples of vectors of anomaly zones of four types: from noice(grean) to critical(red) with light(dark blue) and heavy(yellow). As could be easily noticed - anomalies different dramatically.
 
+Next two stages are connected. First - in using the same reducer that reduce long vectors of features to 2D coordinates. Second - in ensambling of predicts from two methods.
 
+Database method
+~~~~~~~~~~~~~~~
+
+Next stage of detection is database comparison. Faster way of this could be compare distances between vectors in 2D coordinate system. Each frame of dataset already has reduced coordinates and saved reducer from database could easy reduce vectors of anomaly zones to such coordinates. 
+
+So for each anomaly zones method looks for point that are closest to the point of reduced features vector of the zone. And parametrs of a zone set by parametrs of respected database frame - type, heaviness and comment.
 
 Clusterization method
 ~~~~~~~~~~~~~~~~~~~~~
 
-Next stage 
-
+Next stage of analysis is find how critical anomaly is. By research was found that anomalies of groups by several clusters:
 
 ------------------------------------------------------
 
@@ -168,18 +174,31 @@ Next stage
        :align: center
        :alt: Typical time series configuration
 
-       Clusters of anomaly zones from dataset.
+       Clusters of anomaly zones from dataset. Red(Critical) anomalies groups in several clusters, sumtimes together with brown(heavy) anomalies, in places where border between this types arent't clean.
+
+------------------------------------------------------
+
+.. figure:: Images/Zones_clust.png
+       :scale: 300 %
+       :align: center
+       :alt: Typical time series configuration
+
+       Three zones of grouping of anomalies.
 
 
-
-
-Database method
-~~~~~~~~~~~~~~~
-
-
-
+Knowing coordinates of zones where anomalies groups - it's easy to check if reduced 2D coordinates of anomalies lie in each zone.
 
 Final predict
 -------------
 
+Final predict creates by ensambling data from CLusterization and Dataset methods. Each anomaly zone got prediction from Dataset method. And then each zone the lie inside grouping zones of Clusterization mathod got additional prediction and, in case this new prediction heavier than old one(in type or heaviness), it got new updated values.
+
+------------------------------------------------------
+
+.. figure:: Images/Results.png
+       :scale: 300 %
+       :align: center
+       :alt: Typical time series configuration
+
+       Results of ensambling.
 
