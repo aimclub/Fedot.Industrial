@@ -27,10 +27,12 @@ Content:
    Basics/index
    examples/index
    Advanced/index
+   Anomaly_detection/index
    contribution
    faq
    about
    citation
+   
 
 
 .. |logo| image:: ../img/fedot-industrial.png

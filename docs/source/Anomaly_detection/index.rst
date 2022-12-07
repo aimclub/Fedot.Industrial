@@ -1,6 +1,5 @@
-Welcome to Time Series Anomaly Detection Module's documentation!
+Time Series Anomaly Detection Module
 ================================================================
-
 
 
 Here you can find comprehensive documentation for the TSADM - Time Series Anomaly Detection Module
@@ -12,7 +11,7 @@ Content:
 Introduction
 ------------
 
-This module is special module for anomaly detection and recognition anomalies in data ~~~~
+This module is special module for anomaly detection and recognition anomalies in complicated multy-time series data.
 
 Pipeline
 --------
@@ -40,7 +39,7 @@ First of all it's good to set the scene. Data that module works with split in fi
 
 
 .. figure:: Images/Original_TS.png
-       :scale: 300 %
+       :scale: 100 %
        :align: center
        :alt: Typical time series configuration
 
@@ -51,7 +50,7 @@ Also there is given a legend for visualization, it's actual for every images her
 
 
 .. figure:: Images/Colors.png
-       :scale: 300 %
+       :scale: 100 %
        :align: center
        :alt: Colors of lines
 
@@ -61,7 +60,7 @@ First of all module cleanse data and made a little bit of standartization on tim
 
 
 .. figure:: Images/TS.png
-       :scale: 300 %
+       :scale: 100 %
        :align: center
        :alt: Typical time series configuration
 
@@ -79,7 +78,7 @@ There is several ways to do so, but it was three that looks most promisable: max
 ------------------------------------------------------
 
 .. figure:: Images/Max_sum_dist.png
-       :scale: 300 %
+       :scale: 100 %
        :align: center
        :alt: Typical time series configuration
 
@@ -104,7 +103,7 @@ But how to choose the value of threshold? Adaptive threshold provide an answer f
 ------------------------------------------------------
 
 .. figure:: Images/Split_aggregated_data.png
-       :scale: 300 %
+       :scale: 100 %
        :align: center
        :alt: Typical time series configuration
 
@@ -113,7 +112,7 @@ But how to choose the value of threshold? Adaptive threshold provide an answer f
 ------------------------------------------------------
 
 .. figure:: Images/Cutted.png
-       :scale: 300 %
+       :scale: 100 %
        :align: center
        :alt: Typical time series configuration
 
@@ -147,7 +146,7 @@ sum of distance of compress zone to 40 points
 ------------------------------------------------------
 
 .. figure:: Images/Features_vectors.png
-       :scale: 300 %
+       :scale: 70 %
        :align: center
        :alt: Typical time series configuration
 
@@ -170,7 +169,7 @@ Next stage of analysis is find how critical anomaly is. By research was found th
 ------------------------------------------------------
 
 .. figure:: Images/Clusters.png
-       :scale: 300 %
+       :scale: 50 %
        :align: center
        :alt: Typical time series configuration
 
@@ -179,7 +178,7 @@ Next stage of analysis is find how critical anomaly is. By research was found th
 ------------------------------------------------------
 
 .. figure:: Images/Zones_clust.png
-       :scale: 300 %
+       :scale: 80 %
        :align: center
        :alt: Typical time series configuration
 
@@ -196,7 +195,7 @@ Final predict creates by ensambling data from CLusterization and Dataset methods
 ------------------------------------------------------
 
 .. figure:: Images/Results.png
-       :scale: 300 %
+       :scale: 60 %
        :align: center
        :alt: Typical time series configuration
 
