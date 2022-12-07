@@ -36,6 +36,13 @@ Anomaly detection
 **Note:** The anomaly detection models are currently not available in the
 public release.
 
+But there is some prototypes:
+
+.. toctree::
+    :maxdepth: 1
+
+    anomaly_detection/anomaly_detection
+
 Change point detection
 ----------------------
 **Note:** The change point detection models are currently not available in the
