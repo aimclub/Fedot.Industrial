@@ -1,0 +1,51 @@
+feature_generator: [
+  'quantile',
+  'window_spectral',
+  'spectral'
+]
+error_correction: False
+ensemble_algorithm: True
+n_ecm_cycles: 3
+use_cache: False
+
+datasets_list: [
+  'Lightning7'
+]
+
+'launches': 1
+
+feature_generator_params: {
+
+  'quantile':
+    {
+      'window_mode': False,
+    },
+  'window_spectral':
+    {
+      'window_sizes': {
+        'Lightning7': [ 32, 64, 96 ]
+      },
+      'window_mode': True,
+
+    },
+
+  'spectral':
+    {
+      'window_sizes': {
+        'Lightning7': [ 32, 64, 96 ]
+      },
+    }
+}
+
+fedot_params:
+  {
+    'problem': 'classification',
+    'seed': 42,
+    'timeout': 1,
+    'max_depth': 10,
+    'max_arity': 4,
+    'cv_folds': 2,
+    'logging_level': 20,
+    'n_jobs': 2
+  }
+task: 'ts_classification'

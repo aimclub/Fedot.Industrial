@@ -3,7 +3,6 @@ feature_generator: [
 'spectral_window',
 'ensemble: window_quantile spectral_window'
 ]
-error_correction: False
 
 feature_generator_params: {
   'window_quantile':

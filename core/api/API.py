@@ -50,7 +50,14 @@ class Industrial(Fedot):
             prediction = self.model_composer.predict(test_features=features)
             self.labels, self.test_features = prediction['label'], prediction['test_features']
 
-            return prediction
+            if len(self.labels.shape) > 1:
+                self.labels = np.argmax(self.labels, axis=1)
+                prediction['labels'] = self.labels
+
+            if save_predictions:
+                return prediction
+            else:
+                return self.labels, self.test_features
 
     def predict_proba(self,
                       features: tuple,
@@ -81,14 +88,14 @@ class Industrial(Fedot):
                       task_type: str,
                       train_features: pd.DataFrame,
                       train_target: np.ndarray,
-                      model_params: dict,
+                      model_params: dict = None,
+                      feature_generator_params: dict = None,
                       dataset_name: str = None,
-                      ecm_mode: bool = False,
-                      n_classes: int = None):
+                      ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except KeyError:
-            generator_params = dict()
+        except Exception as ex:
+            generator_params = feature_generator_params
         generator = self.feature_generator_dict[model_name](**generator_params)
 
         self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
@@ -96,16 +103,15 @@ class Industrial(Fedot):
                                                                  model_hyperparams=model_params,
                                                                  ecm_model_flag=ecm_mode)
 
-        metric = self.checker.check_metric_type(n_classes=n_classes)
+        metric = self.checker.check_metric_type(train_target)
+        baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
-
-        # self.logger.info(f'{generator.__class__.__name__} is on duty'.center(50, '-'))
         self.logger.info(f'Fitting model...')
 
         fitted_model, train_features = self.model_composer.fit(train_features=train_features,
                                                                train_target=train_target,
                                                                dataset_name=dataset_name,
-                                                               baseline_type=self.config_dict['baseline'])
+                                                               baseline_type=baseline_type)
         return fitted_model, train_features
 
     def run_experiment(self, config_path, direct_path: bool = False):
@@ -162,7 +168,7 @@ class Industrial(Fedot):
         if train_data is None:
             return None
 
-        experiment_dict = self.exclude_generators(experiment_dict, train_data)
+        experiment_dict = self.exclude_generators(experiment_dict, train_data[0])
 
         for runner_name, runner in experiment_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
@@ -176,11 +182,11 @@ class Industrial(Fedot):
                                                                           train_features=train_data[0],
                                                                           dataset_name=dataset_name,
                                                                           train_target=train_data[1],
-                                                                          n_classes=n_classes,
                                                                           model_params=experiment_dict['fedot_params'],
                                                                           ecm_mode=experiment_dict['error_correction'])
 
-                    runner_result['fitted_predictor'], runner_result['train_features'] = fitted_predictor, train_features
+                    runner_result['fitted_predictor'], runner_result[
+                        'train_features'] = fitted_predictor, train_features
                     runner_result['test_target'] = test_data[1]
                     runner_result['path_to_save'] = paths_to_save
                     runner_result['train_target'] = train_data[1]
@@ -221,11 +227,13 @@ class Industrial(Fedot):
 
         """
         exclusion_list = ['topological', 'spectral', 'window_spectral']
-        ts_length = train_data[0].shape[1]
+        ts_length = train_data.shape[1]
         if ts_length > 800:
 
             for exclude in exclusion_list:
-                experiment_dict['feature_generator'].pop(exclude, None)
+                if exclude in experiment_dict['feature_generator']:
+                    experiment_dict['feature_generator'].remove(exclude)
+                    experiment_dict['feature_generator_params'].pop(exclude, None)
             self.logger.info(f'Time series length is too long ({ts_length}>800), exclude {exclusion_list} generators')
 
         return experiment_dict

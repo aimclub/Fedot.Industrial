@@ -17,7 +17,7 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
-from core.models.cnn.classification_models import MODELS
+from core.models.cnn.classification_models import CLF_MODELS
 from core.operation.utils.cv_model_optimizers import OPTIMIZATIONS
 
 
@@ -331,7 +331,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             optimizer_params: Dict = None,
             loss_params: Dict = None,
             dataloader_params: Dict = None,
-            structure_optimization: str = None,
+            structure_optimization: str = 'none',
             structure_optimization_params: Dict = None,
             optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
             target_loss: Type[torch.nn.Module] = torch.nn.CrossEntropyLoss,
@@ -342,7 +342,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
     ) -> None:
 
         _parameter_value_check(
-            parameter='model', value=model, valid_values=set(MODELS.keys())
+            parameter='model', value=model, valid_values=set(CLF_MODELS.keys())
         )
         _parameter_value_check(
             parameter='structure_optimization',
@@ -356,7 +356,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         )
 
         super().__init__(
-            model=MODELS[model](num_classes=num_classes, **model_params),
+            model=CLF_MODELS[model](num_classes=num_classes, **model_params),
             optimizable_module_name=model,
             train_ds=train_dataset,
             val_ds=val_dataset,

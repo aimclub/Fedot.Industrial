@@ -32,8 +32,10 @@ class YamlReader:
         self.experiment_check = ParameterCheck()
         self.use_cache = None
 
-    def read_yaml_config(self, config_path: str,
-                         direct_path: bool = False) -> None:
+    def read_yaml_config(self,
+                         config_path: str,
+                         direct_path: bool = False,
+                         return_dict: bool = False) -> None:
         """Read yaml config from './cases/config/config_name' directory as dictionary file.
 
         Args: direct_path: flag that indicates whether to use direct path to config file or read it from framework
@@ -66,6 +68,8 @@ class YamlReader:
             feature generators - {self.config_dict['feature_generator']},
             use_cache - {self.config_dict['use_cache']},
             error_correction - {self.config_dict['error_correction']}''')
+        if return_dict:
+            return self.config_dict
 
     def init_experiment_setup(self, config_path: str, direct_path: bool = False) -> dict:
 

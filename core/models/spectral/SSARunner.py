@@ -34,7 +34,7 @@ class SSARunner(ExperimentRunner):
 
     """
 
-    def __init__(self, window_sizes: dict,
+    def __init__(self, window_sizes: dict = None,
                  window_mode: bool = False,
                  use_cache: bool = False):
 
@@ -167,7 +167,11 @@ class SSARunner(ExperimentRunner):
         metric_list = []
         n_comp_list = []
         eigen_list = []
-        window_list = self.window_sizes[dataset_name]
+
+        if self.window_sizes is None:
+            window_list = [10]
+        else:
+            window_list = self.window_sizes[dataset_name]
 
         for window_length in window_list:
             self.logger.info(f'Generate features for window length - {window_length}')

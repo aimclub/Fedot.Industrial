@@ -1,6 +1,5 @@
 feature_generator: [
-'wavelet',
-#'spectral'
+'quantile'
 ]
 
 error_correction: False
@@ -8,19 +7,14 @@ n_ecm_cycles: 3
 use_cache: False
 ensemble_algorithm: False
 
-datasets_list: [
-  #'Lightning7',
-#  'ElectricDevices',
-  'Haptics'
-]
+datasets_list: ['Lightning7']
 
 launches: 1
 
-
 feature_generator_params: {
-  'quantile':
+  'window_quantile':
     {
-      'window_mode': False,
+      'window_mode': True,
     },
   'spectral':
     {

@@ -44,7 +44,6 @@ if __name__ == '__main__':
     ]
     path = '15.11.22'
     launch_type = 'max'
-
     proba_dict, metric_dict = load_results(folder_path=path, launch_type=launch_type, model_list=exp_folders)
     experiment_results = apply_rank_ensemble(proba_dict, metric_dict)
     report_df = create_report(experiment_results)

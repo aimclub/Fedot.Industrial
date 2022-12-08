@@ -26,13 +26,23 @@ class ParameterCheck:
                                      f'THATS EQUAL 10/20/30% OF TS LENGTH')
         return config_dict
 
-    def check_metric_type(self, n_classes):
+    def check_metric_type(self, target):
+        n_classes = np.unique(target).shape[0]
         if n_classes > 2:
             self.logger.info('Metric for evaluation - F1')
             return 'f1'
         else:
             self.logger.info('Metric for evaluation - ROC-AUC')
             return 'roc_auc'
+
+    def check_baseline_type(self, config_dict: None, model_params: dict):
+        if config_dict is not None:
+            baseline_type = config_dict['baseline']
+        elif 'baseline_type' in model_params.keys():
+            baseline_type = model_params['baseline']
+        else:
+            baseline_type = None
+        return baseline_type
 
 
 class DataCheck:
