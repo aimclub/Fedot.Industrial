@@ -66,11 +66,12 @@ where ``results`` is a dataframe of the following structure:
 +------------+------------+-----------+-----------+-----------+
 
 
-Ensemble experiment
--------------------
+Feature ensemble experiment
+---------------------------
 
-The ensemble experiment is a special case of the basic experiment. It allows to use the ensemble of models or the ensemble
-of feature generators. To enable feature generators ensemble, set the following option among the feature generators
+The feature ensemble experiment is a special case of the basic experiment. It allows to combine
+multiple feature spaces obtained with corresponding generators into one.
+To enable feature generators ensemble, set the following option among the feature generators
 in the config file:
 
 .. code-block:: yaml
@@ -80,5 +81,10 @@ in the config file:
 This way the ensemble of feature space of topological, wavelet, window_quantile, quantile, spectral and spectral_window
 feature generators will be used as a single feature space.
 
-To use an ensemble of models, a method of the class :ref:`Industrial<industrial-class-label>` ``apply_ensemble``
+
+Model ensemble experiment
+-------------------------
+This option allows to combine multiple predictions of several models into one via the following methods.
+
+To use an model ensemble approach, a method of the class :ref:`Industrial<industrial-class-label>` ``apply_ensemble``
 should be called. Its usage described in the :ref:`Advanced approaches<tsc-ensembling>` section.
