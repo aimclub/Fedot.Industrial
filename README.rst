@@ -1,14 +1,11 @@
-.. container::
-
-    .. image:: docs/img/fedot-industrial.png
-        :width: 600px
-        :align: left
-        :alt: Fedot Industrial logo
-
-    |issues|  |stars|  |python| |license| |docs| |support|
-
+.. image:: docs/img/fedot-industrial.png
+    :width: 600px
+    :align: left
+    :alt: Fedot Industrial logo
 
 ================================================================================
+
+|issues|  |stars|  |python| |license| |docs| |support|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
@@ -210,6 +207,8 @@ Current R&D and future plans
 ----------------------------
 
 |check_| Implement feature space caching for feature generators
+
+|uncheck_| Development of model containerization module
 
 |uncheck_| Development of meta-knowledge storage for data obtained from the experiments
 
