@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import pandas as pd
 import torch
@@ -13,31 +13,40 @@ PAIR_COLORS = ['firebrick', 'darkred', 'orange', 'darkorange', 'gold', 'goldenro
 COLORS = ['red', 'green', 'blue', 'black', 'indigo', 'cyan', 'purple', 'yellow']
 MARKERS = ['s', 'o', 'v']
 
+
 def plot_scores(
-        svd_scores: Dict,
-        sfp_scores: Dict,
-        score_x: str,
-        score_y: str,
-        min_y: float,
-        max_x: float,
+        svd_scores_pruned: Optional[Tuple[pd.DataFrame, pd.DataFrame]] = None,
+        svd_scores_finetuned: Optional[Tuple[pd.DataFrame, pd.DataFrame]] = None,
+        sfp_scores: Optional[Tuple[pd.DataFrame, pd.DataFrame]] = None,
 ) -> None:
     plt.figure(figsize=(10, 6))
     plt.grid()
-    plt.xlabel(score_x)
-    plt.ylabel(score_y)
-    for i, exp in enumerate(svd_scores[score_x].columns):
-        scores_x = svd_scores[score_x][exp]
-        scores_y = svd_scores[score_y][exp]
-        plt.plot(scores_x, scores_y, label=exp, color=PAIR_COLORS[i])
-    for color, exp in enumerate(sfp_scores[score_x].columns):
-        for marker, phase in enumerate(sfp_scores[score_x].index):
-            scores_x = sfp_scores[score_x].loc[phase][exp]
-            scores_y = sfp_scores[score_y].loc[phase][exp]
-            if scores_y >= min_y:
-                plt.scatter(scores_x, scores_y, label=f'{exp}_{phase}',
-                            color=COLORS[color], marker=MARKERS[marker])
-    plt.xlim(right=max_x)
-    plt.ylim(bottom=min_y)
+    if svd_scores_pruned is not None:
+        for i, exp in enumerate(svd_scores_pruned[0].columns):
+            plt.plot(
+                svd_scores_pruned[0][exp],
+                svd_scores_pruned[1][exp],
+                label=f'{exp}_pruned',
+                color=PAIR_COLORS[i*2+1]
+            )
+    if svd_scores_finetuned is not None:
+        for i, exp in enumerate(svd_scores_finetuned[0].columns):
+            plt.plot(
+                svd_scores_finetuned[0][exp],
+                svd_scores_finetuned[1][exp],
+                label=f'{exp}_fine-tuned',
+                color=PAIR_COLORS[i*2]
+            )
+    if sfp_scores is not None:
+        for color, exp in enumerate(sfp_scores[0].columns):
+            for marker, phase in enumerate(sfp_scores[0].index):
+                plt.scatter(
+                    sfp_scores[0].loc[phase][exp],
+                    sfp_scores[1].loc[phase][exp],
+                    label=f'{exp}_{phase}',
+                    color=COLORS[color],
+                    marker=MARKERS[marker]
+                )
     plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
 
 
@@ -51,9 +60,10 @@ def parse_tf_event(file: str) -> Dict:
     return data
 
 
-def parse_experiment_folder(folder_path: str) -> Tuple[Dict, Dict, Dict]:
+def parse_experiment_folder(folder_path: str) -> Tuple[Dict, Dict, Dict, Dict]:
     train_scores = {}
-    svd_scores = {}
+    svd_scores_pruned = {}
+    svd_scores_finetuned = {}
     sfp_scores = {}
     experiments = sorted(os.listdir(folder_path))
     for experiment in experiments:
@@ -73,14 +83,14 @@ def parse_experiment_folder(folder_path: str) -> Tuple[Dict, Dict, Dict]:
                 elif phase == "fine-tuned":
                     data = parse_tf_event(file=file)
                     for key, value in data.items():
-                        svd_scores.setdefault(key, {})
-                        svd_scores[key][f'{experiment}_fine-tuned'] = value
+                        svd_scores_finetuned.setdefault(key, {})
+                        svd_scores_finetuned[key][experiment] = value
 
                 elif phase == "pruned":
                     data = parse_tf_event(file=file)
                     for key, value in data.items():
-                        svd_scores.setdefault(key, {})
-                        svd_scores[key][f'{experiment}_pruned'] = value
+                        svd_scores_pruned.setdefault(key, {})
+                        svd_scores_pruned[key][experiment] = value
 
         if "SFP" in experiment:
             results = torch.load(os.path.join(folder_path, experiment, 'results.pt'))
@@ -92,11 +102,15 @@ def parse_experiment_folder(folder_path: str) -> Tuple[Dict, Dict, Dict]:
 
     for key in train_scores:
         train_scores[key] = pd.DataFrame(train_scores[key])
-    for key in svd_scores:
-        df = pd.DataFrame(svd_scores[key])
+    for key in svd_scores_finetuned:
+        df = pd.DataFrame(svd_scores_finetuned[key])
         df.index = df.index / 100000
-        svd_scores[key] = df
+        svd_scores_finetuned[key] = df
+    for key in svd_scores_pruned:
+        df = pd.DataFrame(svd_scores_pruned[key])
+        df.index = df.index / 100000
+        svd_scores_pruned[key] = df
     for key in sfp_scores:
         sfp_scores[key] = pd.DataFrame(sfp_scores[key])
 
-    return train_scores, svd_scores, sfp_scores
+    return train_scores, svd_scores_finetuned, svd_scores_pruned, sfp_scores

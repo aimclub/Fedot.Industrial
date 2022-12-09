@@ -89,7 +89,6 @@ class SVDOptimization(GeneralizedStructureOptimization):
         self.exp.summary_per_class = False
         self.exp.load_model_state_dict()
         default_model = copy.deepcopy(self.exp.model)
-        self.exp.default_scores.update(self.exp.val_loop())
 
         for e in self.energy_thresholds:
             int_e = int(e * 100000)
@@ -97,7 +96,7 @@ class SVDOptimization(GeneralizedStructureOptimization):
             start = time.time()
             self.prune_model(e)
             pruning_time = time.time() - start
-            p_writer.add_scalar('abs(e)/pruning_time', pruning_time, int_e)
+            p_writer.add_scalar('pruning/pruning_time', pruning_time, int_e)
             self.optimization_summary(e=int_e, writer=p_writer)
             self.exp.finetune(
                 num_epochs=self.finetuning_epochs,
@@ -128,12 +127,8 @@ class SVDOptimization(GeneralizedStructureOptimization):
         val_scores['size'] = self.exp.size_of_model()
         val_scores['n_params'] = self.exp.number_of_params()
         for key, score in val_scores.items():
-            score_p = score / self.exp.default_scores[key] * 100
-            delta_score = score - self.exp.default_scores[key]
             key = key.split('/')[-1]
-            writer.add_scalar(f'abs(e)/{key}', score, e)
-            writer.add_scalar(f'percentage(e)/{key}', score_p, e)
-            writer.add_scalar(f'delta(e)/{key}', delta_score, e)
+            writer.add_scalar(f'pruning/{key}', score, e)
 
 
 class SFPOptimization(GeneralizedStructureOptimization):

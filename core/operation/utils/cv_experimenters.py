@@ -72,11 +72,7 @@ class _GeneralizedExperimenter:
         if weights is not None:
             self.model.load_state_dict(torch.load(weights))
         self.optimizable_module_name = optimizable_module_name
-        self.default_scores = {
-            'size': self.size_of_model(),
-            'n_params': self.number_of_params(),
-        }
-        print(f"Default size: {self.default_scores['size']:.2f} MB")
+        print(f"Default size: {self.size_of_model():.2f} MB")
         self.num_classes = num_classes
         self.train_dl = DataLoader(dataset=train_ds, shuffle=True, **dataloader_params)
         self.val_dl = DataLoader(dataset=val_ds, shuffle=False, **dataloader_params)
@@ -289,6 +285,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         summary_per_class: If ``True``, calculates the metrics for each class
             (default ``False``).
         weights: Path to the model state_dict to load weights (default: ``None``).
+        prefix: An explanatory string added to the name of the experiment.
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
@@ -316,6 +313,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         summary_path: str = 'runs',
         summary_per_class: bool = False,
         weights: Optional[str] = None,
+        prefix: str = '',
         gpu: bool = True,
     ) -> None:
 
@@ -340,7 +338,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{dataset_name}/{model}",
+            name=f"{dataset_name}/{prefix}{model}",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
@@ -462,6 +460,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         summary_per_class: If ``True``, calculates the metrics for each class
             (default ``False``).
         weights: Path to the model state_dict to load weights (default: ``None``).
+        prefix: An explanatory string added to the name of the experiment.
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
@@ -487,6 +486,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         summary_path: str = 'runs',
         summary_per_class: bool = False,
         weights: Optional[str] = None,
+        prefix: str = '',
         gpu: bool = True,
     ) -> None:
 
@@ -512,7 +512,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{dataset_name}/FasterR-CNN/ResNet50",
+            name=f"{dataset_name}/{prefix}FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
