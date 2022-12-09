@@ -63,21 +63,33 @@ Then we are ready to apply the ensemble to the results of the experiment:
                        'window_quantile']
         path = 'subfolder' # path to the sub-folder in the experiment folder
         launch_type = 'max'
-        proba_dict, metric_dict = load_results(folder_path=path, launch_type=launch_type, model_list=exp_folders)
-        experiment_results = apply_rank_ensemble(proba_dict, metric_dict)
+
+        proba_dict, metric_dict = load_results(folder_path=path,
+                                               launch_type=launch_type,
+                                               model_list=exp_folders)
+
+        experiment_results = apply_rank_ensemble(proba_dict,
+                                                 metric_dict)
+
         report_df = create_report(experiment_results)
 
-The table below shows the results of the experiment:
+The table below shows an example of how the results of an experiment is going to look like:
+
++-------------------------+------------------+--------------+-----------------------------+-----------------------+----------------+
+| Dataset                 | Base_model       | Base_metric  | Ensemble_models             | Best_ensemble_metric  | Ensemble_gain  |
++=========================+==================+==============+=============================+=======================+================+
+| CricketZ                | window_quantile  | 0.688        | Models and Ensemble_method  | 0.729                 | 4.1            |
++-------------------------+------------------+--------------+-----------------------------+-----------------------+----------------+
+| Car                     | window_quantile  | 0.885        | Models and Ensemble_method  | 0.933                 | 4.8            |
++-------------------------+------------------+--------------+-----------------------------+-----------------------+----------------+
+| LargeKitchenAppliances  | quantile         | 0.803        | Models and Ensemble_method  | 0.816                 | 1.29           |
++-------------------------+------------------+--------------+-----------------------------+-----------------------+----------------+
+
+The column ``Ensemble_models`` contains the list of models and method that were used to create the ensemble.
+In terms of documentation space it is not possible to show the whole table. For instance, the columns
+could contain the following information:
+
+- Models: ['quantile', 'recurrence', 'window_quantile'].
+- Ensemble_method: ProductEnsemble
 
 
-+------------+------------+-----------+-----------+-----------+
-| dataset    | f1         | roc_auc   | generator | n_classes |
-+============+============+===========+===========+===========+
-| Beef       | 0.878      | 0.654     | quantile  |     5     |
-+------------+------------+-----------+-----------+-----------+
-| Beef       | 0.989      | 0.898     | ensemble  |    5      |
-+------------+------------+-----------+-----------+-----------+
-| Earthquakes| 0.765      | 0.781     | spectral  |    2      |
-+------------+------------+-----------+-----------+-----------+
-| Lightning7 | 0.501      | 0.409     | wavelet   |    7      |
-+------------+------------+-----------+-----------+-----------+
