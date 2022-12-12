@@ -42,29 +42,32 @@ to use its capabilities in a simple way.
 #### Classification
 
 To conduct time series classification you need to first
-set experiment configuration using file `cases/config/Config_Classification.yaml`
-and then run `cases/classification_experiment.py` script, or create your own
-with the following code:
+set experiment configuration, import Industrial class and run its method ``run_experiment`` with config 
+as an argument.
 
 ```python
-from core.api.tsc_API import Industrial
+from core.api.API import Industrial
 
+config = {'feature_generator': ['spectral', 'wavelet'],
+          'datasets_list': ['UMD', 'Lightning7'],
+          'use_cache': True,
+          'error_correction': False,
+          'launches': 3,
+          'timeout': 15}
 
-if __name__ == '__main__':
-    config_name = 'Config_Classification.yaml'
-    ExperimentHelper = Industrial()
-    ExperimentHelper.run_experiment(config_name)
+ExperimentHelper = Industrial()
+ExperimentHelper.run_experiment(config=config)
 ```
 
-Config file contains the following parameters:
+Config contains the following parameters:
 
-- `feature_generators` - list of feature generators to use in the experiment
+- `feature_generator` - list of feature generators to use in the experiment
 - `datasets_list` - list of datasets to use in the experiment
 - `launches` - number of launches for each dataset
-- `feature_generator_params` - specification for feature generators
-- `fedot_params` - specification for FEDOT algorithmic kernel
 - `error_correction` - flag for application of error correction model in the experiment
 - `n_ecm_cycles` - number of cycles for error correction model
+- `use_cache` - flag for using cache for feature generation
+- `timeout` - timeout for classification pipeline composition
 
 Datasets for classification should be stored in the `data` directory and
 divided into `train` and `test` sets with `.tsv` extension. So the name of folder
@@ -75,11 +78,11 @@ from **http://www.timeseriesclassification.com/dataset.php**.
 
 Possible feature generators which could be specified in configuration are
 `window_quantile`, `quantile`, `spectral_window`, `spectral`,
-`wavelet` and `topological`.
+`wavelet`, `recurrence` and `topological`.
 
 There is also a possibility to ensemble several feature generators. 
 It could be done by the following instruction in
-`feature_generator` field of `Config_Classification.yaml` file where
+`feature_generator` field of the config dictionary where
 you need to specify the list of feature generators:
 
     'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
@@ -91,10 +94,10 @@ Logs of experiment are stored in `log` directory.
 #### Error correction model
 
 It is up to you to decide whether to use error correction model or not. To apply it the `error_correction` 
-flag in the `Config_Classification.yaml` file should be set to `True` and number of
-cycles `n_ecm_cycles` should be provided. 
-In this case after each launch of FEDOT algorithmic kernel the error correction model will be trained on the
-produced error. 
+flag in the config dictionary should be set to `True`. Number of cycles can be adjusted 
+using advances version of config via `n_ecm_cycles` field. 
+In this case after each launch of FEDOT algorithmic kernel the error correction model will be 
+trained on the produced error. 
 
 ![](docs/img/error_corr_model.png)
 
@@ -107,7 +110,7 @@ linear regression, trained on predictions of correction stages.
 - For `multiclass classification` the ensemble is a sum of previous predictions.
 
 #### Feature caching 
-If `use_cache` bool flag in `Config.yaml` is `True`, then every feature space generated during experiment is 
+If `use_cache` bool flag in config is `True`, then every feature space generated during experiment is 
 cached into corresponding folder. To do so a hash from function `get_features` arguments and generator attributes 
 is obtained. Then resulting feature space is dumped via `pickle` library.
 

@@ -1,5 +1,6 @@
 import copy
 import os
+from typing import Union
 
 import numpy as np
 import yaml
@@ -11,7 +12,6 @@ from core.operation.utils.LoggerSingleton import Logger
 
 
 class YamlReader:
-
     """
     Class for reading the config file for the experiment.
 
@@ -71,10 +71,23 @@ class YamlReader:
         if return_dict:
             return self.config_dict
 
-    def init_experiment_setup(self, config_path: str, direct_path: bool = False) -> dict:
+    def init_experiment_setup(self, config: Union[str, dict],
+                              direct_path: bool = False) -> dict:
 
-        self.read_yaml_config(config_path=config_path,
-                              direct_path=direct_path)
+        if not isinstance(config, str):
+            base_config_path = 'cases/config/Config_Classification.yaml'
+            self.read_yaml_config(config_path=base_config_path)
+            fedot_timeout = config['timeout']
+            industrial_config = {k: v for k, v in config.items() if k not in ['timeout']}
+            self.config_dict.update(**industrial_config)
+            self.config_dict['fedot_params']['timeout'] = fedot_timeout
+
+        elif isinstance(config, str):
+            self.read_yaml_config(config_path=config,
+                                  direct_path=direct_path)
+        else:
+            self.logger.error('Wrong type of config file')
+            raise ValueError('Config must be a string or a dictionary!')
 
         for dataset_name in self.config_dict['datasets_list']:
             train_data, _ = DataLoader(dataset_name).load_data()
@@ -124,6 +137,7 @@ class DataReader:
     """
     Class for reading train and test data from the dataset.
     """
+
     def __init__(self):
 
         self.logger = Logger().get_logger()

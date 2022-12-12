@@ -41,9 +41,7 @@ class Industrial(Fedot):
         self.fitted_model, self.train_features = self._obtain_model(**kwargs)
         return self.fitted_model, self.train_features
 
-    def predict(self,
-                features: tuple,
-                save_predictions: bool = False) -> dict:
+    def predict(self, features: tuple, save_predictions: bool = False) -> Union[dict, tuple]:
         if self.model_composer is None:
             raise ('Fedot model was not fitted'.center(50, '-'))
         else:
@@ -89,13 +87,13 @@ class Industrial(Fedot):
                       train_features: pd.DataFrame,
                       train_target: np.ndarray,
                       model_params: dict = None,
-                      feature_generator_params: dict = None,
                       dataset_name: str = None,
                       ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except Exception as ex:
-            generator_params = feature_generator_params
+        except KeyError:
+            generator_params = dict()
+
         generator = self.feature_generator_dict[model_name](**generator_params)
 
         self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
@@ -114,19 +112,19 @@ class Industrial(Fedot):
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
-    def run_experiment(self, config_path, direct_path: bool = False):
+    def run_experiment(self, config: Union[str, dict], direct_path: bool = False):
         """Run experiment with corresponding config_name.
 
         Args:
+            config: path to config file or dictionary with parameters.
             direct_path: if True, then config_path is an absolute path to the config file. Otherwise, Industrial will
             search for the config file in the config folders.
-            config_path: name of the config file or path to.
 
         """
         self.logger.info(f'START EXPERIMENT'.center(50, '-'))
         experiment_results = {}
 
-        self.config_dict = self.YAML.init_experiment_setup(config_path,
+        self.config_dict = self.YAML.init_experiment_setup(config,
                                                            direct_path=direct_path)
 
         for dataset_name in self.config_dict['datasets_list']:

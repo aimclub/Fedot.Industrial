@@ -2,6 +2,12 @@ from core.api.API import Industrial
 
 
 if __name__ == '__main__':
-    config_path = 'cases/ts_classification_example/supplementary_data/configs_for_examples/BasicConfigCLF.yaml'
+    config = dict(feature_generator=['topological', 'wavelet'],
+                  datasets_list=['UMD', 'Lightning7'],
+                  use_cache=True,
+                  error_correction=False,
+                  launches=3,
+                  timeout=10)
+
     ExperimentHelper = Industrial()
-    ExperimentHelper.run_experiment(config_path)
+    ExperimentHelper.run_experiment(config=config)
