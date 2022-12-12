@@ -1,3 +1,6 @@
+.. _basic-tsc-example:
+
+
 Time series classification example
 ==================================
 This example shows how to use the framework to perform time series classification.
@@ -10,32 +13,35 @@ for time series classification.
 
 .. code-block:: python
 
-    from core.api.tsc_API import Industrial
+    from core.api.API import Industrial
 
-Then, we set the path to the config file. The config file contains the parameters for the model and the data.
+Then, the config dict with experiment parameters must be defined.
 
 .. code-block:: python
 
-    config_name = 'cases/ts_classification_example/configs_for_examples/BasicConfigCLF.yaml'
+    config = {'feature_generator': ['spectral', 'wavelet'],
+          'datasets_list': ['UMD', 'Lightning7'],
+          'use_cache': True,
+          'error_correction': False,
+          'launches': 3,
+          'timeout': 15}
 
-It is of a great importance to define corresponding parameters of experiment.
-Config file contains the following parameters:
+It is of a great importance to define corresponding parameters of experiment. The following parameters are required:
 
 - ``feature_generators`` - list of feature generators to use in the experiment
 - ``use_cache`` - whether to use cache or not
 - ``datasets_list`` - list of datasets to use in the experiment
 - ``launches`` - number of launches for each dataset
-- ``feature_generator_params`` - specification for feature generators
-- ``fedot_params`` - specification for FEDOT algorithmic kernel
 - ``error_correction`` - flag for application of error correction model in the experiment
 - ``n_ecm_cycles`` - number of cycles for error correction model
+- ``timeout`` - the maximum amount of time for classification pipeline composition
 
 Finally, we create an instance of the class :ref:`Industrial<industrial-class-label>` and run the experiment.
 
 .. code-block:: python
 
     ExperimentHelper = Industrial()
-    ExperimentHelper.run_experiment(config_name)
+    ExperimentHelper.run_experiment(config)
 
 To accelerate repetitive experiments, the feature caching mechanism is implemented. It allows to dump generated features
 to the disk and load them later. To enable this feature, set ``use_cache`` parameter to ``True`` in the config file.
@@ -78,13 +84,12 @@ in the config file:
 
     feature_generators: ['ensemble: topological wavelet window_quantile quantile spectral spectral_window']
 
-This way the ensemble of feature space of topological, wavelet, window_quantile, quantile, spectral and spectral_window
+This way the ensemble of feature space of ``topological``, ``wavelet``, ``window_quantile``,
+``quantile``, ``spectral`` and ``spectral_window``
 feature generators will be used as a single feature space.
 
 
-Model ensemble experiment
--------------------------
-This option allows to combine multiple predictions of several models into one via the following methods.
-
-To use an model ensemble approach, a method of the class :ref:`Industrial<industrial-class-label>` ``apply_ensemble``
-should be called. Its usage described in the :ref:`Advanced approaches<tsc-ensembling>` section.
+.. note::
+    See also :ref:`Advanced TSC approach<tsc_advanced>` section for more details on
+    time series classification experiment and :ref:`Model Ensemble<tsc-ensembling>` section for information
+    on model ensemble approach.
