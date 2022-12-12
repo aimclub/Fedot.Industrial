@@ -9,10 +9,10 @@ from tqdm import tqdm
 from core.api.utils.checkers_collections import DataCheck
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
-from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
-from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-from core.operation.utils.Decorators import time_it
-from core.operation.utils.utils import PROJECT_PATH
+from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
+from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
+from core.architecture.abstraction.Decorators import time_it
+from core.architecture.utils.utils import PROJECT_PATH
 
 
 class SSARunner(ExperimentRunner):

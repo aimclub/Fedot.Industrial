@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 
 from core.models.ExperimentRunner import ExperimentRunner
-from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-from core.operation.utils.Decorators import time_it
+from core.operation.transformation.stat_features_extractor import StatFeaturesExtractor
+from core.architecture.abstraction.Decorators import time_it
 
 
 class StatsRunner(ExperimentRunner):

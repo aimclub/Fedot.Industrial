@@ -4,8 +4,8 @@ import timeit
 from multiprocessing import cpu_count
 
 from core.metrics.metrics_implementation import *
-from core.operation.utils.LoggerSingleton import Logger
-from core.operation.utils.utils import PROJECT_PATH
+from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.utils.utils import PROJECT_PATH
 
 
 class ExperimentRunner:

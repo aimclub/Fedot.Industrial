@@ -4,7 +4,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.abstraction.LoggerSingleton import Logger
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.data.data import InputData
 from fedot.core.repository.tasks import Task, TaskTypesEnum

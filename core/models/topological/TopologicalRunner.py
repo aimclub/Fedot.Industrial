@@ -6,8 +6,8 @@ from scipy import stats
 from tqdm import tqdm
 
 from core.models.ExperimentRunner import ExperimentRunner
-from core.models.topological.TFE import *
-from core.operation.utils.Decorators import time_it
+from core.operation.transformation.extraction.topological import *
+from core.architecture.abstraction.Decorators import time_it
 
 sys.setrecursionlimit(1000000000)
 

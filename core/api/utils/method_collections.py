@@ -7,7 +7,7 @@ from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
 from core.models.statistical.QuantileRunner import StatsRunner
 from core.models.topological.TopologicalRunner import TopologicalRunner
-from core.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
+from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
 
 
 class FeatureGenerator(Enum):

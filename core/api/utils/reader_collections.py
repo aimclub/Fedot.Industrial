@@ -6,9 +6,9 @@ import numpy as np
 import yaml
 
 from core.api.utils.checkers_collections import ParameterCheck
-from core.operation.utils.load_data import DataLoader
-from core.operation.utils.utils import PROJECT_PATH
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.preprocessing.DatasetLoader import DataLoader
+from core.architecture.utils.utils import PROJECT_PATH
+from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 class YamlReader:

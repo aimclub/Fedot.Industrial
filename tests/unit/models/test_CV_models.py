@@ -1,5 +1,5 @@
-from core.operation.utils.classification_datasets import CustomClassificationDataset
-from core.operation.utils.cv_experimenters import ClassificationExperimenter
+from core.operation.transformation.classification_datasets import CustomClassificationDataset
+from core.architecture.experiment import ClassificationExperimenter
 from core.utils import *
 from core.models.cnn.sfp_models import *
 from core.models.cnn.classification_models import *

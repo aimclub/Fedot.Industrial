@@ -1,44 +1,26 @@
-from core.utils import *
-from core.models.cnn.sfp_models import *
-from core.models.cnn.classification_models import *
+import pandas as pd
+
+from core.models.ecm.error_correction import Booster
 import pytest
 
 
 @pytest.fixture()
-def clf_models_list():
-    return CLF_MODELS
+def loaded_predict_data():
+    base_predict = pd.read_csv('base_predict.csv')
+    return base_predict.values
 
 
 @pytest.fixture()
-def sfp_models_list():
-    return SFP_MODELS
+def loaded_features_target():
+    X_train = pd.read_csv('X_train.csv')
+    y_train = pd.read_csv('y_train.csv')
+    return X_train.values, y_train.values
 
 
-def test_clf_models(clf_model_list):
-    for clf_model in clf_model_list:
-        model = clf_model()
-        TestModule = ModelTestingModule(model=model)
-        train_feats_earthquakes, test_feats_earthquakes = TestModule.extract_from_binary(dataset_name='Earthquakes')
-        train_feats_lightning7, test_feats_lightning7 = TestModule.extract_from_multi_class(dataset_name='Lightning7')
-        assert train_feats_lightning7 is not None
-        assert test_feats_lightning7 is not None
+def test_booster(loaded_predict_data, loaded_features_target):
+    booster = Booster(features_train=loaded_features_target[0],
+                      target_train=loaded_features_target[1],
+                      base_predict=loaded_predict_data,
+                      timeout=1)
 
-        assert train_feats_earthquakes is not None
-        assert test_feats_earthquakes is not None
-
-
-def test_sfp_models(window_feature_generators_list):
-    for sfp_model in window_feature_generators_list:
-        model = sfp_model()
-        TestModule = ModelTestingModule(model=model)
-        train_feats_earthquakes, test_feats_earthquakes = TestModule.extract_from_binary(dataset_name='Earthquakes')
-        train_feats_lightning7, test_feats_lightning7 = TestModule.extract_from_multi_class(dataset_name='Lightning7')
-        assert train_feats_lightning7 is not None
-        assert test_feats_lightning7 is not None
-
-        assert train_feats_earthquakes is not None
-        assert test_feats_earthquakes is not None
-
-if __name__ == '__main__':
-    test_clf_models(CLF_MODELS)
-    test_sfp_models(SFP_MODELS)
+    result = booster.fit()

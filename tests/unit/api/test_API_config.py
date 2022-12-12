@@ -1,4 +1,5 @@
-from core.models.topological.TopologicalRunner import *
+import numpy as np
+import pandas as pd
 import pytest
 from core.api.API import Industrial
 

@@ -74,7 +74,7 @@ def get_metrics(row_):
 
 
 def prepare_data_for_case(dataset_name):
-    from core.operation.utils.utils import PROJECT_PATH
+    from core.architecture.utils.utils import PROJECT_PATH
 
     data_path = f'{PROJECT_PATH}/data/{dataset_name}/'
 

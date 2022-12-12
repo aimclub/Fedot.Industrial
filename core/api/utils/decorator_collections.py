@@ -1,6 +1,6 @@
 from enum import Enum
 
-from core.operation.utils.Decorators import input_data_decorator
+from core.architecture.abstraction.Decorators import input_data_decorator
 
 
 class Decorators(Enum):

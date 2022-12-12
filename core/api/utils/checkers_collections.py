@@ -3,7 +3,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 class ParameterCheck:

@@ -5,9 +5,9 @@ from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
-from core.models.signal.wavelet_extractor import WaveletExtractor
-from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-from core.operation.utils.Decorators import time_it
+from core.operation.transformation.extraction.wavelet import WaveletExtractor
+from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
+from core.architecture.abstraction.Decorators import time_it
 
 
 class SignalRunner(ExperimentRunner):
@@ -112,7 +112,6 @@ class SignalRunner(ExperimentRunner):
         ts_samples_count = ts_frame.shape[0]
         n_processes = self.n_processes
         with Pool(n_processes) as p:
-
             components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
                                                          zip(ts_frame.values, repeat(method_name))),
                                                total=ts_samples_count,

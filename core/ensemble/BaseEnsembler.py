@@ -1,4 +1,4 @@
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.abstraction.LoggerSingleton import Logger
 
 dict_of_dataset = dict
 dict_of_win_list = dict

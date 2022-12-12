@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 class ResultSaver:

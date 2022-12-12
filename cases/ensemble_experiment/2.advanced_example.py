@@ -1,5 +1,5 @@
 import pandas as pd
-from core.operation.utils.result_parser import ResultsParser
+from core.architecture.postprocessing.Parser import ResultsParser
 from core.ensemble.static.RankEnsembler import RankEnsemble
 
 
@@ -19,8 +19,8 @@ def load_results(folder_path: str, launch_type, model_list: list):
     return proba_dict, metric_dict
 
 
-def apply_rank_ensemble(proba_dict:dict,
-                        metric_dict:dict):
+def apply_rank_ensemble(proba_dict: dict,
+                        metric_dict: dict):
     experiment_results = {}
     for dataset in proba_dict:
         print(f'*---------ENSEMBLING FOR DATASET - {dataset}')
@@ -47,4 +47,3 @@ if __name__ == '__main__':
     proba_dict, metric_dict = load_results(folder_path=path, launch_type=launch_type, model_list=exp_folders)
     experiment_results = apply_rank_ensemble(proba_dict, metric_dict)
     report_df = create_report(experiment_results)
-

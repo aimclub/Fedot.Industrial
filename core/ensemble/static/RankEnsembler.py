@@ -1,6 +1,6 @@
 from core.ensemble.BaseEnsembler import BaseEnsemble
 from core.api.API import Industrial
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 class RankEnsemble(BaseEnsemble):

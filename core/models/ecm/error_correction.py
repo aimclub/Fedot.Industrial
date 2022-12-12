@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 
-from core.operation.utils.LoggerSingleton import Logger
+from core.architecture.abstraction.LoggerSingleton import Logger
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -164,19 +164,3 @@ class Booster:
             return int(num) + 1
         return int(num)
 
-
-if __name__ == '__main__':
-    # Example of usage
-    X_train = pd.read_csv('X_train.csv')
-    y_train = pd.read_csv('y_train.csv')
-    base_predict = pd.read_csv('base_predict.csv')
-
-    y_train = y_train.values
-    base_predict = base_predict.values
-
-    booster = Booster(features_train=X_train,
-                      target_train=y_train,
-                      base_predict=base_predict,
-                      timeout=1)
-
-    result = booster.fit()

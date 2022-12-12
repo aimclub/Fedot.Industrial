@@ -1,4 +1,4 @@
-from core.utils import *
+from core.architecture.utils.Testing import ModelTestingModule
 from core.models.statistical.QuantileRunner import *
 from core.models.spectral.SSARunner import *
 from core.models.signal.SignalRunner import *
@@ -41,7 +41,3 @@ def test_get_features_window_mode(window_feature_generators_list):
 
         assert train_feats_earthquakes is not None
         assert test_feats_earthquakes is not None
-
-if __name__ == '__main__':
-    test_get_features([StatsRunner, SSARunner, SignalRunner, RecurrenceRunner, TopologicalRunner])
-    test_get_features_window_mode([StatsRunner, SSARunner])
