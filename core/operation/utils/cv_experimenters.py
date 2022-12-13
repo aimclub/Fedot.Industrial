@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, Type, Set, Union, List
+from typing import Dict, Type, Set, Union, List, Optional
 
 import torch
 from PIL import Image
@@ -48,6 +48,7 @@ class _GeneralizedExperimenter:
         summary_path: Path to folder for writing experiment summary info.
         summary_per_class: If ``True``, calculates the metrics for each class.
         target_metric: Target metric by which models are compared.
+        weights: Path to the model state_dict to load weights (default: ``None``).
         gpu: If ``True``, uses GPU (default: ``True``).
     """
 
@@ -64,15 +65,14 @@ class _GeneralizedExperimenter:
         summary_path: str,
         summary_per_class: bool,
         target_metric: str,
+        weights: Optional[str] = None,
         gpu: bool = True,
     ) -> None:
         self.model = model
+        if weights is not None:
+            self.model.load_state_dict(torch.load(weights))
         self.optimizable_module_name = optimizable_module_name
-        self.default_scores = {
-            'size': self.size_of_model(),
-            'n_params': self.number_of_params(),
-        }
-        print(f"Default size: {self.default_scores['size']:.2f} MB")
+        print(f"Default size: {self.size_of_model():.2f} MB")
         self.num_classes = num_classes
         self.train_dl = DataLoader(dataset=train_ds, shuffle=True, **dataloader_params)
         self.val_dl = DataLoader(dataset=val_ds, shuffle=False, **dataloader_params)
@@ -284,6 +284,8 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             (default: ``'runs'``).
         summary_per_class: If ``True``, calculates the metrics for each class
             (default ``False``).
+        weights: Path to the model state_dict to load weights (default: ``None``).
+        prefix: An explanatory string added to the name of the experiment.
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
@@ -310,6 +312,8 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         target_metric: str = 'f1',
         summary_path: str = 'runs',
         summary_per_class: bool = False,
+        weights: Optional[str] = None,
+        prefix: str = '',
         gpu: bool = True,
     ) -> None:
 
@@ -334,11 +338,12 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{dataset_name}/{model}",
+            name=f"{dataset_name}/{prefix}{model}",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
             target_metric=target_metric,
+            weights=weights,
             gpu=gpu,
         )
         self.structure_optimization = OPTIMIZATIONS[structure_optimization](
@@ -454,6 +459,8 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             (default: ``'runs'``).
         summary_per_class: If ``True``, calculates the metrics for each class
             (default ``False``).
+        weights: Path to the model state_dict to load weights (default: ``None``).
+        prefix: An explanatory string added to the name of the experiment.
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
@@ -478,6 +485,8 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         target_metric: str = 'map_50',
         summary_path: str = 'runs',
         summary_per_class: bool = False,
+        weights: Optional[str] = None,
+        prefix: str = '',
         gpu: bool = True,
     ) -> None:
 
@@ -503,11 +512,12 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{dataset_name}/FasterR-CNN/ResNet50",
+            name=f"{dataset_name}/{prefix}FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
             target_metric=target_metric,
+            weights=weights,
             gpu=gpu,
         )
         self.structure_optimization = OPTIMIZATIONS[structure_optimization](
