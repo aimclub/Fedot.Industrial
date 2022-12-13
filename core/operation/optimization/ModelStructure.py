@@ -6,7 +6,7 @@ from typing import List, Dict
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from core.metrics.svd_loss import OrthogonalLoss, HoyerLoss
+from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.models.cnn.decomposed_conv import DecomposedConv2d
 from core.models.cnn.sfp_models import SFP_MODELS
 from core.operation.optimization.sfp_tools import zerolize_filters, prune_resnet_state_dict
