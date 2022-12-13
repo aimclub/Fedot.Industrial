@@ -14,6 +14,12 @@ with the following code:
 
 
     if __name__ == '__main__':
-        config_name = 'Config_Classification.yaml'
+        config = {'feature_generator': ['spectral', 'wavelet'],
+                  'datasets_list': ['UMD', 'Lightning7'],
+                  'use_cache': True,
+                  'error_correction': False,
+                  'launches': 3,
+                  'timeout': 15}
+
         ExperimentHelper = Industrial()
-        ExperimentHelper.run_experiment(config_name)
+        ExperimentHelper.run_experiment(config)
