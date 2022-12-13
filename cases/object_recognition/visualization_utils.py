@@ -10,7 +10,7 @@ PAIR_COLORS = ['firebrick', 'darkred', 'orange', 'darkorange', 'gold', 'goldenro
                'yellowgreen', 'olivedrab', 'forestgreen', 'darkgreen', 'lightseagreen',
                'teal', 'deepskyblue', 'dodgerblue', 'mediumpurple', 'rebeccapurple',
                'plum', 'orchid']
-COLORS = ['red', 'green', 'blue', 'black', 'indigo', 'cyan', 'purple', 'yellow']
+COLORS = ['green', 'blue', 'black', 'cyan', 'red', 'indigo', 'purple', 'yellow']
 MARKERS = ['s', 'o', 'v']
 
 
@@ -19,14 +19,13 @@ def plot_scores(
         svd_scores_finetuned: Optional[Tuple[pd.DataFrame, pd.DataFrame]] = None,
         sfp_scores: Optional[Tuple[pd.DataFrame, pd.DataFrame]] = None,
 ) -> None:
-    plt.figure(figsize=(10, 6))
     plt.grid()
     if svd_scores_pruned is not None:
         for i, exp in enumerate(svd_scores_pruned[0].columns):
             plt.plot(
                 svd_scores_pruned[0][exp],
                 svd_scores_pruned[1][exp],
-                label=f'{exp}_pruned',
+                label=f'{exp} pruned',
                 color=PAIR_COLORS[i*2+1]
             )
     if svd_scores_finetuned is not None:
@@ -34,7 +33,7 @@ def plot_scores(
             plt.plot(
                 svd_scores_finetuned[0][exp],
                 svd_scores_finetuned[1][exp],
-                label=f'{exp}_fine-tuned',
+                label=f'{exp} fine-tuned',
                 color=PAIR_COLORS[i*2]
             )
     if sfp_scores is not None:
@@ -43,11 +42,11 @@ def plot_scores(
                 plt.scatter(
                     sfp_scores[0].loc[phase][exp],
                     sfp_scores[1].loc[phase][exp],
-                    label=f'{exp}_{phase}',
+                    label=f'{exp} {phase}',
                     color=COLORS[color],
                     marker=MARKERS[marker]
                 )
-    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
+    plt.legend()
 
 
 def parse_tf_event(file: str) -> Dict:
