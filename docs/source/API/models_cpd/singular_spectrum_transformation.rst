@@ -1,5 +1,5 @@
 SSTdetector
 ================
 
-.. autoclass:: core.cases.anomaly_detection.SSTdetector
+.. autoclass:: cases.anomaly_detection.SSTdetector.SingularSpectrumTransformation
     :no-undoc-members:
