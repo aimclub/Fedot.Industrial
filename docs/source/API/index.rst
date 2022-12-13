@@ -36,6 +36,9 @@ Anomaly detection
 **Note:** The anomaly detection models are currently not available in the
 public release.
 
+.. toctree::
+    models_cpd/singular_spectrum_transformation
+
 Change point detection
 ----------------------
 **Note:** The change point detection models are currently not available in the
