@@ -6,6 +6,8 @@ from torch import Tensor
 from torch.linalg import vector_norm
 from torch.nn import Conv2d
 
+from core.models.cnn.sfp_models import SFP_MODELS
+
 
 def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
     """Zerolize filters of convolutional layer to the pruning_ratio (in-place).
@@ -81,40 +83,40 @@ def _indexes_of_tensor_values(tensor: Tensor, values: Tensor) -> Tensor:
     return torch.tensor(indexes)
 
 
-def _parse_resnet_sd(state_dict: OrderedDict):
+def _parse_sd(state_dict: OrderedDict):
     """Parses state_dict to nested dictionaries."""
     parsed_sd = OrderedDict()
     for k, v in state_dict.items():
-        _parse_resnet_param(k.split('.'), v, parsed_sd)
+        _parse_param(k.split('.'), v, parsed_sd)
     return parsed_sd
 
 
-def _parse_resnet_param(param, value, dictionary):
+def _parse_param(param, value, dictionary):
     """Parses value from state_dict to nested dictionaries."""
     if len(param) > 1:
         dictionary.setdefault(param[0], OrderedDict())
-        _parse_resnet_param(param[1:], value, dictionary[param[0]])
+        _parse_param(param[1:], value, dictionary[param[0]])
     else:
         dictionary[param[0]] = value
 
 
-def _collect_resnet_sd(parsed_state_dict):
+def _collect_sd(parsed_state_dict):
     """Collect state_dict from nested dictionaries."""
     state_dict = OrderedDict()
-    keys, values = _collect_resnet_param(parsed_state_dict)
+    keys, values = _collect_param(parsed_state_dict)
     for k, v in zip(keys, values):
         key = '.'.join(k)
         state_dict[key] = v
     return state_dict
 
 
-def _collect_resnet_param(dictionary):
+def _collect_param(dictionary):
     """Collect value from nested dictionaries."""
     if isinstance(dictionary, OrderedDict):
         all_keys = []
         all_values = []
         for k, v in dictionary.items():
-            keys, values = _collect_resnet_param(v)
+            keys, values = _collect_param(v)
             for key in keys:
                 key.insert(0, k)
             all_values.extend(values)
@@ -182,7 +184,7 @@ def prune_resnet_state_dict(
     """
     input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    sd = _parse_resnet_sd(state_dict)
+    sd = _parse_sd(state_dict)
     filters = _check_zero_filters(sd['conv1']['weight'])
     sd['conv1']['weight'] = _prune_filters(
         weight=sd['conv1']['weight'], saving_filters=filters
@@ -195,5 +197,46 @@ def prune_resnet_state_dict(
             channels, index = _prune_resnet_block(block=v, input_channels=channels)
             output_size[layer].append(channels.size()[0])
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
-    sd = _collect_resnet_sd(sd)
+    sd = _collect_sd(sd)
     return sd, input_size, output_size
+
+
+def load_sfp_rsnet_model(
+        model_name: str,
+        num_classes: int,
+        state_dict_path: str,
+        pruning_ratio: float,
+) -> torch.nn.Module:
+    """Loads SFP state_dict to model.
+
+    Args:
+        model_name: Name of the model.
+        num_classes: Number of classes.
+        state_dict_path: Path to state_dict file.
+        pruning_ratio: pruning hyperparameter used in training.
+    """
+    if model_name not in SFP_MODELS.keys():
+        raise ValueError(
+            f"model_name must be one of {SFP_MODELS.keys()}, but got '{model_name}'"
+        )
+    state_dict = torch.load(state_dict_path, map_location='cpu')
+    input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
+    output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
+    last_layer = ''
+    for k, v in state_dict.items():
+        k = k.split('.')
+        if len(k) > 3 and k[2] == 'conv1':
+            input_size[k[0]].append(v.size()[1])
+            if last_layer in output_size.keys():
+                output_size[last_layer].append(v.size()[1])
+            last_layer = k[0]
+    output_size['layer4'].append(state_dict['fc.weight'].size()[1])
+
+    model = SFP_MODELS[model_name](
+        num_classes=num_classes,
+        input_size=input_size,
+        output_size=output_size,
+        pruning_ratio=pruning_ratio
+    )
+    model.load_state_dict(state_dict)
+    return model

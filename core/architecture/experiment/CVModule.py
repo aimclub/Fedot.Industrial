@@ -1,7 +1,7 @@
 import os
 import shutil
 import time
-from typing import Dict, Type, Set, Union, List
+from typing import Dict, Type, Set, Union, List, Optional
 
 import numpy as np
 import torch
@@ -49,32 +49,32 @@ class _GeneralizedExperimenter:
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
         summary_per_class: If ``True``, calculates the metrics for each class.
+        weights: Path to the model state_dict to load weights (default: ``None``).
         metric: Target metric by which models are compared.
         gpu: If ``True``, uses GPU (default: ``True``).
     """
 
     def __init__(
-            self,
-            model: torch.nn.Module,
-            optimizable_module_name: str,
-            train_ds: Dataset,
-            val_ds: Dataset,
-            num_classes: int,
-            dataloader_params: Dict,
-            name: str,
-            models_path: str,
-            summary_path: str,
-            summary_per_class: bool,
-            metric: str,
-            gpu: bool = True,
+        self,
+        model: torch.nn.Module,
+        optimizable_module_name: str,
+        train_ds: Dataset,
+        val_ds: Dataset,
+        num_classes: int,
+        dataloader_params: Dict,
+        name: str,
+        models_path: str,
+        summary_path: str,
+        summary_per_class: bool,
+        metric: str,
+        weights: Optional[str] = None,
+        gpu: bool = True,
     ) -> None:
         self.model = model
+        if weights is not None:
+            self.model.load_state_dict(torch.load(weights))
         self.optimizable_module_name = optimizable_module_name
-        self.default_scores = {
-            'size': self.size_of_model(),
-            'n_params': self.number_of_params(),
-        }
-        print(f"Default size: {self.default_scores['size']:.2f} MB")
+        print(f"Default size: {self.size_of_model():.2f} MB")
         self.num_classes = num_classes
 
         self.train_dl = DataLoader(dataset=train_ds, shuffle=True, **dataloader_params)
@@ -313,6 +313,8 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             (default: ``'runs'``).
         summary_per_class: If ``True``, calculates the metrics for each class
             (default ``False``).
+        weights: Path to the model state_dict to load weights (default: ``None``).
+        prefix: An explanatory string added to the name of the experiment.
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
@@ -321,24 +323,27 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
     """
 
     def __init__(
-            self,
-            model: str,
-            train_dataset: Dataset,
-            val_dataset: Dataset = None,
-            num_classes: int = None,
-            model_params: Dict = None,
-            models_saving_path: str = None,
-            optimizer_params: Dict = None,
-            loss_params: Dict = None,
-            dataloader_params: Dict = None,
-            structure_optimization: str = 'none',
-            structure_optimization_params: Dict = None,
-            optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
-            target_loss: Type[torch.nn.Module] = torch.nn.CrossEntropyLoss,
-            metric: str = 'f1',
-            summary_path: str = 'runs',
-            summary_per_class: bool = False,
-            gpu: bool = False,
+        self,
+        dataset_name: str,
+        train_dataset: Dataset,
+        val_dataset: Dataset,
+        num_classes: int,
+        dataloader_params: Dict,
+        model: str,
+        model_params: Dict,
+        models_saving_path: str,
+        optimizer: Type[torch.optim.Optimizer],
+        optimizer_params: Dict,
+        target_loss: Type[torch.nn.Module],
+        loss_params: Dict,
+        structure_optimization: str,
+        structure_optimization_params: Dict,
+        metric: str = 'f1',
+        summary_path: str = 'runs',
+        summary_per_class: bool = False,
+        weights: Optional[str] = None,
+        prefix: str = '',
+        gpu: bool = True,
     ) -> None:
 
         _parameter_value_check(
@@ -496,22 +501,25 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
     """
 
     def __init__(
-            self,
-            train_dataset: Dataset,
-            val_dataset: Dataset,
-            num_classes: int,
-            dataloader_params: Dict,
-            model_params: Dict,
-            models_saving_path: str,
-            optimizer: Type[torch.optim.Optimizer],
-            optimizer_params: Dict,
-            scheduler_params: Dict,
-            structure_optimization: str,
-            structure_optimization_params: Dict,
-            metric: str = 'map_50',
-            summary_path: str = 'runs',
-            summary_per_class: bool = False,
-            gpu: bool = True,
+        self,
+        dataset_name: str,
+        train_dataset: Dataset,
+        val_dataset: Dataset,
+        num_classes: int,
+        dataloader_params: Dict,
+        model_params: Dict,
+        models_saving_path: str,
+        optimizer: Type[torch.optim.Optimizer],
+        optimizer_params: Dict,
+        scheduler_params: Dict,
+        structure_optimization: str,
+        structure_optimization_params: Dict,
+        metric: str = 'map_50',
+        summary_path: str = 'runs',
+        summary_per_class: bool = False,
+        weights: Optional[str] = None,
+        prefix: str = '',
+        gpu: bool = True,
     ) -> None:
 
         _parameter_value_check(
@@ -536,11 +544,12 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"FasterR-CNN/ResNet50",
+            name=f"{dataset_name}/{prefix}FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
-            metric=metric,
+            metric=target_metric,
+            weights=weights,
             gpu=gpu,
         )
         self.structure_optimization = OPTIMIZATIONS[structure_optimization](
