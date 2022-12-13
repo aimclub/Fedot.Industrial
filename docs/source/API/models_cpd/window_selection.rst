@@ -1,3 +1,5 @@
+.. _Window-Size-Selection:
+
 Window Size Selection
 =====================
 

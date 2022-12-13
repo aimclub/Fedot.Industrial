@@ -37,7 +37,10 @@ Anomaly detection
 public release.
 
 .. toctree::
+    :maxdepth: 1
+
     models_cpd/singular_spectrum_transformation
+    models_cpd/window_selection
 
 Change point detection
 ----------------------

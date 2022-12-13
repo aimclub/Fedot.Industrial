@@ -6,6 +6,7 @@ import pandas as pd
 from scipy.signal import argrelextrema, find_peaks
 
 
+
 class WindowSizeSelection:
     """Window Size Selection class (WSS).
 
@@ -72,8 +73,8 @@ class WindowSizeSelection:
             self.time_series have to be a list!
 
         Returns:
-            window_size_selected: selected window size for the time series
-            distance_scores: score list of DFF metric to understand window size selection
+            tuple(window_size_selected, distance_scores): selected window size for the time series
+            and score list of DFF metric to understand window size selection
 
         """
         cutted_ts = []
@@ -108,8 +109,8 @@ class WindowSizeSelection:
             score_list: a list of lagged time series according to window size.
 
         Returns:
-            window_size_selected: id for the highest peak in score_list.
-            list_score_peaks: list of peaks id in score_list.
+            tuple(window_size_selected, list_score_peaks): id for the highest peak in score_list and
+            list of peaks id in score_list.
 
         """
         list_probably_peaks = find_peaks(score_list)[0][1:]
@@ -122,8 +123,8 @@ class WindowSizeSelection:
         """Main function for the dominant_fourier_frequency (DFF) to find an appropriate window size.
 
         Returns:
-            window_size_selected: selected window size for the time series
-            distance_scores: score list of DFF metric to understand window size selection
+           tuple(window_size_selected, distance_scores): selected window size for the time series and
+           score list of DFF metric to understand window size selection
 
         """
         list_score_k = [self.coeff_metrics(i) for i in range(self.window_min, self.window_max)]
@@ -159,8 +160,8 @@ class WindowSizeSelection:
             threshold: normalized anomaly score.
 
         Returns:
-            lbound: selected window size for the time series.
-            distance_scores: score list of SuSS score and window_size to understand window size selection.
+            tuple(lbound, distance_scores): selected window size for the time series.
+            and score list of SuSS score to understand window size selection.
 
         """
         ts_fix = np.array(self.time_series)
@@ -212,7 +213,7 @@ class WindowSizeSelection:
 
         Returns:
             np.mean(x): not normalized euclidian distance between statistic
-                for selected window size and general time series statistic.
+            for selected window size and general time series statistic.
 
         """
         roll = pd.Series(ts).rolling(window_size)
@@ -234,8 +235,8 @@ class WindowSizeSelection:
             In case of 1 global minimum over ts. it is better to try increase max-min boards of ts or change algorithm.
 
         Returns:
-            window_size_selected: selected window size for the time series.
-            distance_scores: score list of MWF metric to understand window size selection.
+            tuple(window_size_selected, distance_scores): selected window size for the time series
+            and score list of MWF metric to understand window size selection.
 
         """
         distance_scores = [self.mwf_metric(i) for i in range(self.window_min, self.window_max)]
@@ -271,8 +272,8 @@ class WindowSizeSelection:
             distance_scores: list of distance according to MWF metric for selected window sizes
 
         Returns:
-            id_local_minimum_list: list of index where ndarray has local minimum.
-            id_max: id where distance_scores has global max value for distance scores.
+            tuple(id_local_minimum_list, id_max): list of index where ndarray has local minimum and
+            id where distance_scores has global max value for distance scores.
 
         """
         id_max = distance_scores.index(max(distance_scores))
@@ -295,8 +296,8 @@ class WindowSizeSelection:
             ValueError: If `self.window_max` is equal or smaller to `self.window_min`.
 
         Returns:
-            window_size_selected: value which has been chosen as appropriate window size
-            list_score: score list for chosen algorithm metric to understand window size selection
+            tuple(window_size_selected,list_score): value which has been chosen as appropriate window size
+            and score list for chosen algorithm metric to understand window size selection
 
         """
         if self.window_max <= self.window_min:

@@ -296,7 +296,7 @@ class SingularSpectrumTransformation:
             dynamic_mode: mode for SST metrics calculation.
             _x: input 1D time series data.
 
-        Returns
+        Returns:
             score: 1d array change point score with 1 and 0 if view True.
 
         """
@@ -315,7 +315,7 @@ class SingularSpectrumTransformation:
             dynamic_mode: mode for SST metrics calculation.
             _x: input 1D time series data.
 
-        Returns
+        Returns:
             score: 1d array change point score with 1 and 0 if view True.
 
         """
@@ -360,7 +360,7 @@ class SingularSpectrumTransformation:
             x_history: historical matrix of features
             _l: window length of subsequences in ts_window_length.
 
-        Returns
+        Returns:
             self.n_components: number of relevant components
 
         """
@@ -376,7 +376,7 @@ class SingularSpectrumTransformation:
             x_test: current matrix of features
             x_history: historical matrix of features
 
-        Returns
+        Returns:
             1 - s[0]: distance score between two matrixes
 
         """
