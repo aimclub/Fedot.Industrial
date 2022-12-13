@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn import preprocessing
 
-from core.models.detection.AbstractDetector import AbstractDetector
+from core.models.detection.abstract_objects.AbstractDetector import AbstractDetector
 
 
 class AreasDetector(AbstractDetector):

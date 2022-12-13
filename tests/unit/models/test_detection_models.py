@@ -1,7 +1,13 @@
 import numpy as np
 import pytest
+import sys
+import os
+import_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(import_path)
+sys.path.append(os.path.join(import_path, "../../../"))
 from core.models.detection.subspaces.SSTdetector import SingularSpectrumTransformation
-
+from core.models.detection.abstract_objects.FileObject import FileObject
+from core.models.detection.area.ThresholdZonesDetector import ThresholdZonesDetector
 
 @pytest.fixture()
 def basic_periodic_data():
@@ -20,3 +26,15 @@ def test_SST_detector(basic_periodic_data):
                                             lag=10,
                                             trajectory_window_length=30)
     score = scorer.score_offline(dynamic_mode=False)
+
+def test_Threshold_Zones_Detector(basic_periodic_data):
+
+    file_object = FileObject(basic_periodic_data, "test")
+
+    detector = ThresholdZonesDetector(0.5)
+    detector.load_data(file_object)
+    detector.run_operation()
+    new_object: FileObject = detector.return_new_data()
+
+    assert len(new_object.anomalies_list) is not 0
+    assert new_object.anomalies_list[0].get_end() - new_object.anomalies_list[0].get_start() is not 0
