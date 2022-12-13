@@ -83,40 +83,40 @@ def _indexes_of_tensor_values(tensor: Tensor, values: Tensor) -> Tensor:
     return torch.tensor(indexes)
 
 
-def _parse_resnet_sd(state_dict: OrderedDict):
+def _parse_sd(state_dict: OrderedDict):
     """Parses state_dict to nested dictionaries."""
     parsed_sd = OrderedDict()
     for k, v in state_dict.items():
-        _parse_resnet_param(k.split('.'), v, parsed_sd)
+        _parse_param(k.split('.'), v, parsed_sd)
     return parsed_sd
 
 
-def _parse_resnet_param(param, value, dictionary):
+def _parse_param(param, value, dictionary):
     """Parses value from state_dict to nested dictionaries."""
     if len(param) > 1:
         dictionary.setdefault(param[0], OrderedDict())
-        _parse_resnet_param(param[1:], value, dictionary[param[0]])
+        _parse_param(param[1:], value, dictionary[param[0]])
     else:
         dictionary[param[0]] = value
 
 
-def _collect_resnet_sd(parsed_state_dict):
+def _collect_sd(parsed_state_dict):
     """Collect state_dict from nested dictionaries."""
     state_dict = OrderedDict()
-    keys, values = _collect_resnet_param(parsed_state_dict)
+    keys, values = _collect_param(parsed_state_dict)
     for k, v in zip(keys, values):
         key = '.'.join(k)
         state_dict[key] = v
     return state_dict
 
 
-def _collect_resnet_param(dictionary):
+def _collect_param(dictionary):
     """Collect value from nested dictionaries."""
     if isinstance(dictionary, OrderedDict):
         all_keys = []
         all_values = []
         for k, v in dictionary.items():
-            keys, values = _collect_resnet_param(v)
+            keys, values = _collect_param(v)
             for key in keys:
                 key.insert(0, k)
             all_values.extend(values)
@@ -184,7 +184,7 @@ def prune_resnet_state_dict(
     """
     input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    sd = _parse_resnet_sd(state_dict)
+    sd = _parse_sd(state_dict)
     filters = _check_zero_filters(sd['conv1']['weight'])
     sd['conv1']['weight'] = _prune_filters(
         weight=sd['conv1']['weight'], saving_filters=filters
@@ -197,7 +197,7 @@ def prune_resnet_state_dict(
             channels, index = _prune_resnet_block(block=v, input_channels=channels)
             output_size[layer].append(channels.size()[0])
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
-    sd = _collect_resnet_sd(sd)
+    sd = _collect_sd(sd)
     return sd, input_size, output_size
 
 
