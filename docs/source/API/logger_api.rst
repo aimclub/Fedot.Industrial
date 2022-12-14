@@ -1,9 +1,9 @@
 Logger
 ======
 
-.. autoclass:: core.operation.utils.LoggerSingleton.SingletonMetaLogger
+.. autoclass:: core.architecture.abstraction.LoggerSingleton.SingletonMetaLogger
     :no-undoc-members:
 
-.. autoclass:: core.operation.utils.LoggerSingleton.Logger
+.. autoclass:: core.architecture.abstraction.LoggerSingleton.Logger
     :no-undoc-members:
 

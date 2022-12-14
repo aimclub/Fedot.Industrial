@@ -12,6 +12,7 @@ class ResultsParser:
     folder and creates dataframe table that availible for further analysis.
 
     Examples:
+        >>> from core.architecture.postprocessing.Parser import ResultsParser
         >>> parser = ResultsParser()
         >>> results = parser.run()
 
@@ -28,8 +29,7 @@ class ResultsParser:
                             'spectral',
                             'wavelet',
                             'window_quantile']
-        self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.plk')
-        # self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.csv')
+        self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.csv')
 
     def run(self) -> pd.DataFrame:
         """
@@ -39,8 +39,7 @@ class ResultsParser:
             Table with results of experiments.
 
         """
-        ds_info = pd.read_pickle(self.ds_info_path)
-        # ds_info = pd.read_csv(self.ds_info_path, index_col=0)
+        ds_info = pd.read_csv(self.ds_info_path, index_col=0)
         exp_results = self.retrieve_data()
         ls = []
         for ds in exp_results['dataset']:

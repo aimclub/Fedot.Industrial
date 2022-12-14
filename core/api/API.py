@@ -5,8 +5,8 @@ from core.api.utils.checkers_collections import *
 from core.api.utils.method_collections import *
 from core.api.utils.reader_collections import *
 from core.api.utils.saver_collections import ResultSaver
-from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.utils import path_to_save_results
 
 

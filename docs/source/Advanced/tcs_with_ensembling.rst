@@ -12,7 +12,7 @@ It is a good practice to import the following modules:
 .. code-block:: python
 
     import pandas as pd
-    from core.operation.utils.result_parser import ResultsParser
+    from core.architecture.postprocessing.Parser import ResultsParser
     from core.ensemble.static.RankEnsembler import RankEnsemble
 
 
