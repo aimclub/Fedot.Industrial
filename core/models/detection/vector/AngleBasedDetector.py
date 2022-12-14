@@ -1,178 +1,160 @@
+from sklearn.metrics import f1_score
+
+from core.models.detection.utils.get_time \
+    import time_now
 import numpy as np
+from core.models.detection.abstract_objects.AbstractDataOperation import AbstractDataOperation
+
+from core.models.detection.utils.math_utils import NormalizeData
+
+from scipy.signal import savgol_filter
+from typing import Mapping
 from scipy import spatial
-from tqdm import tqdm
 
-from core.models.detection.AbstractDetector import AbstractDetector
+from core.models.detection.abstract_objects.AnomalyZone import AnomalyZone
+from core.models.detection.abstract_objects.FileObject import FileObject
+"""
 
+input format:
 
-class VectorDetectorFaL(AbstractDetector):
+    dict with "data" and "lables" fields
 
-    def __init__(self, quantile: float):
-        self.quantile = quantile
-        super().__init__(name='VectorDetectorFaL', operation='vector detection')
+Output 
+    the same dict but with additional list of window
+    
+"""
+from typing import List, Type
 
-    def output_data(self) -> dict:
-        if "detection" in self.input_dict["data_body"]:
-            previous_predict = self.input_dict["data_body"]["detection"]
-            for i, predict in enumerate(previous_predict):
-                for j in range(len(predict)):
-                    if predict[j] == 1:
-                        self.output_list[i][j] = 1
-        self.input_dict["data_body"]["detection"] = self.output_list
-        self._do_score()
-        return self.input_dict
+class Window:
+    def __init__(self, 
+            start: int, 
+            end: int, 
+            data_ts: Mapping[str, List[float]]
+            ) -> None:
+        self.start: int = start
+        self.end: int = end
+        self.data_ts: Mapping[str, List[float]] = data_ts
+        self.vector_result: float = 0
+        
 
-    def _do_analysis(self) -> None:
-        for dataset in self.windowed_data:
-            temp_output = []
-            for window in tqdm(dataset, colour="RED"):
-                point_array = []
-                for i in range(len(window[0])):
-                    point = []
-                    for j in range(len(window)):
-                        point.append(window[j][i])
-                    point_array.append(point)
-                cosine_array = []
-                last_point = point_array[-1]
-                first_point = point_array[0]
-                inner_step = 1
-                for i in range(0, len(point_array) // 2):
-                    first_point = point_array[i]
-                    last_point = point_array[len(point_array) - 1 - i]
-                    res = spatial.distance.cosine(last_point, first_point)
-                    cosine_array.append(res)
-                avg = sum(cosine_array) / len(cosine_array)
-                var = sum((x - avg) ** 2 for x in cosine_array) / len(cosine_array)
-                cosine = self._get_angle_between_vectors(
-                    last_point,
-                    first_point
-                )
-                result = spatial.distance.cosine(last_point, first_point)
-
-                temp_output.append(var ** 2)
-            score_diff = np.diff(temp_output)
-            q_95 = np.quantile(temp_output, self.quantile)
-            temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
-            self.output_list.append(temp_output)
-        new_output_data = []
-        for _ in range(len(self.output_list)):
-            new_output_data.append([])
-        for i, predict in enumerate(self.output_list):
-            temp_predict = []
-            goal_len = len(self.data[i][0])
-            for j in range(len(predict)):
-                for t in range(self.step):
-                    temp_predict.append(predict[j])
-            for _ in range(len(temp_predict), goal_len):
-                temp_predict.append(predict[-1])
-            new_output_data[i] = temp_predict
-        self.output_list = new_output_data
+    def get_vector_predict(self) -> None:
+        point_array: List[List[float]] = []
+        keys = list(self.data_ts.keys())
+        for i in range(0, self.end-self.start):
+            point = []
+            for key in keys:
+                point.append(self.data_ts[key][i])
+            point_array.append(point)
+        
+        cosine_array = []
+        #last_point = point_array[-1]
+        first_point = point_array[0]
+        for i in range(0, len(point_array)):
+            current_point = point_array[i]
+            res = spatial.distance.cosine(current_point, first_point)
+            cosine_array.append(res)
+        avg = sum(cosine_array) / len(cosine_array)
+        self.vector_result = avg #** 2
+    
+    
 
 
-class VectorDetector(AbstractDetector):
+class AngleBasedDetector(AbstractDataOperation):
 
-    def __init__(self, quantile: float,
-                 step: int = 2,
-                 filtering: bool = True):
-        self.quantile = quantile
-        self.filtering = filtering
-        self.inner_step = step
+    def __init__(self, window_len: int = 100,
+            step: int = None,
+            detector_name: str = "Angle Based Detector"):
+        self.window_len: list = window_len
+        self.name: str = detector_name
+        self.print_logs: bool = True
+        if step is None:
+            self.step: int = int(window_len / 4)
+        else:
+            self.step: int = step
+        self.windows: List[Window] = []
 
-        super().__init__(name='Vector Detector', operation='vector detection')
+    def set_settings(self):
+        self.output_predicts: list = []
+        self._print_logs("Settings was set.")
 
-    def _do_analysis(self) -> None:
-        for dataset in self.windowed_data:
-            temp_output = []
-            for window in tqdm(dataset, colour="RED"):
-                point_array = []
-                for i in range(len(window[0])):
-                    point = []
-                    for j in range(len(window)):
-                        point.append(window[j][i])
-                    point_array.append(point)
-                cosine_array = []
-                last_point = point_array[-1]
-                first_point = point_array[0]
-                for i in range(0, len(point_array) - 1, self.inner_step):
-                    vector_1 = self._make_vector(last_point, last_point)
-                    vector_2 = self._make_vector(point_array[i], last_point)
-                    cosine = self._get_angle_between_vectors(
-                        last_point,
-                        point_array[i]
-                    )
-                    # bad, without 1 - is better
-                    cosine = 1 - spatial.distance.cosine(last_point, point_array[i])
-                    cosine_array.append(cosine ** 2)
-                avg = sum(cosine_array) / len(cosine_array)
-                var = sum((x - avg) ** 2 for x in cosine_array) / len(cosine_array)
-                var = np.mean(cosine_array)
-                temp_output.append(var)
-            if False:
-                score_diff = np.diff(temp_output)
-                q_95 = np.quantile(temp_output, self.quantile)
-                temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
-            # reshaped_data = preprocessing.normalize([np.array(temp_output)]).flatten()
-            # reshaped_data = self.NormalizeData(np.array(temp_output)).tolist()
-            self.output_list.append(temp_output)
-        new_output_data = []
-        for _ in range(len(self.output_list)):
-            new_output_data.append([])
-        for i, predict in enumerate(self.output_list):
-            temp_predict = []
-            goal_len = len(self.data[i][0])
-            for j in range(len(predict)):
-                for t in range(self.step):
-                    temp_predict.append(predict[j])
-            for _ in range(len(temp_predict), goal_len):
-                temp_predict.append(predict[-1])
-            new_output_data[i] = temp_predict
-        self.output_list = new_output_data
-        if False:
-            for i in range(len(self.output_list)):
-                my_iter = iter(range(0, len(self.output_list[i])))
-                for j in my_iter:
-                    if self.output_list[i][j] == 1:
-                        for k in range(self.win_len):
-                            self.output_list[i][j + k] = 1
-                            next(my_iter, None)
+    def load_data(self, data_object) -> None:
+        self._print_logs("Data read!")
+        self.data_object: FileObject = data_object
+
+    def run_operation(self) -> None:
+        self._print_logs("Start detection...")
+        self._run_detector()
+        self._print_logs("Detection finished!")
+
+    def return_new_data(self):
+        return self.data_object
+
+    def _split_data_to_windows(self, 
+            ts: Mapping[str, List[float]], 
+            len_of_data: int,
+            keys: List[str]
+            ) -> List[Window]:
+        """
+        This method split time series into windows
+
+        Args:
+            ts (Mapping[str, List[float]]): data
+            len_of_data (int): len of data in <ts>
+            keys (List[str]): keys of <ts> dict
+
+        Returns:
+            List[Window]: windows
+        """
+        start_idx: int = 0
+        end_idx: int = len_of_data - self.window_len
+        temp_window_list: List[Window] = []
+        for i in range(start_idx, end_idx, self.step):
+            temp_window_data: Mapping[str, List[float]] = {}
+            for key in keys:
+                temp_window_data[key] = []
+                for j in range(i, i + self.window_len):
+                    temp_window_data[key].append(ts[key][j])
+            temp_window_list.append(Window(i, i + self.window_len, temp_window_data))
+        return temp_window_list
+
+    def _turn_windows_to_ts(self, windows: List[Window], demanded_len) -> List[float]:
+        """
+        This method turn list of windows back to ts suitable for visualization
+
+        Args:
+            windows (List[Window]): list of windows
+            demanded_len (_type_): len of ts
+
+        Returns:
+            List[float]: time series
+        """
+        output_ts: List[float] = []
+        for window in windows:
+            for _ in range(0, self.step):
+                output_ts.append(window.vector_result)
+        for _ in range(len(output_ts), demanded_len):
+            output_ts.append(0)
+        return output_ts
 
 
-class RawVectorDetector(AbstractDetector):
+    def _run_detector(self) -> None:
+        self.windows = []
+        self.windows = self._split_data_to_windows(
+            self.data_object.time_series_data,
+            self.data_object.get_len_of_dataset(),
+            list(self.data_object.time_series_data.keys())
+            )
 
-    def __init__(self):
-        super().__init__(name="RawVector Detector", operation="detection")
-
-    def input_data(self, dictionary: dict) -> None:
-        self.input_dict = dictionary
-        self.data = self.input_dict["data_body"]["elected_data"]
-
-    def output_data(self) -> dict:
-        self.input_dict["data_body"]["detection"] = self.output_list
-        return self.input_dict
-
-    def _do_analysis(self) -> None:
-        for dataset in self.windowed_data:
-            temp_output = []
-            for window in tqdm(dataset, colour="RED"):
-                point_array = []
-                for i in range(len(window[0])):
-                    point = []
-                    for j in range(len(window)):
-                        point.append(window[j][i])
-                    point_array.append(point)
-                cosinus_array = []
-                last_point = point_array[-1]
-                for i in range(0, len(point_array) - 1):
-                    cosinus = self._get_angle_between_vectors(
-                        last_point,
-                        point_array[i]
-                    )
-                    cosinus_array.append(cosinus)
-                avg = sum(cosinus_array) / len(cosinus_array)
-                var = sum((x - avg) ** 2 for x in cosinus_array) / len(cosinus_array)
-
-                temp_output.append(var ** 2)
-            score_diff = np.diff(temp_output)
-            q_95 = np.quantile(temp_output, 0.99)
-            temp_output = list(map(lambda x: 1 if x > q_95 else 0, score_diff))
-            self.output_list.append(temp_output)
+        for j in range(len(self.windows)):
+            self.windows[j].get_vector_predict()
+        self.data_object.test_vector_ts = \
+            self._turn_windows_to_ts(
+            self.windows, self.data_object.get_len_of_dataset()
+        )
+        self.data_object.test_vector_ts = NormalizeData(
+            self.data_object.test_vector_ts
+        )
+    
+    def _print_logs(self, log_message: str) -> None:
+        if self.print_logs:
+            print(f"---[{time_now()}] {self.name}: {log_message}")
