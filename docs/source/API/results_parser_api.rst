@@ -5,5 +5,5 @@ Results Parser
 
 Module for parsing the results of time series classification experiments.
 
-.. autoclass:: core.operation.utils.result_parser.ResultsParser
+.. autoclass:: core.architecture.postprocessing.Parser.ResultsParser
    :no-undoc-members:

@@ -2,8 +2,8 @@ from typing import Dict, List
 
 from sklearn import preprocessing
 
-from core.metrics.metrics_implementation import *
 from core.architecture.abstraction.LoggerSingleton import Logger
+from core.metrics.metrics_implementation import *
 
 
 class PerformanceAnalyzer:

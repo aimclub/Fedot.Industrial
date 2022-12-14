@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from core.models.ecm.error_correction import Booster
-from core.architecture.utils import PerformanceAnalyzer
+from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.abstraction.LoggerSingleton import Logger
 
 
