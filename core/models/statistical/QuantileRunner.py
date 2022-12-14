@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from core.models.ExperimentRunner import ExperimentRunner
-from core.operation.transformation.stat_features_extractor import StatFeaturesExtractor
+from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 from core.architecture.abstraction.Decorators import time_it
 
 
