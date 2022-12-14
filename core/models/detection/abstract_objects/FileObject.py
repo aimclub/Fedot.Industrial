@@ -39,7 +39,7 @@ class FileObject:
         self.additional_mean_ts: List[float] = None
         # threshold for <additional_transformed_average_absolute_deviation>
         self.threshold: float = None
-        
+        self.test_vector_ts = []
 
     def get_len_of_dataset(self) -> int:
         """
