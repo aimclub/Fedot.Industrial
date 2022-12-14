@@ -6,7 +6,7 @@ either from local directory or from `UCR archive`_. If desired dataset is not fo
 ``data`` folder, it will be downloaded from the archive and saved in corresponding directory
 in ``.tsv`` format.
 
-.. autoclass:: core.operation.utils.load_data.DataLoader
+.. autoclass:: core.architecture.preprocessing.DatasetLoader.DataLoader
     :no-undoc-members:
 
 .. _UCR archive: http://www.timeseriesclassification.com
