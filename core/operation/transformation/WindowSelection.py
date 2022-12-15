@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 
 from scipy.signal import argrelextrema, find_peaks
-from core.models.detection.AbstractDetector import AbstractDetector
 
 
 class WindowSizeSelection:
@@ -77,6 +76,7 @@ class WindowSizeSelection:
             distance_scores: score list of DFF metric to understand window size selection
 
         """
+        cutted_ts = []
         list_score = [self.high_ac_metric(self.time_series[i:] + self.time_series[:i], i) \
                       for i in range(self.window_min, self.window_max)]
         selected_size_window, list_score_peaks = self.local_max_search(list_score)
@@ -306,7 +306,7 @@ class WindowSizeSelection:
         return window_size_selected, list_score
 
 
-class WindowCutter(AbstractDetector):
+class WindowCutter:
     """
     Window cutter.
         input format: dict with "data" and "labels" fields
@@ -314,41 +314,34 @@ class WindowCutter(AbstractDetector):
     """
 
     def __init__(self, window_len, window_step):
-        super().__init__(name="Window Cutter", operation="window cutting")
+        #super().__init__(name="Window Cutter", operation="window cutting")
         self.window_len = window_len
         self.window_step = window_step
         self.output_window_list = []
 
-    def input_data(self, input_dict: dict) -> None:
+    def load_data(self, input_dict: dict) -> None:
         self.input_dict = input_dict
-        self.data = self.input_dict["data_body"]["elected_data"]
 
-    def output_data(self) -> dict:
-        self.input_dict["data_body"]["windows_list"] = self.output_window_list
-        self.input_dict["data_body"]["window_len"] = self.window_len
-        self.input_dict["data_body"]["window_step"] = self.window_step
-        return self.input_dict
+    def get_windows(self) -> dict:
+        return self.output_window_list
 
-    def _do_analysis(self) -> None:
+    def run(self) -> None:
         """
         Cut data to windows
         :return: none
         """
-        for data in self.data:
-            windows = self._cut_ts_to_windows(data)
-            self.output_window_list.append(windows)
+        self.output_window_list = self._cut_ts_to_windows(self.input_dict)
 
-    def _cut_ts_to_windows(self, ts: list) -> list:
+    def _cut_ts_to_windows(self, ts: dict) -> list:
         start_idx = 0
-        end_idx = len(ts[0]) - self.window_len
+        end_idx = len(ts[list(ts.keys())[0]]) - self.window_len
         temp_windows_list = []
         for i in range(start_idx, end_idx, self.window_step):
-            temp_window = []
-            for _ in ts:
-                temp_window.append([])
-            for j in range(i, i + self.window_len):
-                for t in range(len(temp_window)):
-                    temp_window[t].append(ts[t][j])
-            temp_windows_list.append(temp_window)
-
+            temp_window_dict = {}
+            for key in ts.keys():
+                temp_window = []
+                for j in range(i, i + self.window_len):
+                    temp_window.append(ts[key][j])
+                temp_window_dict[key] = temp_window
+        temp_windows_list.append(temp_window_dict)
         return temp_windows_list

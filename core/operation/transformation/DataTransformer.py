@@ -3,6 +3,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from ripser import Rips, ripser
+
 from scipy import sparse
 from scipy.spatial.distance import pdist, squareform
 
