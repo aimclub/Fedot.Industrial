@@ -89,11 +89,11 @@ class _GeneralizedExperimenter:
         self.metric = metric
         self.structure_optimization = None
 
-    def save_model(self, name: str = 'trained_model') -> None:
+    def save_model(self, name: str = 'trained') -> None:
         """Save all model.
 
         Args:
-            name: File name (default: 'trained_model').
+            name: File name (default: 'trained').
         """
         dir_path = os.path.join(self.models_path, self.name)
         model_name = f"{name}.model.pt"
@@ -106,14 +106,14 @@ class _GeneralizedExperimenter:
             shutil.move(model_name, dir_path)
         print("Model saved.")
 
-    def save_model_state_dict(self, name: str = 'trained_model') -> None:
+    def save_model_state_dict(self, name: str = 'trained') -> None:
         """Save model state_dict.
 
         Args:
-            name: File name (default: 'trained_model').
+            name: File name (default: 'trained').
         """
         dir_path = os.path.join(self.models_path, self.name)
-        model_name = f"{name}.model.sd.pt"
+        model_name = f"{name}.sd.pt"
         file_path = os.path.join(dir_path, model_name)
         os.makedirs(dir_path, exist_ok=True)
         try:
@@ -123,11 +123,11 @@ class _GeneralizedExperimenter:
             shutil.move(model_name, dir_path)
         print("Model state dict saved.")
 
-    def load_model_state_dict(self, name: str = 'trained_model') -> None:
+    def load_model_state_dict(self, name: str = 'trained') -> None:
         """Load model state_dict to ``self.model``
 
         Args:
-            name: File name (default: 'trained_model').
+            name: File name (default: 'trained').
         """
         file_path = os.path.join(self.models_path, self.name, f"{name}.sd.pt")
         if os.path.exists(file_path):
@@ -137,11 +137,11 @@ class _GeneralizedExperimenter:
         else:
             print(f"File '{file_path}' does not exist.")
 
-    def load_model(self, name: str = 'trained_model') -> None:
+    def load_model(self, name: str = 'trained') -> None:
         """Load model to ``self.model``.
 
         Args:
-            name: File name (default: 'trained_model').
+            name: File name (default: 'trained').
         """
         file_path = os.path.join(self.models_path, self.name, f"{name}.model.pt")
         if os.path.exists(file_path):
@@ -367,7 +367,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             val_ds=val_dataset,
             num_classes=num_classes,
             dataloader_params=dataloader_params,
-            name=f"{model}",
+            name=f"{dataset_name}/{prefix}{model}",
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
@@ -548,7 +548,7 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             models_path=models_saving_path,
             summary_path=summary_path,
             summary_per_class=summary_per_class,
-            metric=target_metric,
+            metric=metric,
             weights=weights,
             gpu=gpu,
         )
