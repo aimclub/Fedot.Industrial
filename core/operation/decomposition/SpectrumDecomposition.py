@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from typing import Union
 
 import matplotlib.pyplot as plt
@@ -7,7 +7,7 @@ import pandas as pd
 from cycler import cycler
 from scipy.linalg import hankel
 from sklearn.utils.extmath import randomized_svd
-
+import copy
 plt.rcParams['figure.figsize'] = (10, 8)
 plt.rcParams['font.size'] = 14
 plt.rcParams['image.cmap'] = 'plasma'
@@ -42,16 +42,26 @@ class SpectrumDecomposer:
                  window_length: int = None,
                  save_memory: bool = True):
         self.__time_series = time_series
+        self.__convert_ts_to_array()
         self.__window_length = window_length
+        if self.__window_length is None:
+            self.__window_length = round(self.__time_series.size * 0.35)
         self.__save_memory = save_memory
         self.__set_dimensions()
+        self.__check_windows_length()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
     def __check_windows_length(self):
-        if self.__window_length is None:
-            self.__window_length = len(self.__time_series) / 0.35
         if not 2 <= self.__window_length <= self.__ts_length / 2:
             raise ValueError("The window length must be in the interval [2, N/2].")
+
+    def __convert_ts_to_array(self):
+        if type(self.__time_series) == pd.DataFrame:
+            self.__time_series = self.__time_series.values
+        elif type(self.__time_series) == list:
+            self.__time_series = np.array(self.__time_series)
+        else:
+            self.__time_series = self.__time_series
 
     def __set_dimensions(self):
         self.__ts_length = len(self.__time_series)
@@ -118,10 +128,6 @@ class SpectrumDecomposer:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        rank = self.singular_value_hard_threshold(singular_values=Sigma)
-        if rank_hyper is not None:
-            rank = rank_hyper
-
         components_df = self.components_to_df(TS_comps.T, rank)
 
         n_components = [x / sum(Sigma) * 100 for x in Sigma]
@@ -131,54 +137,65 @@ class SpectrumDecomposer:
 
         return TS_comps, X_elem, V, components_df, Wcorr, n_components, explained_dispersion
 
-    def calc_wcorr(self, TS_comps, rank):
-        """Calculates the w-correlation matrix for the time series.
-
-        Args:
-            TS_comps (np.ndarray): The time series components.
-            rank (int): The rank of the time series.
-
-        Returns:
-            ...
-        """
-
+    def __weighted_inner_product(self, F_i, F_j):
         # Calculate the weights
         first = list(np.arange(self.__window_length) + 1)
         second = [self.__ts_length] * (self.__subseq_length - self.__window_length - 1)
         third = list(np.arange(self.__window_length) + 1)[::-1]
         w = np.array(first + second + third)
+        return w.dot(F_i * F_j)
 
-        def w_inner(F_i, F_j):
-            return w.dot(F_i * F_j)
+    def __calculate_matrix_norms(self, rank, TS_comps):
+        F_wnorms = np.array([self.__weighted_inner_product(TS_comps[:, i], TS_comps[:, i]) for i in range(rank)])
+        self.F_wnorms = F_wnorms ** -0.5
 
-        # Calculated weighted norms, ||F_i||_w, then invert.
-        F_wnorms = np.array([w_inner(TS_comps[:, i], TS_comps[:, i]) for i in range(rank)])
-        F_wnorms = F_wnorms ** -0.5
-
-        # Calculate Wcorr.
+    def __calculate_corr_matrix(self, rank, TS_comps):
         Wcorr = np.identity(rank)
         components = [i for i in range(rank)]
         for i in components:
             for j in range(i + 1, rank):
-                Wcorr[i, j] = abs(w_inner(TS_comps[:, i], TS_comps[:, j]) * F_wnorms[i] * F_wnorms[j])
+                Wcorr[i, j] = abs(
+                    self.__weighted_inner_product(TS_comps[:, i], TS_comps[:, j]) * self.F_wnorms[i] * self.F_wnorms[j])
                 Wcorr[j, i] = Wcorr[i, j]
+        return Wcorr, components
 
+    def combine_eigenvectors(self, TS_comps, rank, correlation_level: float = 0.8):
+        """Calculates the w-correlation matrix for the time series.
+
+        Args:
+            TS_comps (np.ndarray): The time series components.
+            rank (int): The rank of the time series.
+            correlation_level (float): threshold value of Pearson correlation, using for merging eigenvectors.
+
+        Returns:
+
+        """
         combined_components = []
 
+        # Calculated weighted norms
+        self.__calculate_matrix_norms(rank, TS_comps)
+
+        # Calculate Wcorr.
+        Wcorr, components = self.__calculate_corr_matrix(rank, TS_comps)
+
+        # Calculate Wcorr.
+        corr_dict = {}
         for i in components:
-            corellated_comp = [i for i, v in enumerate(Wcorr[:, i]) if v > 0.85]
+            corellated_comp = [i for i, v in enumerate(Wcorr[:, i]) if v > correlation_level]
+            corr_dict.update({i: corellated_comp})
+        filtred_dict = copy.deepcopy(corr_dict)
 
-            if len(corellated_comp) < 2:
-                final_component = TS_comps[:, corellated_comp[0]]
+        # Select Correlated Eigenvectors.
+        for list_of_corr_vectors in list(corr_dict.values()):
+            final_component = None
+            if len(list_of_corr_vectors) < 2:
+                final_component = TS_comps[:, list_of_corr_vectors[0]]
             else:
-                final_component = np.sum(TS_comps[:, corellated_comp], axis=1)
-
-            for elem in corellated_comp:
-                try:
-                    components.remove(elem)
-                except Exception:
-                    _ = 1
-
+                for corr_vector in list_of_corr_vectors:
+                    if corr_vector in filtred_dict.keys():
+                        if final_component is None:
+                            final_component = np.sum(TS_comps[:, list_of_corr_vectors], axis=1)
+                        del filtred_dict[corr_vector]
             combined_components.append(final_component)
 
         return combined_components
