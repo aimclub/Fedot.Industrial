@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 
 from scipy.signal import argrelextrema, find_peaks
-from core.models.detection.AbstractDetector import AbstractDetector
 
 
 class WindowSizeSelection:
@@ -306,7 +305,7 @@ class WindowSizeSelection:
         return window_size_selected, list_score
 
 
-class WindowCutter(AbstractDetector):
+class WindowCutter:
     """
     Window cutter.
         input format: dict with "data" and "labels" fields
