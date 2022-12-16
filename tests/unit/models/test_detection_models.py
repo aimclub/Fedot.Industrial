@@ -19,7 +19,7 @@ def basic_periodic_data():
     x1 = 3 * np.ones(1000) + np.random.rand(1000) * 2
     x2 = 7 * np.ones(1000) + np.random.rand(1000) * 1.5
     y = np.vstack([x0, x1, x2])
-    y += np.random.rand(x.size)
+    y += np.random.rand(y.size)
     return x, y
 
 

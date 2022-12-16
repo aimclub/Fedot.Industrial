@@ -17,7 +17,7 @@ def test_advanced_spectral_model():
     basic_ts_clf_class = TimeSeriesClassifier(model_hyperparams={
         'problem': 'classification',
         'seed': 42,
-        'timeout': 5,
+        'timeout': 1,
         'max_depth': 4,
         'max_arity': 2,
         'cv_folds': 2,
@@ -32,4 +32,7 @@ def test_advanced_spectral_model():
     metrics = PerformanceAnalyzer().calculate_metrics(target=test_target,
                                                       predicted_labels=labels['label'],
                                                       predicted_probs=probs['class_probability'])
-    pass
+    assert train_feats_lightning7 is not None
+    assert test_feats_lightning7 is not None
+    assert metrics is not None
+    assert IndustrialModel is not None
