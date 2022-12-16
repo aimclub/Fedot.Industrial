@@ -6,8 +6,10 @@ import numpy as np
 import pandas as pd
 from cycler import cycler
 from scipy.linalg import hankel
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils.extmath import randomized_svd
 import copy
+
 plt.rcParams['figure.figsize'] = (10, 8)
 plt.rcParams['font.size'] = 14
 plt.rcParams['image.cmap'] = 'plasma'
@@ -95,12 +97,11 @@ class SpectrumDecomposer:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
-    def decompose(self, return_df=True, correlation_flag=False, rank_hyper=None):
+    def decompose(self, rank_hyper=None):
         # Embed the time series in a trajectory matrix
-        components_df = None
-        Wcorr = None
         U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
         rank = self.singular_value_hard_threshold(singular_values=Sigma)
+
         if rank_hyper is not None:
             rank = rank_hyper
         # Decompose the trajectory matrix
@@ -128,14 +129,7 @@ class SpectrumDecomposer:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        components_df = self.components_to_df(TS_comps.T, rank)
-
-        n_components = [x / sum(Sigma) * 100 for x in Sigma]
-        n_components = n_components[:rank]
-        explained_dispersion = sum(n_components)
-        n_components = rank
-
-        return TS_comps, X_elem, V, components_df, Wcorr, n_components, explained_dispersion
+        return TS_comps, Sigma, rank, X_elem, V
 
     def __weighted_inner_product(self, F_i, F_j):
         # Calculate the weights
@@ -190,13 +184,16 @@ class SpectrumDecomposer:
             final_component = None
             if len(list_of_corr_vectors) < 2:
                 final_component = TS_comps[:, list_of_corr_vectors[0]]
+                combined_components.append(final_component)
             else:
                 for corr_vector in list_of_corr_vectors:
                     if corr_vector in filtred_dict.keys():
                         if final_component is None:
                             final_component = np.sum(TS_comps[:, list_of_corr_vectors], axis=1)
+                            combined_components.append(final_component)
                         del filtred_dict[corr_vector]
-            combined_components.append(final_component)
+
+        combined_components = pd.DataFrame(combined_components).T
 
         return combined_components
 
@@ -219,7 +216,7 @@ class SpectrumDecomposer:
 
         # Create list of columns - call them F0, F1, F2, ...
         cols = ["F{}".format(i) for i in range(n)]
-        df = pd.DataFrame(TS_comps).T.iloc[:, :rank]
+        df = pd.DataFrame(TS_comps.T).T.iloc[:, :rank]
         df.columns = cols
         return df
 
@@ -272,10 +269,12 @@ class SpectrumDecomposer:
                                       rank=None,
                                       threshold=2.858):
         rank = len(singular_values) if rank is None else rank
-
+        singular_values = MinMaxScaler(feature_range=(0, 1)).fit_transform(singular_values.reshape(-1, 1))[:, 0]
         median_sv = np.median(singular_values[:rank])
         sv_threshold = threshold * median_sv
         adjusted_rank = np.sum(singular_values >= sv_threshold)
+        if adjusted_rank == 0:
+            adjusted_rank = 2
         return adjusted_rank
 
     @staticmethod
@@ -314,9 +313,9 @@ class SpectrumDecomposer:
         return U, s, V, rank
 
     @staticmethod
-    def sv_to_explained_variance_ratio(singular_values, N):
-        eigenvalues = singular_values ** 2
-        explained_variance = eigenvalues / (N - 1)
-        total_variance = np.sum(explained_variance)
-        explained_variance_ratio = explained_variance / total_variance
-        return explained_variance, explained_variance_ratio
+    def sv_to_explained_variance_ratio(singular_values, rank):
+        n_components = [x / sum(singular_values) * 100 for x in singular_values]
+        n_components = n_components[:rank]
+        explained_variance = sum(n_components)
+        n_components = rank
+        return explained_variance, n_components

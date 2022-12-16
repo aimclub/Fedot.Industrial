@@ -3,6 +3,8 @@ import os
 import timeit
 from multiprocessing import cpu_count
 
+from sklearn.preprocessing import MinMaxScaler
+
 from core.metrics.metrics_implementation import *
 from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import PROJECT_PATH
@@ -166,7 +168,9 @@ class ExperimentRunner:
     @staticmethod
     def delete_col_by_var(dataframe: pd.DataFrame):
         for col in dataframe.columns:
-            if dataframe[col].std() < 0.1 and not col.startswith('diff'):
+            scaled_feature = MinMaxScaler(feature_range=(0, 1)).fit_transform(dataframe[col].values.reshape(-1, 1))[:, 0]
+            deviation = np.std(scaled_feature)
+            if deviation < 0.05 and not col.startswith('diff'):
                 del dataframe[col]
         return dataframe
 

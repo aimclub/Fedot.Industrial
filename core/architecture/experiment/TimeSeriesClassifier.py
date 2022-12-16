@@ -10,7 +10,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
 from core.models.ExperimentRunner import ExperimentRunner
-from core.operation.transformation.DataTransformer import CustomClassificationDataset
+from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
 from core.architecture.abstraction.LoggerSingleton import Logger
@@ -35,10 +35,10 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self,
-                 generator_name: str,
-                 generator_runner: ExperimentRunner,
-                 model_hyperparams: dict,
-                 ecm_model_flag: False):
+                 generator_name: str = None,
+                 generator_runner: ExperimentRunner = None,
+                 model_hyperparams: dict = None,
+                 ecm_model_flag: bool = False):
         self.logger = Logger().get_logger()
         self.predictor = None
         self.y_train = None
@@ -53,7 +53,8 @@ class TimeSeriesClassifier:
         self.model_hyperparams = model_hyperparams
         self.ecm_model_flag = ecm_model_flag
 
-        self._init_builder()
+        if self.generator_runner is not None:
+            self._init_builder()
 
     def _init_builder(self) -> None:
         """Initialize builder with all operations combining generator name and transformation method.
@@ -73,9 +74,9 @@ class TimeSeriesClassifier:
             Fitted Fedot model
 
         """
-        fedot_model = Fedot(**self.model_hyperparams)
-        fedot_model.fit(features, target)
-        return fedot_model
+        self.predictor = Fedot(**self.model_hyperparams)
+        self.predictor.fit(features, target)
+        return self.predictor
 
     def _fit_baseline_model(self, features: pd.DataFrame, target: np.ndarray, baseline_type: str = 'rf') -> Pipeline:
         """Returns pipeline with the following structure:
@@ -111,8 +112,11 @@ class TimeSeriesClassifier:
                           baseline_type: str = None):
         self.logger.info('START TRAINING')
         self.y_train = train_target
-        self.train_features = self.generator_runner.extract_features(train_features=train_features,
-                                                                     dataset_name=dataset_name)
+        if self.generator_runner is not None:
+            self.train_features = self.generator_runner.extract_features(train_features=train_features,
+                                                                         dataset_name=dataset_name)
+        else:
+            self.train_features = train_features
         self.train_features = self.datacheck.check_data(self.train_features)
 
         if baseline_type is not None:
@@ -124,7 +128,10 @@ class TimeSeriesClassifier:
                               test_features: np.ndarray,
                               mode: str = 'labels',
                               dataset_name: str = None):
-        self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
+        if self.generator_runner is not None:
+            self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
+        else:
+            self.test_features = test_features
         self.test_features = self.datacheck.check_data(self.test_features)
 
         if type(self.predictor) == Pipeline:
@@ -146,7 +153,9 @@ class TimeSeriesClassifier:
         return self.predictor, self.train_features
 
     def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features, dataset_name)
+        prediction_label = self.__predict_abstraction(test_features=test_features,
+                                                      mode='labels',
+                                                      dataset_name=dataset_name)
         return dict(label=prediction_label, test_features=self.test_features)
 
     def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:

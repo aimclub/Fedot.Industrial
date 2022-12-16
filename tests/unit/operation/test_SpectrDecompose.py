@@ -23,7 +23,7 @@ def test_SpectrDecompose_property(basic_spectral_data):
 def test_SpectrDecompose_methods(basic_spectral_data):
     spectral = SpectrumDecomposer(time_series=basic_spectral_data,
                                   save_memory=False)
-    TS_comps, X_elem, V, components_df, Wcorr, n_components, explained_dispersion = spectral.decompose()
+    TS_comps, X_elem, V, components_df, n_components, explained_dispersion = spectral.decompose()
     combined_components = spectral.combine_eigenvectors(TS_comps,rank=n_components)
     assert V.shape[0] == spectral.sub_seq_length
     assert TS_comps.shape[0] == spectral.ts_length
