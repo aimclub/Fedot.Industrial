@@ -351,7 +351,7 @@ class SingularSpectrumTransformation:
         filtered_score = score_diff
         if self.view:
             filtered_score = list(map(lambda _x: 1 if _x > q_95 else 0, score_diff))
-        return filtered_score
+        return filtered_score + [0]  # anomaly
 
     def _n_components(self, x_history: list = None, _l: int = None):
         """Number of relevant components which represent changing in time series.
