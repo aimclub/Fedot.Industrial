@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from typing import Union
 
 import matplotlib.pyplot as plt
@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 from cycler import cycler
 from scipy.linalg import hankel
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils.extmath import randomized_svd
+import copy
 
 plt.rcParams['figure.figsize'] = (10, 8)
 plt.rcParams['font.size'] = 14
@@ -42,16 +44,26 @@ class SpectrumDecomposer:
                  window_length: int = None,
                  save_memory: bool = True):
         self.__time_series = time_series
+        self.__convert_ts_to_array()
         self.__window_length = window_length
+        if self.__window_length is None:
+            self.__window_length = round(self.__time_series.size * 0.35)
         self.__save_memory = save_memory
         self.__set_dimensions()
+        self.__check_windows_length()
         self.__trajectory_matrix = self.__get_trajectory_matrix()
 
     def __check_windows_length(self):
-        if self.__window_length is None:
-            self.__window_length = len(self.__time_series) / 0.35
         if not 2 <= self.__window_length <= self.__ts_length / 2:
             raise ValueError("The window length must be in the interval [2, N/2].")
+
+    def __convert_ts_to_array(self):
+        if type(self.__time_series) == pd.DataFrame:
+            self.__time_series = self.__time_series.values
+        elif type(self.__time_series) == list:
+            self.__time_series = np.array(self.__time_series)
+        else:
+            self.__time_series = self.__time_series
 
     def __set_dimensions(self):
         self.__ts_length = len(self.__time_series)
@@ -85,12 +97,11 @@ class SpectrumDecomposer:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
-    def decompose(self, return_df=True, correlation_flag=False, rank_hyper=None):
+    def decompose(self, rank_hyper=None):
         # Embed the time series in a trajectory matrix
-        components_df = None
-        Wcorr = None
         U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
         rank = self.singular_value_hard_threshold(singular_values=Sigma)
+
         if rank_hyper is not None:
             rank = rank_hyper
         # Decompose the trajectory matrix
@@ -118,68 +129,71 @@ class SpectrumDecomposer:
             # The V array may also be very large under these circumstances, so we won't keep it.
             V = "Re-run with save_mem=False to retain the V matrix."
 
-        rank = self.singular_value_hard_threshold(singular_values=Sigma)
-        if rank_hyper is not None:
-            rank = rank_hyper
+        return TS_comps, Sigma, rank, X_elem, V
 
-        components_df = self.components_to_df(TS_comps.T, rank)
-
-        n_components = [x / sum(Sigma) * 100 for x in Sigma]
-        n_components = n_components[:rank]
-        explained_dispersion = sum(n_components)
-        n_components = rank
-
-        return TS_comps, X_elem, V, components_df, Wcorr, n_components, explained_dispersion
-
-    def calc_wcorr(self, TS_comps, rank):
-        """Calculates the w-correlation matrix for the time series.
-
-        Args:
-            TS_comps (np.ndarray): The time series components.
-            rank (int): The rank of the time series.
-
-        Returns:
-            ...
-        """
-
+    def __weighted_inner_product(self, F_i, F_j):
         # Calculate the weights
         first = list(np.arange(self.__window_length) + 1)
         second = [self.__ts_length] * (self.__subseq_length - self.__window_length - 1)
         third = list(np.arange(self.__window_length) + 1)[::-1]
         w = np.array(first + second + third)
+        return w.dot(F_i * F_j)
 
-        def w_inner(F_i, F_j):
-            return w.dot(F_i * F_j)
+    def __calculate_matrix_norms(self, rank, TS_comps):
+        F_wnorms = np.array([self.__weighted_inner_product(TS_comps[:, i], TS_comps[:, i]) for i in range(rank)])
+        self.F_wnorms = F_wnorms ** -0.5
 
-        # Calculated weighted norms, ||F_i||_w, then invert.
-        F_wnorms = np.array([w_inner(TS_comps[:, i], TS_comps[:, i]) for i in range(rank)])
-        F_wnorms = F_wnorms ** -0.5
-
-        # Calculate Wcorr.
+    def __calculate_corr_matrix(self, rank, TS_comps):
         Wcorr = np.identity(rank)
         components = [i for i in range(rank)]
         for i in components:
             for j in range(i + 1, rank):
-                Wcorr[i, j] = abs(w_inner(TS_comps[:, i], TS_comps[:, j]) * F_wnorms[i] * F_wnorms[j])
+                Wcorr[i, j] = abs(
+                    self.__weighted_inner_product(TS_comps[:, i], TS_comps[:, j]) * self.F_wnorms[i] * self.F_wnorms[j])
                 Wcorr[j, i] = Wcorr[i, j]
+        return Wcorr, components
 
+    def combine_eigenvectors(self, TS_comps, rank, correlation_level: float = 0.8):
+        """Calculates the w-correlation matrix for the time series.
+
+        Args:
+            TS_comps (np.ndarray): The time series components.
+            rank (int): The rank of the time series.
+            correlation_level (float): threshold value of Pearson correlation, using for merging eigenvectors.
+
+        Returns:
+
+        """
         combined_components = []
 
+        # Calculated weighted norms
+        self.__calculate_matrix_norms(rank, TS_comps)
+
+        # Calculate Wcorr.
+        Wcorr, components = self.__calculate_corr_matrix(rank, TS_comps)
+
+        # Calculate Wcorr.
+        corr_dict = {}
         for i in components:
-            corellated_comp = [i for i, v in enumerate(Wcorr[:, i]) if v > 0.85]
+            corellated_comp = [i for i, v in enumerate(Wcorr[:, i]) if v > correlation_level]
+            corr_dict.update({i: corellated_comp})
+        filtred_dict = copy.deepcopy(corr_dict)
 
-            if len(corellated_comp) < 2:
-                final_component = TS_comps[:, corellated_comp[0]]
+        # Select Correlated Eigenvectors.
+        for list_of_corr_vectors in list(corr_dict.values()):
+            final_component = None
+            if len(list_of_corr_vectors) < 2:
+                final_component = TS_comps[:, list_of_corr_vectors[0]]
+                combined_components.append(final_component)
             else:
-                final_component = np.sum(TS_comps[:, corellated_comp], axis=1)
+                for corr_vector in list_of_corr_vectors:
+                    if corr_vector in filtred_dict.keys():
+                        if final_component is None:
+                            final_component = np.sum(TS_comps[:, list_of_corr_vectors], axis=1)
+                            combined_components.append(final_component)
+                        del filtred_dict[corr_vector]
 
-            for elem in corellated_comp:
-                try:
-                    components.remove(elem)
-                except Exception:
-                    _ = 1
-
-            combined_components.append(final_component)
+        combined_components = pd.DataFrame(combined_components).T
 
         return combined_components
 
@@ -202,7 +216,7 @@ class SpectrumDecomposer:
 
         # Create list of columns - call them F0, F1, F2, ...
         cols = ["F{}".format(i) for i in range(n)]
-        df = pd.DataFrame(TS_comps).T.iloc[:, :rank]
+        df = pd.DataFrame(TS_comps.T).T.iloc[:, :rank]
         df.columns = cols
         return df
 
@@ -255,10 +269,12 @@ class SpectrumDecomposer:
                                       rank=None,
                                       threshold=2.858):
         rank = len(singular_values) if rank is None else rank
-
+        singular_values = MinMaxScaler(feature_range=(0, 1)).fit_transform(singular_values.reshape(-1, 1))[:, 0]
         median_sv = np.median(singular_values[:rank])
         sv_threshold = threshold * median_sv
         adjusted_rank = np.sum(singular_values >= sv_threshold)
+        if adjusted_rank == 0:
+            adjusted_rank = 2
         return adjusted_rank
 
     @staticmethod
@@ -297,9 +313,9 @@ class SpectrumDecomposer:
         return U, s, V, rank
 
     @staticmethod
-    def sv_to_explained_variance_ratio(singular_values, N):
-        eigenvalues = singular_values ** 2
-        explained_variance = eigenvalues / (N - 1)
-        total_variance = np.sum(explained_variance)
-        explained_variance_ratio = explained_variance / total_variance
-        return explained_variance, explained_variance_ratio
+    def sv_to_explained_variance_ratio(singular_values, rank):
+        n_components = [x / sum(singular_values) * 100 for x in singular_values]
+        n_components = n_components[:rank]
+        explained_variance = sum(n_components)
+        n_components = rank
+        return explained_variance, n_components

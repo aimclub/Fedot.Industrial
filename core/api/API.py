@@ -86,13 +86,14 @@ class Industrial(Fedot):
                       task_type: str,
                       train_features: pd.DataFrame,
                       train_target: np.ndarray,
+                      feature_generator_params: dict = None,
                       model_params: dict = None,
                       dataset_name: str = None,
                       ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
         except KeyError:
-            generator_params = dict()
+            generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params)
 
