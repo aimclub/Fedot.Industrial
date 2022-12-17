@@ -464,7 +464,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
                 pred = self.model(image)
 
             if proba:
-                pred = softmax(pred, dim=1).cpu().detach().tolist()
+                pred = softmax(pred, dim=1).cpu().detach().tolist()[0]
             else:
                 pred = pred.argmax(1).cpu().detach().item()
         return pred

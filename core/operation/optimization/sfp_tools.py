@@ -14,8 +14,10 @@ def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
 
     Args:
         conv: The optimizable layer.
-        pruning_ratio: pruning hyperparameter, percentage of zerolized filters.
+        pruning_ratio: pruning hyperparameter must be in the range (0, 1),
+            percentage of zerolized filters.
     """
+    assert 0 < pruning_ratio < 1, "pruning_ratio must be in the range (0, 1)"
     filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
     filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
     _, indices = filter_norms.sort()
@@ -23,7 +25,7 @@ def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
         conv.weight[indices[:filter_pruned_num]] = 0
 
 
-def _check_zero_filters(weight: Tensor) -> Tensor:
+def _check_nonzero_filters(weight: Tensor) -> Tensor:
     """Returns indices of zero filters."""
     filters = torch.count_nonzero(weight, dim=(1, 2, 3))
     indices = torch.flatten(torch.nonzero(filters))
@@ -83,7 +85,7 @@ def _indexes_of_tensor_values(tensor: Tensor, values: Tensor) -> Tensor:
     return torch.tensor(indexes)
 
 
-def _parse_sd(state_dict: OrderedDict):
+def _parse_sd(state_dict: OrderedDict) -> OrderedDict:
     """Parses state_dict to nested dictionaries."""
     parsed_sd = OrderedDict()
     for k, v in state_dict.items():
@@ -91,7 +93,7 @@ def _parse_sd(state_dict: OrderedDict):
     return parsed_sd
 
 
-def _parse_param(param, value, dictionary):
+def _parse_param(param, value, dictionary) -> None:
     """Parses value from state_dict to nested dictionaries."""
     if len(param) > 1:
         dictionary.setdefault(param[0], OrderedDict())
@@ -100,7 +102,7 @@ def _parse_param(param, value, dictionary):
         dictionary[param[0]] = value
 
 
-def _collect_sd(parsed_state_dict):
+def _collect_sd(parsed_state_dict) -> OrderedDict:
     """Collect state_dict from nested dictionaries."""
     state_dict = OrderedDict()
     keys, values = _collect_param(parsed_state_dict)
@@ -110,7 +112,7 @@ def _collect_sd(parsed_state_dict):
     return state_dict
 
 
-def _collect_param(dictionary):
+def _collect_param(dictionary) -> Tuple:
     """Collect value from nested dictionaries."""
     if isinstance(dictionary, OrderedDict):
         all_keys = []
@@ -132,7 +134,7 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Te
     downsample_channels = input_channels
     keys = list(block.keys())
     if 'downsample' in keys:
-        filters = _check_zero_filters(block['downsample']['0']['weight'])
+        filters = _check_nonzero_filters(block['downsample']['0']['weight'])
         block['downsample']['0']['weight'] = _prune_filters(
             weight=block['downsample']['0']['weight'],
             saving_filters=filters,
@@ -149,7 +151,7 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Te
     keys = keys[:-2]
     for key in keys:
         if key.startswith('conv'):
-            filters = _check_zero_filters(block[key]['weight'])
+            filters = _check_nonzero_filters(block[key]['weight'])
             block[key]['weight'] = _prune_filters(
                 weight=block[key]['weight'],
                 saving_filters=filters,
@@ -158,7 +160,7 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Te
             channels = filters
         elif key.startswith('bn'):
             block[key] = _prune_batchnorm(bn=block[key], saving_channels=channels)
-    filters = _check_zero_filters(block[final_conv]['weight'])
+    filters = _check_nonzero_filters(block[final_conv]['weight'])
     filters = _index_union(filters, downsample_channels)
     block[final_conv]['weight'] = _prune_filters(
         weight=block[final_conv]['weight'],
@@ -185,7 +187,7 @@ def prune_resnet_state_dict(
     input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     sd = _parse_sd(state_dict)
-    filters = _check_zero_filters(sd['conv1']['weight'])
+    filters = _check_nonzero_filters(sd['conv1']['weight'])
     sd['conv1']['weight'] = _prune_filters(
         weight=sd['conv1']['weight'], saving_filters=filters
     )
@@ -201,7 +203,7 @@ def prune_resnet_state_dict(
     return sd, input_size, output_size
 
 
-def load_sfp_rsnet_model(
+def load_sfp_resnet_model(
         model_name: str,
         num_classes: int,
         state_dict_path: str,

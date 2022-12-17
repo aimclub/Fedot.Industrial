@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 from torch.nn.modules import Module
 from torch.nn.modules.conv import Conv2d
@@ -10,13 +12,14 @@ def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) ->
 
     Args:
         conv: The optimizable layer.
-        energy_threshold: pruning hyperparameter, the lower the threshold, the more
-        singular values will be pruned.
+        energy_threshold: pruning hyperparameter must be in the range (0, 1].
+        the lower the threshold, the more singular values will be pruned.
 
     Raises:
         Assertion Error: If ``conv.decomposing`` is False.
     """
     assert conv.decomposing, "for pruning, the model must be decomposed"
+    assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
     S, indices = conv.S.sort()
     U = conv.U[:, indices]
     Vh = conv.Vh[indices, :]
@@ -29,13 +32,13 @@ def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) ->
             break
 
 
-def decompose_module(model: Module, decomposing_mode: str = 'channel') -> None:
+def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place).
 
     Args:
         model: Decomposable module.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
-            Default: ``'channel'``
+            If ``None`` replace layers without decomposition. Default: ``None``
     """
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -55,7 +58,8 @@ def decompose_module(model: Module, decomposing_mode: str = 'channel') -> None:
                 decomposing=False,
             )
             new_module.load_state_dict(module.state_dict())
-            new_module.decompose(decomposing_mode=decomposing_mode)
+            if decomposing_mode is not None:
+                new_module.decompose(decomposing_mode=decomposing_mode)
             setattr(model, name, new_module)
 
 
