@@ -92,7 +92,7 @@ class Industrial(Fedot):
                       ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except KeyError:
+        except Exception:
             generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params)
@@ -113,13 +113,14 @@ class Industrial(Fedot):
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
-    def run_experiment(self, config: Union[str, dict], direct_path: bool = False):
+    def run_experiment(self, config: Union[str, dict], direct_path: bool = False, save_flag:bool = True):
         """Run experiment with corresponding config_name.
 
         Args:
             config: path to config file or dictionary with parameters.
             direct_path: if True, then config_path is an absolute path to the config file. Otherwise, Industrial will
             search for the config file in the config folders.
+            :param save_flag: if True save results of experiment
 
         """
         self.logger.info(f'START EXPERIMENT'.center(50, '-'))
@@ -149,10 +150,12 @@ class Industrial(Fedot):
 
                 experiment_results[dataset_name]['Ensemble'] = ensemble_result
 
-            self.save_results(modelling_results=experiment_results,
-                              dataset_name=dataset_name)
-
+            if save_flag:
+                self.save_results(modelling_results=experiment_results,
+                                  dataset_name=dataset_name)
         self.logger.info('END OF EXPERIMENT'.center(50, '-'))
+        return experiment_results
+
 
     def _run_modelling_cycle(self,
                              experiment_dict: dict,

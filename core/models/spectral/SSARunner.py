@@ -124,7 +124,7 @@ class SSARunner(ExperimentRunner):
             aggregation_df = self.train_feats
         else:
             eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
-            eigenvectors_list_test = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
+            eigenvectors_list_test = [x[0].iloc[:, :self.rank_hyper] for x in eigenvectors_and_rank]
             self.eigenvectors_list_test = self.check_rank_consistency(eigenvectors_list_test)
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
             aggregation_df = aggregation_df[self.train_feats.columns]
@@ -218,9 +218,9 @@ class SSARunner(ExperimentRunner):
         index_of_window = np.where(index_of_window == True)[0][0]
         self.current_window = window_list[index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
-        self.min_rank = int(np.round(np.median([x.shape[1] for x in eigenvectors_list])))
+        self.rank_hyper = int(np.round(np.median([x.shape[1] for x in eigenvectors_list])))
         eigenvectors_and_rank = self.generate_vector_from_ts(x_train)
-        eigenvectors_list_train = [x[0].iloc[:, :self.min_rank] for x in eigenvectors_and_rank]
+        eigenvectors_list_train = [x[0].iloc[:, :self.rank_hyper] for x in eigenvectors_and_rank]
         self.eigenvectors_list_train = self.check_rank_consistency(eigenvectors_list_train)
         self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)
         for col in self.train_feats.columns:
@@ -232,13 +232,13 @@ class SSARunner(ExperimentRunner):
         return self.train_feats
 
     def __create_mask(self, eigenvectors_list_train):
-        mask = [x.shape[1] < self.min_rank for x in eigenvectors_list_train]
+        mask = [x.shape[1] < self.rank_hyper for x in eigenvectors_list_train]
         invalid_idx = [i for i, x in enumerate(mask) if x]
         return invalid_idx
 
     def check_rank_consistency(self, eigenvectors_list, rank=None):
         if rank is None:
-            rank = self.min_rank
+            rank = self.rank_hyper
         invalid_idx = self.__create_mask(eigenvectors_list)
         for idx in invalid_idx:
             invalid_sample = eigenvectors_list[idx]

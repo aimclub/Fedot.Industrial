@@ -4,7 +4,7 @@ feature_generator: [
   'spectral'
 ]
 error_correction: False
-ensemble_algorithm: True
+ensemble_algorithm: False
 n_ecm_cycles: 3
 use_cache: False
 

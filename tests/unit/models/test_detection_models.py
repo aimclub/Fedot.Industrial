@@ -18,7 +18,7 @@ def basic_periodic_data():
     x0 = 6 * np.ones(1000) + np.random.rand(1000) * 1
     x1 = 3 * np.ones(1000) + np.random.rand(1000) * 2
     x2 = 7 * np.ones(1000) + np.random.rand(1000) * 1.5
-    y = np.vstack([x0, x1, x2])
+    y = np.hstack([x0, x1, x2])
     y += np.random.rand(y.size)
     return x, y
 
@@ -30,7 +30,7 @@ def test_SST_detector(basic_periodic_data):
                                             lag=10,
                                             trajectory_window_length=30)
     score = scorer.score_offline(dynamic_mode=False)
-
+    assert len(score) is not 0
 
 def test_Threshold_Zones_Detector(basic_periodic_data):
     ts_1, ts_2 = basic_periodic_data

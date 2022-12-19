@@ -63,17 +63,3 @@ def test_basic_regression_metric(basic_metric_data_reg):
         assert score is not None
         result_metric.append(score)
     assert len(result_metric) > 1
-
-
-def test_SVD_loss():
-    reg_metric_dict = dict(rmse=RMSE,
-                           r2=R2, mae=MAE, mse=MSE, mape=MAPE)
-    result_metric = []
-    for metric_name in reg_metric_dict.keys():
-        chosen_metric = reg_metric_dict[metric_name]
-        score = chosen_metric(target=basic_metric_data_reg[1],
-                              predicted_labels=basic_metric_data_reg[0]).metric()
-        score = round(score, 3)
-        assert score is not None
-        result_metric.append(score)
-    assert len(result_metric) > 1
