@@ -71,9 +71,20 @@ Change Point Detection
 
 Change point detection is a statistical method for finding abrupt
 changes in the mean of a time series. It is used in many fields, such
-as signal processing, statistics, and machine learning. The change point
-detection problem is a challenging problem in data mining, as it is
-often difficult to distinguish between real changes and normal data.
+as signal processing [9]_, statistics [10]_, and machine learning [11]_. The change point
+detection problem is a challenging problem in data mining, as it is often difficult to distinguish between real changes and normal data.
+
+.. image:: img_introduction/Change_point_architecture.png
+   :width: 700px
+   :align: center
+   :alt: Architecture of Fedot.Industrial for Change Point Detection task
+
+The input data (Input Data block) in the form of time series goes to the ``Window Selections`` block [12]_. At this block user has to chose appropriate algorithm or use default algorithm settings.
+Next, selected features and input data are going to ``Singular Spectrum Transformation`` block where where we solving change point detection problem and get a list of binarized change points.
+
+The results could be used by specialists without machine learning or data
+science experience for application tasks in their professional domain,
+where the primary data type is time series.
 
 .. _`object_recognition`:
 
@@ -113,3 +124,14 @@ digital images and videos.
 .. [8] Nikitin, Nikolay O., et al. "Automated evolutionary approach
         for the design of composite machine learning pipelines."
         Future Generation Computer Systems 127 (2022): 109-125.
+
+.. [9] Tsuyoshi Ide, Koji Tsuda, "Change-Point Detection using Krylov Subspace Learning",
+       SIAM International Conference on Data Mining, pp.515-520, 2007
+
+.. [10] A. Artemov and E. Burnaev, "Detecting performance degradation of software-intensive systems in the presence of trends and long-range dependence",
+        Proc. IEEE 16th Int. Conf. Data Mining Workshops, pp. 29-36, Dec. 2016.
+
+.. [11] E. Romanenkova et al., "Real-Time Data-Driven Detection of the Rock-Type Alteration During a Directional Drilling," 
+        in IEEE Geoscience and Remote Sensing Letters, vol. 17, no. 11, pp. 1861-1865, Nov. 2020, doi: 10.1109/LGRS.2019.2959845.
+
+.. [12] Ermshaus, Arik, Patrick Schäfer, and Ulf Leser. "Window Size Selection In Unsupervised Time Series Analytics: A Review and Benchmark.", 2022
