@@ -100,10 +100,12 @@ class SpectrumDecomposer:
     def decompose(self, rank_hyper=None):
         # Embed the time series in a trajectory matrix
         U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
-        rank = self.singular_value_hard_threshold(singular_values=Sigma)
 
-        if rank_hyper is not None:
+        if rank_hyper is None:
+            rank = self.singular_value_hard_threshold(singular_values=Sigma)
+        else:
             rank = rank_hyper
+
         # Decompose the trajectory matrix
         TS_comps = np.zeros((self.__ts_length, rank))
 
