@@ -151,7 +151,7 @@ def get_test_detection_dataset(tmp_path):
         'num_classes': len(dataset.classes) + 1,
         'dataloader_params': {'batch_size': 1, 'num_workers': 2,
                               'collate_fn': collate_fn},
-        'model_params': {},
+        'model_params': {'weights_backbone': None},
         # 'model_params': {'weights': 'DEFAULT'},
         'models_saving_path': tmp_path.joinpath('models'),
         'optimizer': torch.optim.SGD,
