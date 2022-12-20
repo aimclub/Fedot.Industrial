@@ -19,7 +19,7 @@ from sphinx.builders.html import StandaloneHTMLBuilder
 # -- Project information -----------------------------------------------------
 
 project = 'FEDOT Industrial'
-copyright = '2021-{}, NSS Lab'.format(datetime.datetime.now().year)
+copyright = '2022-{}, NSS Lab'.format(datetime.datetime.now().year)
 author = 'NSS Lab'
 
 # The full version, including alpha/beta/rc tags
