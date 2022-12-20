@@ -24,3 +24,7 @@ torchmetrics~=0.10.2
 sphinx~=5.2.3
 tensorflow~=2.5.3
 pytest~=7.1.2
+
+# Docs
+autodocsumm
+sphinx_rtd_theme
