@@ -16,10 +16,19 @@ giotto-tda==0.6.0
 autodocsumm
 sphinx_rtd_theme
 numpy==1.21.6
-pandas==1.3.0
+
+# Data
+numpy>=1.16.*
+pandas>=1.1.0, <1.3.0; python_version == '3.7'
+pandas>=1.3.0; python_version >='3.8'
+
 typing~=3.7.4.3
 scikit-learn~=1.0.2
-matplotlib==3.3.1
+
+# Plotting
+matplotlib==3.0.2; python_version == '3.7'
+matplotlib>=3.3.1; python_version >= '3.8'
+
 scipy==1.7.3
 sphinx~=5.2.3
 joblib==1.2.0
