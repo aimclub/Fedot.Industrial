@@ -1,5 +1,6 @@
-from typing import Union, Tuple
+from typing import Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance_matrix
@@ -7,8 +8,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 from core.models.spectral.spectrum_decomposer import SpectrumDecomposer
 from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-
-import matplotlib.pyplot as plt
 
 
 class SingularSpectrumTransformation:

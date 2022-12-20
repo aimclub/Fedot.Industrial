@@ -1,4 +1,4 @@
-Examples and Framework Applications
+Examples & Framework Applications
 ===================================
 
 .. toctree::
