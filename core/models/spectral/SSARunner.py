@@ -190,8 +190,8 @@ class SSARunner(ExperimentRunner):
             rank_list = [x[1] for x in eigenvectors_and_rank]
 
             explained_dispersion = [x[2] for x in eigenvectors_and_rank]
-            mean_dispersion = np.mean(explained_dispersion)
-            self.explained_dispersion = round(float(mean_dispersion))
+            median_dispersion = np.median(explained_dispersion)
+            self.explained_dispersion = round(float(median_dispersion))
 
             self.n_components = round(np.median(rank_list))
 

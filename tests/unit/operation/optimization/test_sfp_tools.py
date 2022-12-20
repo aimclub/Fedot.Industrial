@@ -1,5 +1,8 @@
+import os
+
 import pytest
 
+from core.architecture.utils.utils import PROJECT_PATH
 from core.operation.optimization.sfp_tools import *
 from core.operation.optimization.sfp_tools import _check_nonzero_filters, \
     _prune_filters, _index_union, _indexes_of_tensor_values, _parse_sd, _collect_sd
@@ -65,7 +68,7 @@ def test_parse_collect_sd():
 
 
 def test_load_sfp_resnet_model():
-    sfp_state_dict_path = 'tests/data/cv_test_models/ResNet18_sfp_0.5.sd.pt'
+    sfp_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_sfp_0.5.sd.pt')
     sfp_model = load_sfp_resnet_model(
         model_name='ResNet18',
         num_classes=3,

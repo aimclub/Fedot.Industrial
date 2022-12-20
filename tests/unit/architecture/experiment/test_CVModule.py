@@ -8,6 +8,7 @@ from torchvision.transforms import Compose, ToTensor, Resize
 from core.architecture.datasets.object_detection_datasets import COCODataset, collate_fn
 from core.architecture.experiment.CVModule import ClassificationExperimenter, \
     FasterRCNNExperimenter
+from core.architecture.utils.utils import PROJECT_PATH
 
 SVD_PARAMS = {
     'orthogonal_loss_factor': 10,
@@ -21,7 +22,7 @@ SFP_PARAMS = {
     'finetuning_epochs': 1
 }
 
-DATASETS_PATH = 'tests/data/datasets/'
+DATASETS_PATH = os.path.join(PROJECT_PATH, 'tests/data/datasets/')
 
 
 @pytest.fixture()
@@ -216,6 +217,7 @@ def test_svd_channel_fasterrcnn_experimenter(get_test_detection_dataset):
     root = tmp_path.joinpath('models/ALET10/FasterR-CNN/ResNet50_SVD_channel_O-10.0_H-0.001000/')
     assert os.path.exists(root.joinpath('fine-tuned_e_0.9.model.pt'))
     detection_predict(experimenter)
+
 
 def test_svd_spatial_fasterrcnn_experimenter(get_test_detection_dataset):
     exp_params, tmp_path = get_test_detection_dataset

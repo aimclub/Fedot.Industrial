@@ -365,9 +365,9 @@ class SingularSpectrumTransformation:
 
         """
         _s = self.spectrum_extractor.decompose_trajectory_matrix(x_history)[1]
-        var, exp_var_by_component = self.spectrum_extractor.sv_to_explained_variance_ratio(_s, _l)
-        exp_var_by_component = list(filter(lambda _s: _s > 0.05, exp_var_by_component))
-        self.n_components = len(exp_var_by_component)
+        rank = self.spectrum_extractor.singular_value_hard_threshold(singular_values=_s)
+        var, self.n_components = self.spectrum_extractor.sv_to_explained_variance_ratio(_s, rank)
+
 
     def _sst_svd(self, x_test: list = None, x_history: list = None) -> float:
         """Singular value decomposition to count distance score between matrixes

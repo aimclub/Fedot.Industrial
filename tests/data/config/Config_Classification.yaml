@@ -1,7 +1,5 @@
 feature_generator: [
-  'quantile',
-  'window_spectral',
-  'spectral'
+  'quantile'
 ]
 error_correction: False
 ensemble_algorithm: False

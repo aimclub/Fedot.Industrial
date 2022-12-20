@@ -30,7 +30,9 @@ def test_SST_detector(basic_periodic_data):
                                             lag=10,
                                             trajectory_window_length=30)
     score = scorer.score_offline(dynamic_mode=False)
-    assert len(score) is not 0
+    cp_point = [x for x in score if x > 0]
+    ratio = len(cp_point)/len(score)*100
+    assert ratio < 10
 
 def test_Threshold_Zones_Detector(basic_periodic_data):
     ts_1, ts_2 = basic_periodic_data

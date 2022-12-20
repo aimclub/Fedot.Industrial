@@ -14,7 +14,7 @@ def feature_generators_list():
 
 @pytest.fixture()
 def window_feature_generators_list():
-    return [StatsRunner, SSARunner]
+    return [StatsRunner]
 
 
 def test_get_features(feature_generators_list):
