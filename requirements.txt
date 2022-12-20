@@ -1,7 +1,8 @@
 fedot==0.6.0
 cycler==0.11.0
 ripser==0.6.4
-numpy==1.22.0, !=1.24.0
+# numpy==1.22.0, !=1.24.0
+numpy==1.25.6
 torch==1.12.1
 tensorboard~=2.11.0
 torchvision~=0.13.1
