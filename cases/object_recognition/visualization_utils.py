@@ -71,7 +71,7 @@ def parse_experiment_folder(folder_path: str) -> Tuple[Dict, Dict, Dict, Dict]:
             if os.path.isdir(path):
                 tmp = os.listdir(path)
                 assert len(
-                    tmp) == 1, f"More then one event file in {path}/{experiment}/{phase}"
+                    tmp) == 1, f"More then one event file in {path}"
                 file = os.path.join(path, tmp[0])
 
                 if phase == 'train':

@@ -1,16 +1,13 @@
-from fedot.core.data.data import InputData
-from fedot.core.pipelines.node import PrimaryNode
-from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
+from itertools import repeat
+from multiprocessing import Pool
+
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
-from core.models.signal.wavelet_extractor import WaveletExtractor
-from core.models.statistical.stat_features_extractor import StatFeaturesExtractor
-from core.operation.utils.Decorators import time_it
-from core.operation.utils.load_data import DataLoader
+from core.operation.transformation.extraction.wavelet import WaveletExtractor
+from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
+from core.architecture.abstraction.Decorators import time_it
 
 
 class SignalRunner(ExperimentRunner):
@@ -110,78 +107,43 @@ class SignalRunner(ExperimentRunner):
 
         Returns:
             list: list of components and vectors.
-        """
-        self.ts_samples_count = ts_frame.shape[0]
 
-        components_and_vectors = list()
-        with tqdm(total=ts_frame.shape[0],
-                  desc='Feature generation. Time series processed:',
-                  unit='ts', initial=0, colour='black') as pbar:
-            for ts in ts_frame.values:
-                components_and_vectors.append(self._ts_chunk_function(ts, method_name=method_name))
-                pbar.update(1)
+        """
+        ts_samples_count = ts_frame.shape[0]
+        n_processes = self.n_processes
+        with Pool(n_processes) as p:
+            components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
+                                                         zip(ts_frame.values, repeat(method_name))),
+                                               total=ts_samples_count,
+                                               desc='Feature Generation. TS processed',
+                                               unit=' ts',
+                                               colour='black'
+                                               )
+                                          )
+
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self, ts_data: pd.DataFrame,
+                     dataset_name: str = None) -> pd.DataFrame:
 
         if not self.wavelet:
-            (_, y_train), (_, _) = DataLoader(dataset_name).load_data()
-            train_feats = self._choose_best_wavelet(ts_data, y_train)
+            train_feats = self._choose_best_wavelet(ts_data)
             self.train_feats = train_feats
             return self.train_feats
         else:
             test_feats = self.generate_vector_from_ts(ts_data)
             test_feats = pd.concat(test_feats)
             test_feats.index = list(range(len(test_feats)))
-            self.test_feats = self.delete_col_by_var(test_feats)
+            self.test_feats = test_feats
         return self.test_feats
 
-    def _validate_window_length(self, features: pd.DataFrame, target: np.ndarray):
-        """Validate window length using one-node (random forest) Fedot model.
-
-        Args:
-            features (pd.DataFrame): features to be validated.
-            target (np.ndarray): target values.
-
-        Returns:
-            tuple: tuple of score_f1, score_roc_auc scores.
-        """
-        node = PrimaryNode('rf')
-        pipeline = Pipeline(node)
-        n_samples = round(features.shape[0] * 0.7)
-
-        train_data = InputData(features=features.values[:n_samples, :],
-                               target=target[:n_samples],
-                               idx=np.arange(0, len(target[:n_samples])),
-                               task=Task(TaskTypesEnum('classification')),
-                               data_type=DataTypesEnum.table)
-
-        test_data = InputData(features=features.values[n_samples:, :],
-                              target=target[n_samples:],
-                              idx=np.arange(0, len(target[n_samples:])),
-                              task=Task(TaskTypesEnum('classification')),
-                              data_type=DataTypesEnum.table)
-
-        pipeline.fit(input_data=train_data)
-        prediction = pipeline.predict(input_data=test_data, output_mode='labels')
-        metric_f1 = F1(target=prediction.target, predicted_labels=prediction.predict)
-        score_f1 = metric_f1.metric()
-
-        score_roc_auc = self.get_roc_auc_score(prediction_labels=prediction.predict,
-                                               test_labels=prediction.target)
-        if not score_roc_auc:
-            score_roc_auc = 0.5
-
-        return score_f1, score_roc_auc
-
-    def _choose_best_wavelet(self, X_train: pd.DataFrame, y_train: np.ndarray) -> pd.DataFrame:
+    def _choose_best_wavelet(self, x_train: pd.DataFrame) -> pd.DataFrame:
         """Chooses the best wavelet for feature extraction.
 
         Args:
-            X_train (pd.DataFrame): train features.
-            y_train (np.ndarray): train target.
+            x_train: train features.
 
         Returns:
             pd.DataFrame: features with the best wavelet.
@@ -193,18 +155,11 @@ class SignalRunner(ExperimentRunner):
             self.logger.info(f'Generate features wavelet - {wavelet}')
             self.wavelet = wavelet
 
-            train_feats = self.generate_vector_from_ts(X_train)
+            train_feats = self.generate_vector_from_ts(x_train)
             train_feats = pd.concat(train_feats)
-
-            self.logger.info(f'Validate model for wavelet  - {wavelet}')
-
-            score_f1, score_roc_auc = self._validate_window_length(features=train_feats, target=y_train)
-            score_f1, score_roc_auc = round(score_f1, 3), round(score_roc_auc, 3)
-
-            self.logger.info(f'Obtained metric for wavelet {wavelet}  - F1, ROC_AUC - {score_f1, score_roc_auc}')
-
-            metric_list.append((score_f1, score_roc_auc))
+            filtered_df = self.delete_col_by_var(train_feats)
             feature_list.append(train_feats)
+            metric_list.append((filtered_df.shape[0], filtered_df.shape[1]))
 
         max_score = [sum(x) for x in metric_list]
         index_of_window = int(max_score.index(max(max_score)))

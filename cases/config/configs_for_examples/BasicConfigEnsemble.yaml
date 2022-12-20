@@ -1,0 +1,62 @@
+feature_generator: [
+#'window_spectral',
+'window_quantile',
+'wavelet',
+#'ensemble: window_quantile window_spectral wavelet'
+]
+
+error_correction: False
+n_ecm_cycles: 1
+use_cache: True
+
+ensemble_algorithm: 'AGG_voting'
+
+launches: 1
+
+datasets_list: ['Lightning7']
+
+feature_generator_params: {
+  'quantile':
+    {
+      'window_mode': False,
+    },
+  'spectral':
+    {
+      'window_sizes': {
+        'ItalyPowerDemand': [3, 6, 9],
+        'Earthquakes': [48],
+        'Beef': [100]
+      },
+    },
+  'wavelet':
+    {
+      'wavelet_types': ['sym10']
+    },
+
+  'window_spectral':
+    {
+      'window_sizes': {
+        'ItalyPowerDemand': [3, 6, 9],
+        'Earthquakes': [48],
+        'Beef': [100]
+      },
+    },
+  'window_quantile':
+    {
+      'window_mode': True,
+    }
+}
+
+fedot_params:
+  {
+    'problem': 'classification',
+    'seed': 42,
+    'timeout': 1,
+    'max_depth': 10,
+    'max_arity': 4,
+    'cv_folds': 3,
+    'metric':'f1',
+    'logging_level': 20,
+    'n_jobs': 4
+  }
+task: 'ts_classification' # time series classification

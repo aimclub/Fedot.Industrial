@@ -1,3 +1,4 @@
+
 from typing import Union
 
 import torch
@@ -11,7 +12,6 @@ __all__ = ["DecomposedConv2d"]
 class DecomposedConv2d(Conv2d):
     """Extends the Conv2d layer by implementing the singular value decomposition of
     the weight matrix.
-
     Args:
         in_channels: Number of channels in the input image
         out_channels: Number of channels produced by the convolution
@@ -77,12 +77,9 @@ class DecomposedConv2d(Conv2d):
 
     def decompose(self, decomposing_mode: str) -> None:
         """Decomposes the weight matrix in singular value decomposition.
-
         Replaces the weights with U, S, Vh matrices such that weights = U * S * Vh.
-
         Args:
             decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
-
         Raises:
             ValueError: If ``decomposing_mode`` not in valid values.
         """
@@ -103,7 +100,6 @@ class DecomposedConv2d(Conv2d):
 
     def compose(self) -> None:
         """Compose the weight matrix from singular value decomposition.
-
         Replaces U, S, Vh matrices with weights such that weights = U * S * Vh.
         """
 
@@ -137,7 +133,6 @@ class DecomposedConv2d(Conv2d):
 
     def set_U_S_Vh(self, u: Tensor, s: Tensor, vh: Tensor) -> None:
         """Update U, S, Vh matrices.
-
         Raises:
             Assertion Error: If ``self.decomposing`` is False.
         """

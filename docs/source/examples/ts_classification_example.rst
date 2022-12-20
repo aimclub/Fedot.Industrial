@@ -20,11 +20,11 @@ Then, the config dict with experiment parameters must be defined.
 .. code-block:: python
 
     config = {'feature_generator': ['spectral', 'wavelet'],
-          'datasets_list': ['UMD', 'Lightning7'],
-          'use_cache': True,
-          'error_correction': False,
-          'launches': 3,
-          'timeout': 15}
+              'datasets_list': ['UMD', 'Lightning7'],
+              'use_cache': True,
+              'error_correction': False,
+              'launches': 3,
+              'timeout': 15}
 
 It is of a great importance to define corresponding parameters of experiment. The following parameters are required:
 
@@ -53,7 +53,7 @@ Analysis of obtained results can be done manually or using the :ref:`Results Par
 
 .. code-block:: python
 
-    from core.operations.utils.results_parser import ResultsParser
+    from core.architecture.postprocessing.Parser import ResultsParser
     parser = ResultsParser()
     results = parser.run()
 
