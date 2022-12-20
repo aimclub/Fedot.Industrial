@@ -1,12 +1,10 @@
 feature_generator: [
-'quantile',
-'spectral',
+'topological',
 ]
 error_correction: False
+use_cache: True
 
 datasets_list: [
-  'Earthquakes',
-  'ItalyPowerDemand',
   'Beef'
 ]
 

@@ -121,7 +121,7 @@ class Industrial:
             None
 
         """
-        path = os.path.join(PROJECT_PATH, 'cases', 'config', config_name)
+        path = os.path.join(PROJECT_PATH, config_name)
         with open(path, "r") as input_stream:
             self.config_dict = yaml.safe_load(input_stream)
             if 'path_to_config' in list(self.config_dict.keys()):
