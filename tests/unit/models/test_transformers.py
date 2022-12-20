@@ -1,4 +1,3 @@
-from statistics import mean
 import numpy as np
 import pytest
 from core.operation.transformation.DataTransformer import \
