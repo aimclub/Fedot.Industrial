@@ -1,6 +1,6 @@
 fedot==0.6.0
 cycler==0.11.0
-ripser==0.6.1
+ripser==0.6.4
 torch==1.13.0
 plotly==5.6.0
 fastprogress==1.0.2
