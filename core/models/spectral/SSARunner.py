@@ -62,7 +62,7 @@ class SSARunner(ExperimentRunner):
     @staticmethod
     def visualise(eigenvectors_list):
 
-        n_rows = round(eigenvectors_list[0].shape[1] / 5)
+        n_rows = max((1, round(eigenvectors_list[0].shape[1] / 5)))
 
         if n_rows < 4:
             plot_area = 'small'
@@ -71,8 +71,8 @@ class SSARunner(ExperimentRunner):
         else:
             plot_area = 'big'
 
-        plot_dict = {'small': (20, 10),
-                     'mid': (20, 10),
+        plot_dict = {'small': (15, 5),
+                     'mid': (30, 10),
                      'big': (40, 20)}
 
         fig_size = plot_dict[plot_area]
@@ -81,7 +81,7 @@ class SSARunner(ExperimentRunner):
             df.plot(subplots=True,
                     figsize=fig_size,
                     legend=None,
-                    layout=(n_rows + 1, 5))
+                    layout=(n_rows, df.shape[1]))
 
             plt.tight_layout()
             plt.show()
@@ -94,9 +94,12 @@ class SSARunner(ExperimentRunner):
         TS_comps, Sigma, rank, X_elem, V = specter.decompose(
             rank_hyper=self.rank_hyper)
         explained_variance, n_components = specter.sv_to_explained_variance_ratio(Sigma, rank)
-        components_df = specter.components_to_df(TS_comps, rank)
+
         if self.combine_eigenvectors:
             components_df = specter.combine_eigenvectors(TS_comps, rank, self.correlation_level)
+        else:
+            components_df = specter.components_to_df(TS_comps, rank)
+
         return [components_df, n_components, explained_variance]
 
     def generate_vector_from_ts(self, ts_frame):
@@ -239,7 +242,16 @@ class SSARunner(ExperimentRunner):
     def check_rank_consistency(self, eigenvectors_list, rank=None):
         if rank is None:
             rank = self.rank_hyper
+
         invalid_idx = self.__create_mask(eigenvectors_list)
+        while len(invalid_idx) != 0:
+            eigenvectors_list = self.__fill_empty_eigenvectors(invalid_idx, eigenvectors_list, rank)
+            invalid_idx = self.__create_mask(eigenvectors_list)
+            if len(invalid_idx) == 0:
+                break
+        return eigenvectors_list
+
+    def __fill_empty_eigenvectors(self, invalid_idx, eigenvectors_list, rank):
         for idx in invalid_idx:
             invalid_sample = eigenvectors_list[idx]
             missed_col = rank - invalid_sample.shape[1]
@@ -247,8 +259,7 @@ class SSARunner(ExperimentRunner):
             if missed_col == 1:
                 eigenvectors_list[idx][last_number_of_component + missed_col] = 0
             else:
-                for number_of_missed_component in range(start=1, stop=missed_col):
+                for number_of_missed_component in range(1, missed_col):
                     eigenvectors_list[idx][last_number_of_component + number_of_missed_component] = 0
-        invalid_idx = self.__create_mask(eigenvectors_list)
-        assert len(invalid_idx) is 0
+
         return eigenvectors_list

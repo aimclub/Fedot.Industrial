@@ -35,6 +35,7 @@ class StatsRunner(ExperimentRunner):
         self.test_feats = None
         self.n_components = None
         self.window_mode = window_mode
+        self.window_size = None
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame, window_length: int = None) -> pd.DataFrame:
         ts_samples_count = ts_frame.shape[0]
@@ -45,7 +46,8 @@ class StatsRunner(ExperimentRunner):
         if self.window_mode:
             aggregator = self.aggregator.create_baseline_features
             list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data=ts,
-                                                                                   feature_generator=aggregator)
+                                                                                   feature_generator=aggregator,
+                                                                                   window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
