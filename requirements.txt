@@ -35,7 +35,6 @@ autodocsumm
 sphinx_rtd_theme
 pytest-cov==3.0.0
 tqdm~=4.64.0
-pandas~=1.2.5
 torchvision~=0.14.0
 matplotlib~=3.0.2
 Pillow~=9.2.0
