@@ -92,7 +92,7 @@ class Industrial(Fedot):
                       ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except Exception:
+        except KeyError:
             generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params)
@@ -113,14 +113,16 @@ class Industrial(Fedot):
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
-    def run_experiment(self, config: Union[str, dict], direct_path: bool = False, save_flag:bool = True):
+    def run_experiment(self, config: Union[str, dict],
+                       direct_path: bool = False,
+                       save_flag: bool = True):
         """Run experiment with corresponding config_name.
 
         Args:
             config: path to config file or dictionary with parameters.
             direct_path: if True, then config_path is an absolute path to the config file. Otherwise, Industrial will
-            search for the config file in the config folders.
-            :param save_flag: if True save results of experiment
+                         search for the config file in the config folders.
+            save_flag: if True save results of experiment.
 
         """
         self.logger.info(f'START EXPERIMENT'.center(50, '-'))
@@ -156,23 +158,37 @@ class Industrial(Fedot):
         self.logger.info('END OF EXPERIMENT'.center(50, '-'))
         return experiment_results
 
-
     def _run_modelling_cycle(self,
                              experiment_dict: dict,
                              task_type: str,
                              n_cycles: int,
                              dataset_name: str,
                              ):
-        self.logger.info(f'TYPE OF ML TASK - {task_type}'.center(50, '-'))
+        """Run modelling cycle with corresponding config_name.
+
+        Args:
+            experiment_dict: dictionary with parameters.
+            task_type: type of task.
+            n_cycles: number of cycles.
+            dataset_name: name of dataset.
+
+        Returns:
+            dict with results of modelling cycle.
+
+        """
         modelling_results = dict()
         train_data, test_data, n_classes = self.reader.read(dataset_name=dataset_name)
+
+        self.config_dict = self.checker.check_window_sizes(config_dict=experiment_dict,
+                                                           dataset_name=dataset_name,
+                                                           train_data=train_data)
 
         if train_data is None:
             return None
 
-        experiment_dict = self.exclude_generators(experiment_dict, train_data[0])
+        self.config_dict = self.exclude_generators(experiment_dict, train_data[0])
 
-        for runner_name, runner in experiment_dict['feature_generator'].items():
+        for runner_name, runner in self.config_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
             for launch in range(1, n_cycles + 1):
                 try:
@@ -184,8 +200,8 @@ class Industrial(Fedot):
                                                                           train_features=train_data[0],
                                                                           dataset_name=dataset_name,
                                                                           train_target=train_data[1],
-                                                                          model_params=experiment_dict['fedot_params'],
-                                                                          ecm_mode=experiment_dict['error_correction'])
+                                                                          model_params=self.config_dict['fedot_params'],
+                                                                          ecm_mode=self.config_dict['error_correction'])
 
                     runner_result['fitted_predictor'], runner_result[
                         'train_features'] = fitted_predictor, train_features
