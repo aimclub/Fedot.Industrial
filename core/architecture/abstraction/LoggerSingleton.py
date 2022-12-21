@@ -32,7 +32,7 @@ class Logger(object, metaclass=SingletonMetaLogger):
         self._logger.setLevel(logging.INFO)
         self._logger.propagate = False
 
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s",
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                                       "%Y-%m-%d %H:%M:%S")
         now = datetime.datetime.now()
         dirname = os.path.join(PROJECT_PATH, 'log')
