@@ -92,7 +92,7 @@ class Industrial(Fedot):
                       use_cache: bool = False,):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except Exception:
+        except KeyError:
             generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params,
