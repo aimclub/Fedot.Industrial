@@ -14,16 +14,21 @@ class ParameterCheck:
                            dataset_name: str,
                            train_data: Union[pd.DataFrame, np.ndarray]):
 
-        for key in config_dict['feature_generator_params'].keys():
-            if key.startswith('spectral') or 'spectral' in key:
-                self.logger.info(f'CHECK WINDOW SIZES FOR DATASET-{dataset_name} AND {key} method')
-                if dataset_name not in config_dict['feature_generator_params'][key].keys():
+        for generator in config_dict['feature_generator']:
+            if generator in ['spectral', 'window_spectral']:
+                self.logger.info(f'Check window sizes for {generator} generator and {dataset_name} dataset')
+                if dataset_name not in config_dict['feature_generator_params'][generator]['window_sizes'].keys():
+
                     ts_length = train_data[0].shape[1]
-                    list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
-                    config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
-                    self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
-                                     f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
-                                     f'THATS EQUAL 10/20/30% OF TS LENGTH')
+                    window_sizes_list = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
+                    config_dict['feature_generator_params'][generator]['window_sizes'][dataset_name] = window_sizes_list
+                    self.logger.info(f'Window sizes for {dataset_name} are not specified. '
+                                     f'Auto-selected: {window_sizes_list}')
+                else:
+                    self.logger.info(f'Window sizes for dataset {dataset_name} are predefined')
+            else:
+                continue
+
         return config_dict
 
     def check_metric_type(self, target):
@@ -43,6 +48,13 @@ class ParameterCheck:
         else:
             baseline_type = None
         return baseline_type
+
+    def get_ds_and_generator_combinations(self, datasets, generators):
+        combinations = []
+        for dataset in datasets:
+            for generator in generators:
+                combinations.append((dataset, generator))
+        return combinations
 
 
 class DataCheck:
