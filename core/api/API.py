@@ -203,8 +203,8 @@ class Industrial(Fedot):
                                                                           model_params=self.config_dict['fedot_params'],
                                                                           ecm_mode=self.config_dict['error_correction'])
 
-                    runner_result['fitted_predictor'], runner_result[
-                        'train_features'] = fitted_predictor, train_features
+                    runner_result['fitted_predictor'] = fitted_predictor
+                    runner_result['train_features'] = train_features
                     runner_result['test_target'] = test_data[1]
                     runner_result['path_to_save'] = paths_to_save
                     runner_result['train_target'] = train_data[1]

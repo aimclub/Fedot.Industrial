@@ -29,7 +29,7 @@
             :alt: Documentation Status
 
 .. |support| image:: https://img.shields.io/badge/Telegram-Group-blue.svg
-            :target: https://t.me/fedotindustrial_support
+            :target: https://t.me/FEDOT_helpdesk
             :alt: Support
 
 
@@ -85,7 +85,8 @@ To conduct time series classification you need to set experiment configuration v
                   'use_cache': True,
                   'error_correction': False,
                   'launches': 3,
-                  'timeout': 15}
+                  'timeout': 15,
+                  'n_jobs': 2}
                   
         ExperimentHelper = Industrial()
         ExperimentHelper.run_experiment(config)
@@ -100,6 +101,7 @@ Config contains the following parameters:
 - ``error_correction`` - flag for application of error correction model in the experiment
 - ``n_ecm_cycles`` - number of cycles for error correction model
 - ``timeout`` - the maximum amount of time for classification pipeline composition
+- ``n_jobs`` - number of jobs to run in parallel
 
 Datasets for classification should be stored in the ``data`` directory and
 divided into ``train`` and ``test`` sets with ``.tsv`` extension. So the name of folder
