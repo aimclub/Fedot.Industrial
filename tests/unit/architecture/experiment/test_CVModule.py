@@ -84,7 +84,7 @@ def test_classification_experimenter(get_test_classification_dataset):
     assert os.path.exists(tmp_path.joinpath('models/Agricultural/ResNet18/trained.sd.pt'))
     classification_predict(experimenter)
 
-
+@pytest.mark.skip(reason='still in development')
 def test_sfp_classification_experimenter(get_test_classification_dataset):
     exp_params, tmp_path = get_test_classification_dataset
     experimenter = ClassificationExperimenter(
@@ -100,7 +100,7 @@ def test_sfp_classification_experimenter(get_test_classification_dataset):
     assert os.path.exists(root.joinpath('fine-tuned.model.pt'))
     classification_predict(experimenter)
 
-
+@pytest.mark.skip(reason='still in development')
 def test_svd_channel_classification_experimenter(get_test_classification_dataset):
     exp_params, tmp_path = get_test_classification_dataset
     experimenter = ClassificationExperimenter(
@@ -118,7 +118,7 @@ def test_svd_channel_classification_experimenter(get_test_classification_dataset
     assert os.path.exists(root.joinpath('fine-tuned_e_0.9.model.pt'))
     classification_predict(experimenter)
 
-
+@pytest.mark.skip(reason='still in development')
 def test_svd_spatial_classification_experimenter(get_test_classification_dataset):
     exp_params, tmp_path = get_test_classification_dataset
     experimenter = ClassificationExperimenter(
@@ -164,7 +164,7 @@ def get_test_detection_dataset(tmp_path):
     }
     yield exp_params, tmp_path
 
-
+@pytest.mark.skip(reason='still in development')
 def detection_predict(experimenter):
     test_predict_path = DATASETS_PATH + 'ALET10/test'
     preds = experimenter.predict(test_predict_path)
@@ -176,7 +176,7 @@ def detection_predict(experimenter):
     for k, v in proba_preds.items():
         assert set(v.keys()) == {'labels', 'boxes', 'scores'}
 
-
+@pytest.mark.skip(reason='still in development')
 def test_fasterrcnn_experimenter(get_test_detection_dataset):
     exp_params, tmp_path = get_test_detection_dataset
     experimenter = FasterRCNNExperimenter(
@@ -203,7 +203,7 @@ def test_sfp_fasterrcnn_experimenter(get_test_detection_dataset):
     assert os.path.exists(root.joinpath('fine-tuned.model.pt'))
     detection_predict(experimenter)
 
-
+@pytest.mark.skip(reason='still in development')
 def test_svd_channel_fasterrcnn_experimenter(get_test_detection_dataset):
     exp_params, tmp_path = get_test_detection_dataset
     experimenter = FasterRCNNExperimenter(
@@ -219,7 +219,7 @@ def test_svd_channel_fasterrcnn_experimenter(get_test_detection_dataset):
     assert os.path.exists(root.joinpath('fine-tuned_e_0.9.model.pt'))
     detection_predict(experimenter)
 
-
+@pytest.mark.skip(reason='still in development')
 def test_svd_spatial_fasterrcnn_experimenter(get_test_detection_dataset):
     exp_params, tmp_path = get_test_detection_dataset
     experimenter = FasterRCNNExperimenter(
