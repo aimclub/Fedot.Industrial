@@ -19,7 +19,8 @@ with the following code:
                   'use_cache': True,
                   'error_correction': False,
                   'launches': 3,
-                  'timeout': 15}
+                  'timeout': 15,
+                  'n_jobs': 2}
 
         ExperimentHelper = Industrial()
         ExperimentHelper.run_experiment(config)

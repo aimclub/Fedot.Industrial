@@ -24,7 +24,8 @@ Then, the config dict with experiment parameters must be defined.
               'use_cache': True,
               'error_correction': False,
               'launches': 3,
-              'timeout': 15}
+              'timeout': 15,
+              'n_jobs': 2}
 
 It is of a great importance to define corresponding parameters of experiment. The following parameters are required:
 
@@ -35,6 +36,7 @@ It is of a great importance to define corresponding parameters of experiment. Th
 - ``error_correction`` - flag for application of error correction model in the experiment
 - ``n_ecm_cycles`` - number of cycles for error correction model
 - ``timeout`` - the maximum amount of time for classification pipeline composition
+- ``n_jobs`` - number of jobs to run in parallel when Fedot composes a model
 
 Finally, we create an instance of the class :ref:`Industrial<industrial-class-label>` and run the experiment.
 
