@@ -5,18 +5,16 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
+from fedot.core.log import default_log as Logger
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.models.ExperimentRunner import ExperimentRunner
 from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
-from core.architecture.abstraction.logger import Logger
-# from fedot.core.log import default_log as Logger
-# from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import path_to_save_results
+from core.models.ExperimentRunner import ExperimentRunner
 
 
 class TimeSeriesClassifier:
@@ -42,14 +40,13 @@ class TimeSeriesClassifier:
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False):
         self.logger = Logger(self.__class__.__name__)
-        # self.logger = Logger().get_logger()
         self.predictor = None
         self.y_train = None
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
 
-        self.datacheck = DataCheck(logger=self.logger)
+        self.datacheck = DataCheck()
         self.generator_name = generator_name
         self.generator_runner = generator_runner
         self.feature_generator_dict = {self.generator_name: self.generator_runner}
