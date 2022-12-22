@@ -3,12 +3,14 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.abstraction.logger import Logger
+# from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 class ParameterCheck:
     def __init__(self):
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
+        # self.logger = Logger().get_logger()
 
     def check_window_sizes(self, config_dict: dict,
                            dataset_name: str,

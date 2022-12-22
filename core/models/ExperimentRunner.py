@@ -6,7 +6,9 @@ from multiprocessing import cpu_count
 from sklearn.preprocessing import MinMaxScaler
 
 from core.metrics.metrics_implementation import *
-from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.abstraction.logger import Logger
+# from fedot.core.log import default_log
+# from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import PROJECT_PATH
 
 
@@ -30,7 +32,9 @@ class ExperimentRunner:
         self.use_cache = use_cache
         self.feature_generator_dict = feature_generator_dict
         self.current_window = None
-        self.logger = Logger().get_logger()
+        # self.logger = Logger(name=self.__class__.__name__)
+        # self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
         self.n_processes = cpu_count() // 2
 
     def get_features(self, *args, **kwargs) -> pd.DataFrame:
@@ -62,7 +66,7 @@ class ExperimentRunner:
 
         """
         generator_name = self.__class__.__name__
-        self.logger.info(f'{generator_name} is working...')
+        # self.logger.info(f'{generator_name} is working...')
         if generator_name in ('StatsRunner', 'SSARunner'):
             self.logger.info(f'Window mode: {self.window_mode}')
 
