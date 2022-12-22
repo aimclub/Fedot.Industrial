@@ -1,8 +1,7 @@
 import timeit
 
 import pandas as pd
-
-from core.architecture.abstraction.logger import Logger
+from fedot.core.log import default_log as Logger
 
 
 def exception_decorator(exception_return='Problem'):
