@@ -29,10 +29,9 @@ class WindowSizeSelection:
         time_series: time series sequences to study.
         window_max: maximum window length to study time series. By default, it is len(time_series)/2.
         window_min: minimum window length to study time series. By default, it is 10.
-        wss_algorithm: type of WSS algorithm for your task. By default, it is 'dominant_fourier_frequency'.
-            You can choose between:
-             'highest_autocorrelation', 'dominant_fourier_frequency',
-             'summary_statistics_subsequence' or 'multi_window_finder'.
+        wss_algorithm: type of WSS algorithm for your task. By default, it is ``dominant_fourier_frequency``.
+                       You can choose between: ``highest_autocorrelation``, ``dominant_fourier_frequency``,``summary_statistics_subsequence``
+                       or ``multi_window_finder``.
 
     Attributes:
         length_ts(int): length of the time_series.

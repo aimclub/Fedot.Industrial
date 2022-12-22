@@ -10,7 +10,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
 from core.models.ExperimentRunner import ExperimentRunner
-from core.operation.transformation.DataTransformer import CustomClassificationDataset
+from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
 from core.architecture.abstraction.LoggerSingleton import Logger
