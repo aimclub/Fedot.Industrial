@@ -5,8 +5,6 @@ from core.api.utils.checkers_collections import *
 from core.api.utils.method_collections import *
 from core.api.utils.reader_collections import *
 from core.api.utils.saver_collections import ResultSaver
-# from core.architecture.abstraction.LoggerSingleton import Logger
-from core.architecture.abstraction.logger import Logger
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.utils import path_to_save_results
 
@@ -23,7 +21,6 @@ class Industrial(Fedot):
     def __init__(self):
         super(Fedot, self).__init__()
         self.config_dict = None
-        # self.logger = Logger(name=self.__class__.__name__).get_logger()
         self.logger = Logger(self.__class__.__name__)
         self.fitted_model = None
         self.labels, self.prediction_proba = None, None

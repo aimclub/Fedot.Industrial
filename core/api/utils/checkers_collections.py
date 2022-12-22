@@ -2,15 +2,12 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-
-from core.architecture.abstraction.logger import Logger
-# from core.architecture.abstraction.LoggerSingleton import Logger
+from fedot.core.log import default_log as Logger
 
 
 class ParameterCheck:
     def __init__(self):
         self.logger = Logger(self.__class__.__name__)
-        # self.logger = Logger().get_logger()
 
     def check_window_sizes(self, config_dict: dict,
                            dataset_name: str,
@@ -60,8 +57,8 @@ class ParameterCheck:
 
 
 class DataCheck:
-    def __init__(self, logger: Logger):
-        self.logger = logger
+    def __init__(self):
+        self.logger = Logger(self.__class__.__name__)
 
     @staticmethod
     def _replace_inf_with_nans(input_data: np.ndarray):
@@ -74,12 +71,15 @@ class DataCheck:
         return input_data
 
     def _check_for_nan(self, input_data: np.ndarray) -> np.ndarray:
-        """
-        Method responsible for checking if there are any NaN values in the time series dataframe
+        """Method responsible for checking if there are any NaN values in the time series dataframe
         and replacing them with 0
 
-        :param input_data: data with NaN values
-        :return:data without NaN values
+        Args:
+            input_data: time series dataframe with NaN values
+
+        Returns:
+            input_data: time series dataframe without NaN values
+
         """
         if np.any(np.isnan(input_data)):
             input_data = np.nan_to_num(input_data, nan=0)

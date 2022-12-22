@@ -3,7 +3,6 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from ripser import Rips, ripser
-
 from scipy import sparse
 from scipy.spatial.distance import pdist, squareform
 
@@ -98,8 +97,8 @@ class TopologicalTransformation:
         Args:
             array: Time series to be converted.
             dimension_embed: dimension of Euclidean space in which to embed the time series into by taking
-            windows of dimension_embed length, e.g. if the time series is [t_1,...,t_n] and dimension_embed is 2,
-            then the point cloud would be [(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]
+            windows of dimension_embed length, e.g. if the time series is ``[t_1,...,t_n]`` and dimension_embed
+            is ``2``, then the point cloud would be ``[(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]``
 
         Returns:
             Collection of points embedded into Euclidean space of dimension = dimension_embed, constructed
@@ -166,8 +165,8 @@ class TopologicalTransformation:
             max_simplex_dim: Maximum dimension of the simplicial complex to be constructed.
 
         Returns:
-            Persistent homology object. Dictionary with keys in range(max_simplex_dim) and, the value hom[i]
-            is an array of length equal to len(epsilon_range) containing the betti numbers of the i-th homology
+            Persistent homology object. Dictionary with keys in ``range(max_simplex_dim)`` and, the value ``hom[i]``
+            is an array of length equal to ``len(epsilon_range)`` containing the betti numbers of the ``i-th`` homology
             groups for the Rips filtration.
 
         """

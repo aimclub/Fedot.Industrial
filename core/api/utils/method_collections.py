@@ -1,5 +1,6 @@
 from enum import Enum
 
+from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
 from core.ensemble.baseline.AggEnsembler import AggregationEnsemble
 from core.models.EnsembleRunner import EnsembleRunner
 from core.models.signal.RecurrenceRunner import RecurrenceRunner
@@ -7,7 +8,6 @@ from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
 from core.models.statistical.QuantileRunner import StatsRunner
 from core.models.topological.TopologicalRunner import TopologicalRunner
-from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
 
 
 class FeatureGenerator(Enum):

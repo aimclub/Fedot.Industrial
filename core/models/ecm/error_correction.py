@@ -3,8 +3,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-
-from core.architecture.abstraction.LoggerSingleton import Logger
+from fedot.core.log import default_log as Logger
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -44,13 +43,13 @@ class Booster:
                  threshold: float = 0.5,
                  reshape_flag: bool = False,
                  n_cycles: int = 3):
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
         self.X_train = features_train
         self.target_train = target_train
         self.base_predict = base_predict
         self.threshold = threshold
-        # self.timeout = max(3, round(timeout / 4))
-        self.timeout = 1
+        self.timeout = max(3, round(timeout / 4))
+        # self.timeout = 1
         self.reshape_flag = reshape_flag
         self.n_cycles = n_cycles
         if self.reshape_flag:

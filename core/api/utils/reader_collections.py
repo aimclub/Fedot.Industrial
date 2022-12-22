@@ -4,10 +4,9 @@ from typing import Union
 
 import numpy as np
 import yaml
+from fedot.core.log import default_log as Logger
 
 from core.api.utils.checkers_collections import ParameterCheck
-from core.architecture.abstraction.logger import Logger
-# from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.utils.utils import PROJECT_PATH
 
@@ -29,7 +28,6 @@ class YamlReader:
 
         self.config_dict = None
         self.feature_generator = feature_generator
-        # self.logger = Logger().get_logger()
         self.logger = Logger(self.__class__.__name__)
         self.experiment_check = ParameterCheck()
         self.use_cache = None
@@ -162,7 +160,6 @@ class DataReader:
     def __init__(self):
 
         self.logger = Logger(self.__class__.__name__)
-        # self.logger = Logger().get_logger()
 
     def read(self, dataset_name: str):
 
