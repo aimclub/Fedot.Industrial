@@ -1,18 +1,16 @@
-import os
-from collections import Counter
 from multiprocessing import Pool
-from itertools import compress
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
 from core.api.utils.checkers_collections import DataCheck
+from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
-from core.architecture.utils.utils import PROJECT_PATH
 
 
 class SSARunner(ExperimentRunner):
@@ -50,7 +48,7 @@ class SSARunner(ExperimentRunner):
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
-        self.datacheck = DataCheck(logger=self.logger)
+        self.datacheck = DataCheck()
         self.window_sizes = window_sizes
         self.vis_flag = False
         self.rank_hyper = None

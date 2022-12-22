@@ -5,9 +5,9 @@ from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
+from core.architecture.abstraction.Decorators import time_it
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.extraction.topological import *
-from core.architecture.abstraction.Decorators import time_it
 
 sys.setrecursionlimit(1000000000)
 
@@ -28,6 +28,10 @@ class TopologicalRunner(ExperimentRunner):
 
     Args:
         use_cache: flag for using cache
+
+    Attributes:
+        filtered_features: list of filtered features
+        feature_extractor: feature extractor object
 
     """
 

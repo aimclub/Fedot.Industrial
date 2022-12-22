@@ -3,7 +3,6 @@ import timeit
 import pandas as pd
 
 from core.architecture.abstraction.logger import Logger
-# from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 def exception_decorator(exception_return='Problem'):

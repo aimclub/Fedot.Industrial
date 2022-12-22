@@ -5,22 +5,17 @@ def quantile(column, q: str):
     return np.quantile(a=column, q=q)
 
 
-def softmax(w, theta=1.0):
-    """Takes an vector w of S N-element and returns a vectors where each column
+def softmax(w, theta=1.0) -> np.ndarray:
+    """Takes a vector w of S N-element and returns a vectors where each column
         of the vector sums to 1, with elements exponentially proportional to the
         respective elements in N.
 
-        Parameters
-        ----------
-        w : array of shape = [N,  M]
+        Args:
+            w: array of shape = [N,  M].
+            theta: float, parameter, used as a multiplier prior to exponentiation (default = 1.0).
 
-        theta : float (default = 1.0)
-                used as a multiplier  prior to exponentiation.
-
-        Returns
-        -------
-        dist : array of shape = [N, M]
-            Which the sum of each row sums to 1 and the elements are exponentially
+        Returns:
+            array of shape = [N, M]. Which the sum of each row sums to 1 and the elements are exponentially
             proportional to the respective elements in N
 
         """

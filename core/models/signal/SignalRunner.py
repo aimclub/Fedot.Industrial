@@ -3,11 +3,11 @@ from multiprocessing import Pool
 
 from tqdm import tqdm
 
+from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
-from core.operation.transformation.extraction.wavelet import WaveletExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
+from core.operation.transformation.extraction.wavelet import WaveletExtractor
 
 
 class SignalRunner(ExperimentRunner):

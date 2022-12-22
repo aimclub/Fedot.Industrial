@@ -2,11 +2,11 @@ from multiprocessing import Pool
 
 from tqdm import tqdm
 
+from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.DataTransformer import TSTransformer
 from core.operation.transformation.extraction.sequences import ReccurenceExtractor
-from core.architecture.abstraction.Decorators import time_it
 
 
 class RecurrenceRunner(ExperimentRunner):
@@ -18,7 +18,7 @@ class RecurrenceRunner(ExperimentRunner):
 
     Attributes:
         transformer: TSTransformer object.
-        self.extractor: ReccurenceExtractor object.
+        self.extractor: RecurrenceExtractor object.
         train_feats: train features.
         test_feats: test features.
     """

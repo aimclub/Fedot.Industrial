@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 from typing import Union
 
 import matplotlib.pyplot as plt
@@ -8,7 +9,6 @@ from cycler import cycler
 from scipy.linalg import hankel
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils.extmath import randomized_svd
-import copy
 
 plt.rcParams['figure.figsize'] = (10, 8)
 plt.rcParams['font.size'] = 14
