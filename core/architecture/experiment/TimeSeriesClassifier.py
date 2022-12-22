@@ -13,7 +13,9 @@ from core.models.ExperimentRunner import ExperimentRunner
 from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
-from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.abstraction.logger import Logger
+# from fedot.core.log import default_log as Logger
+# from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import path_to_save_results
 
 
@@ -39,7 +41,8 @@ class TimeSeriesClassifier:
                  generator_runner: ExperimentRunner = None,
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False):
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
+        # self.logger = Logger().get_logger()
         self.predictor = None
         self.y_train = None
         self.train_features = None
