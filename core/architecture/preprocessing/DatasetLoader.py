@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy.io.arff import loadarff
 
-from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.abstraction.logger import Logger
+# from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import PROJECT_PATH
 
 
@@ -24,7 +25,8 @@ class DataLoader:
     """
 
     def __init__(self, dataset_name: str):
-        self.logger = Logger().get_logger()
+        self.logger = Logger('DataLoader')
+        # self.logger = Logger().get_logger()
         self.dataset_name = dataset_name
 
     def load_data(self) -> tuple:

@@ -2,7 +2,8 @@ import timeit
 
 import pandas as pd
 
-from core.architecture.abstraction.LoggerSingleton import Logger
+from core.architecture.abstraction.logger import Logger
+# from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 def exception_decorator(exception_return='Problem'):
@@ -47,7 +48,7 @@ def type_check_decorator(object_type: type, types_list: tuple):
 
 def time_it(func):
     def wrapper(*args, **kwargs):
-        logger = Logger().get_logger()
+        logger = Logger('time_it')
         start = timeit.default_timer()
         result = func(*args, **kwargs)
         end = timeit.default_timer()
