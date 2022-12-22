@@ -91,7 +91,7 @@ class Industrial(Fedot):
                       ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except Exception:
+        except KeyError:
             generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params,
@@ -106,6 +106,7 @@ class Industrial(Fedot):
         metric = self.checker.check_metric_type(train_target)
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
+        self.logger.info(f'Fitting model...')
 
         fitted_model, train_features = self.model_composer.fit(train_features=train_features,
                                                                train_target=train_target,
