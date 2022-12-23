@@ -34,7 +34,7 @@ class DataLoader:
             tuple: train and test data
         """
         dataset_name = self.dataset_name
-        self.logger.info(f'Reading {dataset_name} data locally')
+        self.logger.info(f'Trying to read {dataset_name} data locally')
         train_data, test_data = self.read_tsv(dataset_name)
 
         if train_data is None:
