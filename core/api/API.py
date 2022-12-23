@@ -88,15 +88,14 @@ class Industrial(Fedot):
                       feature_generator_params: dict = None,
                       model_params: dict = None,
                       dataset_name: str = None,
-                      ecm_mode: bool = False,
-                      use_cache: bool = False,):
+                      ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
         except Exception:
             generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params,
-                                                            use_cache=use_cache)
+                                                            use_cache=self.config_dict['use_cache'])
 
         self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
                                                                  generator_runner=generator,
@@ -206,8 +205,7 @@ class Industrial(Fedot):
                                                                           dataset_name=dataset_name,
                                                                           train_target=train_data[1],
                                                                           model_params=self.config_dict['fedot_params'],
-                                                                          ecm_mode=self.config_dict['error_correction'],
-                                                                          use_cache=self.config_dict['use_cache'])
+                                                                          ecm_mode=self.config_dict['error_correction'])
 
                     runner_result['fitted_predictor'] = fitted_predictor
                     runner_result['train_features'] = train_features
