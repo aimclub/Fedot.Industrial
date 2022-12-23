@@ -163,15 +163,13 @@ class DataReader:
 
     def read(self, dataset_name: str):
 
-        self.logger.info(f'START WORKING on {dataset_name} dataset')
         # load data
         train_data, test_data = DataLoader(dataset_name).load_data()
-        self.logger.info(f'Loaded data from {dataset_name} dataset')
         if train_data is None:
             self.logger.error(f'Some problem with {dataset_name} data. Skip it')
             return None, None, None
         else:
             n_classes = len(np.unique(train_data[1]))
-
+            self.logger.info(f'Loaded data from {dataset_name} local data folder')
             self.logger.info(f'{n_classes} classes detected')
             return train_data, test_data, n_classes
