@@ -94,21 +94,23 @@ class Industrial(Fedot):
         except Exception:
             generator_params = feature_generator_params
 
-        generator = self.feature_generator_dict[model_name](**generator_params)
+        generator = self.feature_generator_dict[model_name](**generator_params,
+                                                            use_cache=self.config_dict['use_cache'])
 
         self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
                                                                  generator_runner=generator,
                                                                  model_hyperparams=model_params,
-                                                                 ecm_model_flag=ecm_mode)
+                                                                 ecm_model_flag=ecm_mode,
+                                                                 dataset_name=dataset_name,)
 
         metric = self.checker.check_metric_type(train_target)
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
-        self.logger.info(f'Fitting model...')
+
 
         fitted_model, train_features = self.model_composer.fit(train_features=train_features,
                                                                train_target=train_target,
-                                                               dataset_name=dataset_name,
+                                                               # dataset_name=dataset_name,
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
@@ -124,13 +126,14 @@ class Industrial(Fedot):
             save_flag: if True save results of experiment.
 
         """
-        self.logger.info(f'START EXPERIMENT'.center(50, '-'))
+        self.logger.info(f'Start experiment'.center(50, '-'))
         experiment_results = {}
 
         self.config_dict = self.YAML.init_experiment_setup(config,
                                                            direct_path=direct_path)
 
         for dataset_name in self.config_dict['datasets_list']:
+
             experiment_results[dataset_name] = {}
             experiment_dict = copy.deepcopy(self.config_dict)
             n_cycles = experiment_dict['launches']
@@ -175,6 +178,7 @@ class Industrial(Fedot):
             dict with results of modelling cycle.
 
         """
+        self.logger.info(f'Start working on {dataset_name} dataset')
         modelling_results = dict()
         train_data, test_data, n_classes = self.reader.read(dataset_name=dataset_name)
 
@@ -251,7 +255,7 @@ class Industrial(Fedot):
                 if exclude in experiment_dict['feature_generator']:
                     experiment_dict['feature_generator'].remove(exclude)
                     experiment_dict['feature_generator_params'].pop(exclude, None)
-            self.logger.info(f'Time series length is too long ({ts_length}>800), exclude {exclusion_list} generators')
+            self.logger.info(f'Time series length is too long ({ts_length}>800): exclude {exclusion_list} generators')
 
         return experiment_dict
 
