@@ -37,6 +37,9 @@ feature_generator_params: {
       'window_mode': True,
     },
 
+  'topological':
+      { },
+
   'quantile':
     {
       'window_mode': False,
