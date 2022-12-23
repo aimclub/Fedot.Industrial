@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -38,13 +38,15 @@ class TimeSeriesClassifier:
                  generator_name: str = None,
                  generator_runner: ExperimentRunner = None,
                  model_hyperparams: dict = None,
-                 ecm_model_flag: bool = False):
+                 ecm_model_flag: bool = False,
+                 dataset_name: str = None,):
         self.logger = Logger(self.__class__.__name__)
         self.predictor = None
         self.y_train = None
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
+        self.dataset_name = dataset_name
 
         self.datacheck = DataCheck()
         self.generator_name = generator_name
@@ -106,15 +108,14 @@ class TimeSeriesClassifier:
         return baseline_pipeline
 
     def __fit_abstraction(self,
-                          train_features: np.ndarray,
+                          train_features: Union[np.ndarray, pd.DataFrame],
                           train_target: np.ndarray,
-                          dataset_name: str = None,
                           baseline_type: str = None):
-        self.logger.info('START TRAINING')
+        self.logger.info(f'Fitting model...')
         self.y_train = train_target
         if self.generator_runner is not None:
-            self.train_features = self.generator_runner.extract_features(train_features=train_features,
-                                                                         dataset_name=dataset_name)
+            self.train_features = self.generator_runner.extract_features(ts_data=train_features,
+                                                                         dataset_name=self.dataset_name)
         else:
             self.train_features = train_features
         self.train_features = self.datacheck.check_data(self.train_features)
@@ -125,11 +126,12 @@ class TimeSeriesClassifier:
             self.predictor = self._fit_model(self.train_features, train_target)
 
     def __predict_abstraction(self,
-                              test_features: np.ndarray,
-                              mode: str = 'labels',
-                              dataset_name: str = None):
+                              test_features: Union[np.ndarray, pd.DataFrame],
+                              mode: str = 'labels'):
+
         if self.generator_runner is not None:
-            self.test_features = self.generator_runner.extract_features(test_features, dataset_name)
+            self.test_features = self.generator_runner.extract_features(ts_data=test_features,
+                                                                        dataset_name=self.dataset_name)
         else:
             self.test_features = test_features
         self.test_features = self.datacheck.check_data(self.test_features)
