@@ -294,18 +294,21 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         train_dataset: Train dataset.
         val_dataset: Validation dataset.
         num_classes: Number of classes in the dataset.
-        dataloader_params: Parameter dictionary passed to dataloaders.
         model: Name of model.
-        model_params: Parameter dictionary passed to model initialization.
-        models_saving_path: Path to folder for saving models.
-        optimizer: Model optimizer, e.g. ``torch.optim.Adam``.
-        optimizer_params: Parameter dictionary passed to optimizer initialization.
-        target_loss: Loss function applied to model output,
-            e.g. ``torch.nn.CrossEntropyLoss``.
-        loss_params: Parameter dictionary passed to loss initialization.
-        structure_optimization: Structure optimizer, e.g. ``SVDOptimization``.
+        model_params: Parameter dictionary passed to model initialization (default: ``{}``).
+        dataloader_params: Parameter dictionary passed to dataloaders (default: ``{}``).
+        models_saving_path: Path to folder for saving models (default: ``'models'``).
+        optimizer: Model optimizer  (default: ``torch.optim.Adam``).
+        optimizer_params: Parameter dictionary passed to optimizer initialization
+            (default: ``{}``).
+        target_loss: Loss function applied to model output
+            (default:  ``torch.nn.CrossEntropyLoss``).
+        loss_params: Parameter dictionary passed to loss initialization
+            (default: ``{}``).
+        structure_optimization: Structure optimizer, e.g. ``SVDOptimization``
+            (default: ``'none'``).
         structure_optimization_params: Parameter dictionary passed to structure
-            optimization initialization.
+            optimization initialization (default: ``{}``).
         metric: Target metric by which models are compared. May be ``'f1'``,
             ``'accuracy'``, ``'precision'``, ``'recall'`` or ``'roc_auc'``
             (default: ``'f1'``).
@@ -314,7 +317,8 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         summary_per_class: If ``True``, calculates the metrics for each class
             (default ``False``).
         weights: Path to the model state_dict to load weights (default: ``None``).
-        prefix: An explanatory string added to the name of the experiment.
+        prefix: An explanatory string added to the name of the experiment
+            (default: ``''``).
         gpu: If ``True``, uses GPU (default: ``True``).
 
         Raises:
@@ -328,16 +332,16 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         train_dataset: Dataset,
         val_dataset: Dataset,
         num_classes: int,
-        dataloader_params: Dict,
         model: str,
-        model_params: Dict,
-        models_saving_path: str,
-        optimizer: Type[torch.optim.Optimizer],
-        optimizer_params: Dict,
-        target_loss: Type[torch.nn.Module],
-        loss_params: Dict,
-        structure_optimization: str,
-        structure_optimization_params: Dict,
+        model_params: Dict = {},
+        dataloader_params: Dict = {},
+        models_saving_path: str = 'models',
+        optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
+        optimizer_params: Dict = {},
+        target_loss: Type[torch.nn.Module] = torch.nn.CrossEntropyLoss,
+        loss_params: Dict = {},
+        structure_optimization: str = 'none',
+        structure_optimization_params: Dict = {},
         metric: str = 'f1',
         summary_path: str = 'runs',
         summary_per_class: bool = False,
@@ -366,6 +370,7 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
             train_ds=train_dataset,
             val_ds=val_dataset,
             num_classes=num_classes,
+            weights=weights,
             dataloader_params=dataloader_params,
             name=f"{dataset_name}/{prefix}{model}",
             models_path=models_saving_path,
@@ -470,6 +475,10 @@ class ClassificationExperimenter(_GeneralizedExperimenter):
         return pred
 
 
+def _collate_fn(batch):
+    return tuple(zip(*batch))
+
+
 class FasterRCNNExperimenter(_GeneralizedExperimenter):
     """Class for working with Faster R-CNN model.
 
@@ -478,15 +487,20 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         train_dataset: Train dataset.
         val_dataset: Validation dataset.
         num_classes: Number of classes in the dataset.
-        dataloader_params: Parameter dictionary passed to dataloaders.
-        model_params: Parameter dictionary passed to ``fasterrcnn_resnet50_fpn``.
-        models_saving_path: Path to folder for saving models.
-        optimizer: Model optimizer, e.g. ``torch.optim.SGD``.
-        optimizer_params: Parameter dictionary passed to optimizer initialization.
-        scheduler_params: Parameter dictionary passed to ``StepLR`` initialization.
-        structure_optimization: Structure optimizer, e.g. ``SVDOptimization``.
+        dataloader_params: Parameter dictionary passed to dataloaders
+            (default: ``{}``).
+        model_params: Parameter dictionary passed to ``fasterrcnn_resnet50_fpn``
+            (default: ``{'weights': 'DEFAULT'}``).
+        models_saving_path: Path to folder for saving models (default: ``'models'``).
+        optimizer: Model optimizer (default: ``torch.optim.SGD``).
+        optimizer_params: Parameter dictionary passed to optimizer initialization
+            (default: ``{'lr': 0.0002, 'momentum': 0.9, 'weight_decay': 0.0005}``).
+        scheduler_params: Parameter dictionary passed to ``StepLR`` initialization
+            (default: ``{'step_size': 5, 'gamma': 0.5}``).
+        structure_optimization: Structure optimizer, e.g. ``SVDOptimization``
+            (default: ``'none'``).
         structure_optimization_params: Parameter dictionary passed to structure
-            optimization initialization.
+            optimization initialization (default: ``{}``).
         metric: Target metric by which models are compared. May be ``'map'``,
             ``'map_50'`` or ``'map_75'`` (default: ``'map_50'``).
         summary_path: Path to folder for writing experiment summary info
@@ -506,14 +520,14 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
         train_dataset: Dataset,
         val_dataset: Dataset,
         num_classes: int,
-        dataloader_params: Dict,
-        model_params: Dict,
-        models_saving_path: str,
-        optimizer: Type[torch.optim.Optimizer],
-        optimizer_params: Dict,
-        scheduler_params: Dict,
-        structure_optimization: str,
-        structure_optimization_params: Dict,
+        dataloader_params: Dict = {},
+        model_params: Dict = {'weights': 'DEFAULT'},
+        models_saving_path: str = 'models',
+        optimizer: Type[torch.optim.Optimizer] = torch.optim.SGD,
+        optimizer_params: Dict = {'lr': 0.0002, 'momentum': 0.9, 'weight_decay': 0.0005},
+        scheduler_params: Dict = {'step_size': 5, 'gamma': 0.5},
+        structure_optimization: str = 'none',
+        structure_optimization_params: Dict = {},
         metric: str = 'map_50',
         summary_path: str = 'runs',
         summary_per_class: bool = False,
@@ -543,7 +557,10 @@ class FasterRCNNExperimenter(_GeneralizedExperimenter):
             train_ds=train_dataset,
             val_ds=val_dataset,
             num_classes=num_classes,
-            dataloader_params=dataloader_params,
+            dataloader_params={
+                'collate_fn': _collate_fn,
+                **dataloader_params
+            },
             name=f"{dataset_name}/{prefix}FasterR-CNN/ResNet50",
             models_path=models_saving_path,
             summary_path=summary_path,
