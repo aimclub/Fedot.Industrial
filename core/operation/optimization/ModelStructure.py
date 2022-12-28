@@ -9,8 +9,10 @@ from torch.utils.tensorboard import SummaryWriter
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.models.cnn.decomposed_conv import DecomposedConv2d
 from core.models.cnn.sfp_models import SFP_MODELS
-from core.operation.optimization.sfp_tools import zerolize_filters, prune_resnet_state_dict
-from core.operation.optimization.svd_tools import energy_threshold_pruning, decompose_module
+from core.operation.optimization.sfp_tools import zerolize_filters, \
+    prune_resnet_state_dict
+from core.operation.optimization.svd_tools import energy_threshold_pruning, \
+    decompose_module
 
 
 class GeneralizedStructureOptimization:
@@ -41,25 +43,26 @@ class SVDOptimization(GeneralizedStructureOptimization):
     """Singular value decomposition for model structure optimization.
 
     Args:
+        energy_thresholds: List of pruning hyperparameters.
         experimenter: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
-        decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
+        decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method
+            (default: ``'channel'``).
         hoer_loss_factor: The hyperparameter by which the Hoyer loss function is
-            multiplied.
+            multiplied (default: ``0.001``).
         orthogonal_loss_factor: The hyperparameter by which the orthogonal loss
-            function is multiplied.
-        energy_thresholds: List of pruning hyperparameters.
-        finetuning_epochs: Number of fine-tuning epochs.
+            function is multiplied (default: ``100``).
+        finetuning_epochs: Number of fine-tuning epochs (default: ``1``).
     """
 
     def __init__(
         self,
         experimenter,
-        decomposing_mode: str,
-        hoer_loss_factor: float,
-        orthogonal_loss_factor: float,
         energy_thresholds: List[float],
-        finetuning_epochs: int,
+        decomposing_mode: str = 'channel',
+        hoer_loss_factor: float = 0.001,
+        orthogonal_loss_factor: float = 100,
+        finetuning_epochs: int = 1,
     ) -> None:
         super().__init__(
             experimenter=experimenter,
@@ -138,14 +141,14 @@ class SFPOptimization(GeneralizedStructureOptimization):
         experimenter: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
         pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
-        finetuning_epochs: Number of fine-tuning epochs.
+        finetuning_epochs: Number of fine-tuning epochs (default: ``1``).
     """
 
     def __init__(
             self,
             experimenter,
             pruning_ratio: float,
-            finetuning_epochs: int,
+            finetuning_epochs: int = 1,
     ) -> None:
         super().__init__(
             experimenter=experimenter,

@@ -9,10 +9,6 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 
-def collate_fn(batch):
-    return tuple(zip(*batch))
-
-
 class COCODataset(Dataset):
     """Class-loader for COCO json.
 
