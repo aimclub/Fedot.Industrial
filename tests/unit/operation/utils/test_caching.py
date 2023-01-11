@@ -38,3 +38,4 @@ class TestCaching:
         cacher.cache_data(hashed_info, self.basic_dataframe())
         filename = hashed_info + '.pkl'
         assert os.path.isfile(os.path.join(folder_path, filename))
+        os.remove(os.path.join(folder_path, filename))
