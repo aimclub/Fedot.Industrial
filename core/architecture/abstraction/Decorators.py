@@ -50,7 +50,7 @@ def time_it(func):
         start = timeit.default_timer()
         result = func(*args, **kwargs)
         end = timeit.default_timer()
-        logger.info(f'Time spent on feature generation - {round((end - start), 2)} sec')
+        logger.info(f'Time spent - {round((end - start), 2)} sec')
         return result
 
     return wrapper

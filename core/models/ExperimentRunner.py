@@ -1,14 +1,12 @@
-import hashlib
 import os
-import timeit
 from multiprocessing import cpu_count
-from typing import Iterable
 
 from fedot.core.log import default_log as Logger
 from sklearn.preprocessing import MinMaxScaler
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.metrics.metrics_implementation import *
+from core.operation.utils.caching import DataCacher
 
 
 class ExperimentRunner:
@@ -65,67 +63,30 @@ class ExperimentRunner:
 
         """
         generator_name = self.__class__.__name__
-        if generator_name in ('StatsRunner', 'SSARunner'):
-            self.logger.info(f'Window mode: {self.window_mode}')
+        self.logger.info(f'Window mode: {self.window_mode}')
 
         if self.use_cache:
+            cache_folder = os.path.join(PROJECT_PATH, 'cache')
+            os.makedirs(cache_folder, exist_ok=True)
+            cacher = DataCacher(data_type_prefix=f'Features of {generator_name} generator',
+                                cache_folder=cache_folder)
 
             generator_info = self.__dir__()
-            hashed_info = self.hash_info(dataframe=ts_data,
-                                         name=dataset_name,
-                                         obj_info_dict=generator_info)
-            cache_path = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_info + '.pkl')
+            hashed_info = cacher.hash_info(dataframe=ts_data,
+                                           name=dataset_name,
+                                           obj_info_dict=generator_info)
 
             try:
                 self.logger.info('Trying to load features from cache...')
-                return self.load_features_from_cache(cache_path)
+                return cacher.load_data_from_cache(hashed_info=hashed_info)
             except FileNotFoundError:
                 self.logger.info('Cache not found. Generating features...')
                 features = self.get_features(ts_data, dataset_name)
-                self.save_features_to_cache(hashed_info, features)
+                cacher.cache_data(hashed_info=hashed_info,
+                                  data=features)
                 return features
         else:
             return self.get_features(ts_data, dataset_name)
-
-    @staticmethod
-    def hash_info(dataframe: pd.DataFrame, name: str, obj_info_dict: Iterable[str]) -> str:
-        """Method responsible for hashing information about initial dataset, its name and feature generator.
-        It utilizes md5 hashing algorithm.
-
-        Args:
-            dataframe: dataframe with time series.
-            name: name of dataset.
-            obj_info_dict: dictionary with information about feature generator.
-
-        Returns:
-            Hashed string.
-        """
-        key = (repr(dataframe) + repr(name) + repr(obj_info_dict)).encode('utf8')
-        hsh = hashlib.md5(key).hexdigest()[:10]
-        return hsh
-
-    def load_features_from_cache(self, cache_path):
-        start = timeit.default_timer()
-        features = pd.read_pickle(cache_path)
-        elapsed_time = round(timeit.default_timer() - start, 5)
-        self.logger.info(f'Features loaded from cache in {elapsed_time} sec')
-        return features
-
-    def save_features_to_cache(self, hashed_data: str, features: pd.DataFrame):
-        """Method responsible for saving features to cache folder. It utilizes pickle format for saving data.
-
-        Args:
-            hashed_data: hashed string.
-            features: dataframe with extracted features.
-
-        """
-        cache_folder = os.path.join(PROJECT_PATH, 'cache')
-        generator_name = self.__class__.__name__
-        cache_file = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_data + '.pkl')
-
-        os.makedirs(cache_folder, exist_ok=True)
-        features.to_pickle(cache_file)
-        self.logger.info(f'Features for {generator_name} cached with {hashed_data} hash')
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
