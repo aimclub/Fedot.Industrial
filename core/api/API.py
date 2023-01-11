@@ -194,6 +194,7 @@ class Industrial(Fedot):
         for runner_name, runner in self.config_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
             for launch in range(1, n_cycles + 1):
+                self.logger.info(f'Start of modelling cycle {launch} for {runner_name} generator')
                 try:
                     runner_result = {}
                     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
