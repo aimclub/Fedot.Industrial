@@ -5,6 +5,8 @@ import timeit
 import pandas as pd
 from fedot.core.log import default_log as Logger
 
+from core.architecture.utils.utils import PROJECT_PATH
+
 
 class DataCacher:
     """Class responsible for caching data of ``pd.DataFrame`` type in pickle format.
@@ -26,6 +28,7 @@ class DataCacher:
         self.logger = Logger(self.__class__.__name__)
         self.data_type = data_type_prefix
         self.cache_folder = cache_folder
+        os.makedirs(cache_folder, exist_ok=True)
 
     def hash_info(self, **kwargs) -> str:
         """Method responsible for hashing distinct information about the data that is going to be cached.
@@ -69,5 +72,5 @@ class DataCacher:
             data.to_pickle(cache_file)
             self.logger.info(f'{self.data_type} cached with {hashed_info} hash')
 
-        except Exception:
-            self.logger.error(f'Data was not cached due to error { Exception }')
+        except Exception as ex:
+            self.logger.error(f'Data was not cached due to error { ex }')

@@ -31,5 +31,3 @@ class TestDataCacher(unittest.TestCase):
         loaded_data = self.data_cacher.load_data_from_cache(hashed_info)
         self.assertIsInstance(loaded_data, pd.DataFrame)
         self.assertTrue(loaded_data.equals(self.data))
-        cache_file = os.path.join(self.data_cacher.cache_folder, hashed_info + '.pkl')
-        os.remove(cache_file)
