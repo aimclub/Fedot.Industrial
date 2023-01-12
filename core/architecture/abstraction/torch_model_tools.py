@@ -29,6 +29,3 @@ def save_model(
         torch.save(model, file_name)
         shutil.move(file_name, dir_path)
     print(f"Model saved to {os.path.abspath(file_path)}.")
-
-
-
