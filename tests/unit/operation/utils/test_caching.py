@@ -1,41 +1,35 @@
-import os.path
+import os
+import unittest
 
 import pandas as pd
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.operation.utils.caching import DataCacher
 
-folder_path = os.path.join(PROJECT_PATH, 'cache')
 
+class TestDataCacher(unittest.TestCase):
 
-class TestCaching:
-
-    df_name = 'test_df'
-    df_state = 'test_df_state'
-
-    def basic_cacher(self):
-        return DataCacher(data_type_prefix='test', cache_folder=folder_path)
-
-    def basic_dataframe(self):
-        return pd.DataFrame({'a': [1] * 100000, 'b': [4] * 100000})
+    def setUp(self):
+        self.cache_folder = os.path.join(PROJECT_PATH, 'cache')
+        self.data_cacher = DataCacher(data_type_prefix='data', cache_folder=self.cache_folder)
+        self.data = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
 
     def test_hash_info(self):
-        cacher = self.basic_cacher()
-        hashed_info = cacher.hash_info(name=self.df_name, state=self.df_state, data=self.basic_dataframe())
-        assert hashed_info is not None
-
-    def test_load_data_from_cache(self):
-        cacher = self.basic_cacher()
-        hashed_info = cacher.hash_info(name=self.df_name, state=self.df_state, data=self.basic_dataframe())
-        cacher.cache_data(hashed_info, self.basic_dataframe())
-        data = cacher.load_data_from_cache(hashed_info)
-        assert isinstance(data, pd.DataFrame)
-        assert data.equals(self.basic_dataframe())
+        hashed_info = self.data_cacher.hash_info(name='data', data=self.data)
+        self.assertIsInstance(hashed_info, str)
+        self.assertEqual(len(hashed_info), 10)
 
     def test_cache_data(self):
-        cacher = self.basic_cacher()
-        hashed_info = cacher.hash_info(name=self.df_name, state=self.df_state, data=self.basic_dataframe())
-        cacher.cache_data(hashed_info, self.basic_dataframe())
-        filename = hashed_info + '.pkl'
-        assert os.path.isfile(os.path.join(folder_path, filename))
-        os.remove(os.path.join(folder_path, filename))
+        hashed_info = self.data_cacher.hash_info(name='data', data=self.data)
+        self.data_cacher.cache_data(hashed_info, self.data)
+        cache_file = os.path.join(self.data_cacher.cache_folder, hashed_info + '.pkl')
+        self.assertTrue(os.path.isfile(cache_file))
+
+    def test_load_data_from_cache(self):
+        hashed_info = self.data_cacher.hash_info(name='data', data=self.data)
+        self.data_cacher.cache_data(hashed_info, self.data)
+        loaded_data = self.data_cacher.load_data_from_cache(hashed_info)
+        self.assertIsInstance(loaded_data, pd.DataFrame)
+        self.assertTrue(loaded_data.equals(self.data))
+        cache_file = os.path.join(self.data_cacher.cache_folder, hashed_info + '.pkl')
+        os.remove(cache_file)
