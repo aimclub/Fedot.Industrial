@@ -7,8 +7,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
-from core.models.cnn.decomposed_conv import DecomposedConv2d
-from core.models.cnn.sfp_models import SFP_MODELS
+from core.models.cnn.sfp_resnet import SFP_MODELS
+from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from core.operation.optimization.sfp_tools import zerolize_filters, \
     prune_resnet_state_dict
 from core.operation.optimization.svd_tools import energy_threshold_pruning, \

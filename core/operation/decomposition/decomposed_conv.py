@@ -1,4 +1,3 @@
-
 from typing import Union
 
 import torch
@@ -6,7 +5,7 @@ from torch import Tensor
 from torch.nn import Conv2d, Parameter
 from torch.nn.common_types import _size_2_t
 
-__all__ = ["DecomposedConv2d"]
+from core.architecture.abstraction.сheckers import parameter_value_check
 
 
 class DecomposedConv2d(Conv2d):
@@ -83,12 +82,11 @@ class DecomposedConv2d(Conv2d):
         Raises:
             ValueError: If ``decomposing_mode`` not in valid values.
         """
-        if decomposing_mode not in self.decomposing_modes_dict.keys():
-            raise ValueError(
-                "decomposing_mode must be one of {}, but got decomposing_mode='{}'".format(
-                    self.decomposing_modes_dict.keys(), decomposing_mode
-                )
-            )
+        parameter_value_check(
+            parameter='decomposing_mode',
+            value=decomposing_mode,
+            valid_values=set(self.decomposing_modes_dict.keys())
+        )
         W = self.weight.view(self.decomposing_modes_dict[decomposing_mode])
         U, S, Vh = torch.linalg.svd(W, full_matrices=False)
 

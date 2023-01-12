@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.linalg import vector_norm
 from torch.nn import Conv2d
 
-from core.models.cnn.sfp_models import SFP_MODELS
+from core.models.cnn.sfp_resnet import SFP_MODELS
 
 
 def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:

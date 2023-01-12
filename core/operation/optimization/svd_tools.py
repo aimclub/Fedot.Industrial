@@ -4,7 +4,7 @@ import torch
 from torch.nn.modules import Module
 from torch.nn.modules.conv import Conv2d
 
-from core.models.cnn.decomposed_conv import DecomposedConv2d
+from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 
 
 def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
