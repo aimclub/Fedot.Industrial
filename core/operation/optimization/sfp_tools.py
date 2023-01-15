@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List, Union
 
 import torch
 from torch import Tensor
@@ -93,7 +93,7 @@ def _parse_sd(state_dict: OrderedDict) -> OrderedDict:
     return parsed_sd
 
 
-def _parse_param(param, value, dictionary) -> None:
+def _parse_param(param: List, value: Tensor, dictionary: OrderedDict) -> None:
     """Parses value from state_dict to nested dictionaries."""
     if len(param) > 1:
         dictionary.setdefault(param[0], OrderedDict())
@@ -102,7 +102,7 @@ def _parse_param(param, value, dictionary) -> None:
         dictionary[param[0]] = value
 
 
-def _collect_sd(parsed_state_dict) -> OrderedDict:
+def _collect_sd(parsed_state_dict: OrderedDict) -> OrderedDict:
     """Collect state_dict from nested dictionaries."""
     state_dict = OrderedDict()
     keys, values = _collect_param(parsed_state_dict)
@@ -112,7 +112,7 @@ def _collect_sd(parsed_state_dict) -> OrderedDict:
     return state_dict
 
 
-def _collect_param(dictionary) -> Tuple:
+def _collect_param(dictionary: Union[OrderedDict, Tensor]) -> Tuple:
     """Collect value from nested dictionaries."""
     if isinstance(dictionary, OrderedDict):
         all_keys = []
