@@ -14,6 +14,7 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
 from core.architecture.abstraction.сheckers import parameter_value_check
+from core.operation.optimization.structure_optimization import StructureOptimization
 
 
 def write_scores(
@@ -91,6 +92,7 @@ class NNExperimenter:
             val_dataset: Dataset,
             num_epochs: int,
             optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
+            structure_optimization: Optional[StructureOptimization] = None,
             models_path: str = 'models',
             summary_path: str = 'summary',
             class_metrics: bool = False,
@@ -109,7 +111,7 @@ class NNExperimenter:
         writer = SummaryWriter(os.path.join(summary_path, description, 'train'))
         optimizer = optimizer(self.model.parameters(), **optimizer_params)
         best_score = 0
-        print(f"{self.name}, using device: {self.device}")
+        print(f"{description}, using device: {self.device}")
         for epoch in range(1, num_epochs + 1):
             print(f"Epoch {epoch}")
             train_scores = self.train_loop(
