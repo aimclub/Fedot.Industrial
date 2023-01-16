@@ -10,9 +10,11 @@ from core.api.utils.checkers_collections import DataCheck
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
+from core.operation.transformation.data.eigen import combine_eigenvectors
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 from core.architecture.abstraction.Decorators import time_it
 from core.architecture.utils.utils import PROJECT_PATH
+from core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 
 class SSARunner(ExperimentRunner):
@@ -93,10 +95,10 @@ class SSARunner(ExperimentRunner):
 
         TS_comps, Sigma, rank, X_elem, V = specter.decompose(
             rank_hyper=self.rank_hyper)
-        explained_variance, n_components = specter.sv_to_explained_variance_ratio(Sigma, rank)
+        explained_variance, n_components = sv_to_explained_variance_ratio(Sigma, rank)
 
         if self.combine_eigenvectors:
-            components_df = specter.combine_eigenvectors(TS_comps, rank, self.correlation_level)
+            components_df = combine_eigenvectors(TS_comps, rank, self.correlation_level)
         else:
             components_df = specter.components_to_df(TS_comps, rank)
 
