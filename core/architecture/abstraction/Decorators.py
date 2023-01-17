@@ -1,5 +1,7 @@
+import json
 import timeit
 
+import numpy as np
 import pandas as pd
 
 from core.architecture.abstraction.LoggerSingleton import Logger
@@ -55,3 +57,15 @@ def time_it(func):
         return result
 
     return wrapper
+
+
+def data_adapter(data_format):
+    def decorator(func):
+        def wrapper(**kwargs):
+            adapter_dict = {'Pandas': pd.DataFrame,
+                            'Numpy': np.array,
+                            'List': np.ravel().tolist}
+            kwargs = [adapter_dict[data_format](kwarg) for kwarg in kwargs]
+            return func(**kwargs)
+        return wrapper
+    return decorator
