@@ -1,6 +1,6 @@
 from core.ensemble.BaseEnsembler import BaseEnsemble
 from core.api.API import Industrial
-from fedot.core.log import default_log as Logger
+from fedot.core.log import default_log as logger
 
 
 class RankEnsemble(BaseEnsemble):
@@ -28,7 +28,7 @@ class RankEnsemble(BaseEnsemble):
         self.metric_dict = metric_dict
         self.experiment_results = {}
         self.IndustrialModel = Industrial()
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logger(self.__class__.__name__)
         self.best_ensemble_metric = 0
 
     def _create_models_rank_dict(self):
@@ -130,18 +130,18 @@ class RankEnsemble(BaseEnsemble):
         return dict(sorted(top_ensemble_dict.items(), key=lambda x: x[1], reverse=True))
 
     def ensemble(self, modelling_results: dict = None, single_mode=False) -> dict:
-        """Returns dictionary with ranking ensemble results``
+        """Returns dictionary with ranking ensemble results
 
         The process of ensemble consists of 3 stages. At the first stage, a dictionary is created
         that contains the name of the model as a key and the best metric value for this dataset as a value.
         The second stage is the creation of a ranked list in the form of a dictionary (self.sorted_dict),
         also at this stage parameters such as the best model and the best value of the quality metric are determined,
-        which are stored in the  dictionary self.best_base_results. The third stage is iterative, in accordance
+        which are stored in the dictionary self.best_base_results. The third stage is iterative, in accordance
         with the assigned rank, adding models to a single composite model and ensemble their predictions.
 
         Args:
-            modelling_results: features for training
-            single_mode: target for training
+            modelling_results:
+            single_mode:
 
         Returns:
             Fitted Fedot pipeline with baseline model

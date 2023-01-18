@@ -1,13 +1,13 @@
 import os
 
 import pandas as pd
-from fedot.core.log import default_log as Logger
+from fedot.core.log import default_log as logger
 
 
 class ResultSaver:
     def __init__(self):
 
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logger(self.__class__.__name__)
         self.save_method_dict = {'ECM': self.save_boosting_results,
                                  'Ensemble': self.save_ensemble_results,
                                  'Original': self.save_results}
