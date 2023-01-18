@@ -68,13 +68,15 @@ class ExperimentRunner:
         if self.use_cache:
             cache_folder = os.path.join(PROJECT_PATH, 'cache')
             os.makedirs(cache_folder, exist_ok=True)
-            cacher = DataCacher(data_type_prefix=f'Features of {generator_name} generator',
-                                cache_folder=cache_folder)
+            cacher = DataCacher(data_type=f'Features',
+                                cache_folder=cache_folder,
+                                object_name=generator_name)
 
             generator_info = self.__dir__()
             hashed_info = cacher.hash_info(dataframe=ts_data,
                                            name=dataset_name,
-                                           obj_info_dict=generator_info)
+                                           obj_info_dict=generator_info,
+                                           generator_name=generator_name)
 
             try:
                 self.logger.info('Trying to load features from cache...')
