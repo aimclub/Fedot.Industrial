@@ -1,5 +1,4 @@
 import os
-import time
 from typing import Type, Dict, List
 
 import torch
@@ -7,9 +6,26 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
-from core.architecture.experiment.nn_experimenter import NNExperimenter, write_scores
-from core.operation.decomposition.decomposed_conv import DecomposedConv2d
-from core.operation.optimization.svd_tools import energy_threshold_pruning, decompose_module
+from core.operation.optimization.svd_tools import prune_sdv_model, \
+    energy_threshold_pruning, decompose_module
+
+
+def write_scores(
+        writer: SummaryWriter,
+        phase: str,
+        scores: Dict[str, float],
+        x: int,
+):
+    """Write scores from dictionary by SummaryWriter.
+
+    Args:
+        writer: SummaryWriter object for writing scores.
+        phase: Experiment phase for grouping records, e.g. 'train'.
+        scores: Dictionary {metric_name: value}.
+        x: The independent variable.
+    """
+    for key, score in scores.items():
+        writer.add_scalar(f"{phase}/{key}", score, x)
 
 
 class StructureOptimization:
@@ -21,11 +37,12 @@ class StructureOptimization:
             finetuning_epochs: int
     ) -> None:
         self.description = description
-        self.finetuning_epochs= finetuning_epochs
+        self.finetuning_epochs = finetuning_epochs
+        self.finetuning = False
 
     def fit(
             self,
-            experimenter: NNExperimenter,
+            experimenter,
             description: str,
             train_dl: DataLoader,
             val_dl: DataLoader,
@@ -77,8 +94,8 @@ class SVDOptimization(StructureOptimization):
         )
         self.energy_thresholds = energy_thresholds
         self.decomposing_mode = decomposing_mode
-        self.hoer_loss_factor = hoer_loss_factor
-        self.orthogonal_loss_factor = orthogonal_loss_factor
+        self.hoer_loss = HoyerLoss(hoer_loss_factor)
+        self.orthogonal_loss = OrthogonalLoss(orthogonal_loss_factor)
 
     def fit(
             self,
@@ -100,105 +117,87 @@ class SVDOptimization(StructureOptimization):
             ``ClassificationExperimenter``.
             num_epochs: Number of epochs.
         """
-        losses = {
-            'hoer_loss': HoyerLoss(self.hoer_loss_factor),
-            'orthogonal_loss': OrthogonalLoss(
-                device=experimenter.device,
-                factor=self.orthogonal_loss_factor
-            )
-        }
+
+        description += self.description
         decompose_module(experimenter.model, self.decomposing_mode)
         print(f"SVD decomposed size: {experimenter.size_of_model():.2f} Mb")
-        description += self.description
-        models_path = os.path.join(models_path, description)
-        writer = SummaryWriter(os.path.join(summary_path, description, 'train'))
-        optimizer = optimizer(experimenter.model.parameters(), **optimizer_params)
-        best_score = 0
-
         print(f"{description}, using device: {experimenter.device}")
-        for epoch in range(1, num_epochs + 1):
-            print(f"Epoch {epoch}")
-            train_scores = experimenter.train_loop(
-                dataloader=train_dl,
-                optimizer=optimizer,
-                model_losses=losses
-            )
-            write_scores(writer, 'train', train_scores, epoch)
-            val_scores = experimenter.val_loop(
-                dataloader=val_dl,
-                class_metrics=class_metrics
-            )
-            write_scores(writer, 'val', val_scores, epoch)
-            if val_scores[experimenter.metric] > best_score:
-                best_score = val_scores[experimenter.metric]
-                print(f'Best {experimenter.metric} score: {best_score}')
-                experimenter.save_model(file_name='train', dir_path=models_path)
-        writer.close()
-        p_writer = SummaryWriter(os.path.join(summary_path, description, 'pruned'))
-        ft_writer = SummaryWriter(os.path.join(summary_path, description, 'fine-tuned'))
-        losses['hoer_loss'] = HoyerLoss(factor=0)
-        experimenter.load_model(file_name='train', dir_path=models_path)
+
+        experimenter.run_epochs(
+            writer=SummaryWriter(os.path.join(summary_path, description, 'train')),
+            train_dl=train_dl,
+            val_dl=val_dl,
+            num_epochs=num_epochs,
+            optimizer=optimizer(experimenter.model.parameters(), **optimizer_params),
+            model_path=os.path.join(models_path, description, 'trained'),
+            class_metrics=class_metrics,
+            model_losses=self.loss
+        )
+        self.optimize(
+            experimenter=experimenter,
+            train_dl=train_dl,
+            val_dl=val_dl,
+            optimizer=optimizer,
+            optimizer_params=optimizer_params,
+            models_path=os.path.join(models_path, description),
+            summary_path=os.path.join(summary_path, description),
+            class_metrics=class_metrics
+        )
+
+    def optimize(
+            self,
+            experimenter,
+            train_dl: DataLoader,
+            val_dl: DataLoader,
+            optimizer: Type[torch.optim.Optimizer],
+            optimizer_params: Dict,
+            models_path: str,
+            summary_path: str,
+            class_metrics: bool,
+    ) -> None:
+        self.finetuning = True
         experimenter.save_model(
-            file_name='train',
-            dir_path=models_path,
+            file_path=os.path.join(models_path, 'trained'),
             state_dict=False
         )
         for e in self.energy_thresholds:
-            int_e = int(e * 100000)
+            str_e = f'e_{e}'
             experimenter.load_model(
-                file_name='train',
-                dir_path=models_path,
+                file_path=os.path.join(models_path, 'trained'),
                 state_dict=False
             )
-            for module in experimenter.model.modules():
-                if isinstance(module, DecomposedConv2d):
-                    energy_threshold_pruning(conv=module, energy_threshold=e)
+            prune_sdv_model(
+                model=experimenter.model,
+                pruning_fn=energy_threshold_pruning,
+                pruning_params={'energy_threshold': e}
+            )
 
+            experimenter.save_model(os.path.join(models_path, str_e))
             val_scores = experimenter.val_loop(
                 dataloader=val_dl,
                 class_metrics=class_metrics
             )
-            val_scores['size'] = experimenter.size_of_model()
-            val_scores['n_params'] = experimenter.number_of_model_params()
-            write_scores(p_writer, 'optimization', val_scores, int_e)
+            writer = SummaryWriter(os.path.join(summary_path, str_e))
+            experimenter.best_score = val_scores[experimenter.metric]
+            write_scores(writer, 'fine-tuning', val_scores, 0)
 
-            ft_name = f'fine-tuning_e_{e}'
-            best_score = val_scores[experimenter.metric]
-            writer = SummaryWriter(os.path.join(summary_path, description, ft_name))
             print(f"fine-tuning e={e}, using device: {experimenter.device}")
-            for epoch in range(1, self.finetuning_epochs + 1):
-                print(f"Fine-tuning epoch {epoch}")
-                train_scores = experimenter.train_loop(
-                    dataloader=train_dl,
-                    optimizer=optimizer,
-                    model_losses=losses
-                )
-                write_scores(writer, 'fine-tuning_train', train_scores, epoch)
-                val_scores = experimenter.val_loop(
-                    dataloader=val_dl,
-                    class_metrics=class_metrics
-                )
-                write_scores(writer, 'fine-tuning_val', val_scores, epoch)
-                if val_scores[experimenter.metric] > best_score:
-                    best_score = val_scores[experimenter.metric]
-                    experimenter.save_model(file_name=ft_name, dir_path=models_path)
-            experimenter.load_model(file_name=ft_name, dir_path=models_path)
-            writer.close()
+            experimenter.run_epochs(
+                writer=writer,
+                train_dl=train_dl,
+                val_dl=val_dl,
+                num_epochs=self.finetuning_epochs,
+                optimizer=optimizer(experimenter.model.parameters(), **optimizer_params),
+                model_path=os.path.join(models_path, str_e),
+                class_metrics=class_metrics,
+                model_losses=self.loss
+            )
 
-            val_scores = experimenter.val_loop(
-                dataloader=val_dl,
-                class_metrics=class_metrics
-            )
-            val_scores['size'] = experimenter.size_of_model()
-            val_scores['n_params'] = experimenter.number_of_model_params()
-            write_scores(ft_writer, 'optimization', val_scores, int_e)
-            experimenter.save_model(
-                file_name=ft_name,
-                dir_path=models_path,
-                state_dict=False
-            )
-        p_writer.close()
-        ft_writer.close()
+    def loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
+        losses = {'orthogonal_loss': self.orthogonal_loss(model)}
+        if not self.finetuning:
+            losses['hoer_loss'] = self.hoer_loss(model)
+        return losses
 
 
 class SFPOptimization(StructureOptimization):

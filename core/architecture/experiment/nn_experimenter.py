@@ -65,6 +65,24 @@ class ClassificationMetricCounter:
         return scores
 
 
+class LossesAverager:
+
+    def __init__(self) -> None:
+        self.losses = None
+        self.counter = 0
+
+    def update(self, losses: Dict[str, torch.Tensor]) -> None:
+        self.counter += 1
+        if self.losses is None:
+            self.losses = {k: v.item() for k, v in losses.items()}
+        else:
+            for key, value in losses.items():
+                self.losses[key] += value.item()
+
+    def compute(self):
+        return {k: v / self.counter for k, v in self.losses.items()}
+
+
 class NNExperimenter:
 
     def __init__(
@@ -72,9 +90,9 @@ class NNExperimenter:
             model: torch.nn.Module,
             metric: str,
             metric_counter,
-            name: Optional[str] = None,
-            weights: Optional[str] = None,
-            gpu: bool = True,
+            name: Optional[str],
+            weights: Optional[str],
+            gpu: bool,
     ):
         self.model = model
         if weights is not None:
@@ -82,6 +100,7 @@ class NNExperimenter:
         self.device = torch.device('cuda' if gpu else 'cpu')
         self.model.to(self.device)
         self.name = name if name is not None else type(model).__name__
+        self.best_score = 0
         self.metric = metric
         self.metric_counter = metric_counter
 
@@ -108,44 +127,80 @@ class NNExperimenter:
         val_dl = DataLoader(val_dataset, shuffle=False, **dataloader_params)
         description = f"{dataset_name}/{self.name}"
 
-        writer = SummaryWriter(os.path.join(summary_path, description, 'train'))
-        optimizer = optimizer(self.model.parameters(), **optimizer_params)
-        best_score = 0
-        print(f"{description}, using device: {self.device}")
+        if structure_optimization is None:
+            print(f"{description}, using device: {self.device}")
+            self.run_epochs(
+                writer=SummaryWriter(os.path.join(summary_path, description, 'train')),
+                train_dl=train_dl,
+                val_dl=val_dl,
+                num_epochs=num_epochs,
+                optimizer=optimizer(self.model.parameters(), **optimizer_params),
+                model_path=os.path.join(models_path, description, 'trained'),
+                class_metrics=class_metrics
+            )
+        else:
+            structure_optimization.fit(
+                experimenter=self,
+                description=description,
+                train_dl=train_dl,
+                val_dl=val_dl,
+                num_epochs=num_epochs,
+                optimizer=optimizer,
+                models_path=models_path,
+                summary_path=summary_path,
+                class_metrics=class_metrics,
+                optimizer_params=optimizer_params
+            )
+
+    def run_epochs(
+            self,
+            writer: SummaryWriter,
+            train_dl: DataLoader,
+            val_dl: DataLoader,
+            num_epochs: int,
+            optimizer: torch.optim.Optimizer,
+            model_path: str,
+            class_metrics: bool,
+            model_losses: Optional[Callable] = None
+    ) -> None:
+        """Run experiment.
+
+        Args:
+            num_epochs: Number of epochs.
+        """
         for epoch in range(1, num_epochs + 1):
             print(f"Epoch {epoch}")
             train_scores = self.train_loop(
                 dataloader=train_dl,
-                optimizer=optimizer
+                optimizer=optimizer,
+                model_losses=model_losses
             )
             write_scores(writer, 'train', train_scores, epoch)
-            val_scores = self.val_loop(
-                dataloader=val_dl,
-                class_metrics=class_metrics
-            )
+            val_scores = self.val_loop(dataloader=val_dl, class_metrics=class_metrics)
             write_scores(writer, 'val', val_scores, epoch)
-            if val_scores[self.metric] > best_score:
-                best_score = val_scores[self.metric]
-                print(f'Best {self.metric} score: {best_score}')
-                self.save_model(
-                    file_name='train',
-                    dir_path=os.path.join(models_path, description)
-                )
+            self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
+        self.load_model(model_path)
         writer.close()
+
+    def save_model_sd_if_best(self, val_scores: Dict, file_path):
+        if val_scores[self.metric] > self.best_score:
+            self.best_score = val_scores[self.metric]
+            print(f'Best {self.metric} score: {self.best_score}')
+            self.save_model(file_path=file_path)
+
     def save_model(
             self,
-            file_name: str,
-            dir_path: str = 'models',
+            file_path: str,
             state_dict: bool = True,
     ) -> None:
         """Save the model or its state dict.
 
         Args:
-            file_name: File name without extension.
-            dir_path: Path to the directory where the model will be saved.
+            file_path: Path to the file without extension.
             state_dict: If ``True`` save state_dict with extension ".sd.pt",
                 else save all model with extension ".model.pt".
         """
+        dir_path, file_name = os.path.split(file_path)
         os.makedirs(dir_path, exist_ok=True)
         file_name = f"{file_name}.{'sd' if state_dict else 'model'}.pt"
         file_path = os.path.join(dir_path, file_name)
@@ -159,20 +214,17 @@ class NNExperimenter:
 
     def load_model(
             self,
-            file_name: str,
-            dir_path: str = 'models',
+            file_path: str,
             state_dict: bool = True,
     ) -> None:
         """Load the model or its state dict.
 
         Args:
-            file_name: File name without extension.
-            dir_path: Path to the directory with the model.
+            file_path: Path to the file without extension.
             state_dict: If ``True`` load state_dict with extension ".sd.pt",
                 else load all model with extension ".model.pt".
         """
-        file_name = f"{file_name}.{'sd' if state_dict else 'model'}.pt"
-        file_path = os.path.join(dir_path, file_name)
+        file_path = f"{file_path}.{'sd' if state_dict else 'model'}.pt"
         data = torch.load(file_path)
         if state_dict:
             self.model.load_state_dict(data)
@@ -200,8 +252,8 @@ class NNExperimenter:
         """Have to implement the forward method of the model and return predictions."""
         pass
 
-    def forward_with_loss(self, x, y) -> torch.Tensor:
-        """Have to implement the train forward method and return loss."""
+    def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
+        """Have to implement the train forward method and return dictionary of losses."""
         pass
 
     def predict_on_sample(self, sample: torch.Tensor, proba: bool):
@@ -212,7 +264,7 @@ class NNExperimenter:
             self,
             dataloader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer,
-            model_losses: Dict[str, Callable] = {},
+            model_losses: Optional[Callable] = None,
     ) -> Dict[str, float]:
         """Training method of the model.
 
@@ -220,27 +272,19 @@ class NNExperimenter:
             Dictionary {metric_name: value}.
         """
         self.model.train()
-        train_scores = {'loss': 0}
-        train_scores.update({k: 0 for k in model_losses})
-
+        train_scores = LossesAverager()
         batches = tqdm(dataloader)
-        batch = 0
         for x, y in batches:
-            batch += 1
-            loss = self.forward_with_loss(x, y)
-            train_scores['loss'] += loss.item()
-            for key, loss_fn in model_losses.items():
-                opt_loss = loss_fn(self.model)
-                loss += opt_loss
-                train_scores[key] += opt_loss.item()
+            losses = self.forward_with_loss(x, y)
+            if model_losses is not None:
+                losses.update(model_losses(self.model))
+            train_scores.update(losses)
+            loss = sum(losses.values())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            batches.set_postfix({'loss': train_scores['loss'] / batch})
-
-        for key in train_scores:
-            train_scores[key] /= len(dataloader)
-        return train_scores
+            batches.set_postfix(train_scores.compute())
+        return train_scores.compute()
 
     def val_loop(
             self,
@@ -292,10 +336,11 @@ class ClassificationExperimenter(NNExperimenter):
         x = x.to(self.device)
         return self.model(x)
 
-    def forward_with_loss(self, x, y) -> torch.Tensor:
+    def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return loss."""
         y = y.to(self.device)
-        return self.loss(self.forward(x), y)
+        preds = self.forward(x)
+        return {'loss': self.loss(preds, y)}
 
     def predict_on_sample(self, sample: torch.Tensor, proba: bool) -> Union[List, int]:
         """Returns prediction for sample."""
@@ -344,13 +389,12 @@ class FasterRCNNExperimenter(NNExperimenter):
         images = list(image.to(self.device) for image in x)
         return self.model(images)
 
-    def forward_with_loss(self, x, y) -> torch.Tensor:
+    def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return loss."""
-        assert self.model.training
+        assert self.model.training, "model in eval mode"
         images = [image.to(self.device) for image in x]
         targets = [{k: v.to(self.device) for k, v in target.items()} for target in y]
-        loss_dict = self.model(images, targets)
-        return sum(loss_dict.values())
+        return self.model(images, targets)
 
     def predict_on_sample(self, sample: torch.Tensor, proba: bool) -> Dict:
         """Returns prediction for sample."""

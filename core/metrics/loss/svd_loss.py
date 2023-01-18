@@ -23,12 +23,10 @@ class OrthogonalLoss(SVDLoss):
     Args:
         factor: The hyperparameter by which the calculated loss function is multiplied
             (default: ``1``).
-        device: The torch.device object on which the model is training.
     """
 
-    def __init__(self, device: torch.device, factor: float = 1.) -> None:
+    def __init__(self, factor: float = 1.) -> None:
         super().__init__(factor=factor)
-        self.device = device
 
     def forward(self, model: Module) -> Tensor:
         """Calculates orthogonality loss.
@@ -43,13 +41,13 @@ class OrthogonalLoss(SVDLoss):
                 n += 1
                 U = parameter
                 r = U.size()[1]
-                E = torch.eye(r, device=self.device)
+                E = torch.eye(r, device=U.device)
                 loss += matrix_norm(U.transpose(0, 1) @ U - E) ** 2 / r
 
             elif name.split('.')[-1] == 'Vh':
                 Vh = parameter
                 r = Vh.size()[0]
-                E = torch.eye(r, device=self.device)
+                E = torch.eye(r, device=Vh.device)
                 loss += matrix_norm(Vh @ Vh.transpose(0, 1) - E) ** 2 / r
         return self.factor * loss / n
 
