@@ -2,6 +2,7 @@ from enum import Enum
 
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
 from core.ensemble.baseline.AggEnsembler import AggregationEnsemble
+# from core.ensemble.static.RankEnsembler import RankEnsemble
 from core.models.EnsembleRunner import EnsembleRunner
 from core.models.signal.RecurrenceRunner import RecurrenceRunner
 from core.models.signal.SignalRunner import SignalRunner
