@@ -24,10 +24,13 @@ class DataCacher:
         >>> data_cacher.load_data_from_cache(hashed_info)
     """
 
-    def __init__(self, data_type_prefix: str = 'Data', cache_folder: str = None):
+    def __init__(self, object_name: str = 'Object', data_type: str = 'Data', cache_folder: str = None):
         self.logger = Logger(self.__class__.__name__)
-        self.data_type = data_type_prefix
+        self.object_name = object_name
+        self.data_type = data_type
         self.cache_folder = cache_folder
+        self.msg_pattern = f'{data_type} of {object_name}'
+
         os.makedirs(cache_folder, exist_ok=True)
 
     def hash_info(self, **kwargs) -> str:
@@ -55,7 +58,7 @@ class DataCacher:
         file_path = os.path.join(self.cache_folder, hashed_info + '.pkl')
         data = pd.read_pickle(file_path)
         elapsed_time = round(timeit.default_timer() - start, 5)
-        self.logger.info(f'{self.data_type} of {type(data)} type is loaded from cache in {elapsed_time} sec')
+        self.logger.info(f'{self.msg_pattern}: loaded from cache in {elapsed_time} sec')
         return data
 
     def cache_data(self, hashed_info: str, data: pd.DataFrame):
@@ -70,7 +73,7 @@ class DataCacher:
 
         try:
             data.to_pickle(cache_file)
-            self.logger.info(f'{self.data_type} cached with {hashed_info} hash')
+            self.logger.info(f'{self.msg_pattern} cached with {hashed_info} hash')
 
         except Exception as ex:
             self.logger.error(f'Data was not cached due to error { ex }')
