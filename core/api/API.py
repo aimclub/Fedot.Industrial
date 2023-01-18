@@ -117,7 +117,6 @@ class Industrial(Fedot):
         metric = self.checker.check_metric_type(train_target)
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
-        self.logger.info(f'Fitting model...')
 
         fitted_model, train_features = self.model_composer.fit(raw_train_features=train_features,
                                                                train_target=train_target,
@@ -234,7 +233,7 @@ class Industrial(Fedot):
         for runner_name, runner in self.config_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
             for launch in range(1, n_cycles + 1):
-                self.logger.info(f'{dataset_name} – start of cycle {launch} for {runner_name} generator')
+                self.logger.info(f'Start of modelling cycle {launch} for {runner_name} generator')
                 try:
                     runner_result = {}
 
