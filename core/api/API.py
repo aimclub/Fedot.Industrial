@@ -21,7 +21,7 @@ class Industrial(Fedot):
     def __init__(self):
         super(Fedot, self).__init__()
         self.config_dict = None
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logger(self.__class__.__name__)
         self.fitted_model = None
         self.labels, self.prediction_proba = None, None
         self.test_features, self.train_features = None, None
@@ -108,16 +108,15 @@ class Industrial(Fedot):
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
 
-
         fitted_model, train_features = self.model_composer.fit(train_features=train_features,
                                                                train_target=train_target,
-                                                               # dataset_name=dataset_name,
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
     def run_experiment(self, config: Union[str, dict],
                        direct_path: bool = False,
-                       save_flag: bool = True):
+                       save_flag: bool = True,
+                       output_folder: str = None):
         """Run experiment with corresponding config_name.
 
         Args:
@@ -125,6 +124,8 @@ class Industrial(Fedot):
             direct_path: if True, then config_path is an absolute path to the config file. Otherwise, Industrial will
                          search for the config file in the config folders.
             save_flag: if True save results of experiment.
+            output_folder: You are able to define a path to a folder where you would like to store results. Default
+                            value ``None`` indicates that results will be stored in the framework root directory.
 
         """
         self.logger.info(f'Start experiment'.center(50, '-'))
@@ -142,7 +143,8 @@ class Industrial(Fedot):
             result = self._run_modelling_cycle(experiment_dict=experiment_dict,
                                                task_type=self.config_dict['task'],
                                                n_cycles=n_cycles,
-                                               dataset_name=dataset_name)
+                                               dataset_name=dataset_name,
+                                               output_folder=output_folder)
             experiment_results[dataset_name]['Original'] = result
 
             if self.config_dict['error_correction']:
@@ -166,7 +168,7 @@ class Industrial(Fedot):
                              task_type: str,
                              n_cycles: int,
                              dataset_name: str,
-                             ):
+                             output_folder: str) -> dict:
         """Run modelling cycle with corresponding config_name.
 
         Args:
@@ -198,7 +200,10 @@ class Industrial(Fedot):
                 self.logger.info(f'Start of modelling cycle {launch} for {runner_name} generator')
                 try:
                     runner_result = {}
-                    paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+                    if output_folder:
+                        paths_to_save = os.path.join(output_folder, runner_name, dataset_name, str(launch))
+                    else:
+                        paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
                     fitted_predictor, train_features = self._obtain_model(model_name=runner_name,
                                                                           task_type=task_type,
