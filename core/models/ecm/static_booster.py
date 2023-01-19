@@ -4,7 +4,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score
-from core.architecture.abstraction.LoggerSingleton import Logger
+from fedot.core.log import default_log as Logger
 from fedot.core.pipelines.node import PrimaryNode
 from fedot.core.data.data import InputData
 from fedot.core.repository.tasks import Task, TaskTypesEnum
@@ -25,7 +25,7 @@ class StaticBooster:
         self.booster_features = {}
         self.check_table = pd.DataFrame()
 
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
 
     def run_boosting(self):
         self.logger.info('Started boosting')
