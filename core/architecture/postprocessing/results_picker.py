@@ -27,16 +27,6 @@ class ResultsPicker:
     def __init__(self, path: str = None, launch_type: Union[str, int] = 'max'):
         self.exp_path = self.__get_results_path(path)
         self.launch_type = launch_type
-        self._metrics = ('f1', 'roc_auc')
-        self.exp_folders = ['window_spectral',
-                            'topological',
-                            'recurrence',
-                            'ensemble',
-                            'quantile',
-                            'spectral',
-                            'wavelet',
-                            'window_quantile']
-        self.ds_info_path = os.path.join(PROJECT_PATH, 'core/operation/utils/ds_info.csv')
 
     def __get_results_path(self, path):
         if path:
@@ -44,7 +34,7 @@ class ResultsPicker:
         else:
             return os.path.join(PROJECT_PATH, 'results_of_experiments')
 
-    def run(self, get_metrics_df: bool = False):
+    def run(self, get_metrics_df: bool = False, add_info: bool = False):
         """
         Base method for parsing results of experiments.
 
@@ -56,6 +46,10 @@ class ResultsPicker:
         proba_dict, metric_dict = self.get_metrics_and_proba()
 
         if get_metrics_df:
+            if add_info:
+                metrics_df = self._create_metrics_df(metric_dict)
+                datasets_info = self.get_datasets_info()
+                return pd.merge(metrics_df, datasets_info, how='left', on='dataset')
             return self._create_metrics_df(metric_dict)
 
         return proba_dict, metric_dict
@@ -158,10 +152,22 @@ class ResultsPicker:
                 launch = _dir
         return launch
 
+    def get_datasets_info(self):
+        # json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json'
+        json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json?order=asc'
+
+
+        table = pd.read_json(json_url)
+        table = table.drop([col for col in table.columns if len(col) == 1], axis=1)
+        table = table.drop('Dataset_id', axis=1)
+        table.columns = list(map(str.lower, table.columns))
+        return table
+
 
 # Example of usage:
 if __name__ == '__main__':
-
     parser = ResultsPicker()
-    results_table = parser.run(get_metrics_df=True)
+    df = parser.get_datasets_info()
+    results_table = parser.run(get_metrics_df=True, add_info=True)
+
     results_table.to_csv('results_4.csv', index=False)
