@@ -3,8 +3,7 @@ import timeit
 
 import numpy as np
 import pandas as pd
-
-from core.architecture.abstraction.LoggerSingleton import Logger
+from fedot.core.log import default_log as Logger
 
 
 def exception_decorator(exception_return='Problem'):
@@ -49,11 +48,11 @@ def type_check_decorator(object_type: type, types_list: tuple):
 
 def time_it(func):
     def wrapper(*args, **kwargs):
-        logger = Logger().get_logger()
+        logger = Logger('time_it')
         start = timeit.default_timer()
         result = func(*args, **kwargs)
         end = timeit.default_timer()
-        logger.info(f'Time spent on feature generation - {round((end - start), 2)} sec')
+        logger.info(f'Time spent - {round((end - start), 2)} sec')
         return result
 
     return wrapper

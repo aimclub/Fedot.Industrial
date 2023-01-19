@@ -1,10 +1,9 @@
+import numpy as np
 import pandas as pd
 
-import numpy as np
-
+from core.architecture.abstraction.Decorators import time_it
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
 
 
 class StatsRunner(ExperimentRunner):

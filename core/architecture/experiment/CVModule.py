@@ -1,13 +1,13 @@
 import os
 import shutil
 import time
-from typing import Dict, Type, Set, Union, List, Optional
+from typing import Dict, List, Optional, Set, Type, Union
 
 import numpy as np
 import torch
 from PIL import Image
 from sklearn.metrics import accuracy_score, roc_auc_score
-from sklearn.metrics import precision_recall_fscore_support, f1_score
+from sklearn.metrics import f1_score, precision_recall_fscore_support
 from torch.nn.functional import softmax
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, Dataset

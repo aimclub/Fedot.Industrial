@@ -5,7 +5,6 @@ from core.api.utils.checkers_collections import *
 from core.api.utils.method_collections import *
 from core.api.utils.reader_collections import *
 from core.api.utils.saver_collections import ResultSaver
-from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.utils import path_to_save_results
 
@@ -22,7 +21,7 @@ class Industrial(Fedot):
     def __init__(self):
         super(Fedot, self).__init__()
         self.config_dict = None
-        self.logger = Logger.__call__().get_logger()
+        self.logger = Logger(self.__class__.__name__)
         self.fitted_model = None
         self.labels, self.prediction_proba = None, None
         self.test_features, self.train_features = None, None
@@ -89,50 +88,53 @@ class Industrial(Fedot):
                       feature_generator_params: dict = None,
                       model_params: dict = None,
                       dataset_name: str = None,
-                      ecm_mode: bool = False):
+                      ecm_mode: bool = False,
+                      use_cache: bool = False,):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
         except Exception:
             generator_params = feature_generator_params
 
-        generator = self.feature_generator_dict[model_name](**generator_params)
+        generator = self.feature_generator_dict[model_name](**generator_params,
+                                                            use_cache=use_cache)
 
         self.model_composer = self.task_pipeline_dict[task_type](generator_name=model_name,
                                                                  generator_runner=generator,
                                                                  model_hyperparams=model_params,
-                                                                 ecm_model_flag=ecm_mode)
+                                                                 ecm_model_flag=ecm_mode,
+                                                                 dataset_name=dataset_name,)
 
         metric = self.checker.check_metric_type(train_target)
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
-        self.logger.info(f'Fitting model...')
+
 
         fitted_model, train_features = self.model_composer.fit(train_features=train_features,
                                                                train_target=train_target,
-                                                               dataset_name=dataset_name,
+                                                               # dataset_name=dataset_name,
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
-    def run_experiment(self,
-                       config: Union[str, dict],
+    def run_experiment(self, config: Union[str, dict],
                        direct_path: bool = False,
-                       save_flag:bool = True):
+                       save_flag: bool = True):
         """Run experiment with corresponding config_name.
 
         Args:
             config: path to config file or dictionary with parameters.
             direct_path: if True, then config_path is an absolute path to the config file. Otherwise, Industrial will
-            search for the config file in the config folders.
-            :param save_flag: if True save results of experiment
+                         search for the config file in the config folders.
+            save_flag: if True save results of experiment.
 
         """
-        self.logger.info(f'START EXPERIMENT'.center(50, '-'))
+        self.logger.info(f'Start experiment'.center(50, '-'))
         experiment_results = {}
 
         self.config_dict = self.YAML.init_experiment_setup(config,
                                                            direct_path=direct_path)
 
         for dataset_name in self.config_dict['datasets_list']:
+
             experiment_results[dataset_name] = {}
             experiment_dict = copy.deepcopy(self.config_dict)
             n_cycles = experiment_dict['launches']
@@ -159,25 +161,41 @@ class Industrial(Fedot):
         self.logger.info('END OF EXPERIMENT'.center(50, '-'))
         return experiment_results
 
-
     def _run_modelling_cycle(self,
                              experiment_dict: dict,
                              task_type: str,
                              n_cycles: int,
                              dataset_name: str,
                              ):
-        self.logger.info(f'TYPE OF ML TASK - {task_type}'.center(50, '-'))
+        """Run modelling cycle with corresponding config_name.
+
+        Args:
+            experiment_dict: dictionary with parameters.
+            task_type: type of task.
+            n_cycles: number of cycles.
+            dataset_name: name of dataset.
+
+        Returns:
+            dict with results of modelling cycle.
+
+        """
+        self.logger.info(f'Start working on {dataset_name} dataset')
         modelling_results = dict()
         train_data, test_data, n_classes = self.reader.read(dataset_name=dataset_name)
+
+        self.config_dict = self.checker.check_window_sizes(config_dict=experiment_dict,
+                                                           dataset_name=dataset_name,
+                                                           train_data=train_data)
 
         if train_data is None:
             return None
 
-        experiment_dict = self.exclude_generators(experiment_dict, train_data[0])
+        self.config_dict = self.exclude_generators(experiment_dict, train_data[0])
 
-        for runner_name, runner in experiment_dict['feature_generator'].items():
+        for runner_name, runner in self.config_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
             for launch in range(1, n_cycles + 1):
+                self.logger.info(f'Start of modelling cycle {launch} for {runner_name} generator')
                 try:
                     runner_result = {}
                     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
@@ -187,11 +205,12 @@ class Industrial(Fedot):
                                                                           train_features=train_data[0],
                                                                           dataset_name=dataset_name,
                                                                           train_target=train_data[1],
-                                                                          model_params=experiment_dict['fedot_params'],
-                                                                          ecm_mode=experiment_dict['error_correction'])
+                                                                          model_params=self.config_dict['fedot_params'],
+                                                                          ecm_mode=self.config_dict['error_correction'],
+                                                                          use_cache=self.config_dict['use_cache'])
 
-                    runner_result['fitted_predictor'], runner_result[
-                        'train_features'] = fitted_predictor, train_features
+                    runner_result['fitted_predictor'] = fitted_predictor
+                    runner_result['train_features'] = train_features
                     runner_result['test_target'] = test_data[1]
                     runner_result['path_to_save'] = paths_to_save
                     runner_result['train_target'] = train_data[1]
@@ -239,7 +258,7 @@ class Industrial(Fedot):
                 if exclude in experiment_dict['feature_generator']:
                     experiment_dict['feature_generator'].remove(exclude)
                     experiment_dict['feature_generator_params'].pop(exclude, None)
-            self.logger.info(f'Time series length is too long ({ts_length}>800), exclude {exclusion_list} generators')
+            self.logger.info(f'Time series length is too long ({ts_length}>800): exclude {exclusion_list} generators')
 
         return experiment_dict
 

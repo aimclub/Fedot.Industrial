@@ -2,28 +2,32 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-
-from core.architecture.abstraction.LoggerSingleton import Logger
+from fedot.core.log import default_log as Logger
 
 
 class ParameterCheck:
     def __init__(self):
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
 
     def check_window_sizes(self, config_dict: dict,
                            dataset_name: str,
                            train_data: Union[pd.DataFrame, np.ndarray]):
 
-        for key in config_dict['feature_generator_params'].keys():
-            if key.startswith('spectral') or 'spectral' in key:
-                self.logger.info(f'CHECK WINDOW SIZES FOR DATASET-{dataset_name} AND {key} method')
-                if dataset_name not in config_dict['feature_generator_params'][key].keys():
+        for generator in config_dict['feature_generator']:
+            if generator in ['spectral', 'window_spectral']:
+                self.logger.info(f'Check window sizes for {generator} generator and {dataset_name} dataset')
+                if dataset_name not in config_dict['feature_generator_params'][generator]['window_sizes'].keys():
+
                     ts_length = train_data[0].shape[1]
-                    list_of_WS = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
-                    config_dict['feature_generator_params'][key]['window_sizes'][dataset_name] = list_of_WS
-                    self.logger.info(f'THERE ARE NO PREDEFINED WINDOWS. '
-                                     f'DEFAULTS WINDOWS SIZES WAS SET - {list_of_WS}. '
-                                     f'THATS EQUAL 10/20/30% OF TS LENGTH')
+                    window_sizes_list = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
+                    config_dict['feature_generator_params'][generator]['window_sizes'][dataset_name] = window_sizes_list
+                    self.logger.info(f'Window sizes for {dataset_name} are not specified. '
+                                     f'Auto-selected: {window_sizes_list}')
+                else:
+                    self.logger.info(f'Window sizes for dataset {dataset_name} are predefined')
+            else:
+                continue
+
         return config_dict
 
     def check_metric_type(self, target):
@@ -44,10 +48,17 @@ class ParameterCheck:
             baseline_type = None
         return baseline_type
 
+    def get_ds_and_generator_combinations(self, datasets, generators):
+        combinations = []
+        for dataset in datasets:
+            for generator in generators:
+                combinations.append((dataset, generator))
+        return combinations
+
 
 class DataCheck:
-    def __init__(self, logger: Logger):
-        self.logger = logger
+    def __init__(self):
+        self.logger = Logger(self.__class__.__name__)
 
     @staticmethod
     def _replace_inf_with_nans(input_data: np.ndarray):
@@ -60,12 +71,15 @@ class DataCheck:
         return input_data
 
     def _check_for_nan(self, input_data: np.ndarray) -> np.ndarray:
-        """
-        Method responsible for checking if there are any NaN values in the time series dataframe
+        """Method responsible for checking if there are any NaN values in the time series dataframe
         and replacing them with 0
 
-        :param input_data: data with NaN values
-        :return:data without NaN values
+        Args:
+            input_data: time series dataframe with NaN values
+
+        Returns:
+            input_data: time series dataframe without NaN values
+
         """
         if np.any(np.isnan(input_data)):
             input_data = np.nan_to_num(input_data, nan=0)
