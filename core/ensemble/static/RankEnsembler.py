@@ -1,6 +1,6 @@
 from core.ensemble.BaseEnsembler import BaseEnsemble
 from core.api.API import Industrial
-from core.architecture.abstraction.LoggerSingleton import Logger
+from fedot.core.log import default_log as Logger
 
 
 class RankEnsemble(BaseEnsemble):
@@ -28,7 +28,7 @@ class RankEnsemble(BaseEnsemble):
         self.metric_dict = metric_dict
         self.experiment_results = {}
         self.IndustrialModel = Industrial()
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
         self.best_ensemble_metric = 0
 
     def _create_models_rank_dict(self):

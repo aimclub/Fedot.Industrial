@@ -4,11 +4,11 @@ from typing import Union
 
 import numpy as np
 import yaml
+from fedot.core.log import default_log as Logger
 
 from core.api.utils.checkers_collections import ParameterCheck
 from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.utils.utils import PROJECT_PATH
-from core.architecture.abstraction.LoggerSingleton import Logger
 
 
 class YamlReader:
@@ -28,7 +28,7 @@ class YamlReader:
 
         self.config_dict = None
         self.feature_generator = feature_generator
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
         self.experiment_check = ParameterCheck()
         self.use_cache = None
 
@@ -36,10 +36,13 @@ class YamlReader:
                          config_path: str,
                          direct_path: bool = False,
                          return_dict: bool = False) -> None:
-        """Read yaml config from './cases/config/config_name' directory as dictionary file.
+        """Read yaml config from directory as dictionary file.
 
-        Args: direct_path: flag that indicates whether to use direct path to config file or read it from framework
-        directory. config_path: name of the config file.
+        Args:
+            config_path: path to the config file.
+            direct_path: flag that indicates whether to use direct path to config file or read it from framework
+            directory. config_path: name of the config file.
+            return_dict: flag that indicates whether to return the dictionary with the parameters of the experiment.
 
         Returns:
             None
@@ -63,24 +66,32 @@ class YamlReader:
             if 'baseline' not in self.config_dict.keys():
                 self.config_dict['baseline'] = None
 
-            self.logger.info(f'''Experiment setup:
-            datasets - {self.config_dict['datasets_list']},
-            feature generators - {self.config_dict['feature_generator']},
-            use_cache - {self.config_dict['use_cache']},
-            error_correction - {self.config_dict['error_correction']}''')
         if return_dict:
             return self.config_dict
 
     def init_experiment_setup(self, config: Union[str, dict],
                               direct_path: bool = False) -> dict:
+        """Initializes the experiment setup with provided config file or dictionary.
 
-        if not isinstance(config, str):
+        Args:
+            config: dictionary with the parameters of the experiment OR path to the config file.
+            direct_path: flag that indicates whether to use direct path to config file or read it from framework
+            directory.
+
+        Returns:
+            Dictionary with the parameters of the experiment.
+
+        """
+
+        if isinstance(config, dict):
             base_config_path = 'cases/config/Config_Classification.yaml'
             self.read_yaml_config(config_path=base_config_path)
-            fedot_timeout = config['timeout']
-            industrial_config = {k: v for k, v in config.items() if k not in ['timeout']}
+
+            industrial_config = {k: v for k, v in config.items() if k not in ['timeout', 'n_jobs']}
+
             self.config_dict.update(**industrial_config)
-            self.config_dict['fedot_params']['timeout'] = fedot_timeout
+            self.config_dict['fedot_params']['timeout'] = config['timeout']
+            self.config_dict['fedot_params']['n_jobs'] = config['n_jobs']
 
         elif isinstance(config, str):
             self.read_yaml_config(config_path=config,
@@ -89,11 +100,6 @@ class YamlReader:
             self.logger.error('Wrong type of config file')
             raise ValueError('Config must be a string or a dictionary!')
 
-        for dataset_name in self.config_dict['datasets_list']:
-            train_data, _ = DataLoader(dataset_name).load_data()
-            self.experiment_check.check_window_sizes(config_dict=self.config_dict,
-                                                     dataset_name=dataset_name,
-                                                     train_data=train_data)
         experiment_dict = copy.deepcopy(self.config_dict)
         self.use_cache = experiment_dict['use_cache']
 
@@ -104,20 +110,22 @@ class YamlReader:
             if generator.startswith('ensemble'):
                 generators = generator.split(': ')[1].split(' ')
                 for gen_name in generators:
-                    feature_gen_class = self.get_generator_class(experiment_dict, gen_name)
+                    feature_gen_class = self._get_generator_class(experiment_dict, gen_name)
                     experiment_dict['feature_generator_params']['ensemble']['list_of_generators'].update(
                         feature_gen_class)
 
-                ensemble_class = self.get_generator_class(experiment_dict, 'ensemble')
+                ensemble_class = self._get_generator_class(experiment_dict, 'ensemble')
                 experiment_dict['feature_generator'].update(ensemble_class)
             else:
-                feature_gen_class = self.get_generator_class(experiment_dict, generator)
+                feature_gen_class = self._get_generator_class(experiment_dict, generator)
                 experiment_dict['feature_generator'].update(feature_gen_class)
+
+        self.__report_experiment_setup(experiment_dict)
 
         return experiment_dict
 
-    def get_generator_class(self, experiment_dict: dict, gen_name: str) -> dict:
-        """Combines the name of the generator with the parameters from the config file.
+    def _get_generator_class(self, experiment_dict: dict, gen_name: str) -> dict:
+        """Support method that combines the name of the generator with the parameters from the config file.
 
         Args:
             experiment_dict: dictionary with the parameters of the experiment.
@@ -132,27 +140,36 @@ class YamlReader:
         feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
         return feature_gen_class
 
+    def __report_experiment_setup(self, experiment_dict):
+
+        self.logger.info(f'''Experiment setup:
+        datasets - {experiment_dict['datasets_list']},
+        feature generators - {list(experiment_dict['feature_generator'])},
+        use_cache - {experiment_dict['use_cache']},
+        error_correction - {experiment_dict['error_correction']},
+        n_jobs - {experiment_dict['fedot_params']['n_jobs']}''')
+
 
 class DataReader:
     """
-    Class for reading train and test data from the dataset.
+    Class for reading train and test data from the dataset. Exploits ``DataLoader`` class to read or download data
+    from the UCR time series archive.
+
     """
 
     def __init__(self):
 
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
 
     def read(self, dataset_name: str):
 
-        self.logger.info(f'START WORKING on {dataset_name} dataset')
         # load data
         train_data, test_data = DataLoader(dataset_name).load_data()
-        self.logger.info(f'Loaded data from {dataset_name} dataset')
         if train_data is None:
             self.logger.error(f'Some problem with {dataset_name} data. Skip it')
             return None, None, None
         else:
             n_classes = len(np.unique(train_data[1]))
-
+            self.logger.info(f'Loaded data from {dataset_name} local data folder')
             self.logger.info(f'{n_classes} classes detected')
             return train_data, test_data, n_classes

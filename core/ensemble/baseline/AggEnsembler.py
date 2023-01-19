@@ -23,62 +23,51 @@ class AggregationEnsemble(BaseEnsemble):
 
         self.strategy_exclude_list = ['WeightedEnsemble']
 
-    def majority_voting(self, classifier_votes):
+    def majority_voting(self, classifier_votes) -> np.ndarray:
         """Apply the majority voting rule to predict the label of each sample in X.
 
-        Parameters
-        ----------
-        classifier_votes: array of shape (n_samples, n_classifiers),
-            The votes obtained by each classifier for each sample.
+        Args:
+            classifier_votes: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
 
-        Returns
-        -------
-        predicted_label : array of shape (n_samples)
-            The label of each query sample predicted using the majority voting rule
+        Returns:
+            predicted_label: array of shape (n_samples). The label of each query sample predicted using the
+
         """
 
         return self.majority_voting_rule(classifier_votes)
 
-    def weighted_majority_voting(self, model_votes, model_weights):
+    def weighted_majority_voting(self, model_votes, model_weights) -> np.ndarray:
         """Apply the weighted majority voting rule to predict the label of each
         sample in X. The size of the weights vector should be equal to the size of
         the ensemble.
 
-        Parameters
-        ----------
-        model_votes: array of shape (n_samples, n_classifiers),
-            The votes obtained by each classifier for each sample.
+        Args:
+            model_votes: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
 
-        model_weights : array of shape (n_samples, n_classifiers)
-                  Weights associated to each base classifier for each sample
+            model_weights: array of shape (n_classifiers). The weights associated to each classifier.
 
+        Returns:
+            predicted_label: array of shape (n_samples). The label of each query sample predicted using the
 
-        X : array of shape (n_samples, n_features)
-            The input data.
-
-        Returns
-        -------
-        predicted_label : array of shape (n_samples)
-            The label of each query sample predicted using the majority voting rule
         """
 
         predicted_label = self.weighted_majority_voting_rule(model_votes, model_weights)
         return predicted_label
 
-    def majority_voting_rule(self, votes):
+    def majority_voting_rule(self, votes) -> np.ndarray:
         """Applies the majority voting rule to the estimated votes.
 
-        Parameters
-        ----------
-        votes : array of shape (n_samples, n_classifiers),
-            The votes obtained by each classifier for each sample.
+        Args:
+            votes: array of shape (n_samples, n_classifiers). The votes obtained by each classifier for each sample.
 
-        Returns
-        -------
-        predicted_label : array of shape (n_samples)
-            The label of each query sample predicted using the majority voting rule
+        Returns:
+            predicted_label: array of shape (n_samples). The label of each query sample predicted
+            using the majority voting rule.
+
         """
-        # Omitting nan value in the predictions as they comes from removed
+        # Omitting nan value in the predictions as they come from removed
         # classifiers
         return mode(votes, axis=1)[0][:, 0]
 
@@ -87,20 +76,15 @@ class AggregationEnsemble(BaseEnsemble):
         each base classifier and their
         respective weights.
 
-        Parameters
-        ----------
-        votes : array of shape (n_samples, n_classifiers),
-            The votes obtained by each classifier for each sample.
+        Args:
+            votes: array of shape (n_samples, n_classifiers). The votes obtained by each classifier for each sample.
+            weights: array of shape (n_classifiers). The weights associated to each classifier.
+            labels_set: array of shape (n_classes). The set of labels that can be predicted by the ensemble.
 
-        weights : array of shape (n_samples, n_classifiers)
-            Weights associated to each base classifier for each sample
 
-        labels_set : (Default=None) set with the possible classes in the problem.
+        Returns:
+            predicted_label: array of shape (n_samples). The label of each query sample predicted using the
 
-        Returns
-        -------
-        predicted_label : array of shape (n_samples)
-            The label of each query sample predicted using the majority voting rule
         """
         w_votes, labels_set = self.get_weighted_votes(votes, weights, labels_set)
         predicted_label = labels_set[np.argmax(w_votes, axis=1)]
@@ -128,19 +112,14 @@ class AggregationEnsemble(BaseEnsemble):
     def sum_votes_per_class(self, predictions, n_classes):
         """Sum the number of votes for each class. Accepts masked arrays as input.
 
-        Parameters
-        ----------
-        predictions : array of shape (n_samples, n_classifiers),
-            The votes obtained by each classifier for each sample. Can be a masked
-            array.
+        Args:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier for each sample.
+            n_classes: int. The number of classes in the dataset.
 
-        n_classes : int
-            Number of classes.
+        Returns:
+            votes_per_class: array of shape (n_samples, n_classes). The number of votes for each class.
+            for each class
 
-        Returns
-        -------
-        summed_votes : array of shape (n_samples, n_classes)
-            Summation of votes for each class
         """
         votes = np.zeros((predictions.shape[0], n_classes), dtype=np.int)
         for label in range(n_classes):
@@ -172,7 +151,7 @@ class AggregationEnsemble(BaseEnsemble):
         ensemble_predict = self.weighted_majority_voting(model_votes, model_weights)
         return ensemble_predict
 
-    def ensemble(self, modelling_results: dict, single_mode: bool = False) -> dict:
+    def ensemble(self, modelling_results: dict = None, single_mode: bool = False) -> dict:
         ensemble_dict = {}
         if single_mode:
             for strategy in self.ensemble_strategy:
@@ -206,8 +185,19 @@ class AggregationEnsemble(BaseEnsemble):
 
     def _check_predictions(self, predictions, strategy_name):
         """Check if the predictions array has the correct size.
-        Raises a value error if the array do not contain exactly 3 dimensions:
-        [n_samples, n_classifiers, n_classes]
+
+        Args:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
+            strategy_name: str. The name of the strategy used to ensemble the predictions.
+
+        Returns:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
+
+        Raises:
+            ValueError: if the array do not contain exactly 3 dimensions: [n_samples, n_classifiers, n_classes]
+            
         """
         if strategy_name in self.strategy_exclude_list:
             return predictions
