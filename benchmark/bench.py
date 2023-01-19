@@ -1,4 +1,5 @@
 import os
+import random
 from abc import ABC
 
 import pandas as pd
@@ -11,21 +12,30 @@ from core.ensemble.static.RankEnsembler import RankEnsemble
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
-    def __init__(self):
+    def __init__(self, number_of_datasets: int = 5, random_selection: bool = False):
         super(BenchmarkTSC, self).__init__(name=self.__class__.__name__,
                                            description="Benchmark for time series classification",
-                                           output_dir='./tsc/benchmark_results')
+                                           output_dir='./tsc/benchmark_results',
+                                           random_selection=random_selection,
+                                           number_of_datasets=number_of_datasets)
         self.logger = logger(self.__class__.__name__)
         self._version = '0.0.1'
         self._create_output_dir()
         self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
+        self.number_of_datasets = number_of_datasets
+        self.random_selection = random_selection
 
     @property
     def version(self):
         return self._version
 
+    def _get_dataset_list(self, n_samples: int = 5):
+        all_datasets = self.results_picker.get_datasets_info()
+        return self.stratified_ds_selection(all_datasets, n_samples)
+
     @property
-    def _config(self):
+    def _config(self, n_samples: int = 5): #TODO: проверить сетап эксперимента, потому что печатает не все датасеты
+        dataset_list = self._get_dataset_list(n_samples=5)
         config = {'feature_generator': [
             # 'window_quantile',
             'recurrence',
@@ -36,7 +46,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             # 'topological'
         ],
 
-            'datasets_list': ['UMD'],
+            'datasets_list': dataset_list,
             'use_cache': True,
             'error_correction': False,
             'launches': 1,
@@ -55,7 +65,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                                     output_folder=self.output_dir)
         proba_dict, metric_dict = self.results_picker.get_metrics_and_proba()
         rank_ensemble_results = self.apply_rank_ensemble(proba_dict=proba_dict,
-                                                        metric_dict=metric_dict)
+                                                         metric_dict=metric_dict)
 
         basic_report = self.load_basic_results()
         rank_ensemble_report = self.create_report(experiment_results=rank_ensemble_results)
@@ -67,7 +77,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         pass
 
     def load_basic_results(self):
-        return self.results_picker.run(get_metrics_df=True)
+        return self.results_picker.run(get_metrics_df=True, add_info=True)
 
     def create_report(self, experiment_results: dict, save_locally: bool = False):
         experiment_df = pd.DataFrame.from_dict(experiment_results, orient='index')
@@ -90,8 +100,32 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             exp_results.update({dataset: rank_ensemble.ensemble()})
         return exp_results
 
+    def analysis(self):
+        # results_table.groupby(['experiment'])['type'].agg(pd.Series.mode) select the most frequent type for generators
+        pass
+
+    def stratified_ds_selection(self, df, n_samples=5):
+        # TODO: сделать чтонибудь со стабильностью загрузки json. Может просто скачать
+        univariate_tss = df[df['multivariate_flag'] == 0]
+        filtered_types = univariate_tss.groupby('type')['type'].count() >= n_samples
+        filtered_types = filtered_types[filtered_types].index.tolist()
+
+        univariate_tss = univariate_tss[univariate_tss['type'].isin(filtered_types)]
+
+        if self.random_selection:
+            rst = random.randint(0, len(univariate_tss) - 1)
+        else:
+            rst = 42
+
+        univariate_tss = univariate_tss.groupby('type', group_keys=False).apply(lambda x: x.sample(n_samples,
+                                                                                                   random_state=rst))
+
+        return univariate_tss['dataset'].tolist()
+
 
 if __name__ == "__main__":
-    benchmark = BenchmarkTSC()
+    benchmark = BenchmarkTSC(number_of_datasets=1, random_selection=False)
+    benchmark.run()
+
     # benchmark.run()
     res = benchmark.load_ensemble_results(model_list=['quantile', 'recurrence', 'wavelet'], launch_type='max')
