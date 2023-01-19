@@ -1,8 +1,7 @@
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
-
 from scipy.signal import argrelextrema, find_peaks
 
 

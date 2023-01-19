@@ -1,8 +1,8 @@
 from typing import Dict, List
 
+from fedot.core.log import default_log as Logger
 from sklearn import preprocessing
 
-from core.architecture.abstraction.LoggerSingleton import Logger
 from core.metrics.metrics_implementation import *
 
 
@@ -11,7 +11,7 @@ class PerformanceAnalyzer:
 
     """
     metric_list = ['roc_auc', 'f1', 'precision', 'accuracy', 'logloss']
-    logger = Logger().get_logger()
+    logger = Logger('PerformanceAnalyzer')
 
     @staticmethod
     def problem_and_metric_for_dataset(task_type: str) -> Union[List, None]:

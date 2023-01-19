@@ -3,11 +3,11 @@ from multiprocessing import Pool
 
 from tqdm import tqdm
 
+from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
-from core.operation.transformation.extraction.wavelet import WaveletExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
+from core.operation.transformation.extraction.wavelet import WaveletExtractor
 
 
 class SignalRunner(ExperimentRunner):
@@ -43,7 +43,7 @@ class SignalRunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
         self.dict_of_methods = {'Peaks': self._method_of_peaks,
-                                'AC': self._method_of_AC}
+                                'AC': self._method_of_ac}
 
     def _method_of_peaks(self, specter):
         threshold_range = [1, 3, 5, 7, 9]
@@ -80,13 +80,13 @@ class SignalRunner(ExperimentRunner):
         feature_df.columns = features_names
         return feature_df
 
-    def _method_of_AC(self, specter, level: int = 3):
+    def _method_of_ac(self, specter, level: int = 3):
         high_freq, low_freq = specter.decompose_signal()
-        hf_AC_features = specter.generate_features_from_AC(HF=high_freq,
+        hf_ac_features = specter.generate_features_from_AC(HF=high_freq,
                                                            LF=low_freq,
                                                            level=level)
 
-        feature_df = pd.concat(hf_AC_features, axis=1)
+        feature_df = pd.concat(hf_ac_features, axis=1)
         return feature_df
 
     def _ts_chunk_function(self, ts,

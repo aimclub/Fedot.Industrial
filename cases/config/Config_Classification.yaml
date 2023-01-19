@@ -12,6 +12,7 @@ feature_generator: [
 error_correction: False
 n_ecm_cycles: 3
 use_cache: False
+ensemble_algorithm: False
 
 datasets_list: [
   'Lightning7',
@@ -36,6 +37,9 @@ feature_generator_params: {
       'window_mode': True,
     },
 
+  'topological':
+      { },
+
   'quantile':
     {
       'window_mode': False,
@@ -46,7 +50,7 @@ feature_generator_params: {
       'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
     },
 
-  'spectral_window':
+  'window_spectral':
     {
       'window_sizes': {
         'ItalyPowerDemand': [ 3, 6, 9 ],

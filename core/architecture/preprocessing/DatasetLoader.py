@@ -5,9 +5,9 @@ import zipfile
 
 import numpy as np
 import pandas as pd
+from fedot.core.log import default_log as Logger
 from scipy.io.arff import loadarff
 
-from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import PROJECT_PATH
 
 
@@ -24,7 +24,7 @@ class DataLoader:
     """
 
     def __init__(self, dataset_name: str):
-        self.logger = Logger().get_logger()
+        self.logger = Logger(self.__class__.__name__)
         self.dataset_name = dataset_name
 
     def load_data(self) -> tuple:
@@ -34,7 +34,7 @@ class DataLoader:
             tuple: train and test data
         """
         dataset_name = self.dataset_name
-        self.logger.info(f'Reading {dataset_name} data locally')
+        self.logger.info(f'Trying to read {dataset_name} data locally')
         train_data, test_data = self.read_tsv(dataset_name)
 
         if train_data is None:
