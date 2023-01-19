@@ -68,15 +68,13 @@ class ExperimentRunner:
         if self.use_cache:
             cache_folder = os.path.join(PROJECT_PATH, 'cache')
             os.makedirs(cache_folder, exist_ok=True)
-            cacher = DataCacher(data_type=f'Features',
-                                cache_folder=cache_folder,
-                                object_name=generator_name)
+            cacher = DataCacher(data_type_prefix=f'Features of {generator_name} generator',
+                                cache_folder=cache_folder)
 
             generator_info = self.__dir__()
             hashed_info = cacher.hash_info(dataframe=ts_data,
                                            name=dataset_name,
-                                           obj_info_dict=generator_info,
-                                           generator_name=generator_name)
+                                           obj_info_dict=generator_info)
 
             try:
                 self.logger.info('Trying to load features from cache...')
@@ -143,11 +141,8 @@ class ExperimentRunner:
     def apply_window_for_stat_feature(ts_data: pd.DataFrame,
                                       feature_generator: callable,
                                       window_size: int = None):
-        ts_data = ts_data.T
         if window_size is None:
             window_size = round(ts_data.shape[1] / 10)
-        else:
-            window_size = round(ts_data.shape[1] / window_size)
         tmp_list = []
         for i in range(0, ts_data.shape[1], window_size):
             slice_ts = ts_data.iloc[:, i:i + window_size]
