@@ -44,7 +44,7 @@ class DataCacher:
             Hashed string.
         """
         key = ''.join([repr(arg) for arg in kwargs.values()]).encode('utf8')
-        hsh = hashlib.md5(key).hexdigest()[:10]
+        hsh = hashlib.md5(key).hexdigest()[:15]
         return hsh
 
     def load_data_from_cache(self, hashed_info: str):
