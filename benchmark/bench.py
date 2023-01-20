@@ -31,19 +31,26 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
     def _get_dataset_list(self, n_samples: int = 5):
         all_datasets = self.results_picker.get_datasets_info()
-        return self.stratified_ds_selection(all_datasets, n_samples)
+        dataset_list = self.stratified_ds_selection(all_datasets, n_samples)
+        types = []
+        for ds in dataset_list:
+            types.append(all_datasets[all_datasets['dataset'] == ds]['type'].values[0])
+
+        return dataset_list, types
 
     @property
-    def _config(self, n_samples: int = 5): #TODO: проверить сетап эксперимента, потому что печатает не все датасеты
-        dataset_list = self._get_dataset_list(n_samples=5)
+    def _config(self):
+        dataset_list, types = self._get_dataset_list(n_samples=self.number_of_datasets)
+        self.logger.info(f'Selected dataset types: {types}')
+
         config = {'feature_generator': [
-            # 'window_quantile',
-            'recurrence',
+            'window_quantile',
+            # 'recurrence',
             'quantile',
             # 'window_spectral',
             # 'spectral',
-            'wavelet',
-            # 'topological'
+            # 'wavelet',
+            'topological'
         ],
 
             'datasets_list': dataset_list,
@@ -105,7 +112,6 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         pass
 
     def stratified_ds_selection(self, df, n_samples=5):
-        # TODO: сделать чтонибудь со стабильностью загрузки json. Может просто скачать
         univariate_tss = df[df['multivariate_flag'] == 0]
         filtered_types = univariate_tss.groupby('type')['type'].count() >= n_samples
         filtered_types = filtered_types[filtered_types].index.tolist()
@@ -124,8 +130,9 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
 
 if __name__ == "__main__":
-    benchmark = BenchmarkTSC(number_of_datasets=1, random_selection=False)
-    benchmark.run()
+    benchmark = BenchmarkTSC(number_of_datasets=1,
+                             random_selection=False)
+    basic_report, rank_ensemble_report = benchmark.run()
 
     # benchmark.run()
     res = benchmark.load_ensemble_results(model_list=['quantile', 'recurrence', 'wavelet'], launch_type='max')
