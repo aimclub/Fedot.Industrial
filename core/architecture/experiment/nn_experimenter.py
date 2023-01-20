@@ -3,6 +3,7 @@ import shutil
 from typing import Dict, List, Optional, Callable, Union, Type
 
 import torch
+from fedot.core.log import default_log as Logger
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from torch.nn.functional import softmax
@@ -16,7 +17,16 @@ from tqdm import tqdm
 from core.architecture.abstraction.сheckers import parameter_value_check
 from core.operation.optimization.structure_optimization import StructureOptimization
 
-
+DEFAULT_PARAMS = {
+    'FasterRCNNExperimenter':{
+        'optimizer_params': {'lr': 0.0001},
+        'dataloader_params': {'collate_fn': lambda x: tuple(zip(*x))}
+    },
+    'ClassificationExperimenter': {
+        'optimizer_params': {},
+        'dataloader_params': {}
+    }
+}
 def write_scores(
         writer: SummaryWriter,
         phase: str,
@@ -94,13 +104,14 @@ class NNExperimenter:
             weights: Optional[str],
             gpu: bool,
     ):
+        self.logger = Logger(self.__class__.__name__)
         self.model = model
         if weights is not None:
             self.model.load_state_dict(torch.load(weights))
         self.device = torch.device('cuda' if gpu else 'cpu')
         self.model.to(self.device)
         self.name = name if name is not None else type(model).__name__
-        self.best_score = 0
+        self.best_score = -1
         self.metric = metric
         self.metric_counter = metric_counter
 
@@ -115,32 +126,34 @@ class NNExperimenter:
             models_path: str = 'models',
             summary_path: str = 'summary',
             class_metrics: bool = False,
-            dataloader_params: Dict = {},
-            optimizer_params: Dict = {},
+            **parameters
     ) -> None:
         """Run experiment.
 
         Args:
             num_epochs: Number of epochs.
         """
-        train_dl = DataLoader(train_dataset, shuffle=True, **dataloader_params)
-        val_dl = DataLoader(val_dataset, shuffle=False, **dataloader_params)
+        params = DEFAULT_PARAMS[self.__class__.__name__]
+        for k, v in parameters.items():
+            params[k].update(v)
+        train_dl = DataLoader(train_dataset, shuffle=True, **params['dataloader_params'])
+        val_dl = DataLoader(val_dataset, shuffle=False, **params['dataloader_params'])
         description = f"{dataset_name}/{self.name}"
 
         if structure_optimization is None:
-            print(f"{description}, using device: {self.device}")
+            self.logger.info(f"{description}, using device: {self.device}")
             self.run_epochs(
                 writer=SummaryWriter(os.path.join(summary_path, description, 'train')),
                 train_dl=train_dl,
                 val_dl=val_dl,
                 num_epochs=num_epochs,
-                optimizer=optimizer(self.model.parameters(), **optimizer_params),
+                optimizer=optimizer(self.model.parameters(), **params['optimizer_params']),
                 model_path=os.path.join(models_path, description, 'trained'),
                 class_metrics=class_metrics
             )
         else:
             structure_optimization.fit(
-                experimenter=self,
+                exp=self,
                 description=description,
                 train_dl=train_dl,
                 val_dl=val_dl,
@@ -149,7 +162,7 @@ class NNExperimenter:
                 models_path=models_path,
                 summary_path=summary_path,
                 class_metrics=class_metrics,
-                optimizer_params=optimizer_params
+                optimizer_params=params['optimizer_params']
             )
 
     def run_epochs(
@@ -169,7 +182,7 @@ class NNExperimenter:
             num_epochs: Number of epochs.
         """
         for epoch in range(1, num_epochs + 1):
-            print(f"Epoch {epoch}")
+            self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
                 dataloader=train_dl,
                 optimizer=optimizer,
@@ -185,7 +198,7 @@ class NNExperimenter:
     def save_model_sd_if_best(self, val_scores: Dict, file_path):
         if val_scores[self.metric] > self.best_score:
             self.best_score = val_scores[self.metric]
-            print(f'Best {self.metric} score: {self.best_score}')
+            self.logger.info(f'Best {self.metric} score: {self.best_score}')
             self.save_model(file_path=file_path)
 
     def save_model(
@@ -210,7 +223,7 @@ class NNExperimenter:
         except Exception:
             torch.save(data, file_name)
             shutil.move(file_name, dir_path)
-        print(f"Saved to {os.path.abspath(file_path)}.")
+        self.logger.info(f"Saved to {os.path.abspath(file_path)}.")
 
     def load_model(
             self,
@@ -229,10 +242,10 @@ class NNExperimenter:
         if state_dict:
             self.model.load_state_dict(data)
             self.model.to(self.device)
-            print("Model state dict loaded.")
+            self.logger.info("Model state dict loaded.")
         else:
             self.model = data
-            print("Model loaded.")
+            self.logger.info("Model loaded.")
 
     def size_of_model(self) -> float:
         """Returns size of model in Mb."""
@@ -247,6 +260,15 @@ class NNExperimenter:
     def number_of_model_params(self) -> int:
         """Returns number of model parameters."""
         return sum(p.numel() for p in self.model.parameters())
+
+    def apply_func(
+            self,
+            func: Callable,
+            func_params: Dict = {},
+            condition: Optional[Callable] = None
+    ):
+        for module in filter(condition, self.model.modules()):
+            func(module, **func_params)
 
     def forward(self, x):
         """Have to implement the forward method of the model and return predictions."""
@@ -387,7 +409,8 @@ class FasterRCNNExperimenter(NNExperimenter):
         """Have to implement the forward method of the model and return predictions."""
         assert not self.model.training
         images = list(image.to(self.device) for image in x)
-        return self.model(images)
+        preds = self.model(images)
+        return [{k: v.to('cpu').detach() for k, v in p.items()} for p in preds]
 
     def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return loss."""
@@ -401,11 +424,11 @@ class FasterRCNNExperimenter(NNExperimenter):
         self.model.eval()
         with torch.no_grad():
             sample = sample.to(self.device)
-            pred = self.model(sample)
+            preds = self.model(sample)
         if not proba:
-            not_thresh = pred['scores'] > 0.5
-            pred['boxes'] = pred['boxes'][not_thresh]
-            pred['labels'] = pred['labels'][not_thresh]
-            pred.pop('scores')
-        pred = {k: v.to('cpu').detach().tolist() for k, v in pred.items()}
+            not_thresh = preds['scores'] > 0.5
+            preds['boxes'] = preds['boxes'][not_thresh]
+            preds['labels'] = preds['labels'][not_thresh]
+            preds.pop('scores')
+        pred = {k: v.tolist() for k, v in preds.items()}
         return pred

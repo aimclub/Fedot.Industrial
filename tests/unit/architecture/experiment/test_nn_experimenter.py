@@ -39,7 +39,7 @@ def prepare_classification(tmp_path):
         'num_epochs': 1,
         'dataloader_params': {'batch_size': 16, 'num_workers': 4},
         'models_path': tmp_path.joinpath('models'),
-        'summary_path': tmp_path.joinpath('runs')
+        'summary_path': tmp_path.joinpath('summary')
     }
     yield exp_params, fit_params, tmp_path
 
@@ -118,14 +118,13 @@ def prepare_detection(tmp_path):
         'dataset_name': 'ALET10',
         'train_dataset': dataset,
         'val_dataset': dataset,
-        'num_epochs': 2,
+        'num_epochs': 1,
         'dataloader_params': {
-            'batch_size': 1,
-            'num_workers': 2,
-            'collate_fn': lambda x: tuple(zip(*x))
+            'batch_size': 2,
+            'num_workers': 2
         },
         'models_path': tmp_path.joinpath('models'),
-        'summary_path': tmp_path.joinpath('runs')
+        'summary_path': tmp_path.joinpath('summary')
     }
     yield exp_params, fit_params, tmp_path
 
@@ -146,7 +145,7 @@ def test_fasterrcnn_experimenter(prepare_detection):
     exp_params, fit_params, tmp_path = prepare_detection
     experimenter = FasterRCNNExperimenter(**exp_params)
     experimenter.fit(**fit_params)
-    assert os.path.exists(tmp_path.joinpath('runs/ALET10/FasterRCNN'))
+    assert os.path.exists(tmp_path.joinpath('models/ALET10/FasterRCNN/trained.sd.pt'))
     # detection_predict(experimenter)
 
 
@@ -171,6 +170,8 @@ def test_svd_channel_fasterrcnn_experimenter(prepare_detection):
     optimization = SVDOptimization(decomposing_mode='channel', **SVD_PARAMS)
     experimenter.fit(structure_optimization=optimization, **fit_params)
     root = tmp_path.joinpath('models/ALET10/FasterRCNN_SVD_channel_O-100.0_H-0.001000/')
+    assert os.path.exists(root.joinpath('trained.sd.pt'))
+    assert os.path.exists(root.joinpath('trained.model.pt'))
     assert os.path.exists(root.joinpath('e_0.9.sd.pt'))
     # detection_predict(experimenter)
 
@@ -181,5 +182,7 @@ def test_svd_spatial_fasterrcnn_experimenter(prepare_detection):
     optimization = SVDOptimization(decomposing_mode='spatial', **SVD_PARAMS)
     experimenter.fit(structure_optimization=optimization, **fit_params)
     root = tmp_path.joinpath('models/ALET10/FasterRCNN_SVD_spatial_O-100.0_H-0.001000/')
-    assert os.path.exists(root.joinpath('e_0.9.model.sd'))
+    assert os.path.exists(root.joinpath('trained.sd.pt'))
+    assert os.path.exists(root.joinpath('trained.model.pt'))
+    assert os.path.exists(root.joinpath('e_0.9.sd.pt'))
     # detection_predict(experimenter)

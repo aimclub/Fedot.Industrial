@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Dict, Tuple
+from typing import Optional
 
 import torch
 from torch.nn.modules import Module
@@ -7,48 +7,27 @@ from torch.nn.modules.conv import Conv2d
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 
 
-def prune_sdv_model(
-        model: torch.nn.Module,
-        pruning_fn: Callable,
-        pruning_params: Dict
-) -> None:
-    """Prune the model weights with pruning_fn (in-place).
-
+def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
+    """Prune the weight matrices to the energy_threshold (in-place).
+    Args:
+        conv: The optimizable layer.
+        energy_threshold: pruning hyperparameter must be in the range (0, 1].
+        the lower the threshold, the more singular values will be pruned.
     Raises:
         Assertion Error: If ``conv.decomposing`` is False.
     """
-    for module in model.modules():
-        if isinstance(module, DecomposedConv2d):
-            assert module.decomposing, "for pruning, the model must be decomposed"
-            module.set_U_S_Vh(
-                *pruning_fn(module.U, module.S, module.Vh, **pruning_params)
-            )
-
-def energy_threshold_pruning(
-        u: torch.Tensor,
-        s: torch.Tensor,
-        vh: torch.Tensor,
-        energy_threshold: float
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Prune svd matrices to the energy_threshold.
-
-    Args:
-        energy_threshold: pruning hyperparameter must be in the range (0, 1].
-        the lower the threshold, the more singular values will be pruned.
-
-    Raises:
-        Assertion Error:
-    """
+    assert conv.decomposing, "for pruning, the model must be decomposed"
     assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
-    s, indices = s.sort()
-    u = u[:, indices]
-    vh = vh[indices, :]
-    sum = (s ** 2).sum()
+    S, indices = conv.S.sort()
+    U = conv.U[:, indices]
+    Vh = conv.Vh[indices, :]
+    sum = (S ** 2).sum()
     threshold = energy_threshold * sum
-    for i, v in enumerate(s):
-        sum -= v ** 2
+    for i, s in enumerate(S):
+        sum -= s ** 2
         if sum < threshold:
-            return u[:, i:].clone(), s[i:].clone(), vh[i:, :].clone()
+            conv.set_U_S_Vh(U[:, i:].clone(), S[i:].clone(), Vh[i:, :].clone())
+            break
 
 
 def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> None:
