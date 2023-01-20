@@ -255,13 +255,16 @@ class Industrial(Fedot):
         """
         exclusion_list = ['topological', 'spectral', 'window_spectral']
         ts_length = train_data.shape[1]
-        if ts_length > 800:
+        excluded = []
 
+        if ts_length > 800:
             for exclude in exclusion_list:
                 if exclude in experiment_dict['feature_generator']:
-                    experiment_dict['feature_generator'].remove(exclude)
+                    experiment_dict['feature_generator'].pop(exclude)
                     experiment_dict['feature_generator_params'].pop(exclude, None)
-            self.logger.info(f'Time series length is too long ({ts_length}>800): exclude {exclusion_list} generators')
+
+        if excluded:
+            self.logger.info(f'Time series length is too long ({ts_length}>800): {excluded} generator excluded')
 
         return experiment_dict
 

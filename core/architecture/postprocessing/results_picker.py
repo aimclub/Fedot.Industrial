@@ -4,6 +4,7 @@ from typing import Union
 import pandas as pd
 
 from core.architecture.utils.utils import PROJECT_PATH
+from fedot.core.log import default_log as logger
 
 
 class ResultsPicker:
@@ -27,6 +28,7 @@ class ResultsPicker:
     def __init__(self, path: str = None, launch_type: Union[str, int] = 'max'):
         self.exp_path = self.__get_results_path(path)
         self.launch_type = launch_type
+        self.logger = logger(self.__class__.__name__)
 
     def __get_results_path(self, path):
         if path:
@@ -153,21 +155,29 @@ class ResultsPicker:
         return launch
 
     def get_datasets_info(self):
-        # json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json'
-        json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json?order=asc'
+        try:
+            json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json?order=asc'
+            table = pd.read_json(json_url)
 
+            if table.shape[0] < 180:
+                self.logger.warning('Downloaded table is not full. Reading from file.')
+                raise Exception('Table is not full')
+            else:
+                table.to_json('./ucr_datasets.json')
 
-        table = pd.read_json(json_url)
-        table = table.drop([col for col in table.columns if len(col) == 1], axis=1)
-        table = table.drop('Dataset_id', axis=1)
+        except Exception:
+            self.logger.error('Cannot get datasets info from http://www.timeseriesclassification.com')
+            table = pd.read_json('./ucr_datasets.json')
+
+        table = table.drop([col for col in table.columns if len(col) == 1] + ['Dataset_id'], axis=1)
         table.columns = list(map(str.lower, table.columns))
+        table.type = table.type.str.lower()
+
         return table
 
 
 # Example of usage:
 if __name__ == '__main__':
     parser = ResultsPicker()
-    df = parser.get_datasets_info()
     results_table = parser.run(get_metrics_df=True, add_info=True)
-
     results_table.to_csv('results_4.csv', index=False)
