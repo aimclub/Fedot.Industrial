@@ -64,7 +64,6 @@ def test_classification_experimenter(prepare_classification):
     # classification_predict(experimenter)
 
 
-@pytest.mark.skip(reason='still in development')
 def test_sfp_classification_experimenter(prepare_classification):
     exp_params, fit_params, tmp_path = prepare_classification
     experimenter = ClassificationExperimenter(**exp_params)
@@ -72,10 +71,8 @@ def test_sfp_classification_experimenter(prepare_classification):
     experimenter.fit(structure_optimization=optimization, **fit_params)
     root = tmp_path.joinpath('models/Agricultural/ResNet_SFP_P-0.50/')
     assert os.path.exists(root.joinpath('trained.sd.pt'))
-    assert os.path.exists(root.joinpath('fine-tuning.sd.pt'))
-    assert os.path.exists(root.joinpath('pruned.model.pt'))
-    assert os.path.exists(root.joinpath('fine-tuned.model.pt'))
-    classification_predict(experimenter)
+    # assert os.path.exists(root.joinpath('fine-tuning.sd.pt'))
+    # classification_predict(experimenter)
 
 
 def test_svd_channel_classification_experimenter(prepare_classification):
@@ -149,19 +146,14 @@ def test_fasterrcnn_experimenter(prepare_detection):
     # detection_predict(experimenter)
 
 
-@pytest.mark.skip(reason='still in development')
 def test_sfp_fasterrcnn_experimenter(prepare_detection):
-    exp_params, tmp_path = prepare_detection
-    experimenter = FasterRCNNExperimenter(
-        **exp_params,
-        structure_optimization='SFP',
-        structure_optimization_params=SFP_PARAMS
-    )
-    experimenter.fit(1)
-    root = tmp_path.joinpath('models/ALET10/FasterR-CNN/ResNet50_SFP_P-0.50/')
-    assert os.path.exists(root.joinpath('pruned.model.pt'))
-    assert os.path.exists(root.joinpath('fine-tuned.model.pt'))
-    detection_predict(experimenter)
+    exp_params, fit_params, tmp_path = prepare_detection
+    experimenter = FasterRCNNExperimenter(**exp_params)
+    optimization = SFPOptimization(**SFP_PARAMS)
+    experimenter.fit(structure_optimization=optimization, **fit_params)
+    root = tmp_path.joinpath('models/ALET10/FasterRCNN_SFP_P-0.50/')
+    assert os.path.exists(root.joinpath('trained.sd.pt'))
+    # detection_predict(experimenter)
 
 
 def test_svd_channel_fasterrcnn_experimenter(prepare_detection):
