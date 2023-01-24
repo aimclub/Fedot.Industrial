@@ -10,7 +10,7 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.architecture.datasets.classification_datasets import CustomClassificationDataset
+from core.architecture.datasets.classification_datasets import NumpyImageDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
 from core.architecture.utils.utils import path_to_save_results
@@ -211,7 +211,7 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
         """
         num_epochs, target = self._init_model_param(target)
 
-        train_dataset = CustomClassificationDataset(images=features, targets=target)
+        train_dataset = NumpyImageDataset(images=features, targets=target)
         NN_model = ClassificationExperimenter(train_dataset=train_dataset,
                                               val_dataset=train_dataset,
                                               **self.model_hyperparams)
