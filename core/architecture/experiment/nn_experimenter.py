@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Dict, List, Optional, Callable, Union, Type
+from typing import Dict, List, Optional, Callable, Type
 
 import torch
 from fedot.core.log import default_log as Logger
@@ -279,9 +279,30 @@ class NNExperimenter:
         """Have to implement the train forward method and return dictionary of losses."""
         pass
 
-    def predict_on_sample(self, sample: torch.Tensor, proba: bool):
-        """Have to implement the prediction method on single sample."""
+    def predict_on_batch(self, x, proba: bool) -> List:
+        """Have to implement the prediction method on batch."""
         pass
+
+    def predict(
+            self,
+            dataset: Dataset,
+            proba: bool = False,
+            dataloader_params: Dict = {}
+    ) -> Dict:
+        ids = []
+        preds = []
+        dl_params = DEFAULT_PARAMS[self.__class__.__name__]['dataloader_params']
+        dl_params.update(dataloader_params)
+        dataloader = DataLoader(dataset, **dl_params)
+        self.model.eval()
+        with torch.no_grad():
+            for x, id in tqdm(dataloader):
+                ids.extend(id)
+                preds.extend(self.predict_on_batch(x, proba=proba))
+        return dict(zip(ids, preds))
+
+    def predict_proba(self, dataset: Dataset, dataloader_params: Dict = {}) -> Dict:
+        return self.predict(dataset, proba=True, dataloader_params=dataloader_params)
 
     def train_loop(
             self,
@@ -365,16 +386,15 @@ class ClassificationExperimenter(NNExperimenter):
         preds = self.forward(x)
         return {'loss': self.loss(preds, y)}
 
-    def predict_on_sample(self, sample: torch.Tensor, proba: bool) -> Union[List, int]:
+    def predict_on_batch(self, x, proba: bool) -> List:
         """Returns prediction for sample."""
-        self.model.eval()
-        with torch.no_grad():
-            sample = sample.to(self.device)
-            pred = self.model(sample)
-            if proba:
-                pred = softmax(pred, dim=1).cpu().detach().tolist()[0]
-            else:
-                pred = pred.argmax(1).cpu().detach().item()
+        assert not self.model.training, "model must be in eval mode"
+        x = x.to(self.device)
+        pred = self.model(x)
+        if proba:
+            pred = softmax(pred, dim=1).cpu().detach().tolist()
+        else:
+            pred = pred.argmax(1).cpu().detach().tolist()
         return pred
 
 
@@ -415,21 +435,21 @@ class FasterRCNNExperimenter(NNExperimenter):
 
     def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return loss."""
-        assert self.model.training, "model in eval mode"
+        assert self.model.training, "model must be in training mode"
         images = [image.to(self.device) for image in x]
         targets = [{k: v.to(self.device) for k, v in target.items()} for target in y]
         return self.model(images, targets)
 
-    def predict_on_sample(self, sample: torch.Tensor, proba: bool) -> Dict:
+    def predict_on_batch(self, x, proba: bool) -> List:
         """Returns prediction for sample."""
-        self.model.eval()
-        with torch.no_grad():
-            sample = sample.to(self.device)
-            preds = self.model(sample)
+        assert not self.model.training, "model must be in eval mode"
+        images = [image.to(self.device) for image in x]
+        preds = self.model(images)
         if not proba:
-            not_thresh = preds['scores'] > 0.5
-            preds['boxes'] = preds['boxes'][not_thresh]
-            preds['labels'] = preds['labels'][not_thresh]
-            preds.pop('scores')
-        pred = {k: v.tolist() for k, v in preds.items()}
-        return pred
+            for pred in preds:
+                not_thresh = pred['scores'] > 0.5
+                pred['boxes'] = pred['boxes'][not_thresh]
+                pred['labels'] = pred['labels'][not_thresh]
+                pred.pop('scores')
+        preds = [{k: v.tolist() for k, v in p.items()} for p in preds]
+        return preds
