@@ -174,6 +174,7 @@ class NNExperimenter:
             optimizer: torch.optim.Optimizer,
             model_path: str,
             class_metrics: bool,
+            start_epoch: int = 1,
             model_losses: Optional[Callable] = None
     ) -> None:
         """Run experiment.
@@ -181,7 +182,7 @@ class NNExperimenter:
         Args:
             num_epochs: Number of epochs.
         """
-        for epoch in range(1, num_epochs + 1):
+        for epoch in range(start_epoch, start_epoch + num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
                 dataloader=train_dl,

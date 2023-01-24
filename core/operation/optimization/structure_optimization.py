@@ -123,6 +123,7 @@ class SVDOptimization(StructureOptimization):
 
         description += self.description
         decompose_module(exp.model, self.decomposing_mode)
+        exp.model.to(exp.device)
         self.logger.info(f"SVD decomposed size: {exp.size_of_model():.2f} Mb")
         self.logger.info(f"{description}, using device: {exp.device}")
 
@@ -140,6 +141,7 @@ class SVDOptimization(StructureOptimization):
             exp=exp,
             train_dl=train_dl,
             val_dl=val_dl,
+            epoch=num_epochs,
             optimizer=optimizer,
             optimizer_params=optimizer_params,
             models_path=os.path.join(models_path, description),
@@ -152,6 +154,7 @@ class SVDOptimization(StructureOptimization):
             exp,
             train_dl: DataLoader,
             val_dl: DataLoader,
+            epoch: int,
             optimizer: Type[torch.optim.Optimizer],
             optimizer_params: Dict,
             models_path: str,
@@ -175,7 +178,7 @@ class SVDOptimization(StructureOptimization):
             self.logger.info(f'Pruned {exp.metric} score: {exp.best_score}')
 
             writer = SummaryWriter(os.path.join(summary_path, str_e))
-            write_scores(writer, 'fine-tuning', val_scores, 0)
+            write_scores(writer, 'val', val_scores, epoch)
             self.logger.info(f"fine-tuning e={e}, using device: {exp.device}")
             exp.run_epochs(
                 writer=writer,
@@ -185,7 +188,8 @@ class SVDOptimization(StructureOptimization):
                 optimizer=optimizer(exp.model.parameters(), **optimizer_params),
                 model_path=os.path.join(models_path, str_e),
                 class_metrics=class_metrics,
-                model_losses=self.loss
+                model_losses=self.loss,
+                start_epoch=epoch + 1
             )
 
     def loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
