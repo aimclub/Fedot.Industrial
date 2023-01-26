@@ -205,9 +205,12 @@ A comprehensive documentation is available at readthedocs_.
 Supported by
 ------------
 
-The study is supported by Research Center
-`Strong Artificial Intelligence in Industry`_
-of `ITMO University`_ (Saint Petersburg, Russia)
+.. image:: /docs/img/AIM-Strong_Sign_Norm-01_Colors.svg
+    :width: 400px
+    :align: center
+    :alt: Strong AI in industry logo
+
+The study is supported by the Research Center `Strong Artificial Intelligence in Industry`_ of `ITMO University`_.
 
 Citation
 --------
