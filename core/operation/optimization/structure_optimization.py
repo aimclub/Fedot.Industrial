@@ -1,11 +1,11 @@
 import os
-from typing import Type, Dict, List
+from typing import Dict, List
 
 import torch
 from fedot.core.log import default_log as Logger
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from core.operation.optimization.sfp_tools import zerolize_filters
@@ -46,16 +46,9 @@ class StructureOptimization:
 
     def fit(
             self,
-            exp,
-            description: str,
-            train_dl: DataLoader,
-            val_dl: DataLoader,
-            num_epochs: int,
-            optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
-            models_path: str = 'models',
-            summary_path: str = 'summary',
-            class_metrics: bool = False,
-            optimizer_params: Dict = {},
+            exp: NNExperimenter,
+            params: FitParameters
+
     ) -> None:
         """Run experiment.
 
@@ -101,19 +94,7 @@ class SVDOptimization(StructureOptimization):
         self.hoer_loss = HoyerLoss(hoer_loss_factor)
         self.orthogonal_loss = OrthogonalLoss(orthogonal_loss_factor)
 
-    def fit(
-            self,
-            exp,
-            description: str,
-            train_dl: DataLoader,
-            val_dl: DataLoader,
-            num_epochs: int,
-            optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
-            models_path: str = 'models',
-            summary_path: str = 'summary',
-            class_metrics: bool = False,
-            optimizer_params: Dict = {},
-    ) -> None:
+    def fit(self, exp: NNExperimenter, params: FitParameters) -> None:
         """Run experiment.
 
         Args:
@@ -121,76 +102,34 @@ class SVDOptimization(StructureOptimization):
             num_epochs: Number of epochs.
         """
 
-        description += self.description
+        exp.name += self.description
         decompose_module(exp.model, self.decomposing_mode)
         exp.model.to(exp.device)
         self.logger.info(f"SVD decomposed size: {exp.size_of_model():.2f} Mb")
-        self.logger.info(f"{description}, using device: {exp.device}")
 
-        exp.run_epochs(
-            writer=SummaryWriter(os.path.join(summary_path, description, 'train')),
-            train_dl=train_dl,
-            val_dl=val_dl,
-            num_epochs=num_epochs,
-            optimizer=optimizer(exp.model.parameters(), **optimizer_params),
-            model_path=os.path.join(models_path, description, 'trained'),
-            class_metrics=class_metrics,
-            model_losses=self.loss
-        )
-        self.optimize(
-            exp=exp,
-            train_dl=train_dl,
-            val_dl=val_dl,
-            epoch=num_epochs,
-            optimizer=optimizer,
-            optimizer_params=optimizer_params,
-            models_path=os.path.join(models_path, description),
-            summary_path=os.path.join(summary_path, description),
-            class_metrics=class_metrics
-        )
+        exp.fit(p=params, model_losses=self.loss)
+        self.optimize(exp=exp, params=params)
 
-    def optimize(
-            self,
-            exp,
-            train_dl: DataLoader,
-            val_dl: DataLoader,
-            epoch: int,
-            optimizer: Type[torch.optim.Optimizer],
-            optimizer_params: Dict,
-            models_path: str,
-            summary_path: str,
-            class_metrics: bool,
-    ) -> None:
+    def optimize(self, exp: NNExperimenter, params: FitParameters) -> None:
         self.finetuning = True
-        exp.save_model(os.path.join(models_path, 'trained'), state_dict=False)
+        epoch = params.num_epochs
+        params.num_epochs = self.finetuning_epochs
+        model_path = os.path.join(
+            params.models_path, params.dataset_name, exp.name, 'trained'
+        )
+        exp.save_model(model_path, state_dict=False)
         for e in self.energy_thresholds:
             str_e = f'e_{e}'
-            exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
+            exp.load_model(model_path, state_dict=False)
             exp.apply_func(
                 func=energy_threshold_pruning,
                 func_params={'energy_threshold': e},
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
-            exp.save_model(os.path.join(models_path, str_e))
-            val_scores = exp.val_loop(dataloader=val_dl, class_metrics=class_metrics)
-
-            exp.best_score = val_scores[exp.metric]
-            self.logger.info(f'Pruned {exp.metric} score: {exp.best_score}')
-
-            writer = SummaryWriter(os.path.join(summary_path, str_e))
-            write_scores(writer, 'val', val_scores, epoch)
-            self.logger.info(f"fine-tuning e={e}, using device: {exp.device}")
-            exp.run_epochs(
-                writer=writer,
-                train_dl=train_dl,
-                val_dl=val_dl,
-                num_epochs=self.finetuning_epochs,
-                optimizer=optimizer(exp.model.parameters(), **optimizer_params),
-                model_path=os.path.join(models_path, str_e),
-                class_metrics=class_metrics,
-                model_losses=self.loss,
-                start_epoch=epoch + 1
-            )
+            self.logger.info(f"pruning with e={e}, size: {exp.size_of_model():.2f} Mb")
+            exp.save_model(os.path.join(params.models_path, exp.name, str_e))
+            exp.best_score = 0
+            exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
 
     def loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
         losses = {'orthogonal_loss': self.orthogonal_loss(model)}
@@ -218,19 +157,7 @@ class SFPOptimization(StructureOptimization):
         )
         self.pruning_ratio = pruning_ratio
 
-    def fit(
-            self,
-            exp,
-            description: str,
-            train_dl: DataLoader,
-            val_dl: DataLoader,
-            num_epochs: int,
-            optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
-            models_path: str = 'models',
-            summary_path: str = 'summary',
-            class_metrics: bool = False,
-            optimizer_params: Dict = {},
-    ) -> None:
+    def fit(self, exp: NNExperimenter, params: FitParameters) -> None:
         """Run experiment.
 
         Args:
@@ -238,56 +165,31 @@ class SFPOptimization(StructureOptimization):
             ``ClassificationExperimenter``.
             num_epochs: Number of epochs.
         """
-        description += self.description
-        optimizer = optimizer(exp.model.parameters(), **optimizer_params)
-        model_path = os.path.join(models_path, description, 'trained')
-        self.logger.info(f"{description}, using device: {exp.device}")
-        writer = SummaryWriter(os.path.join(summary_path, description, 'train'))
-        for epoch in range(1, num_epochs + 1):
+        exp.name += self.description
+        path = os.path.join(params.dataset_name, exp.name, 'train')
+        model_path = os.path.join(params.models_path, path)
+        writer = SummaryWriter(os.path.join(params.summary_path, path))
+
+        optimizer = params.optimizer(exp.model.parameters(), **params.optimizer_params)
+        self.logger.info(f"{exp.name}, using device: {exp.device}")
+        for epoch in range(1, params.num_epochs + 1):
             self.logger.info(f"Epoch {epoch}")
-            train_scores = exp.train_loop(dataloader=train_dl, optimizer=optimizer)
+            train_scores = exp.train_loop(
+                dataloader=params.train_dl,
+                optimizer=optimizer
+            )
             write_scores(writer, 'train', train_scores, epoch)
             exp.apply_func(
                 func=zerolize_filters,
                 func_params={'pruning_ratio': self.pruning_ratio},
                 condition=lambda x: isinstance(x, torch.nn.Conv2d)
             )
-            val_scores = exp.val_loop(dataloader=val_dl, class_metrics=class_metrics)
+            val_scores = exp.val_loop(
+                dataloader=params.val_dl,
+                class_metrics=params.class_metrics
+            )
             write_scores(writer, 'val', val_scores, epoch)
             exp.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
         exp.load_model(model_path)
         writer.close()
 
-    # def final_optimize(self) -> None:
-    #     """Apply optimization after training."""
-    #     self.exp.load_model_state_dict()
-    #     self.exp.summary_per_class = False
-    #     results = {'default_scores': self.optimization_summary()}
-    #
-    #     pruned_sd, input_size, output_size = prune_resnet_state_dict(
-    #         self.exp.model.state_dict()
-    #     )
-    #     self.exp.model = SFP_MODELS[self.exp.optimizable_module_name](
-    #         num_classes=self.exp.num_classes,
-    #         input_size=input_size,
-    #         output_size=output_size,
-    #         pruning_ratio=self.pruning_ratio
-    #     )
-    #     self.exp.model.load_state_dict(pruned_sd)
-    #     self.exp.model.to(self.exp.device)
-    #     results['pruned_scores'] = self.optimization_summary()
-    #     self.exp.save_model(name='pruned')
-    #
-    #     self.exp.finetune(num_epochs=self.finetuning_epochs)
-    #     results['finetuned_scores'] = self.optimization_summary()
-    #     self.exp.save_model(name='fine-tuned')
-    #
-    #     for k in results['default_scores']:
-    #         self.logger.info(
-    #             f"{k}: {results['default_scores'][k]:.3f}, "
-    #             f"{results['pruned_scores'][k]:.3f}, "
-    #             f"{results['finetuned_scores'][k]:.3f}"
-    #         )
-    #     torch.save(results, os.path.join(
-    #         self.exp.summary_path, self.exp.name, 'results.pt'
-    #     ))

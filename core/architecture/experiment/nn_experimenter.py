@@ -1,13 +1,13 @@
 import os
 import shutil
-from typing import Dict, List, Optional, Callable, Type
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional, Callable, Type, Union
 
 import torch
 from fedot.core.log import default_log as Logger
-from sklearn.metrics import accuracy_score, roc_auc_score
-from sklearn.metrics import precision_recall_fscore_support, f1_score
 from torch.nn.functional import softmax
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
@@ -15,18 +15,27 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
 from core.architecture.abstraction.сheckers import parameter_value_check
-from core.operation.optimization.structure_optimization import StructureOptimization
+from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter
 
-DEFAULT_PARAMS = {
-    'FasterRCNNExperimenter':{
-        'optimizer_params': {'lr': 0.0001},
-        'dataloader_params': {'collate_fn': lambda x: tuple(zip(*x))}
-    },
-    'ClassificationExperimenter': {
-        'optimizer_params': {},
-        'dataloader_params': {}
-    }
-}
+
+# lambda x: tuple(zip(*x))
+
+
+@dataclass
+class FitParameters:
+    dataset_name: str
+    train_dl: DataLoader
+    val_dl: DataLoader
+    num_epochs: int
+    optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
+    optimizer_params: Dict = field(default_factory=dict)
+    lr_scheduler: Optional[Type] = None
+    lr_scheduler_params: Dict = field(default_factory=dict)
+    models_path: Union[Path, str] = 'models'
+    summary_path: Union[Path, str] = 'summary'
+    class_metrics: bool = False
+
+
 def write_scores(
         writer: SummaryWriter,
         phase: str,
@@ -43,54 +52,6 @@ def write_scores(
     """
     for key, score in scores.items():
         writer.add_scalar(f"{phase}/{key}", score, x)
-
-
-class ClassificationMetricCounter:
-
-    def __init__(self, class_metrics: bool = False) -> None:
-        self.y_true = []
-        self.y_pred = []
-        self.y_score = []
-        self.class_metrics = class_metrics
-
-    def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
-        self.y_true.extend(targets.tolist())
-        self.y_score.extend(softmax(predictions, dim=1).tolist())
-        self.y_pred.extend(predictions.argmax(1).tolist())
-
-    def compute(self):
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            self.y_true, self.y_pred, average='macro'
-        )
-        scores = {
-            'accuracy': accuracy_score(self.y_true, self.y_pred),
-            'precision': precision,
-            'recall': recall,
-            'f1': f1,
-            'roc_auc': roc_auc_score(self.y_true, self.y_score, multi_class='ovo'),
-        }
-        if self.class_metrics:
-            f1s = f1_score(self.y_true, self.y_pred, average=None)
-            scores.update({f'f1_for_class_{i}': s for i, s in enumerate(f1s)})
-        return scores
-
-
-class LossesAverager:
-
-    def __init__(self) -> None:
-        self.losses = None
-        self.counter = 0
-
-    def update(self, losses: Dict[str, torch.Tensor]) -> None:
-        self.counter += 1
-        if self.losses is None:
-            self.losses = {k: v.item() for k, v in losses.items()}
-        else:
-            for key, value in losses.items():
-                self.losses[key] += value.item()
-
-    def compute(self):
-        return {k: v / self.counter for k, v in self.losses.items()}
 
 
 class NNExperimenter:
@@ -117,80 +78,38 @@ class NNExperimenter:
 
     def fit(
             self,
-            dataset_name: str,
-            train_dataset: Dataset,
-            val_dataset: Dataset,
-            num_epochs: int,
-            optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam,
-            structure_optimization: Optional[StructureOptimization] = None,
-            models_path: str = 'models',
-            summary_path: str = 'summary',
-            class_metrics: bool = False,
-            **parameters
+            p: FitParameters,
+            phase: str = 'train',
+            model_losses: Optional[Callable] = None,
+            start_epoch: int = 0
     ) -> None:
         """Run experiment.
 
         Args:
             num_epochs: Number of epochs.
         """
-        params = DEFAULT_PARAMS[self.__class__.__name__]
-        for k, v in parameters.items():
-            params[k].update(v)
-        train_dl = DataLoader(train_dataset, shuffle=True, **params['dataloader_params'])
-        val_dl = DataLoader(val_dataset, shuffle=False, **params['dataloader_params'])
-        description = f"{dataset_name}/{self.name}"
+        model_path = os.path.join(p.models_path, p.dataset_name, self.name, phase)
+        summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, phase)
+        writer = SummaryWriter(summary_path)
 
-        if structure_optimization is None:
-            self.logger.info(f"{description}, using device: {self.device}")
-            self.run_epochs(
-                writer=SummaryWriter(os.path.join(summary_path, description, 'train')),
-                train_dl=train_dl,
-                val_dl=val_dl,
-                num_epochs=num_epochs,
-                optimizer=optimizer(self.model.parameters(), **params['optimizer_params']),
-                model_path=os.path.join(models_path, description, 'trained'),
-                class_metrics=class_metrics
-            )
-        else:
-            structure_optimization.fit(
-                exp=self,
-                description=description,
-                train_dl=train_dl,
-                val_dl=val_dl,
-                num_epochs=num_epochs,
-                optimizer=optimizer,
-                models_path=models_path,
-                summary_path=summary_path,
-                class_metrics=class_metrics,
-                optimizer_params=params['optimizer_params']
-            )
+        init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
+        write_scores(writer, 'val', init_scores, start_epoch)
+        start_epoch += 1
 
-    def run_epochs(
-            self,
-            writer: SummaryWriter,
-            train_dl: DataLoader,
-            val_dl: DataLoader,
-            num_epochs: int,
-            optimizer: torch.optim.Optimizer,
-            model_path: str,
-            class_metrics: bool,
-            start_epoch: int = 1,
-            model_losses: Optional[Callable] = None
-    ) -> None:
-        """Run experiment.
-
-        Args:
-            num_epochs: Number of epochs.
-        """
-        for epoch in range(start_epoch, start_epoch + num_epochs):
+        optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)
+        self.logger.info(f"{self.name}, using device: {self.device}")
+        for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
-                dataloader=train_dl,
+                dataloader=p.train_dl,
                 optimizer=optimizer,
                 model_losses=model_losses
             )
             write_scores(writer, 'train', train_scores, epoch)
-            val_scores = self.val_loop(dataloader=val_dl, class_metrics=class_metrics)
+            val_scores = self.val_loop(
+                dataloader=p.val_dl,
+                class_metrics=p.class_metrics
+            )
             write_scores(writer, 'val', val_scores, epoch)
             self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
         self.load_model(model_path)
@@ -285,15 +204,11 @@ class NNExperimenter:
 
     def predict(
             self,
-            dataset: Dataset,
+            dataloader: DataLoader,
             proba: bool = False,
-            dataloader_params: Dict = {}
     ) -> Dict:
         ids = []
         preds = []
-        dl_params = DEFAULT_PARAMS[self.__class__.__name__]['dataloader_params']
-        dl_params.update(dataloader_params)
-        dataloader = DataLoader(dataset, **dl_params)
         self.model.eval()
         with torch.no_grad():
             for x, id in tqdm(dataloader):
@@ -301,8 +216,8 @@ class NNExperimenter:
                 preds.extend(self.predict_on_batch(x, proba=proba))
         return dict(zip(ids, preds))
 
-    def predict_proba(self, dataset: Dataset, dataloader_params: Dict = {}) -> Dict:
-        return self.predict(dataset, proba=True, dataloader_params=dataloader_params)
+    def predict_proba(self, dataloader: DataLoader) -> Dict:
+        return self.predict(dataloader, proba=True)
 
     def train_loop(
             self,
