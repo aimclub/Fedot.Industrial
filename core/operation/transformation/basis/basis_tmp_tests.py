@@ -40,6 +40,11 @@ def get_new_basis(train_data: tuple):
     return update_train
 
 dataset_name = 'Lightning7'
+dataset = np.load(r'D:\РАБОТЫ РЕПОЗИТОРИИ\Репозитории\Industiral\IndustrialTS\data\UCI_HAR.npz')
+
+test_data = dataset['data']
+
+test_labels = dataset['labels']
 train, test = DataLoader(dataset_name).load_data()
 train_target = train[1]
 test_target = test[1]

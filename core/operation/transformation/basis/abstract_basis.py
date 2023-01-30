@@ -5,18 +5,16 @@ class BasisDecomposition:
     """A class for decomposing data on the abstract basis and evaluating the derivative of the resulting decomposition.
     """
 
-    def __init__(self, data_range: np.array = None, n_components: int = 5):
+    def __init__(self, n_components: int = None):
         """
         Initializes the class with an array of data in np.array format as input.
 
         Parameters
         ----------
-        data : np.array
-            An array of data to be decomposed.
         """
-        self.data_range = data_range
+
         self.n_components = n_components
-        # self.basis = self._get_basis(self.n_components)
+        self.basis = None
 
     def _get_basis(self, **kwargs):
         """Defines the type of basis and the number of basis functions involved in the decomposition.

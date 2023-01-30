@@ -2,7 +2,7 @@ import numpy as np
 from core.operation.transformation.basis.abstract_basis import BasisDecomposition
 
 
-class FourierDecomposition(BasisDecomposition):
+class FourierBasis(BasisDecomposition):
     """A class for decomposing data on the Fourier basis and evaluating the derivative of the resulting decomposition.
 
     Attributes:
