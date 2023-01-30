@@ -44,10 +44,10 @@
 
 Для этой цели мы предоставляем четыре генератора признаков:
 
-.. image:: /docs/img/all-generators.png
+.. image:: /docs/img/all-generators-rus.png
     :width: 700px
     :align: center
-    :alt: All generators
+    :alt: All generators RUS
 
 После завершения выделения признаков, можно применить эволюционный
 алгоритм FEDOT, чтобы найти лучшую модель для заданной задачи классификации.
@@ -129,7 +129,7 @@ _____________
 В этом случае после каждого запуска алгоритмического ядра FEDOT модель исправления ошибок будет обучаться на
 полученной ошибке.
 
-.. image:: /docs/img/error_corr_model.png
+.. image:: /docs/img/error_corr_model-rus.png
     :width: 900px
     :align: center
     :alt: Error correction model
