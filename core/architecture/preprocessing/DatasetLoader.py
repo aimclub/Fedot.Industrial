@@ -2,7 +2,7 @@ import os
 import shutil
 import urllib.request as request
 import zipfile
-
+from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 import numpy as np
 import pandas as pd
 from scipy.io.arff import loadarff
@@ -36,6 +36,8 @@ class DataLoader:
         dataset_name = self.dataset_name
         self.logger.info(f'Reading {dataset_name} data locally')
         train_data, test_data = self.read_tsv(dataset_name)
+        if train_data is None:
+            train_data, test_data = self.read_tstime(dataset_name)
 
         if train_data is None:
             self.logger.info(f'Dataset {dataset_name} not found in data folder. Downloading...')
@@ -85,13 +87,12 @@ class DataLoader:
             elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.arff'):
                 x_test, x_train, y_test, y_train = self.read_arff(dataset_name, temp_data_path)
 
-            # elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.ts'):
-            #     from sktime.datasets._data_io import load_from_tsfile_to_dataframe
-            #
-            #     x_test, y_test = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TEST.ts',
-            #                                                    return_separate_X_and_y=True)
-            #     x_train, y_train = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TRAIN.ts',
-            #                                                      return_separate_X_and_y=True)
+            elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.ts'):
+
+                x_test, y_test = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TEST.ts',
+                                                               return_separate_X_and_y=True)
+                x_train, y_train = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TRAIN.ts',
+                                                                 return_separate_X_and_y=True)
             else:
                 self.logger.error('Loaded data is of unknown format')
                 return None, None
@@ -192,6 +193,32 @@ class DataLoader:
         except FileNotFoundError:
             return None, None
 
+    @staticmethod
+    def read_tstime(file_name: str) -> tuple:
+        """Read ``tsv`` file that contains data for classification experiment. Data must be placed
+        in ``data`` folder with ``.tsv`` extension.
+
+        Args:
+            file_name: name of file with data
+
+        Returns:
+            tuple: (x_train, x_test) and (y_train, y_test)
+
+        """
+        try:
+
+            x_test, y_test = load_from_tsfile_to_dataframe(os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TEST.ts'),
+                                                           return_separate_X_and_y=True)
+            x_train, y_train = load_from_tsfile_to_dataframe(os.path.join(PROJECT_PATH, 'data', file_name, f'{file_name}_TRAIN.ts'),
+                                                             return_separate_X_and_y=True)
+            try:
+                y_train, y_test = y_train.astype(int), y_test.astype(int)
+            except ValueError:
+                y_train, y_test = y_train.astype(str), y_test.astype(str)
+
+            return (x_train, y_train), (x_test, y_test)
+        except FileNotFoundError:
+            return None, None
     @staticmethod
     def load_re_arff(data):
         """

@@ -150,19 +150,19 @@ class TimeSeriesClassifier:
             dataset_name: str = None,
             baseline_type: str = None) -> tuple:
         self.__fit_abstraction(train_features, train_target, dataset_name, baseline_type)
-        return self.predictor, self.train_features
+        return self.predictor
 
     def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
         prediction_label = self.__predict_abstraction(test_features=test_features,
                                                       mode='labels',
                                                       dataset_name=dataset_name)
-        return dict(label=prediction_label, test_features=self.test_features)
+        return prediction_label
 
     def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
         prediction_proba = self.__predict_abstraction(test_features=test_features,
                                                       mode='probs',
                                                       dataset_name=dataset_name)
-        return dict(class_probability=prediction_proba, test_features=self.test_features)
+        return prediction_proba
 
 
 class TimeSeriesImageClassifier(TimeSeriesClassifier):

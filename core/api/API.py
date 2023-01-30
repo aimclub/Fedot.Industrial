@@ -113,7 +113,10 @@ class Industrial(Fedot):
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
 
-    def run_experiment(self, config: Union[str, dict], direct_path: bool = False, save_flag:bool = True):
+    def run_experiment(self,
+                       config: Union[str, dict],
+                       direct_path: bool = False,
+                       save_flag:bool = True):
         """Run experiment with corresponding config_name.
 
         Args:
