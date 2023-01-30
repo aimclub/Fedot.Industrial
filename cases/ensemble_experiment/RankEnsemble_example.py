@@ -22,12 +22,12 @@ class RankEnsembleExample:
         exp_results = dict()
         for dataset in proba_dict:
             print(f'ENSEMBLE FOR DATASET - {dataset}'.center(50, '–'))
-            modelling_results = proba_dict[dataset]
+            modelling_proba = proba_dict[dataset]
             modelling_metrics = metric_dict[dataset]
-            rank_ensemble = RankEnsemble(prediction_proba_dict=modelling_results,
-                                         metric_dict=modelling_metrics)
+            rank_ensemble = RankEnsemble(dataset_name=dataset)
 
-            exp_results.update({dataset: rank_ensemble.ensemble()})
+            exp_results.update({dataset: rank_ensemble.ensemble((modelling_proba,
+                                                                 modelling_metrics))})
         return exp_results
 
     def create_report(self, experiment_results: dict):

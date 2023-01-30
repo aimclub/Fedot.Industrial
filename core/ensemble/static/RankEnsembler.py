@@ -1,6 +1,12 @@
-from core.ensemble.BaseEnsembler import BaseEnsemble
-from core.api.API import Industrial
+from typing import Union
+
+import numpy as np
 from fedot.core.log import default_log as logger
+from numpy import ndarray
+
+from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from core.ensemble.BaseEnsembler import BaseEnsemble
+from core.architecture.settings.Hyperparams import *
 
 
 class RankEnsemble(BaseEnsemble):
@@ -13,123 +19,25 @@ class RankEnsemble(BaseEnsemble):
 
     Attributes:
         logger (Logger): logger instance
-        IndustrialModel (Fedot): Fedot model instance
         metric_dict  (dict): dictionary with structure {'ModelName':[metric values]}
         prediction_proba_dict (dict): dictionary with structure {'ModelName': [tensor with class probs]}
         experiment_results (dict): dictionary with structure {'ModelName': [tensor with class probs]}
 
     """
 
-    def __init__(self,
-                 prediction_proba_dict: dict,
-                 metric_dict: dict):
-        super().__init__()
-        self.prediction_proba_dict = prediction_proba_dict
-        self.metric_dict = metric_dict
+    def __init__(self, dataset_name):
+        super().__init__(dataset_name=dataset_name)
+        self.performance_analyzer = PerformanceAnalyzer()
         self.experiment_results = {}
-        self.IndustrialModel = Industrial()
         self.logger = logger(self.__class__.__name__)
         self.best_ensemble_metric = 0
 
-    def _create_models_rank_dict(self):
-        """
-        Method that returns a dictionary best metric values of base models
+        self.ensemble_strategy_dict = select_hyper_param('stat_methods_ensemble')
+        self.ensemble_strategy = self.ensemble_strategy_dict.keys()
 
-        Returns:
-            dictionary with structure {'ModelName': best metric values}
+        self.strategy_exclude_list = ['WeightedEnsemble']
 
-        """
-        model_rank = {}
-        for model in self.metric_dict:
-            self.logger.info(f'BASE RESULT FOR MODEL - {model}'.center(50, '-'))
-            if len(self.prediction_proba_dict[model].columns) == 3:
-                self.metric = 'roc_auc'
-                type = 'binary'
-            else:
-                self.metric = 'f1'
-                type = 'multiclass'
-            self.logger.info(f'TYPE OF ML TASK - {type}. Metric - {self.metric}'.center(50, '-'))
-            self.logger.info(self.metric_dict[model])
-            model_rank.update({model: self.metric_dict[model][self.metric][0]})
-        return model_rank
-
-    def _sort_models(self, model_rank):
-        """
-        Method that returns sorted dictionary with models results ``
-
-        Args:
-            model_rank: dictionary with structure {'ModelName': best metric values}
-
-        Returns:
-            sorted dictionary with structure {'Base_model': best metric values}
-
-        """
-
-        self.sorted_dict = dict(sorted(model_rank.items(), key=lambda x: x[1], reverse=True))
-        self.n_models = len(self.sorted_dict)
-
-        best_base_model = list(self.sorted_dict)[0]
-        best_metric = self.sorted_dict[best_base_model]
-
-        self.logger.info(f'CURRENT BEST METRIC - {best_metric}. MODEL - {best_base_model}'.center(50, '-'))
-        self.experiment_results.update({'Base_model': best_base_model, 'Base_metric': best_metric})
-        return {'Base_model': best_base_model, 'Base_metric': best_metric}
-
-    def __iterative_model_selection(self):
-        """
-        Method that iterative adding models to a single composite model and ensemble their predictions
-
-        Returns:
-            dictionary with structure {'Ensemble_models': best ensemble metric,
-                                        'Base_model': best base model metric}
-
-        """
-        for top_K_models in range(self.n_models):
-            self.logger.info(f'SELECT TOP {top_K_models + 1} MODELS AND APPLY ENSEMBLE.'.center(50, '-'))
-            modelling_results_top = {k: v for k, v in self.prediction_proba_dict.items() if
-                                     k in list(self.sorted_dict.keys())[:top_K_models + 1]}
-            ensemble_results = self.IndustrialModel.apply_ensemble(modelling_results=modelling_results_top)
-            top_ensemble_dict = self.__select_best_ensemble_method(ensemble_results)
-
-            if len(top_ensemble_dict) == 0:
-                self.logger.info(f'ENSEMBLE DOESNT IMPROVE RESULTS'.center(50, '-'))
-            else:
-                current_ensemble_method = list(top_ensemble_dict)[0]
-                best_ensemble_metric = top_ensemble_dict[current_ensemble_method]
-                model_combination = list(modelling_results_top)[:top_K_models + 1]
-                self.logger.info(
-                    f'ENSEMBLE IMPROVE RESULTS:'
-                    f'NEW BEST METRIC - {best_ensemble_metric}. METHOD - {current_ensemble_method}'.center(50, '-'))
-
-                if self.best_ensemble_metric > 0:
-                    self.experiment_results.update({'Ensemble_models': f'Models: {model_combination}. '
-                                                                       f'Ensemble_method: {current_ensemble_method}'})
-                    self.experiment_results.update({'Best_ensemble_metric': best_ensemble_metric})
-        return self.experiment_results
-
-    def __select_best_ensemble_method(self, ensemble_results: dict):
-        """
-        A method that iteratively searches for an ensemble algorithm that improves the current best result
-
-        Returns:
-            sorted dictionary with structure {'Ensemble_models': best ensemble metric}
-
-        """
-        top_ensemble_dict = {}
-        for ensemble_method in ensemble_results:
-            ensemble_dict = ensemble_results[ensemble_method]
-            ensemble_metrics = self.IndustrialModel.get_metrics(target=ensemble_dict['target'],
-                                                                prediction_label=ensemble_dict['label'],
-                                                                prediction_proba=ensemble_dict['proba'])
-            self.logger.info(f'ENSEMBLE RESULT FOR MODEL - {ensemble_method}'.center(50, '-'))
-            self.logger.info(ensemble_metrics)
-            ensemble_metric = ensemble_metrics[self.metric]
-            if ensemble_metric > self.best_base_results['Base_metric'] and ensemble_metric > self.best_ensemble_metric:
-                self.best_ensemble_metric = ensemble_metric
-                top_ensemble_dict.update({ensemble_method: ensemble_metric})
-        return dict(sorted(top_ensemble_dict.items(), key=lambda x: x[1], reverse=True))
-
-    def ensemble(self, modelling_results: dict = None, single_mode=False) -> dict:
+    def ensemble(self, modelling_results: Union[dict, tuple] = None, single_mode=False) -> dict:
         """Returns dictionary with ranking ensemble results
 
         The process of ensemble consists of 3 stages. At the first stage, a dictionary is created
@@ -147,7 +55,221 @@ class RankEnsemble(BaseEnsemble):
             Fitted Fedot pipeline with baseline model
 
         """
-        model_rank_dict = self._create_models_rank_dict()
+        self.test_target = self._deep_search_in_dict(modelling_results, 'test_target')
+        if isinstance(modelling_results, dict):
+            prediction_proba_dict, metric_dict = self.create_proba_and_metrics_dicts(modelling_results)
+        else:
+            prediction_proba_dict, metric_dict = modelling_results
+
+        model_rank_dict = self._create_models_rank_dict(prediction_proba_dict, metric_dict)
         self.best_base_results = self._sort_models(model_rank_dict)
 
-        return self.__iterative_model_selection()
+        return self.__iterative_model_selection(prediction_proba_dict)
+
+    def _deep_search_in_dict(self, obj, key):
+        if key in obj:
+            return obj[key]
+        for k, v in obj.items():
+            if isinstance(v, dict):
+                item = self._deep_search_in_dict(v, key)
+                if item is not None:
+                    return item
+
+    def _create_models_rank_dict(self, prediction_proba_dict, metric_dict):
+        """
+        Method that returns a dictionary with the best metric values of base models
+
+        Returns:
+            dictionary with structure {'ModelName': best metric values}
+
+        """
+        model_rank = {}
+        # for model in self.metric_dict:
+        for model in metric_dict:
+            self.logger.info(f'BASE RESULT FOR MODEL - {model}'.center(50, '-'))
+            # if len(self.prediction_proba_dict[model].columns) == 3:
+            if prediction_proba_dict[model].shape[1] == 2:
+                self.metric = 'roc_auc'
+                _type = 'binary'
+            else:
+                self.metric = 'f1'
+                _type = 'multiclass'
+            self.logger.info(f'TYPE OF ML TASK - {_type}. Metric - {self.metric}'.center(50, '-'))
+            # self.logger.info(self.metric_dict[model])
+            self.logger.info(metric_dict[model])
+            # model_rank.update({model: self.metric_dict[model][self.metric][0]})
+            model_rank.update({model: metric_dict[model][self.metric]})
+        return model_rank
+
+    def _sort_models(self, model_rank):
+        """
+        Method that returns sorted dictionary with models results ``
+
+        Args:
+            model_rank: dictionary with structure {'ModelName': 'best metric values'}
+
+        Returns:
+            sorted dictionary with structure {'Base_model': 'best metric values'}
+
+        """
+
+        self.sorted_dict = dict(sorted(model_rank.items(), key=lambda x: x[1], reverse=True))
+        self.n_models = len(self.sorted_dict)
+
+        best_base_model = list(self.sorted_dict)[0]
+        best_metric = self.sorted_dict[best_base_model]
+
+        self.logger.info(f'CURRENT BEST METRIC - {best_metric}. MODEL - {best_base_model}'.center(50, '-'))
+        self.experiment_results.update({'Base_model': best_base_model, 'Base_metric': best_metric})
+        return {'Base_model': best_base_model, 'Base_metric': best_metric}
+
+    def __iterative_model_selection(self, prediction_proba_dict):
+        """
+        Method that iterative adding models to a single composite model and ensemble their predictions
+
+        Returns:
+            dictionary with structure {'Ensemble_models': 'best ensemble metric',
+                                        'Base_model': 'best base model metric'}
+
+        """
+        for top_K_models in range(self.n_models):
+            self.logger.info(f'SELECT TOP {top_K_models + 1} MODELS AND APPLY ENSEMBLE.'.center(50, '-'))
+            # modelling_results_top = {k: v for k, v in self.prediction_proba_dict.items() if
+            #                          k in list(self.sorted_dict.keys())[:top_K_models + 1]}
+
+            modelling_results_top = {k: v for k, v in prediction_proba_dict.items() if
+                                     k in list(self.sorted_dict.keys())[:top_K_models + 1]}
+            # ensemble_results = self.ensemble(modelling_results=modelling_results_top)
+            # ensemble_results = self.IndustrialModel.apply_ensemble(modelling_results=modelling_results_top)
+
+            ensemble_results = self.agg_ensemble(modelling_results=modelling_results_top, single_mode=True)
+
+            top_ensemble_dict = self.__select_best_ensemble_method(ensemble_results)
+
+            if len(top_ensemble_dict) == 0:
+                self.logger.info(f'No improvement accomplished. Stop ensemble process')
+                return None
+            else:
+                current_ensemble_method = list(top_ensemble_dict)[0]
+                best_ensemble_metric = top_ensemble_dict[current_ensemble_method]
+                model_combination = list(modelling_results_top)[:top_K_models + 1]
+                self.logger.info(
+                    f'Accomplished metric improvement by {current_ensemble_method}:'
+                    f'New best metric – {best_ensemble_metric}'
+                )
+
+                if self.best_ensemble_metric > 0:
+                    self.experiment_results.update({'Ensemble_models': f'Models: {model_combination}. '
+                                                                       f'Ensemble_method: {current_ensemble_method}'})
+                    self.experiment_results.update({'Best_ensemble_metric': best_ensemble_metric})
+        return self.experiment_results
+
+    def __select_best_ensemble_method(self, ensemble_results: dict):
+        """
+        A method that iteratively searches for an ensemble algorithm that improves the current best result
+
+        Returns:
+            sorted dictionary with structure {'Ensemble_models': 'best ensemble metric'}
+
+        """
+        top_ensemble_dict = {}
+        for ensemble_method in ensemble_results:
+            ensemble_dict = ensemble_results[ensemble_method]
+            # ensemble_metrics = self.IndustrialModel.get_metrics(target=ensemble_dict['target'],
+            #                                                     prediction_label=ensemble_dict['label'],
+            #                                                     prediction_proba=ensemble_dict['proba'])
+
+            ensemble_metrics = self.performance_analyzer.calculate_metrics(target=ensemble_dict['target'],
+                                                                           predicted_labels=ensemble_dict['label'],
+                                                                           predicted_probs=ensemble_dict['proba'])
+
+            self.logger.info(f'Checking ensemble method – {ensemble_method}')
+            # self.logger.info(ensemble_metrics)
+            ensemble_metric = ensemble_metrics[self.metric]
+            if ensemble_metric > self.best_base_results['Base_metric'] and ensemble_metric > self.best_ensemble_metric:
+                self.best_ensemble_metric = ensemble_metric
+                top_ensemble_dict.update({ensemble_method: ensemble_metric})
+        return dict(sorted(top_ensemble_dict.items(), key=lambda x: x[1], reverse=True))
+
+    def agg_ensemble(self, modelling_results: dict = None, single_mode: bool = False) -> dict:
+        ensemble_dict = {}
+        if single_mode:
+            for strategy in self.ensemble_strategy:
+                ensemble_dict.update({f'{strategy}': self._ensemble_by_method(modelling_results,
+                                                                              strategy=strategy)})
+        else:
+            for generator in modelling_results:
+                ensemble_dict[generator] = {}
+                self.generator = generator
+                for launch in modelling_results[generator]:
+                    ensemble_dict[generator].update({launch: modelling_results[generator][launch]['metrics']})
+
+                for strategy in self.ensemble_strategy:
+                    ensemble_dict[generator].update({strategy: self._ensemble_by_method(modelling_results[generator],
+                                                                                        strategy=strategy)})
+        return ensemble_dict
+
+    def _ensemble_by_method(self, predictions, strategy):
+        transformed_predictions = self._check_predictions(predictions, strategy_name=strategy)
+        average_proba_predictions = self.ensemble_strategy_dict[strategy](transformed_predictions, axis=1)
+
+        if average_proba_predictions.shape[1] == 1:
+            average_proba_predictions = np.concatenate([average_proba_predictions, 1 - average_proba_predictions],
+                                                       axis=1)
+
+        label_predictions = np.argmax(average_proba_predictions, axis=1)
+        try:
+            target = self.test_target
+            metrics = self.performance_analyzer.calculate_metrics(target=target,
+                                                                  predicted_labels=label_predictions, )
+        except KeyError:
+            metrics = None
+            target = None
+
+        return {'target': target,
+                'label': label_predictions,
+                'proba': average_proba_predictions,
+                'metrics': metrics}
+
+    def _check_predictions(self, predictions, strategy_name):
+        """Check if the predictions array has the correct size.
+
+        Args:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
+            strategy_name: str. The name of the strategy used to ensemble the predictions.
+
+        Returns:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
+
+        Raises:
+            ValueError: if the array do not contain exactly 3 dimensions: [n_samples, n_classifiers, n_classes]
+
+        """
+        if strategy_name in self.strategy_exclude_list:
+            return predictions
+
+        if type(predictions) == dict:
+            try:
+                list_proba = []
+                for model_preds in predictions:
+                    proba_frame = predictions[model_preds]
+                    if isinstance(proba_frame, ndarray):
+                        list_proba.append(proba_frame)
+                    else:
+                        try:
+                            list_proba.append(proba_frame['class_probability'])
+                        except KeyError:
+                            self.target = proba_frame['Target'].values
+                            if 'Preds' in proba_frame.columns:
+                                filter_col = ['Target', 'Preds']
+                            else:
+                                filter_col = ['Target', 'Predicted_labels']
+                            proba_frame = proba_frame.loc[:, ~proba_frame.columns.isin(filter_col)]
+                            list_proba.append(proba_frame.values)
+                return np.array(list_proba).transpose((1, 0, 2))
+            except Exception as error:
+                self.logger.error(f'Error in ensemble predictions: {error}')
+                raise ValueError(
+                    'predictions must contain 3 dimensions: ')

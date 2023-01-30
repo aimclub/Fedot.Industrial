@@ -13,7 +13,7 @@ from core.api.utils.checkers_collections import DataCheck
 from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
-from core.architecture.utils.utils import path_to_save_results
+from core.architecture.utils.utils import default_path_to_save_results
 from core.models.ExperimentRunner import ExperimentRunner
 
 
@@ -190,10 +190,10 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
                 self.model_hyperparams['optimization_method']['mode']]
             del self.model_hyperparams['optimization_method']
 
-        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(), 'TSCImage',
+        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
                                                                     self.generator_name,
                                                                     '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
+        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage', self.generator_name,
                                                               'runs')
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 

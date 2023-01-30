@@ -6,7 +6,7 @@ from core.api.utils.method_collections import *
 from core.api.utils.reader_collections import *
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.architecture.utils.utils import path_to_save_results
+from core.architecture.utils.utils import default_path_to_save_results
 
 
 class Industrial(Fedot):
@@ -149,16 +149,34 @@ class Industrial(Fedot):
             if self.config_dict['error_correction']:
                 experiment_results[dataset_name]['ECM'] = self.apply_ECM(
                     modelling_results=experiment_results[dataset_name]['Original'])
+            # TODO: не забыть удалить
+            # import pickle
+
+            # with open('filename.pickle', 'wb') as handle:
+            #     pickle.dump(experiment_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # with open('filename.pickle', 'rb') as handle:
+            #     experiment_results = pickle.load(handle)
+            #
+            # result = experiment_results[dataset_name]['Original']
 
             if self.config_dict['ensemble_algorithm']:
                 ensemble_result = self.apply_ensemble(modelling_results=result,
-                                                      ensemble_mode=self.config_dict['ensemble_algorithm'])
+                                                      ensemble_mode=self.config_dict['ensemble_algorithm'],
+                                                      # ensemble_mode='Rank_Ensemble',
+                                                      dataset_name=dataset_name)
 
                 experiment_results[dataset_name]['Ensemble'] = ensemble_result
 
             if save_flag:
+                if output_folder is None:
+                    path = default_path_to_save_results()
+                else:
+                    path = output_folder
+
                 self.save_results(modelling_results=experiment_results,
-                                  dataset_name=dataset_name)
+                                  dataset_name=dataset_name,
+                                  path=path)
         self.logger.info('END OF EXPERIMENT'.center(50, '-'))
         return experiment_results
 
@@ -199,10 +217,10 @@ class Industrial(Fedot):
                 self.logger.info(f'{dataset_name} – start of cycle {launch} for {runner_name} generator')
                 try:
                     runner_result = {}
-                    if output_folder:
-                        paths_to_save = os.path.join(output_folder, runner_name, dataset_name, str(launch))
-                    else:
-                        paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
+                    # if output_folder:
+                    #     paths_to_save = os.path.join(output_folder, runner_name, dataset_name, str(launch))
+                    # else:
+                    #     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
                     fitted_predictor, train_features = self._obtain_model(model_name=runner_name,
                                                                           task_type=task_type,
@@ -215,7 +233,7 @@ class Industrial(Fedot):
                     runner_result['fitted_predictor'] = fitted_predictor
                     runner_result['train_features'] = train_features
                     runner_result['test_target'] = test_data[1]
-                    runner_result['path_to_save'] = paths_to_save
+                    # runner_result['path_to_save'] = paths_to_save
                     runner_result['train_target'] = train_data[1]
 
                     self.logger.info(f'START PREDICTION AT LAUNCH-{launch}'.center(50, '-'))
@@ -268,12 +286,14 @@ class Industrial(Fedot):
 
         return experiment_dict
 
-    def save_results(self, dataset_name, modelling_results: dict):
+    def save_results(self, dataset_name, modelling_results: dict, path: str = None):
+
         result_at_dataset = modelling_results[dataset_name]
         for approach in result_at_dataset:
             if result_at_dataset[approach] is not None:
-                for model in result_at_dataset[approach]:
-                    self.saver.save_method_dict[approach](prediction=result_at_dataset[approach][model])
+                self.saver.save_method_dict[approach](prediction=result_at_dataset[approach],
+                                                      path=path,
+                                                      dataset_name=dataset_name)
 
     def apply_ECM(self, modelling_results: Union[dict, list]):
         self.logger.info('START FIT ERROR CORRECTION MODEL'.center(50, '-'))
@@ -299,16 +319,18 @@ class Industrial(Fedot):
         #     self.logger.info('ECM COMPOSE WAS FAILED')
         return predict_on_train
 
-    def apply_ensemble(self,
+    def apply_ensemble(self, dataset_name: str,
                        modelling_results: Union[dict, list],
-                       ensemble_mode: str = 'AGG_voting'):
+                       ensemble_mode: str = 'Rank_Ensemble',
+                       ):
         single_mode = True
         if self.config_dict is not None:
             ensemble_mode = self.config_dict['ensemble_algorithm']
             single_mode = False
-        ensemble_model = self.ensemble_methods_dict[ensemble_mode]()
-        ensemble_results = ensemble_model.ensemble(modelling_results=modelling_results,
-                                                   single_mode=single_mode)
+
+        ensemble_model = self.ensemble_methods_dict[ensemble_mode](dataset_name=dataset_name)
+        ensemble_results = ensemble_model.ensemble(modelling_results=modelling_results, single_mode=single_mode)
+
         return ensemble_results
 
     @staticmethod
