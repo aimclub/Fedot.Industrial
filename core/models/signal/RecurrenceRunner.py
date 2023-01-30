@@ -6,7 +6,7 @@ from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.DataTransformer import TSTransformer
 from core.operation.transformation.extraction.sequences import ReccurenceExtractor
-from core.architecture.abstraction.Decorators import time_it
+from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
 
 
 class RecurrenceRunner(ExperimentRunner):
@@ -43,6 +43,7 @@ class RecurrenceRunner(ExperimentRunner):
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
         return feature_df
 
+    @dataframe_adapter
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
         """Generate vector from time series.
 

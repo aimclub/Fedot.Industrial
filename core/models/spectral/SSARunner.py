@@ -128,8 +128,7 @@ class SSARunner(ExperimentRunner):
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = self.train_feats
         else:
-            eigenvectors_and_rank = self.generate_vector_from_ts(ts_data)
-            eigenvectors_list_test = [x[0].iloc[:, :self.rank_hyper] for x in eigenvectors_and_rank]
+            eigenvectors_list_test = ts_data
             self.eigenvectors_list_test = self.check_rank_consistency(eigenvectors_list_test)
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
             aggregation_df = aggregation_df[self.train_feats.columns]
@@ -140,7 +139,7 @@ class SSARunner(ExperimentRunner):
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
         eigenvectors_list = list(map(lambda x: self.datacheck.check_data(x, return_df=True), eigenvectors_list))
-        if window_mode:
+        if self.window_mode:
             gen = self.aggregator.create_baseline_features
             lambda_function_for_stat_features = lambda x: self.apply_window_for_stat_feature(x.T,
                                                                                              feature_generator=gen)

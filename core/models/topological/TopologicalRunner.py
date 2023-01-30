@@ -1,13 +1,14 @@
 import gc
 import sys
 
+import pandas as pd
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.extraction.topological import *
-from core.architecture.abstraction.Decorators import time_it
+from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
 
 sys.setrecursionlimit(1000000000)
 
@@ -37,9 +38,11 @@ class TopologicalRunner(ExperimentRunner):
         self.filtered_features = None
         self.feature_extractor = None
 
+    @dataframe_adapter
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
 
         if self.feature_extractor is None:
+            ts_data = pd.DataFrame(ts_data)
             te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
             persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,

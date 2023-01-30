@@ -24,25 +24,21 @@ class StatsRunner(ExperimentRunner):
     """
 
     def __init__(self,
+                 window_size: int = None,
                  window_mode: bool = False,
                  use_cache: bool = False):
 
         super().__init__()
         self.use_cache = use_cache
         self.aggregator = StatFeaturesExtractor()
+        self.window_mode = window_mode
+        self.window_size = window_size
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
-        self.window_mode = window_mode
-        self.window_size = None
 
-    def generate_features_from_ts(self, ts_frame: pd.DataFrame, window_length: int = None) -> pd.DataFrame:
-        ts_samples_count = ts_frame.shape[0]
-        self.logger.info(f'Number of TS to be processed: {ts_samples_count}')
-        ts = self.check_for_nan(ts_frame)
-        ts = pd.DataFrame(ts, dtype=float)
-
+    def extract_stats_features(self, ts):
         if self.window_mode:
             aggregator = self.aggregator.create_baseline_features
             list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data=ts,
@@ -51,6 +47,29 @@ class StatsRunner(ExperimentRunner):
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
+        return aggregation_df
+
+    def generate_features_from_ts(self, ts_frame: pd.DataFrame, window_length: int = None) -> pd.DataFrame:
+
+        ts = pd.DataFrame(ts_frame, dtype=float)
+        ts = ts.fillna(method='ffill')
+
+        if ts.shape[0] > 1:
+            mode = 'MultiTS'
+        else:
+            mode = 'SingleTS'
+
+        if mode == 'MultiTS':
+            ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]
+            tmp_list = []
+            for index, component in enumerate(ts_components):
+                aggregation_df = self.extract_stats_features(component)
+                col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
+                aggregation_df.columns = col_name
+                tmp_list.append(aggregation_df)
+            aggregation_df = pd.concat(tmp_list, axis=1)
+        else:
+            aggregation_df = self.extract_stats_features(ts)
 
         return aggregation_df
 

@@ -7,7 +7,7 @@ from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.extraction.wavelet import WaveletExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
+from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
 
 
 class SignalRunner(ExperimentRunner):
@@ -98,6 +98,7 @@ class SignalRunner(ExperimentRunner):
 
         return feature_df
 
+    @dataframe_adapter
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
         """Generate vector from time series.
 
