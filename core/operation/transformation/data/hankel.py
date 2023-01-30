@@ -1,4 +1,7 @@
+from typing import Union
+
 import numpy as np
+import pandas as pd
 from scipy.linalg import hankel
 
 
@@ -7,61 +10,70 @@ class HankelMatrix:
     This class implements an algorithm for converting an original time series into a Hankel matrix.
     """
 
-    def __init__(self, data, subseq_length):
-        """
-        Initialize the class with the data and subseq_length parameters.
+    def __init__(self,
+                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
+                 window_length: int = None):
+        self.__time_series = time_series
+        self.__convert_ts_to_array()
+        self.__window_length = window_length
 
-        Parameters
-        ----------
-        data : np.array
-            An array of data that is either a one-dimensional or multidimensional time series.
-        subseq_length : int
-            The length of the subsequence.
-        """
-        self.data = data
-        self.subseq_length = subseq_length
+        if len(self.__time_series.shape) > 1:
+            self.__ts_length = self.__time_series[0].size
+        else:
+            self.__ts_length = self.__time_series.size
 
-    def one_dimensional_transform(self):
-        """
-        Transform a one-dimensional time series into a Hankel matrix.
+        if self.__window_length is None:
+                self.__window_length = round(self.__ts_length * 0.35)
+        self.__subseq_length = self.__ts_length - self.__window_length + 1
 
-        Returns
-        -------
-        np.array
-            The Hankel matrix.
-        """
-        hankel_matrix = []
-        for i in range(len(self.data) - self.subseq_length + 1):
-            hankel_matrix.append(self.data[i:i + self.subseq_length])
-        return np.array(hankel_matrix)
+        self.__check_windows_length()
+        self.__trajectory_matrix = self.__get_trajectory_matrix()
 
-    def multidimensional_transform(self):
-        """
-        Transform a multidimensional time series into a Hankel matrix.
+    def __check_windows_length(self):
+        if not 2 <= self.__window_length <= self.__ts_length / 2:
+            raise ValueError("The window length must be in the interval [2, N/2].")
 
-        Returns
-        -------
-        np.array
-            The Hankel matrix.
-        """
-        hankel_matrix = []
-        for i in range(len(self.data) - self.subseq_length + 1):
-            hankel_matrix.append(self.data[i:i + self.subseq_length, :])
-        return np.array(hankel_matrix)
+    def __convert_ts_to_array(self):
+        if type(self.__time_series) == pd.DataFrame:
+            self.__time_series = self.__time_series.values.reshape(-1,1)
+        elif type(self.__time_series) == list:
+            self.__time_series = np.array(self.__time_series)
+        else:
+            self.__time_series = self.__time_series
 
 
-    # def ts_vector_to_trajectory_matrix(timeseries, L, K):
-    #     hankelized = hankel(timeseries, np.zeros(L)).T
-    #     hankelized = hankelized[:, :K]
-    #     return hankelized
-    #
-    # def ts_matrix_to_trajectory_matrix(self, timeseries, L, K):
-    #     P, N = timeseries.shape
-    #
-    #     trajectory_matrix = [
-    #         self.ts_vector_to_trajectory_matrix(timeseries[p, :], L, K)
-    #         for p in range(P)
-    #     ]
-    #
-    #     trajectory_matrix = np.concatenate(trajectory_matrix, axis=1)
-    #     return trajectory_matrix
+    def __get_trajectory_matrix(self):
+        if len(self.__time_series.shape) > 1:
+            return [hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
+                    in self.__time_series]
+        else:
+            return hankel(self.__time_series[:self.__window_length + 1], self.__time_series[self.__window_length:])
+
+    @property
+    def window_length(self):
+        return self.__window_length
+
+    @property
+    def time_series(self):
+        return self.__time_series
+
+    @property
+    def sub_seq_length(self):
+        return self.__subseq_length
+
+    @window_length.setter
+    def window_length(self, window_length):
+        self.__window_length = window_length
+
+    @property
+    def trajectory_matrix(self):
+        return self.__trajectory_matrix
+
+    @property
+    def ts_length(self):
+        return self.__ts_length
+
+    @trajectory_matrix.setter
+    def trajectory_matrix(self, trajectory_matrix: np.ndarray):
+        self.__trajectory_matrix = trajectory_matrix
+
