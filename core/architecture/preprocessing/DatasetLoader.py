@@ -85,13 +85,13 @@ class DataLoader:
             elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.arff'):
                 x_test, x_train, y_test, y_train = self.read_arff(dataset_name, temp_data_path)
 
-            # elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.ts'):
-            #     from sktime.datasets._data_io import load_from_tsfile_to_dataframe
-            #
-            #     x_test, y_test = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TEST.ts',
-            #                                                    return_separate_X_and_y=True)
-            #     x_train, y_train = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TRAIN.ts',
-            #                                                      return_separate_X_and_y=True)
+            elif os.path.isfile(temp_data_path + '/' + dataset_name + '_TRAIN.ts'):
+                from sktime.datasets._data_io import load_from_tsfile_to_dataframe
+
+                x_test, y_test = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TEST.ts',
+                                                               return_separate_X_and_y=True)
+                x_train, y_train = load_from_tsfile_to_dataframe(temp_data_path + '/' + dataset_name + '_TRAIN.ts',
+                                                                 return_separate_X_and_y=True)
             else:
                 self.logger.error('Loaded data is of unknown format')
                 return None, None
