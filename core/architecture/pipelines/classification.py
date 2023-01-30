@@ -2,42 +2,14 @@ import pandas as pd
 from pymonad.list import ListMonad
 from pymonad.either import Right
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from core.architecture.pipelines.abstract_pipeline import AbstractPipelines
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.DatasetLoader import DataLoader
-from core.models.signal.RecurrenceRunner import RecurrenceRunner
-from core.models.signal.SignalRunner import SignalRunner
 from core.models.statistical.QuantileRunner import StatsRunner
-from core.models.topological.TopologicalRunner import TopologicalRunner
-from core.operation.transformation.basis.chebyshev import ChebyshevBasis
 from core.operation.transformation.basis.data_driven import DataDrivenBasis
-from core.operation.transformation.basis.fourier import FourierBasis
-from core.operation.transformation.basis.legendre import LegenderBasis
-from core.operation.transformation.basis.power import PowerBasis
 
 
-class ClassificationPipelines:
-    def __init__(self, train_data, test_data):
-        self.train_features = train_data[0]
-        self.train_target = train_data[1]
-        self.test_features = test_data[0]
-        self.test_target = test_data[1]
-        self.basis = None
-
-        self.basis_dict = {'Legender': LegenderBasis,
-                           "Chebyshev": ChebyshevBasis,
-                           'DataDriven': DataDrivenBasis,
-                           'Power': PowerBasis,
-                           'Fourier': FourierBasis}
-
-        self.feature_generator_dict = {'Statistical': StatsRunner,
-                                       'Wavelet': SignalRunner,
-                                       'Topological': TopologicalRunner,
-                                       'Reccurence': RecurrenceRunner
-                                       }
-
-        self.generators_with_matrix_input = ['Topological',
-                                             'Wavelet',
-                                             'Reccurence']
+class ClassificationPipelines(AbstractPipelines):
 
     def __call__(self, pipeline_type: str = 'SpecifiedFeatureGeneratorTSC'):
         pipeline_dict = {'DataDrivenTSC': self.__ts_data_driven_pipeline,
@@ -59,21 +31,17 @@ class ClassificationPipelines:
 
         train_pipeline = Right(self.train_features).then(create_list_of_ts).map(transform_to_basis).map(
             reduce_basis).map(feature_extractor.get_features)
-        test_pipeline = Right(self.test_features).then(create_list_of_ts).map(transform_to_basis).map(reduce_basis).map(
-            feature_extractor.get_features)
+
+        test_pipeline = Right(self.test_features).then(create_list_of_ts).map(transform_to_basis).map(
+            reduce_basis).map(feature_extractor.get_features)
 
         self.basis = data_basis.basis
-        train_features = pd.concat(train_pipeline.value, axis=0)
-        test_features = pd.concat(test_pipeline.value, axis=0)
-
-        fitted_model = classificator.fit(train_features=train_features,
-                                         train_target=self.train_target)
-        predicted_probs_labels = (classificator.predict(test_features=test_features),
-                                  classificator.predict_proba(test_features=test_features))
-        metrics = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
-                                                          predicted_labels=predicted_probs_labels[0],
-                                                          predicted_probs=predicted_probs_labels[1])
-
+        classificator, metrics = self._evaluate(classificator=classificator,
+                                                test_features=self._get_feature_matrix(pipeline=test_pipeline,
+                                                                                       mode='1D'),
+                                                train_features=self._get_feature_matrix(pipeline=train_pipeline,
+                                                                                        mode='1D'),
+                                                )
         return classificator, metrics
 
     def __multits_data_driven_pipeline(self, **kwargs):
@@ -96,17 +64,12 @@ class ClassificationPipelines:
             reduce_basis).then(extract_features)
 
         self.basis = data_basis.basis
-        train_features = pd.concat([pd.concat(feature_set, axis=1) for feature_set in train_pipeline.value], axis=0)
-        test_features = pd.concat([pd.concat(feature_set, axis=1) for feature_set in test_pipeline.value], axis=0)
 
-        fitted_model = classificator.fit(train_features=train_features,
-                                         train_target=self.train_target)
-        predicted_probs_labels = (classificator.predict(test_features=test_features),
-                                  classificator.predict_proba(test_features=test_features))
-        metrics = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
-                                                          predicted_labels=predicted_probs_labels[0],
-                                                          predicted_probs=predicted_probs_labels[1])
-
+        classificator, metrics = self._evaluate(classificator=classificator,
+                                                test_features=self._get_feature_matrix(pipeline=test_pipeline,
+                                                                                       mode='Multi'),
+                                                train_features=self._get_feature_matrix(pipeline=train_pipeline,
+                                                                                        mode='Multi'), )
         return classificator, metrics
 
     def __specified_basis_pipeline(self, **kwargs):
@@ -124,13 +87,12 @@ class ClassificationPipelines:
 
         create_list_of_ts = lambda x: ListMonad(*x.values.tolist()) if kwargs['feature_generator_type'] not \
                                                                        in self.generators_with_matrix_input else x
+        extract_features = lambda x: ListMonad(feature_extractor.get_features(x))
         fit_model = lambda x: classificator.fit(train_features=x, train_target=self.train_target)
         predict = lambda x: (classificator.predict(test_features=x), classificator.predict_proba(test_features=x))
 
-        fitted_model = Right(self.train_features).then(create_list_of_ts).then(feature_extractor.get_features).then(
-            fit_model)
-        predicted_probs_labels = Right(self.test_features).then(create_list_of_ts).then(
-            feature_extractor.get_features).then(predict)
+        fitted_model = Right(self.train_features).then(create_list_of_ts).then(extract_features).then(fit_model)
+        predicted_probs_labels = Right(self.test_features).then(create_list_of_ts).then(extract_features).then(predict)
 
         metrics = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
                                                           predicted_labels=predicted_probs_labels.value[0],
@@ -141,18 +103,18 @@ class ClassificationPipelines:
 
 if __name__ == '__main__':
     # Goes to API
-    dataset_list = ['Epilepsy',
-                    # 'ECG200',
-                    # 'EOGVerticalSignal',
-                    # 'DistalPhalanxOutlineCorrect',
-                    # 'ScreenType',
-                    # 'InlineSkate',
-                    # 'ArrowHead'
-                    ]
+    dataset_list = [  # 'Epilepsy',
+        'ECG200',
+        # 'EOGVerticalSignal',
+        # 'DistalPhalanxOutlineCorrect',
+        # 'ScreenType',
+        # 'InlineSkate',
+        # 'ArrowHead'
+    ]
     model_hyperparams = {
         'problem': 'classification',
         'seed': 42,
-        'timeout': 4,
+        'timeout': 2,
         'max_depth': 6,
         'max_arity': 3,
         'cv_folds': 3,
@@ -169,9 +131,9 @@ if __name__ == '__main__':
         train, test = DataLoader(dataset_name).load_data()
         pipeline_cls = ClassificationPipelines(train_data=train, test_data=test)
         pipeline_data_driven = ClassificationPipelines(train_data=train, test_data=test)
-        # model_1, result_for_1_comp = pipeline(feature_generator_type='Reccurence',
-        #                                       model_hyperparams=model_hyperparams,
-        #                                       feature_hyperparams=feature_hyperparams)
+        model_1, result_for_1_comp = pipeline_cls('SpecifiedFeatureGeneratorTSC')(feature_generator_type='Statistical',
+                                                                                  model_hyperparams=model_hyperparams,
+                                                                                  feature_hyperparams=feature_hyperparams)
 
         model_1, result_for_1_comp = pipeline_data_driven('DataDrivenMultiTSC')(component=0,
                                                                                 model_hyperparams=model_hyperparams,
