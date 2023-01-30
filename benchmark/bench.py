@@ -3,11 +3,12 @@ import random
 from abc import ABC
 
 import pandas as pd
+from fedot.core.log import default_log as logger
 
 from benchmark.abstract_bench import AbstractBenchmark
 from core.api.API import Industrial
-from fedot.core.log import default_log as logger
 from core.architecture.postprocessing.results_picker import ResultsPicker
+from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.ensemble.static.RankEnsembler import RankEnsemble
 
 
@@ -48,7 +49,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             # 'recurrence',
             'quantile',
             # 'window_spectral',
-            # 'spectral',
+            'spectral',
             # 'wavelet',
             'topological'
         ],
@@ -61,21 +62,54 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             'timeout': 1,
             # 'timeout': 5,
             'n_jobs': 2,
-            # 'ensemble_algorithm': 'AGG_voting'
+            'ensemble_algorithm': 'Rank_Ensemble'
+        }
+        return config
+
+    @property
+    def temporary_config(self):
+        config = {
+            'feature_generator': ['window_quantile',
+                                  'quantile',
+                                  'topological',
+                                  'spectral'],
+
+            'datasets_list': ['Lightning7', 'UMD'],
+            'use_cache': True,
+            'error_correction': False,
+            'launches': 1,
+            'timeout': 1,
+            'n_jobs': 2,
+            'ensemble_algorithm': 'Rank_Ensemble'
         }
         return config
 
     def run(self):
         self.logger.info('Benchmark test started')
-        experimenter = Industrial()
-        experimenter.run_experiment(config=self._config,
-                                    output_folder=self.output_dir)
-        proba_dict, metric_dict = self.results_picker.get_metrics_and_proba()
-        rank_ensemble_results = self.apply_rank_ensemble(proba_dict=proba_dict,
-                                                         metric_dict=metric_dict)
+        # experimenter = Industrial()
+
+        # experiment_results = experimenter.run_experiment(config=self._config,
+        #                                                  output_folder=self.output_dir)
+        #
+        # experiment_results = experimenter.run_experiment(config=self.temporary_config,
+        #                                                  output_folder=self.output_dir)
+
+        import pickle
+        #
+        # with open('filename.pickle', 'wb') as handle:
+        #     pickle.dump(experiment_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open('filename.pickle', 'rb') as handle:
+            experiment_results = pickle.load(handle)
+
+
+        # proba_dict, metric_dict = self.results_picker.get_metrics_and_proba()
+        # ensemble_result_list = self.apply_rank_ensemble(experimenter, experiment_results)
 
         basic_report = self.load_basic_results()
-        rank_ensemble_report = self.create_report(experiment_results=rank_ensemble_results)
+
+
+        # rank_ensemble_report = self.create_report(experiment_results=rank_ensemble_results)
         self.logger.info("Benchmark test finished")
 
         return basic_report, rank_ensemble_report
@@ -95,17 +129,20 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         experiment_df['Ensemble_gain'] = experiment_df['Ensemble_gain'].apply(lambda x: x if x > 0 else 0)
         return experiment_df
 
-    def apply_rank_ensemble(self, proba_dict: dict, metric_dict: dict):
-        exp_results = dict()
-        for dataset in proba_dict:
+    def apply_rank_ensemble(self, experimenter: Industrial, basic_results: dict):
+        exp_results = list()
+        for dataset in basic_results:
             print(f'ENSEMBLE FOR DATASET - {dataset}'.center(50, '–'))
-            modelling_results = proba_dict[dataset]
-            modelling_metrics = metric_dict[dataset]
-            rank_ensemble = RankEnsemble(prediction_proba_dict=modelling_results,
-                                         metric_dict=modelling_metrics)
-
-            exp_results.update({dataset: rank_ensemble.ensemble()})
-        return exp_results
+            ds_results = basic_results[dataset]['Original']
+            ds_ensemble_result = experimenter.apply_ensemble(dataset_name=dataset, modelling_results=ds_results)
+            if not ds_ensemble_result:
+                continue
+            ds_ensemble_result.update({'dataset': dataset})
+            exp_results.append(pd.DataFrame.from_dict(ds_ensemble_result, orient='index').T)
+        try:
+            return pd.concat(exp_results, ignore_index=True)
+        except ValueError:
+            return None
 
     def analysis(self):
         # results_table.groupby(['experiment'])['type'].agg(pd.Series.mode) select the most frequent type for generators
@@ -131,8 +168,5 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(number_of_datasets=1,
-                             random_selection=False)
+                             random_selection=True)
     basic_report, rank_ensemble_report = benchmark.run()
-
-    # benchmark.run()
-    res = benchmark.load_ensemble_results(model_list=['quantile', 'recurrence', 'wavelet'], launch_type='max')
