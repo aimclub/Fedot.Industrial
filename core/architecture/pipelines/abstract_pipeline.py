@@ -50,9 +50,33 @@ class AbstractPipelines:
                                                           predicted_probs=predicted_probs_labels[1])
         return fitted_model, metrics
 
-    def _get_feature_matrix(self, pipeline, mode: str = '1D'):
+    def _get_feature_matrix(self, list_of_features, mode: str = '1D'):
         if mode == '1D':
-            feature_matrix = pd.concat(pipeline.value, axis=0)
+            feature_matrix = pd.concat(list_of_features, axis=0)
         else:
-            feature_matrix = pd.concat([pd.concat(feature_set, axis=1) for feature_set in pipeline.value], axis=0)
+            feature_matrix = pd.concat([pd.concat(feature_set, axis=1) for feature_set in list_of_features], axis=0)
         return feature_matrix
+
+    def _init_pipeline_nodes(self, **kwargs):
+        if 'feature_generator_type' not in kwargs.keys():
+            generator = self.feature_generator_dict['Statistical']
+        else:
+            generator = self.feature_generator_dict[kwargs['feature_generator_type']]
+
+        feature_extractor = generator(**kwargs['feature_hyperparams'])
+        classificator = TimeSeriesClassifier(
+            model_hyperparams=kwargs['model_hyperparams'])
+        evaluator = PerformanceAnalyzer()
+
+        lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
+                            'reduce_basis': lambda x: x[:, 0] if x.shape[1] == 1 else x[:, kwargs['component']],
+                            'extract_features': lambda x: feature_extractor.get_features(x),
+                            'fit_model': lambda x: classificator.fit(train_features=x, train_target=self.train_target),
+                            'predict': lambda x: ListMonad({'predicted_labels': classificator.predict(test_features=x),
+                                                            'predicted_probs': classificator.predict_proba(
+                                                                test_features=x)}),
+                            'evaluate_metrics': lambda MonoidPreds: ListMonad(evaluator.calculate_metrics(
+                                target=self.test_target, **MonoidPreds))
+                            }
+
+        return feature_extractor, classificator, evaluator, lambda_func_dict

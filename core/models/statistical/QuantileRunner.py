@@ -49,7 +49,9 @@ class StatsRunner(ExperimentRunner):
             aggregation_df = self.aggregator.create_baseline_features(ts)
         return aggregation_df
 
-    def generate_features_from_ts(self, ts_frame: pd.DataFrame, window_length: int = None) -> pd.DataFrame:
+    def generate_features_from_ts(self,
+                                  ts_frame: pd.DataFrame,
+                                  window_length: int = None) -> pd.DataFrame:
 
         ts = pd.DataFrame(ts_frame, dtype=float)
         ts = ts.fillna(method='ffill')
@@ -58,21 +60,36 @@ class StatsRunner(ExperimentRunner):
             mode = 'MultiTS'
         else:
             mode = 'SingleTS'
-
-        if mode == 'MultiTS':
-            ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]
-            tmp_list = []
-            for index, component in enumerate(ts_components):
-                aggregation_df = self.extract_stats_features(component)
-                col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
-                aggregation_df.columns = col_name
-                tmp_list.append(aggregation_df)
-            aggregation_df = pd.concat(tmp_list, axis=1)
-        else:
-            aggregation_df = self.extract_stats_features(ts)
+        try:
+            if mode == 'MultiTS':
+                aggregation_df = self.__get_feature_matrix(ts)
+            else:
+                aggregation_df = self.extract_stats_features(ts)
+        except Exception:
+            aggregation_df = self.__component_extraction(ts)
 
         return aggregation_df
 
     @time_it
     def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
         return self.generate_features_from_ts(ts_data)
+
+    def __component_extraction(self, ts):
+        ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]
+        tmp_list = []
+        for index, component in enumerate(ts_components):
+            aggregation_df = self.extract_stats_features(component)
+            col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
+            aggregation_df.columns = col_name
+            tmp_list.append(aggregation_df)
+        aggregation_df = pd.concat(tmp_list, axis=1)
+        return aggregation_df
+
+    def __get_feature_matrix(self, ts):
+        ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
+        tmp_list = []
+        for index, component in enumerate(ts_components):
+            aggregation_df = self.extract_stats_features(component)
+            tmp_list.append(aggregation_df)
+        aggregation_df = pd.concat(tmp_list, axis=0)
+        return aggregation_df
