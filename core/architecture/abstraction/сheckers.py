@@ -1,3 +1,7 @@
+"""
+This module contains value checking functions common to the whole framework.
+"""
+
 from typing import Set, Any
 
 
@@ -12,6 +16,11 @@ def parameter_value_check(
         parameter: Name of the checked parameter.
         value: Value of the checked parameter.
         valid_values: Set of the valid parameter values.
+
+    Rises:
+        ValueError: If ``value`` is not in ``valid_values``.
+
+
     """
     if value not in valid_values:
         raise ValueError(

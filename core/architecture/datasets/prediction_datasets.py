@@ -1,3 +1,8 @@
+"""
+This module contains classes for wrapping data of various types for passing it
+to the prediction method of computer vision models.
+"""
+
 import os
 from typing import Tuple, Callable
 

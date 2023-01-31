@@ -1,3 +1,7 @@
+"""
+This module contains classes for image classification based on torch dataset.
+"""
+
 from typing import Tuple
 
 import numpy as np

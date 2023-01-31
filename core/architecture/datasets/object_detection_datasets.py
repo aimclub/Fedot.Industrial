@@ -1,3 +1,7 @@
+"""
+This module contains classes for object detection task based on torch dataset.
+"""
+
 import json
 import os
 from typing import Tuple, Callable, Dict
