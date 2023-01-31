@@ -1,3 +1,7 @@
+"""
+This module contains classes for CNN structure optimization.
+"""
+
 import os
 from typing import Dict, List
 
@@ -5,30 +9,13 @@ import torch
 from fedot.core.log import default_log as Logger
 from torch.utils.tensorboard import SummaryWriter
 
-from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
+from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters, \
+    write_scores
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from core.operation.optimization.sfp_tools import zerolize_filters
 from core.operation.optimization.svd_tools import energy_threshold_pruning, \
     decompose_module
-
-
-def write_scores(
-        writer: SummaryWriter,
-        phase: str,
-        scores: Dict[str, float],
-        x: int,
-):
-    """Write scores from dictionary by SummaryWriter.
-
-    Args:
-        writer: SummaryWriter object for writing scores.
-        phase: Experiment phase for grouping records, e.g. 'train'.
-        scores: Dictionary {metric_name: value}.
-        x: The independent variable.
-    """
-    for key, score in scores.items():
-        writer.add_scalar(f"{phase}/{key}", score, x)
 
 
 class StructureOptimization:
@@ -48,14 +35,13 @@ class StructureOptimization:
             self,
             exp: NNExperimenter,
             params: FitParameters
-
     ) -> None:
-        """Run experiment.
+        """Run model training with optimization.
 
         Args:
-            experimenter: An instance of the experimenter class, e.g.
+            exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
-            num_epochs: Number of epochs.
+            params: An object containing training parameters.
         """
         pass
 
@@ -95,14 +81,15 @@ class SVDOptimization(StructureOptimization):
         self.orthogonal_loss = OrthogonalLoss(orthogonal_loss_factor)
 
     def fit(self, exp: NNExperimenter, params: FitParameters) -> None:
-        """Run experiment.
+        """Run model training with optimization.
 
         Args:
-            exp: An instance of the experimenter class, e.g. ``ClassificationExperimenter``.
-            num_epochs: Number of epochs.
+            exp: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+            params: An object containing training parameters.
         """
-
         exp.name += self.description
+        self.logger.info(f"Default size: {exp.size_of_model():.2f} Mb")
         decompose_module(exp.model, self.decomposing_mode)
         exp.model.to(exp.device)
         self.logger.info(f"SVD decomposed size: {exp.size_of_model():.2f} Mb")
@@ -111,6 +98,13 @@ class SVDOptimization(StructureOptimization):
         self.optimize(exp=exp, params=params)
 
     def optimize(self, exp: NNExperimenter, params: FitParameters) -> None:
+        """Prunes the trained model at the given thresholds.
+
+        Args:
+            exp: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+            params: An object containing training parameters.
+        """
         self.finetuning = True
         epoch = params.num_epochs
         params.num_epochs = self.finetuning_epochs
@@ -132,6 +126,16 @@ class SVDOptimization(StructureOptimization):
             exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
 
     def loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
+        """
+        Computes the orthogonal and the Hoer loss for the model.
+
+        Args:
+            model: CNN model with DecomposedConv layers.
+
+        Returns:
+            A dict ``{loss_name: loss_value}`` where loss_name is a string
+                and loss_value is a floating point tensor with a single value.
+        """
         losses = {'orthogonal_loss': self.orthogonal_loss(model)}
         if not self.finetuning:
             losses['hoer_loss'] = self.hoer_loss(model)
@@ -158,12 +162,12 @@ class SFPOptimization(StructureOptimization):
         self.pruning_ratio = pruning_ratio
 
     def fit(self, exp: NNExperimenter, params: FitParameters) -> None:
-        """Run experiment.
+        """Run model training with optimization.
 
         Args:
             exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
-            num_epochs: Number of epochs.
+            params: An object containing training parameters.
         """
         exp.name += self.description
         path = os.path.join(params.dataset_name, exp.name, 'train')
@@ -192,4 +196,3 @@ class SFPOptimization(StructureOptimization):
             exp.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
         exp.load_model(model_path)
         writer.close()
-
