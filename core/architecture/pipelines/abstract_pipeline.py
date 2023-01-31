@@ -50,9 +50,16 @@ class AbstractPipelines:
                                                           predicted_probs=predicted_probs_labels[1])
         return fitted_model, metrics
 
-    def _get_feature_matrix(self, list_of_features, mode: str = '1D'):
+    def _get_feature_matrix(self, list_of_features, mode: str = 'Multi'):
         if mode == '1D':
             feature_matrix = pd.concat(list_of_features, axis=0)
+        elif mode == 'MultiEnsemble':
+            feature_matrix = []
+            for i in range(len(list_of_features[0])):
+                _ = []
+                for feature_set in list_of_features:
+                    _.append(feature_set[i])
+                feature_matrix.append(pd.concat(_, axis=0))
         else:
             feature_matrix = pd.concat([pd.concat(feature_set, axis=1) for feature_set in list_of_features], axis=0)
         return feature_matrix

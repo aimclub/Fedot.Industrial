@@ -38,7 +38,7 @@ class ClassificationPipelines(AbstractPipelines):
         self.basis = data_basis.basis
         return classificator, test_pipeline.value
 
-    def __multits_data_driven_pipeline(self, **kwargs):
+    def __multits_data_driven_pipeline(self, ensemble: str = 'Multi', **kwargs):
         feature_extractor, classificator, evaluator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
 
         data_basis = DataDrivenBasis()
@@ -47,22 +47,37 @@ class ClassificationPipelines(AbstractPipelines):
         transform_to_basis = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
         lambda_func_dict['reduce_basis'] = lambda list_of_components: ListMonad(
             [component[:, 0] if component.shape[1] == 1 else
-             component[:, kwargs['component']]
-             for component in list_of_components])
+             component[:, rank]
+             for component, rank in zip(list_of_components, kwargs['component'])])
         lambda_func_dict['extract_features'] = lambda list_of_components: ListMonad(
             [feature_extractor.get_features(component)
              for component in list_of_components])
         concatenate_features = lambda x: list_of_features.append(x)
 
+        if ensemble == 'MultiEnsemble':
+            lambda_func_dict['fit_model'] = lambda feature_by_each_component: ListMonad({str(index):
+                classificator.fit(
+                    train_features=feature_set, train_target=self.train_target) for index, feature_set in
+                enumerate(feature_by_each_component)})
+            lambda_func_dict['predict'] = lambda feature_by_each_component: ListMonad(
+                {index: {'predicted_labels': classificator.predict(features=feature_set),
+                         'predicted_probs': classificator.predict_proba(
+                             features=feature_set)} for (index, classificator), feature_set in
+                 zip(train_pipeline.value[0].items(), feature_by_each_component)})
+            lambda_func_dict['evaluate'] = lambda PredDict: ListMonad({index: evaluator.calculate_metrics(
+                target=self.test_target, **preds) for index, preds in PredDict.items()})
+
         train_pipeline = Right(self.train_features).then(lambda_func_dict['create_list_of_ts']).map(
-            transform_to_basis).map(lambda_func_dict['reduce_basis']).map(lambda_func_dict['extract_features']).then(
-            concatenate_features).insert(self._get_feature_matrix(list_of_features=list_of_features, mode='Multi')).then(
+            transform_to_basis).then(lambda_func_dict['reduce_basis']).then(lambda_func_dict['extract_features']).then(
+            concatenate_features).insert(
+            self._get_feature_matrix(list_of_features=list_of_features, mode=ensemble)).then(
             lambda_func_dict['fit_model'])
 
         list_of_features = []
         test_pipeline = Right(self.test_features).then(lambda_func_dict['create_list_of_ts']).map(
-            transform_to_basis).map(lambda_func_dict['reduce_basis']).map(lambda_func_dict['extract_features']).then(
-            concatenate_features).insert(self._get_feature_matrix(list_of_features=list_of_features, mode='Multi')).then(
+            transform_to_basis).then(lambda_func_dict['reduce_basis']).then(lambda_func_dict['extract_features']).then(
+            concatenate_features).insert(
+            self._get_feature_matrix(list_of_features=list_of_features, mode=ensemble)).then(
             lambda_func_dict['predict']).then(lambda_func_dict['evaluate_metrics'])
 
         self.basis = data_basis.basis
@@ -90,8 +105,9 @@ class ClassificationPipelines(AbstractPipelines):
 
 if __name__ == '__main__':
     # Goes to API
-    dataset_list = [  # 'Epilepsy',
-        'ECG200',
+    dataset_list = [
+        'Epilepsy',
+        # 'ECG200',
         # 'EOGVerticalSignal',
         # 'DistalPhalanxOutlineCorrect',
         # 'ScreenType',
@@ -118,13 +134,14 @@ if __name__ == '__main__':
         train, test = DataLoader(dataset_name).load_data()
         pipeline_cls = ClassificationPipelines(train_data=train, test_data=test)
         pipeline_data_driven = ClassificationPipelines(train_data=train, test_data=test)
-        model_1, result_for_1_comp = pipeline_cls('SpecifiedFeatureGeneratorTSC')(feature_generator_type='Statistical',
-                                                                                  model_hyperparams=model_hyperparams,
-                                                                                  feature_hyperparams=feature_hyperparams)
+        # model_1, result_for_1_comp = pipeline_cls('SpecifiedFeatureGeneratorTSC')(feature_generator_type='Statistical',
+        #                                                                           model_hyperparams=model_hyperparams,
+        #                                                                           feature_hyperparams=feature_hyperparams)
         #
-        # model_1, result_for_1_comp = pipeline_data_driven('DataDrivenMultiTSC')(component=0,
-        #                                                                         model_hyperparams=model_hyperparams,
-        #                                                                         feature_hyperparams=feature_hyperparams)
+        model_1, result_for_1_comp = pipeline_data_driven('DataDrivenMultiTSC')(component=[0, 0, 0],
+                                                                                ensemble='MultiEnsemble',
+                                                                                model_hyperparams=model_hyperparams,
+                                                                                feature_hyperparams=feature_hyperparams)
         # model_2, result_for_2_comp = pipeline_data_driven('DataDrivenTSC')(component=0,
         #                                                                    model_hyperparams=model_hyperparams,
         #                                                                    feature_hyperparams=feature_hyperparams)
