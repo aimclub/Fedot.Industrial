@@ -34,7 +34,6 @@ class ClassificationMetricCounter:
         self.y_pred.extend(predictions.argmax(1).tolist())
 
     def compute(self) -> Dict[str, float]:
-        print(self.y_score)
         precision, recall, f1, _ = precision_recall_fscore_support(
             self.y_true, self.y_pred, average='macro'
         )
