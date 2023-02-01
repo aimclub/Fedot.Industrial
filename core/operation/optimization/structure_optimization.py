@@ -43,7 +43,7 @@ class StructureOptimization:
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
         """
-        pass
+        raise NotImplementedError
 
 
 class SVDOptimization(StructureOptimization):

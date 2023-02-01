@@ -1,6 +1,4 @@
-"""
-This module contains classes for image classification based on torch dataset.
-"""
+"""This module contains classes for image classification based on torch dataset."""
 
 from typing import Tuple
 

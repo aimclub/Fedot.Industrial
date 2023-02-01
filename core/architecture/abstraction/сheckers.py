@@ -1,6 +1,4 @@
-"""
-This module contains value checking functions common to the whole framework.
-"""
+"""This module contains value checking functions common to the whole framework."""
 
 from typing import Set, Any
 

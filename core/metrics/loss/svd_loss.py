@@ -1,7 +1,8 @@
+"""This module contains classes for computing SVD losses based on the torch Module."""
 import torch
 from torch import Tensor
 from torch.linalg import vector_norm, matrix_norm
-from torch.nn.modules.module import Module
+from torch.nn.modules import Module
 
 
 class SVDLoss(Module):

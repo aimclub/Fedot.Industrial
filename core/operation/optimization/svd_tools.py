@@ -1,3 +1,7 @@
+"""This module contains functions for working with singular value decomposition.
+
+Model decomposition, pruning by threshold, decomposed model loading.
+"""
 from typing import Optional
 
 import torch
@@ -36,7 +40,7 @@ def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> N
     Args:
         model: Decomposable module.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
-            If ``None`` replace layers without decomposition. Default: ``None``
+            If ``None`` replace layers without decomposition.
     """
     for name, module in model.named_children():
         if len(list(module.children())) > 0:

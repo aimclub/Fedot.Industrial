@@ -1,6 +1,4 @@
-"""
-This module contains classes for object detection task based on torch dataset.
-"""
+"""This module contains classes for object detection task based on torch dataset."""
 
 import json
 import os
