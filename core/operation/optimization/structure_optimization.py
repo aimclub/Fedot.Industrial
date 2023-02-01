@@ -89,6 +89,7 @@ class SVDOptimization(StructureOptimization):
             params: An object containing training parameters.
         """
         exp.name += self.description
+        self.finetuning = False
         self.logger.info(f"Default size: {exp.size_of_model():.2f} Mb")
         decompose_module(exp.model, self.decomposing_mode)
         exp.model.to(exp.device)
@@ -108,20 +109,18 @@ class SVDOptimization(StructureOptimization):
         self.finetuning = True
         epoch = params.num_epochs
         params.num_epochs = self.finetuning_epochs
-        model_path = os.path.join(
-            params.models_path, params.dataset_name, exp.name, 'trained'
-        )
-        exp.save_model(model_path, state_dict=False)
+        models_path = os.path.join(params.models_path, params.dataset_name, exp.name)
+        exp.save_model(os.path.join(models_path, 'trained'), state_dict=False)
         for e in self.energy_thresholds:
             str_e = f'e_{e}'
-            exp.load_model(model_path, state_dict=False)
+            exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
             exp.apply_func(
                 func=energy_threshold_pruning,
                 func_params={'energy_threshold': e},
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
             self.logger.info(f"pruning with e={e}, size: {exp.size_of_model():.2f} Mb")
-            exp.save_model(os.path.join(params.models_path, exp.name, str_e))
+            exp.save_model(os.path.join(models_path, str_e))
             exp.best_score = 0
             exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
 

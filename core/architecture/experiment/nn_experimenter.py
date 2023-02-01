@@ -92,12 +92,15 @@ class NNExperimenter:
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, phase)
         writer = SummaryWriter(summary_path)
 
+        self.logger.info(f"{self.name}, using device: {self.device}")
         init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
         write_scores(writer, 'val', init_scores, start_epoch)
         start_epoch += 1
 
         optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)
-        self.logger.info(f"{self.name}, using device: {self.device}")
+        lr_scheduler = None
+        if p.lr_scheduler is not None:
+            lr_scheduler=p.lr_scheduler(optimizer, **p.lr_scheduler_params)
         for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
@@ -112,6 +115,8 @@ class NNExperimenter:
             )
             write_scores(writer, 'val', val_scores, epoch)
             self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
+            if lr_scheduler is not None:
+                lr_scheduler.step()
         self.load_model(model_path)
         writer.close()
 
