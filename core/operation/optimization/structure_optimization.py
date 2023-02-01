@@ -8,12 +8,13 @@ from typing import Dict, List
 import torch
 from fedot.core.log import default_log as Logger
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.models import ResNet
 
 from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters, \
     write_scores
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
-from core.operation.optimization.sfp_tools import zerolize_filters
+from core.operation.optimization.sfp_tools import zerolize_filters, prune_resnet
 from core.operation.optimization.svd_tools import energy_threshold_pruning, \
     decompose_module
 
@@ -168,6 +169,7 @@ class SFPOptimization(StructureOptimization):
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
         """
+        self.finetuning = False
         exp.name += self.description
         path = os.path.join(params.dataset_name, exp.name, 'train')
         model_path = os.path.join(params.models_path, path)
@@ -195,3 +197,30 @@ class SFPOptimization(StructureOptimization):
             exp.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
         exp.load_model(model_path)
         writer.close()
+
+        if isinstance(exp.model, ResNet):
+            self.final_pruning(exp=exp, params=params)
+        else:
+            self.logger.warning(f"Final pruning supports only ResNet models.")
+
+    def final_pruning(self, exp: NNExperimenter, params: FitParameters) -> None:
+        """Final model pruning after training.
+
+        Args:
+            exp: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+            params: An object containing training parameters.
+        """
+        self.finetuning = True
+        epoch = params.num_epochs
+        params.num_epochs = self.finetuning_epochs
+        models_path = os.path.join(params.models_path, params.dataset_name, exp.name)
+
+        self.logger.info(f"Default size: {exp.size_of_model():.2f} Mb")
+        exp.model = prune_resnet(model=exp.model, pruning_ratio=self.pruning_ratio)
+        exp.model.to(exp.device)
+        self.logger.info(f"Pruned size: {exp.size_of_model():.2f} Mb")
+        exp.save_model(os.path.join(models_path, 'pruned'))
+
+        exp.best_score = 0
+        exp.fit(p=params, phase='pruned', start_epoch=epoch)

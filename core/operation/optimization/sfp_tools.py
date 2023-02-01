@@ -5,6 +5,7 @@ import torch
 from torch import Tensor
 from torch.linalg import vector_norm
 from torch.nn import Conv2d
+from torchvision.models import ResNet
 
 from core.models.cnn.sfp_resnet import SFP_MODELS
 
@@ -201,6 +202,34 @@ def prune_resnet_state_dict(
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_sd(sd)
     return sd, input_size, output_size
+
+
+def prune_resnet(model: ResNet, pruning_ratio: float) -> ResNet:
+    """Prune ResNet
+
+    Args:
+        model: ResNet model.
+        pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
+
+    Returns:
+        Pruned ResNet model.
+    """
+    models_from_length = {
+        122: SFP_MODELS['ResNet18'],
+        218: SFP_MODELS['ResNet34'],
+        320: SFP_MODELS['ResNet50'],
+        626: SFP_MODELS['ResNet101'],
+        932: SFP_MODELS['ResNet152'],
+    }
+    pruned_sd, input_size, output_size = prune_resnet_state_dict(model.state_dict())
+    model = models_from_length[len(model.state_dict())](
+        num_classes=model.fc.out_features,
+        input_size=input_size,
+        output_size=output_size,
+        pruning_ratio=pruning_ratio
+    )
+    model.load_state_dict(pruned_sd)
+    return model
 
 
 def load_sfp_resnet_model(

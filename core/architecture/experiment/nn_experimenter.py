@@ -120,7 +120,7 @@ class NNExperimenter:
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, phase)
         writer = SummaryWriter(summary_path)
 
-        self.logger.info(f"{self.name}, using device: {self.device}")
+        self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
         init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
         write_scores(writer, 'val', init_scores, start_epoch)
         start_epoch += 1
