@@ -159,7 +159,11 @@ class SVDOptimization(StructureOptimization):
             ``ClassificationExperimenter``.
             state_dict_path: Path to state_dict file.
         """
-        load_svd_state_dict(model=exp.model, decomposing_mode=self.decomposing_mode)
+        load_svd_state_dict(
+            model=exp.model,
+            state_dict_path=state_dict_path,
+            decomposing_mode=self.decomposing_mode
+        )
         exp.model.to(exp.device)
         self.logger.info("Model state dict loaded.")
 
