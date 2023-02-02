@@ -123,6 +123,7 @@ class NNExperimenter:
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
         init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
         write_scores(writer, 'val', init_scores, start_epoch)
+        self.save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
         optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)

@@ -9,6 +9,14 @@ from torchvision.models import ResNet
 
 from core.models.cnn.sfp_resnet import SFP_MODELS
 
+MODELS_FROM_LENDHT = {
+    122: SFP_MODELS['ResNet18'],
+    218: SFP_MODELS['ResNet34'],
+    320: SFP_MODELS['ResNet50'],
+    626: SFP_MODELS['ResNet101'],
+    932: SFP_MODELS['ResNet152'],
+}
+
 
 def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
     """Zerolize filters of convolutional layer to the pruning_ratio (in-place).
@@ -213,7 +221,11 @@ def prune_resnet(model: ResNet, pruning_ratio: float) -> ResNet:
 
     Returns:
         Pruned ResNet model.
+
+    Raises:
+        AssertionError if model is not Resnet.
     """
+    assert isinstance(model, ResNet), "Supports only ResNet models"
     models_from_length = {
         122: SFP_MODELS['ResNet18'],
         218: SFP_MODELS['ResNet34'],
@@ -233,23 +245,21 @@ def prune_resnet(model: ResNet, pruning_ratio: float) -> ResNet:
 
 
 def load_sfp_resnet_model(
-        model_name: str,
-        num_classes: int,
+        model: ResNet,
         state_dict_path: str,
         pruning_ratio: float,
 ) -> torch.nn.Module:
     """Loads SFP state_dict to model.
 
     Args:
-        model_name: Name of the model.
-        num_classes: Number of classes.
+        model: An instance of the base model.
         state_dict_path: Path to state_dict file.
         pruning_ratio: pruning hyperparameter used in training.
+
+    Raises:
+        AssertionError if model is not Resnet.
     """
-    if model_name not in SFP_MODELS.keys():
-        raise ValueError(
-            f"model_name must be one of {SFP_MODELS.keys()}, but got '{model_name}'"
-        )
+    assert isinstance(model, ResNet), "Supports only ResNet models"
     state_dict = torch.load(state_dict_path, map_location='cpu')
     input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
@@ -263,8 +273,8 @@ def load_sfp_resnet_model(
             last_layer = k[0]
     output_size['layer4'].append(state_dict['fc.weight'].size()[1])
 
-    model = SFP_MODELS[model_name](
-        num_classes=num_classes,
+    model = MODELS_FROM_LENDHT[len(model.state_dict())](
+        num_classes=model.fc.out_features,
         input_size=input_size,
         output_size=output_size,
         pruning_ratio=pruning_ratio

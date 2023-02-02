@@ -10,6 +10,8 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
+IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp")
+
 
 class PredictionNumpyDataset(Dataset):
     """Class for prediction on numpy arrays.
@@ -56,7 +58,11 @@ class PredictionFolderDataset(Dataset):
             transform: Callable,
     ) -> None:
         self.root = image_folder
-        self.images = os.listdir(image_folder)
+        self.images = []
+        for address, dirs, files in os.walk(image_folder):
+            for name in files:
+                if name.lower().endswith(IMG_EXTENSIONS):
+                    self.images.append(os.path.join(address, name))
         self.transform = transform
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, str]:
