@@ -96,7 +96,11 @@ class ResultSaver:
         prediction.update({'dataset': dataset_name})
         path_to_save = os.path.join(path, 'ensemble')
         os.makedirs(path_to_save, exist_ok=True)
-        ensemble_results = pd.DataFrame.from_records(data=[x for x in prediction.items()]).T
+        ensemble_results = pd.DataFrame([prediction])
+
+        cols = ensemble_results.columns
+        # Rearrange columns in correct order
+        ensemble_results = ensemble_results[[cols[-1]] + list(cols[:-1])]
         ensemble_results.to_csv(os.path.join(path_to_save, f'{dataset_name}_ensemble_results.csv'),
-                                header=False)
+                                header=True)
         self.logger.info(f'Ensemble results saved')
