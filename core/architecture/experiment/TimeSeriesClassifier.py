@@ -138,8 +138,7 @@ class TimeSeriesClassifier:
         else:
             self.test_features = test_features
         self.test_features = self.datacheck.check_data(self.test_features)
-
-        if type(self.predictor) == Pipeline:
+        if isinstance(self.predictor, Pipeline):
             self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
             prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
             return prediction_label

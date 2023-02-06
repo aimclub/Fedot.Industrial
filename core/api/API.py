@@ -7,6 +7,7 @@ from core.api.utils.reader_collections import *
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.utils import default_path_to_save_results
+from core.api.utils.reporter import ReporterTSC
 
 
 class Industrial(Fedot):
@@ -34,6 +35,7 @@ class Industrial(Fedot):
         self.reader = DataReader()
         self.checker = ParameterCheck()
         self.saver = ResultSaver()
+        self.reporter = None
 
     def fit(self, **kwargs):
         self._define_data()
@@ -101,7 +103,7 @@ class Industrial(Fedot):
                                                                  generator_runner=generator,
                                                                  model_hyperparams=model_params,
                                                                  ecm_model_flag=ecm_mode,
-                                                                 dataset_name=dataset_name,)
+                                                                 dataset_name=dataset_name, )
 
         metric = self.checker.check_metric_type(train_target)
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
@@ -128,10 +130,15 @@ class Industrial(Fedot):
 
         """
         self.logger.info(f'Start experiment'.center(50, '-'))
+        if not output_folder:
+            self.output_folder = default_path_to_save_results()
+        else:
+            self.output_folder = output_folder
+        self.reporter = ReporterTSC(path_to_save=self.output_folder)
+
         experiment_results = {}
 
-        self.config_dict = self.YAML.init_experiment_setup(config,
-                                                           direct_path=direct_path)
+        self.config_dict = self.YAML.init_experiment_setup(config, direct_path=direct_path)
 
         for dataset_name in self.config_dict['datasets_list']:
 
@@ -149,35 +156,32 @@ class Industrial(Fedot):
             if self.config_dict['error_correction']:
                 experiment_results[dataset_name]['ECM'] = self.apply_ECM(
                     modelling_results=experiment_results[dataset_name]['Original'])
+
             # TODO: не забыть удалить
             # import pickle
 
             # with open('filename.pickle', 'wb') as handle:
             #     pickle.dump(experiment_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+            #
             # with open('filename.pickle', 'rb') as handle:
             #     experiment_results = pickle.load(handle)
-            #
-            # result = experiment_results[dataset_name]['Original']
+
+            result = experiment_results[dataset_name]['Original']
 
             if self.config_dict['ensemble_algorithm']:
                 ensemble_result = self.apply_ensemble(modelling_results=result,
                                                       ensemble_mode=self.config_dict['ensemble_algorithm'],
-                                                      # ensemble_mode='Rank_Ensemble',
                                                       dataset_name=dataset_name)
 
                 experiment_results[dataset_name]['Ensemble'] = ensemble_result
 
-            if save_flag:
-                if output_folder is None:
-                    path = default_path_to_save_results()
-                else:
-                    path = output_folder
-
                 self.save_results(modelling_results=experiment_results,
                                   dataset_name=dataset_name,
-                                  path=path)
+                                  path=self.output_folder)
         self.logger.info('END OF EXPERIMENT'.center(50, '-'))
+        self.logger.info('Experiment report:')
+        self.logger.info(self.reporter.get_summary())
+
         return experiment_results
 
     def _run_modelling_cycle(self,
@@ -202,12 +206,13 @@ class Industrial(Fedot):
         modelling_results = dict()
         train_data, test_data, n_classes = self.reader.read(dataset_name=dataset_name)
 
+        if train_data is None:
+            self.reporter.add_to_report(dataset_name, '-', '-', 'cannot read data')
+            return None
+
         self.config_dict = self.checker.check_window_sizes(config_dict=experiment_dict,
                                                            dataset_name=dataset_name,
                                                            train_data=train_data)
-
-        if train_data is None:
-            return None
 
         self.config_dict = self.exclude_generators(experiment_dict, train_data[0])
 
@@ -217,10 +222,6 @@ class Industrial(Fedot):
                 self.logger.info(f'{dataset_name} – start of cycle {launch} for {runner_name} generator')
                 try:
                     runner_result = {}
-                    # if output_folder:
-                    #     paths_to_save = os.path.join(output_folder, runner_name, dataset_name, str(launch))
-                    # else:
-                    #     paths_to_save = os.path.join(path_to_save_results(), runner_name, dataset_name, str(launch))
 
                     fitted_predictor, train_features = self._obtain_model(model_name=runner_name,
                                                                           task_type=task_type,
@@ -233,7 +234,6 @@ class Industrial(Fedot):
                     runner_result['fitted_predictor'] = fitted_predictor
                     runner_result['train_features'] = train_features
                     runner_result['test_target'] = test_data[1]
-                    # runner_result['path_to_save'] = paths_to_save
                     runner_result['train_target'] = train_data[1]
 
                     self.logger.info(f'START PREDICTION AT LAUNCH-{launch}'.center(50, '-'))
@@ -253,9 +253,18 @@ class Industrial(Fedot):
                     self.logger.info(f'{metric_df}')
 
                     modelling_results[runner_name][launch] = runner_result
+                    self.reporter.add_to_report(dataset_name, runner_name, launch, 'OK')
+
+                    self.saver.save_basic_results(prediction={runner_name: {launch: runner_result}},
+                                                  dataset_name=dataset_name,
+                                                  path=self.output_folder)
 
                 except Exception as ex:
                     self.logger.info(f'PROBLEM WITH {runner_name} AT LAUNCH {launch}. REASON - {ex}')
+                    self.reporter.add_to_report(dataset_name, runner_name, launch, ex)
+
+                # self.reporter.path_to_save = path
+                self.reporter.get_summary()
 
         return modelling_results
 
@@ -323,15 +332,18 @@ class Industrial(Fedot):
                        modelling_results: Union[dict, list],
                        ensemble_mode: str = 'Rank_Ensemble',
                        ):
-        single_mode = True
-        if self.config_dict is not None:
-            ensemble_mode = self.config_dict['ensemble_algorithm']
-            single_mode = False
+        if modelling_results:
+            single_mode = True
+            if self.config_dict is not None:
+                ensemble_mode = self.config_dict['ensemble_algorithm']
+                single_mode = False
 
-        ensemble_model = self.ensemble_methods_dict[ensemble_mode](dataset_name=dataset_name)
-        ensemble_results = ensemble_model.ensemble(modelling_results=modelling_results, single_mode=single_mode)
+            ensemble_model = self.ensemble_methods_dict[ensemble_mode](dataset_name=dataset_name)
+            ensemble_results = ensemble_model.ensemble(modelling_results=modelling_results, single_mode=single_mode)
 
-        return ensemble_results
+            return ensemble_results
+
+        return None
 
     @staticmethod
     def _create_validation_dataset(train_data):
