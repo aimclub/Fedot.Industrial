@@ -9,30 +9,32 @@ from sklearn.metrics import precision_recall_fscore_support, f1_score
 from torch.nn.functional import softmax
 
 
-def iou_score(outputs: torch.Tensor, labels: torch.Tensor, smooth=1e-10) -> torch.Tensor:
+def iou_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torch.Tensor:
     """Computes intersection over union (masks) on batch.
 
     Args:
         outputs: Output from semantic segmentation model.
-        labels: True masks.
+        masks: True masks.
         smooth: Additional constant to avoid division by zero.
     """
-    intersection = torch.logical_and(outputs, labels).float().sum((2, 3))
-    union = torch.logical_or(outputs, labels).float().sum((2, 3))
+    outputs = (outputs > 0.5).float()
+    intersection = torch.logical_and(outputs, masks).float().sum((2, 3))
+    union = torch.logical_or(outputs, masks).float().sum((2, 3))
     iou = (intersection + smooth) / (union + smooth)
     return iou
 
 
-def dice_score(outputs: torch.Tensor, labels: torch.Tensor, smooth=1e-10) -> torch.Tensor:
+def dice_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torch.Tensor:
     """Computes dice coefficient (masks) on batch.
 
     Args:
         outputs: Output from semantic segmentation model.
-        labels: True masks.
+        masks: True masks.
         smooth: Additional constant to avoid division by zero.
     """
-    intersection = torch.logical_and(outputs, labels).float().sum((2, 3))
-    total = (outputs + labels).sum((2, 3))
+    outputs = (outputs > 0.5).float()
+    intersection = torch.logical_and(outputs, masks).float().sum((2, 3))
+    total = (outputs + masks).sum((2, 3))
     dice = (2 * intersection + smooth) / (total + smooth)
     return dice
 
@@ -106,15 +108,18 @@ class SegmentationMetricCounter(MetricCounter):
 
     def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
         """Accumulates iou and dice"""
+        masks = torch.zeros_like(predictions)
+        for i in range(predictions.size()[1]):
+            masks[:, i, :, :] = targets == i
         self.n += predictions.size()[0]
         if self.iou is None:
-            self.iou = iou_score(predictions, targets).sum(0)
+            self.iou = iou_score(predictions, masks).sum(0)
         else:
-            self.iou += iou_score(predictions, targets).sum(0)
+            self.iou += iou_score(predictions, masks).sum(0)
         if self.dice is None:
-            self.dice = dice_score(predictions, targets).sum(0)
+            self.dice = dice_score(predictions, masks).sum(0)
         else:
-            self.dice += dice_score(predictions, targets).sum(0)
+            self.dice += dice_score(predictions, masks).sum(0)
     def compute(self) -> Dict[str, float]:
         """Returns average metrics."""
         iou = self.iou / self.n
