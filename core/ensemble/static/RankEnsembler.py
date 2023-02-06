@@ -1,12 +1,13 @@
 from typing import Union
 
-import numpy as np
+import pandas as pd
 from fedot.core.log import default_log as logger
 from numpy import ndarray
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.ensemble.BaseEnsembler import BaseEnsemble
+from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.settings.Hyperparams import *
+from core.ensemble.BaseEnsembler import BaseEnsemble
 
 
 class RankEnsemble(BaseEnsemble):
@@ -14,13 +15,9 @@ class RankEnsemble(BaseEnsemble):
     by ranking them and recursively adding them to the final composite model.
 
     Args:
-        prediction_proba_dict: dictionary with structure {'ModelName': [tensor with class probs]}
-        metric_dict: dictionary with structure {'ModelName':[metric values]}
 
     Attributes:
         logger (Logger): logger instance
-        metric_dict  (dict): dictionary with structure {'ModelName':[metric values]}
-        prediction_proba_dict (dict): dictionary with structure {'ModelName': [tensor with class probs]}
         experiment_results (dict): dictionary with structure {'ModelName': [tensor with class probs]}
 
     """
@@ -55,7 +52,11 @@ class RankEnsemble(BaseEnsemble):
             Fitted Fedot pipeline with baseline model
 
         """
-        self.test_target = self._deep_search_in_dict(modelling_results, 'test_target')
+        try:
+            self.test_target = self._deep_search_in_dict(modelling_results, 'test_target')
+        except AttributeError:
+            (_, _), (_, self.test_target) = DataLoader(self.dataset_name).load_data()
+
         if isinstance(modelling_results, dict):
             prediction_proba_dict, metric_dict = self.create_proba_and_metrics_dicts(modelling_results)
         else:
@@ -95,10 +96,11 @@ class RankEnsemble(BaseEnsemble):
                 self.metric = 'f1'
                 _type = 'multiclass'
             self.logger.info(f'TYPE OF ML TASK - {_type}. Metric - {self.metric}'.center(50, '-'))
-            # self.logger.info(self.metric_dict[model])
-            self.logger.info(metric_dict[model])
-            # model_rank.update({model: self.metric_dict[model][self.metric][0]})
-            model_rank.update({model: metric_dict[model][self.metric]})
+            current_metrics = metric_dict[model]
+            if isinstance(current_metrics, pd.DataFrame):
+                current_metrics = current_metrics.loc[0].to_dict()
+            self.logger.info(current_metrics)
+            model_rank.update({model: current_metrics[self.metric]})
         return model_rank
 
     def _sort_models(self, model_rank):
@@ -132,23 +134,19 @@ class RankEnsemble(BaseEnsemble):
                                         'Base_model': 'best base model metric'}
 
         """
-        for top_K_models in range(self.n_models):
-            self.logger.info(f'SELECT TOP {top_K_models + 1} MODELS AND APPLY ENSEMBLE.'.center(50, '-'))
-            # modelling_results_top = {k: v for k, v in self.prediction_proba_dict.items() if
-            #                          k in list(self.sorted_dict.keys())[:top_K_models + 1]}
+        # TODO: реализовать генератор комбинаций моделей для ансамблирования
+        for top_K_models in range(1, self.n_models):
 
             modelling_results_top = {k: v for k, v in prediction_proba_dict.items() if
                                      k in list(self.sorted_dict.keys())[:top_K_models + 1]}
-            # ensemble_results = self.ensemble(modelling_results=modelling_results_top)
-            # ensemble_results = self.IndustrialModel.apply_ensemble(modelling_results=modelling_results_top)
+            self.logger.info(f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models+1} models')
 
             ensemble_results = self.agg_ensemble(modelling_results=modelling_results_top, single_mode=True)
 
             top_ensemble_dict = self.__select_best_ensemble_method(ensemble_results)
 
             if len(top_ensemble_dict) == 0:
-                self.logger.info(f'No improvement accomplished. Stop ensemble process')
-                return None
+                self.logger.info(f'No improvement accomplished for {list(modelling_results_top.keys())} combination')
             else:
                 current_ensemble_method = list(top_ensemble_dict)[0]
                 best_ensemble_metric = top_ensemble_dict[current_ensemble_method]
@@ -159,8 +157,8 @@ class RankEnsemble(BaseEnsemble):
                 )
 
                 if self.best_ensemble_metric > 0:
-                    self.experiment_results.update({'Ensemble_models': f'Models: {model_combination}. '
-                                                                       f'Ensemble_method: {current_ensemble_method}'})
+                    self.experiment_results.update({'Ensemble_models': model_combination})
+                    self.experiment_results.update({'Ensemble_method': current_ensemble_method})
                     self.experiment_results.update({'Best_ensemble_metric': best_ensemble_metric})
         return self.experiment_results
 
@@ -181,10 +179,9 @@ class RankEnsemble(BaseEnsemble):
 
             ensemble_metrics = self.performance_analyzer.calculate_metrics(target=ensemble_dict['target'],
                                                                            predicted_labels=ensemble_dict['label'],
-                                                                           predicted_probs=ensemble_dict['proba'])
+                                                                           predicted_probs=ensemble_dict['proba'],
+                                                                           target_metrics=[self.metric])
 
-            self.logger.info(f'Checking ensemble method – {ensemble_method}')
-            # self.logger.info(ensemble_metrics)
             ensemble_metric = ensemble_metrics[self.metric]
             if ensemble_metric > self.best_base_results['Base_metric'] and ensemble_metric > self.best_ensemble_metric:
                 self.best_ensemble_metric = ensemble_metric
@@ -221,7 +218,8 @@ class RankEnsemble(BaseEnsemble):
         try:
             target = self.test_target
             metrics = self.performance_analyzer.calculate_metrics(target=target,
-                                                                  predicted_labels=label_predictions, )
+                                                                  predicted_labels=label_predictions,
+                                                                  predicted_probs=average_proba_predictions,)
         except KeyError:
             metrics = None
             target = None

@@ -72,7 +72,7 @@ class ResultsPicker:
         return metrics_df
 
     def get_metrics_and_proba(self):
-        experiments = self.list_dir(self.exp_path)
+        experiments = self.list_dirs(self.exp_path)
         proba_dict = {}
         metric_dict = {}
         for exp in experiments:
@@ -91,7 +91,7 @@ class ResultsPicker:
 
     def read_exp_folder(self, folder):
         datasets_path = os.path.join(self.exp_path, folder)
-        datasets = self.list_dir(datasets_path)
+        datasets = self.list_dirs(datasets_path)
         metrics_list = []
         proba_list = []
         for ds in datasets:
@@ -121,7 +121,7 @@ class ResultsPicker:
         return metrics, proba
 
     @staticmethod
-    def list_dir(path):
+    def list_dirs(path):
         """Function used instead of ``os.listdir()`` to get list of non-hidden directories.
 
         Args:
@@ -133,14 +133,33 @@ class ResultsPicker:
         """
         path_list = []
         for f in os.listdir(path):
+            # if not f.startswith('.'):
             if '.' not in f:
                 path_list.append(f)
+        return path_list
+
+    @staticmethod
+    def list_files(path):
+        """Function used instead of ``os.listdir()`` to get list of non-hidden files.
+
+        Args:
+            path (str): Path to the directory.
+
+        Returns:
+            list: List of non-hidden files.
+
+        """
+        path_list = []
+        for f in os.listdir(path):
+            if os.path.isfile(path + '/' + f) and not f.startswith('.'):
+                path_list.append(f)
+
         return path_list
 
     def find_best_launch(self, launch_folders):
         best_metric = 0
         launch = 1
-        for _dir in self.list_dir(launch_folders):
+        for _dir in self.list_dirs(launch_folders):
             metric_path = os.path.join(launch_folders, str(_dir), 'test_results', 'metrics.csv')
             metrics = pd.read_csv(metric_path, index_col=0)
             if 'index' in metrics.columns:
