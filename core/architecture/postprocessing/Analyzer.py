@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Dict, List
 
 from fedot.core.log import default_log as Logger
@@ -6,12 +7,27 @@ from sklearn import preprocessing
 from core.metrics.metrics_implementation import *
 
 
+class Metrics(Enum):
+    roc_auc = ROCAUC
+    f1 = F1
+    precision = Precision
+    accuracy = Accuracy
+    logloss = Logloss
+    rmse = RMSE,
+    r2 = R2
+    mae = MAE
+    mse = MSE
+    mape = MAPE
+
+
 class PerformanceAnalyzer:
     """Class responsible for calculating metrics for predictions.
 
     """
-    metric_list = ['roc_auc', 'f1', 'precision', 'accuracy', 'logloss']
-    logger = Logger('PerformanceAnalyzer')
+    def __init__(self, metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision')):
+
+        self.metric_list = metric_list
+        self.logger = Logger('PerformanceAnalyzer')
 
     @staticmethod
     def problem_and_metric_for_dataset(task_type: str) -> Union[List, None]:
@@ -42,7 +58,8 @@ class PerformanceAnalyzer:
     def calculate_metrics(self,
                           target: Union[np.ndarray, List],
                           predicted_labels: Union[np.ndarray, list] = None,
-                          predicted_probs: np.ndarray = None) -> Dict:
+                          predicted_probs: np.ndarray = None,
+                          target_metrics: list = None) -> Dict:
 
         labels_diff = max(target) - max(predicted_labels)
 
@@ -56,13 +73,12 @@ class PerformanceAnalyzer:
         else:
             target = target + abs(labels_diff)
 
-        metric_dict = dict(roc_auc=ROCAUC, f1=F1, precision=Precision,
-                           accuracy=Accuracy, logloss=Logloss, rmse=RMSE,
-                           r2=R2, mae=MAE, mse=MSE, mape=MAPE)
+        if target_metrics:
+            self.metric_list = target_metrics
 
         result_metric = []
         for metric_name in self.metric_list:
-            chosen_metric = metric_dict[metric_name]
+            chosen_metric = Metrics[metric_name].value
             try:
                 score = chosen_metric(target=target,
                                       predicted_labels=predicted_labels,

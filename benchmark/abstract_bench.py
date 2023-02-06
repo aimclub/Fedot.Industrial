@@ -1,5 +1,7 @@
 import os
 
+from fedot.core.log import default_log as logger
+
 
 class AbstractBenchmark(object):
     """Abstract class for benchmarks.
@@ -7,7 +9,7 @@ class AbstractBenchmark(object):
     This class defines the interface that all benchmarks must implement.
     """
 
-    def __init__(self, name, description, output_dir, **kwargs):
+    def __init__(self, output_dir, **kwargs):
         """Initialize the benchmark.
 
         Args:
@@ -16,20 +18,31 @@ class AbstractBenchmark(object):
             **kwargs: Additional arguments that may be required by the
                 benchmark.
         """
-        self.name = name
-        self.description = description
         self.output_dir = output_dir
         self.kwargs = kwargs
+        self.logger = logger(self.__class__.__name__)
+        self._create_output_dir()
+
+    @property
+    def _config(self):
+        raise NotImplementedError()
 
     def _create_output_dir(self):
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def run(self):
-        """Run the benchmark and return the results.
+    def _create_report(self, results):
+        """Create a report from the results of the benchmark.
 
         Args:
-            output_dir: The directory where the benchmark should write its
-                results.
+            results: The results of the benchmark.
+
+        Returns:
+            A string containing the report.
+        """
+        raise NotImplementedError()
+
+    def run(self):
+        """Run the benchmark and return the results.
 
         Returns:
             A dictionary containing the results of the benchmark.
