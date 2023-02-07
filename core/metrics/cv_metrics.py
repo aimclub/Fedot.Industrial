@@ -110,7 +110,7 @@ class SegmentationMetricCounter(MetricCounter):
         """Accumulates iou and dice"""
         masks = torch.zeros_like(predictions)
         for i in range(predictions.size()[1]):
-            masks[:, i, :, :] = targets == i
+            masks[:, i, :, :] = torch.squeeze(targets == i)
         self.n += predictions.size()[0]
         if self.iou is None:
             self.iou = iou_score(predictions, masks).sum(0)

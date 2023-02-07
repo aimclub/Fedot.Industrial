@@ -16,7 +16,8 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
 from core.architecture.abstraction.сheckers import parameter_value_check
-from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter
+from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter, \
+    SegmentationMetricCounter
 
 
 @dataclass
@@ -455,3 +456,49 @@ class FasterRCNNExperimenter(NNExperimenter):
                 pred.pop('scores')
         preds = [{k: v.tolist() for k, v in p.items()} for p in preds]
         return preds
+
+class SegmentationExperimenter(NNExperimenter):
+
+    def __init__(
+            self,
+            model: torch.nn.Module,
+            metric: str = 'iou',
+            loss: Callable = torch.nn.CrossEntropyLoss(),
+            name: Optional[str] = None,
+            weights: Optional[str] = None,
+            gpu: bool = True,
+    ):
+        parameter_value_check(
+            parameter='metric',
+            value=metric,
+            valid_values={'iou', 'dice'},
+        )
+        super().__init__(
+            model=model,
+            metric=metric,
+            metric_counter=SegmentationMetricCounter,
+            name=name,
+            weights=weights,
+            gpu=gpu
+        )
+        self.loss = loss
+
+    def forward(self, x):
+        """Have to implement the forward method of the model and return predictions."""
+        x = x.to(self.device)
+        return self.model(x)['out']
+
+    def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
+        """Have to implement the train forward method and return loss."""
+        y = y.to(self.device)
+        preds = self.forward(x)
+        return {'loss': self.loss(preds, torch.squeeze(y).long())}
+
+    def predict_on_batch(self, x, proba: bool) -> List:
+        """Returns prediction for sample."""
+        assert not self.model.training, "model must be in eval mode"
+        x = x.to(self.device)
+        pred = torch.sigmoid(self.model(x)).cpu().detach()
+        if not proba:
+            pred = pred.argmax(1)
+        return pred
