@@ -5,8 +5,8 @@ from typing import Union
 
 import pandas as pd
 import seaborn as sns
-from core.log import default_log as logger
-# from fedot.core.log import default_log as logger
+# from core.log import default_log as logger
+from fedot.core.log import default_log as logger
 from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
@@ -19,7 +19,8 @@ from core.api.utils.metafeatures import MetaFeaturesDetector
 class BenchmarkTSC(AbstractBenchmark, ABC):
     def __init__(self, number_of_datasets: int = 5,
                  random_selection: bool = False,
-                 custom_datasets: Union[list, bool] = False):
+                 custom_datasets: Union[list, bool] = False,
+                 use_small_datasets: bool = False):
         super(BenchmarkTSC, self).__init__(
             output_dir='./tsc/benchmark_results',
             random_selection=random_selection,
@@ -30,6 +31,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.number_of_datasets = number_of_datasets
         self.random_selection = random_selection
         self.custom_datasets = custom_datasets
+        self.use_small_datasets = use_small_datasets
 
         self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
 
@@ -232,7 +234,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
     def stratified_ds_selection(self, all_datasets_table: pd.DataFrame, n_samples: int = 5):
         """
-        Selects n_samples !!! OF SMALL !!! datasets from each type
+        Selects n_samples datasets from each type
         Args:
             all_datasets_table: pd.DataFrame with all datasets info (from results_picker)
             n_samples: number of datasets to select from each type
@@ -243,8 +245,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         """
         univariate_tss = all_datasets_table[all_datasets_table['multivariate_flag'] == 0]
 
-        # TODO: DELETE THIS: SMALL SERIES ONLY!!!!
-        univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000) & (univariate_tss['length'] < 1000)]
+        if self.use_small_datasets:
+            univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000) & (univariate_tss['length'] < 1000)]
 
         filtered_by_type_quantity = univariate_tss.groupby('type')['type'].count() >= n_samples
         filtered_types = filtered_by_type_quantity[filtered_by_type_quantity].index.tolist()
@@ -269,13 +271,12 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
 
 if __name__ == "__main__":
+    datasets_selection_config = {
+        'use_small_datasets': True,
+        'random_selection': False,
+        'custom_datasets': False,  # or list ['Lightning7_fake'] for example
+        'number_of_datasets': 1
+    }
 
-    n_datasets = 1
-    rnd_select = True
-
-    bnch = BenchmarkTSC(number_of_datasets=n_datasets,
-                        random_selection=rnd_select,
-                        custom_datasets=False
-                        # custom_datasets=['Lightning7_fake']
-                        )
+    bnch = BenchmarkTSC(**datasets_selection_config)
     bnch.run()
