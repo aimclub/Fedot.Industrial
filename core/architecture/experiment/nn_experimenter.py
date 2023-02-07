@@ -338,6 +338,7 @@ class ClassificationExperimenter(NNExperimenter):
     Args:
         model: Trainable model.
         metric: Target metric by which models are compared.
+            One of ``'f1'``, ``'accuracy'``, ``'precision'``, ``'recall'``, ``'roc_auc'``.
         loss: Loss function applied to model output.
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
@@ -392,12 +393,13 @@ class ClassificationExperimenter(NNExperimenter):
 
 
 class FasterRCNNExperimenter(NNExperimenter):
-    """Class for working with  Faster R-CNN.
+    """Class for working with Faster R-CNN.
 
     Args:
         num_classes: Number of classes in the dataset.
         model_params: Parameter dictionary passed to model initialization.
         metric: Target metric by which models are compared.
+            One of ``'map'``, ``'map_50'``, ``'map_75'``.
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
         gpu: If ``True``, uses GPU.
@@ -458,6 +460,17 @@ class FasterRCNNExperimenter(NNExperimenter):
         return preds
 
 class SegmentationExperimenter(NNExperimenter):
+    """Class for working with semantic segmentation models.
+
+    Args:
+        model: Trainable model.
+        metric: Target metric by which models are compared.
+            One of ``'iou'``, ``'dice'``.
+        loss: Loss function applied to model output.
+        name: Name of the model.
+        weights: Path to the model state_dict to load weights.
+        gpu: If ``True``, uses GPU.
+    """
 
     def __init__(
             self,
