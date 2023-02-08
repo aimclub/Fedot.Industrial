@@ -56,10 +56,10 @@ class StatsRunner(ExperimentRunner):
         ts = pd.DataFrame(ts_frame, dtype=float)
         ts = ts.fillna(method='ffill')
 
-        if ts.shape[0] > 1:
-            mode = 'MultiTS'
-        else:
+        if ts.shape[0] == 1 or ts.shape[1] == 1:
             mode = 'SingleTS'
+        else:
+            mode = 'MultiTS'
         try:
             if mode == 'MultiTS':
                 aggregation_df = self.__get_feature_matrix(ts)
@@ -88,6 +88,8 @@ class StatsRunner(ExperimentRunner):
 
     def __get_feature_matrix(self, ts):
         ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
+        if ts_components[0].shape[0] != 1:
+            ts_components = [x.T for x in ts_components]
         tmp_list = []
         for index, component in enumerate(ts_components):
             aggregation_df = self.extract_stats_features(component)
