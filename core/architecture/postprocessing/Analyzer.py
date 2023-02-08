@@ -43,18 +43,21 @@ class PerformanceAnalyzer:
                           target: Union[np.ndarray, List],
                           predicted_labels: Union[np.ndarray, list] = None,
                           predicted_probs: np.ndarray = None) -> Dict:
-        if type(target[0]) is not float:
-            labels_diff = max(target) - max(predicted_labels)
+        try:
+            if type(target[0]) is not float:
+                labels_diff = max(target) - max(predicted_labels)
 
-            if min(predicted_labels) != min(target):
-                if min(target) == -1:
-                    np.place(predicted_labels, predicted_labels == 1, [-1])
-                    np.place(predicted_labels, predicted_labels == 0, [1])
+                if min(predicted_labels) != min(target):
+                    if min(target) == -1:
+                        np.place(predicted_labels, predicted_labels == 1, [-1])
+                        np.place(predicted_labels, predicted_labels == 0, [1])
 
-            if labels_diff > 0:
-                predicted_labels = predicted_labels + abs(labels_diff)
-            else:
-                target = target + abs(labels_diff)
+                if labels_diff > 0:
+                    predicted_labels = predicted_labels + abs(labels_diff)
+                else:
+                    target = target + abs(labels_diff)
+        except Exception:
+            target = target
 
         metric_dict = dict(roc_auc=ROCAUC, f1=F1, precision=Precision,
                            accuracy=Accuracy, logloss=Logloss, rmse=RMSE,
