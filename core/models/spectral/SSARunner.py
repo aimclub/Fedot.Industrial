@@ -52,7 +52,7 @@ class SSARunner(ExperimentRunner):
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
-        self.datacheck = DataCheck(logger=self.logger)
+        self.datacheck = DataCheck()
         self.window_sizes = window_sizes
         self.vis_flag = False
         self.rank_hyper = None
@@ -125,7 +125,7 @@ class SSARunner(ExperimentRunner):
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str,
                      # target: np.ndarray = None
                      ) -> pd.DataFrame:
-
+        self.logger.info('SSA feature extraction started')
         if self.current_window is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = self.train_feats

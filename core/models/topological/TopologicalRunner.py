@@ -64,6 +64,7 @@ class TopologicalRunner(ExperimentRunner):
 
     @time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
+        self.logger.info('Topological feature extraction started')
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:

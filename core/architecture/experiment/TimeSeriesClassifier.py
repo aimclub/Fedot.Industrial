@@ -39,7 +39,7 @@ class TimeSeriesClassifier:
                  generator_runner: ExperimentRunner = None,
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False,
-                 dataset_name: str = None,):
+                 dataset_name: str = None, ):
         self.logger = Logger(self.__class__.__name__)
         self.predictor = None
         self.y_train = None
@@ -129,41 +129,42 @@ class TimeSeriesClassifier:
                               test_features: Union[np.ndarray, pd.DataFrame],
                               mode: str = 'labels'):
 
-        if self.generator_runner is not None:
+        # if self.generator_runner is not None:
+        if not self.test_features:
             self.test_features = self.generator_runner.extract_features(ts_data=test_features,
                                                                         dataset_name=self.dataset_name)
-        else:
-            self.test_features = test_features
-        self.test_features = self.datacheck.check_data(self.test_features)
+            self.test_features = self.datacheck.check_data(self.test_features)
+        # else:
+        #     self.test_features = test_features
+
         if isinstance(self.predictor, Pipeline):
             self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
             prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
             return prediction_label
+
         else:
             if mode == 'labels':
-                prediction_label = self.predictor.predict(self.test_features)
+                prediction = self.predictor.predict(self.test_features)
             else:
-                prediction_label = self.predictor.predict_proba(self.test_features)
-            return prediction_label
+                prediction = self.predictor.predict_proba(self.test_features)
+            return prediction
 
     def fit(self, train_features: np.ndarray,
             train_target: np.ndarray,
-            dataset_name: str = None,
             baseline_type: str = None) -> tuple:
-        self.__fit_abstraction(train_features, train_target, dataset_name, baseline_type)
-        return self.predictor
+        self.__fit_abstraction(train_features, train_target, baseline_type)
 
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features=test_features,
-                                                      mode='labels',
-                                                      dataset_name=dataset_name)
-        return prediction_label
+        return self.predictor, self.train_features
+
+    def predict(self, test_features: np.ndarray) -> dict:
+        prediction_label = self.__predict_abstraction(test_features=test_features, mode='labels')
+
+        return dict(label=prediction_label, test_features=self.test_features)
 
     def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs',
-                                                      dataset_name=dataset_name)
-        return prediction_proba
+        prediction_proba = self.__predict_abstraction(test_features=test_features, mode='probs')
+
+        return dict(class_probability=prediction_proba, test_features=self.test_features)
 
 
 class TimeSeriesImageClassifier(TimeSeriesClassifier):
@@ -192,7 +193,8 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
         self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
                                                                     self.generator_name,
                                                                     '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage', self.generator_name,
+        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
+                                                              self.generator_name,
                                                               'runs')
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 
@@ -228,7 +230,6 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
 
     def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
         prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs',
-                                                      dataset_name=dataset_name)
+                                                      mode='probs')
         prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
         return dict(class_probability=prediction_proba, test_features=self.test_features)

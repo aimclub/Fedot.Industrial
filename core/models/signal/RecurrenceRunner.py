@@ -80,11 +80,11 @@ class RecurrenceRunner(ExperimentRunner):
         self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:
-            train_feats = self.generate_vector_from_ts(ts_data)
+            train_feats = self.generate_vector_from_ts(ts_frame=ts_data)
             self.train_feats = train_feats
             return self.train_feats
         else:
-            test_feats = self.generate_vector_from_ts(ts_data)
+            test_feats = self.generate_vector_from_ts(ts_frame=ts_data)
             if self.image_mode:
                 self.test_feats = test_feats
             else:

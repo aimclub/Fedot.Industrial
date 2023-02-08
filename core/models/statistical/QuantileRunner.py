@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from core.architecture.abstraction.Decorators import time_it
+from core.architecture.abstraction.Decorators import dataframe_adapter, time_it
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 
@@ -48,6 +48,7 @@ class StatsRunner(ExperimentRunner):
             aggregation_df = self.aggregator.create_baseline_features(ts)
         return aggregation_df
 
+    @dataframe_adapter
     def generate_features_from_ts(self,
                                   ts_frame: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
@@ -71,6 +72,7 @@ class StatsRunner(ExperimentRunner):
 
     @time_it
     def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
+        self.logger.info('Quantile feature extraction started')
         return self.generate_features_from_ts(ts_data)
 
     def __component_extraction(self, ts):
