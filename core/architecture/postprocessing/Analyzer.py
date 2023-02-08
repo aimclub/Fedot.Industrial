@@ -58,7 +58,8 @@ class PerformanceAnalyzer:
     def calculate_metrics(self,
                           target: Union[np.ndarray, List],
                           predicted_labels: Union[np.ndarray, list] = None,
-                          predicted_probs: np.ndarray = None) -> Dict:
+                          predicted_probs: np.ndarray = None,
+                          target_metrics: list = None) -> Dict:
         try:
             if type(target[0]) is not float:
                 labels_diff = max(target) - max(predicted_labels)
@@ -75,7 +76,7 @@ class PerformanceAnalyzer:
         except Exception:
             target = target
 
-        if target_metrics:
+        if target_metrics is not None:
             self.metric_list = target_metrics
 
         result_metric = []

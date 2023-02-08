@@ -88,9 +88,9 @@ class SSARunner(ExperimentRunner):
             plt.tight_layout()
             plt.show()
 
-    def _ts_chunk_function(self, ts_data: pd.DataFrame) -> list:
+    def _ts_chunk_function(self, single_ts: pd.DataFrame) -> list:
 
-        ts = self.check_for_nan(ts_data)
+        ts = self.check_for_nan(single_ts)
         specter = self.spectrum_extractor(time_series=ts, window_length=self.current_window)
 
         TS_comps, Sigma, rank, X_elem, V = specter.decompose(
@@ -122,16 +122,19 @@ class SSARunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame, dataset_name: str,
+    def get_features(self, raw_ts_frame: pd.DataFrame, dataset_name: str,
                      # target: np.ndarray = None
                      ) -> pd.DataFrame:
         self.logger.info('SSA feature extraction started')
         if self.current_window is None:
-            self._choose_best_window_size(ts_data, dataset_name=dataset_name)
+            self.logger.info('Selection of optimal window size')
+            self._choose_best_window_size(raw_ts_frame, dataset_name=dataset_name)
             aggregation_df = self.train_feats
         else:
-            eigenvectors_list_test = ts_data
-            self.eigenvectors_list_test = self.check_rank_consistency(eigenvectors_list_test)
+            components_and_vectors = self.generate_vector_from_ts(raw_ts_frame)
+            eigenvectors_list_test = [x[0] for x in components_and_vectors]
+            eigenvectors_list_test = self.check_rank_consistency(eigenvectors_list_test)
+
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
             aggregation_df = aggregation_df[self.train_feats.columns]
 
@@ -215,8 +218,8 @@ class SSARunner(ExperimentRunner):
             n_comp_list.append(self.n_components)
             if self.n_components > 15:
                 self.logger.info(f'SSA method find {self.n_components} PCT.'
-                                 f'This is mean that SSA method does not find effective low rank structure for '
-                                 f'this signal.')
+                                 f'There is no low rank structure for this signal.')
+                self.logger.info(f'Window length = {self.current_window} was chosen')
                 break
 
         # index_of_window = int(metric_list.index(max(metric_list)))
@@ -233,7 +236,7 @@ class SSARunner(ExperimentRunner):
             self.train_feats[col].fillna(value=self.train_feats[col].mean(), inplace=True)
         self.train_feats = self.delete_col_by_var(self.train_feats)
         self.n_components = n_comp_list[index_of_window]
-        self.logger.info(f'Window length = {self.current_window} was chosen')
+        # self.logger.info(f'Window length = {self.current_window} was chosen')
 
         return self.train_feats
 
