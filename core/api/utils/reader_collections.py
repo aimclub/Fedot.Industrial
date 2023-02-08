@@ -147,7 +147,9 @@ class YamlReader:
         feature generators - {list(experiment_dict['feature_generator'])},
         use_cache - {experiment_dict['use_cache']},
         error_correction - {experiment_dict['error_correction']},
-        n_jobs - {experiment_dict['fedot_params']['n_jobs']}''')
+        n_jobs - {experiment_dict['fedot_params']['n_jobs']},
+        timeout - {experiment_dict['fedot_params']['timeout']},
+        launches - {experiment_dict['launches']}''')
 
 
 class DataReader:
