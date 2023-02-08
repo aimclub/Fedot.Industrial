@@ -42,32 +42,41 @@ class Industrial(Fedot):
         self.fitted_model, self.train_features = self._obtain_model(**kwargs)
         return self.fitted_model, self.train_features
 
-    def predict(self, features: tuple, save_predictions: bool = False) -> Union[dict, tuple]:
+    def predict(self,
+                features: tuple,
+                save_predictions: bool = False) -> Union[dict, tuple]:
         if self.model_composer is None:
             raise ('Fedot model was not fitted'.center(50, '-'))
         else:
             prediction = self.model_composer.predict(test_features=features)
-            self.labels, self.test_features = prediction['label'], prediction['test_features']
+            # self.labels, self.test_features = prediction['label'], prediction['test_features']
+            labels, self.test_features = prediction['label'], prediction['test_features']
 
-            if len(self.labels.shape) > 1:
-                self.labels = np.argmax(self.labels, axis=1)
-                prediction['labels'] = self.labels
-
-            if save_predictions:
-                return prediction
+            if len(labels.shape) > 1:
+                # self.labels = np.argmax(self.labels, axis=1)
+                self.labels = labels.reshape(-1)
             else:
-                return self.labels, self.test_features
+                self.labels = labels
+
+            prediction['labels'] = self.labels
+
+            # if save_predictions:
+            #     return prediction
+            # else:
+            #     return self.labels, self.test_features
+            # return self.labels, self.test_features
+            return dict(label=self.labels, test_features=self.test_features)
 
     def predict_proba(self,
                       features: tuple,
                       save_predictions: bool = False,
                       probs_for_all_classes: bool = False):
         prediction = self.model_composer.predict_proba(features)
-        if save_predictions:
-            return prediction
-        else:
-            self.prediction_proba, self.test_features = prediction['class_probability'], prediction['test_features']
-            return self.prediction_proba, self.test_features
+        # if save_predictions:
+        #     return prediction
+        # else:
+        self.prediction_proba, self.test_features = prediction['class_probability'], prediction['test_features']
+        return dict(class_probability=self.prediction_proba, test_features=self.test_features)
 
     def get_metrics(self,
                     target: np.ndarray,
@@ -165,14 +174,16 @@ class Industrial(Fedot):
             # with open('filename.pickle', 'rb') as handle:
             #     experiment_results = pickle.load(handle)
 
-            result = experiment_results[dataset_name]['Original']
+            # result = experiment_results[dataset_name]['Original']
 
-            if self.config_dict['ensemble_algorithm']:
+            if self.config_dict['ensemble_algorithm'] and len(result) > 1:
                 ensemble_result = self.apply_ensemble(modelling_results=result,
                                                       ensemble_mode=self.config_dict['ensemble_algorithm'],
                                                       dataset_name=dataset_name)
 
                 experiment_results[dataset_name]['Ensemble'] = ensemble_result
+            else:
+                self.logger.error('Ensemble algorithm is not defined or there is only one model in the experiment.')
 
             if save_flag:
                 self.save_results(modelling_results=experiment_results,
@@ -239,9 +250,11 @@ class Industrial(Fedot):
                     self.logger.info(f'START PREDICTION AT LAUNCH-{launch}'.center(50, '-'))
 
                     label_dict = self.predict(features=test_data[0],
-                                              save_predictions=True)
+                                              # save_predictions=True
+                                              )
                     proba_dict = self.predict_proba(features=test_data[0],
-                                                    save_predictions=True)
+                                                    # save_predictions=True
+                                                    )
                     runner_result.update(label_dict)
                     runner_result['class_probability'] = proba_dict['class_probability']
                     runner_result['metrics'] = self.get_metrics(target=runner_result['test_target'],

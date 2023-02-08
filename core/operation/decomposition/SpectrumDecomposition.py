@@ -56,11 +56,11 @@ class SpectrumDecomposer:
     def __get_trajectory_matrix(self):
         # return np.array(
         #     [self.__time_series[i:self.__window_length + i] for i in range(0, self.__subseq_length)]).T
-        hankel_transform = HankelMatrix(data=self.__time_series, subseq_length=self.__subseq_length)
+        hankel_transform = HankelMatrix(time_series=self.__time_series, window_length=self.window_length)
         if len(self.__time_series.shape) > 2:
-            return hankel_transform.one_dimensional_transform()
+            return hankel_transform.trajectory_matrix
         else:
-            return hankel_transform.one_dimensional_transform()
+            return hankel_transform.trajectory_matrix
 
     @property
     def window_length(self):
@@ -86,12 +86,14 @@ class SpectrumDecomposer:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
-    def decompose(self, rank_hyper=None):
+    def decompose(self, rank_hyper: int = None):
         # Embed the time series in a trajectory matrix
         U, Sigma, VT = np.linalg.svd(self.__trajectory_matrix)
 
         if rank_hyper is None:
-            rank = singular_value_hard_threshold(singular_values=Sigma)
+            sing_values = singular_value_hard_threshold(singular_values=Sigma)
+            rank = len(sing_values)
+
         else:
             rank = rank_hyper
 

@@ -130,7 +130,7 @@ class TimeSeriesClassifier:
                               mode: str = 'labels'):
 
         # if self.generator_runner is not None:
-        if not self.test_features:
+        if self.test_features is None:
             self.test_features = self.generator_runner.extract_features(ts_data=test_features,
                                                                         dataset_name=self.dataset_name)
             self.test_features = self.datacheck.check_data(self.test_features)
