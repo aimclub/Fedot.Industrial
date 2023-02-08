@@ -39,17 +39,22 @@ class VarianceSelector:
                 best_model = model_name
         return best_model
 
-    def transform(self, model_data, principal_components):
+    def transform(self,
+                  model_data,
+                  principal_components):
         if type(principal_components) == str:
             principal_components = self.principal_components[principal_components]
         projected = np.dot(model_data, principal_components)
         return projected
 
-    def select_discriminative_features(self, model_data, projected_data, corellation_level: float = 0.8):
+    def select_discriminative_features(self,
+                                       model_data,
+                                       projected_data,
+                                       corellation_level: float = 0.8):
         discriminative_feature = {}
         for PCT in range(projected_data.shape[1]):
             correlation_df = pd.DataFrame.corrwith(model_data, pd.Series(projected_data[:, PCT]), axis=0, drop=False)
             discriminative_feature_list = [k for k, x in zip(correlation_df.index.values, correlation_df.values) if
-                                      abs(x) > corellation_level]
-            discriminative_feature.update({f'{PCT+1} principal components':discriminative_feature_list})
+                                           abs(x) > corellation_level]
+            discriminative_feature.update({f'{PCT + 1} principal components': discriminative_feature_list})
         return discriminative_feature
