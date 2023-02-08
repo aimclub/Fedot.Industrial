@@ -93,7 +93,7 @@ class Industrial(Fedot):
                       ecm_mode: bool = False):
         try:
             generator_params = self.config_dict['feature_generator_params'][model_name]
-        except Exception:
+        except KeyError:
             generator_params = feature_generator_params
 
         generator = self.feature_generator_dict[model_name](**generator_params,
@@ -149,8 +149,7 @@ class Industrial(Fedot):
             result = self._run_modelling_cycle(experiment_dict=experiment_dict,
                                                task_type=self.config_dict['task'],
                                                n_cycles=n_cycles,
-                                               dataset_name=dataset_name,
-                                               output_folder=output_folder)
+                                               dataset_name=dataset_name)
             experiment_results[dataset_name]['Original'] = result
 
             if self.config_dict['error_correction']:
@@ -175,9 +174,11 @@ class Industrial(Fedot):
 
                 experiment_results[dataset_name]['Ensemble'] = ensemble_result
 
+            if save_flag:
                 self.save_results(modelling_results=experiment_results,
                                   dataset_name=dataset_name,
                                   path=self.output_folder)
+
         self.logger.info('END OF EXPERIMENT'.center(50, '-'))
         self.logger.info('Experiment report:')
         self.logger.info(self.reporter.get_summary())
@@ -188,8 +189,7 @@ class Industrial(Fedot):
                              experiment_dict: dict,
                              task_type: str,
                              n_cycles: int,
-                             dataset_name: str,
-                             output_folder: str) -> dict:
+                             dataset_name: str) -> dict:
         """Run modelling cycle with corresponding config_name.
 
         Args:
@@ -247,7 +247,7 @@ class Industrial(Fedot):
                     runner_result['metrics'] = self.get_metrics(target=runner_result['test_target'],
                                                                 prediction_proba=runner_result['class_probability'],
                                                                 prediction_label=runner_result['label'])
-                    self.logger.info(f'METRICS AT TEST DATASET'.center(50, '-'))
+                    self.logger.info(f'METRICS AT TEST FOR {dataset_name}'.center(50, '-'))
                     metric_df = runner_result['metrics']
 
                     self.logger.info(f'{metric_df}')
