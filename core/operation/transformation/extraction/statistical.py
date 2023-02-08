@@ -22,6 +22,8 @@ class StatFeaturesExtractor:
         stat_list = []
         column_name = []
         feature_to_aggregation = pd.DataFrame(feature_to_aggregation)
+        if feature_to_aggregation.shape[0] != 1:
+            feature_to_aggregation = feature_to_aggregation.T
         for method_name, method_func in stat_methods_extra.items():
             try:
                 tmp = feature_to_aggregation.copy(deep=True)
