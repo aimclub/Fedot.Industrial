@@ -59,12 +59,12 @@ def time_it(func):
 
 
 def dataframe_adapter(func):
-    def wrapper(arg):
-        if not isinstance(arg, pd.DataFrame):
-            if isinstance(arg, list):
-                arg = pd.DataFrame(arg)
+    def wrapper(*args, **kwargs):
+        if not isinstance(kwargs['ts_frame'], pd.DataFrame):
+            if isinstance(kwargs['ts_frame'], list):
+                kwargs['ts_frame'] = pd.DataFrame(kwargs['ts_frame'])
             else:
-                raise TypeError("Wrong Type of Input Data")
-        return func(arg)
+                raise TypeError(f'Unsupported input type for {args[0].__class__.__name__}')
+        return func(*args, **kwargs)
     return wrapper
 
