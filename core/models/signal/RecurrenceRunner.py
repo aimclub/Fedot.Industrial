@@ -2,11 +2,11 @@ from multiprocessing import Pool
 
 from tqdm import tqdm
 
+from core.architecture.abstraction.Decorators import dataframe_adapter, time_it
 from core.metrics.metrics_implementation import *
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.transformation.DataTransformer import TSTransformer
 from core.operation.transformation.extraction.sequences import ReccurenceExtractor
-from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
 
 
 class RecurrenceRunner(ExperimentRunner):
@@ -34,24 +34,24 @@ class RecurrenceRunner(ExperimentRunner):
         self.train_feats = None
         self.test_feats = None
 
-    def _ts_chunk_function(self, ts):
+    def _ts_chunk_function(self, single_ts: np.ndarray):
 
-        ts = self.check_for_nan(ts)
-        specter = self.transformer(time_series=ts)
+        single_ts = self.check_for_nan(single_ts=single_ts)
+        specter = self.transformer(time_series=single_ts)
         feature_df = specter.ts_to_recurrence_matrix()
         if not self.image_mode:
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
         return feature_df
 
     @dataframe_adapter
-    def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
+    def generate_vectors_from_ts_frame(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
         """Generate vector from time series.
 
         Args:
-            ts_frame: time series frame
+            ts_frame: raw time series frame
 
         Returns:
-            Feature vector
+            Feature vectors for each time series
         """
         ts_samples_count = ts_frame.shape[0]
         n_processes = self.n_processes
@@ -74,17 +74,17 @@ class RecurrenceRunner(ExperimentRunner):
 
     @time_it
     def get_features(self,
-                     ts_data: pd.DataFrame,
+                     ts_frame: pd.DataFrame,
                      dataset_name: str = None,
                      target: np.ndarray = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')
-
+        # TODO: add multithreading
         if self.train_feats is None:
-            train_feats = self.generate_vector_from_ts(ts_frame=ts_data)
+            train_feats = self.generate_vectors_from_ts_frame(ts_frame=ts_frame)
             self.train_feats = train_feats
             return self.train_feats
         else:
-            test_feats = self.generate_vector_from_ts(ts_frame=ts_data)
+            test_feats = self.generate_vectors_from_ts_frame(ts_frame=ts_frame)
             if self.image_mode:
                 self.test_feats = test_feats
             else:

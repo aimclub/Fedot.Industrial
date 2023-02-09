@@ -10,7 +10,7 @@ class WaveletExtractor:
     recorded at equal intervals.
 
     Args:
-        time_series: The time series to be decomposed.
+        single_ts: The time series to be decomposed.
         wavelet_name: The name of the wavelet to be used for decomposition.
 
     Attributes:
@@ -20,9 +20,9 @@ class WaveletExtractor:
     """
 
     def __init__(self,
-                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
+                 single_ts: Union[pd.DataFrame, pd.Series, np.ndarray, list],
                  wavelet_name: str = None):
-        self.time_series = time_series
+        self.time_series = single_ts
         self.discrete_wavelets = pywt.wavelist(kind='discrete')
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
         self.wavelet_name = wavelet_name
@@ -36,16 +36,18 @@ class WaveletExtractor:
         """
         return pywt.dwt_max_level(len(self.time_series), self.wavelet_name)
 
-    def decompose_signal(self, ts=None):
-        if ts is None:
-            ts = self.time_series
+    def decompose_signal(self, single_ts=None):
+        if single_ts is None:
+            single_ts = self.time_series
         if self.wavelet_name in self.discrete_wavelets:
-            return pywt.dwt(ts,
+            return pywt.dwt(single_ts,
                             self.wavelet_name,
                             'smooth')
         else:
-            return pywt.cwt(ts,
-                            self.wavelet_name)
+            # TODO: check scales for continuous wavelets
+            return pywt.cwt(data=single_ts,
+                            scales=np.arange(1, self.decomposing_level),
+                            wavelet=self.wavelet_name)
 
     def generate_features_from_AC(self,
                                   HF,
@@ -60,7 +62,7 @@ class WaveletExtractor:
             feature_df = extractor.create_features(HF)
             feature_df.columns = [f'{x}_level_{i}' for x in feature_df.columns]
             feature_list.append(feature_df)
-            HF = self.decompose_signal(ts=HF)[0]
+            HF = self.decompose_signal(single_ts=HF)[0]
         return feature_list
 
     @staticmethod
@@ -69,7 +71,7 @@ class WaveletExtractor:
                      mpd: int = 1,
                      threshold: int = 0,
                      edge: str = 'rising',
-                     kpsh: bool =False,
+                     kpsh: bool = False,
                      valley: bool = False) -> np.ndarray:
         """Detect peaks in data based on their amplitude and other features.
 

@@ -1,19 +1,17 @@
-import os
-from collections import Counter
 from multiprocessing import Pool
-from itertools import compress
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
 from core.api.utils.checkers_collections import DataCheck
+from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.ExperimentRunner import ExperimentRunner
 from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from core.operation.transformation.data.eigen import combine_eigenvectors
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
-from core.architecture.utils.utils import PROJECT_PATH
 from core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 
@@ -29,8 +27,7 @@ class SSARunner(ExperimentRunner):
         aggregator (StatFeaturesExtractor): class for statistical features extraction.
         spectrum_extractor (SpectrumDecomposer): class for SSA algorithm.
         pareto_front (ParetoMetrics): class for pareto front calculation.
-        vis_flag (bool): flag for visualization.
-        rank_hyper (int): ...
+        rank_hyper (int): rank as a hyperparameter for SSA algorithm.
         train_feats (pd.DataFrame): extracted features for train data.
         test_feats (pd.DataFrame): extracted features for test data.
 
@@ -54,7 +51,6 @@ class SSARunner(ExperimentRunner):
         self.pareto_front = ParetoMetrics()
         self.datacheck = DataCheck()
         self.window_sizes = window_sizes
-        self.vis_flag = False
         self.rank_hyper = None
         self.train_feats = None
         self.test_feats = None
@@ -98,13 +94,18 @@ class SSARunner(ExperimentRunner):
         explained_variance, n_components = sv_to_explained_variance_ratio(Sigma, rank)
 
         if self.combine_eigenvectors:
-            components_df = combine_eigenvectors(TS_comps, rank, self.correlation_level)
+            # TODO: check if it is correct subseq_length
+            components_df = combine_eigenvectors(TS_comps=TS_comps,
+                                                 rank=rank,
+                                                 window_length=self.current_window,
+                                                 ts_length=len(single_ts),
+                                                 subseq_length=self.subseq_length)
         else:
             components_df = specter.components_to_df(TS_comps, rank)
 
         return [components_df, n_components, explained_variance]
 
-    def generate_vector_from_ts(self, ts_frame):
+    def generate_vectors_from_ts_frame(self, ts_frame):
         ts_samples_count = ts_frame.shape[0]
         n_processes = self.n_processes
         self.logger.info(f'Number of processes: {n_processes}')
@@ -122,18 +123,18 @@ class SSARunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, raw_ts_frame: pd.DataFrame, dataset_name: str,
-                     # target: np.ndarray = None
-                     ) -> pd.DataFrame:
+    def get_features(self, ts_frame: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
+
         self.logger.info('SSA feature extraction started')
         if self.current_window is None:
             self.logger.info('Selection of optimal window size')
-            self._choose_best_window_size(raw_ts_frame, dataset_name=dataset_name)
+            self._choose_best_window_size(ts_frame=ts_frame,
+                                          dataset_name=dataset_name)
             aggregation_df = self.train_feats
         else:
-            components_and_vectors = self.generate_vector_from_ts(raw_ts_frame)
+            components_and_vectors = self.generate_vectors_from_ts_frame(ts_frame=ts_frame)
             eigenvectors_list_test = [x[0] for x in components_and_vectors]
-            eigenvectors_list_test = self.check_rank_consistency(eigenvectors_list_test)
+            eigenvectors_list_test = self.check_rank_consistency(eigenvectors_list=eigenvectors_list_test)
 
             aggregation_df = self.generate_features_from_ts(eigenvectors_list_test, window_mode=self.window_mode)
             aggregation_df = aggregation_df[self.train_feats.columns]
@@ -146,7 +147,7 @@ class SSARunner(ExperimentRunner):
         eigenvectors_list = list(map(lambda x: self.datacheck.check_data(x, return_df=True), eigenvectors_list))
         if self.window_mode:
             gen = self.aggregator.create_baseline_features
-            lambda_function_for_stat_features = lambda x: self.apply_window_for_stat_feature(x.T,
+            lambda_function_for_stat_features = lambda x: self.apply_window_for_stat_feature(ts_data_T=x.T,
                                                                                              feature_generator=gen)
             lambda_function_for_concat = lambda x: pd.concat(x, axis=1)
 
@@ -170,11 +171,11 @@ class SSARunner(ExperimentRunner):
 
         return aggregation_df
 
-    def _choose_best_window_size(self, x_train: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
+    def _choose_best_window_size(self, ts_frame: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
         """Chooses the best window for feature extraction.
 
         Args:
-            x_train: train data.
+            ts_frame: raw train or test data.
             dataset_name: name of dataset.
 
         Returns:
@@ -194,7 +195,7 @@ class SSARunner(ExperimentRunner):
             self.logger.info(f'Generate features for window length - {window_length}')
             self.current_window = window_length
 
-            eigenvectors_and_rank = self.generate_vector_from_ts(x_train.sample(frac=0.5))
+            eigenvectors_and_rank = self.generate_vectors_from_ts_frame(ts_frame.sample(frac=0.5))
 
             rank_list = [x[1] for x in eigenvectors_and_rank]
 
@@ -228,15 +229,15 @@ class SSARunner(ExperimentRunner):
         self.current_window = window_list[index_of_window]
         eigenvectors_list = eigen_list[index_of_window]
         self.rank_hyper = int(np.round(np.median([x.shape[1] for x in eigenvectors_list])))
-        eigenvectors_and_rank = self.generate_vector_from_ts(x_train)
+        eigenvectors_and_rank = self.generate_vectors_from_ts_frame(ts_frame=ts_frame)
         eigenvectors_list_train = [x[0].iloc[:, :self.rank_hyper] for x in eigenvectors_and_rank]
         self.eigenvectors_list_train = self.check_rank_consistency(eigenvectors_list_train)
-        self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)
+        self.train_feats = self.generate_features_from_ts(eigenvectors_list=self.eigenvectors_list_train,
+                                                          window_mode=self.window_mode)
         for col in self.train_feats.columns:
             self.train_feats[col].fillna(value=self.train_feats[col].mean(), inplace=True)
-        self.train_feats = self.delete_col_by_var(self.train_feats)
+        self.train_feats = self.delete_col_by_var(dataframe=self.train_feats)
         self.n_components = n_comp_list[index_of_window]
-        # self.logger.info(f'Window length = {self.current_window} was chosen')
 
         return self.train_feats
 

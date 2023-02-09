@@ -89,17 +89,17 @@ class SignalRunner(ExperimentRunner):
         feature_df = pd.concat(hf_ac_features, axis=1)
         return feature_df
 
-    def _ts_chunk_function(self, ts,
+    def _ts_chunk_function(self, single_ts,
                            method_name: str = 'AC'):
 
-        ts = self.check_for_nan(ts)
-        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
+        single_ts = self.check_for_nan(single_ts=single_ts)
+        specter = self.wavelet_extractor(single_ts=single_ts, wavelet_name=self.wavelet)
         feature_df = self.dict_of_methods[method_name](specter)
 
         return feature_df
 
     @dataframe_adapter
-    def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
+    def generate_vectors_from_ts_frame(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
         """Generate vector from time series.
 
         Args:
@@ -126,15 +126,15 @@ class SignalRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame,
+    def get_features(self, ts_frame: pd.DataFrame,
                      dataset_name: str = None) -> pd.DataFrame:
         self.logger.info('Wavelet feature extraction started')
         if not self.wavelet:
-            train_feats = self._choose_best_wavelet(ts_data)
+            train_feats = self._choose_best_wavelet(ts_frame)
             self.train_feats = train_feats
             return self.train_feats
         else:
-            test_feats = self.generate_vector_from_ts(ts_data=ts_data)
+            test_feats = self.generate_vectors_from_ts_frame(ts_frame=ts_frame)
             test_feats = pd.concat(test_feats)
             test_feats.index = list(range(len(test_feats)))
             self.test_feats = test_feats
@@ -156,7 +156,7 @@ class SignalRunner(ExperimentRunner):
             self.logger.info(f'Generate features wavelet - {wavelet}')
             self.wavelet = wavelet
 
-            train_feats = self.generate_vector_from_ts(ts_data=x_train)
+            train_feats = self.generate_vectors_from_ts_frame(ts_frame=x_train)
             train_feats = pd.concat(train_feats)
             filtered_df = self.delete_col_by_var(train_feats)
             feature_list.append(train_feats)

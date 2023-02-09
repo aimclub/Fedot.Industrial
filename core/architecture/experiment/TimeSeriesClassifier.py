@@ -108,16 +108,16 @@ class TimeSeriesClassifier:
         return baseline_pipeline
 
     def __fit_abstraction(self,
-                          train_features: Union[np.ndarray, pd.DataFrame],
+                          raw_train_features: Union[np.ndarray, pd.DataFrame],
                           train_target: np.ndarray,
                           baseline_type: str = None):
         self.logger.info(f'Fitting model...')
         self.y_train = train_target
         if self.generator_runner is not None:
-            self.train_features = self.generator_runner.extract_features(ts_data=train_features,
+            self.train_features = self.generator_runner.extract_features(ts_frame=raw_train_features,
                                                                          dataset_name=self.dataset_name)
         else:
-            self.train_features = train_features
+            self.train_features = raw_train_features
         self.train_features = self.datacheck.check_data(self.train_features)
 
         if baseline_type is not None:
@@ -131,7 +131,7 @@ class TimeSeriesClassifier:
 
         # if self.generator_runner is not None:
         if self.test_features is None:
-            self.test_features = self.generator_runner.extract_features(ts_data=test_features,
+            self.test_features = self.generator_runner.extract_features(ts_frame=test_features,
                                                                         dataset_name=self.dataset_name)
             self.test_features = self.datacheck.check_data(self.test_features)
         # else:
@@ -149,10 +149,10 @@ class TimeSeriesClassifier:
                 prediction = self.predictor.predict_proba(self.test_features)
             return prediction
 
-    def fit(self, train_features: np.ndarray,
+    def fit(self, raw_train_features: np.ndarray,
             train_target: np.ndarray,
             baseline_type: str = None) -> tuple:
-        self.__fit_abstraction(train_features, train_target, baseline_type)
+        self.__fit_abstraction(raw_train_features, train_target, baseline_type)
 
         return self.predictor, self.train_features
 
