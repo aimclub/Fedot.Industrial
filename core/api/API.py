@@ -118,7 +118,7 @@ class Industrial(Fedot):
         baseline_type = self.checker.check_baseline_type(self.config_dict, model_params)
         self.model_composer.model_hyperparams['metric'] = metric
 
-        fitted_model, train_features = self.model_composer.fit(train_features=train_features,
+        fitted_model, train_features = self.model_composer.fit(raw_train_features=train_features,
                                                                train_target=train_target,
                                                                baseline_type=baseline_type)
         return fitted_model, train_features
@@ -219,62 +219,61 @@ class Industrial(Fedot):
 
         if train_data is None:
             self.reporter.add_to_report(dataset_name, '-', '-', 'cannot read data')
-            return None
+            return modelling_results
 
         self.config_dict = self.checker.check_window_sizes(config_dict=experiment_dict,
                                                            dataset_name=dataset_name,
                                                            train_data=train_data)
 
         self.config_dict = self.exclude_generators(experiment_dict, train_data[0])
+        if self.config_dict['feature_generator'] is None:
+            self.logger.error(f'No generators dedicated for {dataset_name} dataset')
+            return modelling_results
 
         for runner_name, runner in self.config_dict['feature_generator'].items():
             modelling_results[runner_name] = {}
             for launch in range(1, n_cycles + 1):
                 self.logger.info(f'{dataset_name} – start of cycle {launch} for {runner_name} generator')
-                try:
-                    runner_result = {}
+                # try:
+                runner_result = {}
 
-                    fitted_predictor, train_features = self._obtain_model(model_name=runner_name,
-                                                                          task_type=task_type,
-                                                                          train_features=train_data[0],
-                                                                          dataset_name=dataset_name,
-                                                                          train_target=train_data[1],
-                                                                          model_params=self.config_dict['fedot_params'],
-                                                                          ecm_mode=self.config_dict['error_correction'])
+                fitted_predictor, train_features = self._obtain_model(model_name=runner_name,
+                                                                      task_type=task_type,
+                                                                      train_features=train_data[0],
+                                                                      dataset_name=dataset_name,
+                                                                      train_target=train_data[1],
+                                                                      model_params=self.config_dict['fedot_params'],
+                                                                      ecm_mode=self.config_dict['error_correction'])
 
-                    runner_result['fitted_predictor'] = fitted_predictor
-                    runner_result['train_features'] = train_features
-                    runner_result['test_target'] = test_data[1]
-                    runner_result['train_target'] = train_data[1]
+                runner_result['fitted_predictor'] = fitted_predictor
+                runner_result['train_features'] = train_features
+                runner_result['test_target'] = test_data[1]
+                runner_result['train_target'] = train_data[1]
 
-                    self.logger.info(f'START PREDICTION AT LAUNCH-{launch}'.center(50, '-'))
+                self.logger.info(f'START PREDICTION AT LAUNCH-{launch}'.center(50, '-'))
 
-                    label_dict = self.predict(features=test_data[0],
-                                              # save_predictions=True
-                                              )
-                    proba_dict = self.predict_proba(features=test_data[0],
-                                                    # save_predictions=True
-                                                    )
-                    runner_result.update(label_dict)
-                    runner_result['class_probability'] = proba_dict['class_probability']
-                    runner_result['metrics'] = self.get_metrics(target=runner_result['test_target'],
-                                                                prediction_proba=runner_result['class_probability'],
-                                                                prediction_label=runner_result['label'])
-                    self.logger.info(f'METRICS AT TEST FOR {dataset_name}'.center(50, '-'))
-                    metric_df = runner_result['metrics']
+                label_dict = self.predict(features=test_data[0])
+                proba_dict = self.predict_proba(features=test_data[0])
+                runner_result.update(label_dict)
+                runner_result['class_probability'] = proba_dict['class_probability']
+                runner_result['metrics'] = self.get_metrics(target=runner_result['test_target'],
+                                                            prediction_proba=runner_result['class_probability'],
+                                                            prediction_label=runner_result['label'])
+                self.logger.info(f'METRICS AT TEST FOR {dataset_name}'.center(50, '-'))
+                metric_df = runner_result['metrics']
 
-                    self.logger.info(f'{metric_df}')
+                self.logger.info(f'{metric_df}')
 
-                    modelling_results[runner_name][launch] = runner_result
-                    self.reporter.add_to_report(dataset_name, runner_name, launch, 'OK')
+                modelling_results[runner_name][launch] = runner_result
+                self.reporter.add_to_report(dataset_name, runner_name, launch, 'OK')
 
-                    self.saver.save_basic_results(prediction={runner_name: {launch: runner_result}},
-                                                  dataset_name=dataset_name,
-                                                  path=self.output_folder)
+                self.saver.save_basic_results(prediction={runner_name: {launch: runner_result}},
+                                              dataset_name=dataset_name,
+                                              path=self.output_folder)
 
-                except Exception as ex:
-                    self.logger.info(f'PROBLEM WITH {runner_name} AT LAUNCH {launch}. REASON - {ex}')
-                    self.reporter.add_to_report(dataset_name, runner_name, launch, ex)
+                # except Exception as ex:
+                #     self.logger.info(f'PROBLEM WITH {runner_name} AT LAUNCH {launch}. REASON - {ex}')
+                #     self.reporter.add_to_report(dataset_name, runner_name, launch, ex)
 
                 # self.reporter.path_to_save = path
                 self.reporter.get_summary()
@@ -302,9 +301,10 @@ class Industrial(Fedot):
                 if exclude in experiment_dict['feature_generator']:
                     experiment_dict['feature_generator'].pop(exclude)
                     experiment_dict['feature_generator_params'].pop(exclude, None)
+                    excluded.append(exclude)
 
         if excluded:
-            self.logger.info(f'Time series length is too long ({ts_length}>800): {excluded} generator excluded')
+            self.logger.info(f'Time series length is too long ({ts_length}>800): {excluded} generators are excluded')
 
         return experiment_dict
 

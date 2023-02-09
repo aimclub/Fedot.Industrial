@@ -1,5 +1,8 @@
+from multiprocessing import Pool
+
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from core.architecture.abstraction.Decorators import dataframe_adapter, time_it
 from core.models.ExperimentRunner import ExperimentRunner
@@ -40,7 +43,7 @@ class StatsRunner(ExperimentRunner):
     def extract_stats_features(self, ts):
         if self.window_mode:
             aggregator = self.aggregator.create_baseline_features
-            list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data=ts,
+            list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data_T=ts,
                                                                                    feature_generator=aggregator,
                                                                                    window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
@@ -71,19 +74,27 @@ class StatsRunner(ExperimentRunner):
         return aggregation_df
 
     @time_it
-    def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
+    def get_features(self, ts_frame: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None):
         self.logger.info('Quantile feature extraction started')
-        return self.generate_features_from_ts(ts_data)
+        return self.generate_features_from_ts(ts_frame=ts_frame)
 
     def __component_extraction(self, ts):
-        ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]
-        tmp_list = []
-        for index, component in enumerate(ts_components):
-            aggregation_df = self.extract_stats_features(component)
-            col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
-            aggregation_df.columns = col_name
-            tmp_list.append(aggregation_df)
-        aggregation_df = pd.concat(tmp_list, axis=1)
+        ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
+        with Pool(self.n_processes) as p:
+            tmp_list = list(tqdm(p.imap(self.sub_fubc, enumerate(ts_components)),
+                            total=len(ts_components),
+                            desc='TS processed',
+                            unit=' ts',
+                            colour='black')
+                            )
+        aggregation_df = pd.concat(tmp_list, axis=0, ignore_index=True)
+        return aggregation_df
+
+    def sub_fubc(self, component_index):
+        index, component = component_index
+        aggregation_df = self.extract_stats_features(component)
+        col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
+        aggregation_df.columns = col_name
         return aggregation_df
 
     def __get_feature_matrix(self, ts):

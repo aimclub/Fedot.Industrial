@@ -31,8 +31,9 @@ class ResultSaver:
                                                'test_target.csv': result_at_launch['test_target']}
 
                         try:
-                            result_at_launch['fitted_predictor'].current_pipeline.save(path_pipeline,
-                                                                                       datetime_in_path=False)
+                            result_at_launch['fitted_predictor'].current_pipeline.save(path=path_pipeline,
+                                                                                       create_subdir=False,
+                                                                                       is_datetime_in_path=False)
                         except Exception as ex:
                             self.logger.error(f'Can not save pipeline: {ex}')
 
