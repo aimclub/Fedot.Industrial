@@ -1,13 +1,30 @@
 """
 This module contains functions for splitting a torch dataset into parts.
 """
-from typing import List, Tuple
+from typing import List, Tuple, Generator
 
 import numpy as np
 from torch.utils.data import Dataset, Subset
+from tqdm import tqdm
 
 
-def k_fold(dataset: Dataset, n: int) -> Tuple[Subset]:
+def train_test_split(dataset: Dataset, p: float = 0.2) -> Tuple[Subset]:
+    """
+    Splits the data into two parts, keeping the proportions of the classes.
+
+    Args:
+        dataset: Torch dataset object.
+        p: Proportion of the test sample, must be from 0 to 1.
+
+    Returns:
+        A tuple ``(train_ds, test_ds)``, where train_ds and test_ds
+            are subsets.
+    """
+    n = int(1./p)
+    return next(k_fold(dataset=dataset, n=n))
+
+
+def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset], None, None]:
     """
     K-Folds cross-validator.
 
@@ -38,13 +55,8 @@ def split_data(dataset: Dataset, n: int) -> List[np.ndarray]:
     Returns:
         A list of indices for each part.
     """
-    classes_of_imgs = []
-    for i in range(len(dataset)):
-        img, target = dataset.__getitem__(i)
-        classes_of_imgs.append(target)
-    classes_of_imgs = np.array(classes_of_imgs)
+    classes_of_imgs = extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
-
     fold_indices = [[] for _ in range(n)]
     for cl in classes:
         indices_of_class = np.random.permutation(np.nonzero(classes_of_imgs==cl)[0])
@@ -60,3 +72,40 @@ def split_data(dataset: Dataset, n: int) -> List[np.ndarray]:
             fold_indices[i].append(indices_of_class[start : start + length])
             start += length
     return [np.concatenate(fold) for fold in fold_indices]
+
+
+def undersampling(dataset: Dataset) -> Subset:
+    """
+    A method for balancing uneven datasets by keeping all data in the
+    minority class and decreasing the size of the majority class.
+
+    Args:
+        dataset: Torch dataset object.
+
+    Returns:
+        Balanced subset.
+    """
+    classes_of_imgs = extract_classes(dataset)
+    classes = np.unique(classes_of_imgs)
+    indices_of_classes = []
+    min_size = len(classes_of_imgs)
+    for cl in classes:
+        indices_of_class = np.random.permutation(np.nonzero(classes_of_imgs==cl)[0])
+        indices_of_classes.append(indices_of_class)
+        print(f"Class {cl} contains {indices_of_class.size} samples.")
+        if indices_of_class.size < min_size:
+            min_size = indices_of_class.size
+    print(f"New size of any class {min_size} samples.")
+    indices = np.concatenate([x[:min_size] for x in indices_of_classes])
+    return Subset(dataset, indices)
+
+
+def extract_classes(dataset: Dataset) -> np.ndarray:
+    """
+    Returns the class for each sample.
+    """
+    classes_of_imgs = []
+    for i in tqdm(range(len(dataset))):
+        img, target = dataset.__getitem__(i)
+        classes_of_imgs.append(target)
+    return np.array(classes_of_imgs)
