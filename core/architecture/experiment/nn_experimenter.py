@@ -9,12 +9,12 @@ import torch
 from fedot.core.log import default_log as Logger
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
+from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
 from core.architecture.abstraction.сheckers import parameter_value_check
 from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter, \
     SegmentationMetricCounter
@@ -49,24 +49,6 @@ class FitParameters:
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
     class_metrics: bool = False
-
-
-def write_scores(
-        writer: SummaryWriter,
-        phase: str,
-        scores: Dict[str, float],
-        x: int,
-):
-    """Write scores from dictionary by SummaryWriter.
-
-    Args:
-        writer: SummaryWriter object for writing scores.
-        phase: Experiment phase for grouping records, e.g. 'train'.
-        scores: Dictionary {metric_name: value}.
-        x: The independent variable.
-    """
-    for key, score in scores.items():
-        writer.add_scalar(f"{phase}/{key}", score, x)
 
 
 class NNExperimenter:
@@ -119,11 +101,11 @@ class NNExperimenter:
         """
         model_path = os.path.join(p.models_path, p.dataset_name, self.name, phase)
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, phase)
-        writer = SummaryWriter(summary_path)
+        writer = WriterComposer(summary_path, [TFWriter, CSVWriter])
 
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
         init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
-        write_scores(writer, 'val', init_scores, start_epoch)
+        writer.write_scores(init_scores, start_epoch, prefix='val')
         self.save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
@@ -138,12 +120,12 @@ class NNExperimenter:
                 optimizer=optimizer,
                 model_losses=model_losses
             )
-            write_scores(writer, 'train', train_scores, epoch)
+            writer.write_scores(train_scores, epoch, prefix='train')
             val_scores = self.val_loop(
                 dataloader=p.val_dl,
                 class_metrics=p.class_metrics
             )
-            write_scores(writer, 'val', val_scores, epoch)
+            writer.write_scores(val_scores, epoch, prefix='val')
             self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
             if lr_scheduler is not None:
                 lr_scheduler.step()

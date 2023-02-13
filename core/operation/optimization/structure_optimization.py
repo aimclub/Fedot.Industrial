@@ -7,11 +7,10 @@ from typing import Dict, List
 
 import torch
 from fedot.core.log import default_log as Logger
-from torch.utils.tensorboard import SummaryWriter
 from torchvision.models import ResNet
 
-from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters, \
-    write_scores
+from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
+from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from core.operation.optimization.sfp_tools import zerolize_filters, prune_resnet, \
@@ -102,15 +101,22 @@ class SVDOptimization(StructureOptimization):
         """
         exp.name += self.description
         self.finetuning = False
-        self.logger.info(f"Default size: {exp.size_of_model():.2f} Mb")
+        writer = CSVWriter(
+            os.path.join(params.summary_path, params.dataset_name, exp.name, 'size')
+        )
+        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        writer.write_scores(size, 'default')
+        self.logger.info(f"Default size: {size['size']:.2f} Mb")
         decompose_module(exp.model, self.decomposing_mode)
         exp.model.to(exp.device)
-        self.logger.info(f"SVD decomposed size: {exp.size_of_model():.2f} Mb")
+        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        writer.write_scores(size, 'decomposed')
+        self.logger.info(f"SVD decomposed size: {size['size']:.2f} Mb")
 
         exp.fit(p=params, model_losses=self.loss)
-        self.optimize(exp=exp, params=params)
+        self.optimize(exp=exp, params=params, writer=writer)
 
-    def optimize(self, exp: NNExperimenter, params: FitParameters) -> None:
+    def optimize(self, exp: NNExperimenter, params: FitParameters, writer) -> None:
         """Prunes the trained model at the given thresholds.
 
         Args:
@@ -131,7 +137,9 @@ class SVDOptimization(StructureOptimization):
                 func_params={'energy_threshold': e},
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
-            self.logger.info(f"pruning with e={e}, size: {exp.size_of_model():.2f} Mb")
+            size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+            writer.write_scores(size, str_e)
+            self.logger.info(f"pruning with e={e}, size: {size['size']:.2f} Mb")
             exp.best_score = 0
             exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
 
@@ -199,7 +207,10 @@ class SFPOptimization(StructureOptimization):
         exp.name += self.description
         path = os.path.join(params.dataset_name, exp.name, 'train')
         model_path = os.path.join(params.models_path, path)
-        writer = SummaryWriter(os.path.join(params.summary_path, path))
+        writer = WriterComposer(
+            path=os.path.join(params.summary_path, path),
+            writers=[TFWriter, CSVWriter]
+        )
 
         optimizer = params.optimizer(exp.model.parameters(), **params.optimizer_params)
         self.logger.info(f"{exp.name}, using device: {exp.device}")
@@ -209,7 +220,7 @@ class SFPOptimization(StructureOptimization):
                 dataloader=params.train_dl,
                 optimizer=optimizer
             )
-            write_scores(writer, 'train', train_scores, epoch)
+            writer.write_scores(train_scores, epoch, prefix='train')
             exp.apply_func(
                 func=zerolize_filters,
                 func_params={'pruning_ratio': self.pruning_ratio},
@@ -219,7 +230,7 @@ class SFPOptimization(StructureOptimization):
                 dataloader=params.val_dl,
                 class_metrics=params.class_metrics
             )
-            write_scores(writer, 'val', val_scores, epoch)
+            writer.write_scores(val_scores, epoch, prefix='val')
             exp.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
         exp.load_model(model_path)
         writer.close()
@@ -240,11 +251,19 @@ class SFPOptimization(StructureOptimization):
         self.finetuning = True
         epoch = params.num_epochs
         params.num_epochs = self.finetuning_epochs
+        writer = CSVWriter(
+            os.path.join(params.summary_path, params.dataset_name, exp.name, 'size')
+        )
+        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        writer.write_scores(size, 'default')
+        self.logger.info(f"Default size: {size['size']:.2f} Mb")
 
-        self.logger.info(f"Default size: {exp.size_of_model():.2f} Mb")
         exp.model = prune_resnet(model=exp.model, pruning_ratio=self.pruning_ratio)
         exp.model.to(exp.device)
-        self.logger.info(f"Pruned size: {exp.size_of_model():.2f} Mb")
+
+        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        writer.write_scores(size, 'pruned')
+        self.logger.info(f"Pruned size: {size['size']:.2f} Mb")
 
         exp.best_score = 0
         exp.fit(p=params, phase='pruned', start_epoch=epoch)
