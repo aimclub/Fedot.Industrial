@@ -1,4 +1,6 @@
 import numpy as np
+from pymonad.list import ListMonad
+
 from core.operation.transformation.basis.abstract_basis import BasisDecomposition
 
 
@@ -12,14 +14,9 @@ class FourierBasis(BasisDecomposition):
     def _get_basis(self, n_components: int = None):
         return np.fft.fft
 
-    def fit(self, data):
-        """Decomposes the given data on the Fourier basis.
-
-        Returns:
-            np.array: The Fourier decomposition of the given data.
-        """
-        self.decomposed = np.fft.fft(data)
-        return self.basis(data)
+    def _transform(self, features: ListMonad):
+        self.decomposed = np.fft.fft(features)
+        return self.basis(features)
 
     def evaluate_derivative(self, order):
         """Evaluates the derivative of the Fourier decomposition of the given data.

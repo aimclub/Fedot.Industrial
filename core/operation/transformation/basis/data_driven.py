@@ -1,26 +1,33 @@
-import numpy as np
 from typing import Tuple, TypeVar
+
+import numpy as np
+import tensorly as tl
+from pymonad.either import Either
 from pymonad.list import ListMonad
-from core.operation.transformation.basis.abstract_basis import BasisDecomposition
+from tensorly.decomposition import parafac
+
+from core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from core.operation.transformation.data.hankel import HankelMatrix
 from core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, reconstruct_basis
-from pymonad.either import Either
-import tensorly as tl
-from tensorly.decomposition import tucker, parafac, non_negative_tucker
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 
 
-class DataDrivenBasis(BasisDecomposition):
+class DataDrivenBasisImplementation(BasisDecompositionImplementation):
     """DataDriven basis
     """
 
-    def _get_1d_basis(self):
+    def _transform(self, features: ListMonad):
+        trajectory_transformer = HankelMatrix(time_series=features)
+        self.data = trajectory_transformer.trajectory_matrix
+        self.ts_length = trajectory_transformer.ts_length
+        return self._get_basis()
+
+    def _get_1d_basis(self, data):
         svd = lambda x: ListMonad(np.linalg.svd(x))
         threshold = lambda Monoid: ListMonad([Monoid[0],
                                               singular_value_hard_threshold(singular_values=Monoid[1],
-                                                                            beta=self.data.shape[0] / self.data.shape[
-                                                                                1],
+                                                                            beta=data.shape[0] / data.shape[1],
                                                                             threshold=None),
                                               Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
                                                                                                        Monoid[1][
@@ -31,7 +38,7 @@ class DataDrivenBasis(BasisDecomposition):
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
-        self.basis = Either.insert(self.data).then(svd).then(threshold).then(data_driven_basis).value[0]
+        self.basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
 
         return self.basis
 
@@ -47,31 +54,28 @@ class DataDrivenBasis(BasisDecomposition):
         threshold = lambda Monoid: ListMonad([Monoid[1],
                                               list(map(multi_threshold, Monoid[0])),
                                               Monoid[2].T]) if self.n_components is None else ListMonad([Monoid[1],
-                                                                                                       Monoid[0][
-                                                                                                       :self.n_components],
-                                                                                                       Monoid[2].T])
+                                                                                                         Monoid[0][
+                                                                                                         :self.n_components],
+                                                                                                         Monoid[2].T])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
-        self.basis = Either.insert(self.data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0]
+        self.basis = Either.insert(self.data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[
+            0]
 
         return self.basis
 
     def _get_basis(self):
+        res = []
         if type(self.data) == list:
-            self.basis = self._get_multidim_basis()
-        else:
-            self.basis = self._get_1d_basis()
-
+            for arr in self.data:
+                res.append(self._get_1d_basis(arr))
+        self.basis = np.array(res)
         return self.basis
 
-    def fit(self, data):
-        trajectory_transformer = HankelMatrix(time_series=data)
-        self.data = trajectory_transformer.trajectory_matrix
-        self.ts_length = trajectory_transformer.ts_length
-        return self._get_basis()
+
 
     def evaluate_derivative(self:
     class_type,

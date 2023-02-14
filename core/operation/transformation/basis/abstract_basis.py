@@ -1,11 +1,18 @@
+from typing import Optional
+
 import numpy as np
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+from pymonad.list import ListMonad
 
 
-class BasisDecomposition:
+class BasisDecompositionImplementation(DataOperationImplementation):
     """A class for decomposing data on the abstract basis and evaluating the derivative of the resulting decomposition.
     """
 
-    def __init__(self, n_components: int = None):
+    def __init__(self, params: Optional[OperationParameters] = None):
         """
         Initializes the class with an array of data in np.array format as input.
 
@@ -13,7 +20,8 @@ class BasisDecomposition:
         ----------
         """
 
-        self.n_components = n_components
+        super().__init__(params)
+        self.n_components = params.get('n_components', 2)
         self.basis = None
 
     def _get_basis(self, **kwargs):
@@ -38,5 +46,10 @@ class BasisDecomposition:
         """
         pass
 
-    def transform(self):
+    def transform(self, input_data: InputData):
+        features = ListMonad(*input_data.features.tolist()).value
+        output = np.array(self._transform(features))
+        return output
+
+    def _transform(self, features: ListMonad):
         pass

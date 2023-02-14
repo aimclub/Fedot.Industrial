@@ -4,7 +4,7 @@ from core.models.ExperimentRunner import ExperimentRunner
 from core.models.signal.SignalRunner import SignalRunner
 from core.models.spectral.SSARunner import SSARunner
 from core.models.statistical.QuantileRunner import StatsRunner
-from core.models.topological.TopologicalRunner import TopologicalRunner
+from core.models.topological.TopologicalRunner import TopologicalExtractor
 
 
 class EnsembleRunner(ExperimentRunner):
@@ -27,7 +27,7 @@ class EnsembleRunner(ExperimentRunner):
                                    wavelet=SignalRunner,
                                    spectral=SSARunner,
                                    spectral_window=SSARunner,
-                                   topological=TopologicalRunner,
+                                   topological=TopologicalExtractor,
                                    ensemble=EnsembleRunner)
 
     def get_features(self, input_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:

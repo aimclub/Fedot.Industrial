@@ -1,7 +1,12 @@
 import gc
 import sys
+from typing import Optional
 
 import pandas as pd
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
@@ -23,8 +28,8 @@ PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                 'BettiNumbersSumFeature': BettiNumbersSumFeature(),
                                 'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
 
-
-class TopologicalRunner(ExperimentRunner):
+# TODO after full refactoring inherit it from Experiment runner and ExperimentRunner from dataOperationImplementation
+class TopologicalExtractor(DataOperationImplementation):
     """Class for extracting topological features from time series data.
 
     Args:
@@ -32,13 +37,18 @@ class TopologicalRunner(ExperimentRunner):
 
     """
 
-    def __init__(self, use_cache: bool = False):
-        super().__init__()
-        self.use_cache = use_cache
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.use_cache = params.get('use_cache')
         self.filtered_features = None
         self.feature_extractor = None
 
-    @dataframe_adapter
+    def fit(self, input_data: InputData) -> OutputData:
+        pass
+
+    def transform(self, input_data: InputData) -> OutputData:
+        return self.generate_topological_features(input_data.features)
+
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
 
         if self.feature_extractor is None:
