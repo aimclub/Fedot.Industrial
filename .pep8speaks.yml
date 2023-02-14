@@ -1,0 +1,4 @@
+scanner:
+    diff_only: False
+pycodestyle:
+    max-line-length: 120
