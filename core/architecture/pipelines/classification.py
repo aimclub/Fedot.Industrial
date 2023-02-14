@@ -3,7 +3,7 @@ from pymonad.either import Right
 from core.architecture.pipelines.abstract_pipeline import AbstractPipelines
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.DatasetLoader import DataLoader
-from core.operation.transformation.basis.data_driven import DataDrivenBasis
+from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from functools import partial
 
 
@@ -39,7 +39,7 @@ class ClassificationPipelines(AbstractPipelines):
 
     def __ts_data_driven_pipeline(self, **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = DataDrivenBasis()
+        data_basis = DataDrivenBasisImplementation()
 
         lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
 
@@ -58,7 +58,7 @@ class ClassificationPipelines(AbstractPipelines):
 
     def __multits_data_driven_pipeline(self, ensemble: str = 'Multi', **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = DataDrivenBasis()
+        data_basis = DataDrivenBasisImplementation()
 
         lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
         lambda_func_dict['reduce_basis'] = lambda list_of_components: ListMonad(

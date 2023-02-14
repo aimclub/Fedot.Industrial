@@ -1,4 +1,5 @@
 import numpy as np
+from fedot.core.composer.metrics import ROCAUC
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -25,5 +26,4 @@ def test_repo():
         'rf').to_pipeline()
     pipeline.fit(train_data)
     predict = pipeline.predict(test_data)
-    print(OperationTypesRepository('industrial').operation_info_by_id('data_driven_basic'))
-    print(0)
+    print(ROCAUC.metric(test_data, predict))
