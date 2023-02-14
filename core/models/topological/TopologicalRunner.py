@@ -66,7 +66,7 @@ class TopologicalRunner(ExperimentRunner):
         self.logger.info('Topological feature extraction started')
         return self.generate_topological_features(ts_frame=ts_frame)
 
-    def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
+    def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mode') -> tuple:
         """Method for getting optimal Takens embedding parameters.
 
         Args:
@@ -91,17 +91,11 @@ class TopologicalRunner(ExperimentRunner):
             single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
 
             # TODO: optimal parameters cannot be selected for short time series (length < 25 with default parameters)
-            try:
-                delay, dim = takens_embedding_optimal_parameters(X=single_time_series.values,
-                                                                 max_time_delay=5,
-                                                                 max_dimension=5,
-                                                                 n_jobs=-1)
-            except ValueError:
-                self.logger.error('Default initial parameters are not suitable for this time series')
-                delay, dim = takens_embedding_optimal_parameters(X=single_time_series.values,
-                                                                 max_time_delay=3,
-                                                                 max_dimension=5,
-                                                                 n_jobs=-1)
+            delay, dim = takens_embedding_optimal_parameters(X=single_time_series.values,
+                                                             max_time_delay=2,
+                                                             max_dimension=10,
+                                                             n_jobs=-1)
+
             delay_list.append(delay)
             dim_list.append(dim)
 
