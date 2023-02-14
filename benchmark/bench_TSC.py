@@ -5,7 +5,6 @@ from typing import Union
 
 import pandas as pd
 import seaborn as sns
-# from core.log import default_log as logger
 from fedot.core.log import default_log as logger
 from matplotlib import pyplot as plt
 
@@ -60,7 +59,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         except Exception as ex:
             self.logger.error(f'Can not save report: {ex}')
 
-        # local_report = self._create_local_report()
+        local_report = self._create_local_report()
 
         self.logger.info("Benchmark test finished")
 
@@ -246,7 +245,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         univariate_tss = all_datasets_table[all_datasets_table['multivariate_flag'] == 0]
 
         if self.use_small_datasets:
-            univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000) & (univariate_tss['length'] < 1000)]
+            univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000) & (univariate_tss['length'] < 1000) & (univariate_tss['test_size'] < 1000)]
 
         filtered_by_type_quantity = univariate_tss.groupby('type')['type'].count() >= n_samples
         filtered_types = filtered_by_type_quantity[filtered_by_type_quantity].index.tolist()
@@ -273,9 +272,9 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 if __name__ == "__main__":
     datasets_selection_config = {
         'use_small_datasets': True,
-        'random_selection': False,
+        'random_selection': True,
         'custom_datasets': False,  # or list ['Lightning7_fake'] for example
-        'number_of_datasets': 1
+        'number_of_datasets': 2
     }
 
     bnch = BenchmarkTSC(**datasets_selection_config)

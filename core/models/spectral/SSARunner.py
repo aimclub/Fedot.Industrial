@@ -1,4 +1,4 @@
-from multiprocessing import Pool
+from multiprocessing import cpu_count, Pool
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -107,7 +107,7 @@ class SSARunner(ExperimentRunner):
 
     def generate_vectors_from_ts_frame(self, ts_frame):
         ts_samples_count = ts_frame.shape[0]
-        n_processes = self.n_processes
+        n_processes = cpu_count()  # because the process is too heavy
         self.logger.info(f'Number of processes: {n_processes}')
 
         with Pool(n_processes) as p:
