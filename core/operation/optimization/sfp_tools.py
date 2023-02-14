@@ -9,7 +9,7 @@ from torchvision.models import ResNet
 
 from core.models.cnn.sfp_resnet import SFP_MODELS
 
-MODELS_FROM_LENDHT = {
+MODELS_FROM_LENGHT = {
     122: SFP_MODELS['ResNet18'],
     218: SFP_MODELS['ResNet34'],
     320: SFP_MODELS['ResNet50'],
@@ -35,7 +35,7 @@ def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
 
 
 def _check_nonzero_filters(weight: Tensor) -> Tensor:
-    """Returns indices of zero filters."""
+    """Returns indices of nonzero filters."""
     filters = torch.count_nonzero(weight, dim=(1, 2, 3))
     indices = torch.flatten(torch.nonzero(filters))
     return indices
@@ -226,15 +226,8 @@ def prune_resnet(model: ResNet, pruning_ratio: float) -> ResNet:
         AssertionError if model is not Resnet.
     """
     assert isinstance(model, ResNet), "Supports only ResNet models"
-    models_from_length = {
-        122: SFP_MODELS['ResNet18'],
-        218: SFP_MODELS['ResNet34'],
-        320: SFP_MODELS['ResNet50'],
-        626: SFP_MODELS['ResNet101'],
-        932: SFP_MODELS['ResNet152'],
-    }
     pruned_sd, input_size, output_size = prune_resnet_state_dict(model.state_dict())
-    model = models_from_length[len(model.state_dict())](
+    model = MODELS_FROM_LENGHT[len(model.state_dict())](
         num_classes=model.fc.out_features,
         input_size=input_size,
         output_size=output_size,
@@ -273,7 +266,7 @@ def load_sfp_resnet_model(
             last_layer = k[0]
     output_size['layer4'].append(state_dict['fc.weight'].size()[1])
 
-    model = MODELS_FROM_LENDHT[len(model.state_dict())](
+    model = MODELS_FROM_LENGHT[len(model.state_dict())](
         num_classes=model.fc.out_features,
         input_size=input_size,
         output_size=output_size,
