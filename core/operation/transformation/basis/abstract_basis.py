@@ -49,6 +49,7 @@ class BasisDecompositionImplementation(DataOperationImplementation):
     def transform(self, input_data: InputData):
         features = ListMonad(*input_data.features.tolist()).value
         output = np.array(self._transform(features))
+        output = np.swapaxes(output, 1, 2)
         return output
 
     def _transform(self, features: ListMonad):
