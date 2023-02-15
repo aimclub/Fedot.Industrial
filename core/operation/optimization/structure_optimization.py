@@ -9,7 +9,8 @@ import torch
 from fedot.core.log import default_log as Logger
 from torchvision.models import ResNet
 
-from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
+from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, \
+    Writer
 from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
@@ -101,22 +102,20 @@ class SVDOptimization(StructureOptimization):
         """
         exp.name += self.description
         self.finetuning = False
-        writer = CSVWriter(
-            os.path.join(params.summary_path, params.dataset_name, exp.name, 'size')
-        )
+        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name))
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
-        writer.write_scores(size, 'default')
+        writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
         decompose_module(exp.model, self.decomposing_mode)
         exp.model.to(exp.device)
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
-        writer.write_scores(size, 'decomposed')
+        writer.write_scores(phase='size', scores=size, x='decomposed')
         self.logger.info(f"SVD decomposed size: {size['size']:.2f} Mb")
 
         exp.fit(p=params, model_losses=self.loss)
         self.optimize(exp=exp, params=params, writer=writer)
 
-    def optimize(self, exp: NNExperimenter, params: FitParameters, writer) -> None:
+    def optimize(self, exp: NNExperimenter, params: FitParameters, writer: Writer) -> None:
         """Prunes the trained model at the given thresholds.
 
         Args:
@@ -138,7 +137,7 @@ class SVDOptimization(StructureOptimization):
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
             size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
-            writer.write_scores(size, str_e)
+            writer.write_scores(phase='size', scores=size, x=str_e)
             self.logger.info(f"pruning with e={e}, size: {size['size']:.2f} Mb")
             exp.best_score = 0
             exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
@@ -220,7 +219,7 @@ class SFPOptimization(StructureOptimization):
                 dataloader=params.train_dl,
                 optimizer=optimizer
             )
-            writer.write_scores(train_scores, epoch, prefix='train')
+            writer.write_scores('train', train_scores, epoch)
             exp.apply_func(
                 func=zerolize_filters,
                 func_params={'pruning_ratio': self.pruning_ratio},
@@ -230,7 +229,7 @@ class SFPOptimization(StructureOptimization):
                 dataloader=params.val_dl,
                 class_metrics=params.class_metrics
             )
-            writer.write_scores(val_scores, epoch, prefix='val')
+            writer.write_scores('val', val_scores, epoch)
             exp.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
         exp.load_model(model_path)
         writer.close()
@@ -251,18 +250,16 @@ class SFPOptimization(StructureOptimization):
         self.finetuning = True
         epoch = params.num_epochs
         params.num_epochs = self.finetuning_epochs
-        writer = CSVWriter(
-            os.path.join(params.summary_path, params.dataset_name, exp.name, 'size')
-        )
+        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name))
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
-        writer.write_scores(size, 'default')
+        writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
 
         exp.model = prune_resnet(model=exp.model, pruning_ratio=self.pruning_ratio)
         exp.model.to(exp.device)
 
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
-        writer.write_scores(size, 'pruned')
+        writer.write_scores(phase='size', scores=size, x='pruned')
         self.logger.info(f"Pruned size: {size['size']:.2f} Mb")
 
         exp.best_score = 0

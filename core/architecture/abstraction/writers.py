@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Type, Optional, Union
+from typing import Dict, List, Type, Union
 
 import pandas as pd
 from torch.utils.tensorboard import SummaryWriter
@@ -17,16 +17,16 @@ class Writer:
 
     def write_scores(
             self,
+            phase: str,
             scores: Dict[str, float],
             x,
-            prefix: Optional[str] = None
     ) -> None:
         """Write scores from dictionary by writer.
 
         Args:
+            phase: Experiment phase for grouping records, e.g. 'train'.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
-            prefix: Qualifying string added before the metric name.
         """
         raise NotImplementedError
 
@@ -48,20 +48,19 @@ class TFWriter(Writer):
 
     def write_scores(
             self,
+            phase: str,
             scores: Dict[str, float],
             x,
-            prefix: Optional[str] = None
     ) -> None:
-        """Write scores from dictionary by SummaryWriter.
+        """Write scores from dictionary by writer.
 
         Args:
+            phase: Experiment phase for grouping records, e.g. 'train'.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
-            prefix: Qualifying string added before the metric name.
         """
         for key, score in scores.items():
-            name = key if prefix is None else f"{prefix}/{key}"
-            self.writer.add_scalar(name, score, x)
+            self.writer.add_scalar(f"{phase}/{key}", score, x)
 
     def close(self) -> None:
         """Finishing the writer."""
@@ -77,27 +76,28 @@ class CSVWriter(Writer):
 
     def __init__(self, path: Union[str, Path]):
         super().__init__(path)
-        dir_path = os.path.dirname(self.path)
-        if not os.path.exists(dir_path):
-            os.mkdir(dir_path)
+        if not os.path.exists(self.path):
+            os.mkdir(self.path)
 
     def write_scores(
             self,
+            phase: str,
             scores: Dict[str, float],
             x,
-            prefix: Optional[str] = None
     ) -> None:
-        """Write scores from dictionary to csv.
+        """Write scores from dictionary by writer.
 
         Args:
+            phase: Experiment phase for grouping records, used as csv filename.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
-            prefix: Qualifying string added before the metric name.
         """
-        if prefix is not None:
-            scores = {f'{prefix}_{k}': v for k, v in scores.items()}
         data = pd.DataFrame(data=scores, index=[x])
-        data.to_csv(f'{self.path}.csv', mode='a')
+        path = os.path.join(self.path, f'{phase}.csv')
+        if os.path.exists(path):
+            data.to_csv(path, mode='a', header=False)
+        else:
+            data.to_csv(path)
 
 
 class WriterComposer(Writer):
@@ -113,19 +113,19 @@ class WriterComposer(Writer):
 
     def write_scores(
             self,
+            phase: str,
             scores: Dict[str, float],
             x,
-            prefix: Optional[str] = None
     ) -> None:
-        """Write scores from dictionary.
+        """Write scores from dictionary by writer.
 
         Args:
+            phase: Experiment phase for grouping records, used as csv filename.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
-            prefix: Qualifying string added before the metric name.
         """
         for writer in self.writers:
-            writer.write_scores(scores=scores, x=x, prefix=prefix)
+            writer.write_scores(phase=phase, scores=scores, x=x)
 
     def close(self) -> None:
         """Finishing the writer."""
