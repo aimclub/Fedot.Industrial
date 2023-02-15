@@ -8,13 +8,14 @@ from torch.nn import Conv2d
 from torchvision.models import ResNet
 
 from core.models.cnn.sfp_resnet import SFP_MODELS
+from core.models.cnn.sfp_resnet_mk import SFP_MODELS_FOR_MK
 
 MODELS_FROM_LENGHT = {
-    122: SFP_MODELS['ResNet18'],
-    218: SFP_MODELS['ResNet34'],
-    320: SFP_MODELS['ResNet50'],
-    626: SFP_MODELS['ResNet101'],
-    932: SFP_MODELS['ResNet152'],
+    122: 'ResNet18',
+    218: 'ResNet34',
+    320: 'ResNet50',
+    626: 'ResNet101',
+    932: 'ResNet152',
 }
 
 
@@ -137,7 +138,7 @@ def _collect_param(dictionary: Union[OrderedDict, Tensor]) -> Tuple:
         return [[]], [dictionary]
 
 
-def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Tensor]:
+def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tensor:
     """Prune block of ResNet"""
     channels = input_channels
     downsample_channels = input_channels
@@ -179,11 +180,42 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Te
     channels = filters
     block[final_bn] = _prune_batchnorm(bn=block[final_bn], saving_channels=channels)
     block['indexes'] = _indexes_of_tensor_values(channels, downsample_channels)
-    return channels, _indexes_of_tensor_values(channels, downsample_channels)
+    return channels
+
+
+def _prune_resnet_block_mk(block: Dict) -> None:
+    """Prune block of ResNet"""
+    keys = list(block.keys())
+    if 'downsample' in keys:
+        keys.remove('downsample')
+    filters = _check_nonzero_filters(block[keys[0]]['weight'])
+    block[keys[0]]['weight'] = _prune_filters(
+        weight=block[keys[0]]['weight'],
+        saving_filters=filters,
+    )
+    channels = filters
+    final_conv = keys[-2]
+    keys = keys[1:-2]
+
+    for key in keys:
+        if key.startswith('conv'):
+            filters = _check_nonzero_filters(block[key]['weight'])
+            block[key]['weight'] = _prune_filters(
+                weight=block[key]['weight'],
+                saving_filters=filters,
+                saving_channels=channels
+            )
+            channels = filters
+        elif key.startswith('bn'):
+            block[key] = _prune_batchnorm(bn=block[key], saving_channels=channels)
+    block[final_conv]['weight'] = _prune_filters(
+        weight=block[final_conv]['weight'],
+        saving_channels=channels,
+    )
 
 
 def prune_resnet_state_dict(
-        state_dict: OrderedDict
+        state_dict: OrderedDict,
 ) -> Tuple[OrderedDict, Dict[str, List[int]], Dict[str, List[int]]]:
     """Prune state_dict of ResNet
 
@@ -205,19 +237,39 @@ def prune_resnet_state_dict(
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
         for k, v in sd[layer].items():
             input_size[layer].append(channels.size()[0])
-            channels, index = _prune_resnet_block(block=v, input_channels=channels)
+            channels = _prune_resnet_block(block=v, input_channels=channels)
             output_size[layer].append(channels.size()[0])
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_sd(sd)
     return sd, input_size, output_size
 
 
-def prune_resnet(model: ResNet, pruning_ratio: float) -> ResNet:
+def prune_resnet_state_dict_mk(
+        state_dict: OrderedDict
+) ->OrderedDict:
+    """Prune state_dict of ResNet in a microcomputer-compatible way.
+
+    Args:
+        state_dict: ``state_dict`` of ResNet model.
+
+    Returns:
+        state_dict.
+    """
+    sd = _parse_sd(state_dict)
+    for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
+        for k, v in sd[layer].items():
+            _prune_resnet_block(block=v)
+    sd = _collect_sd(sd)
+    return sd
+
+
+def prune_resnet(model: ResNet, pruning_ratio: float, mk: bool = False) -> ResNet:
     """Prune ResNet
 
     Args:
         model: ResNet model.
         pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
+        mk: If ``true`` prunes the model in a microcomputer-compatible way.
 
     Returns:
         Pruned ResNet model.
@@ -226,14 +278,23 @@ def prune_resnet(model: ResNet, pruning_ratio: float) -> ResNet:
         AssertionError if model is not Resnet.
     """
     assert isinstance(model, ResNet), "Supports only ResNet models"
-    pruned_sd, input_size, output_size = prune_resnet_state_dict(model.state_dict())
-    model = MODELS_FROM_LENGHT[len(model.state_dict())](
-        num_classes=model.fc.out_features,
-        input_size=input_size,
-        output_size=output_size,
-        pruning_ratio=pruning_ratio
-    )
-    model.load_state_dict(pruned_sd)
+
+    if mk:
+        pruned_sd = prune_resnet_state_dict_mk(model.state_dict())
+        model = SFP_MODELS_FOR_MK[MODELS_FROM_LENGHT[len(model.state_dict())]](
+            num_classes=model.fc.out_features,
+            pruning_ratio=pruning_ratio
+        )
+        model.load_state_dict(pruned_sd)
+    else:
+        pruned_sd, input_size, output_size = prune_resnet_state_dict(model.state_dict())
+        model = SFP_MODELS[MODELS_FROM_LENGHT[len(model.state_dict())]](
+            num_classes=model.fc.out_features,
+            input_size=input_size,
+            output_size=output_size,
+            pruning_ratio=pruning_ratio
+        )
+        model.load_state_dict(pruned_sd)
     return model
 
 
