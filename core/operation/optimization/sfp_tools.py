@@ -258,7 +258,7 @@ def prune_resnet_state_dict_mk(
     sd = _parse_sd(state_dict)
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
         for k, v in sd[layer].items():
-            _prune_resnet_block(block=v)
+            _prune_resnet_block_mk(block=v)
     sd = _collect_sd(sd)
     return sd
 
@@ -327,7 +327,7 @@ def load_sfp_resnet_model(
             last_layer = k[0]
     output_size['layer4'].append(state_dict['fc.weight'].size()[1])
 
-    model = MODELS_FROM_LENGHT[len(model.state_dict())](
+    model = SFP_MODELS[MODELS_FROM_LENGHT[len(model.state_dict())]](
         num_classes=model.fc.out_features,
         input_size=input_size,
         output_size=output_size,
