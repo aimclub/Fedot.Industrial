@@ -76,8 +76,7 @@ class CSVWriter(Writer):
 
     def __init__(self, path: Union[str, Path]):
         super().__init__(path)
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        os.makedirs(self.path, exist_ok=True)
 
     def write_scores(
             self,

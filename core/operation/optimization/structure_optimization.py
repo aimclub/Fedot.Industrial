@@ -139,7 +139,7 @@ class SVDOptimization(StructureOptimization):
             size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
             writer.write_scores(phase='size', scores=size, x=str_e)
             self.logger.info(f"pruning with e={e}, size: {size['size']:.2f} Mb")
-            exp.best_score = 0
+            exp.best_score = -1
             exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
 
     def loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:

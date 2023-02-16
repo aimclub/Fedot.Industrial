@@ -45,18 +45,22 @@ def prepare_classification(tmp_path):
 
 
 def classification_predict(experimenter):
-    test_predict_path = os.path.join(DATASETS_PATH, 'Agricultural/val/banana')
+    test_predict_path = os.path.join(DATASETS_PATH, 'Agricultural/val')
+    image_files = []
+    for address, dirs, files in os.walk(test_predict_path):
+        for name in files:
+            image_files.append(os.path.join(address, name))
     dataset = PredictionFolderDataset(
         image_folder=test_predict_path,
         transform=Compose([ToTensor(), Resize((256, 256))])
     )
     dataloader = DataLoader(dataset)
     preds = experimenter.predict(dataloader)
-    assert set(preds.keys()) == set(os.listdir(test_predict_path))
+    assert set(preds.keys()) == set(image_files)
     for k, v in preds.items():
         assert v in [0, 1, 2]
     proba_preds = experimenter.predict_proba(dataloader)
-    assert set(proba_preds.keys()) == set(os.listdir(test_predict_path))
+    assert set(proba_preds.keys()) == set(image_files)
     for k, v in proba_preds.items():
         assert len(v) == 3
 
@@ -66,6 +70,8 @@ def test_classification_experimenter(prepare_classification):
     experimenter = ClassificationExperimenter(**exp_params)
     experimenter.fit(p=fit_params)
     assert os.path.exists(tmp_path.joinpath('models/Agricultural/ResNet/train.sd.pt'))
+    assert os.path.exists(tmp_path.joinpath('summary/Agricultural/ResNet/train/train.csv'))
+    assert os.path.exists(tmp_path.joinpath('summary/Agricultural/ResNet/train/val.csv'))
     classification_predict(experimenter)
 
 
@@ -101,17 +107,21 @@ def prepare_detection(tmp_path):
 
 def detection_predict(experimenter):
     test_predict_path = os.path.join(DATASETS_PATH, 'ALET10/test')
+    image_files = []
+    for address, dirs, files in os.walk(test_predict_path):
+        for name in files:
+            image_files.append(os.path.join(address, name))
     dataset = PredictionFolderDataset(
         image_folder=test_predict_path,
         transform=ToTensor()
     )
     dataloader = DataLoader(dataset, collate_fn=lambda x: tuple(zip(*x)))
     preds = experimenter.predict(dataloader)
-    assert set(preds.keys()) == set(os.listdir(test_predict_path))
+    assert set(preds.keys()) == set(image_files)
     for k, v in preds.items():
         assert set(v.keys()) == {'labels', 'boxes'}
     proba_preds = experimenter.predict_proba(dataloader)
-    assert set(proba_preds.keys()) == set(os.listdir(test_predict_path))
+    assert set(proba_preds.keys()) == set(image_files)
     for k, v in proba_preds.items():
         assert set(v.keys()) == {'labels', 'boxes', 'scores'}
 
@@ -121,4 +131,6 @@ def test_fasterrcnn_experimenter(prepare_detection):
     experimenter = FasterRCNNExperimenter(**exp_params)
     experimenter.fit(p=fit_params)
     assert os.path.exists(tmp_path.joinpath('models/ALET10/FasterRCNN/train.sd.pt'))
+    assert os.path.exists(tmp_path.joinpath('summary/ALET10/FasterRCNN/train/train.csv'))
+    assert os.path.exists(tmp_path.joinpath('summary/ALET10/FasterRCNN/train/val.csv'))
     detection_predict(experimenter)
