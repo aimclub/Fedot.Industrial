@@ -302,6 +302,7 @@ def load_sfp_resnet_model(
         model: ResNet,
         state_dict_path: str,
         pruning_ratio: float,
+        mk: bool = False
 ) -> torch.nn.Module:
     """Loads SFP state_dict to model.
 
@@ -315,23 +316,30 @@ def load_sfp_resnet_model(
     """
     assert isinstance(model, ResNet), "Supports only ResNet models"
     state_dict = torch.load(state_dict_path, map_location='cpu')
-    input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    last_layer = ''
-    for k, v in state_dict.items():
-        k = k.split('.')
-        if len(k) > 3 and k[2] == 'conv1':
-            input_size[k[0]].append(v.size()[1])
-            if last_layer in output_size.keys():
-                output_size[last_layer].append(v.size()[1])
-            last_layer = k[0]
-    output_size['layer4'].append(state_dict['fc.weight'].size()[1])
+    if mk:
+        model = SFP_MODELS_FOR_MK[MODELS_FROM_LENGHT[len(model.state_dict())]](
+            num_classes=model.fc.out_features,
+            pruning_ratio=pruning_ratio
+        )
+        model.load_state_dict(state_dict)
+    else:
+        input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
+        output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
+        last_layer = ''
+        for k, v in state_dict.items():
+            k = k.split('.')
+            if len(k) > 3 and k[2] == 'conv1':
+                input_size[k[0]].append(v.size()[1])
+                if last_layer in output_size.keys():
+                    output_size[last_layer].append(v.size()[1])
+                last_layer = k[0]
+        output_size['layer4'].append(state_dict['fc.weight'].size()[1])
 
-    model = SFP_MODELS[MODELS_FROM_LENGHT[len(model.state_dict())]](
-        num_classes=model.fc.out_features,
-        input_size=input_size,
-        output_size=output_size,
-        pruning_ratio=pruning_ratio
-    )
-    model.load_state_dict(state_dict)
+        model = SFP_MODELS[MODELS_FROM_LENGHT[len(model.state_dict())]](
+            num_classes=model.fc.out_features,
+            input_size=input_size,
+            output_size=output_size,
+            pruning_ratio=pruning_ratio
+        )
+        model.load_state_dict(state_dict)
     return model
