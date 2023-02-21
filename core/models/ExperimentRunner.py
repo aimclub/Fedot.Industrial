@@ -139,6 +139,28 @@ class ExperimentRunner:
                 del dataframe[col]
         return dataframe
 
+    def reduce_feature_space(self, features: pd.DataFrame) -> pd.DataFrame:
+        """(Unfinished yet) Method responsible for reducing feature space.
+
+        Args:
+            features: dataframe with features.
+
+        Returns:
+            Dataframe with reduced feature space.
+
+        """
+        from sklearn.feature_selection import VarianceThreshold
+        from sklearn.feature_selection import SelectKBest, f_classif
+        from sklearn.feature_selection import RFE
+
+        quazi_constant_filter = VarianceThreshold(threshold=0.01)
+        correlation_matrix = features.corr().abs()
+
+        # features =
+
+        return features
+
+
     @staticmethod
     def apply_window_for_stat_feature(ts_data_T: pd.DataFrame,
                                       feature_generator: callable,
