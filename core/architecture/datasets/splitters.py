@@ -1,7 +1,7 @@
 """
 This module contains functions for splitting a torch dataset into parts.
 """
-from typing import List, Tuple, Generator
+from typing import List, Tuple, Generator, Optional
 
 import numpy as np
 from torch.utils.data import Dataset, Subset
@@ -74,13 +74,14 @@ def split_data(dataset: Dataset, n: int) -> List[np.ndarray]:
     return [np.concatenate(fold) for fold in fold_indices]
 
 
-def undersampling(dataset: Dataset) -> Subset:
+def undersampling(dataset: Dataset, n: Optional[int] = None) -> Subset:
     """
     A method for balancing uneven datasets by keeping all data in the
     minority class and decreasing the size of the majority class.
 
     Args:
         dataset: Torch dataset object.
+        n: Number of samples in each class.
 
     Returns:
         Balanced subset.
@@ -95,6 +96,7 @@ def undersampling(dataset: Dataset) -> Subset:
         print(f"Class {cl} contains {indices_of_class.size} samples.")
         if indices_of_class.size < min_size:
             min_size = indices_of_class.size
+    min_size = min_size if n is None else n
     print(f"New size of any class {min_size} samples.")
     indices = np.concatenate([x[:min_size] for x in indices_of_classes])
     return Subset(dataset, indices)
@@ -109,3 +111,52 @@ def extract_classes(dataset: Dataset) -> np.ndarray:
         img, target = dataset.__getitem__(i)
         classes_of_imgs.append(target)
     return np.array(classes_of_imgs)
+
+
+def dataset_info(dataset: Dataset) -> None:
+    """
+    Prints number of samples in each class
+    """
+    classes_of_imgs = extract_classes(dataset)
+    classes = np.unique(classes_of_imgs)
+    for cl in classes:
+        indices_of_class = np.nonzero(classes_of_imgs==cl)[0]
+        print(f"Class {cl} contains {indices_of_class.size} samples.")
+
+
+def get_dataset_mean_std(dataset: Dataset) -> Tuple[Tuple, Tuple]:
+    """
+    Compute mean and std of dataset.
+
+    Args:
+        dataset: Torch dataset object.
+
+    Returns:
+          Tuple(mean, std)
+    """
+    shape = dataset.__getitem__(0)[0].shape
+    one_channel = len(shape) == 2
+
+    if one_channel:
+        psum = np.zeros(1)
+        psum_sq = np.zeros(1)
+        pixels = np.zeros(1)
+        for i in tqdm(range(len(dataset))):
+            img, target = dataset.__getitem__(i)
+            psum += img.sum().numpy()
+            psum_sq += (img ** 2).sum().numpy()
+            pixels += img.numel()
+    else:
+        psum = np.zeros(shape[0])
+        psum_sq = np.zeros(shape[0])
+        pixels = np.zeros(1)
+        for i in tqdm(range(len(dataset))):
+            img, target = dataset.__getitem__(i)
+            psum += img.sum(dim=[1,2]).numpy()
+            psum_sq += (img ** 2).sum(dim=[1,2]).numpy()
+            c, w, h = img.size()
+            pixels += w * h
+    mean = psum / pixels
+    var = (psum_sq / pixels) - (mean ** 2)
+    std = np.sqrt(var)
+    return tuple(mean), tuple(std)
