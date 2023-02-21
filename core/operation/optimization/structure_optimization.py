@@ -3,7 +3,7 @@ This module contains classes for CNN structure optimization.
 """
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import torch
 from fedot.core.log import default_log as Logger
@@ -26,17 +26,15 @@ class StructureOptimization:
     def __init__(
             self,
             description,
-            finetuning_epochs: int
     ) -> None:
         self.logger = Logger(self.__class__.__name__)
         self.description = description
-        self.finetuning_epochs = finetuning_epochs
-        self.finetuning = False
 
     def fit(
             self,
             exp: NNExperimenter,
-            params: FitParameters
+            params: FitParameters,
+            ft_params: Optional[FitParameters] = None
     ) -> None:
         """Run model training with optimization.
 
@@ -44,6 +42,7 @@ class StructureOptimization:
             exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
+            ft_params: An object containing fine-tuning parameters for optimized model.
         """
         raise NotImplementedError
 
@@ -63,13 +62,11 @@ class SVDOptimization(StructureOptimization):
 
     Args:
         energy_thresholds: List of pruning hyperparameters.
-        decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method
-            (default: ``'channel'``).
+        decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
         hoer_loss_factor: The hyperparameter by which the Hoyer loss function is
-            multiplied (default: ``0.001``).
+            multiplied.
         orthogonal_loss_factor: The hyperparameter by which the orthogonal loss
-            function is multiplied (default: ``100``).
-        finetuning_epochs: Number of fine-tuning epochs (default: ``1``).
+            function is multiplied.
     """
 
     def __init__(
@@ -78,27 +75,32 @@ class SVDOptimization(StructureOptimization):
             decomposing_mode: str = 'channel',
             hoer_loss_factor: float = 0.001,
             orthogonal_loss_factor: float = 100,
-            finetuning_epochs: int = 1,
     ) -> None:
         super().__init__(
             description=(
                 f"_SVD_{decomposing_mode}_O-{orthogonal_loss_factor:.1f}"
                 f"_H-{hoer_loss_factor:.6f}"
-            ),
-            finetuning_epochs=finetuning_epochs
+            )
         )
         self.energy_thresholds = energy_thresholds
         self.decomposing_mode = decomposing_mode
         self.hoer_loss = HoyerLoss(hoer_loss_factor)
         self.orthogonal_loss = OrthogonalLoss(orthogonal_loss_factor)
+        self.finetuning = False
 
-    def fit(self, exp: NNExperimenter, params: FitParameters) -> None:
+    def fit(
+            self,
+            exp: NNExperimenter,
+            params: FitParameters,
+            ft_params: Optional[FitParameters] = None
+    ) -> None:
         """Run model training with optimization.
 
         Args:
             exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
+            ft_params: An object containing fine-tuning parameters for optimized model.
         """
         exp.name += self.description
         self.finetuning = False
@@ -113,19 +115,24 @@ class SVDOptimization(StructureOptimization):
         self.logger.info(f"SVD decomposed size: {size['size']:.2f} Mb")
 
         exp.fit(p=params, model_losses=self.loss)
-        self.optimize(exp=exp, params=params, writer=writer)
+        self.optimize(exp=exp, params=params, ft_params=ft_params, writer=writer)
 
-    def optimize(self, exp: NNExperimenter, params: FitParameters, writer: Writer) -> None:
+    def optimize(
+            self,
+            exp: NNExperimenter,
+            params: FitParameters,
+            ft_params: Optional[FitParameters],
+            writer: Writer
+    ) -> None:
         """Prunes the trained model at the given thresholds.
 
         Args:
             exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
+            ft_params: An object containing fine-tuning parameters for optimized model.
         """
         self.finetuning = True
-        epoch = params.num_epochs
-        params.num_epochs = self.finetuning_epochs
         models_path = os.path.join(params.models_path, params.dataset_name, exp.name)
         exp.save_model(os.path.join(models_path, 'trained'), state_dict=False)
         for e in self.energy_thresholds:
@@ -136,11 +143,21 @@ class SVDOptimization(StructureOptimization):
                 func_params={'energy_threshold': e},
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
-            size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
-            writer.write_scores(phase='size', scores=size, x=str_e)
-            self.logger.info(f"pruning with e={e}, size: {size['size']:.2f} Mb")
-            exp.best_score = -1
-            exp.fit(p=params, phase=str_e, model_losses=self.loss, start_epoch=epoch)
+            exp.save_model(os.path.join(models_path, str_e))
+            scores = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+            writer.write_scores(phase='size', scores=scores, x=str_e)
+            scores.update(exp.val_loop(params.val_dl, params.class_metrics))
+            writer.write_scores(phase='pruning', scores=scores, x=str_e)
+            self.logger.info((f"pruning with e={e}, size: {scores['size']:.2f} Mb",
+                             f"{exp.metric}: {scores[exp.metric]:.4f}"))
+            if ft_params is not None:
+                exp.best_score = scores[exp.metric]
+                exp.fit(
+                    p=ft_params,
+                    phase=str_e,
+                    model_losses=self.loss,
+                    start_epoch=params.num_epochs
+                )
 
     def loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
         """
@@ -180,29 +197,31 @@ class SFPOptimization(StructureOptimization):
 
     Args:
         pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
-        finetuning_epochs: Number of fine-tuning epochs (default: ``1``).
     """
 
     def __init__(
             self,
             pruning_ratio: float,
-            finetuning_epochs: int = 1,
     ) -> None:
         super().__init__(
             description=f"_SFP_P-{pruning_ratio:.2f}",
-            finetuning_epochs=finetuning_epochs
         )
         self.pruning_ratio = pruning_ratio
 
-    def fit(self, exp: NNExperimenter, params: FitParameters) -> None:
+    def fit(
+            self,
+            exp: NNExperimenter,
+            params: FitParameters,
+            ft_params: Optional[FitParameters] = None
+    ) -> None:
         """Run model training with optimization.
 
         Args:
             exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
+            ft_params: An object containing fine-tuning parameters for optimized model.
         """
-        self.finetuning = False
         exp.name += self.description
         path = os.path.join(params.dataset_name, exp.name, 'train')
         model_path = os.path.join(params.models_path, path)
@@ -235,21 +254,24 @@ class SFPOptimization(StructureOptimization):
         writer.close()
 
         if isinstance(exp.model, ResNet):
-            self.final_pruning(exp=exp, params=params)
+            self.final_pruning(exp=exp, params=params, ft_params=ft_params)
         else:
             self.logger.warning(f"Final pruning supports only ResNet models.")
 
-    def final_pruning(self, exp: NNExperimenter, params: FitParameters) -> None:
+    def final_pruning(
+            self,
+            exp: NNExperimenter,
+            params: FitParameters,
+            ft_params: Optional[FitParameters],
+    ) -> None:
         """Final model pruning after training.
 
         Args:
             exp: An instance of the experimenter class, e.g.
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
+            ft_params: An object containing fine-tuning parameters for optimized model.
         """
-        self.finetuning = True
-        epoch = params.num_epochs
-        params.num_epochs = self.finetuning_epochs
         writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name))
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
@@ -257,13 +279,16 @@ class SFPOptimization(StructureOptimization):
 
         exp.model = prune_resnet(model=exp.model, pruning_ratio=self.pruning_ratio)
         exp.model.to(exp.device)
-
+        exp.save_model(
+            os.path.join(params.models_path, params.dataset_name, exp.name, 'pruned')
+        )
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='pruned')
         self.logger.info(f"Pruned size: {size['size']:.2f} Mb")
 
         exp.best_score = 0
-        exp.fit(p=params, phase='pruned', start_epoch=epoch)
+        if ft_params is not None:
+            exp.fit(p=ft_params, phase='pruned', start_epoch=params.num_epochs)
 
     def load_model(self, exp: NNExperimenter, state_dict_path: str) -> None:
         """Loads the optimized model into the experimenter.
