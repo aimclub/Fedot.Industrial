@@ -1,9 +1,8 @@
-import json
 import timeit
 
-import numpy as np
 import pandas as pd
-from fedot.core.log import default_log as Logger
+
+from core.log import default_log as Logger
 
 
 def exception_decorator(exception_return='Problem'):

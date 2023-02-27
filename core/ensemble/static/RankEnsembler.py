@@ -1,7 +1,7 @@
 from typing import Union
 
 import pandas as pd
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 from numpy import ndarray
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer

@@ -4,7 +4,7 @@ from typing import Union
 import pandas as pd
 
 from core.architecture.utils.utils import PROJECT_PATH
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 
 
 class ResultsPicker:
@@ -175,6 +175,7 @@ class ResultsPicker:
         return launch
 
     def get_datasets_info(self):
+        # TODO: remove download option and replace it with static file
         try:
             json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json?order=asc'
             table = pd.read_json(json_url)

@@ -5,7 +5,7 @@ from typing import Union
 
 import pandas as pd
 import seaborn as sns
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
@@ -68,19 +68,19 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         dataset_list, types = self._get_dataset_list(n_samples=self.number_of_datasets)
         self.logger.info(f'Selected types: {types}')
 
-        # dataset_list = ['Car']
+        dataset_list = ['Car']
         config = {'feature_generator': [
-                                        'window_quantile',
-                                        'recurrence',
-                                        'quantile',
-                                        'window_spectral',
-                                        'spectral',
+                                        # 'window_quantile',
+                                        # 'recurrence',
+                                        # 'quantile',
+                                        # 'window_spectral',
+                                        # 'spectral',
                                         'wavelet',
-                                        'topological'
+                                        # 'topological'
                                         ],
                   'datasets_list': dataset_list, 'use_cache': False,
-                  'error_correction': False, 'launches': 2,
-                  'timeout': 15, 'n_jobs': 2,
+                  'error_correction': False, 'launches': 1,
+                  'timeout': 1, 'n_jobs': 2,
                   'ensemble_algorithm': 'Rank_Ensemble'
                   }
         return config

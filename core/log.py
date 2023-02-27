@@ -8,13 +8,30 @@ from logging.config import dictConfig
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Tuple, Union
 
-from fedot.core.utilities.singleton_meta import SingletonMeta
 from fedot.utilities.debug import is_test_session
 
 from core.architecture.utils.utils import PROJECT_PATH
 
 os.makedirs(PROJECT_PATH + '/log', exist_ok=True)
 DEFAULT_LOG_PATH = pathlib.Path(PROJECT_PATH, 'log', 'log.log')
+
+
+class SingletonMeta(type):
+    """A meta class for creating singleton objects."""
+
+    # A dictionary to store the instances of singleton classes
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        """This method is called when a class instance is created."""
+
+        # Check if the class already has an instance
+        if cls not in cls._instances:
+            # If not, create a new instance and store it in the dictionary
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+
+        # Return the existing instance
+        return cls._instances[cls]
 
 
 class Logger(metaclass=SingletonMeta):
