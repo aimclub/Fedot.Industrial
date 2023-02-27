@@ -2,7 +2,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 
 
 class ParameterCheck:

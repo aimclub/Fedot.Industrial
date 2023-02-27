@@ -1,4 +1,4 @@
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 
 dict_of_dataset = dict
 dict_of_win_list = dict

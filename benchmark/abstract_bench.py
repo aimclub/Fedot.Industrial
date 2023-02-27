@@ -1,6 +1,6 @@
 import os
 
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 
 
 class AbstractBenchmark(object):

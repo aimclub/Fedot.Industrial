@@ -3,7 +3,7 @@ from typing import Union
 
 import numpy as np
 import yaml
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 
 from core.api.utils.checkers_collections import ParameterCheck
 from core.api.utils.hp_generator_collection import GeneratorParams

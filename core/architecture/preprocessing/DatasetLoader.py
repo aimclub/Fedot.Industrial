@@ -5,7 +5,7 @@ import zipfile
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 import numpy as np
 import pandas as pd
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 from scipy.io.arff import loadarff
 
 from core.architecture.utils.utils import PROJECT_PATH

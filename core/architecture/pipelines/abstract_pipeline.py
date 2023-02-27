@@ -67,7 +67,7 @@ class AbstractPipelines:
 
         feature_extractor = generator(params=kwargs['feature_hyperparams'])
         classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'])
-
+    # TODO:
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'scale': lambda time_series: pd.DataFrame(MinMaxScaler().fit_transform(
                                 time_series.to_numpy())),
