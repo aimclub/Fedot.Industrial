@@ -283,7 +283,8 @@ def prune_resnet(model: ResNet, pruning_ratio: float, mk: bool = False) -> ResNe
         pruned_sd = prune_resnet_state_dict_mk(model.state_dict())
         model = SFP_MODELS_FOR_MK[MODELS_FROM_LENGHT[len(model.state_dict())]](
             num_classes=model.fc.out_features,
-            pruning_ratio=pruning_ratio
+            pruning_ratio=pruning_ratio,
+            in_channels=model.conv1.in_channels
         )
         model.load_state_dict(pruned_sd)
     else:
@@ -292,7 +293,8 @@ def prune_resnet(model: ResNet, pruning_ratio: float, mk: bool = False) -> ResNe
             num_classes=model.fc.out_features,
             input_size=input_size,
             output_size=output_size,
-            pruning_ratio=pruning_ratio
+            pruning_ratio=pruning_ratio,
+            in_channels=model.conv1.in_channels
         )
         model.load_state_dict(pruned_sd)
     return model

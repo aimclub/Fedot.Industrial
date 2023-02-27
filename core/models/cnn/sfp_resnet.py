@@ -132,6 +132,7 @@ class ResNetSFP(nn.Module):
         output_size: Output size of each block.
         pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
         num_classes: Number of classes.
+        in_channels: The number of input channels of the first layer.
     """
     def __init__(
         self,
@@ -141,12 +142,13 @@ class ResNetSFP(nn.Module):
         output_size: Dict[str, List[int]],
         pruning_ratio: float,
         num_classes: int,
+        in_channels: int = 3,
     ) -> None:
         super().__init__()
         self.pr = pruning_ratio
         self.inplanes = 64
         in_size = self.inplanes - int(self.inplanes * self.pr)
-        self.conv1 = nn.Conv2d(3, in_size, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(in_channels, in_size, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(in_size)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
