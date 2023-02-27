@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 

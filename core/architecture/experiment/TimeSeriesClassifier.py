@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 

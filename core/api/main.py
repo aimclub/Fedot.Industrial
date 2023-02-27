@@ -3,7 +3,7 @@ from typing import List, Union
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 
 from core.api.utils.checkers_collections import ParameterCheck
 from core.api.utils.method_collections import EnsembleGenerator, FeatureGenerator, TaskGenerator, WindowFeatureGenerator
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                       launches=1,
                       timeout=1,
                       n_jobs=2,
-                      ensemble_algorithm='Rank_Ensemble', )
+                      ensemble_algorithm='Rank_Ensemble')
 
         indus = FedotIndustrial(config=config, output_folder=None)
         train_data, test_data = indus.reader.read(dataset_name=dataset_name)
@@ -106,4 +106,7 @@ if __name__ == "__main__":
 
         labels = indus.predict(test_features=test_data[0], target=test_data[1])
         probs = indus.predict_proba(test_features=test_data[0], target=test_data[1])
-        metrics = indus.get_metrics(test_features=test_data[0],target=test_data[1])
+        metrics = indus.get_metrics(test_features=test_data[0], target=test_data[1])
+
+        indus.pipeline.show()
+        indus.explain()

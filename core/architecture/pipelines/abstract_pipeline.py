@@ -58,7 +58,7 @@ class AbstractPipelines:
 
         feature_extractor = generator(**kwargs['feature_hyperparams'])
         classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'])
-
+    # TODO:
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'reduce_basis': lambda x: x[:, 0] if x.shape[1] == 1 else x[:, kwargs['component']],
                             'extract_features': lambda x: feature_extractor.get_features(x),
