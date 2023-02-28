@@ -7,8 +7,8 @@ from torch.linalg import vector_norm
 from torch.nn import Conv2d
 from torchvision.models import ResNet
 
-from core.models.cnn.pruned_resnet import SFP_MODELS
-from core.models.cnn.pruned_resnet_mk import SFP_MODELS_FOR_MK
+from core.models.cnn.pruned_resnet import PRUNED_MODELS
+from core.models.cnn.pruned_resnet_mk import PRUNED_MODELS_FOR_MK
 
 MODELS_FROM_LENGHT = {
     122: 'ResNet18',
@@ -219,7 +219,7 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tensor:
     )
     channels = filters
     block[final_bn] = _prune_batchnorm(bn=block[final_bn], saving_channels=channels)
-    block['indexes'] = _indexes_of_tensor_values(channels, downsample_channels)
+    block['indices'] = _indexes_of_tensor_values(channels, downsample_channels)
     return channels
 
 
@@ -256,7 +256,7 @@ def _prune_resnet_block_mk(block: Dict) -> None:
 
 def prune_resnet_state_dict(
         state_dict: OrderedDict,
-) -> Tuple[OrderedDict, Dict[str, List[int]], Dict[str, List[int]]]:
+) -> OrderedDict:
     """Prune state_dict of ResNet
 
     Args:
@@ -274,8 +274,8 @@ def prune_resnet_state_dict(
     sd['bn1'] = _prune_batchnorm(bn=sd['bn1'], saving_channels=channels)
 
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
-        for k, v in sd[layer].items():
-            channels = _prune_resnet_block(block=v, input_channels=channels)
+        for block in sd[layer].values():
+            channels = _prune_resnet_block(block=block, input_channels=channels)
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_sd(sd)
     return sd
@@ -294,8 +294,8 @@ def prune_resnet_state_dict_mk(
     """
     sd = _parse_sd(state_dict)
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
-        for k, v in sd[layer].items():
-            _prune_resnet_block_mk(block=v)
+        for block in sd[layer].values():
+            _prune_resnet_block_mk(block=block)
     sd = _collect_sd(sd)
     return sd
 
@@ -336,12 +336,12 @@ def prune_resnet(model: ResNet, mk: bool = False) -> ResNet:
     if mk:
         pruned_sd = prune_resnet_state_dict_mk(model.state_dict())
         sizes = sizes_from_state_dict(pruned_sd)
-        model = SFP_MODELS_FOR_MK[model_type](sizes=sizes)
+        model = PRUNED_MODELS_FOR_MK[model_type](sizes=sizes)
         model.load_state_dict(pruned_sd)
     else:
         pruned_sd = prune_resnet_state_dict(model.state_dict())
         sizes = sizes_from_state_dict(pruned_sd)
-        model = SFP_MODELS[model_type](sizes=sizes)
+        model = PRUNED_MODELS[model_type](sizes=sizes)
         model.load_state_dict(pruned_sd)
     return model
 
@@ -366,8 +366,8 @@ def load_sfp_resnet_model(
     sizes = sizes_from_state_dict(state_dict)
     model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
     if mk:
-        model = SFP_MODELS_FOR_MK[model_type](sizes=sizes)
+        model = PRUNED_MODELS_FOR_MK[model_type](sizes=sizes)
     else:
-        model = SFP_MODELS[model_type](sizes=sizes)
+        model = PRUNED_MODELS[model_type](sizes=sizes)
     model.load_state_dict(state_dict)
     return model

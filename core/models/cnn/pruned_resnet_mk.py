@@ -17,7 +17,7 @@ class BasicBlock(nn.Module):
     ) -> None:
         super().__init__()
         norm_layer = nn.BatchNorm2d
-        self.conv1 = conv3x3(sizes['conv1'][1], sizes['conv1'][0], stride)
+        self.conv1 = conv3x3(sizes['conv1'][1], sizes['conv1'][0], stride=stride)
         self.bn1 = norm_layer(sizes['conv1'][0])
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0])
@@ -56,9 +56,9 @@ class Bottleneck(nn.Module):
     ) -> None:
         super().__init__()
         norm_layer = nn.BatchNorm2d
-        self.conv1 = conv3x3(sizes['conv1'][1], sizes['conv1'][0], stride)
+        self.conv1 = conv1x1(sizes['conv1'][1], sizes['conv1'][0])
         self.bn1 = norm_layer(sizes['conv1'][0])
-        self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0], stride)
+        self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0], stride=stride)
         self.bn2 = norm_layer(sizes['conv2'][0])
         self.conv3 = conv1x1(sizes['conv3'][1], sizes['conv3'][0])
         self.bn3 = norm_layer(sizes['conv3'][0])
@@ -89,7 +89,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNetSFP(nn.Module):
+class PrunedResNet(nn.Module):
     """Pruned ResNet for soft filter pruning optimization.
 
     Args:
@@ -177,35 +177,35 @@ class ResNetSFP(nn.Module):
         return self._forward_impl(x)
 
 
-def sfp_resnet18(**kwargs: Any) -> ResNetSFP:
+def pruned_resnet18(**kwargs: Any) -> PrunedResNet:
     """Pruned ResNet-18."""
-    return ResNetSFP(BasicBlock, [2, 2, 2, 2], **kwargs)
+    return PrunedResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
 
 
-def sfp_resnet34(**kwargs: Any) -> ResNetSFP:
+def pruned_resnet34(**kwargs: Any) -> PrunedResNet:
     """Pruned ResNet-34."""
-    return ResNetSFP(BasicBlock, [3, 4, 6, 3], **kwargs)
+    return PrunedResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
 
 
-def sfp_resnet50(**kwargs: Any) -> ResNetSFP:
+def pruned_resnet50(**kwargs: Any) -> PrunedResNet:
     """Pruned ResNet-50."""
-    return ResNetSFP(Bottleneck, [3, 4, 6, 3], **kwargs)
+    return PrunedResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
 
 
-def sfp_resnet101(**kwargs: Any) -> ResNetSFP:
+def pruned_resnet101(**kwargs: Any) -> PrunedResNet:
     """Pruned ResNet-101."""
-    return ResNetSFP(Bottleneck, [3, 4, 23, 3], **kwargs)
+    return PrunedResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
 
 
-def sfp_resnet152(**kwargs: Any) -> ResNetSFP:
+def pruned_resnet152(**kwargs: Any) -> PrunedResNet:
     """Pruned ResNet-152."""
-    return ResNetSFP(Bottleneck, [3, 8, 36, 3], **kwargs)
+    return PrunedResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
 
 
-SFP_MODELS_FOR_MK = {
-    "ResNet18": sfp_resnet18,
-    "ResNet34": sfp_resnet34,
-    "ResNet50": sfp_resnet50,
-    "ResNet101": sfp_resnet101,
-    "ResNet152": sfp_resnet152,
+PRUNED_MODELS_FOR_MK = {
+    "ResNet18": pruned_resnet18,
+    "ResNet34": pruned_resnet34,
+    "ResNet50": pruned_resnet50,
+    "ResNet101": pruned_resnet101,
+    "ResNet152": pruned_resnet152,
 }

@@ -78,8 +78,8 @@ class SVDOptimization(StructureOptimization):
     ) -> None:
         super().__init__(
             description=(
-                f"_SVD_{decomposing_mode}_O-{orthogonal_loss_factor:.1f}"
-                f"_H-{hoer_loss_factor:.6f}"
+                f"_SVD_{decomposing_mode}_O-{orthogonal_loss_factor}"
+                f"_H-{hoer_loss_factor}"
             )
         )
         self.energy_thresholds = energy_thresholds
