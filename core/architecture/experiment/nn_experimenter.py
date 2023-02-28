@@ -20,7 +20,7 @@ from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter,
     SegmentationMetricCounter
 
 
-@dataclass
+@dataclass(frozen=True)
 class FitParameters:
     """The data class containing the training parameters.
 
@@ -207,18 +207,16 @@ class NNExperimenter:
     def apply_func(
             self,
             func: Callable,
-            func_params: Dict = {},
             condition: Optional[Callable] = None
     ):
         """Applies the passed function to model layers by condition.
 
         Args:
             func: Applicable function.
-            func_params: Parameter dictionary passed to the function.
             condition: Condition function for layer filtering.
         """
         for module in filter(condition, self.model.modules()):
-            func(module, **func_params)
+            func(module)
 
     def forward(self, x: torch.Tensor):
         """Have to implement the forward method of the model and return predictions."""

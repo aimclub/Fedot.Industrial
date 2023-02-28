@@ -3,7 +3,7 @@ This module contains classes for CNN structure optimization.
 """
 
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable, Type
 
 import torch
 from fedot.core.log import default_log as Logger
@@ -14,9 +14,9 @@ from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVW
 from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
-from core.operation.optimization.sfp_tools import zerolize_filters, prune_resnet, \
-    load_sfp_resnet_model
-from core.operation.optimization.svd_tools import energy_threshold_pruning, \
+from core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
+    create_energy_filter_zeroing_fn, prune_resnet, load_sfp_resnet_model
+from core.operation.optimization.svd_tools import create_energy_svd_pruning, \
     decompose_module, load_svd_state_dict
 
 
@@ -139,8 +139,7 @@ class SVDOptimization(StructureOptimization):
             str_e = f'e_{e}'
             exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
             exp.apply_func(
-                func=energy_threshold_pruning,
-                func_params={'energy_threshold': e},
+                func=create_energy_svd_pruning(energy_threshold=e),
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
             exp.save_model(os.path.join(models_path, str_e))
@@ -196,17 +195,32 @@ class SFPOptimization(StructureOptimization):
     """Soft filter pruning for model structure optimization.
 
     Args:
-        pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
+        zeroing_mode: ``'percentage'`` or ``'energy'`` zeroing strategy of convolutional layer filters.
+        zeroing_mode_params: Parameter dictionary passed to zeroing function.
+        final_pruning_fn: Function implementing the final pruning of the model.
+        model_class: The class of models to which the final pruning function is applicable.
     """
 
     def __init__(
             self,
-            pruning_ratio: float,
+            zeroing_mode: str,
+            zeroing_mode_params: Dict,
+            final_pruning_fn: Callable = prune_resnet,
+            model_class: Type = ResNet
     ) -> None:
+        description = f"_SFP"
+        for k, v in zeroing_mode_params.items():
+            description+=f"_{k}-{v}"
         super().__init__(
-            description=f"_SFP_P-{pruning_ratio:.2f}",
+            description=description,
         )
-        self.pruning_ratio = pruning_ratio
+        self.modes = {
+            'percentage': create_percentage_filter_zeroing_fn,
+            'energy': create_energy_filter_zeroing_fn
+        }
+        self.zeroing_fn = self.modes[zeroing_mode](**zeroing_mode_params)
+        self.pruning_fn = final_pruning_fn
+        self.model_class = model_class
 
     def fit(
             self,
@@ -240,8 +254,7 @@ class SFPOptimization(StructureOptimization):
             )
             writer.write_scores('train', train_scores, epoch)
             exp.apply_func(
-                func=zerolize_filters,
-                func_params={'pruning_ratio': self.pruning_ratio},
+                func=self.zeroing_fn,
                 condition=lambda x: isinstance(x, torch.nn.Conv2d)
             )
             val_scores = exp.val_loop(
@@ -253,10 +266,11 @@ class SFPOptimization(StructureOptimization):
         exp.load_model(model_path)
         writer.close()
 
-        if isinstance(exp.model, ResNet):
+        if isinstance(exp.model, self.model_class):
             self.final_pruning(exp=exp, params=params, ft_params=ft_params)
         else:
-            self.logger.warning(f"Final pruning supports only ResNet models.")
+            self.logger.warning(f'Final pruning function "{self.pruning_fn.__name__}"',
+                                f'supports only {self.model_class.__name__} models.')
 
     def final_pruning(
             self,
@@ -277,7 +291,7 @@ class SFPOptimization(StructureOptimization):
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
 
-        exp.model = prune_resnet(model=exp.model, pruning_ratio=self.pruning_ratio)
+        exp.model = self.pruning_fn(model=exp.model)
         exp.model.to(exp.device)
         exp.save_model(
             os.path.join(params.models_path, params.dataset_name, exp.name, 'pruned')
@@ -300,8 +314,7 @@ class SFPOptimization(StructureOptimization):
         """
         exp.model = load_sfp_resnet_model(
             model=exp.model,
-            state_dict_path=state_dict_path,
-            pruning_ratio=self.pruning_ratio
+            state_dict_path=state_dict_path
         )
         exp.model.to(exp.device)
         self.logger.info("Model loaded.")

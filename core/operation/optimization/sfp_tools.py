@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Dict, Optional, Tuple, List, Union
+from typing import Dict, Optional, Tuple, List, Union, Callable
 
 import torch
 from torch import Tensor
@@ -7,8 +7,8 @@ from torch.linalg import vector_norm
 from torch.nn import Conv2d
 from torchvision.models import ResNet
 
-from core.models.cnn.sfp_resnet import SFP_MODELS
-from core.models.cnn.sfp_resnet_mk import SFP_MODELS_FOR_MK
+from core.models.cnn.pruned_resnet import SFP_MODELS
+from core.models.cnn.pruned_resnet_mk import SFP_MODELS_FOR_MK
 
 MODELS_FROM_LENGHT = {
     122: 'ResNet18',
@@ -18,21 +18,61 @@ MODELS_FROM_LENGHT = {
     932: 'ResNet152',
 }
 
-
-def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
-    """Zerolize filters of convolutional layer to the pruning_ratio (in-place).
+def create_percentage_filter_zeroing_fn(pruning_ratio: float) -> Callable:
+    """Returns the filter zeroing function.
 
     Args:
-        conv: The optimizable layer.
         pruning_ratio: pruning hyperparameter must be in the range (0, 1),
-            percentage of zerolized filters.
+            percentage of zeroed filters.
+    Returns:
+        ``percentage_filter_zeroing`` function.
+    Raises:
+        Assertion Error: If ``energy_threshold`` is not in (0, 1).
     """
     assert 0 < pruning_ratio < 1, "pruning_ratio must be in the range (0, 1)"
-    filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
-    filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
-    _, indices = filter_norms.sort()
-    with torch.no_grad():
-        conv.weight[indices[:filter_pruned_num]] = 0
+    def percentage_filter_zeroing(conv: Conv2d) -> None:
+        """Zero filters of convolutional layer to the pruning_ratio (in-place).
+
+        Args:
+            conv: The optimizable layer.
+        """
+        filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
+        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+        _, indices = filter_norms.sort()
+        with torch.no_grad():
+            conv.weight[indices[:filter_pruned_num]] = 0
+    return percentage_filter_zeroing
+
+
+def create_energy_filter_zeroing_fn(energy_threshold: float) -> Callable:
+    """Returns the filter zeroing function.
+
+    Args:
+        energy_threshold: pruning hyperparameter must be in the range (0, 1].
+            the lower the threshold, the more filters will be pruned.
+    Returns:
+        ``energy_filter_zeroing`` function.
+    Raises:
+        Assertion Error: If ``energy_threshold`` is not in (0, 1].
+    """
+    assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
+    def energy_filter_zeroing(conv: Conv2d) -> None:
+        """Zero filters of convolutional layer to the energy_threshold (in-place).
+
+        Args:
+            conv: The optimizable layer.
+        """
+        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+        sorted_filter_norms, indices = filter_norms.sort()
+        sum = (filter_norms ** 2).sum()
+        threshold = energy_threshold * sum
+        for index, filter_norm in zip(indices, sorted_filter_norms):
+            with torch.no_grad():
+                conv.weight[index] = 0
+            sum -= filter_norm ** 2
+            if sum < threshold:
+                break
+    return energy_filter_zeroing
 
 
 def _check_nonzero_filters(weight: Tensor) -> Tensor:
@@ -225,8 +265,6 @@ def prune_resnet_state_dict(
     Returns:
         Tuple(state_dict, input_channels, output_channels).
     """
-    input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     sd = _parse_sd(state_dict)
     filters = _check_nonzero_filters(sd['conv1']['weight'])
     sd['conv1']['weight'] = _prune_filters(
@@ -234,14 +272,13 @@ def prune_resnet_state_dict(
     )
     channels = filters
     sd['bn1'] = _prune_batchnorm(bn=sd['bn1'], saving_channels=channels)
+
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
         for k, v in sd[layer].items():
-            input_size[layer].append(channels.size()[0])
             channels = _prune_resnet_block(block=v, input_channels=channels)
-            output_size[layer].append(channels.size()[0])
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_sd(sd)
-    return sd, input_size, output_size
+    return sd
 
 
 def prune_resnet_state_dict_mk(
@@ -263,12 +300,29 @@ def prune_resnet_state_dict_mk(
     return sd
 
 
-def prune_resnet(model: ResNet, pruning_ratio: float, mk: bool = False) -> ResNet:
+def sizes_from_state_dict(state_dict: OrderedDict) -> Dict:
+    sd = _parse_sd(state_dict)
+    sizes = {'conv1': sd['conv1']['weight'].shape}
+    for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
+        sizes[layer] = {}
+        for i, block in enumerate(sd[layer].values()):
+            sizes[layer][i] = {}
+            for k, v in block.items():
+                if k.startswith('conv'):
+                    sizes[layer][i][k] = v['weight'].shape
+                elif k == 'downsample':
+                    sizes[layer][k] = v['0']['weight'].shape
+                elif k == 'indices':
+                    sizes[layer][i][k] = v.shape
+    sizes['fc'] = sd['fc']['weight'].shape
+    return sizes
+
+
+def prune_resnet(model: ResNet, mk: bool = False) -> ResNet:
     """Prune ResNet
 
     Args:
         model: ResNet model.
-        pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
         mk: If ``true`` prunes the model in a microcomputer-compatible way.
 
     Returns:
@@ -278,24 +332,16 @@ def prune_resnet(model: ResNet, pruning_ratio: float, mk: bool = False) -> ResNe
         AssertionError if model is not Resnet.
     """
     assert isinstance(model, ResNet), "Supports only ResNet models"
-
+    model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
     if mk:
         pruned_sd = prune_resnet_state_dict_mk(model.state_dict())
-        model = SFP_MODELS_FOR_MK[MODELS_FROM_LENGHT[len(model.state_dict())]](
-            num_classes=model.fc.out_features,
-            pruning_ratio=pruning_ratio,
-            in_channels=model.conv1.in_channels
-        )
+        sizes = sizes_from_state_dict(pruned_sd)
+        model = SFP_MODELS_FOR_MK[model_type](sizes=sizes)
         model.load_state_dict(pruned_sd)
     else:
-        pruned_sd, input_size, output_size = prune_resnet_state_dict(model.state_dict())
-        model = SFP_MODELS[MODELS_FROM_LENGHT[len(model.state_dict())]](
-            num_classes=model.fc.out_features,
-            input_size=input_size,
-            output_size=output_size,
-            pruning_ratio=pruning_ratio,
-            in_channels=model.conv1.in_channels
-        )
+        pruned_sd = prune_resnet_state_dict(model.state_dict())
+        sizes = sizes_from_state_dict(pruned_sd)
+        model = SFP_MODELS[model_type](sizes=sizes)
         model.load_state_dict(pruned_sd)
     return model
 
@@ -303,7 +349,6 @@ def prune_resnet(model: ResNet, pruning_ratio: float, mk: bool = False) -> ResNe
 def load_sfp_resnet_model(
         model: ResNet,
         state_dict_path: str,
-        pruning_ratio: float,
         mk: bool = False
 ) -> torch.nn.Module:
     """Loads SFP state_dict to model.
@@ -311,37 +356,18 @@ def load_sfp_resnet_model(
     Args:
         model: An instance of the base model.
         state_dict_path: Path to state_dict file.
-        pruning_ratio: pruning hyperparameter used in training.
+        mk: If ``true`` loads the model in a microcomputer-compatible way.
 
     Raises:
         AssertionError if model is not Resnet.
     """
     assert isinstance(model, ResNet), "Supports only ResNet models"
     state_dict = torch.load(state_dict_path, map_location='cpu')
+    sizes = sizes_from_state_dict(state_dict)
+    model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
     if mk:
-        model = SFP_MODELS_FOR_MK[MODELS_FROM_LENGHT[len(model.state_dict())]](
-            num_classes=model.fc.out_features,
-            pruning_ratio=pruning_ratio
-        )
-        model.load_state_dict(state_dict)
+        model = SFP_MODELS_FOR_MK[model_type](sizes=sizes)
     else:
-        input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-        output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-        last_layer = ''
-        for k, v in state_dict.items():
-            k = k.split('.')
-            if len(k) > 3 and k[2] == 'conv1':
-                input_size[k[0]].append(v.size()[1])
-                if last_layer in output_size.keys():
-                    output_size[last_layer].append(v.size()[1])
-                last_layer = k[0]
-        output_size['layer4'].append(state_dict['fc.weight'].size()[1])
-
-        model = SFP_MODELS[MODELS_FROM_LENGHT[len(model.state_dict())]](
-            num_classes=model.fc.out_features,
-            input_size=input_size,
-            output_size=output_size,
-            pruning_ratio=pruning_ratio
-        )
-        model.load_state_dict(state_dict)
+        model = SFP_MODELS[model_type](sizes=sizes)
+    model.load_state_dict(state_dict)
     return model

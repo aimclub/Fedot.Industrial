@@ -1,25 +1,9 @@
-from typing import Any, List, Optional, Type, Union
+from typing import Any, List, Optional, Type, Union, Dict
 
 import torch
 import torch.nn as nn
 from torch import Tensor
-
-
-def conv3x3(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
-    """3x3 convolution with padding"""
-    return nn.Conv2d(
-        in_planes,
-        out_planes,
-        kernel_size=3,
-        stride=stride,
-        padding=1,
-        bias=False,
-    )
-
-
-def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
-    """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+from torchvision.models.resnet import conv1x1, conv3x3
 
 
 class BasicBlock(nn.Module):
@@ -27,23 +11,19 @@ class BasicBlock(nn.Module):
 
     def __init__(
         self,
-        inplanes: int,
-        planes: int,
-        pruning_ratio: float,
+        sizes: Dict[str, Tensor],
         stride: int = 1,
         downsample: Optional[nn.Module] = None,
     ) -> None:
         super().__init__()
         norm_layer = nn.BatchNorm2d
-        pruned_planes = planes - int(pruning_ratio * planes)
-        self.conv1 = conv3x3(inplanes, pruned_planes, stride)
-        self.bn1 = norm_layer(pruned_planes)
+        self.conv1 = conv3x3(sizes['conv1'][1], sizes['conv1'][0], stride)
+        self.bn1 = norm_layer(sizes['conv1'][0])
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(pruned_planes, planes)
-        self.bn2 = norm_layer(planes)
+        self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0])
+        self.bn2 = norm_layer(sizes['conv2'][0])
         self.downsample = downsample
         self.stride = stride
-
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
@@ -70,21 +50,18 @@ class Bottleneck(nn.Module):
 
     def __init__(
         self,
-        inplanes: int,
-        planes: int,
-        pruning_ratio: float,
+        sizes: Dict[str, Tensor],
         stride: int = 1,
         downsample: Optional[nn.Module] = None,
     ) -> None:
         super().__init__()
         norm_layer = nn.BatchNorm2d
-        pruned_planes = planes - int(pruning_ratio * planes)
-        self.conv1 = conv1x1(inplanes, pruned_planes)
-        self.bn1 = norm_layer(pruned_planes)
-        self.conv2 = conv3x3(pruned_planes, pruned_planes, stride)
-        self.bn2 = norm_layer(pruned_planes)
-        self.conv3 = conv1x1(pruned_planes, planes * self.expansion)
-        self.bn3 = norm_layer(planes * self.expansion)
+        self.conv1 = conv3x3(sizes['conv1'][1], sizes['conv1'][0], stride)
+        self.bn1 = norm_layer(sizes['conv1'][0])
+        self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0], stride)
+        self.bn2 = norm_layer(sizes['conv2'][0])
+        self.conv3 = conv1x1(sizes['conv3'][1], sizes['conv3'][0])
+        self.bn3 = norm_layer(sizes['conv3'][0])
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -118,52 +95,66 @@ class ResNetSFP(nn.Module):
     Args:
         block: ``'BasicBlock'`` or ``'Bottleneck'``.
         layers: Number of blocks on each layer.
-        pruning_ratio: Pruning hyperparameter, percentage of pruned filters.
+        sizes: Sizes of layers.
         num_classes: Number of classes.
-        in_channels: The number of input channels of the first layer.
     """
     def __init__(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
         layers: List[int],
-        pruning_ratio: float,
-        num_classes: int,
-        in_channels: int = 3,
+        sizes: Dict,
     ) -> None:
         super().__init__()
-        self.pr = pruning_ratio
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(in_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(self.inplanes)
+        self.conv1 = nn.Conv2d(sizes['conv1'][1], sizes['conv1'][0], kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(sizes['conv1'][0])
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.layer1 = self._make_layer(
+            block=block,
+            blocks=layers[0],
+            sizes=sizes['layer1']
+        )
+        self.layer2 = self._make_layer(
+            block=block,
+            blocks=layers[1],
+            sizes=sizes['layer2'],
+            stride=2)
+        self.layer3 = self._make_layer(
+            block=block,
+            blocks=layers[2],
+            sizes=sizes['layer3'],
+            stride=2)
+        self.layer4 = self._make_layer(
+            block=block,
+            blocks=layers[3],
+            sizes=sizes['layer4'],
+            stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(sizes['fc'][1], sizes['fc'][0])
 
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
-        planes: int,
         blocks: int,
+        sizes: Dict,
         stride: int = 1,
     ) -> nn.Sequential:
         downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
+        if 'downsample' in sizes.keys():
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                nn.BatchNorm2d(planes * block.expansion),
+                conv1x1(sizes['downsample'][1], sizes['downsample'][0], stride),
+                nn.BatchNorm2d(sizes['downsample'][0]),
             )
-        layers = []
-        layers.append(
-            block(self.inplanes, planes, self.pr, stride, downsample=downsample)
-        )
-        self.inplanes = planes * block.expansion
-        for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, self.pr))
+        layers = [
+            block(
+                sizes = sizes[0],
+                stride=stride,
+                downsample=downsample
+            )
+        ]
+        for i in range(1, blocks):
+            layers.append(block(sizes=sizes[i]))
         return nn.Sequential(*layers)
 
     def _forward_impl(self, x: Tensor) -> Tensor:
