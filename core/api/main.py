@@ -22,7 +22,7 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self,
-                 config: Union[dict, str] = None,
+                 init_config: Union[dict, str] = None,
                  output_folder: str = None):
         super(Fedot, self).__init__()
 
@@ -31,18 +31,20 @@ class FedotIndustrial(Fedot):
         self.feature_generator_dict = {method.name: method.value for method in FeatureGenerator}
         self.feature_generator_dict.update({method.name: method.value for method in WindowFeatureGenerator})
         self.ensemble_methods_dict = {method.name: method.value for method in EnsembleGenerator}
-        # self.task_pipeline_dict = {method.name: method.value for method in TaskGenerator}
+        self.tasks = {method.name: method.value for method in TaskGenerator}
         self.YAML = YamlReader(feature_generator=self.feature_generator_dict)
         self.reader = DataReader()
         self.checker = ParameterCheck()
         self.saver = ResultSaver()
+        self.experimenter = None
 
         self.fitted_model = None
-        self.config = config
+        self.init_config = init_config
         self.config_dict = None
         self.output_folder = output_folder
 
         self.__init_experiment_setup()
+        self.__init_experimenter()
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
@@ -51,35 +53,40 @@ class FedotIndustrial(Fedot):
             self.output_folder = default_path_to_save_results()
         self.reporter.path_to_save = self.output_folder
 
-        self.config_dict = self.YAML.init_experiment_setup(self.config)
-        self.pipeline = self.__init_pipeline()
+        self.config_dict = self.YAML.init_experiment_setup(self.init_config)
 
-    def __init_pipeline(self):
-        pass
+    def __init_experimenter(self):
+        experiment_type = self.init_config['task']
+        self.experimenter = self.tasks[experiment_type](generator_name=None,
+                                                        generator_runner=None,
+                                                        model_hyperparams=None,
+                                                        ecm_model_flag=False,
+                                                        dataset_name=None,
+                                                        output_dit=self.output_folder)
 
     def fit(self,
             train_features: pd.DataFrame,
             target: np.ndarray,
             **kwargs) -> np.ndarray:
-        return self.pipeline.fit(train_features, target)
+        return self.experimenter.fit(train_features, target)
 
     def predict(self,
                 test_features: pd.DataFrame,
                 target: np.ndarray,
                 **kwargs) -> np.ndarray:
-        return self.pipeline.predict(test_features, target)
+        return self.experimenter.predict(test_features, target)
 
     def predict_proba(self,
                       test_features,
                       target,
                       **kwargs) -> np.ndarray:
-        return self.pipeline.predict_proba(test_features, target)
+        return self.experimenter.predict_proba(test_features, target)
 
     def get_metrics(self,
                     target: Union[np.ndarray, pd.Series] = None,
                     metric_names: Union[str, List[str]] = None,
                     **kwargs) -> dict:
-        return self.pipeline.get_metrics(target, metric_names)
+        return self.experimenter.get_metrics(target, metric_names)
 
 
 
@@ -99,8 +106,8 @@ if __name__ == "__main__":
                       n_jobs=2,
                       ensemble_algorithm='Rank_Ensemble')
 
-        indus = FedotIndustrial(config=config, output_folder=None)
-        train_data, test_data = indus.reader.read(dataset_name=dataset_name)
+        indus = FedotIndustrial(init_config=config, output_folder=None)
+        train_data, test_data, n_classes = indus.reader.read(dataset_name=dataset_name)
 
         indus.fit(train_features=train_data[0], target=train_data[1])
 

@@ -50,7 +50,7 @@ class AbstractPipelines:
             feature_matrix = pd.concat([pd.concat(feature_set, axis=1) for feature_set in list_of_features], axis=0)
         return feature_matrix
 
-    def _init_pipeline_nodes(self, model_type: str = 'TSC', **kwargs):
+    def _init_pipeline_nodes(self, model_type: str = 'tsc', **kwargs):
         if 'feature_generator_type' not in kwargs.keys():
             generator = self.feature_generator_dict['statistical']
         else:

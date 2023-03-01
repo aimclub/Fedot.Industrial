@@ -1,5 +1,5 @@
 import os
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -10,11 +10,10 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.architecture.datasets.classification_datasets import CustomClassificationDataset
-from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
-from core.architecture.utils.utils import default_path_to_save_results
 from core.models.ExperimentRunner import ExperimentRunner
+from core.architecture.postprocessing.results_picker import ResultsPicker
+
 
 
 class TimeSeriesClassifier:
@@ -39,7 +38,8 @@ class TimeSeriesClassifier:
                  generator_runner: ExperimentRunner = None,
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False,
-                 dataset_name: str = None, ):
+                 dataset_name: str = None,
+                 output_dir: str = None):
         self.logger = Logger(self.__class__.__name__)
         self.predictor = None
         self.y_train = None
@@ -47,23 +47,25 @@ class TimeSeriesClassifier:
         self.test_features = None
         self.input_test_data = None
         self.dataset_name = dataset_name
+        self.output_dir = output_dir
 
         self.datacheck = DataCheck()
+        self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
         self.generator_name = generator_name
         self.generator_runner = generator_runner
-        self.feature_generator_dict = {self.generator_name: self.generator_runner}
+        # self.feature_generator_dict = {self.generator_name: self.generator_runner}
         self.model_hyperparams = model_hyperparams
         self.ecm_model_flag = ecm_model_flag
 
-        if self.generator_runner is not None:
-            self._init_builder()
+        # if self.generator_runner is not None:
+        #     self._init_builder()
 
-    def _init_builder(self) -> None:
-        """Initialize builder with all operations combining generator name and transformation method.
-
-        """
-        for name, runner in self.feature_generator_dict.items():
-            self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
+    # def _init_builder(self) -> None:
+    #     """Initialize builder with all operations combining generator name and transformation method.
+    #
+    #     """
+    #     for name, runner in self.feature_generator_dict.items():
+    #         self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -166,70 +168,19 @@ class TimeSeriesClassifier:
 
         return dict(class_probability=prediction_proba, test_features=self.test_features)
 
+    def get_metrics(self, predict, proba_predict, target):
+        pass
 
-class TimeSeriesImageClassifier(TimeSeriesClassifier):
+    def apply_model_ensembling(self, datasets, generators, method: str = 'Rank_Ensemble'):
+        if modelling_results:
+            single_mode = True
+            if self.config_dict is not None:
+                ensemble_mode = self.config_dict['ensemble_algorithm']
+                single_mode = False
 
-    def __init__(self,
-                 generator_name: str,
-                 generator_runner: ExperimentRunner,
-                 model_hyperparams: dict,
-                 ecm_model_flag: False):
-        super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)
+            ensemble_model = self.ensemble_methods_dict[ensemble_mode](dataset_name=dataset_name)
+            ensemble_results = ensemble_model.ensemble(modelling_results=modelling_results, single_mode=single_mode)
 
-    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
+            return ensemble_results
 
-        num_epochs = self.model_hyperparams['epoch']
-        del self.model_hyperparams['epoch']
-
-        if 'optimization_method' in self.model_hyperparams.keys():
-            modes = {'none': {},
-                     'SVD': self.model_hyperparams['optimization_method']['svd_parameters'],
-                     'SFP': self.model_hyperparams['optimization_method']['sfp_parameters']}
-            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['optimization_method']['mode']
-            self.model_hyperparams['structure_optimization_params'] = modes[
-                self.model_hyperparams['optimization_method']['mode']]
-            del self.model_hyperparams['optimization_method']
-
-        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                                    self.generator_name,
-                                                                    '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                              self.generator_name,
-                                                              'runs')
-        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
-
-        if target.min() != 0:
-            target = target - 1
-
-        return num_epochs, target
-
-    def _fit_model(self, features: np.ndarray, target: np.ndarray) -> ClassificationExperimenter:
-        """Fit Fedot model with feature and target.
-
-        Args:
-            features: features for training
-            target: target for training
-
-        Returns:
-            Fitted Fedot model
-
-        """
-        num_epochs, target = self._init_model_param(target)
-
-        train_dataset = CustomClassificationDataset(images=features, targets=target)
-        NN_model = ClassificationExperimenter(train_dataset=train_dataset,
-                                              val_dataset=train_dataset,
-                                              **self.model_hyperparams)
-        NN_model.fit(num_epochs=num_epochs)
-        return NN_model
-
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features, dataset_name)
-        prediction_label = list(prediction_label.values())
-        return dict(label=prediction_label, test_features=self.test_features)
-
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs')
-        prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
-        return dict(class_probability=prediction_proba, test_features=self.test_features)
+        return None
