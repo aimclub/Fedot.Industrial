@@ -1,10 +1,13 @@
+from copy import copy
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
-    DataOperationImplementation
+    DataOperationImplementation, _convert_to_output_function
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.list import ListMonad
 
 
@@ -24,11 +27,13 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         self.n_components = params.get('n_components', 2)
         self.basis = None
 
-    def _get_basis(self, **kwargs):
-        """Defines the type of basis and the number of basis functions involved in the decomposition.
+    def _get_basis(self, data):
+        if type(data) == list:
+            basis = self._get_multidim_basis(data)
+        else:
+            basis = self._get_1d_basis(data)
+        return basis
 
-        """
-        pass
 
     def fit(self, data):
         """Decomposes the given data on the chosen basis.
@@ -46,11 +51,23 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         """
         pass
 
-    def transform(self, input_data: InputData):
+    def f(self, x):
+        return self._transform(x)
+
+    def transform(self, input_data: InputData) -> OutputData:
         features = ListMonad(*input_data.features.tolist()).value
-        output = np.array(self._transform(features))
-        output = np.swapaxes(output, 1, 2)
+        v = np.vectorize(self.f, signature='(n)->(m, n)')
+
+        output = v(features)
+        output = self._convert_to_output(input_data, output, data_type=DataTypesEnum.image)
         return output
 
-    def _transform(self, features: ListMonad):
+    def _transform(self, series: np.array):
         pass
+
+    def _get_multidim_basis(self):
+        pass
+
+    def _get_1d_basis(self):
+        pass
+

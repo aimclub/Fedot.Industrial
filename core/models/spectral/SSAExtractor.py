@@ -8,7 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 from core.api.utils.checkers_collections import DataCheck
 from core.metrics.metrics_implementation import ParetoMetrics
-from core.models.ExperimentRunner import ExperimentRunner
+from core.models.BaseExtractor import BaseExtractor
 from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from core.operation.transformation.data.eigen import combine_eigenvectors
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
@@ -17,7 +17,7 @@ from core.architecture.utils.utils import PROJECT_PATH
 from core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 
-class SSARunner(ExperimentRunner):
+class SSAExtractor(BaseExtractor):
     """Class responsible for spectral feature generator experiment.
 
     Args:

@@ -1,13 +1,17 @@
+from typing import Optional
+
 import pandas as pd
 
 import numpy as np
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.operation_parameters import OperationParameters
 
-from core.models.ExperimentRunner import ExperimentRunner
+from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 from core.architecture.abstraction.Decorators import time_it
 
 
-class StatsRunner(ExperimentRunner):
+class StatsExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
 
     Args:
@@ -22,21 +26,18 @@ class StatsRunner(ExperimentRunner):
         test_feats (pd.DataFrame): Test features.
 
     """
-
-    def __init__(self,
-                 window_size: int = None,
-                 window_mode: bool = False,
-                 use_cache: bool = False):
-
-        super().__init__()
-        self.use_cache = use_cache
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
         self.aggregator = StatFeaturesExtractor()
-        self.window_mode = window_mode
-        self.window_size = window_size
+        self.window_mode = params.get('window_mode')
+        self.window_size = params.get('window_size')
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
+
+    def fit(self, input_data: InputData):
+        pass
 
     def extract_stats_features(self, ts):
         if self.window_mode:

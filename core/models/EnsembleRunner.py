@@ -1,13 +1,12 @@
 import pandas as pd
 import numpy as np
-from core.models.ExperimentRunner import ExperimentRunner
-from core.models.signal.SignalRunner import SignalRunner
-from core.models.spectral.SSARunner import SSARunner
-from core.models.statistical.QuantileRunner import StatsRunner
+from core.models.BaseExtractor import BaseExtractor
+from core.models.signal.SignalExtractor import SignalExtractor
+from core.models.statistical.QuantileRunner import StatsExtractor
 from core.models.topological.TopologicalRunner import TopologicalExtractor
 
 
-class EnsembleRunner(ExperimentRunner):
+class EnsembleRunner(BaseExtractor):
     """Class for performing experiments with ensemble of feature generators.
 
     Args:
@@ -22,11 +21,11 @@ class EnsembleRunner(ExperimentRunner):
         super().__init__(feature_generator_dict)
         self.use_cache = use_cache
         self.list_of_generators = list_of_generators
-        self.generator_dict = dict(quantile=StatsRunner,
-                                   window_quantile=StatsRunner,
-                                   wavelet=SignalRunner,
-                                   spectral=SSARunner,
-                                   spectral_window=SSARunner,
+        self.generator_dict = dict(quantile=StatsExtractor,
+                                   window_quantile=StatsExtractor,
+                                   wavelet=SignalExtractor,
+                                   spectral=SSAExtractor,
+                                   spectral_window=SSAExtractor,
                                    topological=TopologicalExtractor,
                                    ensemble=EnsembleRunner)
 

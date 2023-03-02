@@ -2,15 +2,20 @@ import hashlib
 import os
 import timeit
 from multiprocessing import cpu_count
+from typing import Optional
 
+from fedot.core.data.data import InputData
+from fedot.core.log import default_log
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.preprocessing import MinMaxScaler
 
 from core.metrics.metrics_implementation import *
-from core.architecture.abstraction.LoggerSingleton import Logger
 from core.architecture.utils.utils import PROJECT_PATH
 
 
-class ExperimentRunner:
+class BaseExtractor(DataOperationImplementation):
     """Abstract class responsible for feature generators.
 
     Args:
@@ -23,15 +28,31 @@ class ExperimentRunner:
         n_processes (int): number of processes for multiprocessing.
 
     """
+
+
+
     METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
 
-    def __init__(self, feature_generator_dict: dict = None,
-                 use_cache: bool = False):
-        self.use_cache = use_cache
-        self.feature_generator_dict = feature_generator_dict
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.logger = default_log()
         self.current_window = None
-        self.logger = Logger().get_logger()
         self.n_processes = cpu_count() // 2
+
+    def fit(self, input_data: InputData):
+        pass
+
+    def f(self, x):
+        return self.generate_features_from_ts(x)
+
+    def transform(self, input_data: InputData) -> np.array:
+        v = np.vectorize(self.f, signature='(n, m)->(p, q)')
+        predict = v(np.squeeze(input_data.features, 3))
+        predict = predict[:, ~np.isnan(predict).any(axis=0)]
+        predict = predict.reshape(predict.shape[0], -1)
+        predict = self._convert_to_output(input_data, predict)
+        return predict
+
 
     def get_features(self, *args, **kwargs) -> pd.DataFrame:
         """Method responsible for extracting features from time series dataframe.

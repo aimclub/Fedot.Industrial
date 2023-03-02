@@ -2,7 +2,7 @@ from __future__ import division, print_function
 import numpy as np
 
 
-class ReccurenceExtractor:
+class ReccurenceFeaturesExtractor:
     def __init__(self,
                  recurrence_matrix: np.ndarray = None):
         self.recurrence_matrix = recurrence_matrix

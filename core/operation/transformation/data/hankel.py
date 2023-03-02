@@ -12,10 +12,10 @@ class HankelMatrix:
 
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
-                 window_length: int = None):
+                 window_size: int = None):
         self.__time_series = time_series
         self.__convert_ts_to_array()
-        self.__window_length = window_length
+        self.__window_length = window_size
 
         if len(self.__time_series.shape) > 1:
             self.__ts_length = self.__time_series[0].size
@@ -24,6 +24,8 @@ class HankelMatrix:
 
         if self.__window_length is None:
                 self.__window_length = round(self.__ts_length * 0.35)
+        else:
+            self.__window_length = round(self.__ts_length * self.__window_length // 100)
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()

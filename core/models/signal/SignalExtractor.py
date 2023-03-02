@@ -1,16 +1,18 @@
 from itertools import repeat
 from multiprocessing import Pool
+from typing import Optional
 
+import pywt
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
-from core.models.ExperimentRunner import ExperimentRunner
+from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.wavelet import WaveletExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
+from fedot.core.operations.operation_parameters import OperationParameters
 
-
-class SignalRunner(ExperimentRunner):
+class SignalExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
 
     Args:
@@ -29,16 +31,13 @@ class SignalRunner(ExperimentRunner):
 
     """
 
-    def __init__(self, wavelet_types: list = ('db5', 'sym5', 'coif5', 'bior2.4'),
-                 use_cache: bool = False):
-
-        super().__init__()
-        self.use_cache = use_cache
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
         self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
         self.wavelet_extractor = WaveletExtractor
-        self.wavelet_list = wavelet_types
-        self.wavelet = None
+
+        self.wavelet = params.get('wavelet')
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
@@ -98,7 +97,6 @@ class SignalRunner(ExperimentRunner):
 
         return feature_df
 
-    @dataframe_adapter
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
         """Generate vector from time series.
 
@@ -114,7 +112,7 @@ class SignalRunner(ExperimentRunner):
         n_processes = self.n_processes
         with Pool(n_processes) as p:
             components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
-                                                         zip(ts_frame.values, repeat(method_name))),
+                                                         zip(ts_frame, repeat(method_name))),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
@@ -126,9 +124,7 @@ class SignalRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_data: pd.DataFrame,
-                     dataset_name: str = None) -> pd.DataFrame:
-
+    def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         if not self.wavelet:
             train_feats = self._choose_best_wavelet(ts_data)
             self.train_feats = train_feats

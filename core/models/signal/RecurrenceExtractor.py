@@ -1,15 +1,17 @@
 from multiprocessing import Pool
+from typing import Optional
 
+from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
+from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import *
-from core.models.ExperimentRunner import ExperimentRunner
+from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.DataTransformer import TSTransformer
-from core.operation.transformation.extraction.sequences import ReccurenceExtractor
-from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
+from core.operation.transformation.extraction.sequences import ReccurenceFeaturesExtractor
 
 
-class RecurrenceRunner(ExperimentRunner):
+class RecurrenceExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
 
     Args:
@@ -23,27 +25,29 @@ class RecurrenceRunner(ExperimentRunner):
         test_feats: test features.
     """
 
-    def __init__(self, image_mode: bool = False, window_mode: bool = False, use_cache: bool = False):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.image_mode = False
 
-        super().__init__()
-        self.image_mode = image_mode
-        self.window_mode = window_mode
-        self.use_cache = use_cache
+        self.window_mode = params.get('window_mode')
+        self.min_signal_ratio = params.get('min_signal_ratio')
+        self.max_signal_ratio = params.get('max_signal_ratio')
+        self.rec_metric = params.get('rec_metric')
+
         self.transformer = TSTransformer
-        self.extractor = ReccurenceExtractor
+        self.extractor = ReccurenceFeaturesExtractor
         self.train_feats = None
         self.test_feats = None
 
     def _ts_chunk_function(self, ts):
-
         ts = self.check_for_nan(ts)
-        specter = self.transformer(time_series=ts)
+        specter = self.transformer(time_series=ts, min_signal_ratio=self.min_signal_ratio,
+                                   max_signal_ratio=self.max_signal_ratio, rec_metric=self.rec_metric)
         feature_df = specter.ts_to_recurrence_matrix()
         if not self.image_mode:
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
         return feature_df
 
-    @dataframe_adapter
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
         """Generate vector from time series.
 
@@ -58,7 +62,7 @@ class RecurrenceRunner(ExperimentRunner):
 
         with Pool(n_processes) as p:
             components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
-                                                      ts_frame.values),
+                                                      ts_frame),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
@@ -73,10 +77,8 @@ class RecurrenceRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self,
-                     ts_data: pd.DataFrame,
-                     dataset_name: str = None,
-                     target: np.ndarray = None) -> pd.DataFrame:
+    def generate_features_from_ts(self, ts_data: pd.DataFrame,
+                                  window_length: int = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:

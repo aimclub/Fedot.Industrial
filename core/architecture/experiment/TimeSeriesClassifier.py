@@ -9,7 +9,7 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.models.ExperimentRunner import ExperimentRunner
+from core.models.BaseExtractor import BaseExtractor
 from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
@@ -36,7 +36,7 @@ class TimeSeriesClassifier:
 
     def __init__(self,
                  generator_name: str = None,
-                 generator_runner: ExperimentRunner = None,
+                 generator_runner: BaseExtractor = None,
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False):
         self.logger = Logger().get_logger()
@@ -169,7 +169,7 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
 
     def __init__(self,
                  generator_name: str,
-                 generator_runner: ExperimentRunner,
+                 generator_runner: BaseExtractor,
                  model_hyperparams: dict,
                  ecm_model_flag: False):
         super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)

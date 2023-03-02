@@ -1,20 +1,19 @@
 from core.architecture.utils.Testing import ModelTestingModule
 from core.models.statistical.QuantileRunner import *
-from core.models.spectral.SSARunner import *
-from core.models.signal.SignalRunner import *
-from core.models.signal.RecurrenceRunner import *
+from core.models.signal.SignalExtractor import *
+from core.models.signal.RecurrenceExtractor import *
 from core.models.topological.TopologicalRunner import *
 import pytest
 
 
 @pytest.fixture()
 def feature_generators_list():
-    return [StatsRunner, SSARunner, SignalRunner, RecurrenceRunner, TopologicalRunner]
+    return [StatsExtractor, SignalExtractor, ReccurenceFeaturesExtractor, TopologicalExtractor]
 
 
 @pytest.fixture()
 def window_feature_generators_list():
-    return [StatsRunner]
+    return [StatsExtractor]
 
 
 def test_get_features(feature_generators_list):
