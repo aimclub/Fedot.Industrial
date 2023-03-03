@@ -147,7 +147,7 @@ class SVDOptimization(StructureOptimization):
             writer.write_scores(phase='size', scores=scores, x=str_e)
             scores.update(exp.val_loop(params.val_dl, params.class_metrics))
             writer.write_scores(phase='pruning', scores=scores, x=str_e)
-            self.logger.info((f"pruning with e={e}, size: {scores['size']:.2f} Mb",
+            self.logger.info((f"pruning with {e=}, size: {scores['size']:.2f} Mb, "
                              f"{exp.metric}: {scores[exp.metric]:.4f}"))
             if ft_params is not None:
                 exp.best_score = scores[exp.metric]
