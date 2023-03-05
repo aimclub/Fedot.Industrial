@@ -48,7 +48,7 @@ class BaseExtractor(DataOperationImplementation):
     def transform(self, input_data: InputData) -> np.array:
         v = np.vectorize(self.f, signature='(n, m)->(p, q)')
         predict = v(np.squeeze(input_data.features, 3))
-        predict = predict[:, ~np.isnan(predict).any(axis=0)]
+        predict = np.where(np.isnan(predict), 0, predict)
         predict = predict.reshape(predict.shape[0], -1)
         predict = self._convert_to_output(input_data, predict)
         return predict

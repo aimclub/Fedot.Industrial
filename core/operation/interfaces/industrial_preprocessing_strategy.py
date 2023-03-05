@@ -1,8 +1,11 @@
+from pathlib import Path
 from typing import Optional
 
 from fedot.core.operations.evaluation.common_preprocessing import FedotPreprocessingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.operation_types_repository import OperationTypesRepository
 
+from core.architecture.utils.utils import PROJECT_PATH
 from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
 from core.models.statistical.QuantileRunner import StatsExtractor

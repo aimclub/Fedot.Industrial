@@ -1,13 +1,21 @@
+import pathlib
 from pathlib import Path
+from typing import Optional, Tuple
 
 from fedot.core.dag.verification_rules import ERROR_PREFIX
+from fedot.core.optimisers.gp_comp.evaluation import OptionalEvalResult, MultiprocessingDispatcher
+from fedot.core.optimisers.graph import OptGraph
+from fedot.core.optimisers.populational_optimizer import PopulationalOptimizer
+from fedot.core.pipelines.tuning.search_space import SearchSpace
 from fedot.core.pipelines.verification import class_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operations_for_task
-# TODO VERY VERY BAD
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from gtda.pipeline import Pipeline
 
 from core.architecture.utils.utils import PROJECT_PATH
+from core.repository.IndustrialDispatcher import init_pop
+from core.tuning.search_space import get_industrial_search_space
+
 
 def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
     """ Function checks the correctness of connection between nodes """
@@ -53,4 +61,7 @@ def initialize_industrial_models():
     # DefaultOperationParamsRepository.__repository_name__ = Path(PROJECT_PATH, 'core', 'repository', 'data',
     #                                                                        'default_operations_params.json')
     class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+
+    setattr(SearchSpace, "get_parameters_dict", get_industrial_search_space)
+    #setattr(PopulationalOptimizer, '__init__', init_pop)
 
