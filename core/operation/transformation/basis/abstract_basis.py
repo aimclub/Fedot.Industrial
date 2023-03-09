@@ -1,3 +1,4 @@
+import os
 from copy import copy
 from typing import Optional
 
@@ -9,6 +10,9 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.list import ListMonad
+
+from core.architecture.utils.utils import PROJECT_PATH
+from core.operation.utils.cache import DataCacher
 
 
 class BasisDecompositionImplementation(DataOperationImplementation):
@@ -57,11 +61,27 @@ class BasisDecompositionImplementation(DataOperationImplementation):
 
     def transform(self, input_data: InputData) -> OutputData:
         features = ListMonad(*input_data.features.tolist()).value
-        v = np.vectorize(self.f, signature='(n)->(m, n)')
 
-        output = v(features)
-        output = self._convert_to_output(input_data, output, data_type=DataTypesEnum.image)
-        return output
+        cache_folder = os.path.join(PROJECT_PATH, 'cache')
+        os.makedirs(cache_folder, exist_ok=True)
+        cacher = DataCacher(data_type_prefix=f'Features of  basis',
+                            cache_folder=cache_folder)
+
+        hashed_info = cacher.hash_info(data=input_data.features.tobytes(),
+                                       **self.params.to_dict())
+
+        print(self.params.to_dict(), np.ravel(input_data.features)[:3])
+        try:
+            print(hashed_info)
+            predict = cacher.load_data_from_cache(hashed_info=hashed_info)
+            print('Loaded from hash')
+        except FileNotFoundError:
+            print('Failed to load')
+            v = np.vectorize(self.f, signature='(n)->(m, n)')
+
+            predict = v(features)
+        predict = self._convert_to_output(input_data, predict, data_type=DataTypesEnum.image)
+        return predict
 
     def _transform(self, series: np.array):
         pass

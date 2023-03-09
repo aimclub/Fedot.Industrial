@@ -70,7 +70,6 @@ class TopologicalExtractor(BaseExtractor):
         gc.collect()
         return ts_data_transformed[self.filtered_features]
 
-    @time_it
     def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None):
         return self.generate_topological_features(ts_data=ts_data)
 

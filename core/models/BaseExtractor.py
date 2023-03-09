@@ -13,6 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from core.metrics.metrics_implementation import *
 from core.architecture.utils.utils import PROJECT_PATH
+from core.operation.utils.cache import DataCacher
 
 
 class BaseExtractor(DataOperationImplementation):
@@ -46,13 +47,30 @@ class BaseExtractor(DataOperationImplementation):
         return self.generate_features_from_ts(x)
 
     def transform(self, input_data: InputData) -> np.array:
-        v = np.vectorize(self.f, signature='(n, m)->(p, q)')
-        predict = v(np.squeeze(input_data.features, 3))
-        predict = np.where(np.isnan(predict), 0, predict)
-        predict = predict.reshape(predict.shape[0], -1)
+
+        cache_folder = os.path.join(PROJECT_PATH, 'cache')
+        os.makedirs(cache_folder, exist_ok=True)
+        cacher = DataCacher(data_type_prefix=f'Features of  generator',
+                            cache_folder=cache_folder)
+
+        hashed_info = cacher.hash_info(data=input_data.features.tobytes(),
+                                       **self.params.to_dict())
+
+        print(self.params.to_dict(), np.ravel(input_data.features)[:3])
+        try:
+            print(hashed_info)
+            predict = cacher.load_data_from_cache(hashed_info=hashed_info)
+            print('Loaded from hash')
+        except FileNotFoundError:
+            print('Failed to load')
+            v = np.vectorize(self.f, signature='(n, m)->(p, q)')
+            predict = v(np.squeeze(input_data.features, 3))
+            predict = np.where(np.isnan(predict), 0, predict)
+            predict = predict.reshape(predict.shape[0], -1)
+            cacher.cache_data(hashed_info=hashed_info,
+                              data=predict)
         predict = self._convert_to_output(input_data, predict)
         return predict
-
 
     def get_features(self, *args, **kwargs) -> pd.DataFrame:
         """Method responsible for extracting features from time series dataframe.
