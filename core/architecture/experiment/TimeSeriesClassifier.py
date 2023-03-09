@@ -1,19 +1,16 @@
-import os
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
-from fedot.core.log import default_log as Logger
+from fedot.core.log import default_log as logger
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.architecture.datasets.classification_datasets import CustomClassificationDataset
-from core.architecture.experiment.CVModule import ClassificationExperimenter
+from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
-from core.architecture.utils.utils import default_path_to_save_results
 from core.models.ExperimentRunner import ExperimentRunner
 
 
@@ -40,7 +37,7 @@ class TimeSeriesClassifier:
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False,
                  dataset_name: str = None, ):
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logger(self.__class__.__name__)
         self.predictor = None
         self.y_train = None
         self.train_features = None
@@ -58,12 +55,40 @@ class TimeSeriesClassifier:
         if self.generator_runner is not None:
             self._init_builder()
 
+        # self.__init_checks()
+
     def _init_builder(self) -> None:
         """Initialize builder with all operations combining generator name and transformation method.
 
         """
         for name, runner in self.feature_generator_dict.items():
             self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
+
+    def fit(self, raw_train_features: np.ndarray,
+            train_target: np.ndarray,
+            baseline_type: str = None) -> tuple:
+
+        self.__fit_abstraction(raw_train_features, train_target, baseline_type)
+
+        return self.predictor
+
+    def predict(self, test_features: np.ndarray, target: np.ndarray) -> dict:
+        self.prediction_label = self.__predict_abstraction(test_features=test_features, mode='labels')
+
+        return self.prediction_label
+
+    def predict_proba(self, test_features: np.ndarray, target: np.ndarray) -> dict:
+        self.prediction_proba = self.__predict_abstraction(test_features=test_features, mode='probs')
+
+        return self.prediction_proba
+
+    def get_metrics(self, target: np.ndarray, metric_names) -> dict:
+        metrics_dict = PerformanceAnalyzer().calculate_metrics(target=target,
+                                                               predicted_labels=self.prediction_label,
+                                                               predicted_probs=self.prediction_proba,
+                                                               target_metrics=metric_names)
+
+        return metrics_dict
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -148,88 +173,3 @@ class TimeSeriesClassifier:
             else:
                 prediction = self.predictor.predict_proba(self.test_features)
             return prediction
-
-    def fit(self, raw_train_features: np.ndarray,
-            train_target: np.ndarray,
-            baseline_type: str = None) -> tuple:
-        self.__fit_abstraction(raw_train_features, train_target, baseline_type)
-
-        return self.predictor, self.train_features
-
-    def predict(self, test_features: np.ndarray) -> dict:
-        prediction_label = self.__predict_abstraction(test_features=test_features, mode='labels')
-
-        return dict(label=prediction_label, test_features=self.test_features)
-
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features, mode='probs')
-
-        return dict(class_probability=prediction_proba, test_features=self.test_features)
-
-
-class TimeSeriesImageClassifier(TimeSeriesClassifier):
-
-    def __init__(self,
-                 generator_name: str,
-                 generator_runner: ExperimentRunner,
-                 model_hyperparams: dict,
-                 ecm_model_flag: False):
-        super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)
-
-    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
-
-        num_epochs = self.model_hyperparams['epoch']
-        del self.model_hyperparams['epoch']
-
-        if 'optimization_method' in self.model_hyperparams.keys():
-            modes = {'none': {},
-                     'SVD': self.model_hyperparams['optimization_method']['svd_parameters'],
-                     'SFP': self.model_hyperparams['optimization_method']['sfp_parameters']}
-            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['optimization_method']['mode']
-            self.model_hyperparams['structure_optimization_params'] = modes[
-                self.model_hyperparams['optimization_method']['mode']]
-            del self.model_hyperparams['optimization_method']
-
-        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                                    self.generator_name,
-                                                                    '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                              self.generator_name,
-                                                              'runs')
-        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
-
-        if target.min() != 0:
-            target = target - 1
-
-        return num_epochs, target
-
-    def _fit_model(self, features: np.ndarray, target: np.ndarray) -> ClassificationExperimenter:
-        """Fit Fedot model with feature and target.
-
-        Args:
-            features: features for training
-            target: target for training
-
-        Returns:
-            Fitted Fedot model
-
-        """
-        num_epochs, target = self._init_model_param(target)
-
-        train_dataset = CustomClassificationDataset(images=features, targets=target)
-        NN_model = ClassificationExperimenter(train_dataset=train_dataset,
-                                              val_dataset=train_dataset,
-                                              **self.model_hyperparams)
-        NN_model.fit(num_epochs=num_epochs)
-        return NN_model
-
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features, dataset_name)
-        prediction_label = list(prediction_label.values())
-        return dict(label=prediction_label, test_features=self.test_features)
-
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs')
-        prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
-        return dict(class_probability=prediction_proba, test_features=self.test_features)

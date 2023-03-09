@@ -1,4 +1,3 @@
-import copy
 import os
 from typing import Union
 
@@ -7,6 +6,8 @@ import yaml
 from fedot.core.log import default_log as logger
 
 from core.api.utils.checkers_collections import ParameterCheck
+from core.api.utils.hp_generator_collection import GeneratorParams
+from core.api.utils.method_collections import FeatureGenerator
 from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.utils.utils import PROJECT_PATH
 
@@ -15,27 +16,22 @@ class YamlReader:
     """
     Class for reading the config file for the experiment.
 
-    Args:
-        feature_generator: dictionary with the names of the generators and their classes.
-
     Attributes:
         config_dict: dictionary with the parameters of the experiment.
         experiment_check: class for checking the correctness of the parameters.
-        use_cache: flag that indicates whether to use the cache.
     """
 
-    def __init__(self, feature_generator: dict = None):
+    def __init__(self):
 
         self.config_dict = None
-        self.feature_generator = feature_generator
         self.logger = logger(self.__class__.__name__)
         self.experiment_check = ParameterCheck()
-        self.use_cache = None
+        self.experiment_dict = None
 
     def read_yaml_config(self,
                          config_path: str,
                          direct_path: bool = False,
-                         return_dict: bool = False) -> None:
+                         return_dict: bool = False) -> Union[None, dict]:
         """Read yaml config from directory as dictionary file.
 
         Args:
@@ -54,20 +50,20 @@ class YamlReader:
             path = os.path.join(PROJECT_PATH, config_path)
 
         with open(path, "r") as input_stream:
-            self.config_dict = yaml.safe_load(input_stream)
-            if 'path_to_config' in list(self.config_dict.keys()):
-                config_path = self.config_dict['path_to_config']
+            config_dict = yaml.safe_load(input_stream)
+            if 'path_to_config' in list(config_dict.keys()):
+                config_path = config_dict['path_to_config']
                 path = os.path.join(PROJECT_PATH, config_path)
                 with open(path, "r") as input_stream:
                     config_dict_template = yaml.safe_load(input_stream)
-                self.config_dict = {**config_dict_template, **self.config_dict}
-                del self.config_dict['path_to_config']
+                config_dict = {**config_dict_template, **config_dict}
+                del config_dict['path_to_config']
 
-            if 'baseline' not in self.config_dict.keys():
-                self.config_dict['baseline'] = None
+            if 'baseline' not in config_dict.keys():
+                config_dict['baseline'] = None
 
         if return_dict:
-            return self.config_dict
+            return config_dict
 
     def init_experiment_setup(self, config: Union[str, dict],
                               direct_path: bool = False) -> dict:
@@ -84,72 +80,73 @@ class YamlReader:
         """
 
         if isinstance(config, dict):
-            base_config_path = 'cases/config/Config_Classification.yaml'
-            self.read_yaml_config(config_path=base_config_path)
+            base_config_path = 'core/api/config.yaml'
+            self.experiment_dict = self.read_yaml_config(config_path=base_config_path,
+                                                    return_dict=True)
 
             industrial_config = {k: v for k, v in config.items() if k not in ['timeout', 'n_jobs']}
 
-            self.config_dict.update(**industrial_config)
-            self.config_dict['fedot_params']['timeout'] = config['timeout']
-            self.config_dict['fedot_params']['n_jobs'] = config['n_jobs']
+            self.experiment_dict.update(**industrial_config)
+            self.experiment_dict['fedot_params']['timeout'] = config['timeout']
+            self.experiment_dict['fedot_params']['n_jobs'] = config['n_jobs']
 
         elif isinstance(config, str):
-            self.read_yaml_config(config_path=config,
+            self.experiment_dict = self.read_yaml_config(config_path=config,
                                   direct_path=direct_path)
         else:
             self.logger.error('Wrong type of config file')
             raise ValueError('Config must be a string or a dictionary!')
 
-        experiment_dict = copy.deepcopy(self.config_dict)
-        self.use_cache = experiment_dict['use_cache']
+        self.experiment_dict['generator_class'] = self._get_generator_class()
 
-        experiment_dict['feature_generator'].clear()
-        experiment_dict['feature_generator'] = dict()
+        self.__report_experiment_setup(self.experiment_dict)
 
-        for idx, generator in enumerate(self.config_dict['feature_generator']):
-            if generator.startswith('ensemble'):
-                generators = generator.split(': ')[1].split(' ')
-                for gen_name in generators:
-                    feature_gen_class = self._get_generator_class(experiment_dict, gen_name)
-                    experiment_dict['feature_generator_params']['ensemble']['list_of_generators'].update(
-                        feature_gen_class)
+        return self.experiment_dict
 
-                ensemble_class = self._get_generator_class(experiment_dict, 'ensemble')
-                experiment_dict['feature_generator'].update(ensemble_class)
-            else:
-                feature_gen_class = self._get_generator_class(experiment_dict, generator)
-                experiment_dict['feature_generator'].update(feature_gen_class)
-
-        self.__report_experiment_setup(experiment_dict)
-
-        return experiment_dict
-
-    def _get_generator_class(self, experiment_dict: dict, gen_name: str) -> dict:
+    def _get_generator_class(self) -> object:
         """Support method that combines the name of the generator with the parameters from the config file.
 
         Args:
-            experiment_dict: dictionary with the parameters of the experiment.
-            gen_name: name of the generator.
+            generator: name of the generator.
 
         Returns:
             Dictionary with the name of the generator and its class.
 
         """
-        feature_gen_model = self.feature_generator[gen_name]
-        feature_gen_params = experiment_dict['feature_generator_params'].get(gen_name, dict())
-        feature_gen_class = {gen_name: feature_gen_model(**feature_gen_params, use_cache=self.use_cache)}
+        generator = self.experiment_dict['feature_generator']
+        if generator.startswith('ensemble'):
+            dict_of_generators = {}
+            generators_to_ensemble = generator.split(': ')[1].split(' ')
+            for gen in generators_to_ensemble:
+                single_gen_class = self._extract_generator_class(gen)
+                dict_of_generators[gen] = single_gen_class
+            ensemble_gen_class = FeatureGenerator['ensemble'].value(list_of_generators=dict_of_generators)
+            self.feature_generator = 'ensemble'
+            return ensemble_gen_class
+
+        feature_gen_class = self._extract_generator_class(generator)
+        return feature_gen_class
+
+    def _extract_generator_class(self, generator):
+        feature_gen_model = FeatureGenerator[generator].value
+        feature_gen_params = GeneratorParams[generator].value
+        for param in feature_gen_params:
+            feature_gen_params[param] = self.experiment_dict[param]
+        feature_gen_class = feature_gen_model(**feature_gen_params,
+                                              use_cache=self.experiment_dict['use_cache'])
         return feature_gen_class
 
     def __report_experiment_setup(self, experiment_dict):
 
         self.logger.info(f'''Experiment setup:
-        datasets - {experiment_dict['datasets_list']},
-        feature generators - {list(experiment_dict['feature_generator'])},
+        dataset - {experiment_dict['dataset']},
+        feature generator - {list(experiment_dict['feature_generator'])},
         use_cache - {experiment_dict['use_cache']},
         error_correction - {experiment_dict['error_correction']},
         n_jobs - {experiment_dict['fedot_params']['n_jobs']},
         timeout - {experiment_dict['fedot_params']['timeout']},
-        launches - {experiment_dict['launches']}''')
+        launches - {experiment_dict['launches']},
+        ensemble - {experiment_dict['ensemble_algorithm']}''')
 
 
 class DataReader:
