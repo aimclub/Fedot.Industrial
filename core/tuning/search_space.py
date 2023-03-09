@@ -4,7 +4,7 @@ from hyperopt import hp
 industrial_search_space = {
     'data_driven_basic':
         {'n_components': (hp.uniformint, [2, 10]),
-         'window_length': (hp.uniformint, [10, 50])},
+         'window_size': (hp.uniformint, [10, 50])},
     'quantile_extractor':
         {'window_size': (hp.uniformint, [1, 50]),
          'win_mode': (hp.choice, [[True, False]])},
