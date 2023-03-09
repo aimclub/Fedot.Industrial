@@ -189,13 +189,13 @@ class TopologicalTransformation:
 
 
 class TSTransformer:
-    def __init__(self, time_series):
+    def __init__(self, time_series, min_signal_ratio, max_signal_ratio, rec_metric):
         self.time_series = time_series
         self.recurrence_matrix = None
         self.threshold_baseline = [1, 5, 10, 15, 20, 25, 30]
-        self.min_signal_ratio = 0.65
-        self.max_signal_ratio = 0.75
-        self.rec_metric = 'euclidean'
+        self.min_signal_ratio = min_signal_ratio
+        self.max_signal_ratio = max_signal_ratio
+        self.rec_metric = rec_metric
 
     def ts_to_recurrence_matrix(self,
                                 eps=0.10,

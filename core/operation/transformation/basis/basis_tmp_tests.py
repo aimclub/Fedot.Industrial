@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.metrics import mean_squared_error
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.models.spectral.SSARunner import SSARunner
+from core.models.spectral.SSAExtractor import SSAExtractor
 from core.models.statistical.QuantileRunner import StatsRunner
 from core.operation.optimization.FeatureSpace import VarianceSelector
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
@@ -58,9 +58,9 @@ if __name__ == '__main__':
     update_train = get_new_basis(train_data=train)
     update_test = get_new_basis(train_data=test)
 
-    spectral_model_basic = SSARunner(window_mode=True,
-                                     window_sizes={dataset_name: [30]},
-                                     spectral_hyperparams={'combine_eigenvectors': False,
+    spectral_model_basic = SSAExtractor(window_mode=True,
+                                        window_sizes={dataset_name: [30]},
+                                        spectral_hyperparams={'combine_eigenvectors': False,
                                                            'correlation_level': 0.8})
     train_feats_spectral_basic = spectral_model_basic.get_features(train[0], dataset_name)
     test_feats_spectral_basic = spectral_model_basic.get_features(test[0], dataset_name)

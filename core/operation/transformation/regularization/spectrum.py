@@ -66,7 +66,7 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
 
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
-    if type(Sigma) == list:
+    if len(Sigma.shape) > 1:
         multi_reconstruction = lambda x: reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)
         TS_comps = list(map(multi_reconstruction, Sigma))
     else:

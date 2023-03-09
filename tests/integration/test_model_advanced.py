@@ -1,13 +1,12 @@
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.Testing import ModelTestingModule
-from core.models.spectral.SSARunner import SSARunner
 
 
 def test_advanced_spectral_model():
-    test_module = ModelTestingModule(model=SSARunner(window_mode=False,
-                                                     window_sizes={'Lightning7': [10, 20, 30]},
-                                                     spectral_hyperparams={'combine_eigenvectors': True,
+    test_module = ModelTestingModule(model=SSAExtractor(window_mode=False,
+                                                        window_sizes={'Lightning7': [10, 20, 30]},
+                                                        spectral_hyperparams={'combine_eigenvectors': True,
                                                                            'correlation_level': 0.8}))
     train_feats_lightning7, test_feats_lightning7 = test_module.extract_from_multi_class(dataset_name='Lightning7')
     train_eigenvectors = test_module.model.eigenvectors_list_train

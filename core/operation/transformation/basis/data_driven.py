@@ -1,26 +1,39 @@
+from typing import Tuple, TypeVar, Optional
+
 import numpy as np
-from typing import Tuple, TypeVar
+import tensorly as tl
+from fedot.core.operations.operation_parameters import OperationParameters
+from pymonad.either import Either
 from pymonad.list import ListMonad
-from core.operation.transformation.basis.abstract_basis import BasisDecomposition
+from tensorly.decomposition import parafac
+
+from core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from core.operation.transformation.data.hankel import HankelMatrix
 from core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, reconstruct_basis
-from pymonad.either import Either
-import tensorly as tl
-from tensorly.decomposition import tucker, parafac, non_negative_tucker
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 
 
-class DataDrivenBasis(BasisDecomposition):
+class DataDrivenBasisImplementation(BasisDecompositionImplementation):
     """DataDriven basis
     """
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.n_components = params.get('n_components')
+        self.window_size = params.get('window_size')
+        self.basis = None
 
-    def _get_1d_basis(self):
+    def _transform(self, series: np.array):
+        trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
+        data = trajectory_transformer.trajectory_matrix
+        self.ts_length = trajectory_transformer.ts_length
+        return self._get_basis(data)
+
+    def _get_1d_basis(self, data):
         svd = lambda x: ListMonad(np.linalg.svd(x))
         threshold = lambda Monoid: ListMonad([Monoid[0],
                                               singular_value_hard_threshold(singular_values=Monoid[1],
-                                                                            beta=self.data.shape[0] / self.data.shape[
-                                                                                1],
+                                                                            beta=data.shape[0] / data.shape[1],
                                                                             threshold=None),
                                               Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
                                                                                                        Monoid[1][
@@ -31,13 +44,13 @@ class DataDrivenBasis(BasisDecomposition):
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
-        self.basis = Either.insert(self.data).then(svd).then(threshold).then(data_driven_basis).value[0]
+        basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
 
-        return self.basis
+        return np.swapaxes(basis, 1, 0)
 
-    def _get_multidim_basis(self):
-        rank = round(self.data[0].shape[0] / 10)
-        beta = self.data[0].shape[0] / self.data[0].shape[1]
+    def _get_multidim_basis(self, data):
+        rank = round(data[0].shape[0] / 10)
+        beta = data[0].shape[0] / data[0].shape[1]
 
         tensor_decomposition = lambda x: ListMonad(parafac(tl.tensor(x), rank=rank).factors)
         multi_threshold = lambda x: singular_value_hard_threshold(singular_values=x,
@@ -46,39 +59,26 @@ class DataDrivenBasis(BasisDecomposition):
 
         threshold = lambda Monoid: ListMonad([Monoid[1],
                                               list(map(multi_threshold, Monoid[0])),
-                                              Monoid[2].T]) if self.n_components is None else ListMonad([Monoid[1],
-                                                                                                         Monoid[0][
+                                              Monoid[2].T]) if self.n_components is None else ListMonad([Monoid[1][
+                                                                                                         :,
                                                                                                          :self.n_components],
-                                                                                                         Monoid[2].T])
+                                                                                                         Monoid[0][
+                                                                                                         :,
+                                                                                                         :self.n_components],
+                                                                                                         Monoid[2][
+                                                                                                         :,
+                                                                                                         :self.n_components].T])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
-        self.basis = Either.insert(self.data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[
-            0]
+        basis = np.array(
+            Either.insert(data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0])
 
-        return self.basis
+        basis = basis.reshape(basis.shape[1], -1)
 
-    def _get_basis(self):
-        if type(self.data) == list:
-            self.basis = self._get_multidim_basis()
-        else:
-            self.basis = self._get_1d_basis()
-
-        if self.min_rank is None:
-            self.min_rank = self.basis.shape[1]
-        else:
-            self.min_rank = min(self.basis.shape[1], self.min_rank)
-        return self.basis
-
-    def fit(self, data, **kwargs):
-        if 'window_length' not in kwargs.keys():
-            kwargs['window_length'] = None
-        trajectory_transformer = HankelMatrix(time_series=data, window_length=kwargs['window_length'])
-        self.data = trajectory_transformer.trajectory_matrix
-        self.ts_length = trajectory_transformer.ts_length
-        return self._get_basis()
+        return basis
 
     def evaluate_derivative(self:
                             class_type,

@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import mean_squared_error
 
 from core.metrics.loss.basis_loss import basis_approximation_metric
 from core.operation.transformation.basis.abstract_basis import BasisDecomposition
-from sklearn.metrics import mean_squared_error
 
 
 class ChebyshevBasis(BasisDecomposition):
@@ -26,11 +26,10 @@ class ChebyshevBasis(BasisDecomposition):
                                                 y_pred=new_y,
                                                 squared=False))
 
-    def fit(self, data):
-        # Create the orthogonal polynomials
-        self._get_basis(data, self.n_components)
+    def _transform(self, features):
+        self._get_basis(features, self.n_components)
         self.basis = np.array(self.basis).T
-        self.data = data
+        self.data = features
         # coef =Ridge(alpha=0.5).fit(self.basis, self.data.T)
         return self.basis
 
