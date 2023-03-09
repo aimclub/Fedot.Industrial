@@ -40,25 +40,26 @@ class StatsRunner(ExperimentRunner):
         self.test_feats = None
         self.n_components = None
 
-    def extract_stats_features(self, ts):
+    def extract_stats_features(self, ts_frame):
         if self.window_mode:
             aggregator = self.aggregator.create_baseline_features
-            list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data_T=ts,
+            list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data_T=ts_frame,
                                                                                    feature_generator=aggregator,
                                                                                    window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
         else:
-            aggregation_df = self.aggregator.create_baseline_features(ts)
+            aggregation_df = self.aggregator.create_baseline_features(ts_frame)
         return aggregation_df
 
     @dataframe_adapter
     def generate_features_from_ts(self,
                                   ts_frame: pd.DataFrame,
-                                  window_length: int = None) -> pd.DataFrame:
+                                  ) -> pd.DataFrame:
 
-        ts = pd.DataFrame(ts_frame, dtype=float)
-        ts = ts.fillna(method='ffill')
+        # ts = pd.DataFrame(ts_frame, dtype=float)
+        # ts = ts.fillna(method='ffill')
 
+        ts = ts_frame
         if ts.shape[0] == 1 or ts.shape[1] == 1:
             mode = 'SingleTS'
         else:

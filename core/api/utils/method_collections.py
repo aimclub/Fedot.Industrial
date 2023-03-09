@@ -1,6 +1,7 @@
 from enum import Enum
 
-from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
+from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from core.architecture.experiment.TimeSeriesImageClassifier import TimeSeriesImageClassifier
 from core.ensemble.static.RankEnsembler import RankEnsemble
 from core.models.EnsembleRunner import EnsembleRunner
 from core.models.signal.RecurrenceRunner import RecurrenceRunner
@@ -11,19 +12,19 @@ from core.models.topological.TopologicalRunner import TopologicalRunner
 
 
 class FeatureGenerator(Enum):
-    quantile = StatsRunner
+    # WINDOW GEENRATORS
     window_quantile = StatsRunner
+    window_spectral = SSARunner
+
+    # NON-WINDOW GENERATORS
+    quantile = StatsRunner
     wavelet = SignalRunner
     spectral = SSARunner
-    window_spectral = SSARunner
     topological = TopologicalRunner
     recurrence = RecurrenceRunner
+
+    # ENSEMBLE GENERATORS
     ensemble = EnsembleRunner
-
-
-class WindowFeatureGenerator(Enum):
-    window_quantile = StatsRunner
-    window_spectral = SSARunner
 
 
 class EnsembleGenerator(Enum):
