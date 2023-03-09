@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+import torch
 from scipy.linalg import hankel
 
 
@@ -23,7 +24,7 @@ class HankelMatrix:
             self.__ts_length = self.__time_series.size
 
         if self.__window_length is None:
-                self.__window_length = round(self.__ts_length * 0.35)
+            self.__window_length = round(self.__ts_length * 0.35)
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()
@@ -35,12 +36,11 @@ class HankelMatrix:
 
     def __convert_ts_to_array(self):
         if type(self.__time_series) == pd.DataFrame:
-            self.__time_series = self.__time_series.values.reshape(-1,1)
+            self.__time_series = self.__time_series.values.reshape(-1, 1)
         elif type(self.__time_series) == list:
             self.__time_series = np.array(self.__time_series)
         else:
             self.__time_series = self.__time_series
-
 
     def __get_trajectory_matrix(self):
         if len(self.__time_series.shape) > 1:
@@ -77,3 +77,21 @@ class HankelMatrix:
     def trajectory_matrix(self, trajectory_matrix: np.ndarray):
         self.__trajectory_matrix = trajectory_matrix
 
+
+def get_x_y_pairs(train, train_periods, prediction_periods):
+    """
+    train_scaled - training sequence
+    train_periods - How many data points to use as inputs
+    prediction_periods - How many periods to ouput as predictions
+    """
+    train_scaled = train.T
+    r = train_scaled.shape[0] - train_periods - prediction_periods
+    x_train = [train_scaled[i:i + train_periods] for i in range(r)]
+    y_train = [train_scaled[i + train_periods:i + train_periods + prediction_periods] for i in range(r)]
+
+    # -- use the stack function to convert the list of 1D tensors
+    # into a 2D tensor where each element of the list is now a row
+    x_train = np.concatenate(x_train, axis=0)
+    y_train = np.concatenate(y_train, axis=0)
+
+    return x_train, y_train

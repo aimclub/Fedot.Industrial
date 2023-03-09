@@ -13,6 +13,7 @@ from scipy import spatial
 
 from core.models.detection.abstract_objects.AnomalyZone import AnomalyZone
 from core.models.detection.abstract_objects.FileObject import FileObject
+
 """
 
 input format:
@@ -25,45 +26,43 @@ Output
 """
 from typing import List, Type
 
+
 class Window:
-    def __init__(self, 
-            start: int, 
-            end: int, 
-            data_ts: Mapping[str, List[float]]
-            ) -> None:
+    def __init__(self,
+                 start: int,
+                 end: int,
+                 data_ts: Mapping[str, List[float]]
+                 ) -> None:
         self.start: int = start
         self.end: int = end
         self.data_ts: Mapping[str, List[float]] = data_ts
         self.vector_result: float = 0
-        
 
     def get_vector_predict(self) -> None:
         point_array: List[List[float]] = []
         keys = list(self.data_ts.keys())
-        for i in range(0, self.end-self.start):
+        for i in range(0, self.end - self.start):
             point = []
             for key in keys:
                 point.append(self.data_ts[key][i])
             point_array.append(point)
-        
+
         cosine_array = []
-        #last_point = point_array[-1]
+        # last_point = point_array[-1]
         first_point = point_array[0]
         for i in range(0, len(point_array)):
             current_point = point_array[i]
             res = spatial.distance.cosine(current_point, first_point)
             cosine_array.append(res)
         avg = sum(cosine_array) / len(cosine_array)
-        self.vector_result = avg #** 2
-    
-    
+        self.vector_result = avg  # ** 2
 
 
 class AngleBasedDetector(AbstractDataOperation):
 
     def __init__(self, window_len: int = 100,
-            step: int = None,
-            detector_name: str = "Angle Based Detector"):
+                 step: int = None,
+                 detector_name: str = "Angle Based Detector"):
         self.window_len: list = window_len
         self.name: str = detector_name
         self.print_logs: bool = True
@@ -89,11 +88,11 @@ class AngleBasedDetector(AbstractDataOperation):
     def return_new_data(self):
         return self.data_object
 
-    def _split_data_to_windows(self, 
-            ts: Mapping[str, List[float]], 
-            len_of_data: int,
-            keys: List[str]
-            ) -> List[Window]:
+    def _split_data_to_windows(self,
+                               ts: Mapping[str, List[float]],
+                               len_of_data: int,
+                               keys: List[str]
+                               ) -> List[Window]:
         """
         This method split time series into windows
 
@@ -136,25 +135,24 @@ class AngleBasedDetector(AbstractDataOperation):
             output_ts.append(0)
         return output_ts
 
-
     def _run_detector(self) -> None:
         self.windows = []
         self.windows = self._split_data_to_windows(
             self.data_object.time_series_data,
             self.data_object.get_len_of_dataset(),
             list(self.data_object.time_series_data.keys())
-            )
+        )
 
         for j in range(len(self.windows)):
             self.windows[j].get_vector_predict()
         self.data_object.test_vector_ts = \
             self._turn_windows_to_ts(
-            self.windows, self.data_object.get_len_of_dataset()
-        )
+                self.windows, self.data_object.get_len_of_dataset()
+            )
         self.data_object.test_vector_ts = NormalizeData(
             self.data_object.test_vector_ts
         )
-    
+
     def _print_logs(self, log_message: str) -> None:
         if self.print_logs:
             print(f"---[{time_now()}] {self.name}: {log_message}")

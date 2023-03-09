@@ -33,6 +33,10 @@ class RecurrenceRunner(ExperimentRunner):
         self.extractor = ReccurenceExtractor
         self.train_feats = None
         self.test_feats = None
+        self.threshold_baseline = [1, 5, 10, 15, 20, 25, 30]
+        self.min_signal_ratio = 0.65
+        self.max_signal_ratio = 0.75
+        self.rec_metric = 'euclidean'
 
     def _ts_chunk_function(self, ts):
 

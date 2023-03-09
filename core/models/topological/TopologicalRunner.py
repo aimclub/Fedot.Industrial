@@ -1,7 +1,6 @@
 import gc
 import sys
 
-import pandas as pd
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
@@ -38,7 +37,7 @@ class TopologicalRunner(ExperimentRunner):
         self.filtered_features = None
         self.feature_extractor = None
 
-    @dataframe_adapter
+    #@dataframe_adapter
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
 
         if self.feature_extractor is None:

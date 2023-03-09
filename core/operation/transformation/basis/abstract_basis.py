@@ -15,6 +15,7 @@ class BasisDecomposition:
 
         self.n_components = n_components
         self.basis = None
+        self.min_rank = None
 
     def _get_basis(self, **kwargs):
         """Defines the type of basis and the number of basis functions involved in the decomposition.

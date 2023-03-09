@@ -47,15 +47,16 @@ class DataDrivenBasis(BasisDecomposition):
         threshold = lambda Monoid: ListMonad([Monoid[1],
                                               list(map(multi_threshold, Monoid[0])),
                                               Monoid[2].T]) if self.n_components is None else ListMonad([Monoid[1],
-                                                                                                       Monoid[0][
-                                                                                                       :self.n_components],
-                                                                                                       Monoid[2].T])
+                                                                                                         Monoid[0][
+                                                                                                         :self.n_components],
+                                                                                                         Monoid[2].T])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
-        self.basis = Either.insert(self.data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0]
+        self.basis = Either.insert(self.data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[
+            0]
 
         return self.basis
 
@@ -65,16 +66,22 @@ class DataDrivenBasis(BasisDecomposition):
         else:
             self.basis = self._get_1d_basis()
 
+        if self.min_rank is None:
+            self.min_rank = self.basis.shape[1]
+        else:
+            self.min_rank = min(self.basis.shape[1], self.min_rank)
         return self.basis
 
-    def fit(self, data):
-        trajectory_transformer = HankelMatrix(time_series=data)
+    def fit(self, data, **kwargs):
+        if 'window_length' not in kwargs.keys():
+            kwargs['window_length'] = None
+        trajectory_transformer = HankelMatrix(time_series=data, window_length=kwargs['window_length'])
         self.data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
         return self._get_basis()
 
     def evaluate_derivative(self:
-    class_type,
+                            class_type,
                             coefs: np.array,
                             order: int = 1) -> Tuple[class_type, np.array]:
         basis = type(self)(

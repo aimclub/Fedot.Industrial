@@ -59,8 +59,8 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
         sv_threshold = threshold * median_sv
         # Find the threshold value.
         adjusted_rank = np.sum(singular_values_scaled >= sv_threshold)
-        # If the adjusted rank is 0, set it to 2.
-        if adjusted_rank == 0:
+        # If the adjusted rank is 0 or 1, set it to 2.
+        if adjusted_rank < 2:
             adjusted_rank = 2
         return singular_values[:adjusted_rank]
 
@@ -68,7 +68,7 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
 def reconstruct_basis(U, Sigma, VT, ts_length):
     if type(Sigma) == list:
         multi_reconstruction = lambda x: reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)
-        TS_comps = list(map(multi_reconstruction,Sigma))
+        TS_comps = list(map(multi_reconstruction, Sigma))
     else:
         rank = Sigma.shape[0]
         TS_comps = np.zeros((ts_length, rank))
