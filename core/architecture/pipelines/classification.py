@@ -9,6 +9,9 @@ from functools import partial
 
 class ClassificationPipelines(AbstractPipelines):
 
+    def __init__(self, tr_data, ts_data):
+        super().__init__(train_data=tr_data, test_data=ts_data)
+
     def __call__(self, pipeline_type: str = 'SpecifiedFeatureGeneratorTSC'):
         pipeline_dict = {'DataDrivenTSC': self.__ts_data_driven_pipeline,
                          'DataDrivenMultiTSC': self.__multits_data_driven_pipeline,
@@ -103,9 +106,14 @@ class ClassificationPipelines(AbstractPipelines):
     def __specified_fg_pipeline(self, **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
 
-        lambda_func_dict['create_list_of_ts'] = lambda x: ListMonad(*x.values.tolist()) if \
-            kwargs['feature_generator_type'] not in self.generators_with_matrix_input else x
-        lambda_func_dict['extract_features'] = lambda x: ListMonad(feature_extractor.get_features(x))
+        if kwargs['feature_generator_type'] not in self.generators_with_matrix_input:
+            lambda_func_dict['create_list_of_ts'] = lambda x: ListMonad(*x.values.tolist())
+        else:
+            lambda_func_dict['extract_features'] = lambda x: ListMonad(feature_extractor.get_features(x))
+
+        # lambda_func_dict['create_list_of_ts'] = lambda x: ListMonad(*x.values.tolist()) if \
+        #     kwargs['feature_generator_type'] not in self.generators_with_matrix_input else x
+        # lambda_func_dict['extract_features'] = lambda x: ListMonad(feature_extractor.get_features(x))
 
         train_feature_generator_module = self.get_feature_generator(input_data=self.train_features,
                                                                     steps=lambda_func_dict,
@@ -118,3 +126,28 @@ class ClassificationPipelines(AbstractPipelines):
         prediction = test_feature_generator_module.then(lambda_func_dict['predict'])
 
         return classificator, prediction.value[0]
+
+
+if __name__ == "__main__":
+    from core.architecture.preprocessing.DatasetLoader import DataLoader
+
+    config = dict(feature_generator_type='wavelet',
+                  feature_hyperparams={'window_mode': True},
+                  model_hyperparams={'problem': 'classification',
+                                     'seed': 42,
+                                     'timeout': 1,
+                                     'max_depth': 10,
+                                     'max_arity': 4,
+                                     'cv_folds': 2,
+                                     'logging_level': 20,
+                                     'n_jobs': 2
+                                     }
+                  )
+    train_data, test_data = DataLoader('Car').load_data()
+    pipeline_cls = ClassificationPipelines(tr_data=train_data, ts_data=test_data)()(
+        feature_generator_type='statistical',
+        model_hyperparams=config['model_hyperparams'],
+        feature_hyperparams={'window_size': None,
+                             'window_mode': False,
+                             'use_cache': False}
+    )

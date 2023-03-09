@@ -1,7 +1,7 @@
 import os
 from multiprocessing import cpu_count
 
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 from sklearn.preprocessing import MinMaxScaler
 
 from core.architecture.utils.utils import PROJECT_PATH

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, List
 
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 from sklearn import preprocessing
 
 from core.metrics.metrics_implementation import *

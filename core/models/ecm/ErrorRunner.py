@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.models.ecm.error_correction import Booster

@@ -50,7 +50,7 @@ class AbstractPipelines:
             feature_matrix = pd.concat([pd.concat(feature_set, axis=1) for feature_set in list_of_features], axis=0)
         return feature_matrix
 
-    def _init_pipeline_nodes(self, model_type: str = 'TSC', **kwargs):
+    def _init_pipeline_nodes(self, model_type: str = 'tsc', **kwargs):
         if 'feature_generator_type' not in kwargs.keys():
             generator = self.feature_generator_dict['statistical']
         else:
@@ -58,7 +58,7 @@ class AbstractPipelines:
 
         feature_extractor = generator(**kwargs['feature_hyperparams'])
         classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'])
-
+    # TODO:
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'reduce_basis': lambda x: x[:, 0] if x.shape[1] == 1 else x[:, kwargs['component']],
                             'extract_features': lambda x: feature_extractor.get_features(x),

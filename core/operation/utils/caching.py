@@ -3,7 +3,7 @@ import os
 import timeit
 
 import pandas as pd
-from fedot.core.log import default_log as Logger
+from core.log import default_log as Logger
 
 from core.architecture.utils.utils import PROJECT_PATH
 
