@@ -1,0 +1,33 @@
+task: 'ts_classification' # time series classification
+
+dataset: None
+
+feature_generator: None
+
+error_correction: False
+
+n_ecm_cycles: 3
+
+use_cache: False
+
+ensemble_algorithm: None
+
+'launches': 1
+
+'window_mode': False
+
+'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
+
+'window_sizes': 'auto'
+
+fedot_params:
+  {
+    'problem': 'classification',
+    'seed': 42,
+    'timeout': 15,
+    'max_depth': 10,
+    'max_arity': 4,
+    'cv_folds': 2,
+    'logging_level': 20,
+    'n_jobs': -1
+  }

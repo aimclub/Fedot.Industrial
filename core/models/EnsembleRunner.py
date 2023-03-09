@@ -29,8 +29,8 @@ class EnsembleRunner(BaseExtractor):
                                    topological=TopologicalExtractor,
                                    ensemble=EnsembleRunner)
 
-    def get_features(self, input_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
-        return self.ensemble_features(input_data, dataset_name)
+    def get_features(self, ts_frame: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
+        return self.ensemble_features(ts_frame, dataset_name)
 
     def ensemble_features(self, input_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         """Extracts features using specified generator and combines them into one feature matrix.

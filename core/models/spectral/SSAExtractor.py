@@ -180,10 +180,11 @@ class SSAExtractor(BaseExtractor):
         n_comp_list = []
         eigen_list = []
 
-        if self.window_sizes is None:
-            window_list = [10]
+        if self.window_sizes == 'auto':
+            ts_length = ts_frame.shape[1]
+            window_list = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
         else:
-            window_list = self.window_sizes[dataset_name]
+            window_list = self.window_sizes
 
         for window_length in window_list:
             self.logger.info(f'Generate features for window length - {window_length}')
