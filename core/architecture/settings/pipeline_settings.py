@@ -1,8 +1,6 @@
 from enum import Enum
 
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
-from core.models.detection.probalistic.kalman import UnscentedKalmanFilter
-from core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from core.operation.transformation.basis.chebyshev import ChebyshevBasis
 from core.operation.transformation.basis.data_driven import DataDrivenBasis
 from core.operation.transformation.basis.fourier import FourierBasis
@@ -33,5 +31,3 @@ class FeatureGenerator(Enum):
 class MlModel(Enum):
     tsc = TimeSeriesClassifier
     functional_pca = FunctionalPCA
-    kalman_filter = UnscentedKalmanFilter
-    sst = SingularSpectrumTransformation

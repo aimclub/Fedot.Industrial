@@ -3,8 +3,6 @@ import numpy as np
 from scipy.linalg import solve_triangular
 from sklearn.decomposition import PCA
 from sktime.distances import pairwise_distance
-
-from core.operation.filtration.quantile_filtration import quantile_filter
 from core.operation.transformation.basis.abstract_basis import BasisDecomposition
 from numpy import linalg as LA
 
@@ -18,11 +16,10 @@ class FunctionalPCA:
     basis and natural representations of the data.
 
     Parameters:
-        model_hyperparams:
-                        n_components: Number of principal components to keep from
-                            functional principal component analysis. Defaults to 3.
-                        regularization: Regularization object to be applied.
-                        basis_of_function: .
+        n_components: Number of principal components to keep from
+            functional principal component analysis. Defaults to 3.
+        regularization: Regularization object to be applied.
+        basis_of_function: .
     Attributes:
         components\_: this contains the principal components.
         explained_variance\_ : The amount of variance explained by
@@ -56,6 +53,7 @@ class FunctionalPCA:
             # self._weights = model_hyperparams['weights']
             self.basis_function = model_hyperparams['basis_function']
 
+
     def _delete_mean(self, X):
         if type(X) is not np.ndarray:
             X = X.values
@@ -82,6 +80,7 @@ class FunctionalPCA:
                 (pp. 161-164). Springer.
         """
         X = self._delete_mean(X)
+        gram = pairwise_distance(X.T)
         if self.basis_function is not None:
             # Compute Gram matrix of basis function
             G = self.basis_function.T.dot(self.basis_function)
@@ -91,8 +90,8 @@ class FunctionalPCA:
             J = np.dot(X, self.basis_function)
         else:
             # If no other basis is specified we use the same basis as the
+            # passed FDataBasis object
             components_basis = X.copy()
-            # G = pairwise_distance(X.T)
             G = X.T.dot(X)
             J = G
 
@@ -187,22 +186,14 @@ class FunctionalPCA:
         return self._transform_basis(X)
 
     def predict(self, test_features, threshold: float = 0.99):
-
-        if type(test_features) == list:
-            list_of_projection, list_of_outliers = [], []
-            for window_slice in test_features:
-                current_projection, current_outlier = self._predict(window_slice.T, threshold)
-                list_of_projection.append(current_projection)
-                list_of_outliers.append(current_outlier)
-            return list_of_projection, list_of_outliers
-        else:
-            return self._predict(test_features.T, threshold)
-
-    def _predict(self, test_features, threshold: float = 0.90):
         projection = self.transform(test_features)
         recover = self.inverse_transform(projection)
-        outlier_idx = quantile_filter(input_data=test_features,predicted_data=recover)
-        return recover, outlier_idx
+        reconstruction_error = LA.norm(test_features - recover, 2, axis=1) / LA.norm(
+           test_features, 2, axis=1)
+        quantile = np.quantile(reconstruction_error, threshold)
+        outlier_idx = [np.where(np.isclose(reconstruction_error, idx_outlier))[0][0]
+                       for idx_outlier in reconstruction_error[reconstruction_error > quantile]]
+        return projection, outlier_idx
 
     def fit_transform(
             self,
