@@ -1,12 +1,13 @@
 """This module contains functions and classes for computing metrics
  in computer vision tasks.
  """
-from typing import Dict
+from typing import Dict, List
 
 import torch
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from torch.nn.functional import softmax
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 
 def iou_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torch.Tensor:
@@ -128,6 +129,34 @@ class SegmentationMetricCounter(MetricCounter):
         if self.class_metrics:
             scores.update({f'iou_for_class_{i}': s.item() for i, s in enumerate(iou)})
             scores.update({f'dice_for_class_{i}': s.item() for i, s in enumerate(dice)})
+        return scores
+
+
+class ObjectDetectionMetricCounter(MetricCounter):
+    """Calculates metrics for object detection task.
+
+    Args:
+        class_metric:  If ``True``, calculates metrics for each class.
+    """
+
+    def __init__(self, class_metrics: bool = False) -> None:
+        super().__init__()
+        self.map = MeanAveragePrecision(class_metrics=class_metrics)
+        self.class_metrics = class_metrics
+
+    def update(
+            self,
+            predictions: List[Dict[str, torch.Tensor]],
+            targets: List[Dict[str, torch.Tensor]]
+    ) -> None:
+        self.map.update(preds=predictions, target=targets)
+    def compute(self) -> Dict[str, float]:
+        scores = self.map.compute()
+        if self.class_metrics:
+            scores.update({f'map_for_class_{i}': s for i, s in enumerate(scores['map_per_class'])})
+            scores.update({f'mar_100_for_class_{i}': s for i, s in enumerate(scores['mar_100_per_class'])})
+        del scores['map_per_class']
+        del scores['mar_100_per_class']
         return scores
 
 

@@ -21,6 +21,8 @@ class COCODataset(Dataset):
         json_path: Json file path.
         transform: A function/transform that takes in an PIL image and returns a
             transformed version.
+        fix_zero_class: If ``True`` add 1 for each class label
+            (0 represents always the background class).
     """
 
     def __init__(
@@ -28,6 +30,8 @@ class COCODataset(Dataset):
         images_path: str,
         json_path: str,
         transform: Callable,
+        fix_zero_class: bool = False
+
     ) -> None:
         self.transform = transform
         self.classes = {}
@@ -37,7 +41,8 @@ class COCODataset(Dataset):
             data = json.load(f)
 
         for category in data['categories']:
-            self.classes[category['id']] = category['name']
+            id = category['id'] + 1 if fix_zero_class else category['id']
+            self.classes[id] = category['name']
 
         samples = {}
         for image in data['images']:
@@ -53,9 +58,9 @@ class COCODataset(Dataset):
             if annotation['area'] > 0:
                 bbox = np.array(annotation['bbox'])
                 bbox[2:] += bbox[:2]  # x, y, w, h -> x1, y1, x2, y2
-                samples[annotation['image_id']]['labels'].append(
-                    annotation['category_id']
-                )
+                labels = np.array(annotation['category_id'])
+                labels = labels + 1 if fix_zero_class else labels
+                samples[annotation['image_id']]['labels'].append(labels)
                 samples[annotation['image_id']]['boxes'].append(bbox)
                 samples[annotation['image_id']]['area'].append(annotation['area'])
                 samples[annotation['image_id']]['iscrowd'].append(annotation['iscrowd'])
@@ -99,16 +104,20 @@ class YOLODataset(Dataset):
         image_folder: Image folder path.
         transform: A function/transform that takes in an PIL image and returns a
             transformed version.
+        fix_zero_class: If ``True`` add 1 for each class label
+            (0 represents always the background class).
     """
 
     def __init__(
         self,
         image_folder: str,
         transform: Callable,
+        fix_zero_class: bool = False
     ) -> None:
         self.transform = transform
         self.root = image_folder
         self.samples = []
+        self.fix_zero_class = fix_zero_class
         for address, dirs, files in os.walk(image_folder):
             for file in files:
                 if file.lower().endswith(IMG_EXTENSIONS):
@@ -139,6 +148,7 @@ class YOLODataset(Dataset):
         image = Image.open(sample['image']).convert('RGB')
         image = self.transform(image)
         annotation = np.loadtxt(sample['annotation'], ndmin=2)
+        labels = annotation[:, 0] + 1 if self.fix_zero_class else annotation[:, 0]
         boxes = annotation[:, 1:]
         c, h, w = image.shape
         boxes *= [w, h, w, h]
@@ -148,7 +158,7 @@ class YOLODataset(Dataset):
 
         target = {
             'boxes': torch.tensor(boxes, dtype=torch.float32),
-            'labels': torch.tensor(annotation[:, 0], dtype=torch.int64),
+            'labels': torch.tensor(labels, dtype=torch.int64),
             'image_id': torch.tensor([idx]),
             'area': torch.tensor(area, dtype=torch.float32),
             'iscrowd': torch.zeros(annotation.shape[0], dtype=torch.int64),

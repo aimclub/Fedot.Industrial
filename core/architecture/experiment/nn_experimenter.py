@@ -9,7 +9,6 @@ import torch
 from fedot.core.log import default_log as Logger
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
-from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
@@ -17,7 +16,7 @@ from tqdm import tqdm
 from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
 from core.architecture.abstraction.сheckers import parameter_value_check
 from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter, \
-    SegmentationMetricCounter
+    SegmentationMetricCounter, ObjectDetectionMetricCounter
 
 
 @dataclass(frozen=True)
@@ -405,7 +404,7 @@ class FasterRCNNExperimenter(NNExperimenter):
         super().__init__(
             model=model,
             metric=metric,
-            metric_counter=MeanAveragePrecision,
+            metric_counter=ObjectDetectionMetricCounter,
             name=name,
             weights=weights,
             gpu=gpu
