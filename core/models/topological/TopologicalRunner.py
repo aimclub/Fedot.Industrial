@@ -62,7 +62,7 @@ class TopologicalRunner(ExperimentRunner):
         return ts_data_transformed[self.filtered_features]
 
     @time_it
-    def get_features(self, ts_frame: pd.DataFrame, dataset_name: str = None):
+    def get_features(self, ts_frame: pd.DataFrame):
         self.logger.info('Topological feature extraction started')
         return self.generate_topological_features(ts_frame=ts_frame)
 

@@ -126,8 +126,8 @@ class SignalRunner(ExperimentRunner):
         return components_and_vectors
 
     @time_it
-    def get_features(self, ts_frame: pd.DataFrame,
-                     dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
+
         self.logger.info('Wavelet feature extraction started')
         if not self.wavelet:
             train_feats = self._choose_best_wavelet(ts_frame)

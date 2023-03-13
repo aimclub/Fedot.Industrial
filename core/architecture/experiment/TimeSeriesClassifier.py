@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
@@ -64,11 +64,25 @@ class TimeSeriesClassifier:
         for name, runner in self.feature_generator_dict.items():
             self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
 
-    def fit(self, raw_train_features: np.ndarray,
+    def fit(self, raw_train_features: pd.DataFrame,
             train_target: np.ndarray,
-            baseline_type: str = None) -> tuple:
+            baseline_type: str = None) -> Fedot:
 
-        self.__fit_abstraction(raw_train_features, train_target, baseline_type)
+        # self.__fit_abstraction(raw_train_features, train_target, baseline_type)
+
+        self.logger.info(f'Fitting model...')
+        self.y_train = train_target
+        if self.generator_runner is not None:
+            self.train_features = self.generator_runner.extract_features(ts_frame=raw_train_features,
+                                                                         dataset_name=self.dataset_name)
+        else:
+            self.train_features = raw_train_features
+        self.train_features = self.datacheck.check_data(self.train_features)
+
+        if baseline_type is not None:
+            self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
+        else:
+            self.predictor = self._fit_model(self.train_features, train_target)
 
         return self.predictor
 
@@ -132,23 +146,23 @@ class TimeSeriesClassifier:
         self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
-    def __fit_abstraction(self,
-                          raw_train_features: Union[np.ndarray, pd.DataFrame],
-                          train_target: np.ndarray,
-                          baseline_type: str = None):
-        self.logger.info(f'Fitting model...')
-        self.y_train = train_target
-        if self.generator_runner is not None:
-            self.train_features = self.generator_runner.extract_features(ts_frame=raw_train_features,
-                                                                         dataset_name=self.dataset_name)
-        else:
-            self.train_features = raw_train_features
-        self.train_features = self.datacheck.check_data(self.train_features)
-
-        if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
-        else:
-            self.predictor = self._fit_model(self.train_features, train_target)
+    # def __fit_abstraction(self,
+    #                       raw_train_features: Union[np.ndarray, pd.DataFrame],
+    #                       train_target: np.ndarray,
+    #                       baseline_type: str = None):
+    #     self.logger.info(f'Fitting model...')
+    #     self.y_train = train_target
+    #     if self.generator_runner is not None:
+    #         self.train_features = self.generator_runner.extract_features(ts_frame=raw_train_features,
+    #                                                                      dataset_name=self.dataset_name)
+    #     else:
+    #         self.train_features = raw_train_features
+    #     self.train_features = self.datacheck.check_data(self.train_features)
+    #
+    #     if baseline_type is not None:
+    #         self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
+    #     else:
+    #         self.predictor = self._fit_model(self.train_features, train_target)
 
     def __predict_abstraction(self,
                               test_features: Union[np.ndarray, pd.DataFrame],

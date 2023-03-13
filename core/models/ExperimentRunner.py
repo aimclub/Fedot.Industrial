@@ -1,10 +1,11 @@
 import os
 from multiprocessing import cpu_count
 
-from core.log import default_log as logger
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import MinMaxScaler
 
 from core.architecture.utils.utils import PROJECT_PATH
+from core.log import default_log as logger
 from core.metrics.metrics_implementation import *
 from core.operation.utils.caching import DataCacher
 
@@ -34,12 +35,11 @@ class ExperimentRunner:
         self.logger = logger(self.__class__.__name__)
         self.n_processes = cpu_count() // 2
 
-    def get_features(self, ts_frame: pd.DataFrame, dataset_name: str) -> pd.DataFrame:
+    def get_features(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
         """Method responsible for extracting features from time series dataframe.
 
         Args:
             ts_frame: dataframe with time series.
-            dataset_name: name of dataset.
 
         Returns:
             Dataframe with extracted features.
@@ -83,26 +83,12 @@ class ExperimentRunner:
                 return cacher.load_data_from_cache(hashed_info=hashed_info)
             except FileNotFoundError:
                 self.logger.info('Cache not found. Generating features...')
-                features = self.get_features(ts_frame=ts_frame, dataset_name=dataset_name)
+                features = self.get_features(ts_frame=ts_frame)
                 cacher.cache_data(hashed_info=hashed_info,
                                   data=features)
                 return features
         else:
-            return self.get_features(ts_frame=ts_frame, dataset_name=dataset_name)
-
-    def generate_features_from_ts(self, ts_frame: pd.DataFrame,
-                                  window_length: int = None) -> pd.DataFrame:
-        """Method responsible for generation of features from time series.
-
-        Args:
-            ts_frame: dataframe with time series.
-            window_length: window length for feature generation.
-
-        Returns:
-            Dataframe with extracted features.
-
-        """
-        pass
+            return self.get_features(ts_frame=ts_frame)
 
     @staticmethod
     def check_for_nan(single_ts: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
@@ -139,7 +125,9 @@ class ExperimentRunner:
                 del dataframe[col]
         return dataframe
 
-    def reduce_feature_space(self, features: pd.DataFrame) -> pd.DataFrame:
+    def reduce_feature_space(self, features: pd.DataFrame,
+                             variance_thr: float = 0.01,
+                             corr_thr: float = 0.96) -> pd.DataFrame:
         """(Unfinished yet) Method responsible for reducing feature space.
 
         Args:
@@ -149,30 +137,37 @@ class ExperimentRunner:
             Dataframe with reduced feature space.
 
         """
-        from sklearn.feature_selection import VarianceThreshold
-        from sklearn.feature_selection import SelectKBest, f_classif
-        from sklearn.feature_selection import RFE
 
-        quazi_constant_filter = VarianceThreshold(threshold=0.01)
-        correlation_matrix = features.corr().abs()
+        quazi_constant_filter = VarianceThreshold(threshold=variance_thr)
 
-        # features =
+        quazi_constant_filter.fit_transform(features)
+        constant_columns = quazi_constant_filter.get_support(indices=True)
+        features = features.iloc[:, constant_columns]
+
+        corr_matrix = features.corr().abs()
+        upped = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+        to_drop = [column for column in upped.columns if any(upped[column] > corr_thr)]
+        features = features.drop(features[to_drop], axis=1)
 
         return features
 
 
     @staticmethod
-    def apply_window_for_stat_feature(ts_data_T: pd.DataFrame,
-                                      feature_generator: callable,
-                                      window_size: int = None):
-        # ts_data = ts_data.T
-        if window_size is None:
-            window_size = round(ts_data_T.shape[1] / 10)
+    def apply_window_for_single_ts(single_ts: pd.DataFrame,
+                                   feature_generator: callable,
+                                   window_size_percent: int = None):
+
+        # define window size which is percent of the whole time series
+        if window_size_percent is None:
+            window_size = round(single_ts.shape[1] / 10)
         else:
-            window_size = round(ts_data_T.shape[1] / window_size)
+            window_size = round(single_ts.shape[1] * window_size_percent / 100)
+
         tmp_list = []
-        for i in range(0, ts_data_T.shape[1], window_size):
-            slice_ts = ts_data_T.iloc[:, i:i + window_size]
+
+        for i in range(0, single_ts.shape[1], window_size):
+            slice_ts = single_ts.iloc[:, i:i + window_size]
+
             if slice_ts.shape[1] == 1:
                 break
             else:

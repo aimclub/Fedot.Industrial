@@ -140,7 +140,7 @@ class YamlReader:
 
         self.logger.info(f'''Experiment setup:
         dataset - {experiment_dict['dataset']},
-        feature generator - {list(experiment_dict['feature_generator'])},
+        feature generator - {experiment_dict['feature_generator']},
         use_cache - {experiment_dict['use_cache']},
         error_correction - {experiment_dict['error_correction']},
         n_jobs - {experiment_dict['fedot_params']['n_jobs']},
