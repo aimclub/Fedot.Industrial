@@ -1,9 +1,6 @@
 import os
-from copy import copy
 from typing import Optional
-
 import numpy as np
-import pandas as pd
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation, _convert_to_output_function
@@ -30,7 +27,7 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         super().__init__(params)
         self.n_components = params.get('n_components', 2)
         self.basis = None
-        self.min_rank = None
+        self.min_rank = 1
 
     def _get_basis(self, data):
         if type(data) == list:

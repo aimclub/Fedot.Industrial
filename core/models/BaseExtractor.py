@@ -30,8 +30,6 @@ class BaseExtractor(DataOperationImplementation):
 
     """
 
-
-
     METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -207,7 +205,8 @@ class BaseExtractor(DataOperationImplementation):
     @staticmethod
     def delete_col_by_var(dataframe: pd.DataFrame):
         for col in dataframe.columns:
-            scaled_feature = MinMaxScaler(feature_range=(0, 1)).fit_transform(dataframe[col].values.reshape(-1, 1))[:, 0]
+            scaled_feature = MinMaxScaler(feature_range=(0, 1)).fit_transform(dataframe[col].values.reshape(-1, 1))[:,
+                             0]
             deviation = np.std(scaled_feature)
             if deviation < 0.05 and not col.startswith('diff'):
                 del dataframe[col]

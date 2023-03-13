@@ -3,7 +3,7 @@ import pandas as pd
 from pymonad.list import ListMonad
 from pymonad.either import Right
 from core.architecture.pipelines.abstract_pipeline import AbstractPipelines
-from core.operation.transformation.basis.data_driven import DataDrivenBasis
+from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 
 
 class AnomalyDetectionPipelines(AbstractPipelines):
@@ -42,8 +42,8 @@ class AnomalyDetectionPipelines(AbstractPipelines):
                                                                                   **kwargs)
 
         if mode == 'multits':
-            self.train_features = [pd.DataFrame(time_series) for time_series in self.train_features]
-            self.train_features = [time_series.values.tolist() for time_series in self.train_features]
+            self.test_features = [pd.DataFrame(time_series) for time_series in self.test_features]
+            self.test_features = [time_series.values.tolist() for time_series in self.test_features]
 
         lambda_func_dict['fit_model'] = lambda list_of_ts: [detector.fit(train_features=slice_ts)
                                                             for slice_ts in list_of_ts]

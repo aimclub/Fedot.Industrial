@@ -1,19 +1,12 @@
 import gc
 import sys
 from typing import Optional
-
 from fedot.core.data.data import InputData, OutputData
-from fedot.core.log import default_log
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
-    DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
-from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
-
 from core.architecture.abstraction.Decorators import time_it
-from core.metrics.metrics_implementation import ROCAUC
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.topological import *
 
@@ -43,34 +36,38 @@ class TopologicalExtractor(BaseExtractor):
         super().__init__(params)
         self.filtered_features = None
         self.feature_extractor = None
+        self.te_dimension = None
+        self.te_time_delay = None
 
     def fit(self, input_data: InputData) -> OutputData:
         pass
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
 
-        if self.feature_extractor is None:
+        if self.te_time_delay or self.te_dimension is None:
+            self.te_dimension, self.te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
-            te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
+        persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=self.te_dimension,
+                                                                     takens_embedding_delay=self.te_time_delay,
+                                                                     homology_dimensions=(0, 1),
+                                                                     parallel=True)
 
-            persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
-                                                                         takens_embedding_delay=te_time_delay,
-                                                                         homology_dimensions=(0, 1),
-                                                                         parallel=True)
-
-            self.feature_extractor = TopologicalFeaturesExtractor(
-                persistence_diagram_extractor=persistence_diagram_extractor,
-                persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
+        self.feature_extractor = TopologicalFeaturesExtractor(
+            persistence_diagram_extractor=persistence_diagram_extractor,
+            persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
 
         ts_data_transformed = self.feature_extractor.fit_transform(ts_data)
-
-        if self.filtered_features is None:
-            ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
-            self.filtered_features = ts_data_transformed.columns.tolist()
         gc.collect()
-        return ts_data_transformed[self.filtered_features]
+        return ts_data_transformed
 
+    # @time_it
     def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None):
+        return self.generate_topological_features(ts_data=ts_data)
+
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
+        ts_data = pd.DataFrame(ts_data)
+        if ts_data.shape[0] > ts_data.shape[1]:
+            ts_data = ts_data.T
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
@@ -113,4 +110,3 @@ class TopologicalExtractor(BaseExtractor):
     @staticmethod
     def _mode(arr: list) -> int:
         return int(stats.mode(arr)[0][0])
-

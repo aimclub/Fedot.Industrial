@@ -65,7 +65,7 @@ class AbstractPipelines:
         else:
             generator = self.feature_generator_dict[kwargs['feature_generator_type']]
 
-        feature_extractor = generator(**kwargs['feature_hyperparams'])
+        feature_extractor = generator(params=kwargs['feature_hyperparams'])
         classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'])
 
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),

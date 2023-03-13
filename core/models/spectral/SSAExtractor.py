@@ -121,7 +121,7 @@ class SSAExtractor(BaseExtractor):
         self.logger.info(f'Number of time series processed: {ts_samples_count}')
         return components_and_vectors
 
-    @time_it
+    #@time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
 
         if self.current_window is None:

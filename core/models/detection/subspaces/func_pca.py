@@ -2,13 +2,7 @@ from typing import Union
 import numpy as np
 from scipy.linalg import solve_triangular
 from sklearn.decomposition import PCA
-from sktime.distances import pairwise_distance
-
 from core.operation.filtration.quantile_filtration import quantile_filter
-from core.operation.transformation.basis.abstract_basis import BasisDecomposition
-from numpy import linalg as LA
-
-
 # from core.operation.transformation.regularization.lp_reg import compute_penalty_matrix
 
 class FunctionalPCA:
@@ -201,7 +195,7 @@ class FunctionalPCA:
     def _predict(self, test_features, threshold: float = 0.90):
         projection = self.transform(test_features)
         recover = self.inverse_transform(projection)
-        outlier_idx = quantile_filter(input_data=test_features,predicted_data=recover)
+        outlier_idx = quantile_filter(input_data=test_features, predicted_data=recover)
         return recover, outlier_idx
 
     def fit_transform(

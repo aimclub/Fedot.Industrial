@@ -5,10 +5,10 @@ from sklearn.metrics import mean_squared_error
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.metrics.loss.basis_loss import basis_approximation_metric
-from core.operation.transformation.basis.abstract_basis import BasisDecomposition
+from core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
-class LegenderBasis(BasisDecomposition):
+class LegenderBasis(BasisDecompositionImplementation):
 
     def _get_basis(self, data, n_components: int = None):
         self.basis = []

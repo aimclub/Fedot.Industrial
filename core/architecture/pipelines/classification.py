@@ -38,11 +38,12 @@ class ClassificationPipelines(AbstractPipelines):
 
     def __ts_data_driven_pipeline(self, **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = DataDrivenBasisImplementation()
-
-        lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
-        lambda_func_dict['reduce_basis'] = lambda x: x[:, :data_basis.min_rank] if 'component' not in kwargs.keys() \
-            else x[:, kwargs['component']]
+        data_basis = DataDrivenBasisImplementation(kwargs['data_driven_hyperparams'])
+        n_components = kwargs['data_driven_hyperparams']['n_components']
+        lambda_func_dict['transform_to_basis'] = lambda \
+            x: self.basis if self.basis is not None else data_basis._transform(x)
+        lambda_func_dict['reduce_basis'] = lambda x: x[:data_basis.min_rank, :] if n_components \
+                                                                                   is None else x[:n_components, :]
         train_feature_generator_module = self.get_feature_generator(input_data=self.train_features,
                                                                     steps=lambda_func_dict,
                                                                     pipeline_type='DataDrivenTSC')
@@ -117,3 +118,4 @@ class ClassificationPipelines(AbstractPipelines):
         classificator.feature_generator = partial(self.get_feature_generator, steps=lambda_func_dict,
                                                   pipeline_type='SpecifiedFeatureGeneratorTSC')
         return classificator, prediction.value[0]
+

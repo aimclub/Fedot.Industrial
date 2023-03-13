@@ -36,7 +36,7 @@ def test_fedot_multi_series():
 
 
 def initialize_uni_data():
-    train_data, test_data, n_classes = load_data('Lightning7')
+    train_data, test_data, n_classes = load_data('Earthquakes')
     train_data = InputData(idx=np.arange(len(train_data[0])),
                            features=train_data[0].values,
                            target=train_data[1],

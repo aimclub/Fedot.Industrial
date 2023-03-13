@@ -1,10 +1,10 @@
 import numpy as np
 from pymonad.list import ListMonad
 
-from core.operation.transformation.basis.abstract_basis import BasisDecomposition
+from core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
-class FourierBasis(BasisDecomposition):
+class FourierBasis(BasisDecompositionImplementation):
     """A class for decomposing data on the Fourier basis and evaluating the derivative of the resulting decomposition.
 
     Attributes:

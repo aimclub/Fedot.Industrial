@@ -80,7 +80,7 @@ class RecurrenceExtractor(BaseExtractor):
             components_and_vectors = pd.concat(components_and_vectors, axis=1).T
         return components_and_vectors
 
-    @time_it
+    #@time_it
     def generate_features_from_ts(self, ts_data: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')

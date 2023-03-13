@@ -1,11 +1,11 @@
 import numpy as np
 from typing import Tuple, TypeVar
-from core.operation.transformation.basis.abstract_basis import BasisDecomposition
+from core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 class_type = TypeVar("T", bound="PowerBasis")
 
 
-class PowerBasis(BasisDecomposition):
+class PowerBasis(BasisDecompositionImplementation):
     """Power basis.
     Basis formed by powers of the argument :math:`t`:
     .. math::
