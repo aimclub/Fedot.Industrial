@@ -3,7 +3,7 @@ from typing import List, Union
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.log import default_log as logger
+from core.log import default_log as logger
 
 from core.api.utils.method_collections import TaskGenerator
 from core.api.utils.reader_collections import DataReader, YamlReader
@@ -88,7 +88,7 @@ class FedotIndustrial(Fedot):
 
 
 if __name__ == "__main__":
-    datasets = ['Car', 'UMD']
+    datasets = [ 'UMD']
 
     for dataset_name in datasets:
         config = dict(task='ts_classification',
@@ -101,8 +101,8 @@ if __name__ == "__main__":
                       n_jobs=2,
                       # ensemble_algorithm='Rank_Ensemble',
                       # wavelet_types = ['bior2.4'],
-                      # window_sizes = 'auto',
-                      window_sizes = [10,30],
+                      window_sizes = 'auto',
+                      # window_sizes = [10,30],
                       )
 
         indus = FedotIndustrial(input_config=config, output_folder=None)
