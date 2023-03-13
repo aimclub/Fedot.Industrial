@@ -5,16 +5,16 @@ import numpy as np
 
 from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
-from core.architecture.utils.utils import default_path_to_save_results
-from core.models.ExperimentRunner import ExperimentRunner
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from core.architecture.utils.utils import default_path_to_save_results
+from core.models.BaseExtractor import BaseExtractor
 
 
 class TimeSeriesImageClassifier(TimeSeriesClassifier):
 
     def __init__(self,
                  generator_name: str,
-                 generator_runner: ExperimentRunner,
+                 generator_runner: BaseExtractor,
                  model_hyperparams: dict,
                  ecm_model_flag: False):
         super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)
@@ -36,8 +36,7 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
         self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
                                                                     self.generator_name,
                                                                     '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                              self.generator_name,
+        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage', self.generator_name,
                                                               'runs')
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 

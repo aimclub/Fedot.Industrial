@@ -1,14 +1,13 @@
 from enum import Enum
 
-from core.ensemble.baseline.AggEnsembler import AggregationEnsemble
-# from core.ensemble.static.RankEnsembler import RankEnsemble
+from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
+from core.ensemble.static.RankEnsembler import RankEnsemble
 from core.models.EnsembleRunner import EnsembleRunner
-# from core.models.signal.RecurrenceRunner import RecurrenceRunner
+from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
 from core.models.spectral.SSAExtractor import SSAExtractor
 from core.models.statistical.QuantileRunner import StatsExtractor
-# from core.models.topological.TopologicalRunner import TopologicalRunner
-from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesImageClassifier
+from core.models.topological.TopologicalRunner import TopologicalExtractor
 
 
 class FeatureGenerator(Enum):
@@ -17,18 +16,13 @@ class FeatureGenerator(Enum):
     wavelet = SignalExtractor
     spectral = SSAExtractor
     window_spectral = SSAExtractor
-    # topological = TopologicalRunner
-    # recurrence = RecurrenceRunner
+    topological = TopologicalExtractor
+    recurrence = RecurrenceExtractor
     ensemble = EnsembleRunner
 
 
-class WindowFeatureGenerator(Enum):
-    window_quantile = StatsExtractor
-    window_spectral = SSAExtractor
-
-
 class EnsembleGenerator(Enum):
-    AGG_voting = AggregationEnsemble
+    Rank_Ensemble = RankEnsemble
 
 
 class TaskGenerator(Enum):

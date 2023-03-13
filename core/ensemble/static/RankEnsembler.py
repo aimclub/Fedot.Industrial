@@ -1,13 +1,13 @@
 from typing import Union
 
 import pandas as pd
-from core.log import default_log as logger
 from numpy import ndarray
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.settings.Hyperparams import *
 from core.ensemble.BaseEnsembler import BaseEnsemble
+from core.log import default_log as logger
 
 
 class RankEnsemble(BaseEnsemble):

@@ -1,5 +1,4 @@
-import os
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -9,14 +8,9 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.models.BaseExtractor import BaseExtractor
-from core.architecture.datasets.classification_datasets import CustomClassificationDataset
-from core.architecture.experiment.CVModule import ClassificationExperimenter
-from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
 from core.architecture.abstraction.logger import Logger
-# from fedot.core.log import default_log as Logger
-# from core.architecture.abstraction.LoggerSingleton import Logger
-from core.architecture.utils.utils import path_to_save_results
+from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
+from core.models.BaseExtractor import BaseExtractor
 
 
 class TimeSeriesClassifier:
@@ -43,7 +37,6 @@ class TimeSeriesClassifier:
                  ecm_model_flag: bool = False,
                  dataset_name: str = None,):
         self.logger = Logger(self.__class__.__name__)
-        # self.logger = Logger().get_logger()
         self.predictor = None
         self.y_train = None
         self.train_features = None
@@ -51,7 +44,7 @@ class TimeSeriesClassifier:
         self.input_test_data = None
         self.dataset_name = dataset_name
 
-        self.datacheck = DataCheck(logger=self.logger)
+        self.datacheck = DataCheck()
         self.generator_name = generator_name
         self.generator_runner = generator_runner
         self.feature_generator_dict = {self.generator_name: self.generator_runner}
@@ -110,30 +103,12 @@ class TimeSeriesClassifier:
         self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
-    def __fit_abstraction(self,
-                          train_features: Union[np.ndarray, pd.DataFrame],
-                          train_target: np.ndarray,
-                          baseline_type: str = None):
-        self.logger.info(f'Fitting model...')
-        self.y_train = train_target
-        if self.generator_runner is not None:
-            self.train_features = self.generator_runner.extract_features(ts_data=train_features,
-                                                                         dataset_name=self.dataset_name)
-        else:
-            self.train_features = train_features
-        self.train_features = self.datacheck.check_data(self.train_features)
-
-        if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
-        else:
-            self.predictor = self._fit_model(self.train_features, train_target)
-
     def __predict_abstraction(self,
                               test_features: Union[np.ndarray, pd.DataFrame],
                               mode: str = 'labels'):
 
         if self.generator_runner is not None:
-            self.test_features = self.generator_runner.extract_features(ts_data=test_features,
+            self.test_features = self.generator_runner.extract_features(train_features=test_features,
                                                                         dataset_name=self.dataset_name)
         else:
             self.test_features = test_features
@@ -149,89 +124,32 @@ class TimeSeriesClassifier:
                 prediction_label = self.predictor.predict_proba(self.test_features)
             return prediction_label
 
-    def fit(self, train_features: np.ndarray,
+    def fit(self, train_features: Union[np.ndarray, pd.DataFrame],
             train_target: np.ndarray,
-            dataset_name: str = None,
-            baseline_type: str = None) -> tuple:
-        self.__fit_abstraction(train_features, train_target, dataset_name, baseline_type)
+            baseline_type: str = None) -> object:
+
+        self.logger.info(f'Fitting model...')
+        self.y_train = train_target
+        if self.generator_runner is not None:
+            self.train_features = self.generator_runner.extract_features(train_features=train_features,
+                                                                         dataset_name=self.dataset_name)
+        else:
+            self.train_features = train_features
+        self.train_features = self.datacheck.check_data(self.train_features)
+
+        if baseline_type is not None:
+            self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
+        else:
+            self.predictor = self._fit_model(self.train_features, train_target)
+
         return self.predictor
 
     def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
         prediction_label = self.__predict_abstraction(test_features=test_features,
-                                                      mode='labels',
-                                                      dataset_name=dataset_name)
+                                                      mode='labels')
         return prediction_label
 
     def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
         prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs',
-                                                      dataset_name=dataset_name)
+                                                      mode='probs',)
         return prediction_proba
-
-
-class TimeSeriesImageClassifier(TimeSeriesClassifier):
-
-    def __init__(self,
-                 generator_name: str,
-                 generator_runner: BaseExtractor,
-                 model_hyperparams: dict,
-                 ecm_model_flag: False):
-        super().__init__(generator_name, generator_runner, model_hyperparams, ecm_model_flag)
-
-    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
-
-        num_epochs = self.model_hyperparams['epoch']
-        del self.model_hyperparams['epoch']
-
-        if 'optimization_method' in self.model_hyperparams.keys():
-            modes = {'none': {},
-                     'SVD': self.model_hyperparams['optimization_method']['svd_parameters'],
-                     'SFP': self.model_hyperparams['optimization_method']['sfp_parameters']}
-            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['optimization_method']['mode']
-            self.model_hyperparams['structure_optimization_params'] = modes[
-                self.model_hyperparams['optimization_method']['mode']]
-            del self.model_hyperparams['optimization_method']
-
-        self.model_hyperparams['models_saving_path'] = os.path.join(path_to_save_results(), 'TSCImage',
-                                                                    self.generator_name,
-                                                                    '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(path_to_save_results(), 'TSCImage', self.generator_name,
-                                                              'runs')
-        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
-
-        if target.min() != 0:
-            target = target - 1
-
-        return num_epochs, target
-
-    def _fit_model(self, features: np.ndarray, target: np.ndarray) -> ClassificationExperimenter:
-        """Fit Fedot model with feature and target.
-
-        Args:
-            features: features for training
-            target: target for training
-
-        Returns:
-            Fitted Fedot model
-
-        """
-        num_epochs, target = self._init_model_param(target)
-
-        train_dataset = CustomClassificationDataset(images=features, targets=target)
-        NN_model = ClassificationExperimenter(train_dataset=train_dataset,
-                                              val_dataset=train_dataset,
-                                              **self.model_hyperparams)
-        NN_model.fit(num_epochs=num_epochs)
-        return NN_model
-
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features, dataset_name)
-        prediction_label = list(prediction_label.values())
-        return dict(label=prediction_label, test_features=self.test_features)
-
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs',
-                                                      dataset_name=dataset_name)
-        prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
-        return dict(class_probability=prediction_proba, test_features=self.test_features)

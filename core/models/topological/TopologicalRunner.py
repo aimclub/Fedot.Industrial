@@ -1,12 +1,13 @@
 import gc
 import sys
 from typing import Optional
+
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
-from core.architecture.abstraction.Decorators import time_it
+
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.topological import *
 
