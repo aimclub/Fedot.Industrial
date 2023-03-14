@@ -1,14 +1,14 @@
 """
 This module contains functions for splitting a torch dataset into parts.
 """
-from typing import List, Tuple, Generator, Optional
+from typing import List, Tuple, Generator, Optional, Dict
 
 import numpy as np
 from torch.utils.data import Dataset, Subset
 from tqdm import tqdm
 
 
-def train_test_split(dataset: Dataset, p: float = 0.2) -> Tuple[Subset]:
+def train_test_split(dataset: Dataset, p: float = 0.2) -> Tuple[Subset, Subset]:
     """
     Splits the data into two parts, keeping the proportions of the classes.
 
@@ -24,7 +24,7 @@ def train_test_split(dataset: Dataset, p: float = 0.2) -> Tuple[Subset]:
     return next(k_fold(dataset=dataset, n=n))
 
 
-def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset], None, None]:
+def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset, Subset], None, None]:
     """
     K-Folds cross-validator.
 
@@ -113,15 +113,18 @@ def extract_classes(dataset: Dataset) -> np.ndarray:
     return np.array(classes_of_imgs)
 
 
-def dataset_info(dataset: Dataset) -> None:
+def dataset_info(dataset: Dataset) -> Dict[int, int]:
     """
-    Prints number of samples in each class
+    Prints and returns number of samples in each class
     """
     classes_of_imgs = extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
+    class_samples = {}
     for cl in classes:
         indices_of_class = np.nonzero(classes_of_imgs==cl)[0]
+        class_samples[cl] = indices_of_class.size
         print(f"Class {cl} contains {indices_of_class.size} samples.")
+    return class_samples
 
 
 def get_dataset_mean_std(dataset: Dataset) -> Tuple[Tuple, Tuple]:
