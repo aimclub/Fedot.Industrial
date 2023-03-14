@@ -23,6 +23,7 @@ class COCODataset(Dataset):
             transformed version.
         fix_zero_class: If ``True`` add 1 for each class label
             (0 represents always the background class).
+        replace_to_binary: If ``True`` set label 1 for any class.
     """
 
     def __init__(
@@ -30,8 +31,8 @@ class COCODataset(Dataset):
         images_path: str,
         json_path: str,
         transform: Callable,
-        fix_zero_class: bool = False
-
+        fix_zero_class: bool = False,
+        replace_to_binary: bool = False,
     ) -> None:
         self.transform = transform
         self.classes = {}
@@ -60,6 +61,7 @@ class COCODataset(Dataset):
                 bbox[2:] += bbox[:2]  # x, y, w, h -> x1, y1, x2, y2
                 labels = np.array(annotation['category_id'])
                 labels = labels + 1 if fix_zero_class else labels
+                labels = np.zeros_like(labels) if replace_to_binary else labels
                 samples[annotation['image_id']]['labels'].append(labels)
                 samples[annotation['image_id']]['boxes'].append(bbox)
                 samples[annotation['image_id']]['area'].append(annotation['area'])
@@ -106,18 +108,21 @@ class YOLODataset(Dataset):
             transformed version.
         fix_zero_class: If ``True`` add 1 for each class label
             (0 represents always the background class).
+        replace_to_binary: If ``True`` set label 1 for any class.
     """
 
     def __init__(
         self,
         image_folder: str,
         transform: Callable,
-        fix_zero_class: bool = False
+        fix_zero_class: bool = False,
+        replace_to_binary: bool = False,
     ) -> None:
         self.transform = transform
         self.root = image_folder
         self.samples = []
         self.fix_zero_class = fix_zero_class
+        self.binary = replace_to_binary
         for address, dirs, files in os.walk(image_folder):
             for file in files:
                 if file.lower().endswith(IMG_EXTENSIONS):
@@ -149,6 +154,7 @@ class YOLODataset(Dataset):
         image = self.transform(image)
         annotation = np.loadtxt(sample['annotation'], ndmin=2)
         labels = annotation[:, 0] + 1 if self.fix_zero_class else annotation[:, 0]
+        labels = torch.zeros_like(labels) if self.binary else labels
         boxes = annotation[:, 1:]
         c, h, w = image.shape
         boxes *= [w, h, w, h]
