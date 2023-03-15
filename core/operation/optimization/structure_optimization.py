@@ -269,7 +269,7 @@ class SFPOptimization(StructureOptimization):
         if isinstance(exp.model, self.model_class):
             self.final_pruning(exp=exp, params=params, ft_params=ft_params)
         else:
-            self.logger.warning(f'Final pruning function "{self.pruning_fn.__name__}"',
+            self.logger.warning(f'Final pruning function "{self.pruning_fn.__name__}"' +
                                 f'supports only {self.model_class.__name__} models.')
 
     def final_pruning(

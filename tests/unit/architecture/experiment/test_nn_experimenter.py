@@ -22,7 +22,7 @@ def prepare_classification(tmp_path):
     val_ds = ImageFolder(root=DATASETS_PATH + 'Agricultural/val', transform=transform)
     exp_params = {
         'model': resnet18(num_classes=3),
-        'gpu': False
+        'device': 'cpu'
     }
     fit_params = FitParameters(
         dataset_name='Agricultural',
@@ -91,7 +91,7 @@ def prepare_detection(tmp_path):
     exp_params = {
         'num_classes': len(dataset.classes) + 1,
         'model_params': {'weights': 'DEFAULT'},
-        'gpu': False
+        'device': 'cpu'
     }
     fit_params = FitParameters(
         dataset_name='ALET10',

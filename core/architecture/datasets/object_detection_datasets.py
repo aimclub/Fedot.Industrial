@@ -59,9 +59,9 @@ class COCODataset(Dataset):
             if annotation['area'] > 0:
                 bbox = np.array(annotation['bbox'])
                 bbox[2:] += bbox[:2]  # x, y, w, h -> x1, y1, x2, y2
-                labels = np.array(annotation['category_id'])
+                labels = annotation['category_id']
                 labels = labels + 1 if fix_zero_class else labels
-                labels = np.zeros_like(labels) if replace_to_binary else labels
+                labels = 1 if replace_to_binary else labels
                 samples[annotation['image_id']]['labels'].append(labels)
                 samples[annotation['image_id']]['boxes'].append(bbox)
                 samples[annotation['image_id']]['area'].append(annotation['area'])
