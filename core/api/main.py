@@ -86,6 +86,22 @@ class FedotIndustrial(Fedot):
                     **kwargs) -> dict:
         return self.pipeline.get_metrics(target, metric_names)
 
+    def load(self, path):
+        """Loads saved model and Fedot graph from disk
+
+        Args:
+            path (str): path to the model
+        """
+        # self.pipeline.load(path)
+        pass
+
+    def plot_prediction(self, **kwargs):
+        pass
+
+
+    # def save_predict(self, predicted_data: OutputData):
+    #     self.saver.save_prediction(predicted_data)
+
 
 if __name__ == "__main__":
     datasets = [ 'UMD']

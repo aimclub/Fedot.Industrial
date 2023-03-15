@@ -56,7 +56,7 @@ class SpectrumDecomposer:
     def __get_trajectory_matrix(self):
         # return np.array(
         #     [self.__time_series[i:self.__window_length + i] for i in range(0, self.__subseq_length)]).T
-        hankel_transform = HankelMatrix(time_series=self.__time_series, window_length=self.window_length)
+        hankel_transform = HankelMatrix(time_series=self.__time_series, window_size=self.window_length)
         if len(self.__time_series.shape) > 2:
             return hankel_transform.trajectory_matrix
         else:

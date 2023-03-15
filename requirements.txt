@@ -1,5 +1,5 @@
 fedot==0.7.0
-cycler==0.11.0
+# cycler==0.11.0
 ripser==0.6.4
 
 # Data

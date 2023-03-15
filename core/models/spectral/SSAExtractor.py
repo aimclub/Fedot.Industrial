@@ -1,19 +1,16 @@
-import os
-from collections import Counter
 from multiprocessing import Pool
-from itertools import compress
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
 from core.api.utils.checkers_collections import DataCheck
 from core.metrics.metrics_implementation import ParetoMetrics
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from core.operation.transformation.data.eigen import combine_eigenvectors
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
-from core.architecture.utils.utils import PROJECT_PATH
 from core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 
@@ -52,7 +49,7 @@ class SSAExtractor(BaseExtractor):
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
-        self.datacheck = DataCheck(logger=self.logger)
+        self.datacheck = DataCheck()
         self.window_sizes = window_sizes
         self.vis_flag = False
         self.rank_hyper = None
@@ -181,7 +178,7 @@ class SSAExtractor(BaseExtractor):
         eigen_list = []
 
         if self.window_sizes == 'auto':
-            ts_length = ts_frame.shape[1]
+            ts_length = x_train.shape[1]
             window_list = list(map(lambda x: round(ts_length / x), [10, 5, 3]))
         else:
             window_list = self.window_sizes

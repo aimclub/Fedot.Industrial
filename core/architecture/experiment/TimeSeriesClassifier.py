@@ -35,7 +35,7 @@ class TimeSeriesClassifier:
                  generator_runner: BaseExtractor = None,
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False,
-                 dataset_name: str = None,):
+                 dataset_name: str = None, ):
         self.logger = Logger(self.__class__.__name__)
         self.predictor = None
         self.y_train = None
@@ -145,11 +145,11 @@ class TimeSeriesClassifier:
         return self.predictor
 
     def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features=test_features,
-                                                      mode='labels')
-        return prediction_label
+        self.prediction_label = self.__predict_abstraction(test_features=test_features,
+                                                           mode='labels')
+        return self.prediction_label
 
     def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                      mode='probs',)
-        return prediction_proba
+        self.prediction_proba = self.__predict_abstraction(test_features=test_features,
+                                                           mode='probs', )
+        return self.prediction_proba
