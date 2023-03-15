@@ -60,7 +60,7 @@ class NNExperimenter:
             Must implement ``update`` and ``compute`` methods.
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
-        gpu: If ``True``, uses GPU.
+        device: String passed to ``torch.device`` initialization.
     """
 
     def __init__(
@@ -70,13 +70,13 @@ class NNExperimenter:
             metric_counter,
             name: Optional[str],
             weights: Optional[str],
-            gpu: bool,
+            device: str,
     ):
         self.logger = Logger(self.__class__.__name__)
         self.model = model
         if weights is not None:
             self.model.load_state_dict(torch.load(weights))
-        self.device = torch.device('cuda' if gpu else 'cpu')
+        self.device = torch.device(device)
         self.model.to(self.device)
         self.name = name if name is not None else type(model).__name__
         self.best_score = -1
@@ -321,7 +321,7 @@ class ClassificationExperimenter(NNExperimenter):
         loss: Loss function applied to model output.
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
-        gpu: If ``True``, uses GPU.
+        device: String passed to ``torch.device`` initialization.
     """
 
     def __init__(
@@ -331,7 +331,7 @@ class ClassificationExperimenter(NNExperimenter):
             loss: Callable = torch.nn.CrossEntropyLoss(),
             name: Optional[str] = None,
             weights: Optional[str] = None,
-            gpu: bool = True,
+            device: str = 'cuda',
     ):
         parameter_value_check(
             parameter='metric',
@@ -344,7 +344,7 @@ class ClassificationExperimenter(NNExperimenter):
             metric_counter=ClassificationMetricCounter,
             name=name,
             weights=weights,
-            gpu=gpu
+            device=device
         )
         self.loss = loss
 
@@ -381,7 +381,7 @@ class FasterRCNNExperimenter(NNExperimenter):
             One of ``'map'``, ``'map_50'``, ``'map_75'``.
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
-        gpu: If ``True``, uses GPU.
+        device: String passed to ``torch.device`` initialization.
     """
 
     def __init__(
@@ -391,7 +391,7 @@ class FasterRCNNExperimenter(NNExperimenter):
             metric: str = 'map',
             name: Optional[str] = None,
             weights: Optional[str] = None,
-            gpu: bool = True,
+            device: str = 'cuda',
     ):
         parameter_value_check(
             parameter='metric',
@@ -407,7 +407,7 @@ class FasterRCNNExperimenter(NNExperimenter):
             metric_counter=ObjectDetectionMetricCounter,
             name=name,
             weights=weights,
-            gpu=gpu
+            device=device
         )
 
     def forward(self, x: torch.Tensor) -> List:
@@ -448,7 +448,7 @@ class SegmentationExperimenter(NNExperimenter):
         loss: Loss function applied to model output.
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
-        gpu: If ``True``, uses GPU.
+        device: String passed to ``torch.device`` initialization.
     """
 
     def __init__(
@@ -458,7 +458,7 @@ class SegmentationExperimenter(NNExperimenter):
             loss: Callable = torch.nn.CrossEntropyLoss(),
             name: Optional[str] = None,
             weights: Optional[str] = None,
-            gpu: bool = True,
+            device: str = 'cuda',
     ):
         parameter_value_check(
             parameter='metric',
@@ -471,7 +471,7 @@ class SegmentationExperimenter(NNExperimenter):
             metric_counter=SegmentationMetricCounter,
             name=name,
             weights=weights,
-            gpu=gpu
+            device=device
         )
         self.loss = loss
 
