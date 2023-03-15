@@ -154,7 +154,7 @@ class YOLODataset(Dataset):
         image = self.transform(image)
         annotation = np.loadtxt(sample['annotation'], ndmin=2)
         labels = annotation[:, 0] + 1 if self.fix_zero_class else annotation[:, 0]
-        labels = np.zeros_like(labels) if self.binary else labels
+        labels = np.ones_like(labels) if self.binary else labels
         boxes = annotation[:, 1:]
         c, h, w = image.shape
         boxes *= [w, h, w, h]
