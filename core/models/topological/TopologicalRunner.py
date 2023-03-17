@@ -37,8 +37,8 @@ class TopologicalExtractor(BaseExtractor):
         super().__init__(params)
         self.filtered_features = None
         self.feature_extractor = None
-        self.te_dimension = None
-        self.te_time_delay = None
+        self.te_dimension = params.get('te_dimension')
+        self.te_time_delay = params.get('te_time_delay')
 
     def fit(self, input_data: InputData) -> OutputData:
         pass
@@ -61,14 +61,13 @@ class TopologicalExtractor(BaseExtractor):
         gc.collect()
         return ts_data_transformed
 
-    # @time_it
     def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None):
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
-        ts_data = pd.DataFrame(ts_data)
-        if ts_data.shape[0] > ts_data.shape[1]:
-            ts_data = ts_data.T
+        # ts_data = pd.DataFrame(ts_data)
+        # if ts_data.shape[0] > ts_data.shape[1]:
+        #     ts_data = ts_data.T
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:

@@ -8,17 +8,9 @@ error_correction: False
 
 n_ecm_cycles: 3
 
-use_cache: False
-
 ensemble_algorithm: None
 
-'launches': 1
-
-'window_mode': False
-
-'wavelet_types': [ 'db5', 'sym5', 'coif5', 'bior2.4' ]
-
-'window_sizes': 'auto'
+launches: 1
 
 fedot_params:
   {

@@ -20,13 +20,15 @@ class Metrics(Enum):
     mape = MAPE
 
 
+DEF_METRIC_LIST = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
+
+
 class PerformanceAnalyzer:
     """Class responsible for calculating metrics for predictions.
 
     """
-    def __init__(self, metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision')):
+    def __init__(self):
 
-        self.metric_list = metric_list
         self.logger = Logger('PerformanceAnalyzer')
 
     @staticmethod
@@ -77,10 +79,12 @@ class PerformanceAnalyzer:
             target = target
 
         if target_metrics is not None:
-            self.metric_list = target_metrics
+            metric_list = target_metrics
+        else:
+            metric_list = DEF_METRIC_LIST
 
         result_metric = []
-        for metric_name in self.metric_list:
+        for metric_name in metric_list:
             chosen_metric = Metrics[metric_name].value
             try:
                 score = chosen_metric(target=target,
@@ -93,6 +97,6 @@ class PerformanceAnalyzer:
                 self.logger.info(err)
                 result_metric.append(0)
 
-        result_dict = dict(zip(self.metric_list, result_metric))
+        result_dict = dict(zip(metric_list, result_metric))
 
         return result_dict

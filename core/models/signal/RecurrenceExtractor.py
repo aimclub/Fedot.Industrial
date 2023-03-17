@@ -33,15 +33,13 @@ class RecurrenceExtractor(BaseExtractor):
         self.min_signal_ratio = params.get('min_signal_ratio')
         self.max_signal_ratio = params.get('max_signal_ratio')
         self.rec_metric = params.get('rec_metric')
+        self.threshold_baseline = params.get('threshold_baseline')
+        self.rec_metric = params.get('rec_metric')
 
         self.transformer = TSTransformer
         self.extractor = ReccurenceFeaturesExtractor
         self.train_feats = None
         self.test_feats = None
-        self.threshold_baseline = [1, 5, 10, 15, 20, 25, 30]
-        self.min_signal_ratio = 0.65
-        self.max_signal_ratio = 0.75
-        self.rec_metric = 'euclidean'
 
     def _ts_chunk_function(self, ts):
         ts = self.check_for_nan(ts)
@@ -66,7 +64,7 @@ class RecurrenceExtractor(BaseExtractor):
 
         with Pool(n_processes) as p:
             components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
-                                                      ts_frame),
+                                                      ts_frame.values),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
@@ -80,9 +78,9 @@ class RecurrenceExtractor(BaseExtractor):
             components_and_vectors = pd.concat(components_and_vectors, axis=1).T
         return components_and_vectors
 
-    #@time_it
-    def generate_features_from_ts(self, ts_data: pd.DataFrame,
-                                  window_length: int = None) -> pd.DataFrame:
+    # @time_it
+    def get_features(self, ts_data: pd.DataFrame,
+                     window_length: int = None) -> pd.DataFrame:
         self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:

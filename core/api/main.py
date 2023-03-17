@@ -60,31 +60,32 @@ class FedotIndustrial(Fedot):
 
     def fit(self,
             train_features: pd.DataFrame,
-            target: np.ndarray,
-            **kwargs) -> np.ndarray:
+            train_target: np.ndarray,
+            baseline_type: str = 'rf') -> np.ndarray:
 
-        fitted_pipeline = self.pipeline.fit(train_features, target)
+        fitted_pipeline = self.pipeline.fit(train_features, train_target)
 
         return fitted_pipeline
 
 
     def predict(self,
                 test_features: pd.DataFrame,
-                target: np.ndarray,
-                **kwargs) -> np.ndarray:
-        return self.pipeline.predict(test_features=test_features, target=target)
+            ) -> np.ndarray:
+        return self.pipeline.predict(test_features=test_features)
 
     def predict_proba(self,
                       test_features,
-                      target,
-                      **kwargs) -> np.ndarray:
-        return self.pipeline.predict_proba(test_features=test_features, target=target)
+            ) -> np.ndarray:
+        return self.pipeline.predict_proba(test_features=test_features)
 
     def get_metrics(self,
                     target: Union[np.ndarray, pd.Series] = None,
                     metric_names: Union[str, List[str]] = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                     **kwargs) -> dict:
         return self.pipeline.get_metrics(target, metric_names)
+
+    def save_predict(self, predicted_data):
+        self.pipeline.save_prediction(predicted_data)
 
     def load(self, path):
         """Loads saved model and Fedot graph from disk
@@ -99,23 +100,23 @@ class FedotIndustrial(Fedot):
         pass
 
 
-    # def save_predict(self, predicted_data: OutputData):
-    #     self.saver.save_prediction(predicted_data)
+    def explain(self, features,
+                method: str = 'surrogate_dt', visualization: bool = True, **kwargs) -> 'Explainer':
+        pass
 
 
 if __name__ == "__main__":
-    datasets = [ 'UMD']
+    datasets = [ 'EthanolLevel']
 
     for dataset_name in datasets:
         config = dict(task='ts_classification',
                       dataset=dataset_name,
-                      feature_generator='window_spectral',
+                      feature_generator='spectral',
                       use_cache=False,
                       error_correction=False,
                       launches=1,
                       timeout=1,
                       n_jobs=2,
-                      # ensemble_algorithm='Rank_Ensemble',
                       # wavelet_types = ['bior2.4'],
                       window_sizes = 'auto',
                       # window_sizes = [10,30],
@@ -123,8 +124,9 @@ if __name__ == "__main__":
 
         indus = FedotIndustrial(input_config=config, output_folder=None)
         train_data, test_data, _ = indus.reader.read(dataset_name=dataset_name)
+        model = indus.fit(train_features=train_data[0], train_target=train_data[1])
 
-        model = indus.fit(train_features=train_data[0], target=train_data[1])
-        labels = indus.predict(test_features=test_data[0], target=test_data[1])
-        probs = indus.predict_proba(test_features=test_data[0], target=test_data[1])
-        metrics = indus.get_metrics(test_features=test_data[0],target=test_data[1])
+        labels = indus.predict(test_features=test_data[0])
+        probs = indus.predict_proba(test_features=test_data[0])
+        metrics = indus.get_metrics(target=test_data[1],
+                                    metric_names=['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'])

@@ -1,8 +1,10 @@
 from multiprocessing import Pool
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
 from core.api.utils.checkers_collections import DataCheck
@@ -33,30 +35,32 @@ class SSAExtractor(BaseExtractor):
 
     """
 
-    def __init__(self, window_sizes: dict = None,
-                 window_mode: bool = False,
-                 spectral_hyperparams: dict = None,
-                 use_cache: bool = False):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
 
-        super().__init__()
+        self.combine_eigenvectors = params.get('combine_eigenvectors')
+        self.correlation_level = params.get('correlation_level')
+        self.use_cache = params.get('use_cache')
+        self.window_sizes = params.get('window_sizes')
+        self.window_mode = params.get('window_mode')
+        self.spectral_hyperparams = params.get('spectral_hyperparams')
+        self.__init_spectral_hyperparams()
 
-        self.combine_eigenvectors = False
-        self.correlation_level = 0.8
-        if spectral_hyperparams is not None:
-            for k, v in spectral_hyperparams.items():
-                setattr(self, k, v)
-        self.use_cache = use_cache
         self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
         self.datacheck = DataCheck()
-        self.window_sizes = window_sizes
+
         self.vis_flag = False
         self.rank_hyper = None
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
-        self.window_mode = window_mode
+
+    def __init_spectral_hyperparams(self):
+        if self.spectral_hyperparams is not None:
+            for k, v in self.spectral_hyperparams.items():
+                setattr(self, k, v)
 
     @staticmethod
     def visualise(eigenvectors_list):
@@ -118,7 +122,7 @@ class SSAExtractor(BaseExtractor):
         self.logger.info(f'Number of time series processed: {ts_samples_count}')
         return components_and_vectors
 
-    #@time_it
+    # @time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
 
         if self.current_window is None:
@@ -132,18 +136,21 @@ class SSAExtractor(BaseExtractor):
 
             for col in aggregation_df.columns:
                 aggregation_df[col].fillna(value=aggregation_df[col].mean(), inplace=True)
+
+        _ = 1
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
         eigenvectors_list = list(map(lambda x: self.datacheck.check_data(x, return_df=True), eigenvectors_list))
         if self.window_mode:
             gen = self.aggregator.create_baseline_features
-            lambda_function_for_stat_features = lambda x: self.apply_window_for_stat_feature(x.T,
-                                                                                             feature_generator=gen)
-            lambda_function_for_concat = lambda x: pd.concat(x, axis=1)
+            function_for_stat_features = lambda x: self.apply_window_for_stat_feature(ts_data=x.T,
+                                                                                      feature_generator=gen,
+                                                                                      window_size=self.current_window)
+            concat_function = lambda x: pd.concat(x, axis=1)
 
-            list_with_stat_features_on_interval = list(map(lambda_function_for_stat_features, eigenvectors_list))
-            aggregation_df = list(map(lambda_function_for_concat, list_with_stat_features_on_interval))
+            list_with_stat_features_on_interval = list(map(function_for_stat_features, eigenvectors_list))
+            aggregation_df = list(map(concat_function, list_with_stat_features_on_interval))
         else:
             aggregation_df = list(map(lambda x: self.aggregator.create_baseline_features(x.T), eigenvectors_list))
 
@@ -195,7 +202,7 @@ class SSAExtractor(BaseExtractor):
             median_dispersion = np.median(explained_dispersion)
             self.explained_dispersion = round(float(median_dispersion))
 
-            self.n_components = round(np.median(rank_list))
+            self.n_components = int(np.median(rank_list))
 
             eigenvectors_list = [x[0].iloc[:, :self.n_components] for x in eigenvectors_and_rank]
 
@@ -219,6 +226,8 @@ class SSAExtractor(BaseExtractor):
         index_of_window = self.pareto_front.pareto_metric_list(np.array(metric_list))
         index_of_window = np.where(index_of_window == True)[0][0]
         self.current_window = window_list[index_of_window]
+        self.logger.info(f'Best window length - {self.current_window} selected.')
+
         eigenvectors_list = eigen_list[index_of_window]
         self.rank_hyper = int(np.round(np.median([x.shape[1] for x in eigenvectors_list])))
         eigenvectors_and_rank = self.generate_vector_from_ts(x_train)

@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -8,8 +8,10 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.checkers_collections import DataCheck
-from core.architecture.abstraction.logger import Logger
+from core.api.utils.saver_collections import ResultSaver
+from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
+from core.log import default_log as Logger
 from core.models.BaseExtractor import BaseExtractor
 
 
@@ -36,15 +38,17 @@ class TimeSeriesClassifier:
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False,
                  dataset_name: str = None, ):
-        self.logger = Logger(self.__class__.__name__)
+        self.prediction_label = None
         self.predictor = None
         self.y_train = None
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
         self.dataset_name = dataset_name
-
+        self.saver = ResultSaver()
+        self.logger = Logger(self.__class__.__name__)
         self.datacheck = DataCheck()
+
         self.generator_name = generator_name
         self.generator_runner = generator_runner
         self.feature_generator_dict = {self.generator_name: self.generator_runner}
@@ -107,12 +111,11 @@ class TimeSeriesClassifier:
                               test_features: Union[np.ndarray, pd.DataFrame],
                               mode: str = 'labels'):
 
-        if self.generator_runner is not None:
+        if self.test_features is None:
             self.test_features = self.generator_runner.extract_features(train_features=test_features,
                                                                         dataset_name=self.dataset_name)
-        else:
-            self.test_features = test_features
-        self.test_features = self.datacheck.check_data(self.test_features)
+            self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
+
         if isinstance(self.predictor, Pipeline):
             self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
             prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
@@ -144,12 +147,24 @@ class TimeSeriesClassifier:
 
         return self.predictor
 
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+    def predict(self, test_features: np.ndarray) -> dict:
         self.prediction_label = self.__predict_abstraction(test_features=test_features,
                                                            mode='labels')
         return self.prediction_label
 
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+    def predict_proba(self, test_features: np.ndarray) -> dict:
         self.prediction_proba = self.__predict_abstraction(test_features=test_features,
                                                            mode='probs', )
         return self.prediction_proba
+
+    def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):
+        analyzer = PerformanceAnalyzer()
+        return analyzer.calculate_metrics(target=target,
+                                          predicted_labels=self.prediction_label,
+                                          predicted_probs=self.prediction_proba,
+                                          target_metrics=metric_names)
+
+    def save_prediction(self, predicted_data: np.ndarray):
+        prediction_type = 'labels' if predicted_data.shape[1] == 1 else 'probs'
+        self.saver.save(predicted_data, prediction_type)
+

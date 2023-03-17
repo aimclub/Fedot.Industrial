@@ -82,7 +82,7 @@ class YamlReader:
         if isinstance(config, dict):
             base_config_path = 'core/api/config.yaml'
             self.experiment_dict = self.read_yaml_config(config_path=base_config_path,
-                                                    return_dict=True)
+                                                         return_dict=True)
 
             industrial_config = {k: v for k, v in config.items() if k not in ['timeout', 'n_jobs']}
 
@@ -92,7 +92,7 @@ class YamlReader:
 
         elif isinstance(config, str):
             self.experiment_dict = self.read_yaml_config(config_path=config,
-                                  direct_path=direct_path)
+                                                         direct_path=direct_path)
         else:
             self.logger.error('Wrong type of config file')
             raise ValueError('Config must be a string or a dictionary!')
@@ -130,10 +130,11 @@ class YamlReader:
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
         feature_gen_params = GeneratorParams[generator].value
+
         for param in feature_gen_params:
-            feature_gen_params[param] = self.experiment_dict[param]
-        feature_gen_class = feature_gen_model(**feature_gen_params,
-                                              use_cache=self.experiment_dict['use_cache'])
+            feature_gen_params[param] = self.experiment_dict.get(param, feature_gen_params[param])
+
+        feature_gen_class = feature_gen_model(feature_gen_params)
         return feature_gen_class
 
     def __report_experiment_setup(self, experiment_dict):

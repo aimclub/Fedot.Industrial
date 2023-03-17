@@ -93,6 +93,9 @@ class DataCheck:
             filled_data = filled_data.apply(lambda x: self._check_for_nan(x))
             if filled_data.shape[0] == input_data.shape[0] and filled_data.shape[1] == input_data.shape[1]:
                 input_data = filled_data
+            else:
+                self.logger.error('Encontered error during extracted features checking')
+                raise ValueError('Data contains NaN values')
 
             if return_df:
                 return input_data

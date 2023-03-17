@@ -5,14 +5,15 @@ from multiprocessing import cpu_count
 from typing import Optional
 
 from fedot.core.data.data import InputData
-from core.log import default_log
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import MinMaxScaler
 
-from core.metrics.metrics_implementation import *
 from core.architecture.utils.utils import PROJECT_PATH
+from core.log import default_log
+from core.metrics.metrics_implementation import *
 from core.operation.utils.cache import DataCacher
 
 
@@ -37,6 +38,7 @@ class BaseExtractor(DataOperationImplementation):
         self.logger = default_log()
         self.current_window = None
         self.n_processes = cpu_count() // 2
+        self.use_cache = params.get('use_cache')
 
     def fit(self, input_data: InputData):
         pass
@@ -213,14 +215,15 @@ class BaseExtractor(DataOperationImplementation):
         return dataframe
 
     @staticmethod
-    def apply_window_for_stat_feature(ts_data: pd.DataFrame,
+    def apply_window_for_stat_feature(ts_data: Union[np.ndarray, pd.DataFrame],
                                       feature_generator: callable,
                                       window_size: int = None):
-        ts_data = ts_data.T
+        # ts_data = ts_data.T
+        ts_data = pd.DataFrame(ts_data)
         if window_size is None:
+            # window size is 10% of the length of the time series
             window_size = round(ts_data.shape[1] / 10)
-        else:
-            window_size = round(ts_data.shape[1] / window_size)
+
         tmp_list = []
         for i in range(0, ts_data.shape[1], window_size):
             slice_ts = ts_data.iloc[:, i:i + window_size]
@@ -231,3 +234,60 @@ class BaseExtractor(DataOperationImplementation):
                 df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
                 tmp_list.append(df)
         return tmp_list
+
+    def reduce_feature_space(self, features: pd.DataFrame,
+                             var_threshold: float = 0.01,
+                             corr_threshold: float = 0.98) -> pd.DataFrame:
+        """Method responsible for reducing feature space.
+
+        Args:
+            features: dataframe with extracted features.
+            corr_threshold: cut-off value for correlation threshold.
+            var_threshold: cut-off value for variance threshold.
+
+        Returns:
+            Dataframe with reduced feature space.
+
+        """
+        init_feature_space_size = features.shape[1]
+
+        features = self._drop_stable_features(features, var_threshold)
+        features_new = self._drop_correlated_features(corr_threshold, features)
+
+        final_feature_space_size = features_new.shape[1]
+
+        if init_feature_space_size != final_feature_space_size:
+            self.logger.info(f'Feature space reduced from {init_feature_space_size} to {final_feature_space_size}')
+
+        return features_new
+
+    def _drop_correlated_features(self, corr_threshold, features):
+        features_corr = features.corr(method='pearson')
+        mask = np.ones(features_corr.columns.size) - np.eye(features_corr.columns.size)
+        df_corr = mask * features_corr
+        drops = []
+        for col in df_corr.columns.values:
+            # continue if the feature is already in the drop list
+            if np.in1d([col], drops):
+                continue
+
+            index_of_corr_feature = df_corr[abs(df_corr[col]) > corr_threshold].index
+            drops = np.union1d(drops, index_of_corr_feature)
+
+        if len(drops) == 0:
+            self.logger.info('No correlated features found')
+            return features
+
+        features_new = features.copy()
+        features_new.drop(drops, axis=1, inplace=True)
+        return features_new
+
+    def _drop_stable_features(self, features, var_threshold):
+        try:
+            variance_reducer = VarianceThreshold(threshold=var_threshold)
+            variance_reducer.fit_transform(features)
+            unstable_features_mask = variance_reducer.get_support()
+            features = features.loc[:, unstable_features_mask]
+        except ValueError:
+            self.logger.info('Variance reducer has not found any features with low variance')
+        return features

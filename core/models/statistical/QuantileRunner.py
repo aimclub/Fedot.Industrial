@@ -76,23 +76,26 @@ class StatsExtractor(BaseExtractor):
         return self.generate_features_from_ts(ts_data)
 
     def __component_extraction(self, ts):
-        ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]
+        ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
         tmp_list = []
         for index, component in enumerate(ts_components):
             aggregation_df = self.extract_stats_features(component)
             col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
             aggregation_df.columns = col_name
             tmp_list.append(aggregation_df)
-        aggregation_df = pd.concat(tmp_list, axis=1)
+
+        aggregation_df = pd.concat(tmp_list, axis=0).reset_index(drop=True)
         return aggregation_df
 
     def __get_feature_matrix(self, ts):
-        ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
-        if ts_components[0].shape[0] != 1:
-            ts_components = [x.T for x in ts_components]
+        # ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
+        # if ts_components[0].shape[0] != 1:
+        #     ts_components = [x.T for x in ts_components] #ts_components[0].values.reshape(-1)
+
+        ts_components = [x.reshape(-1) for x in ts.values]
         tmp_list = []
         for index, component in enumerate(ts_components):
             aggregation_df = self.extract_stats_features(component)
             tmp_list.append(aggregation_df)
-        aggregation_df = pd.concat(tmp_list, axis=0)
+        aggregation_df = pd.concat(tmp_list, axis=0).reset_index(drop=True)
         return aggregation_df

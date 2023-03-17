@@ -2,22 +2,20 @@ from itertools import repeat
 from multiprocessing import Pool
 from typing import Optional
 
-import pywt
+from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
-from core.operation.transformation.extraction.wavelet import WaveletExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
-from fedot.core.operations.operation_parameters import OperationParameters
+from core.operation.transformation.extraction.wavelet import WaveletExtractor
+
 
 class SignalExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
 
     Args:
-        wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.
-        use_cache: flag to use cache or not. Defined in Config_Classification.yaml
+        params: parameters of Wavelet-extractor – wavelet types as list of strings
 
     Attributes:
         ts_samples_count (int): number of samples in time series
@@ -37,7 +35,10 @@ class SignalExtractor(BaseExtractor):
         self.aggregator = StatFeaturesExtractor()
         self.wavelet_extractor = WaveletExtractor
 
-        self.wavelet = params.get('wavelet')
+        self.wavelet_types = params.get('wavelet_types')
+        # self.wavelet = params.get('wavelet')
+        # Auto-selected while training
+        self.wavelet = None
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
@@ -92,7 +93,7 @@ class SignalExtractor(BaseExtractor):
                            method_name: str = 'AC'):
 
         ts = self.check_for_nan(ts)
-        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
+        specter = self.wavelet_extractor(single_ts=ts, wavelet_name=self.wavelet)
         feature_df = self.dict_of_methods[method_name](specter)
 
         return feature_df
@@ -110,9 +111,13 @@ class SignalExtractor(BaseExtractor):
         """
         ts_samples_count = ts_frame.shape[0]
         n_processes = self.n_processes
+        # components_and_vectors = []
+        # for ts in ts_frame:
+        #     c_and_v = self._ts_chunk_function(ts=ts, method_name=method_name)
+        #     components_and_vectors.append(c_and_v)
         with Pool(n_processes) as p:
             components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
-                                                         zip(ts_frame, repeat(method_name))),
+                                                         zip(ts_frame.values, repeat(method_name))),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
@@ -124,7 +129,7 @@ class SignalExtractor(BaseExtractor):
         return components_and_vectors
 
     #@time_it
-    def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         if not self.wavelet:
             train_feats = self._choose_best_wavelet(ts_data)
             self.train_feats = train_feats
@@ -148,7 +153,7 @@ class SignalExtractor(BaseExtractor):
         metric_list = []
         feature_list = []
 
-        for wavelet in self.wavelet_list:
+        for wavelet in self.wavelet_types:
             self.logger.info(f'Generate features wavelet - {wavelet}')
             self.wavelet = wavelet
 
@@ -164,7 +169,7 @@ class SignalExtractor(BaseExtractor):
         train_feats = feature_list[index_of_window]
         train_feats.index = list(range(len(train_feats)))
 
-        self.wavelet = self.wavelet_list[index_of_window]
+        self.wavelet = self.wavelet_types[index_of_window]
         self.logger.info(f'<{self.wavelet}> wavelet was chosen')
 
         train_feats = self.delete_col_by_var(train_feats)
