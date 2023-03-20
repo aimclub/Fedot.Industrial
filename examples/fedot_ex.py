@@ -39,7 +39,7 @@ if __name__ == '__main__':
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(PipelineTuner) \
         .with_metric(ClassificationMetricsEnum.f1) \
-        .with_iterations(2) \
+        .with_iterations(5) \
         .build(train_data)
     pipeline = pipeline_tuner.tune(pipeline)
     pipeline.fit(train_data)
