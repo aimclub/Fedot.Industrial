@@ -69,13 +69,9 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         hashed_info = cacher.hash_info(data=input_data.features.tobytes(),
                                        **self.params.to_dict())
 
-        print(self.params.to_dict(), np.ravel(input_data.features)[:3])
         try:
-            print(hashed_info)
             predict = cacher.load_data_from_cache(hashed_info=hashed_info)
-            print('Loaded from hash')
         except FileNotFoundError:
-            print('Failed to load')
             v = np.vectorize(self.f, signature='(n)->(m, n)')
 
             predict = v(features)

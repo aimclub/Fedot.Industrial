@@ -10,6 +10,7 @@ from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
 from core.models.statistical.QuantileRunner import StatsExtractor
 from core.models.topological.TopologicalRunner import TopologicalExtractor
+from core.operation.dummy.dummy_operation import DummyOperation
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 
@@ -34,7 +35,9 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         'topological_extractor': TopologicalExtractor,
         'quantile_extractor': StatsExtractor,
         'signal_extractor': SignalExtractor,
-        'recurrence_extractor': RecurrenceExtractor
+        'recurrence_extractor': RecurrenceExtractor,
+
+        'dummy': DummyOperation
     }
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):

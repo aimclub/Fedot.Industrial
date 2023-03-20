@@ -65,7 +65,6 @@ class TopologicalExtractor(BaseExtractor):
         ts_data_transformed = self.feature_extractor.fit_transform(ts_data)
 
         if self.filtered_features is None:
-            ts_data_transformed = self.delete_col_by_var(ts_data_transformed)
             self.filtered_features = ts_data_transformed.columns.tolist()
         gc.collect()
         return ts_data_transformed[self.filtered_features]

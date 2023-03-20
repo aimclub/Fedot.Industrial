@@ -123,7 +123,6 @@ class SignalExtractor(BaseExtractor):
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
         return components_and_vectors
 
-    @time_it
     def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
         if not self.wavelet:
             train_feats = self._choose_best_wavelet(ts_data)
@@ -136,36 +135,3 @@ class SignalExtractor(BaseExtractor):
             self.test_feats = test_feats
         return self.test_feats
 
-    def _choose_best_wavelet(self, x_train: pd.DataFrame) -> pd.DataFrame:
-        """Chooses the best wavelet for feature extraction.
-
-        Args:
-            x_train: train features.
-
-        Returns:
-            pd.DataFrame: features with the best wavelet.
-        """
-        metric_list = []
-        feature_list = []
-
-        for wavelet in self.wavelet_list:
-            self.logger.info(f'Generate features wavelet - {wavelet}')
-            self.wavelet = wavelet
-
-            train_feats = self.generate_vector_from_ts(x_train)
-            train_feats = pd.concat(train_feats)
-            filtered_df = self.delete_col_by_var(train_feats)
-            feature_list.append(train_feats)
-            metric_list.append((filtered_df.shape[0], filtered_df.shape[1]))
-
-        max_score = [sum(x) for x in metric_list]
-        index_of_window = int(max_score.index(max(max_score)))
-
-        train_feats = feature_list[index_of_window]
-        train_feats.index = list(range(len(train_feats)))
-
-        self.wavelet = self.wavelet_list[index_of_window]
-        self.logger.info(f'<{self.wavelet}> wavelet was chosen')
-
-        train_feats = self.delete_col_by_var(train_feats)
-        return train_feats

@@ -39,11 +39,11 @@ def initialize_uni_data():
     train_data, test_data, n_classes = load_data('Lightning7')
     train_data = InputData(idx=np.arange(len(train_data[0])),
                            features=train_data[0].values,
-                           target=train_data[1],
+                           target=train_data[1].reshape(-1, 1),
                            task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table)
     test_data = InputData(idx=np.arange(len(test_data[0])),
                           features=test_data[0].values,
-                          target=test_data[1],
+                          target=test_data[1].reshape(-1, 1),
                           task=Task(TaskTypesEnum.classification),
                           data_type=DataTypesEnum.table)
 

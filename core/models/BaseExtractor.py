@@ -10,6 +10,7 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
     DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.preprocessing import MinMaxScaler
+from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.architecture.utils.utils import PROJECT_PATH
@@ -56,15 +57,13 @@ class BaseExtractor(DataOperationImplementation):
         hashed_info = cacher.hash_info(data=input_data.features.tobytes(),
                                        **self.params.to_dict())
 
-        print(self.params.to_dict(), np.ravel(input_data.features)[:3])
         try:
-            print(hashed_info)
             predict = cacher.load_data_from_cache(hashed_info=hashed_info)
-            print('Loaded from hash')
         except FileNotFoundError:
-            print('Failed to load')
-            v = np.vectorize(self.f, signature='(n, m)->(p, q)')
-            predict = v(np.squeeze(input_data.features, 3))
+            v = []
+            for series in tqdm(np.squeeze(input_data.features, 3)):
+                v.append(self.generate_features_from_ts(series))
+            predict = np.array(v)
             predict = np.where(np.isnan(predict), 0, predict)
             predict = predict.reshape(predict.shape[0], -1)
             cacher.cache_data(hashed_info=hashed_info,
@@ -204,14 +203,7 @@ class BaseExtractor(DataOperationImplementation):
             score_roc_auc = 0
         return score_roc_auc
 
-    @staticmethod
-    def delete_col_by_var(dataframe: pd.DataFrame):
-        for col in dataframe.columns:
-            scaled_feature = MinMaxScaler(feature_range=(0, 1)).fit_transform(dataframe[col].values.reshape(-1, 1))[:, 0]
-            deviation = np.std(scaled_feature)
-            if deviation < 0.05 and not col.startswith('diff'):
-                del dataframe[col]
-        return dataframe
+
 
     @staticmethod
     def apply_window_for_stat_feature(ts_data: pd.DataFrame,

@@ -121,7 +121,6 @@ class SSAExtractor(BaseExtractor):
         self.logger.info(f'Number of time series processed: {ts_samples_count}')
         return components_and_vectors
 
-    @time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
 
         if self.current_window is None:
@@ -229,7 +228,6 @@ class SSAExtractor(BaseExtractor):
         self.train_feats = self.generate_features_from_ts(self.eigenvectors_list_train, window_mode=self.window_mode)
         for col in self.train_feats.columns:
             self.train_feats[col].fillna(value=self.train_feats[col].mean(), inplace=True)
-        self.train_feats = self.delete_col_by_var(self.train_feats)
         self.n_components = n_comp_list[index_of_window]
         self.logger.info(f'Window length = {self.current_window} was chosen')
 

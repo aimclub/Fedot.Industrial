@@ -71,7 +71,7 @@ class StatsExtractor(BaseExtractor):
 
         return aggregation_df
 
-    @time_it
+
     def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
         return self.generate_features_from_ts(ts_data)
 

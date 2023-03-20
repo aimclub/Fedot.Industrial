@@ -64,7 +64,6 @@ class DataCacher:
 
         try:
             np.save(cache_file, data)
-            print(f'{self.data_type} cached with {hashed_info} hash')
 
         except Exception as ex:
             print(f'Data was not cached due to error { ex }')
