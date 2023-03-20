@@ -1,7 +1,4 @@
-import os
-from collections import Counter
 from multiprocessing import Pool
-from itertools import compress
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,8 +9,6 @@ from core.models.BaseExtractor import BaseExtractor
 from core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from core.operation.transformation.data.eigen import combine_eigenvectors
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
-from core.architecture.utils.utils import PROJECT_PATH
 from core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 

@@ -1,6 +1,6 @@
 from typing import Union
 import pandas as pd
-from core.architecture.settings.Hyperparams import *
+from core.architecture.settings.hyperparams import *
 
 stat_methods = select_hyper_param('statistical_methods')
 stat_methods_extra = select_hyper_param('statistical_methods_extra')

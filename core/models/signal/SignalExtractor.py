@@ -1,16 +1,14 @@
 from itertools import repeat
 from multiprocessing import Pool
 from typing import Optional
-
-import pywt
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
-from core.operation.transformation.extraction.wavelet import WaveletExtractor
+from core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it, dataframe_adapter
 from fedot.core.operations.operation_parameters import OperationParameters
+
 
 class SignalExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
@@ -33,69 +31,41 @@ class SignalExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.ts_samples_count = None
         self.aggregator = StatFeaturesExtractor()
-        self.wavelet_extractor = WaveletExtractor
-
+        self.n_components = params.get('n_components', 2)
         self.wavelet = params.get('wavelet')
-        self.vis_flag = False
-        self.train_feats = None
-        self.test_feats = None
-        self.dict_of_methods = {'Peaks': self._method_of_peaks,
-                                'AC': self._method_of_AC}
+        self.wavelet_basis = WaveletBasisImplementation(params)
+        self.feature_generator = StatFeaturesExtractor()
 
-    def _method_of_peaks(self, specter):
-        threshold_range = [1, 3, 5, 7, 9]
-        high_freq, low_freq = specter.decompose_signal()
+    def _ts_chunk_function(self, ts):
 
-        hf_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1))
-        hf_lambda_names = lambda x: 'HF_peaks_higher_than_{}'.format(x + 1)
-        hf_lambda_knn = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
-        hf_lambda_knn_names = lambda x: 'HF_nearest_peaks_at_distance_{}'.format(x)
-
-        lf_lambda_peaks = lambda x: len(specter.detect_peaks(high_freq, mph=x + 1, valley=True))
-        lf_lambda_names = lambda x: 'LF_peaks_higher_than_{}'.format(x + 1)
-        lf_lambda_knn = lambda x: len(specter.detect_peaks(high_freq, mpd=x))
-        lf_lambda_knn_names = lambda x: 'LF_nearest_peaks_at_distance_{}'.format(x)
-
-        lambda_list = [
-            hf_lambda_knn,
-            lf_lambda_peaks,
-            lf_lambda_knn]
-
-        lambda_list_names = [
-            hf_lambda_knn_names,
-            lf_lambda_names,
-            lf_lambda_knn_names]
-
-        features = list(map(hf_lambda_peaks, threshold_range))
-        features_names = list(map(hf_lambda_names, threshold_range))
-        for lambda_method, lambda_name in zip(lambda_list, lambda_list_names):
-            features.extend(list(map(lambda_method, threshold_range)))
-            features_names.extend(list(map(lambda_name, threshold_range)))
-
-        feature_df = pd.DataFrame(data=features)
-        feature_df = feature_df.T
-        feature_df.columns = features_names
-        return feature_df
-
-    def _method_of_AC(self, specter, level: int = 3):
-        high_freq, low_freq = specter.decompose_signal()
-        hf_AC_features = specter.generate_features_from_AC(HF=high_freq,
-                                                           LF=low_freq,
-                                                           level=level)
-
+        ts = self.check_for_nan(ts)
+        high_freq, low_freq = self.wavelet_basis._transform(series=ts)
+        hf_AC_features = self.generate_features_from_AC(HF=high_freq,
+                                                        LF=low_freq)
         feature_df = pd.concat(hf_AC_features, axis=1)
         return feature_df
 
-    def _ts_chunk_function(self, ts,
-                           method_name: str = 'AC'):
+    def generate_features_from_AC(self,
+                                  HF,
+                                  LF):
 
-        ts = self.check_for_nan(ts)
-        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
-        feature_df = self.dict_of_methods[method_name](specter)
-
-        return feature_df
+        feature_list = []
+        feature_df = self.feature_generator.create_features(LF)
+        feature_df.columns = [f'{x}_LF' for x in feature_df.columns]
+        feature_list.append(feature_df)
+        if self.wavelet in self.wavelet_basis.continuous_wavelets:
+            for idx, level in enumerate(HF):
+                feature_df = self.feature_generator.create_features(level)
+                feature_df.columns = [f'{x}_level_{idx}' for x in feature_df.columns]
+                feature_list.append(feature_df)
+        else:
+            for i in range(self.n_components):
+                feature_df = self.feature_generator.create_features(HF)
+                feature_df.columns = [f'{x}_level_{i}' for x in feature_df.columns]
+                feature_list.append(feature_df)
+                HF = self.wavelet_basis._decompose_signal(input_data=HF)[0]
+        return feature_list
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
         """Generate vector from time series.
@@ -123,49 +93,14 @@ class SignalExtractor(BaseExtractor):
         self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
         return components_and_vectors
 
-    #@time_it
-    def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        if not self.wavelet:
-            train_feats = self._choose_best_wavelet(ts_data)
-            self.train_feats = train_feats
-            return self.train_feats
+    def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+
+        ts_data = np.array(ts_data)
+        if len(ts_data.shape) == 1:
+            self.test_feats = self._ts_chunk_function(ts_data)
         else:
-            test_feats = self.generate_vector_from_ts(ts_data)
+            test_feats = self.generate_vector_from_ts(np.array(ts_data))
             test_feats = pd.concat(test_feats)
             test_feats.index = list(range(len(test_feats)))
             self.test_feats = test_feats
         return self.test_feats
-
-    def _choose_best_wavelet(self, x_train: pd.DataFrame) -> pd.DataFrame:
-        """Chooses the best wavelet for feature extraction.
-
-        Args:
-            x_train: train features.
-
-        Returns:
-            pd.DataFrame: features with the best wavelet.
-        """
-        metric_list = []
-        feature_list = []
-
-        for wavelet in self.wavelet_list:
-            self.logger.info(f'Generate features wavelet - {wavelet}')
-            self.wavelet = wavelet
-
-            train_feats = self.generate_vector_from_ts(x_train)
-            train_feats = pd.concat(train_feats)
-            filtered_df = self.delete_col_by_var(train_feats)
-            feature_list.append(train_feats)
-            metric_list.append((filtered_df.shape[0], filtered_df.shape[1]))
-
-        max_score = [sum(x) for x in metric_list]
-        index_of_window = int(max_score.index(max(max_score)))
-
-        train_feats = feature_list[index_of_window]
-        train_feats.index = list(range(len(train_feats)))
-
-        self.wavelet = self.wavelet_list[index_of_window]
-        self.logger.info(f'<{self.wavelet}> wavelet was chosen')
-
-        train_feats = self.delete_col_by_var(train_feats)
-        return train_feats

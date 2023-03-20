@@ -35,3 +35,70 @@ class MlModel(Enum):
     functional_pca = FunctionalPCA
     kalman_filter = UnscentedKalmanFilter
     sst = SingularSpectrumTransformation
+
+
+class KernelFeatureGenerator(Enum):
+    statistical = [{'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 5
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 10
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 20
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 30
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 40
+                    }
+                    }
+                   ]
+    wavelet = [
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "mexh",
+             'n_components': 2
+         }},
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "haar",
+             'n_components': 2
+         }
+         },
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "dmey",
+             'n_components': 2
+         }
+         },
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "gaus3",
+             'n_components': 2
+         }
+         },
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "morl",
+             'n_components': 2
+         }
+         }
+    ]
+    recurrence = []
+    topological = []

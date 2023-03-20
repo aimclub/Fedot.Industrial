@@ -2,7 +2,7 @@ import copy
 from sklearn.metrics import confusion_matrix
 from core.ensemble.BaseEnsembler import BaseEnsemble
 from scipy.stats.mstats import mode
-from core.architecture.settings.Hyperparams import *
+from core.architecture.settings.hyperparams import *
 
 
 class AggregationEnsemble(BaseEnsemble):
