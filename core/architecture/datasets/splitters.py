@@ -44,7 +44,7 @@ def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset, Subset], None, N
         train_ds = Subset(dataset, train_indices)
         yield train_ds, test_ds
 
-def split_data(dataset: Dataset, n: int) -> List[np.ndarray]:
+def split_data(dataset: Dataset, n: int, verbose: bool = False) -> List[np.ndarray]:
     """
     Splits the data into n parts, keeping the proportions of the classes.
 
@@ -60,21 +60,23 @@ def split_data(dataset: Dataset, n: int) -> List[np.ndarray]:
     fold_indices = [[] for _ in range(n)]
     for cl in classes:
         indices_of_class = np.random.permutation(np.nonzero(classes_of_imgs==cl)[0])
-        print(f"Class {cl} contains {indices_of_class.size} samples.")
+        if verbose:
+            print(f"Class {cl} contains {indices_of_class.size} samples.")
         lengths = [int(indices_of_class.size / n) for _ in range(n)]
         remainder = indices_of_class.size - sum(lengths)
         # add 1 to all the lengths in round-robin fashion until the remainder is 0
         for i in range(remainder):
             lengths[i % n] += 1
         start = 0
-        print(' '.join(map(str, lengths)))
+        if verbose:
+            print(' '.join(map(str, lengths)))
         for i, length in enumerate(lengths):
             fold_indices[i].append(indices_of_class[start : start + length])
             start += length
     return [np.concatenate(fold) for fold in fold_indices]
 
 
-def undersampling(dataset: Dataset, n: Optional[int] = None) -> Subset:
+def undersampling(dataset: Dataset, n: Optional[int] = None, verbose: bool = False) -> Subset:
     """
     A method for balancing uneven datasets by keeping all data in the
     minority class and decreasing the size of the majority class.
@@ -93,7 +95,8 @@ def undersampling(dataset: Dataset, n: Optional[int] = None) -> Subset:
     for cl in classes:
         indices_of_class = np.random.permutation(np.nonzero(classes_of_imgs==cl)[0])
         indices_of_classes.append(indices_of_class)
-        print(f"Class {cl} contains {indices_of_class.size} samples.")
+        if verbose:
+            print(f"Class {cl} contains {indices_of_class.size} samples.")
         if indices_of_class.size < min_size:
             min_size = indices_of_class.size
     min_size = min_size if n is None else n
@@ -113,9 +116,9 @@ def extract_classes(dataset: Dataset) -> np.ndarray:
     return np.array(classes_of_imgs)
 
 
-def dataset_info(dataset: Dataset) -> Dict[int, int]:
+def dataset_info(dataset: Dataset, verbose: bool = False) -> Dict[int, int]:
     """
-    Prints and returns number of samples in each class
+    Returns number of samples in each class
     """
     classes_of_imgs = extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
@@ -123,7 +126,8 @@ def dataset_info(dataset: Dataset) -> Dict[int, int]:
     for cl in classes:
         indices_of_class = np.nonzero(classes_of_imgs==cl)[0]
         class_samples[cl] = indices_of_class.size
-        print(f"Class {cl} contains {indices_of_class.size} samples.")
+        if verbose:
+            print(f"Class {cl} contains {indices_of_class.size} samples.")
     return class_samples
 
 
