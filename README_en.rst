@@ -218,7 +218,20 @@ Citation
 Here we will provide a list of citations for the project as soon as the articles
 are published.
 
-So far you can use citation for this repository:
+.. code-block:: bibtex
+
+    @article{REVIN2023110483,
+    title = {Automated machine learning approach for time series classification pipelines using evolutionary optimisation},
+    journal = {Knowledge-Based Systems},
+    pages = {110483},
+    year = {2023},
+    issn = {0950-7051},
+    doi = {https://doi.org/10.1016/j.knosys.2023.110483},
+    url = {https://www.sciencedirect.com/science/article/pii/S0950705123002332},
+    author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
+    }
+
+Also you can use citation for this repository:
 
 .. code-block:: bibtex
 

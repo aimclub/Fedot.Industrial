@@ -213,10 +213,22 @@ _____________
 Цитирование
 -----------
 
-Здесь мы предоставим список цитирований для проекта, как только статьи
-будут опубликованы.
+Список цитирований для проекта:
 
-Пока можно цитировать этот репозиторий:
+.. code-block:: bibtex
+
+    @article{REVIN2023110483,
+    title = {Automated machine learning approach for time series classification pipelines using evolutionary optimisation},
+    journal = {Knowledge-Based Systems},
+    pages = {110483},
+    year = {2023},
+    issn = {0950-7051},
+    doi = {https://doi.org/10.1016/j.knosys.2023.110483},
+    url = {https://www.sciencedirect.com/science/article/pii/S0950705123002332},
+    author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
+    }
+
+Также можно цитировать этот репозиторий:
 
 .. code-block:: bibtex
 
