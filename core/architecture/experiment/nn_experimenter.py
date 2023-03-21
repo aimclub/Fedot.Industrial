@@ -74,9 +74,9 @@ class NNExperimenter:
     ):
         self.logger = Logger(self.__class__.__name__)
         self.model = model
-        if weights is not None:
-            self.model.load_state_dict(torch.load(weights))
         self.device = torch.device(device)
+        if weights is not None:
+            self.model.load_state_dict(torch.load(weights, map_location=self.device))
         self.model.to(self.device)
         self.name = name if name is not None else type(model).__name__
         self.best_score = -1
@@ -180,7 +180,7 @@ class NNExperimenter:
                 else load all model with extension ".model.pt".
         """
         file_path = f"{file_path}.{'sd' if state_dict else 'model'}.pt"
-        data = torch.load(file_path)
+        data = torch.load(file_path, map_location=self.device)
         if state_dict:
             self.model.load_state_dict(data)
             self.model.to(self.device)

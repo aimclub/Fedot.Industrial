@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 
 
+FIG_SIZE=(16, 8)
+
 def savefig(func):
     def wrapper(saving_path: Optional[Union[str, Path]] = None, **kwargs):
         fig = func(**kwargs)
@@ -31,6 +33,13 @@ def limits(func):
     return wrapper
 
 
+def random_color() -> Tuple[float, float, float]:
+    r = np.random.random_sample()
+    g = np.random.random_sample()
+    b = np.random.random_sample()
+    return r, g, b
+
+
 def pair_color(r: float, g: float, b: float, delta=0.2) -> Tuple[float, float, float]:
     r = r + delta if r + delta <= 1 else 1
     g = g + delta if g + delta <= 1 else 1
@@ -49,7 +58,7 @@ def show_train_scores(
         df = pd.read_csv(os.path.join(exp, 'train/val.csv'), index_col=0)
         train_scores[name]=df[metric]
     return train_scores.plot(
-        figsize=(10, 6),
+        figsize=FIG_SIZE,
         title=metric,
         xlabel='epochs',
         ylabel=metric
@@ -62,9 +71,13 @@ def show_mean_train_scores(
         exps: Dict[str, List[Union[str, Path]]],
         metric: str,
         show_std: bool = True,
+        title: str = ''
 ):
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=FIG_SIZE)
     plt.grid()
+    plt.xlabel('epochs')
+    plt.ylabel(metric)
+    plt.title(title)
     for name, exp in exps.items():
         exp_scores = pd.DataFrame()
         for i, e in enumerate(exp):
@@ -72,13 +85,11 @@ def show_mean_train_scores(
             exp_scores[i]=df[metric]
         mean = exp_scores.mean(axis=1)
         std = exp_scores.std(axis=1)
-        r = np.random.random_sample()
-        g = np.random.random_sample()
-        b = np.random.random_sample()
+        r, g, b = random_color()
         plt.plot(exp_scores.index, mean, label=name, color=(r, g, b))
         if show_std:
             plt.fill_between(exp_scores.index, mean + std, mean - std, color=(r, g, b, 0.3))
-    plt.legend()
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
 
 
@@ -97,25 +108,30 @@ def show_svd_results(
         baseline: Union[str, Path],
         svd_exps: Dict[str, Union[str, Path]],
         metric: str,
+        pruning: bool,
         finetuning: bool,
+        title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
     baseline_metric = get_best_metric(exp_path=baseline, metric=metric)
-    fig = plt.figure(figsize=(20, 10))  if fig is None else fig
+    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
     plt.grid()
+    plt.xlabel('size, %')
+    plt.ylabel(f'{metric}, %')
+    plt.title(title)
     for i, exp in enumerate(svd_exps):
         metrics_df = pd.read_csv(os.path.join(svd_exps[exp], 'pruning.csv'), index_col=0)
         energy_thresholds = list(metrics_df.index)
         size_df = pd.read_csv(os.path.join(svd_exps[exp], 'size.csv'), index_col=0)
-        r = np.random.random_sample()
-        g = np.random.random_sample()
-        b = np.random.random_sample()
-        plt.plot(
-            size_df.loc[energy_thresholds, 'size'] / size_df.loc['default', 'size'] * 100,
-            metrics_df[metric] / baseline_metric * 100,
-            label=exp,
-            color=(r, g, b)
-        )
+        r, g, b = random_color()
+
+        if pruning:
+            plt.plot(
+                size_df.loc[energy_thresholds, 'size'] / size_df.loc['default', 'size'] * 100,
+                metrics_df[metric] / baseline_metric * 100,
+                label=exp,
+                color=(r, g, b)
+            )
 
         if finetuning:
             for e in energy_thresholds:
@@ -127,7 +143,7 @@ def show_svd_results(
                 label=f'{exp} fine-tuned',
                 color=pair_color(r, g, b)
             )
-    plt.legend()
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
 
 
@@ -137,8 +153,10 @@ def show_mean_svd_results(
         baseline: List[Union[str, Path]],
         svd_exps: Dict[str, List[Union[str, Path]]],
         metric: str,
+        pruning: bool,
         finetuning: bool,
         show_std: bool = True,
+        title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
     baseline_metric = []
@@ -147,8 +165,11 @@ def show_mean_svd_results(
     baseline_metric = np.array(baseline_metric)
     baseline_mean = baseline_metric.mean()
 
-    fig = plt.figure(figsize=(20, 10))  if fig is None else fig
+    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
     plt.grid()
+    plt.xlabel('size, %')
+    plt.ylabel(f'{metric}, %')
+    plt.title(title)
     for i, exps in enumerate(svd_exps):
         metrics_df = pd.DataFrame()
         size_df = pd.DataFrame()
@@ -161,22 +182,22 @@ def show_mean_svd_results(
         std = metrics_df.std(axis=1)
         mean_size = size_df.mean(axis=1)
         energy_thresholds = list(metrics_df.index)
-        r = np.random.random_sample()
-        g = np.random.random_sample()
-        b = np.random.random_sample()
-        plt.plot(
-            mean_size[energy_thresholds],
-            mean,
-            label=exps,
-            color=(r, g, b),
-        )
-        if show_std:
-            plt.fill_between(
+        r, g, b = random_color()
+
+        if pruning:
+            plt.plot(
                 mean_size[energy_thresholds],
-                mean + std,
-                mean - std,
-                color=(r, g, b, 0.3),
+                mean,
+                label=exps,
+                color=(r, g, b),
             )
+            if show_std:
+                plt.fill_between(
+                    mean_size[energy_thresholds],
+                    mean + std,
+                    mean - std,
+                    color=(r, g, b, 0.3),
+                )
 
         if finetuning:
             for e in energy_thresholds:
@@ -198,7 +219,7 @@ def show_mean_svd_results(
                     mean - std,
                     color=(*pair_color(r, g, b), 0.3),
                 )
-    plt.legend()
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
 
 
@@ -208,25 +229,30 @@ def show_sfp_results(
         baseline: Union[str, Path],
         sfp_exps: Dict[str, Union[str, Path]],
         metric: str,
+        pruning: bool,
         finetuning: bool,
+        title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
     baseline_metric = get_best_metric(exp_path=baseline, metric=metric)
-    fig = plt.figure(figsize=(20, 10))  if fig is None else fig
+    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
     plt.grid()
+    plt.xlabel('size, %')
+    plt.ylabel(f'{metric}, %')
+    plt.title(title)
     for i, exp in enumerate(sfp_exps):
         sfp_metric = get_best_metric(exp_path=sfp_exps[exp], metric=metric)
         size_df = pd.read_csv(os.path.join(sfp_exps[exp], 'size.csv'), index_col=0)
-        r = np.random.random_sample()
-        g = np.random.random_sample()
-        b = np.random.random_sample()
-        plt.scatter(
-            size_df.loc['pruned', 'size'] / size_df.loc['default', 'size'] * 100,
-            sfp_metric / baseline_metric * 100,
-            label=exp,
-            color=(r, g, b),
-            marker='o',
-        )
+        r, g, b = random_color()
+
+        if pruning:
+            plt.scatter(
+                size_df.loc['pruned', 'size'] / size_df.loc['default', 'size'] * 100,
+                sfp_metric / baseline_metric * 100,
+                label=exp,
+                color=(r, g, b),
+                marker='o',
+            )
 
         if finetuning:
             sfp_metric = get_best_metric(exp_path=sfp_exps[exp], metric=metric, phase='pruned')
@@ -237,7 +263,7 @@ def show_sfp_results(
                 color=(r, g, b),
                 marker='v',
             )
-    plt.legend()
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
 
 
@@ -247,8 +273,10 @@ def show_mean_sfp_results(
         baseline: List[Union[str, Path]],
         sfp_exps: Dict[str, List[Union[str, Path]]],
         metric: str,
+        pruning: bool,
         finetuning: bool,
         show_std: bool = True,
+        title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
     baseline_metric = []
@@ -257,8 +285,11 @@ def show_mean_sfp_results(
     baseline_metric = np.array(baseline_metric)
     baseline_mean = baseline_metric.mean()
 
-    fig = plt.figure(figsize=(20, 10))  if fig is None else fig
+    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
     plt.grid()
+    plt.xlabel('size, %')
+    plt.ylabel(f'{metric}, %')
+    plt.title(title)
     for i, exps in enumerate(sfp_exps):
         sfp_metric = []
         size = []
@@ -268,27 +299,27 @@ def show_mean_sfp_results(
             size.append(size_df.loc['pruned', 'size'] / size_df.loc['default', 'size'] * 100)
         size = sum(size) / len(size)
 
-        r = np.random.random_sample()
-        g = np.random.random_sample()
-        b = np.random.random_sample()
-        if show_std:
-            bp = plt.boxplot(
-                sfp_metric,
-                positions=[size],
-                labels=[int(size)],
-                widths=0.5,
-                patch_artist=True,
-                boxprops = {'facecolor': (r, g, b)},
-            )
-            bp['boxes'][0].set_label(exps)
-        else:
-            plt.scatter(
-                size,
-                sum(sfp_metric) / len(sfp_metric),
-                label=exps,
-                color=(r, g, b),
-                marker='o',
-            )
+        r, g, b = random_color()
+
+        if pruning:
+            if show_std:
+                bp = plt.boxplot(
+                    sfp_metric,
+                    positions=[size],
+                    labels=[int(size)],
+                    widths=0.5,
+                    patch_artist=True,
+                    boxprops = {'facecolor': (r, g, b)},
+                )
+                bp['boxes'][0].set_label(exps)
+            else:
+                plt.scatter(
+                    size,
+                    sum(sfp_metric) / len(sfp_metric),
+                    label=exps,
+                    color=(r, g, b),
+                    marker='o',
+                )
 
         if finetuning:
             sfp_metric = []
@@ -314,7 +345,7 @@ def show_mean_sfp_results(
                     color=(r, g, b),
                     marker='v',
                 )
-        plt.legend()
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
 
 
@@ -325,23 +356,30 @@ def show_svd_sfp_results(
         sfp_exps: Dict[str, Union[str, Path]],
         svd_exps: Dict[str, Union[str, Path]],
         metric: str,
+        pruning: bool,
         finetuning: bool,
+        title: str = '',
 ):
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=FIG_SIZE)
     show_svd_results(
         baseline=baseline,
         svd_exps=svd_exps,
         metric=metric,
+        pruning=pruning,
         finetuning=finetuning,
+        title=title,
         fig=fig
     )
     show_sfp_results(
         baseline=baseline,
         sfp_exps=sfp_exps,
         metric=metric,
+        pruning=pruning,
         finetuning=finetuning,
+        title=title,
         fig=fig
     )
+    plt.grid()
     return fig
 
 
@@ -352,24 +390,31 @@ def show_mean_svd_sfp_results(
         sfp_exps: Dict[str, List[Union[str, Path]]],
         svd_exps: Dict[str, List[Union[str, Path]]],
         metric: str,
+        pruning: bool,
         finetuning: bool,
         show_std: bool = True,
+        title: str = '',
 ):
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=FIG_SIZE)
     show_mean_svd_results(
         baseline=baseline,
         svd_exps=svd_exps,
         metric=metric,
+        pruning=pruning,
         finetuning=finetuning,
         show_std=show_std,
+        title=title,
         fig=fig
     )
     show_mean_sfp_results(
         baseline=baseline,
         sfp_exps=sfp_exps,
         metric=metric,
+        pruning=pruning,
         finetuning=finetuning,
         show_std=show_std,
+        title=title,
         fig=fig
     )
+    plt.grid()
     return fig
