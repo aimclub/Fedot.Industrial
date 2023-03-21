@@ -1,6 +1,7 @@
 from pymonad.list import ListMonad
 from pymonad.either import Right
 from core.architecture.pipelines.abstract_pipeline import AbstractPipelines
+from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from functools import partial
 
@@ -20,20 +21,25 @@ class ClassificationPipelines(AbstractPipelines):
         lambda_func_dict['concatenate_features'] = lambda x: list_of_features.append(x)
         input_data = kwargs['input_data']
         list_of_features = []
+
         if kwargs['pipeline_type'] == 'DataDrivenTSC':
             pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']).map(
                 lambda_func_dict['transform_to_basis']).map(lambda_func_dict['reduce_basis']).map(
                 lambda_func_dict['extract_features']).then(lambda_func_dict['concatenate_features']).insert(
                 self._get_feature_matrix(list_of_features=list_of_features, mode='1D'))
+
         elif kwargs['pipeline_type'] == 'SpecifiedFeatureGeneratorTSC':
-            pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']).map(
-                lambda_func_dict['extract_features']).then(lambda_func_dict['concatenate_features']).insert(
-                self._get_feature_matrix(list_of_features=list_of_features, mode='1D'))
+            pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']).\
+                map(lambda_func_dict['extract_features']).\
+                then(lambda_func_dict['concatenate_features']).\
+                insert(self._get_feature_matrix(list_of_features=list_of_features, mode='1D'))
+
         elif kwargs['pipeline_type'] == 'DataDrivenMultiTSC':
             pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']).map(
                 lambda_func_dict['transform_to_basis']).then(lambda_func_dict['reduce_basis']).then(
                 lambda_func_dict['extract_features']).then(lambda_func_dict['concatenate_features']).insert(
                 self._get_feature_matrix(list_of_features=list_of_features, mode=kwargs['ensemble']))
+
         return pipeline
 
     def __ts_data_driven_pipeline(self, **kwargs):
@@ -41,7 +47,7 @@ class ClassificationPipelines(AbstractPipelines):
         data_basis = DataDrivenBasisImplementation(kwargs['data_driven_hyperparams'])
         n_components = kwargs['data_driven_hyperparams']['n_components']
         lambda_func_dict['transform_to_basis'] = lambda \
-            x: self.basis if self.basis is not None else data_basis._transform(x)
+                x: self.basis if self.basis is not None else data_basis._transform(x)
         lambda_func_dict['reduce_basis'] = lambda x: x[:data_basis.min_rank, :] if n_components \
                                                                                    is None else x[:n_components, :]
         train_feature_generator_module = self.get_feature_generator(input_data=self.train_features,
@@ -119,3 +125,21 @@ class ClassificationPipelines(AbstractPipelines):
                                                   pipeline_type='SpecifiedFeatureGeneratorTSC')
         return classificator, prediction.value[0]
 
+
+if __name__ == "__main__":
+    train_data, test_data = DataLoader(dataset_name='ECG200').load_data()
+    model_hyperparams = {
+        'problem': 'classification',
+        'seed': 42,
+        'timeout': 1,
+        'max_depth': 10,
+        'max_arity': 4,
+        'cv_folds': 2,
+        'logging_level': 20,
+        'n_jobs': 2
+    }
+
+    pipeline = ClassificationPipelines(train_data=train_data, test_data=test_data).__call__()
+    pipeline(feature_generator_type='statistical',
+             model_hyperparams=model_hyperparams,
+             feature_hyperparams=None)

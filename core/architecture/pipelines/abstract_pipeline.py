@@ -1,5 +1,7 @@
 import pandas as pd
 from pymonad.list import ListMonad
+
+from core.api.utils.hp_generator_collection import GeneratorParams
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.settings.pipeline_settings import BasisTransformations, FeatureGenerator, MlModel
 
@@ -37,8 +39,8 @@ class AbstractPipelines:
     def _get_feature_matrix(self, list_of_features, mode: str = 'Multi'):
         if mode == '1D':
             feature_matrix = pd.concat(list_of_features, axis=0)
-            if feature_matrix.shape[1] != len(list_of_features):
-                feature_matrix = pd.concat(list_of_features, axis=1)
+            # if feature_matrix.shape[0] != len(list_of_features):
+            #     feature_matrix = pd.concat(list_of_features, axis=1)
         elif mode == 'MultiEnsemble':
             feature_matrix = []
             for i in range(len(list_of_features[0])):
@@ -55,17 +57,22 @@ class AbstractPipelines:
             generator = self.feature_generator_dict['statistical']
         else:
             generator = self.feature_generator_dict[kwargs['feature_generator_type']]
+        try:
+            feature_extractor = generator(params=kwargs['feature_hyperparams'])
 
-        feature_extractor = generator(params=kwargs['feature_hyperparams'])
-        classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'])
+        except AttributeError:
+            params = GeneratorParams[kwargs['feature_generator_type']].value
+            feature_extractor = generator(params)
+        classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'],
+                                                    generator_name=kwargs['feature_generator_type'],
+                                                    generator_runner=feature_extractor)
     # TODO:
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'reduce_basis': lambda x: x[:, 0] if x.shape[1] == 1 else x[:, kwargs['component']],
                             'extract_features': lambda x: feature_extractor.get_features(x),
                             'fit_model': lambda x: classificator.fit(train_features=x, train_target=self.train_target),
                             'predict': lambda x: ListMonad({'predicted_labels': classificator.predict(test_features=x),
-                                                            'predicted_probs': classificator.predict_proba(
-                                                                test_features=x)})
+                                                            'predicted_probs': classificator.predict_proba(test_features=x)})
                             }
 
         return feature_extractor, classificator, lambda_func_dict

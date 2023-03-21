@@ -51,19 +51,19 @@ class TimeSeriesClassifier:
 
         self.generator_name = generator_name
         self.generator_runner = generator_runner
-        self.feature_generator_dict = {self.generator_name: self.generator_runner}
+        # self.feature_generator_dict = {self.generator_name: self.generator_runner}
         self.model_hyperparams = model_hyperparams
         self.ecm_model_flag = ecm_model_flag
 
-        if self.generator_runner is not None:
-            self._init_builder()
+        # if self.generator_runner is not None:
+        #     self._init_builder()
 
-    def _init_builder(self) -> None:
-        """Initialize builder with all operations combining generator name and transformation method.
-
-        """
-        for name, runner in self.feature_generator_dict.items():
-            self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
+    # def _init_builder(self) -> None:
+    #     """Initialize builder with all operations combining generator name and transformation method.
+    #
+    #     """
+    #     for name, runner in self.feature_generator_dict.items():
+    #         self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
