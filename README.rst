@@ -4,9 +4,9 @@
     :alt: Fedot Industrial logo
 
 
-    |sai| |itmo|
+|sai| |itmo|
 
-    |issues|  |stars|  |python| |license| |docs| |support| |eng| |mirror|
+|issues|  |stars|  |python| |license| |docs| |support| |eng| |mirror|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
