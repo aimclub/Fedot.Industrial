@@ -5,7 +5,9 @@
 
 ================================================================================
 
-|issues|  |stars|  |python| |license| |docs| |support| |eng|
+|sai| |itmo|
+
+|issues|  |stars|  |python| |license| |docs| |support| |eng| |mirror|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
@@ -33,6 +35,18 @@
 
 .. |eng| image:: https://img.shields.io/badge/lang-en-red.svg
             :target: /README_en.rst
+
+.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
+   :alt: Acknowledgement to ITMO
+   :target: https://en.itmo.ru/en/
+
+.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge_flat.svg
+   :alt: Acknowledgement to SAI
+   :target: https://sai.itmo.ru/
+
+.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
+   :alt: GitLab mirror for this repository
+   :target: https://gitlab.actcognitive.org/itmo-nss-team/GOLEM
 
 
 Вместо сложных и ресурсоёмких методов глубокого обучения мы предлагаем использовать методы для
@@ -160,15 +174,15 @@ _____________
 Публикации о FEDOT.Industrial
 -----------------------------------
 
-Мы планируем публиковать статьи о возможностях фреймворка и удобстве его использования. Вот список статей, которые находятся
-в процессе рецензирования:
-
-.. [1] AUTOMATED MACHINE LEARNING APPROACH FOR TIME SERIES
-       CLASSIFICATION PIPELINES USING EVOLUTIONARY OPTIMISATION` by Ilya E. Revin,
-       Vadim A. Potemkin, Nikita R. Balabanov, Nikolay O. Nikitin
-
-.. [2] AUTOMATED ROCKBURST FORECASTING USING COMPOSITE MODELLING FOR SEISMIC SENSORS DATA
-       by Ilya E. Revin, Vadim A. Potemkin, and Nikolay O. Nikitin
+@article{REVIN2023110483,
+title = {Automated machine learning approach for time series classification pipelines using evolutionary optimisation},
+journal = {Knowledge-Based Systems},
+pages = {110483},
+year = {2023},
+issn = {0950-7051},
+doi = {https://doi.org/10.1016/j.knosys.2023.110483},
+author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin}
+}
 
 Структура проекта
 -----------------
@@ -201,14 +215,10 @@ _____________
 Разработка ведётся при поддержке
 --------------------------------
 
-.. image:: /docs/img/AIM-Strong_Sign_Norm-01_Colors.svg
-    :width: 400px
-    :align: center
-    :alt: Strong AI in industry logo
+Исследование проводится при поддержке Исследовательского центра сильного искусственного интеллекта в
+промышленности Университета ИТМО в рамках мероприятия программы центра:
+Разработка фреймворка автоматического машинного обучения для промышленных задач.
 
-Разработка поддерживается исследовательским центром
-`Сильный искусственный интеллект в промышленности`_
-`Университета ИТМО`_.
 
 Цитирование
 -----------

@@ -5,6 +5,8 @@
 
 ================================================================================
 
+|sai| |itmo|
+
 |issues|  |stars|  |python| |license| |docs| |support| |rus|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
@@ -34,6 +36,18 @@
 
 .. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
             :target: /README.rst
+
+.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
+   :alt: Acknowledgement to ITMO
+   :target: https://en.itmo.ru/en/
+
+.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge_flat.svg
+   :alt: Acknowledgement to SAI
+   :target: https://sai.itmo.ru/
+
+.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
+   :alt: GitLab mirror for this repository
+   :target: https://gitlab.actcognitive.org/itmo-nss-team/GOLEM
 
 
 Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
@@ -230,19 +244,6 @@ are published.
     url = {https://www.sciencedirect.com/science/article/pii/S0950705123002332},
     author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
     }
-
-Also you can use citation for this repository:
-
-.. code-block:: bibtex
-
-    @online{fedot_industrial,
-      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Nikitin, Nikolay},
-      title = {FEDOT.Industrial - Framework for automated time series analysis},
-      year = 2022,
-      url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},
-      urldate = {2022-05-05}
-    }
-
 
 .. _AutoML framework FEDOT: https://github.com/aimclub/FEDOT
 .. _UCR archive: https://www.cs.ucr.edu/~eamonn/time_series_data/
