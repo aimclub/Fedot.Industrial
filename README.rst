@@ -3,6 +3,7 @@
     :align: left
     :alt: Fedot Industrial logo
 
+================================================================================
 
 |sai| |itmo|
 
@@ -41,6 +42,7 @@
 
 .. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge.svg
    :alt: Acknowledgement to SAI
+   :align: left
    :target: https://sai.itmo.ru/
 
 .. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
@@ -170,19 +172,6 @@ _____________
 соответствующее пространство объектов загружается из кэша, что намного быстрее, чем генерировать
 его с нуля.
 
-Публикации о FEDOT.Industrial
------------------------------------
-
-@article{REVIN2023110483,
-title = {Automated machine learning approach for time series classification pipelines using evolutionary optimisation},
-journal = {Knowledge-Based Systems},
-pages = {110483},
-year = {2023},
-issn = {0950-7051},
-doi = {https://doi.org/10.1016/j.knosys.2023.110483},
-author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin}
-}
-
 Структура проекта
 -----------------
 
@@ -236,19 +225,6 @@ author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O
     url = {https://www.sciencedirect.com/science/article/pii/S0950705123002332},
     author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
     }
-
-Также можно цитировать этот репозиторий:
-
-.. code-block:: bibtex
-
-    @online{fedot_industrial,
-      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Nikitin, Nikolay},
-      title = {FEDOT.Industrial - Framework for automated time series analysis},
-      year = 2022,
-      url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},
-      urldate = {2022-05-05}
-    }
-
 
 .. _AutoML фреймворка FEDOT: https://gitlab.actcognitive.org/itmo-nss-team/FEDOT
 .. _архива UCR: https://www.cs.ucr.edu/~eamonn/time_series_data/

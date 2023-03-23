@@ -37,11 +37,11 @@
 .. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
             :target: /README.rst
 
-.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
+.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_rus.svg
    :alt: Acknowledgement to ITMO
    :target: https://en.itmo.ru/en/
 
-.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge_flat.svg
+.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge.svg
    :alt: Acknowledgement to SAI
    :target: https://sai.itmo.ru/
 
@@ -171,20 +171,6 @@ The next time when the same feature space is requested, the hash is calculated a
 feature space is loaded from the cache which is much faster than generating it from scratch.
 
 
-Publications about FEDOT.Industrial
------------------------------------
-
-Our plan for publication activity is to publish papers related to the
-framework's usability and its applications. Here is a list of articles which are
-under the review process:
-
-.. [1] AUTOMATED MACHINE LEARNING APPROACH FOR TIME SERIES
-       CLASSIFICATION PIPELINES USING EVOLUTIONARY OPTIMISATION` by Ilya E. Revin,
-       Vadim A. Potemkin, Nikita R. Balabanov, Nikolay O. Nikitin
-
-.. [2] AUTOMATED ROCKBURST FORECASTING USING COMPOSITE MODELLING FOR SEISMIC SENSORS DATA
-       by Ilya E. Revin, Vadim A. Potemkin, and Nikolay O. Nikitin
-
 Stay tuned!
 
 Project structure
@@ -219,12 +205,8 @@ A comprehensive documentation is available at readthedocs_.
 Supported by
 ------------
 
-.. image:: /docs/img/AIM-Strong_Sign_Norm-01_Colors.svg
-    :width: 400px
-    :align: center
-    :alt: Strong AI in industry logo
-
-The study is supported by the Research Center `Strong Artificial Intelligence in Industry`_ of `ITMO University`_.
+The study is supported by the Research Center Strong Artificial Intelligence in Industry of ITMO University
+as part of the plan of the center's program: Development of AutoML framework for industrial tasks.
 
 Citation
 --------
