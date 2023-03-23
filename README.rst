@@ -3,8 +3,6 @@
     :align: left
     :alt: Fedot Industrial logo
 
-================================================================================
-.. class:: center
 
     |sai| |itmo|
 
