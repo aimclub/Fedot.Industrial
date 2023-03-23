@@ -37,11 +37,11 @@
 .. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
             :target: /README.rst
 
-.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_rus.svg
+.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
    :alt: Acknowledgement to ITMO
    :target: https://en.itmo.ru/en/
 
-.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge.svg
+.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge_flat.svg
    :alt: Acknowledgement to SAI
    :target: https://sai.itmo.ru/
 
