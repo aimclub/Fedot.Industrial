@@ -9,17 +9,17 @@ from core.operation.optimization.svd_tools import *
 
 
 def test_decomposition_of_layer():
+    energy_threshold_pruning = create_energy_svd_pruning(energy_threshold=0.5)
     conv = DecomposedConv2d(3, 6, 3, decomposing=False)
     with pytest.raises(AssertionError):
-        energy_threshold_pruning(conv=conv, energy_threshold=0.5)
+        energy_threshold_pruning(conv=conv)
 
 
 def test_energy_threshold_range():
-    conv = DecomposedConv2d(3, 6, 3)
     with pytest.raises(AssertionError):
-        energy_threshold_pruning(conv=conv, energy_threshold=2)
+        e = create_energy_svd_pruning(energy_threshold=2)
     with pytest.raises(AssertionError):
-        energy_threshold_pruning(conv=conv, energy_threshold=0)
+        e = create_energy_svd_pruning(energy_threshold=0)
 
 
 def test_energy_threshold_pruning():
@@ -30,17 +30,20 @@ def test_energy_threshold_pruning():
         vh=torch.rand(6, 27)
     )
     conv1 = copy.deepcopy(conv)
-    energy_threshold_pruning(conv=conv1, energy_threshold=1)
+    energy_threshold_pruning = create_energy_svd_pruning(energy_threshold=1)
+    energy_threshold_pruning(conv=conv1)
     assert torch.equal(conv1.S, torch.Tensor([1, 2, 3, 4, 5, 6]))
     assert torch.equal(conv1.U.data, conv.U.data[:, [1, 5, 4, 2, 3, 0]])
     assert torch.equal(conv1.Vh.data, conv.Vh.data[[1, 5, 4, 2, 3, 0], :])
     conv05 = copy.deepcopy(conv)
-    energy_threshold_pruning(conv=conv05, energy_threshold=0.5)
+    energy_threshold_pruning = create_energy_svd_pruning(energy_threshold=0.5)
+    energy_threshold_pruning(conv=conv05)
     assert torch.equal(conv05.S, torch.Tensor([5, 6]))
     assert torch.equal(conv05.U.data, conv.U.data[:, [3, 0]])
     assert torch.equal(conv05.Vh.data, conv.Vh.data[[3, 0], :])
     conv01 = copy.deepcopy(conv)
-    energy_threshold_pruning(conv=conv01, energy_threshold=0.1)
+    energy_threshold_pruning = create_energy_svd_pruning(energy_threshold=0.1)
+    energy_threshold_pruning(conv=conv01)
     assert torch.equal(conv01.S, torch.Tensor([6]))
     assert torch.equal(conv01.U.data, conv.U.data[:, [0]])
     assert torch.equal(conv01.Vh.data, conv.Vh.data[[0], :])

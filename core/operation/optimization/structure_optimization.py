@@ -15,7 +15,7 @@ from core.architecture.experiment.nn_experimenter import NNExperimenter, FitPara
 from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
-    create_energy_filter_zeroing_fn, prune_resnet, load_sfp_resnet_model
+    create_energy_filter_zeroing_fn, prune_resnet
 from core.operation.optimization.svd_tools import create_energy_svd_pruning, \
     decompose_module, load_svd_state_dict
 
@@ -131,6 +131,7 @@ class SVDOptimization(StructureOptimization):
             ``ClassificationExperimenter``.
             params: An object containing training parameters.
             ft_params: An object containing fine-tuning parameters for optimized model.
+            writer: Object for recording metrics.
         """
         self.finetuning = True
         models_path = os.path.join(params.models_path, params.dataset_name, exp.name)
@@ -303,18 +304,3 @@ class SFPOptimization(StructureOptimization):
         exp.best_score = 0
         if ft_params is not None:
             exp.fit(p=ft_params, phase='pruned', start_epoch=params.num_epochs)
-
-    def load_model(self, exp: NNExperimenter, state_dict_path: str) -> None:
-        """Loads the optimized model into the experimenter.
-
-        Args:
-            exp: An instance of the experimenter class, e.g.
-            ``ClassificationExperimenter``.
-            state_dict_path: Path to state_dict file.
-        """
-        exp.model = load_sfp_resnet_model(
-            model=exp.model,
-            state_dict_path=state_dict_path
-        )
-        exp.model.to(exp.device)
-        self.logger.info("Model loaded.")
