@@ -5,6 +5,8 @@
 
 ================================================================================
 
+|sai| |itmo|
+
 |issues|  |stars|  |python| |license| |docs| |support| |rus|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
@@ -34,6 +36,18 @@
 
 .. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
             :target: /README.rst
+
+.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
+   :alt: Acknowledgement to ITMO
+   :target: https://en.itmo.ru/en/
+
+.. |sai| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/SAI_badge_flat.svg
+   :alt: Acknowledgement to SAI
+   :target: https://sai.itmo.ru/
+
+.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
+   :alt: GitLab mirror for this repository
+   :target: https://gitlab.actcognitive.org/itmo-nss-team/GOLEM
 
 
 Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
@@ -157,20 +171,6 @@ The next time when the same feature space is requested, the hash is calculated a
 feature space is loaded from the cache which is much faster than generating it from scratch.
 
 
-Publications about FEDOT.Industrial
------------------------------------
-
-Our plan for publication activity is to publish papers related to the
-framework's usability and its applications. Here is a list of articles which are
-under the review process:
-
-.. [1] AUTOMATED MACHINE LEARNING APPROACH FOR TIME SERIES
-       CLASSIFICATION PIPELINES USING EVOLUTIONARY OPTIMISATION` by Ilya E. Revin,
-       Vadim A. Potemkin, Nikita R. Balabanov, Nikolay O. Nikitin
-
-.. [2] AUTOMATED ROCKBURST FORECASTING USING COMPOSITE MODELLING FOR SEISMIC SENSORS DATA
-       by Ilya E. Revin, Vadim A. Potemkin, and Nikolay O. Nikitin
-
 Stay tuned!
 
 Project structure
@@ -205,12 +205,8 @@ A comprehensive documentation is available at readthedocs_.
 Supported by
 ------------
 
-.. image:: /docs/img/AIM-Strong_Sign_Norm-01_Colors.svg
-    :width: 400px
-    :align: center
-    :alt: Strong AI in industry logo
-
-The study is supported by the Research Center `Strong Artificial Intelligence in Industry`_ of `ITMO University`_.
+The study is supported by the Research Center Strong Artificial Intelligence in Industry of ITMO University
+as part of the plan of the center's program: Development of AutoML framework for industrial tasks.
 
 Citation
 --------
@@ -231,22 +227,7 @@ are published.
     author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
     }
 
-Also you can use citation for this repository:
-
-.. code-block:: bibtex
-
-    @online{fedot_industrial,
-      author = {Revin, Ilya and Potemkin, Vadim and Balabanov, Nikita and Nikitin, Nikolay},
-      title = {FEDOT.Industrial - Framework for automated time series analysis},
-      year = 2022,
-      url = {https://github.com/ITMO-NSS-team/Fedot.Industrial},
-      urldate = {2022-05-05}
-    }
-
-
 .. _AutoML framework FEDOT: https://github.com/aimclub/FEDOT
 .. _UCR archive: https://www.cs.ucr.edu/~eamonn/time_series_data/
-.. _main branch: https://github.com/ITMO-NSS-team/Fedot.Industrial
-.. _Strong Artificial Intelligence in Industry: https://sai.itmo.ru/
-.. _ITMO University: https://itmo.ru
+.. _main branch: https://github.com/aimclub/Fedot.Industrial
 .. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/
