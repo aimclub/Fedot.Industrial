@@ -225,9 +225,7 @@ _____________
     author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
     }
 
-.. _AutoML фреймворка FEDOT: https://gitlab.actcognitive.org/itmo-nss-team/FEDOT
+.. _AutoML фреймворка FEDOT: https://gitlab.actcognitive.org/aimclub/FEDOT
 .. _архива UCR: https://www.cs.ucr.edu/~eamonn/time_series_data/
-.. _main: https://gitlab.actcognitive.org/itmo-nss-team/FEDOT-Industrial
-.. _Сильный искусственный интеллект в промышленности: https://sai.itmo.ru/
-.. _Университета ИТМО: https://itmo.ru
+.. _main: https://gitlab.actcognitive.org/aimclub/FEDOT-Industrial
 .. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/

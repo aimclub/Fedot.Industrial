@@ -229,7 +229,5 @@ are published.
 
 .. _AutoML framework FEDOT: https://github.com/aimclub/FEDOT
 .. _UCR archive: https://www.cs.ucr.edu/~eamonn/time_series_data/
-.. _main branch: https://github.com/ITMO-NSS-team/Fedot.Industrial
-.. _Strong Artificial Intelligence in Industry: https://sai.itmo.ru/
-.. _ITMO University: https://itmo.ru
+.. _main branch: https://github.com/aimclub/Fedot.Industrial
 .. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/
