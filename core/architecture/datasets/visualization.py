@@ -10,15 +10,16 @@ def draw_sample(
         image: torch.Tensor,
         target: Optional[Dict[str, torch.Tensor]] = None,
         prediction: Optional[Dict[str, torch.Tensor]] = None,
-        thresh: float = 0.5
+        threshold: float = 0.5
 ) -> plt.Figure:
     """
     Returns the image with bounding boxes.
 
     Args:
-        image: image.
+        image: image tensor.
         target: Dictionary of target values with keys ``'boxes'`` and ``'labels'``.
         prediction: Dictionary of predicted values with keys ``'boxes'``, ``'labels'`` and ``'scores'``.
+        threshold: Confidence threshold for displaying predicted bounding boxes.
 
     Returns:
         `matplotlib.pyplot.Figure` of the image with bounding boxes.
@@ -41,7 +42,7 @@ def draw_sample(
 
     if prediction is not None:
         ax = plt.subplot(1, n, n)
-        not_thresh = prediction['scores'] > thresh
+        not_thresh = prediction['scores'] > threshold
         prediction['boxes'] = prediction['boxes'][not_thresh]
         prediction['labels'] = prediction['labels'][not_thresh]
         prediction['scores'] = prediction['scores'][not_thresh]

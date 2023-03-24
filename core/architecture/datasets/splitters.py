@@ -51,11 +51,12 @@ def split_data(dataset: Dataset, n: int, verbose: bool = False) -> List[np.ndarr
     Args:
         dataset: Torch dataset object.
         n: Number of parts.
+        verbose: If `True` prints information about splitting.
 
     Returns:
         A list of indices for each part.
     """
-    classes_of_imgs = extract_classes(dataset)
+    classes_of_imgs = _extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
     fold_indices = [[] for _ in range(n)]
     for cl in classes:
@@ -84,11 +85,12 @@ def undersampling(dataset: Dataset, n: Optional[int] = None, verbose: bool = Fal
     Args:
         dataset: Torch dataset object.
         n: Number of samples in each class.
+        verbose: If `True` prints information about undersampling.
 
     Returns:
         Balanced subset.
     """
-    classes_of_imgs = extract_classes(dataset)
+    classes_of_imgs = _extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
     indices_of_classes = []
     min_size = len(classes_of_imgs)
@@ -105,9 +107,12 @@ def undersampling(dataset: Dataset, n: Optional[int] = None, verbose: bool = Fal
     return Subset(dataset, indices)
 
 
-def extract_classes(dataset: Dataset) -> np.ndarray:
+def _extract_classes(dataset: Dataset) -> np.ndarray:
     """
     Returns the class for each sample.
+
+    Args:
+        dataset: Torch dataset object.
     """
     classes_of_imgs = []
     for i in tqdm(range(len(dataset))):
@@ -119,8 +124,15 @@ def extract_classes(dataset: Dataset) -> np.ndarray:
 def dataset_info(dataset: Dataset, verbose: bool = False) -> Dict[int, int]:
     """
     Returns number of samples in each class
+
+    Args:
+        dataset: Torch dataset object.
+        verbose: If `True` prints information about classes.
+
+    Returns:
+        Dictionary `{class_id: number_of_samples}`.
     """
-    classes_of_imgs = extract_classes(dataset)
+    classes_of_imgs = _extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
     class_samples = {}
     for cl in classes:

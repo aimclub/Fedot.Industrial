@@ -17,6 +17,9 @@ def iou_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torch
         outputs: Output from semantic segmentation model.
         masks: True masks.
         smooth: Additional constant to avoid division by zero.
+
+    Returns:
+        Intersection over union for batch.
     """
     outputs = (outputs > 0.5).float()
     intersection = torch.logical_and(outputs, masks).float().sum((2, 3))
@@ -32,6 +35,9 @@ def dice_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torc
         outputs: Output from semantic segmentation model.
         masks: True masks.
         smooth: Additional constant to avoid division by zero.
+
+    Returns:
+        Dice for batch.
     """
     outputs = (outputs > 0.5).float()
     intersection = torch.logical_and(outputs, masks).float().sum((2, 3))
@@ -51,7 +57,7 @@ class MetricCounter:
         raise NotImplementedError
 
     def compute(self) -> Dict[str, float]:
-        """Have to implement computing of metrics."""
+        """Have to implement metrics computing."""
         raise NotImplementedError
 
 
@@ -59,7 +65,7 @@ class ClassificationMetricCounter(MetricCounter):
     """Calculates metrics for classification task.
 
     Args:
-        class_metric:  If ``True``, calculates metrics for each class.
+        class_metrics:  If ``True``, calculates metrics for each class.
     """
 
     def __init__(self, class_metrics: bool = False) -> None:
@@ -70,13 +76,17 @@ class ClassificationMetricCounter(MetricCounter):
         self.class_metrics = class_metrics
 
     def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
-        """Accumulates predictions and targets"""
+        """Accumulates predictions and targets."""
         self.y_true.extend(targets.tolist())
         self.y_score.extend(softmax(predictions, dim=1).tolist())
         self.y_pred.extend(predictions.argmax(1).tolist())
 
     def compute(self) -> Dict[str, float]:
-        """Returns metrics."""
+        """Compute accuracy, precision, recall, f1, roc auc metrics.
+
+         Returns:
+              Dictionary: `{metric: score}`.
+        """
         precision, recall, f1, _ = precision_recall_fscore_support(
             self.y_true, self.y_pred, average='macro'
         )
@@ -97,7 +107,7 @@ class SegmentationMetricCounter(MetricCounter):
     """Calculates metrics for semantic segmentation task.
 
     Args:
-        class_metric:  If ``True``, calculates metrics for each class.
+        class_metrics:  If ``True``, calculates metrics for each class.
     """
 
     def __init__(self, class_metrics: bool = False) -> None:
@@ -108,7 +118,7 @@ class SegmentationMetricCounter(MetricCounter):
         self.class_metrics = class_metrics
 
     def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
-        """Accumulates iou and dice"""
+        """Accumulates iou and dice."""
         masks = torch.zeros_like(predictions)
         for i in range(predictions.size()[1]):
             masks[:, i, :, :] = torch.squeeze(targets == i)
@@ -122,7 +132,11 @@ class SegmentationMetricCounter(MetricCounter):
         else:
             self.dice += dice_score(predictions, masks).sum(0)
     def compute(self) -> Dict[str, float]:
-        """Returns average metrics."""
+        """Compute average metrics.
+
+         Returns:
+              Dictionary: `{metric: score}`.
+        """
         iou = self.iou / self.n
         dice = self.dice/ self.n
         scores = {'iou': iou.mean().item(), 'dice': dice.mean().item()}
@@ -136,7 +150,7 @@ class ObjectDetectionMetricCounter(MetricCounter):
     """Calculates metrics for object detection task.
 
     Args:
-        class_metric:  If ``True``, calculates metrics for each class.
+        class_metrics:  If ``True``, calculates metrics for each class.
     """
 
     def __init__(self, class_metrics: bool = False) -> None:
@@ -149,8 +163,16 @@ class ObjectDetectionMetricCounter(MetricCounter):
             predictions: List[Dict[str, torch.Tensor]],
             targets: List[Dict[str, torch.Tensor]]
     ) -> None:
+        """Accumulates predictions and targets."""
         self.map.update(preds=predictions, target=targets)
+
     def compute(self) -> Dict[str, float]:
+        """Compute MAP, MAR metrics.
+
+         Returns:
+              Dictionary: `{metric: score}`.
+        """
+
         scores = self.map.compute()
         if self.class_metrics:
             scores.update({f'map_for_class_{i}': s for i, s in enumerate(scores['map_per_class'])})
@@ -178,5 +200,9 @@ class LossesAverager(MetricCounter):
                 self.losses[key] += value.item()
 
     def compute(self) -> Dict[str, float]:
-        """Returns average losses."""
+        """Compute average losses.
+
+        Returns:
+            Dictionary: `{metric: score}`.
+        """
         return {k: v / self.counter for k, v in self.losses.items()}

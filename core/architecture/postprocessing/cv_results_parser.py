@@ -1,5 +1,6 @@
 import os
 from typing import Dict, Union, Optional, List, Tuple
+from functools import wraps
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -10,6 +11,8 @@ import pandas as pd
 FIG_SIZE=(16, 8)
 
 def savefig(func):
+    """Adds the ability to save a figure."""
+    @wraps(func)
     def wrapper(saving_path: Optional[Union[str, Path]] = None, **kwargs):
         fig = func(**kwargs)
         if saving_path is not None:
@@ -19,6 +22,8 @@ def savefig(func):
 
 
 def limits(func):
+    """Adds the ability to set display borders."""
+    @wraps(func)
     def wrapper(
             xlim: Optional[Tuple[float, float]] = None,
             ylim: Optional[Tuple[float, float]] = None,
@@ -34,6 +39,11 @@ def limits(func):
 
 
 def random_color() -> Tuple[float, float, float]:
+    """Generates a random color.
+
+    Returns:
+        Tuple: (r, g, b).
+    """
     r = np.random.random_sample()
     g = np.random.random_sample()
     b = np.random.random_sample()
@@ -41,6 +51,17 @@ def random_color() -> Tuple[float, float, float]:
 
 
 def pair_color(r: float, g: float, b: float, delta=0.2) -> Tuple[float, float, float]:
+    """Generates close to the specified color.
+
+    Args:
+        r: The red component of the color from the range [0, 1].
+        g: The green component of the color from the range [0, 1].
+        b: The blue component of the color from the range [0, 1].
+        delta: An offset relative to the specified color.
+
+    Returns:
+        Tuple: (r, g, b).
+    """
     r = r + delta if r + delta <= 1 else 1
     g = g + delta if g + delta <= 1 else 1
     b = b + delta if b + delta <= 1 else 1
@@ -52,7 +73,16 @@ def pair_color(r: float, g: float, b: float, delta=0.2) -> Tuple[float, float, f
 def show_train_scores(
         exps: Dict[str, Union[str, Path]],
         metric: str,
-):
+) -> plt.Figure:
+    """Draws training graphs.
+
+    Args:
+        exps: Dictionary of experiments: `{exp_name: exp_path}`.
+        metric: Target metric for plotting.
+
+    Return:
+        Figure with graphs.
+    """
     train_scores = pd.DataFrame()
     for name, exp in exps.items():
         df = pd.read_csv(os.path.join(exp, 'train/val.csv'), index_col=0)
@@ -73,6 +103,17 @@ def show_mean_train_scores(
         show_std: bool = True,
         title: str = ''
 ):
+    """Draws mean training graphs.
+
+    Args:
+        exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
+        metric: Target metric for plotting.
+        show_std: If `True` displays standard deviation on graphs.
+        title: Name of the graph.
+
+    Return:
+        Figure with graphs.
+    """
     fig = plt.figure(figsize=FIG_SIZE)
     plt.grid()
     plt.xlabel('epochs')
@@ -98,6 +139,16 @@ def get_best_metric(
         metric: str,
         phase: str = 'train'
 ) -> float:
+    """Returns the best metric score from training history.
+
+    Args:
+        exp_path: Path to the experiment metrics folder.
+        metric: Target metric.
+        phase: Experiment phase, e.g. `"train"`.
+
+    Returns:
+        The best metric score.
+    """
     df = pd.read_csv(os.path.join(exp_path, f'{phase}/val.csv'), index_col=0)
     return df[metric].max()
 
@@ -113,6 +164,20 @@ def show_svd_results(
         title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
+    """Draws graphs of the target metric depending on the size of the compressed SVD model.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        svd_exps: Dictionary of experiments: `{exp_name: exp_path}`.
+        metric: Target metric for plotting.
+        pruning: If `True` draws pruned results.
+        finetuning: If `True` draws fine-tuned results.
+        title: Name of the graph.
+        fig: Figure for drawing graphs.
+
+    Returns:
+        Figure with graphs.
+    """
     baseline_metric = get_best_metric(exp_path=baseline, metric=metric)
     fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
     plt.grid()
@@ -159,6 +224,21 @@ def show_mean_svd_results(
         title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
+    """Draws graphs of the mean target metric depending on the mean size of the compressed SVD models.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        svd_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
+        metric: Target metric for plotting.
+        pruning: If `True` draws pruned results.
+        finetuning: If `True` draws fine-tuned results.
+        show_std: If `True` displays standard deviation on graphs.
+        title: Name of the graph.
+        fig: Figure for drawing graphs.
+
+    Returns:
+        Figure with graphs.
+    """
     baseline_metric = []
     for exp in baseline:
         baseline_metric.append(get_best_metric(exp_path=exp, metric=metric))
@@ -234,6 +314,20 @@ def show_sfp_results(
         title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
+    """Draws graphs of the target metric depending on the size of the compressed SFP model.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        sfp_exps: Dictionary of experiments: `{exp_name: exp_path}`.
+        metric: Target metric for plotting.
+        pruning: If `True` draws pruned results.
+        finetuning: If `True` draws fine-tuned results.
+        title: Name of the graph.
+        fig: Figure for drawing graphs.
+
+    Returns:
+        Figure with graphs.
+    """
     baseline_metric = get_best_metric(exp_path=baseline, metric=metric)
     fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
     plt.grid()
@@ -279,6 +373,21 @@ def show_mean_sfp_results(
         title: str = '',
         fig: Optional[plt.Figure] = None,
 ):
+    """Draws graphs of the mean target metric depending on the mean size of the compressed SFP models.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        sfp_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
+        metric: Target metric for plotting.
+        pruning: If `True` draws pruned results.
+        finetuning: If `True` draws fine-tuned results.
+        show_std: If `True` displays standard deviation on graphs.
+        title: Name of the graph.
+        fig: Figure for drawing graphs.
+
+    Returns:
+        Figure with graphs.
+    """
     baseline_metric = []
     for exp in baseline:
         baseline_metric.append(get_best_metric(exp_path=exp, metric=metric))
@@ -360,6 +469,20 @@ def show_svd_sfp_results(
         finetuning: bool,
         title: str = '',
 ):
+    """Draws graphs of the target metric depending on the size of the compressed SVD and SFP models.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        sfp_exps: Dictionary of experiments: `{exp_name: exp_path}`.
+        svd_exps: Dictionary of experiments: `{exp_name: exp_path}`.
+        metric: Target metric for plotting.
+        pruning: If `True` draws pruned results.
+        finetuning: If `True` draws fine-tuned results.
+        title: Name of the graph.
+
+    Returns:
+        Figure with graphs.
+    """
     fig = plt.figure(figsize=FIG_SIZE)
     show_svd_results(
         baseline=baseline,
@@ -395,6 +518,21 @@ def show_mean_svd_sfp_results(
         show_std: bool = True,
         title: str = '',
 ):
+    """Draws graphs of the mean target metric depending on the mean size of the compressed SVD and SFP models.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        sfp_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
+        svd_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
+        metric: Target metric for plotting.
+        pruning: If `True` draws pruned results.
+        finetuning: If `True` draws fine-tuned results.
+        show_std: If `True` displays standard deviation on graphs.
+        title: Name of the graph.
+
+    Returns:
+        Figure with graphs.
+    """
     fig = plt.figure(figsize=FIG_SIZE)
     show_mean_svd_results(
         baseline=baseline,
