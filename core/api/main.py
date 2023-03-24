@@ -2,6 +2,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
+from fedot.api.api_utils.data_definition import FeaturesType
 from fedot.api.main import Fedot
 from core.log import default_log as logger
 
@@ -99,10 +100,9 @@ class FedotIndustrial(Fedot):
     def plot_prediction(self, **kwargs):
         pass
 
-
-    def explain(self, features,
-                method: str = 'surrogate_dt', visualization: bool = True, **kwargs) -> 'Explainer':
-        pass
+    def explain(self, features: FeaturesType = None, method: str = 'surrogate_dt', visualization: bool = True,
+                **kwargs) -> 'Explainer':
+        return super().explain(features, method, visualization, **kwargs)
 
 
 if __name__ == "__main__":

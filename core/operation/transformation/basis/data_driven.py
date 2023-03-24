@@ -91,3 +91,11 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         derivative_coefs = np.array([np.polyder(x[::-1], order)[::-1] for x in coefs])
 
         return basis, derivative_coefs
+
+
+if __name__ == '__main__':
+    ts = np.random.rand(200)
+
+    bss = DataDrivenBasisImplementation({'n_components': 3, 'window_size': 30})
+    basis = bss._transform(ts)
+    b = bss._get_1d_basis(ts)

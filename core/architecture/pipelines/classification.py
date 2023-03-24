@@ -66,7 +66,7 @@ class ClassificationPipelines(AbstractPipelines):
 
     def __multits_data_driven_pipeline(self, ensemble: str = 'Multi', **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = DataDrivenBasisImplementation()
+        data_basis = DataDrivenBasisImplementation(kwargs['data_driven_hyperparams'])
 
         lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
         lambda_func_dict['reduce_basis'] = lambda list_of_components: ListMonad(
@@ -139,7 +139,8 @@ if __name__ == "__main__":
         'n_jobs': 2
     }
 
-    pipeline = ClassificationPipelines(train_data=train_data, test_data=test_data).__call__()
+    pipeline = ClassificationPipelines(train_data=train_data, test_data=test_data).__call__('DataDrivenMultiTSC')
     pipeline(feature_generator_type='statistical',
              model_hyperparams=model_hyperparams,
-             feature_hyperparams=None)
+             feature_hyperparams=None,
+             data_driven_hyperparams={'n_components': 3, 'window_size': 30})

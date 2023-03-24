@@ -6,11 +6,11 @@ from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
+from pymonad.list import ListMonad
 
 from core.api.utils.checkers_collections import DataCheck
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.architecture.preprocessing.FeatureBuilder import FeatureBuilderSelector
 from core.log import default_log as Logger
 from core.models.BaseExtractor import BaseExtractor
 
@@ -167,4 +167,18 @@ class TimeSeriesClassifier:
     def save_prediction(self, predicted_data: np.ndarray):
         prediction_type = 'labels' if predicted_data.shape[1] == 1 else 'probs'
         self.saver.save(predicted_data, prediction_type)
+
+    def _pipeline_operations(self) -> dict:
+        feature_extractor = self.generator_runner
+        fedot_model = Fedot(**self.model_hyperparams)
+
+        operations = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
+                      # 'reduce_basis': lambda x: x[:, 0] if x.shape[1] == 1 else x[:, kwargs['component']],
+                      'extract_features': lambda x: feature_extractor.get_features(x),
+                      'fit_model': lambda x: fedot_model.fit(features=x, target=self.y_train),
+                      'predict': lambda x: ListMonad({'predicted_labels': fedot_model.predict(test_features=x),
+                                                      'predicted_probs': fedot_model.predict_proba(test_features=x)})
+                      }
+
+        return operations
 
