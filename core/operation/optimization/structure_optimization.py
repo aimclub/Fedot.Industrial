@@ -104,7 +104,7 @@ class SVDOptimization(StructureOptimization):
         """
         exp.name += self.description
         self.finetuning = False
-        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name))
+        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name, params.description))
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
@@ -134,7 +134,7 @@ class SVDOptimization(StructureOptimization):
             writer: Object for recording metrics.
         """
         self.finetuning = True
-        models_path = os.path.join(params.models_path, params.dataset_name, exp.name)
+        models_path = os.path.join(params.models_path, params.dataset_name, exp.name, params.description)
         exp.save_model(os.path.join(models_path, 'trained'), state_dict=False)
         for e in self.energy_thresholds:
             str_e = f'e_{e}'
@@ -238,7 +238,7 @@ class SFPOptimization(StructureOptimization):
             ft_params: An object containing fine-tuning parameters for optimized model.
         """
         exp.name += self.description
-        path = os.path.join(params.dataset_name, exp.name, 'train')
+        path = os.path.join(params.dataset_name, exp.name, params.description, 'train')
         model_path = os.path.join(params.models_path, path)
         writer = WriterComposer(
             path=os.path.join(params.summary_path, path),
@@ -287,7 +287,7 @@ class SFPOptimization(StructureOptimization):
             params: An object containing training parameters.
             ft_params: An object containing fine-tuning parameters for optimized model.
         """
-        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name))
+        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name, params.description))
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
@@ -295,7 +295,7 @@ class SFPOptimization(StructureOptimization):
         exp.model = self.pruning_fn(model=exp.model)
         exp.model.to(exp.device)
         exp.save_model(
-            os.path.join(params.models_path, params.dataset_name, exp.name, 'pruned')
+            os.path.join(params.models_path, params.dataset_name, exp.name, params.description, 'pruned')
         )
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='pruned')
