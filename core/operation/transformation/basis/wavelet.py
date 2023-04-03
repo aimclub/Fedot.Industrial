@@ -19,7 +19,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         self.basis = None
         self.discrete_wavelets = pywt.wavelist(kind='discrete')
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
-        self.scales = [1, 3, 5, 10, 15]
+        self.scales = [2, 4, 10, 20]
 
     def _decompose_signal(self, input_data):
         if self.wavelet in self.discrete_wavelets:
@@ -56,5 +56,21 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         return basis
 
     def _get_multidim_basis(self, data):
-        pass
+        decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))
+        select_level = lambda Monoid: [Monoid[0][
+                                       :self.n_components, :],
+                                       Monoid[1]]
+        threshold = lambda decomposed_signal: list(map(select_level, decomposed_signal))
+
+        basis = Either.insert(data).then(decompose).then(threshold).value
+        return basis
+
+
+if __name__ == '__main__':
+    ts1 = np.random.rand(200)
+    ts2 = np.random.rand(200)
+    ts = [ts1, ts2]
+    bss = WaveletBasisImplementation({'n_components': 2, 'wavelet': 'mexh'})
+    basis_multi = bss._transform(ts)
+    basis_1d = bss._transform(ts1)
 
