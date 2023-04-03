@@ -80,9 +80,9 @@ class ResultsPicker:
             ds_list, metrics_list, proba_list = self.read_exp_folder(exp_path)
 
             for metric, proba, dataset in zip(metrics_list, proba_list, ds_list):
-                if dataset not in proba_dict.keys():
+                if dataset not in proba_dict.keys() and proba is not None:
                     proba_dict[dataset] = {}
-                if dataset not in metric_dict.keys():
+                if dataset not in metric_dict.keys() and proba is not None:
                     metric_dict[dataset] = {}
                 proba_dict[dataset].update({exp: proba})
                 metric_dict[dataset].update({exp: metric})
@@ -90,12 +90,12 @@ class ResultsPicker:
         return proba_dict, metric_dict
 
     def read_exp_folder(self, folder):
-        datasets_path = os.path.join(self.exp_path, folder)
-        datasets = self.list_dirs(datasets_path)
+        # datasets_path = os.path.join(self.exp_path, folder)
+        datasets = self.list_dirs(folder)
         metrics_list = []
         proba_list = []
         for ds in datasets:
-            ds_path = os.path.join(self.exp_path, folder, ds)
+            ds_path = os.path.join(folder, ds)
             metrics, proba = self.read_ds_data(ds_path)
             metrics_list.append(metrics)
             proba_list.append(proba)
@@ -103,15 +103,21 @@ class ResultsPicker:
         return datasets, metrics_list, proba_list
 
     def read_ds_data(self, path):
-        if self.launch_type == 'max':
-            best_launch = self.find_best_launch(path)
-        else:
-            best_launch = self.launch_type
-        metrics_path = os.path.join(path, best_launch, 'test_results', 'metrics.csv')
-        proba_path = os.path.join(path, best_launch, 'test_results', 'probs_preds_target.csv')
+        # if self.launch_type == 'max':
+        #     best_launch = self.find_best_launch(path)
+        # else:
+        #     best_launch = self.launch_type
+        # metrics_path = os.path.join(path, best_launch, 'test_results', 'metrics.csv')
+        # proba_path = os.path.join(path, best_launch, ' 'test_results', 'metrics.csv')
+        metrics_path = os.path.join(path, 'metrics.csv')
+        proba_path = os.path.join(path, 'predicted_probs.csv')
 
-        proba = pd.read_csv(proba_path, index_col=0)
-        metrics = pd.read_csv(metrics_path, index_col=0)
+        try:
+            proba = pd.read_csv(proba_path, index_col=0)
+            metrics = pd.read_csv(metrics_path, index_col=0)
+        except FileNotFoundError:
+            self.logger.error(f'File not found: {metrics_path}')
+            return None, None
         if 'index' in metrics.columns:
             del metrics['index']
             metrics = metrics.T

@@ -95,7 +95,7 @@ class TopologicalExtractor(BaseExtractor):
             ts_data = pd.DataFrame(ts_data)
             single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
             delay, dim = takens_embedding_optimal_parameters(X=single_time_series,
-                                                             max_time_delay=5,
+                                                             max_time_delay=2,
                                                              max_dimension=5,
                                                              n_jobs=-1)
             delay_list.append(delay)

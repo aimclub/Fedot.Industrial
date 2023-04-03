@@ -5,14 +5,14 @@ from typing import Union
 
 import pandas as pd
 import seaborn as sns
-from core.log import default_log as logger
 from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
-from core.api.API import Industrial
+from core.api.main import FedotIndustrial
+from core.api.utils.metafeatures import MetaFeaturesDetector
 from core.architecture.postprocessing.results_picker import ResultsPicker
 from core.architecture.preprocessing.DatasetLoader import DataLoader
-from core.api.utils.metafeatures import MetaFeaturesDetector
+from core.log import default_log as logger
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
@@ -33,57 +33,53 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.use_small_datasets = use_small_datasets
 
         self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
+        self.generators = [
+            # 'spectral',
+            'quantile',
+            # 'wavelet',
+            'topological',
+            #                'window_quantile', 'window_spectral', 'recurrence'
+        ]
 
     def run(self):
         self.logger.info('Benchmark test started')
-        experimenter = Industrial()
-        experiment_config = self._config
-
-        # Add custom datasets to experiment config if needed
+        # dataset_list, types = self._get_dataset_list(n_samples=self.number_of_datasets)
+        dataset_list = ['ItalyPowerDemand', 'UMD']
         if self.custom_datasets:
-            experiment_config = self._add_custom_datasets(experiment_config)
+            dataset_list = dataset_list.extend(self.custom_datasets)
 
-        experiment_results = experimenter.run_experiment(config=experiment_config,
-                                                         output_folder=self.output_dir)
-        # with open('filename.pickle', 'rb') as handle:
-        #     experiment_results = pickle.load(handle)
+        for dataset_name in dataset_list:
+            for generator in self.generators:
+                self.logger.info(f'Run benchmark for {dataset_name} with {generator}')
+                config = dict(task='ts_classification',
+                              dataset=dataset_name,
+                              feature_generator=generator,
+                              use_cache=False,
+                              error_correction=False,
+                              launches=1,
+                              timeout=1,
+                              n_jobs=2,
+                              window_sizes='auto')
 
-        basic_metrics_report, ensemble_report = self._create_report(experiment_results)
+                indus = FedotIndustrial(input_config=config, output_folder=self.output_dir)
+                train_data, test_data, _ = indus.reader.read(dataset_name=dataset_name)
+                model = indus.fit(train_features=train_data[0], train_target=train_data[1])
 
-        try:
-            basic_path = os.path.join(self.output_dir, 'basic_metrics_report.csv')
-            basic_metrics_report.to_csv(basic_path, index=False)
+                labels = indus.predict(test_features=test_data[0])
+                probs = indus.predict_proba(test_features=test_data[0])
+                metrics = indus.get_metrics(target=test_data[1],
+                                            metric_names=['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'])
 
-            ensemble_path = os.path.join(self.output_dir, 'ensemble_report.csv')
-            ensemble_report.to_csv(ensemble_path, index=False)
-        except Exception as ex:
-            self.logger.error(f'Can not save report: {ex}')
+                for predict in (labels, probs):
+                    indus.save_predict(predicted_data=predict)
 
-        local_report = self._create_local_report()
+                indus.save_metrics(metrics=metrics)
+
+        basic_results = self.load_local_basic_results()
+        basic_path = os.path.join(self.output_dir, 'basic_metrics_report.csv')
+        basic_results.to_csv(basic_path, index=False)
 
         self.logger.info("Benchmark test finished")
-
-    @property
-    def _config(self):
-        dataset_list, types = self._get_dataset_list(n_samples=self.number_of_datasets)
-        self.logger.info(f'Selected types: {types}')
-
-        dataset_list = ['Car']
-        config = {'feature_generator': [
-                                        # 'window_quantile',
-                                        # 'recurrence',
-                                        # 'quantile',
-                                        # 'window_spectral',
-                                        # 'spectral',
-                                        'wavelet',
-                                        # 'topological'
-                                        ],
-                  'datasets_list': dataset_list, 'use_cache': False,
-                  'error_correction': False, 'launches': 1,
-                  'timeout': 1, 'n_jobs': 2,
-                  'ensemble_algorithm': 'Rank_Ensemble'
-                  }
-        return config
 
     def _get_dataset_list(self, n_samples):
         all_datasets = self.results_picker.get_datasets_info()
@@ -93,34 +89,6 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             types.append(all_datasets[all_datasets['dataset'] == ds]['type'].values[0])
 
         return dataset_list, types
-
-        # return ['ItalyPowerDemand', 'UMD', 'Coffee', 'GunPoint']
-
-    def _create_report(self, experiment_results):
-        metrics_df = self._get_basic_results_table(experiment_results)
-        ensemble_df = self._get_ensemble_results_table(experiment_results)
-
-        datasets_info = ResultsPicker().get_datasets_info()
-
-        basic_metrics_report = pd.merge(metrics_df, datasets_info, how='left', on='dataset')
-        if ensemble_df is not None:
-            ensemble_report = pd.merge(ensemble_df, datasets_info, how='left', on='dataset')
-        else:
-            ensemble_report = None
-
-        if basic_metrics_report.isnull().values.any():
-            basic_metrics_report = self._fill_na_metafeatures(basic_metrics_report)
-            ensemble_report = self._fill_na_metafeatures(ensemble_report)
-
-        self.basic_analysis(basic_metrics_report, save_locally=True)
-        self.ensemble_analysis(ensemble_report, save_locally=True)
-
-        return basic_metrics_report, ensemble_report
-
-    def _create_local_report(self):
-        df = self.load_local_basic_results()
-        self.basic_analysis(df, save_locally=True)
-        return df
 
     def load_local_basic_results(self):
         return self.results_picker.run(get_metrics_df=True, add_info=True)

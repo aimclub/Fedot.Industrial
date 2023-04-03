@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 from fedot.api.api_utils.data_definition import FeaturesType
 from fedot.api.main import Fedot
-from core.log import default_log as logger
 
 from core.api.utils.method_collections import TaskGenerator
 from core.api.utils.reader_collections import DataReader, YamlReader
 from core.api.utils.reporter import ReporterTSC
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.utils.utils import default_path_to_save_results
+from core.log import default_log as logger
 
 
 class FedotIndustrial(Fedot):
@@ -31,7 +31,6 @@ class FedotIndustrial(Fedot):
         self.task_pipeline_dict = {method.name: method.value for method in TaskGenerator}
         self.YAML = YamlReader()
         self.reader = DataReader()
-        self.saver = ResultSaver()
 
         self.fitted_model = None
         self.input_config = input_config
@@ -55,7 +54,8 @@ class FedotIndustrial(Fedot):
                                generator_runner=self.config_dict['generator_class'],
                                model_hyperparams=self.config_dict['fedot_params'],
                                ecm_model_flag=self.config_dict['error_correction'],
-                               dataset_name=self.config_dict['dataset'])
+                               dataset_name=self.config_dict['dataset'],
+                               output_dir=self.output_folder)
 
         return self.task_pipeline_dict[self.config_dict['task']](**pipeline_params)
 
@@ -67,7 +67,6 @@ class FedotIndustrial(Fedot):
         fitted_pipeline = self.pipeline.fit(train_features, train_target)
 
         return fitted_pipeline
-
 
     def predict(self,
                 test_features: pd.DataFrame,
@@ -85,8 +84,11 @@ class FedotIndustrial(Fedot):
                     **kwargs) -> dict:
         return self.pipeline.get_metrics(target, metric_names)
 
-    def save_predict(self, predicted_data):
+    def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray]):
         self.pipeline.save_prediction(predicted_data)
+
+    def save_metrics(self, metrics: dict):
+        self.pipeline.save_metrics(metrics)
 
     def load(self, path):
         """Loads saved model and Fedot graph from disk
@@ -106,12 +108,12 @@ class FedotIndustrial(Fedot):
 
 
 if __name__ == "__main__":
-    datasets = [ 'EthanolLevel']
+    datasets = [ 'ItalyPowerDemand']
 
     for dataset_name in datasets:
         config = dict(task='ts_classification',
                       dataset=dataset_name,
-                      feature_generator='spectral',
+                      feature_generator='topological',
                       use_cache=False,
                       error_correction=False,
                       launches=1,

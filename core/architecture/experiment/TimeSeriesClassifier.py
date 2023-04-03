@@ -37,7 +37,8 @@ class TimeSeriesClassifier:
                  generator_runner: BaseExtractor = None,
                  model_hyperparams: dict = None,
                  ecm_model_flag: bool = False,
-                 dataset_name: str = None, ):
+                 dataset_name: str = None,
+                 output_dir: str = None):
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
@@ -45,25 +46,14 @@ class TimeSeriesClassifier:
         self.test_features = None
         self.input_test_data = None
         self.dataset_name = dataset_name
-        self.saver = ResultSaver()
+        self.saver = ResultSaver(dataset_name=dataset_name, generator_name=generator_name, output_dir=output_dir)
         self.logger = Logger(self.__class__.__name__)
         self.datacheck = DataCheck()
 
         self.generator_name = generator_name
         self.generator_runner = generator_runner
-        # self.feature_generator_dict = {self.generator_name: self.generator_runner}
         self.model_hyperparams = model_hyperparams
         self.ecm_model_flag = ecm_model_flag
-
-        # if self.generator_runner is not None:
-        #     self._init_builder()
-
-    # def _init_builder(self) -> None:
-    #     """Initialize builder with all operations combining generator name and transformation method.
-    #
-    #     """
-    #     for name, runner in self.feature_generator_dict.items():
-    #         self.feature_generator_dict[name] = FeatureBuilderSelector(name, runner).select_transformation()
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -167,6 +157,9 @@ class TimeSeriesClassifier:
     def save_prediction(self, predicted_data: np.ndarray):
         prediction_type = 'labels' if predicted_data.shape[1] == 1 else 'probs'
         self.saver.save(predicted_data, prediction_type)
+
+    def save_metrics(self, metrics: dict):
+        self.saver.save(metrics, 'metrics')
 
     def _pipeline_operations(self) -> dict:
         feature_extractor = self.generator_runner

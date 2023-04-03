@@ -4,7 +4,7 @@ import unittest
 import pandas as pd
 
 from core.architecture.utils.utils import PROJECT_PATH
-from core.operation.utils.caching import DataCacher
+from core.operation.utils.cache import DataCacher
 
 
 class TestDataCacher(unittest.TestCase):
