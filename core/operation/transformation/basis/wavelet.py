@@ -1,0 +1,60 @@
+from typing import Optional
+
+import numpy as np
+import pywt
+from fedot.core.operations.operation_parameters import OperationParameters
+from pymonad.either import Either
+from pymonad.list import ListMonad
+from core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
+
+
+class WaveletBasisImplementation(BasisDecompositionImplementation):
+    """DataDriven basis
+    """
+
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.n_components = params.get('n_components')
+        self.wavelet = params.get('wavelet')
+        self.basis = None
+        self.discrete_wavelets = pywt.wavelist(kind='discrete')
+        self.continuous_wavelets = pywt.wavelist(kind='continuous')
+        self.scales = [1, 3, 5, 10, 15]
+
+    def _decompose_signal(self, input_data):
+        if self.wavelet in self.discrete_wavelets:
+            high_freq, low_freq = pywt.dwt(input_data, self.wavelet, 'smooth')
+        else:
+            high_freq, low_freq = pywt.cwt(data=input_data,
+                                           scales=self.scales,
+                                           wavelet=self.wavelet)
+            low_freq = high_freq[-1, :]
+            high_freq = np.delete(high_freq, (-1), axis=0)
+
+        return high_freq, low_freq
+
+    def _decomposing_level(self):
+        """The level of decomposition of the time series.
+
+        Returns:
+            The level of decomposition of the time series.
+        """
+        return pywt.dwt_max_level(len(self.time_series), self.wavelet)
+
+    def _transform(self, series: np.array):
+        return self._get_basis(series)
+
+    def _get_1d_basis(self, data):
+
+        decompose = lambda signal: ListMonad(self._decompose_signal(signal))
+        threshold = lambda Monoid: ListMonad([Monoid[0][
+                                              :self.n_components],
+                                              Monoid[1]])
+
+        basis = Either.insert(data).then(decompose).then(threshold).value[0]
+
+        return basis
+
+    def _get_multidim_basis(self, data):
+        pass
+

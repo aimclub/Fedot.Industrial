@@ -8,7 +8,7 @@ from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import TakensEmbedding
 
 import pandas as pd
-from core.architecture.settings.Hyperparams import *
+from core.architecture.settings.hyperparams import *
 
 
 class PersistenceDiagramFeatureExtractor(ABC):

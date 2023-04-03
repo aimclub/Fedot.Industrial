@@ -1,6 +1,8 @@
 from enum import Enum
 
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from core.models.detection.probalistic.kalman import UnscentedKalmanFilter
+from core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from core.operation.transformation.basis.chebyshev import ChebyshevBasis
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from core.operation.transformation.basis.fourier import FourierBasis
@@ -31,3 +33,72 @@ class FeatureGenerator(Enum):
 class MlModel(Enum):
     tsc = TimeSeriesClassifier
     functional_pca = FunctionalPCA
+    kalman_filter = UnscentedKalmanFilter
+    sst = SingularSpectrumTransformation
+
+
+class KernelFeatureGenerator(Enum):
+    statistical = [{'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 5
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 10
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 20
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 30
+                    }
+                    },
+                   {'feature_generator_type': 'statistical',
+                    'feature_hyperparams': {
+                        'window_mode': True,
+                        'window_size': 40
+                    }
+                    }
+                   ]
+    wavelet = [
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "mexh",
+             'n_components': 2
+         }},
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "haar",
+             'n_components': 2
+         }
+         },
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "dmey",
+             'n_components': 2
+         }
+         },
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "gaus3",
+             'n_components': 2
+         }
+         },
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {
+             'wavelet': "morl",
+             'n_components': 2
+         }
+         }
+    ]
+    recurrence = []
+    topological = []
