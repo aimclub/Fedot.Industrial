@@ -8,8 +8,6 @@ from matplotlib.patches import Rectangle
 import numpy as np
 import pandas as pd
 
-FIG_SIZE = (16, 8)
-
 
 def savefig(func) -> Callable:
     """Adds the ability to save a figure."""
@@ -156,6 +154,7 @@ def show_train_scores(
         exps: Dict[str, Union[str, Path]],
         metric: str,
         show_std: bool = False,
+        figsize: Tuple[int, int] = (16, 8)
 ) -> plt.Figure:
     """Draws mean training graphs.
 
@@ -167,7 +166,7 @@ def show_train_scores(
     Return:
         Figure with graphs.
     """
-    fig = plt.figure(figsize=FIG_SIZE)
+    fig = plt.figure(figsize=figsize)
     for name, exp in exps.items():
         exp_scores = pd.read_csv(os.path.join(exp, 'train/val.csv'), index_col=0)
         r, g, b = random_color()
@@ -226,6 +225,7 @@ def compare_svd_results(
 @limits
 def show_svd_results(
         svd_exps: Dict[str, pd.DataFrame],
+        figsize: Tuple[int, int] = (16, 8),
         fig: Optional[plt.Figure] = None,
 ) -> plt.Figure:
     """Draws graphs of the mean target metric depending on the mean size of the compressed SVD models.
@@ -238,7 +238,7 @@ def show_svd_results(
         Figure with graphs.
     """
     if fig is None:
-        fig, ax = plt.subplots(figsize=FIG_SIZE)
+        fig, ax = plt.subplots(figsize=figsize)
     else:
         ax = fig.axes[0]
     for exp, df in svd_exps.items():
@@ -310,6 +310,7 @@ def compare_sfp_results(
 @limits
 def show_sfp_results(
         sfp_exps: pd.DataFrame,
+        figsize: Tuple[int, int] = (16, 8),
         fig: Optional[plt.Figure] = None,
 ):
     """Draws graphs of the mean target metric depending on the mean size of the compressed SFP models.
@@ -322,7 +323,7 @@ def show_sfp_results(
         Figure with graphs.
     """
     if fig is None:
-        fig, ax = plt.subplots(figsize=FIG_SIZE)
+        fig, ax = plt.subplots(figsize=figsize)
     else:
         ax = fig.axes[0]
     for exp in sfp_exps.index:
@@ -373,6 +374,7 @@ def show_sfp_results(
 def show_svd_sfp_results(
         sfp_exps: pd.DataFrame,
         svd_exps: Dict[str, pd.DataFrame],
+        figsize: Tuple[int, int] = (16, 8),
 ):
     """Draws graphs of the mean target metric depending on the mean size of the compressed SVD and SFP models.
 
@@ -383,7 +385,7 @@ def show_svd_sfp_results(
     Returns:
         Figure with graphs.
     """
-    fig, ax = plt.subplots(figsize=FIG_SIZE)
+    fig, ax = plt.subplots(figsize=figsize)
     show_svd_results(svd_exps=svd_exps, fig=fig)
     show_sfp_results(sfp_exps=sfp_exps, fig=fig)
     return fig
