@@ -1,5 +1,4 @@
 from typing import Optional
-
 import numpy as np
 import pywt
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -9,7 +8,14 @@ from core.operation.transformation.basis.abstract_basis import BasisDecompositio
 
 
 class WaveletBasisImplementation(BasisDecompositionImplementation):
-    """DataDriven basis
+    """Wavelet basis
+        Example:
+            ts1 = np.random.rand(200)
+            ts2 = np.random.rand(200)
+            ts = [ts1, ts2]
+            bss = WaveletBasisImplementation({'n_components': 2, 'wavelet': 'mexh'})
+            basis_multi = bss._transform(ts)
+            basis_1d = bss._transform(ts1)
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -65,12 +71,4 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         basis = Either.insert(data).then(decompose).then(threshold).value
         return basis
 
-
-if __name__ == '__main__':
-    ts1 = np.random.rand(200)
-    ts2 = np.random.rand(200)
-    ts = [ts1, ts2]
-    bss = WaveletBasisImplementation({'n_components': 2, 'wavelet': 'mexh'})
-    basis_multi = bss._transform(ts)
-    basis_1d = bss._transform(ts1)
 

@@ -16,7 +16,15 @@ class_type = TypeVar("T", bound="DataDrivenBasis")
 
 class DataDrivenBasisImplementation(BasisDecompositionImplementation):
     """DataDriven basis
+        Example:
+            ts1 = np.random.rand(200)
+            ts2 = np.random.rand(200)
+            ts = [ts1, ts2]
+            bss = DataDrivenBasisImplementation({'n_components': 3, 'window_size': 30})
+            basis_multi = bss._transform(ts)
+            basis_1d = bss._transform(ts1)
     """
+
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.n_components = params.get('n_components')
@@ -91,11 +99,3 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         derivative_coefs = np.array([np.polyder(x[::-1], order)[::-1] for x in coefs])
 
         return basis, derivative_coefs
-
-
-if __name__ == '__main__':
-    ts = np.random.rand(200)
-
-    bss = DataDrivenBasisImplementation({'n_components': 3, 'window_size': 30})
-    basis = bss._transform(ts)
-    b = bss._get_1d_basis(ts)
