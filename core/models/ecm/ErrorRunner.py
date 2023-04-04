@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from core.log import default_log as Logger
 
+import logging
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.models.ecm.error_correction import Booster
 
@@ -28,7 +28,7 @@ class ErrorCorrectionModel:
                  dataset_name: str = None, save_models: bool = False,
                  fedot_params: dict = None, train_data=None, test_data=None):
 
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.results_on_train = results_on_train
         self.results_on_test = results_on_test
         self.n_classes = n_classes

@@ -45,7 +45,7 @@ class TopologicalExtractor(BaseExtractor):
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:
 
-        if self.te_time_delay or self.te_dimension is None:
+        if not all([self.te_time_delay, self.te_dimension]):
             self.te_dimension, self.te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
         persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=self.te_dimension,

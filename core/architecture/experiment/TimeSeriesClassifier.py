@@ -1,3 +1,4 @@
+import logging
 from typing import List, Union
 
 import numpy as np
@@ -11,7 +12,6 @@ from pymonad.list import ListMonad
 from core.api.utils.checkers_collections import DataCheck
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.log import default_log as Logger
 from core.models.BaseExtractor import BaseExtractor
 
 
@@ -47,7 +47,7 @@ class TimeSeriesClassifier:
         self.input_test_data = None
         self.dataset_name = dataset_name
         self.saver = ResultSaver(dataset_name=dataset_name, generator_name=generator_name, output_dir=output_dir)
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.datacheck = DataCheck()
 
         self.generator_name = generator_name
@@ -117,18 +117,26 @@ class TimeSeriesClassifier:
                 prediction_label = self.predictor.predict_proba(self.test_features)
             return prediction_label
 
-    def fit(self, train_features: Union[np.ndarray, pd.DataFrame],
+    def fit(self, train_ts_frame: Union[np.ndarray, pd.DataFrame],
             train_target: np.ndarray,
-            baseline_type: str = None) -> object:
+            **kwargs) -> object:
 
+        baseline_type = kwargs.get('baseline_type', None)
         self.logger.info(f'Fitting model...')
         self.y_train = train_target
-        if self.generator_runner is not None:
-            self.train_features = self.generator_runner.extract_features(train_features=train_features,
-                                                                         dataset_name=self.dataset_name)
-        else:
-            self.train_features = train_features
-        self.train_features = self.datacheck.check_data(self.train_features)
+        # if self.generator_runner is not None:
+        #     self.train_features = self.generator_runner.extract_features(train_features=train_features,
+        #                                                                  dataset_name=self.dataset_name)
+        # else:
+        #     self.train_features = train_features
+        if self.generator_runner is None:
+            raise AttributeError('Feature generator is not defined')
+
+        self.train_features = self.generator_runner.extract_features(train_features=train_ts_frame,
+                                                                     dataset_name=self.dataset_name)
+
+        self.train_features = self.datacheck.check_data(input_data=self.train_features,
+                                                        return_df=True)
 
         if baseline_type is not None:
             self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)

@@ -1,16 +1,15 @@
+import logging
 from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from fedot.api.api_utils.data_definition import FeaturesType
 from fedot.api.main import Fedot
+from fedot.core.pipelines.pipeline import Pipeline
 
 from core.api.utils.method_collections import TaskGenerator
 from core.api.utils.reader_collections import DataReader, YamlReader
 from core.api.utils.reporter import ReporterTSC
-from core.api.utils.saver_collections import ResultSaver
 from core.architecture.utils.utils import default_path_to_save_results
-from core.log import default_log as logger
 
 
 class FedotIndustrial(Fedot):
@@ -26,89 +25,154 @@ class FedotIndustrial(Fedot):
                  output_folder: str = None):
         super(Fedot, self).__init__()
 
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger('FedotIndustrialAPI')
+
         self.reporter = ReporterTSC()
-        self.task_pipeline_dict = {method.name: method.value for method in TaskGenerator}
+        self.solvers = {method.name: method.value for method in TaskGenerator}
         self.YAML = YamlReader()
         self.reader = DataReader()
 
-        self.fitted_model = None
         self.input_config = input_config
         self.config_dict = None
         self.output_folder = output_folder
 
         self.__init_experiment_setup()
-        self.pipeline = self.__init_pipeline()
+        self.solver = self.__init_solver()
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
-
         if not self.output_folder:
             self.output_folder = default_path_to_save_results()
         self.reporter.path_to_save = self.output_folder
 
         self.config_dict = self.YAML.init_experiment_setup(self.input_config)
 
-    def __init_pipeline(self):
-        pipeline_params = dict(generator_name=self.config_dict['feature_generator'],
-                               generator_runner=self.config_dict['generator_class'],
-                               model_hyperparams=self.config_dict['fedot_params'],
-                               ecm_model_flag=self.config_dict['error_correction'],
-                               dataset_name=self.config_dict['dataset'],
-                               output_dir=self.output_folder)
+    def __init_solver(self):
+        solver_params = dict(generator_name=self.config_dict['feature_generator'],
+                             generator_runner=self.config_dict['generator_class'],
+                             model_hyperparams=self.config_dict['fedot_params'],
+                             ecm_model_flag=self.config_dict['error_correction'],
+                             dataset_name=self.config_dict['dataset'],
+                             output_dir=self.output_folder)
 
-        return self.task_pipeline_dict[self.config_dict['task']](**pipeline_params)
+        return TaskGenerator[self.config_dict['task']].value(**solver_params)
 
     def fit(self,
             train_features: pd.DataFrame,
             train_target: np.ndarray,
-            baseline_type: str = 'rf') -> np.ndarray:
+            **kwargs) -> Pipeline:
+        """
+        Method for training Industrial model.
 
-        fitted_pipeline = self.pipeline.fit(train_features, train_target)
+        Args:
+            train_features: raw time series data
+            train_target: target labels
+            kwargs: additional parameters for solver, for example `baseline_type` model type that could be selected
+                    instead of Fedot pipeline
 
+        Returns:
+            :class:`Pipeline` object.
+
+        """
+
+        fitted_pipeline = self.solver.fit(train_ts_frame=train_features,
+                                          train_target=train_target,
+                                          **kwargs)
         return fitted_pipeline
 
     def predict(self,
                 test_features: pd.DataFrame,
-            ) -> np.ndarray:
-        return self.pipeline.predict(test_features=test_features)
+                ) -> np.ndarray:
+        """
+        Method to obtain prediction labels from trained Industrial model.
+
+        Args:
+            test_features: raw test data
+
+        Returns:
+            the array with prediction values
+
+        """
+        return self.solver.predict(test_features=test_features)
 
     def predict_proba(self,
-                      test_features,
-            ) -> np.ndarray:
-        return self.pipeline.predict_proba(test_features=test_features)
+                      test_features: pd.DataFrame) -> np.ndarray:
+        """
+        Method to obtain prediction probabilities from trained Industrial model.
+
+        Args:
+            test_features: raw test data
+
+        Returns:
+            the array with prediction probabilities
+
+        """
+        return self.solver.predict_proba(test_features=test_features)
 
     def get_metrics(self,
                     target: Union[np.ndarray, pd.Series] = None,
                     metric_names: Union[str, List[str]] = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                     **kwargs) -> dict:
-        return self.pipeline.get_metrics(target, metric_names)
+        """
+        Method to obtain Gets quality metrics
 
-    def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray]):
-        self.pipeline.save_prediction(predicted_data)
+        Args:
+            target: target values
+            metric_names: list of metric names desired to be calculated
+            **kwargs: additional parameters
 
-    def save_metrics(self, metrics: dict):
-        self.pipeline.save_metrics(metrics)
+        Returns:
+            the dictionary with calculated metrics
+
+        """
+        return self.solver.get_metrics(target, metric_names)
+
+    def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray]) -> None:
+        """
+        Method to save prediction locally in csv format
+
+        Args:
+            predicted_data: predicted data. For TSC task it could be either labels or probabilities
+
+        Returns:
+            None
+
+        """
+        self.solver.save_prediction(predicted_data)
+
+    def save_metrics(self, metrics: dict) -> None:
+        """
+        Method to save metrics locally in csv format
+
+        Args:
+            metrics: dictionary with calculated metrics
+
+        Returns:
+            None
+        """
+        self.solver.save_metrics(metrics)
 
     def load(self, path):
-        """Loads saved model and Fedot graph from disk
+        """Loads saved Industrial model from disk
 
         Args:
             path (str): path to the model
         """
         # self.pipeline.load(path)
-        pass
+        raise NotImplementedError()
 
     def plot_prediction(self, **kwargs):
-        pass
+        """Plot prediction of the model"""
+        raise NotImplementedError()
 
-    def explain(self, features: FeaturesType = None, method: str = 'surrogate_dt', visualization: bool = True,
-                **kwargs) -> 'Explainer':
-        return super().explain(features, method, visualization, **kwargs)
+    def explain(self, **kwargs):
+        raise NotImplementedError()
 
 
 if __name__ == "__main__":
-    datasets = [ 'ItalyPowerDemand']
+    datasets = ['ItalyPowerDemand',
+                # 'UMD'
+                ]
 
     for dataset_name in datasets:
         config = dict(task='ts_classification',
@@ -116,19 +180,20 @@ if __name__ == "__main__":
                       feature_generator='topological',
                       use_cache=False,
                       error_correction=False,
-                      launches=1,
                       timeout=1,
                       n_jobs=2,
-                      # wavelet_types = ['bior2.4'],
-                      window_sizes = 'auto',
-                      # window_sizes = [10,30],
-                      )
+                      window_sizes='auto')
 
-        indus = FedotIndustrial(input_config=config, output_folder=None)
-        train_data, test_data, _ = indus.reader.read(dataset_name=dataset_name)
-        model = indus.fit(train_features=train_data[0], train_target=train_data[1])
+        industrial = FedotIndustrial(input_config=config, output_folder=None)
+        train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
+        model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
 
-        labels = indus.predict(test_features=test_data[0])
-        probs = indus.predict_proba(test_features=test_data[0])
-        metrics = indus.get_metrics(target=test_data[1],
-                                    metric_names=['f1', 'roc_auc', 'accuracy', 'logloss', 'precision'])
+        labels = industrial.predict(test_features=test_data[0])
+        probs = industrial.predict_proba(test_features=test_data[0])
+        metric = industrial.get_metrics(target=test_data[1],
+                                        metric_names=['f1', 'roc_auc'])
+
+        for pred in [labels, probs]:
+            industrial.save_predict(predicted_data=pred)
+
+        industrial.save_metrics(metrics=metric)

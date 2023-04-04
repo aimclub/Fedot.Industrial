@@ -1,7 +1,7 @@
+import logging
 from enum import Enum
 from typing import Dict, List
 
-from core.log import default_log as Logger
 from sklearn import preprocessing
 
 from core.metrics.metrics_implementation import *
@@ -28,8 +28,7 @@ class PerformanceAnalyzer:
 
     """
     def __init__(self):
-
-        self.logger = Logger('PerformanceAnalyzer')
+        self.logger = logging.getLogger('PerformanceAnalyzer')
 
     @staticmethod
     def problem_and_metric_for_dataset(task_type: str) -> Union[List, None]:

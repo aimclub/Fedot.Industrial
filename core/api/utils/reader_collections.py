@@ -1,9 +1,9 @@
+import logging
 import os
 from typing import Union
 
 import numpy as np
 import yaml
-from core.log import default_log as logger
 
 from core.api.utils.checkers_collections import ParameterCheck
 from core.api.utils.hp_generator_collection import GeneratorParams
@@ -24,7 +24,7 @@ class YamlReader:
     def __init__(self):
 
         self.config_dict = None
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.experiment_check = ParameterCheck()
         self.experiment_dict = None
 
@@ -129,6 +129,7 @@ class YamlReader:
 
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
+        # TODO: change place where HP are stored
         feature_gen_params = GeneratorParams[generator].value
 
         for param in feature_gen_params:
@@ -139,14 +140,14 @@ class YamlReader:
 
     def __report_experiment_setup(self, experiment_dict):
 
-        self.logger.info(f'''Experiment setup:
+        # self.logger.info
+        print(f'''Experiment setup:
         dataset - {experiment_dict['dataset']},
         feature generator - {experiment_dict['feature_generator']},
         use_cache - {experiment_dict['use_cache']},
         error_correction - {experiment_dict['error_correction']},
         n_jobs - {experiment_dict['fedot_params']['n_jobs']},
         timeout - {experiment_dict['fedot_params']['timeout']},
-        launches - {experiment_dict['launches']},
         ensemble - {experiment_dict['ensemble_algorithm']}''')
 
 
@@ -159,7 +160,8 @@ class DataReader:
 
     def __init__(self):
 
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
+        # self.logger = logger(self.__class__.__name__)
 
     def read(self, dataset_name: str):
 

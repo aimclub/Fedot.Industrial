@@ -1,4 +1,4 @@
-from core.log import default_log as Logger
+import logging
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -14,7 +14,7 @@ class BaseEnsemble:
                  feature_generator_dict: dict = None):
         self.feature_generator_dict = feature_generator_dict
         self.dataset_name = dataset_name
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.metric_dict = None
         self.prediction_proba_dict = None
 
@@ -25,8 +25,12 @@ class BaseEnsemble:
         """
         Method for creating dictionary with structure {'ModelName': [tensor with class probs]}
         and dictionary with structure {'ModelName':[metric values]}
-        :param modelling_results: dict of results from modelling
-        :return: tuple of dicts
+
+        Args:
+            modelling_results: dict of results from modelling
+
+        Returns:
+            tuple of dicts
         """
         prediction_proba_dict = {}
         metric_dict = {}
@@ -43,9 +47,7 @@ class BaseEnsemble:
         return prediction_proba_dict, metric_dict
 
     def _select_best_launch(self, generator_results: dict) -> dict:
-        """
-        Method for selecting best launch from modelling results
-
+        """Method for selecting best launch from modelling results
 
         """
         best_metric = 0

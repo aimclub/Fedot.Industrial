@@ -10,8 +10,6 @@ n_ecm_cycles: 3
 
 ensemble_algorithm: None
 
-launches: 1
-
 fedot_params:
   {
     'problem': 'classification',

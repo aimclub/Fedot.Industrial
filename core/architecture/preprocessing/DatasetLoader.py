@@ -1,12 +1,13 @@
+import logging
 import os
 import shutil
 import urllib.request as request
 import zipfile
-from sktime.datasets._data_io import load_from_tsfile_to_dataframe
+
 import numpy as np
 import pandas as pd
-from core.log import default_log as Logger
 from scipy.io.arff import loadarff
+from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 
 from core.architecture.utils.utils import PROJECT_PATH
 
@@ -24,7 +25,7 @@ class DataLoader:
     """
 
     def __init__(self, dataset_name: str):
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger('DataLoader')
         self.dataset_name = dataset_name
 
     def load_data(self) -> tuple:

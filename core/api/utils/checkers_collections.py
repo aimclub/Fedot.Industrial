@@ -1,13 +1,13 @@
+import logging
 from typing import Union
 
 import numpy as np
 import pandas as pd
-from core.log import default_log as logger
 
 
 class ParameterCheck:
     def __init__(self):
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def check_window_sizes(self, config_dict: dict,
                            dataset_name: str,
@@ -58,7 +58,7 @@ class ParameterCheck:
 
 class DataCheck:
     def __init__(self):
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     @staticmethod
     def _replace_inf_with_nans(input_data: np.ndarray):

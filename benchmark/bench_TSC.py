@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 from abc import ABC
@@ -12,7 +13,6 @@ from core.api.main import FedotIndustrial
 from core.api.utils.metafeatures import MetaFeaturesDetector
 from core.architecture.postprocessing.results_picker import ResultsPicker
 from core.architecture.preprocessing.DatasetLoader import DataLoader
-from core.log import default_log as logger
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
@@ -25,7 +25,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             random_selection=random_selection,
             number_of_datasets=number_of_datasets)
 
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         self._create_output_dir()
         self.number_of_datasets = number_of_datasets
         self.random_selection = random_selection
