@@ -85,7 +85,6 @@ class TopologicalExtractor(BaseExtractor):
                    'mean': np.mean,
                    'median': np.median}
 
-        self.logger.info('Start searching optimal TE parameters')
         dim_list, delay_list = list(), list()
 
         for _ in tqdm(range(len(ts_data)),
@@ -103,7 +102,6 @@ class TopologicalExtractor(BaseExtractor):
 
         dimension = int(methods[method](dim_list))
         delay = int(methods[method](delay_list))
-        self.logger.info(f'Optimal TE parameters: dimension = {dimension}, time_delay = {delay}')
 
         return dimension, delay
 
