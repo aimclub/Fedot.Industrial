@@ -1,6 +1,6 @@
-import numpy as np
+import logging
 
-from core.log import default_log as logger
+import numpy as np
 
 
 class MetaFeaturesDetector:
@@ -9,7 +9,7 @@ class MetaFeaturesDetector:
         self.train_data = train_data
         self.test_data = test_data
         self.dataset_name = dataset_name
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f'Initializing MetaFeaturesDetector for {dataset_name}')
 
         self.base_metafeatures = ['test_size', 'train_size', 'length', 'number_of_classes', 'type']

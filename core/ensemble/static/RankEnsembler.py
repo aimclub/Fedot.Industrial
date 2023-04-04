@@ -1,3 +1,4 @@
+import logging
 from typing import Union
 
 import pandas as pd
@@ -5,9 +6,8 @@ from numpy import ndarray
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.DatasetLoader import DataLoader
-from core.architecture.settings.Hyperparams import *
+from core.architecture.settings.hyperparams import *
 from core.ensemble.BaseEnsembler import BaseEnsemble
-from core.log import default_log as logger
 
 
 class RankEnsemble(BaseEnsemble):
@@ -15,18 +15,17 @@ class RankEnsemble(BaseEnsemble):
     by ranking them and recursively adding them to the final composite model.
 
     Args:
+        dataset_name: name of dataset
 
     Attributes:
-        logger (Logger): logger instance
-        experiment_results (dict): dictionary with structure {'ModelName': [tensor with class probs]}
 
     """
 
-    def __init__(self, dataset_name):
+    def __init__(self, dataset_name: str):
         super().__init__(dataset_name=dataset_name)
         self.performance_analyzer = PerformanceAnalyzer()
         self.experiment_results = {}
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.best_ensemble_metric = 0
 
         self.ensemble_strategy_dict = select_hyper_param('stat_methods_ensemble')

@@ -1,10 +1,10 @@
+import logging
 import os
 from typing import Union
 
 import pandas as pd
 
 from core.architecture.utils.utils import PROJECT_PATH
-from core.log import default_log as logger
 
 
 class ResultsPicker:
@@ -28,7 +28,8 @@ class ResultsPicker:
     def __init__(self, path: str = None, launch_type: Union[str, int] = 'max'):
         self.exp_path = self.__get_results_path(path)
         self.launch_type = launch_type
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
 
     def __get_results_path(self, path):
         if path:

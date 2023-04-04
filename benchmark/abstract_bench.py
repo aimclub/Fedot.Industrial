@@ -1,6 +1,5 @@
+import logging
 import os
-
-from core.log import default_log as logger
 
 
 class AbstractBenchmark(object):
@@ -20,7 +19,7 @@ class AbstractBenchmark(object):
         """
         self.output_dir = output_dir
         self.kwargs = kwargs
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self._create_output_dir()
 
     @property

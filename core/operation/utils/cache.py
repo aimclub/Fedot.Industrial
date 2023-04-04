@@ -1,12 +1,10 @@
 import hashlib
+import logging
 import os
 import timeit
 
 import numpy as np
 import pandas as pd
-from core.log import default_log as Logger
-
-from core.architecture.utils.utils import PROJECT_PATH
 
 
 class DataCacher:
@@ -24,7 +22,7 @@ class DataCacher:
     """
 
     def __init__(self, data_type_prefix: str = 'Data', cache_folder: str = None):
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger(name='DataCacher')
         self.data_type = data_type_prefix
         self.cache_folder = cache_folder
         os.makedirs(cache_folder, exist_ok=True)

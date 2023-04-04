@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import timeit
 from multiprocessing import cpu_count
@@ -12,7 +13,6 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import MinMaxScaler
 
 from core.architecture.utils.utils import PROJECT_PATH
-from core.log import default_log
 from core.metrics.metrics_implementation import *
 from core.operation.utils.cache import DataCacher
 
@@ -35,7 +35,7 @@ class BaseExtractor(DataOperationImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.logger = default_log()
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.current_window = None
         self.n_processes = cpu_count() // 2
         self.use_cache = params.get('use_cache')

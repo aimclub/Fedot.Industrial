@@ -1,17 +1,16 @@
+import logging
 import os
 
 import pandas as pd
 
 from core.architecture.utils.utils import default_path_to_save_results
-from core.log import default_log as logger
 
 
 class ResultSaver:
     def __init__(self, dataset_name: str, generator_name: str, output_dir: str = None):
 
         self.path = self.__init_save_path(dataset_name, generator_name, output_dir)
-
-        self.logger = logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.save_method_dict = {'labels': self.save_labels,
                                  'probs': self.save_probs,
                                  'metrics': self.save_metrics}
