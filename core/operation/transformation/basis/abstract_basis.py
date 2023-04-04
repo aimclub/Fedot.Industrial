@@ -1,35 +1,27 @@
-import os
-from copy import copy
 from typing import Optional
 
 import numpy as np
-import pandas as pd
-from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.data import InputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
-    DataOperationImplementation, _convert_to_output_function
+    DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.list import ListMonad
+from tqdm.auto import tqdm
 
-from core.architecture.utils.utils import PROJECT_PATH
-from core.operation.utils.cache import DataCacher
+from core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
 
-class BasisDecompositionImplementation(DataOperationImplementation):
-    """A class for decomposing data on the abstract basis and evaluating the derivative of the resulting decomposition.
+class BasisDecompositionImplementation(IndustrialCachableOperationImplementation):
+    """
+    A class for decomposing data on the abstract basis and evaluating the derivative of the resulting decomposition.
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        """
-        Initializes the class with an array of data in np.array format as input.
-
-        Parameters
-        ----------
-        """
-
         super().__init__(params)
         self.n_components = params.get('n_components', 2)
         self.basis = None
+        self.data_type = DataTypesEnum.image
 
     def _get_basis(self, data):
         if type(data) == list:
@@ -37,7 +29,6 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         else:
             basis = self._get_1d_basis(data)
         return basis
-
 
     def fit(self, data):
         """Decomposes the given data on the chosen basis.
@@ -55,35 +46,25 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         """
         pass
 
-    def f(self, x):
-        return self._transform(x)
+    def _transform_one_sample(self, sample: np.array):
+        """
+            Method for transforming one sample
+        """
+        pass
 
-    def transform(self, input_data: InputData) -> OutputData:
-        features = ListMonad(*input_data.features.tolist()).value
-
-        cache_folder = os.path.join(PROJECT_PATH, 'cache')
-        os.makedirs(cache_folder, exist_ok=True)
-        cacher = DataCacher(data_type_prefix=f'Features of  basis',
-                            cache_folder=cache_folder)
-
-        hashed_info = cacher.hash_info(data=input_data.features.tobytes(),
-                                       **self.params.to_dict())
-
-        try:
-            predict = cacher.load_data_from_cache(hashed_info=hashed_info)
-        except FileNotFoundError:
-            v = np.vectorize(self.f, signature='(n)->(m, n)')
-
-            predict = v(features)
-        predict = self._convert_to_output(input_data, predict, data_type=DataTypesEnum.image)
+    def _transform(self, input_data: InputData) -> np.array:
+        """
+            Method for transforming all samples
+        """
+        features = np.array(ListMonad(*input_data.features.tolist()).value)
+        v = []
+        for series in tqdm(features):
+            v.append(self._transform_one_sample(series[~np.isnan(series)]))
+        predict = np.array(v)
         return predict
 
-    def _transform(self, series: np.array):
+    def _get_multidim_basis(self, data):
         pass
 
-    def _get_multidim_basis(self):
+    def _get_1d_basis(self, data):
         pass
-
-    def _get_1d_basis(self):
-        pass
-

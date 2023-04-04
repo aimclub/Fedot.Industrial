@@ -4,14 +4,14 @@ from typing import Sequence
 
 from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
-from fedot.core.dag.verification_rules import ERROR_PREFIX
-from fedot.core.optimisers.gp_comp.operators.mutation import MutationTypesEnum
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import SearchSpace
 from fedot.core.pipelines.verification import class_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operations_for_task
 from fedot.core.repository.tasks import Task, TaskTypesEnum
+from golem.core.dag.verification_rules import ERROR_PREFIX
+from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.tuning.search_space import get_industrial_search_space

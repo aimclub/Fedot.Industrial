@@ -15,15 +15,17 @@ class_type = TypeVar("T", bound="DataDrivenBasis")
 
 
 class DataDrivenBasisImplementation(BasisDecompositionImplementation):
-    """DataDriven basis
     """
+    DataDriven basis
+    """
+
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.n_components = params.get('n_components')
         self.window_size = params.get('window_size')
         self.basis = None
 
-    def _transform(self, series: np.array):
+    def _transform_one_sample(self, series: np.array):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
@@ -80,8 +82,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
         return basis
 
-    def evaluate_derivative(self:
-    class_type,
+    def evaluate_derivative(self: class_type,
                             coefs: np.array,
                             order: int = 1) -> Tuple[class_type, np.array]:
         basis = type(self)(

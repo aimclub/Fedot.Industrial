@@ -120,7 +120,6 @@ class SignalExtractor(BaseExtractor):
                                                )
                                           )
 
-        self.logger.info('Feature generation finished. TS processed: {}'.format(ts_frame.shape[0]))
         return components_and_vectors
 
     def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:

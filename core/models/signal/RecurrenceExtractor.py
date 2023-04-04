@@ -78,7 +78,6 @@ class RecurrenceExtractor(BaseExtractor):
 
     def generate_features_from_ts(self, ts_data: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
-        self.logger.info('Recurrence feature extraction started')
 
         if self.train_feats is None:
             train_feats = self.generate_vector_from_ts(ts_data)
