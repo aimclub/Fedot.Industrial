@@ -1,12 +1,14 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from core.models.BaseExtractor import BaseExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
-from core.models.statistical.QuantileRunner import StatsExtractor
-from core.models.topological.TopologicalRunner import TopologicalExtractor
+from core.models.spectral.SSAExtractor import SSAExtractor
+from core.models.statistical.StatsExtractor import StatsExtractor
+from core.models.topological.TopologicalExtractor import TopologicalExtractor
 
 
-class EnsembleRunner(BaseExtractor):
+class EnsembleExtractor(BaseExtractor):
     """Class for performing experiments with ensemble of feature generators.
 
     Args:
@@ -27,7 +29,7 @@ class EnsembleRunner(BaseExtractor):
                                    spectral=SSAExtractor,
                                    spectral_window=SSAExtractor,
                                    topological=TopologicalExtractor,
-                                   ensemble=EnsembleRunner)
+                                   ensemble=EnsembleExtractor)
 
     def get_features(self, ts_frame: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
         return self.ensemble_features(ts_frame, dataset_name)

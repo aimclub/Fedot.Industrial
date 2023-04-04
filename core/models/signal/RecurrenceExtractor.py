@@ -4,7 +4,6 @@ from typing import Optional
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
-from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.DataTransformer import TSTransformer

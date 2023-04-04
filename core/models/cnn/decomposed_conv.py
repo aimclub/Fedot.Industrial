@@ -1,4 +1,3 @@
-
 from typing import Union
 
 import torch
@@ -12,6 +11,7 @@ __all__ = ["DecomposedConv2d"]
 class DecomposedConv2d(Conv2d):
     """Extends the Conv2d layer by implementing the singular value decomposition of
     the weight matrix.
+
     Args:
         in_channels: Number of channels in the input image
         out_channels: Number of channels produced by the convolution
@@ -28,6 +28,7 @@ class DecomposedConv2d(Conv2d):
         groups: Number of blocked connections from input channels to output channels.
             Default: ``1``
         bias: If ``True``, adds a learnable bias to the output. Default: ``True``
+
     """
 
     def __init__(

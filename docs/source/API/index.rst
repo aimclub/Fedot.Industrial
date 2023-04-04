@@ -20,14 +20,13 @@ Time series classification
 
     timeseriesclassifier_api
     data_loader_api
-    logger_api
-    models_tsc/experimentrunner_api
-    models_tsc/quantile_runner_api
-    models_tsc/spectral_runner_api
-    models_tsc/topological_runner_api
-    models_tsc/wavelet_runner_api
-    models_tsc/ensemble_runner_api
-    results_parser_api
+    models_tsc/base_extractor_api
+    models_tsc/stats_extractor_api.rst
+    models_tsc/spectral_extractor_api
+    models_tsc/topological_extractor_api
+    models_tsc/wavelet_extractor_api
+    models_tsc/ensemble_extractor_api
+    results_picker_api
     models_tsc/error_correction_api
 
 

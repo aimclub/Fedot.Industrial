@@ -11,8 +11,8 @@ from core.operation.transformation.basis.power import PowerBasis
 from core.models.detection.subspaces.func_pca import FunctionalPCA
 from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
-from core.models.statistical.QuantileRunner import StatsExtractor
-from core.models.topological.TopologicalRunner import TopologicalExtractor
+from core.models.statistical.StatsExtractor import StatsExtractor
+from core.models.topological.TopologicalExtractor import TopologicalExtractor
 
 
 class BasisTransformations(Enum):
