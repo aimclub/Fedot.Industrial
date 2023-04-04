@@ -11,6 +11,8 @@ from core.models.signal.SignalExtractor import SignalExtractor
 from core.models.statistical.QuantileRunner import StatsExtractor
 from core.models.topological.TopologicalRunner import TopologicalExtractor
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
+from core.operation.transformation.basis.fourier import FourierBasisImplementation
+from core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 
 
@@ -30,7 +32,9 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
     """
 
     __operations_by_types = {
-        'data_driven_basic': DataDrivenBasisImplementation,
+        'data_driven_basis': DataDrivenBasisImplementation,
+        'wavelet_basis': WaveletBasisImplementation,
+        'fourier_basic': FourierBasisImplementation,
         'topological_extractor': TopologicalExtractor,
         'quantile_extractor': StatsExtractor,
         'signal_extractor': SignalExtractor,

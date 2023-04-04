@@ -2,9 +2,14 @@ import numpy as np
 from hyperopt import hp
 
 industrial_search_space = {
-    'data_driven_basic':
+    'data_driven_basis':
         {'n_components': (hp.uniformint, [2, 10]),
          'window_size': (hp.uniformint, [10, 50])},
+    'wavelet_basis':
+        {'n_components': (hp.uniformint, [2, 10]),
+         'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])},
+    'fourier_basis':
+        {'spectrum': (hp.choice, [['real', 'imaginary']])},
     'quantile_extractor':
         {'window_size': (hp.uniformint, [1, 50]),
          'win_mode': (hp.choice, [[True, False]])},
@@ -15,7 +20,7 @@ industrial_search_space = {
          'max_signal_ratio': (hp.uniform, [0.5, 1]),
          'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean' 'mahalanobis']])},
     'signal_extractor':
-        {'wavelet': (hp.choice, [['db5', 'sym5', 'coif5', 'bior2.4']])}
+        {'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])}
 }
 
 

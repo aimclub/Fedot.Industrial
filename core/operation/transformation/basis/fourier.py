@@ -29,8 +29,8 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
             spectrum = spectrum.imag
         else:
             spectrum = spectrum.real
-        freq = np.fft.fftfreq(input_data.shape[-1])
-        return (spectrum, freq)
+        # freq = np.fft.fftfreq(input_data.shape[-1])
+        return spectrum
 
     def _transform(self, series: np.array):
         return self._get_basis(series)

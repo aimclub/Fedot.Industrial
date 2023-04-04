@@ -142,9 +142,16 @@
   "fast_ica": {
     "whiten": "unit-variance"
   },
-  "data_driven_basic": {
+  "data_driven_basis": {
     "n_components": 2,
     "window_size": 35
+  },
+  "wavelet_basis": {
+    "wavelet": "mexh",
+    "n_components": 2
+  },
+  "fourier_basis": {
+    "spectrum_type": "real"
   },
   "quantile_extractor": {
     "window_size": 20,
@@ -158,6 +165,6 @@
     "rec_metric": "euclidean"
   },
   "signal_extractor": {
-    "wavelet": "db5"
+    "wavelet": "mexh"
   }
 }
