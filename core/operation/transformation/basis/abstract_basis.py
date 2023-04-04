@@ -6,6 +6,7 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
     DataOperationImplementation, _convert_to_output_function
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from pymonad.either import Either
 from pymonad.list import ListMonad
 
 from core.architecture.utils.utils import PROJECT_PATH
@@ -43,6 +44,9 @@ class BasisDecompositionImplementation(DataOperationImplementation):
         Returns:
             np.array: The decomposition of the given data.
         """
+        pass
+
+    def _decompose_signal(self):
         pass
 
     def evaluate_derivative(self, order: int = 1):
@@ -83,9 +87,13 @@ class BasisDecompositionImplementation(DataOperationImplementation):
     def _transform(self, series: np.array):
         pass
 
-    def _get_multidim_basis(self):
-        pass
+    def _get_1d_basis(self, input_data):
+        decompose = lambda signal: ListMonad(self._decompose_signal(signal))
+        basis = Either.insert(input_data).then(decompose).value[0]
+        return basis
 
-    def _get_1d_basis(self):
-        pass
+    def _get_multidim_basis(self, input_data):
+        decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))
+        basis = Either.insert(input_data).then(decompose).value[0]
+        return basis
 
