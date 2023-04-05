@@ -48,6 +48,7 @@ class FedotIndustrial(Fedot):
         self.config_dict = self.YAML.init_experiment_setup(self.input_config)
 
     def __init_solver(self):
+        self.logger.info('Initialising solver')
         solver_params = dict(generator_name=self.config_dict['feature_generator'],
                              generator_runner=self.config_dict['generator_class'],
                              model_hyperparams=self.config_dict['fedot_params'],

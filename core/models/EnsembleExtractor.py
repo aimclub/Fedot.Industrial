@@ -45,9 +45,11 @@ class EnsembleExtractor(BaseExtractor):
             Dataframe with extracted features.
 
         """
+        self.logger.info(f'Extracting features using ensemble of generators: {self.list_of_generators.keys()}')
         features = list()
         for generator_name, generator in self.list_of_generators.items():
             features_df = generator.extract_features(input_data, dataset_name)
             features.append(features_df)
 
+        self.logger.info(f'Features extraction finished')
         return pd.concat(features, axis=1)

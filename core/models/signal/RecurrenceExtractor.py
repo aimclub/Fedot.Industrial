@@ -75,6 +75,8 @@ class RecurrenceExtractor(BaseExtractor):
             components_and_vectors = components_and_vectors[:, np.newaxis, :, :]
         else:
             components_and_vectors = pd.concat(components_and_vectors, axis=1).T
+
+        self.logger.info('Recurrence feature extraction finished')
         return components_and_vectors
 
     # @time_it

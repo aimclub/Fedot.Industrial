@@ -101,8 +101,7 @@ class BaseExtractor(DataOperationImplementation):
 
         """
         generator_name = self.__class__.__name__
-        self.logger.info(f'{generator_name} is working...')
-        if generator_name in ('StatsRunner', 'SSARunner'):
+        if generator_name in ('StatsExtractor', 'SSAExtractor'):
             self.logger.info(f'Window mode: {self.window_mode}')
 
         if self.use_cache:
@@ -115,10 +114,10 @@ class BaseExtractor(DataOperationImplementation):
             cache_path = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_info + '.pkl')
 
             try:
-                self.logger.info('Trying to load features from cache...')
+                self.logger.info('Trying to load features from cache')
                 return self.load_features_from_cache(cache_path)
             except FileNotFoundError:
-                self.logger.info('Cache not found. Generating features...')
+                self.logger.info('Cache not found. Generating features')
                 features = self.get_features(train_features, dataset_name)
                 self.save_features_to_cache(hashed_info, features)
                 return features
