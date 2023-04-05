@@ -4,7 +4,6 @@ from typing import Optional
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
-from core.architecture.abstraction.Decorators import time_it
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.DataTransformer import TSTransformer
@@ -76,6 +75,8 @@ class RecurrenceExtractor(BaseExtractor):
             components_and_vectors = components_and_vectors[:, np.newaxis, :, :]
         else:
             components_and_vectors = pd.concat(components_and_vectors, axis=1).T
+
+        self.logger.info('Recurrence feature extraction finished')
         return components_and_vectors
 
     # @time_it

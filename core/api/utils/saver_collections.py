@@ -26,7 +26,11 @@ class ResultSaver:
         return path
 
     def save(self, predicted_data, prediction_type: str):
-        self.save_method_dict[prediction_type](predicted_data)
+        self.logger.info(f'Saving {prediction_type} type to {self.path}')
+        try:
+            self.save_method_dict[prediction_type](predicted_data)
+        except Exception:
+            self.logger.error(f'Can not save {prediction_type} type to {self.path}')
 
     def save_labels(self, label_data):
         df = pd.DataFrame(label_data, dtype=int)

@@ -5,7 +5,7 @@ from sklearn.metrics import mean_squared_error
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.models.spectral.SSAExtractor import SSAExtractor
-from core.models.statistical.QuantileRunner import StatsRunner
+from core.models.statistical.StatsExtractor import StatsRunner
 from core.operation.optimization.FeatureSpace import VarianceSelector
 from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from core.architecture.preprocessing.DatasetLoader import DataLoader

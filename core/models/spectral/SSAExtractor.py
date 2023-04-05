@@ -124,7 +124,7 @@ class SSAExtractor(BaseExtractor):
 
     # @time_it
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None, target: np.ndarray = None) -> pd.DataFrame:
-
+        self.logger.info('Spectral features extraction started')
         if self.current_window is None:
             self._choose_best_window_size(ts_data, dataset_name=dataset_name)
             aggregation_df = self.train_feats
@@ -137,7 +137,7 @@ class SSAExtractor(BaseExtractor):
             for col in aggregation_df.columns:
                 aggregation_df[col].fillna(value=aggregation_df[col].mean(), inplace=True)
 
-        _ = 1
+        self.logger.info('Spectral features extraction finished')
         return aggregation_df
 
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
@@ -180,6 +180,7 @@ class SSAExtractor(BaseExtractor):
             Extracted features for train data.
 
         """
+        self.logger.info('Choose best window size for feature extraction')
         metric_list = []
         n_comp_list = []
         eigen_list = []
@@ -222,7 +223,6 @@ class SSAExtractor(BaseExtractor):
                                  f'this signal.')
                 break
 
-        # index_of_window = int(metric_list.index(max(metric_list)))
         index_of_window = self.pareto_front.pareto_metric_list(np.array(metric_list))
         index_of_window = np.where(index_of_window == True)[0][0]
         self.current_window = window_list[index_of_window]

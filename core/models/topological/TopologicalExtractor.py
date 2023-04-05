@@ -65,9 +65,7 @@ class TopologicalExtractor(BaseExtractor):
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None):
-        # ts_data = pd.DataFrame(ts_data)
-        # if ts_data.shape[0] > ts_data.shape[1]:
-        #     ts_data = ts_data.T
+        self.logger.info('Topological features extraction started')
         return self.generate_topological_features(ts_data=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
@@ -85,6 +83,7 @@ class TopologicalExtractor(BaseExtractor):
                    'mean': np.mean,
                    'median': np.median}
 
+        self.logger.info('Searching optimal Takens embedding parameters')
         dim_list, delay_list = list(), list()
 
         for _ in tqdm(range(len(ts_data)),
@@ -102,6 +101,7 @@ class TopologicalExtractor(BaseExtractor):
 
         dimension = int(methods[method](dim_list))
         delay = int(methods[method](delay_list))
+        self.logger.info(f'Optimal TE parameters: dimension = {dimension}, time_delay = {delay}')
 
         return dimension, delay
 

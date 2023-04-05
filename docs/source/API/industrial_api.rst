@@ -3,5 +3,5 @@
 FEDOT.Industrial API
 ====================
 
-.. autoclass:: core.api.API.Industrial
+.. autoclass:: core.api.main.FedotIndustrial
    :no-undoc-members:

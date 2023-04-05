@@ -48,6 +48,8 @@ class StatsExtractor(BaseExtractor):
             aggregation_df = pd.concat(list_of_stat_features_on_interval, axis=1)
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
+
+        self.logger.info('Statistical features extraction finished')
         return aggregation_df
 
     def generate_features_from_ts(self,
@@ -73,6 +75,7 @@ class StatsExtractor(BaseExtractor):
 
     #@time_it
     def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
+        self.logger.info('Statistical features extraction started')
         return self.generate_features_from_ts(ts_data)
 
     def __component_extraction(self, ts):
@@ -88,9 +91,6 @@ class StatsExtractor(BaseExtractor):
         return aggregation_df
 
     def __get_feature_matrix(self, ts):
-        # ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
-        # if ts_components[0].shape[0] != 1:
-        #     ts_components = [x.T for x in ts_components] #ts_components[0].values.reshape(-1)
 
         ts_components = [x.reshape(-1) for x in ts.values]
         tmp_list = []
@@ -98,4 +98,6 @@ class StatsExtractor(BaseExtractor):
             aggregation_df = self.extract_stats_features(component)
             tmp_list.append(aggregation_df)
         aggregation_df = pd.concat(tmp_list, axis=0).reset_index(drop=True)
+
+        self.logger.info('Statistical features extraction finished')
         return aggregation_df

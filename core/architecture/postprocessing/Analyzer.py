@@ -61,6 +61,7 @@ class PerformanceAnalyzer:
                           predicted_labels: Union[np.ndarray, list] = None,
                           predicted_probs: np.ndarray = None,
                           target_metrics: list = None) -> Dict:
+        self.logger.info(f'Calculating metrics: {target_metrics}')
         try:
             if type(target[0]) is not float:
                 labels_diff = max(target) - max(predicted_labels)

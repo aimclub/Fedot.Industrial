@@ -93,13 +93,17 @@ class SignalExtractor(BaseExtractor):
         return components_and_vectors
 
     def get_features(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
+        self.logger.info('Wavelet feature generation started')
 
         ts_data = np.array(ts_data)
         if len(ts_data.shape) == 1:
             self.test_feats = self._ts_chunk_function(ts_data)
         else:
-            test_feats = self.generate_vector_from_ts(np.array(ts_data))
+            test_feats = self.generate_vector_from_ts(ts_data)
+            # test_feats = self.generate_vector_from_ts(np.array(ts_data))
             test_feats = pd.concat(test_feats)
             test_feats.index = list(range(len(test_feats)))
             self.test_feats = test_feats
+
+        self.logger.info('Wavelet feature generation finished')
         return self.test_feats

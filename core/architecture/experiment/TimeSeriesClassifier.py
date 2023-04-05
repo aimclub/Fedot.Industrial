@@ -54,6 +54,7 @@ class TimeSeriesClassifier:
         self.generator_runner = generator_runner
         self.model_hyperparams = model_hyperparams
         self.ecm_model_flag = ecm_model_flag
+        self.logger.info('TimeSeriesClassifier initialised')
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -100,6 +101,7 @@ class TimeSeriesClassifier:
     def __predict_abstraction(self,
                               test_features: Union[np.ndarray, pd.DataFrame],
                               mode: str = 'labels'):
+        self.logger.info(f'Predicting with {self.generator_name} generator')
 
         if self.test_features is None:
             self.test_features = self.generator_runner.extract_features(train_features=test_features,
@@ -122,20 +124,15 @@ class TimeSeriesClassifier:
             **kwargs) -> object:
 
         baseline_type = kwargs.get('baseline_type', None)
-        self.logger.info(f'Fitting model...')
+        self.logger.info(f'Fitting model')
         self.y_train = train_target
-        # if self.generator_runner is not None:
-        #     self.train_features = self.generator_runner.extract_features(train_features=train_features,
-        #                                                                  dataset_name=self.dataset_name)
-        # else:
-        #     self.train_features = train_features
         if self.generator_runner is None:
             raise AttributeError('Feature generator is not defined')
 
-        self.train_features = self.generator_runner.extract_features(train_features=train_ts_frame,
-                                                                     dataset_name=self.dataset_name)
+        train_features = self.generator_runner.extract_features(train_features=train_ts_frame,
+                                                                dataset_name=self.dataset_name)
 
-        self.train_features = self.datacheck.check_data(input_data=self.train_features,
+        self.train_features = self.datacheck.check_data(input_data=train_features,
                                                         return_df=True)
 
         if baseline_type is not None:
@@ -143,6 +140,7 @@ class TimeSeriesClassifier:
         else:
             self.predictor = self._fit_model(self.train_features, train_target)
 
+        self.logger.info(f'Solver fitted: {self.generator_name}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
     def predict(self, test_features: np.ndarray) -> dict:
@@ -182,4 +180,3 @@ class TimeSeriesClassifier:
                       }
 
         return operations
-
