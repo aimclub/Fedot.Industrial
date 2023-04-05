@@ -1,17 +1,17 @@
+import pathlib
 import random
-from pathlib import Path
 from typing import Sequence
 
 from fedot.api.api_utils.api_composer import ApiComposer
-from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation
-from fedot.core.dag.verification_rules import ERROR_PREFIX
-from fedot.core.optimisers.gp_comp.operators.mutation import MutationTypesEnum
+from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import SearchSpace
 from fedot.core.pipelines.verification import class_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operations_for_task
 from fedot.core.repository.tasks import Task, TaskTypesEnum
+from golem.core.dag.verification_rules import ERROR_PREFIX
+from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.tuning.search_space import get_industrial_search_space
@@ -36,13 +36,25 @@ def add_preprocessing(pipeline: Pipeline, requirements, params, **kwargs) -> Pip
     return pipeline
 
 
+def _get_default_industrial_mutations(task_type: TaskTypesEnum) -> Sequence[MutationTypesEnum]:
+    mutations = [parameter_change_mutation,
+                 MutationTypesEnum.single_change,
+                 add_preprocessing
+                 ]
+    return mutations
+
 def _get_default_mutations(task_type: TaskTypesEnum) -> Sequence[MutationTypesEnum]:
     mutations = [parameter_change_mutation,
                  MutationTypesEnum.single_change,
                  MutationTypesEnum.single_drop,
-                 MutationTypesEnum.single_add,
-                 add_preprocessing
-                 ]
+                 MutationTypesEnum.single_add]
+
+    # TODO remove workaround after boosting mutation fix
+    if task_type == TaskTypesEnum.ts_forecasting:
+        mutations.append(boosting_mutation)
+    # TODO remove workaround after validation fix
+    if task_type is not TaskTypesEnum.ts_forecasting:
+        mutations.append(MutationTypesEnum.single_edge)
 
     return mutations
 
@@ -82,16 +94,30 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
 
 def initialize_industrial_models():
+    path = pathlib.Path(PROJECT_PATH, 'core',
+                        'repository',
+                        'data',
+                        'industrial_data_operation_repository.json')
     OperationTypesRepository.__repository_dict__.update({'data_operation':
-                                                             {'file': Path(PROJECT_PATH, 'core', 'repository', 'data',
-                                                                           'data_operation_repository.json'),
+                                                             {'file': path,
                                                               'initialized_repo': None,
                                                               'default_tags': []}})
-    OperationTypesRepository.init_default_repositories()
-    # DefaultOperationParamsRepository.__repository_name__ = Path(PROJECT_PATH, 'core', 'repository', 'data',
-    #                                                                        'default_operations_params.json')
-    class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+    OperationTypesRepository.assign_repo('data_operation', path)
+    if has_no_data_flow_conflicts_in_industrial_pipeline not in class_rules:
+        class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
 
     setattr(SearchSpace, "get_parameters_dict", get_industrial_search_space)
+    setattr(ApiComposer, "_get_default_mutations", _get_default_industrial_mutations)
+
+
+def remove_industrial_models():
+    path = pathlib.Path('data_operation_repository.json')
+    OperationTypesRepository.__repository_dict__.update({'data_operation':
+                                                             {'file': path,
+                                                              'initialized_repo': None,
+                                                              'default_tags': [
+                                                                  OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
+    OperationTypesRepository.assign_repo('data_operation', path)
+    class_rules.remove(has_no_data_flow_conflicts_in_industrial_pipeline)
+
     setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)
-    # setattr(PopulationalOptimizer, '__init__', init_pop)

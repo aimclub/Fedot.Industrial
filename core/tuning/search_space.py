@@ -9,7 +9,8 @@ industrial_search_space = {
         {'n_components': (hp.uniformint, [2, 10]),
          'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])},
     'fourier_basis':
-        {'spectrum': (hp.choice, [['real', 'imaginary']])},
+        {'spectrum': (hp.choice, [['smoothed']]),
+         'threshold':(hp.uniformint, [10000, 50000])},
     'quantile_extractor':
         {'window_size': (hp.uniformint, [1, 50]),
          'win_mode': (hp.choice, [[True, False]])},
@@ -49,12 +50,12 @@ def get_industrial_search_space(self):
             'C': (hp.uniform, [1e-2, 10.0])
         },
         'rf': {
-            'criterion': (hp.choice, [["gini", "entropy"]]),
-            'max_features': (hp.uniform, [0.05, 1.0]),
-            'min_samples_split': (hp.uniformint, [2, 10]),
-            'min_samples_leaf': (hp.uniformint, [1, 15]),
-            'bootstrap': (hp.choice, [[True, False]])
-        },
+                'criterion': (hp.choice, [["gini", "entropy"]]),
+                'max_features': (hp.uniform, [0.05, 1.0]),
+                'min_samples_split': (hp.uniformint, [2, 10]),
+                'min_samples_leaf': (hp.uniformint, [1, 15]),
+                'bootstrap': (hp.choice, [[True, False]])
+            },
         'lasso': {
             'alpha': (hp.uniform, [0.01, 10.0])
         },

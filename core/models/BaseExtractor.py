@@ -9,11 +9,14 @@ from fedot.core.data.data import InputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import MinMaxScaler
+from tqdm import tqdm
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.metrics.metrics_implementation import *
+from core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from core.operation.transformation.WindowSelection import WindowSizeSelection
 from core.operation.utils.cache import DataCacher
 
@@ -21,18 +24,7 @@ from core.operation.utils.cache import DataCacher
 class BaseExtractor(DataOperationImplementation):
     """Abstract class responsible for feature generators.
 
-    Args:
-        feature_generator_dict: that consists of {'generator_name': generator_class} pairs.
-        use_cache: flag that indicates whether to use cache or not.
-
-    Attributes:
-        current_window (int): window length for feature generation.
-        logger (logging.Logger): logger instance.
-        n_processes (int): number of processes for multiprocessing.
-
     """
-
-    METRICS_NAME = ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
@@ -40,38 +32,30 @@ class BaseExtractor(DataOperationImplementation):
         self.current_window = None
         self.window_size = params.get('window_size')
         self.n_processes = cpu_count() // 2
+        self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache')
 
     def fit(self, input_data: InputData):
         pass
 
-    def f(self, x):
-        return self.generate_features_from_ts(x)
+    def _transform(self, input_data: InputData) -> np.array:
+        """
+            Method for feature generation for all series
+        """
+        v = []
+        for series in tqdm(np.squeeze(input_data.features, 3)):
+            v.append(self.generate_features_from_ts(series))
+        predict = self._clean_predict(np.array(v))
+        return predict
 
-    def transform(self, input_data: InputData) -> np.array:
-
-        cache_folder = os.path.join(PROJECT_PATH, 'cache')
-        os.makedirs(cache_folder, exist_ok=True)
-        cacher = DataCacher(data_type_prefix=f'Features of  generator',
-                            cache_folder=cache_folder)
-
-        hashed_info = cacher.hash_info(data=input_data.features.tobytes(),
-                                       **self.params.to_dict())
-
-        print(self.params.to_dict(), np.ravel(input_data.features)[:3])
-        try:
-            print(hashed_info)
-            predict = cacher.load_data_from_cache(hashed_info=hashed_info)
-            print('Loaded from hash')
-        except FileNotFoundError:
-            print('Failed to load')
-            v = np.vectorize(self.f, signature='(n, m)->(p, q)')
-            predict = v(np.squeeze(input_data.features, 3))
-            predict = np.where(np.isnan(predict), 0, predict)
-            predict = predict.reshape(predict.shape[0], -1)
-            cacher.cache_data(hashed_info=hashed_info,
-                              data=predict)
-        predict = self._convert_to_output(input_data, predict)
+    @staticmethod
+    def _clean_predict(predict: np.array):
+        """
+            Clean predict from nan, inf and reshape data for Fedot appropriate form
+        """
+        predict = np.where(np.isnan(predict), 0, predict)
+        predict = np.where(np.isinf(predict), 0, predict)
+        predict = predict.reshape(predict.shape[0], -1)
         return predict
 
     def get_features(self, *args, **kwargs) -> pd.DataFrame:

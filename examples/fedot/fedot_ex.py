@@ -1,23 +1,81 @@
-import numpy as np
-from fedot.api.main import Fedot
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-
-from core.repository.initializer_industrial_models import initialize_industrial_models
-from tests.unit.repository.test_repo import initialize_uni_data
-
 if __name__ == '__main__':
+    import numpy as np
+    from fedot.api.main import Fedot
+    from fedot.core.composer.metrics import F1
+    from fedot.core.data.data import InputData
+    from fedot.core.pipelines.node import PipelineNode
+    from fedot.core.pipelines.pipeline import Pipeline
+    from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+    from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
+    from fedot.core.repository.operation_types_repository import get_operations_for_task
+    from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
+    from fedot.core.repository.tasks import TaskTypesEnum, Task
+    from golem.core.tuning.simultaneous import SimultaneousTuner
+
+    from core.repository.initializer_industrial_models import initialize_industrial_models, remove_industrial_models
+    from tests.unit.repository.test_repo import initialize_uni_data
+
     np.random.seed(0)
+
+    # initialize industrial repository
     initialize_industrial_models()
     train_data, test_data = initialize_uni_data()
+
+    task = Task(TaskTypesEnum.classification)
+    industrial = get_operations_for_task(task=train_data.task, mode='data_operation', tags=["extractor", "basis"])
+    other = get_operations_for_task(task=train_data.task, forbidden_tags=["basis", "extractor"])
     metrics = {}
-    pipeline = PipelineBuilder().add_node('data_driven_basic').add_node('quantile_extractor') \
-        .add_node('logit').build()
-    model = Fedot(problem='classification', logging_level=20, timeout=30, initial_assumption=pipeline, n_jobs=1,
-                  metric=['roc_auc'])
-    model.fit(train_data)
-    model.predict(test_data)
-    print(model.get_metrics())
-    model.current_pipeline.print_structure()
+
+    # basic pipeline
+    pipeline = PipelineBuilder().add_node(
+        'data_driven_basic', branch_idx=0).add_node('topological_extractor', branch_idx=0).add_node(
+        'data_driven_basic', branch_idx=1).add_node('quantile_extractor', branch_idx=1).add_node(
+        'data_driven_basic', branch_idx=2).add_node('signal_extractor', branch_idx=2).add_node(
+        'data_driven_basic', branch_idx=3).add_node('recurrence_extractor', branch_idx=3).join_branches('rf').build()
+
+    # tune pipeline
+    pipeline_tuner = TunerBuilder(train_data.task) \
+        .with_tuner(SimultaneousTuner) \
+        .with_metric(ClassificationMetricsEnum.f1) \
+        .with_iterations(1) \
+        .build(train_data)
+    pipeline = pipeline_tuner.tune(pipeline)
+    pipeline.fit(train_data)
+
+    # calculate metric of tuned pipeline
+    predict = pipeline.predict(test_data, output_mode='labels')
+    metrics['before fedot_composing'] = F1.metric(test_data, predict)
+    pipeline.print_structure()
+
+    # magic where we are replacing rf node on node that simply returns merged features
+    rf_node = pipeline.nodes[0]
+    pipeline.update_node(rf_node, PipelineNode('dummy'))
+    rf_node.nodes_from = []
+    rf_node.unfit()
+    pipeline.fit(train_data)
+
+    # generate table feature data from train and test samples using "magic" pipeline
+    train_data_preprocessed = pipeline.root_node.predict(train_data)
+    test_data_preprocessed = pipeline.root_node.predict(test_data)
+    train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
+                                        features=train_data_preprocessed.predict,
+                                        target=train_data_preprocessed.target,
+                                        data_type=train_data_preprocessed.data_type,
+                                        task=train_data_preprocessed.task)
+    test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                       features=test_data_preprocessed.predict,
+                                       target=test_data_preprocessed.target,
+                                       data_type=test_data_preprocessed.data_type,
+                                       task=test_data_preprocessed.task)
+
+    # remove industrial workaround. Now here are only FEDOT
+    remove_industrial_models()
+    model_fedot = Fedot(problem='classification', timeout=3, n_jobs=1, metric=['f1'])
+
+    pipeline = model_fedot.fit(train_data_preprocessed)
+    predict = pipeline.predict(test_data_preprocessed, output_mode='labels')
+    predict_automl = model_fedot.predict(test_data_preprocessed)
+    metrics['after_fedot_composing'] = F1.metric(test_data, predict)
+    metrics['after_fedot_composing_auto'] = model_fedot.get_metrics()['f1']
+    pipeline.show()
     print(metrics)
-    model.current_pipeline.show()
-    _ = 1

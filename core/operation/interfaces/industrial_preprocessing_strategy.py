@@ -10,6 +10,7 @@ from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
 from core.models.statistical.StatsExtractor import StatsExtractor
 from core.models.topological.TopologicalExtractor import TopologicalExtractor
+from core.operation.dummy.dummy_operation import DummyOperation
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from core.operation.transformation.basis.fourier import FourierBasisImplementation
 from core.operation.transformation.basis.wavelet import WaveletBasisImplementation
@@ -34,11 +35,13 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
     __operations_by_types = {
         'data_driven_basis': DataDrivenBasisImplementation,
         'wavelet_basis': WaveletBasisImplementation,
-        'fourier_basic': FourierBasisImplementation,
+        'fourier_basis': FourierBasisImplementation,
         'topological_extractor': TopologicalExtractor,
         'quantile_extractor': StatsExtractor,
         'signal_extractor': SignalExtractor,
-        'recurrence_extractor': RecurrenceExtractor
+        'recurrence_extractor': RecurrenceExtractor,
+
+        'dummy': DummyOperation
     }
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):

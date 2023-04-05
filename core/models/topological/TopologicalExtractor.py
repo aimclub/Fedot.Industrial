@@ -1,4 +1,5 @@
 import gc
+import logging
 import sys
 from typing import Optional
 
@@ -48,6 +49,8 @@ class TopologicalExtractor(BaseExtractor):
         self.stride = params.get('stride')
         self.te_dimension = None
         self.te_time_delay = None
+
+        self.logger = logging.getLogger('TopologicalExtractor')
 
     def fit(self, input_data: InputData) -> OutputData:
         pass

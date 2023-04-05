@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from core.api.API import Industrial
+from core.api.main import FedotIndustrial
 
 
 @pytest.fixture()
@@ -17,9 +18,18 @@ def basic_API_class():
 
 
 def load_data(dataset_name):
-    train_data, test_data, n_classes = Industrial().reader.read(dataset_name=dataset_name)
-    return train_data, test_data, n_classes
+    config = dict(task='ts_classification',
+                  dataset=dataset_name,
+                  feature_generator='topological',
+                  use_cache=False,
+                  error_correction=False,
+                  timeout=1,
+                  n_jobs=2,
+                  window_sizes='auto')
 
+    industrial = FedotIndustrial(input_config=config, output_folder=None)
+    train_data, test_data, n_classes = industrial.reader.read(dataset_name=dataset_name)
+    return train_data, test_data, n_classes
 
 def test_YAMl_reader(basic_API_class, basic_config_API):
     config_dict = basic_API_class.YAML.read_yaml_config(config_path=basic_config_API, return_dict=True)

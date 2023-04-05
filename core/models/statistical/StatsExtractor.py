@@ -1,12 +1,13 @@
 from multiprocessing import Pool
 from typing import Optional
 
-import numpy as np
 import pandas as pd
-from fedot.core.data.data import InputData
+
+import numpy as np
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
-
+import logging
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 
@@ -35,6 +36,8 @@ class StatsExtractor(BaseExtractor):
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
+        self.n_components = None
+        self.logger = logging.getLogger('FedotIndustrialAPI')
 
     def fit(self, input_data: InputData):
         pass
@@ -51,6 +54,7 @@ class StatsExtractor(BaseExtractor):
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
 
+        self.logger.info('Statistical features extraction finished')
         return aggregation_df
 
     def generate_features_from_ts(self,
@@ -71,7 +75,7 @@ class StatsExtractor(BaseExtractor):
                 aggregation_df = self.extract_stats_features(ts)
         except Exception:
             aggregation_df = self.__component_extraction(ts)
-        self.logger.info('Statistical features extraction finished')
+
         return aggregation_df
 
     # @time_it
@@ -106,4 +110,5 @@ class StatsExtractor(BaseExtractor):
                                  unit=' ts'))
         aggregation_df = pd.concat(tmp_list, axis=0).reset_index(drop=True)
 
+        self.logger.info('Statistical features extraction finished')
         return aggregation_df

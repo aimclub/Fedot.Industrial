@@ -4,28 +4,20 @@ from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.search_space import SearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.pipelines.tuning.unified import PipelineTuner
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 from fedot.api.main import Fedot
+from golem.core.tuning.simultaneous import SimultaneousTuner
+
 from core.repository.initializer_industrial_models import initialize_industrial_models
-from core.tuning.search_space import industrial_search_space
+from core.tuning.search_space import industrial_search_space, get_industrial_search_space
 from tests.unit.api.test_API_config import load_data
 
 
 def test_fedot_multi_series():
     initialize_industrial_models()
-    train_data, test_data, n_classes = load_data('Epilepsy')
-    train_data = InputData(idx=np.arange(len(train_data[0])),
-                           features=np.array(train_data[0].values.tolist()),
-                           target=train_data[1].reshape(-1, 1),
-                           task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.image)
-    test_data = InputData(idx=np.arange(len(test_data[0])),
-                          features=np.array(test_data[0].values.tolist()),
-                          target=test_data[1].reshape(-1, 1),
-                          task=Task(TaskTypesEnum.classification),
-                          data_type=DataTypesEnum.image)
+
     pipeline = PipelineBuilder().add_node('data_driven_basic', params={'window_length': None}).add_node(
         'quantile_extractor', params={
             'window_mode': True, 'window_size': 10}).add_node(
@@ -39,14 +31,28 @@ def initialize_uni_data():
     train_data, test_data, n_classes = load_data('Earthquakes')
     train_data = InputData(idx=np.arange(len(train_data[0])),
                            features=train_data[0].values,
-                           target=train_data[1],
+                           target=train_data[1].reshape(-1, 1),
                            task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table)
     test_data = InputData(idx=np.arange(len(test_data[0])),
                           features=test_data[0].values,
-                          target=test_data[1],
+                          target=test_data[1].reshape(-1, 1),
                           task=Task(TaskTypesEnum.classification),
                           data_type=DataTypesEnum.table)
 
+    return train_data, test_data
+
+
+def initialize_multi_data():
+    train_data, test_data, n_classes = load_data('Epilepsy')
+    train_data = InputData(idx=np.arange(len(train_data[0])),
+                           features=np.array(train_data[0].values.tolist()),
+                           target=train_data[1].reshape(-1, 1),
+                           task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.image)
+    test_data = InputData(idx=np.arange(len(test_data[0])),
+                          features=np.array(test_data[0].values.tolist()),
+                          target=test_data[1].reshape(-1, 1),
+                          task=Task(TaskTypesEnum.classification),
+                          data_type=DataTypesEnum.image)
     return train_data, test_data
 
 
@@ -70,9 +76,9 @@ def test_tuner_fedot_uni_series():
     initialize_industrial_models()
     train_data, test_data = initialize_uni_data()
     cv_folds = 3
-    search_space = SearchSpace(custom_search_space=industrial_search_space, replace_default_search_space=True)
+    search_space = SearchSpace(get_industrial_search_space(1))
     pipeline_tuner = TunerBuilder(train_data.task) \
-        .with_tuner(PipelineTuner) \
+        .with_tuner(SimultaneousTuner) \
         .with_metric(ClassificationMetricsEnum.f1) \
         .with_cv_folds(cv_folds) \
         .with_iterations(2) \

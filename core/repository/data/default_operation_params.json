@@ -151,7 +151,8 @@
     "n_components": 2
   },
   "fourier_basis": {
-    "spectrum_type": "real"
+    "spectrum_type": "smoothed",
+    "threshold": 20000
   },
   "quantile_extractor": {
     "window_size": 20,

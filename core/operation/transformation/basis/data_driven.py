@@ -31,7 +31,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         self.window_size = params.get('window_size')
         self.basis = None
 
-    def _transform(self, series: np.array):
+    def _transform_one_sample(self, series: np.array):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length

@@ -21,18 +21,26 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.spectrum_type = params.get('spectrum_type')
+        self.threshold = params.get('threshold')
         self.basis = None
+
+    def low_pass(self, input_data):
+        fourier_coef = np.fft.rfft(input_data)
+        frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
+        fourier_coef[frequencies > self.threshold] = 0
+        return np.fft.irfft(fourier_coef)
 
     def _decompose_signal(self, input_data):
         spectrum = np.fft.fft(input_data)
         if self.spectrum_type == 'imaginary':
             spectrum = spectrum.imag
+        elif self.spectrum_type == 'smoothed':
+            spectrum = self.low_pass(input_data)
         else:
             spectrum = spectrum.real
-        # freq = np.fft.fftfreq(input_data.shape[-1])
         return spectrum
 
-    def _transform(self, series: np.array):
+    def _transform_one_sample(self, series: np.array):
         return self._get_basis(series)
 
     def evaluate_derivative(self, order):
