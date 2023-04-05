@@ -1,29 +1,27 @@
 from typing import Optional
 
-import pandas as pd
-
 import numpy as np
-from fedot.core.data.data import InputData, OutputData
+import pandas as pd
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
 
 
 class StatsExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
 
     Args:
-        window_mode: Flag for window mode. Defaults to False.
-        use_cache: Flag for cache usage. Defaults to False.
+        params: parameters of the operation based on defined and default values.
 
     Attributes:
-        use_cache (bool): Flag for cache usage.
         aggregator (StatFeaturesExtractor): StatFeaturesExtractor object.
         vis_flag (bool): Flag for visualization.
         train_feats (pd.DataFrame): Train features.
         test_feats (pd.DataFrame): Test features.
+        window_mode (bool): Flag for window mode.
+        window_size (int): Size of the window.
 
     """
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -34,7 +32,6 @@ class StatsExtractor(BaseExtractor):
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
-        self.n_components = None
 
     def fit(self, input_data: InputData):
         pass

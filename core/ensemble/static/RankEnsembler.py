@@ -1,17 +1,17 @@
 import logging
 from typing import Union
 
+import numpy as np
 import pandas as pd
-from numpy import ndarray
 
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.preprocessing.DatasetLoader import DataLoader
-from core.architecture.settings.hyperparams import *
+from core.architecture.settings.hyperparams import select_hyper_param
 from core.ensemble.BaseEnsembler import BaseEnsemble
 
 
 class RankEnsemble(BaseEnsemble):
-    """A class responsible for the results of ensemble models
+    """Class responsible for the results of ensemble models
     by ranking them and recursively adding them to the final composite model.
 
     Args:
@@ -133,7 +133,6 @@ class RankEnsemble(BaseEnsemble):
                                         'Base_model': 'best base model metric'}
 
         """
-        # TODO: реализовать генератор комбинаций моделей для ансамблирования
         for top_K_models in range(1, self.n_models):
 
             modelling_results_top = {k: v for k, v in prediction_proba_dict.items() if
@@ -252,7 +251,7 @@ class RankEnsemble(BaseEnsemble):
                 list_proba = []
                 for model_preds in predictions:
                     proba_frame = predictions[model_preds]
-                    if isinstance(proba_frame, ndarray):
+                    if isinstance(proba_frame, np.ndarray):
                         list_proba.append(proba_frame)
                     else:
                         try:

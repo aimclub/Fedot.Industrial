@@ -1,15 +1,16 @@
 from typing import Union
+
+import numpy as np
 import pandas as pd
-from core.architecture.settings.hyperparams import *
+
+from core.architecture.settings.hyperparams import select_hyper_param
 
 stat_methods = select_hyper_param('statistical_methods')
 stat_methods_extra = select_hyper_param('statistical_methods_extra')
-supported_types = (pd.Series, np.ndarray, list)
 quantile_dict = {'q5_': 0.05,
                  'q25_': 0.25,
                  'q75_': 0.75,
-                 'q95_': 0.95
-                 }
+                 'q95_': 0.95}
 
 
 class StatFeaturesExtractor:
