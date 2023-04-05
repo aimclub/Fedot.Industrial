@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
-
+import logging
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 from core.architecture.abstraction.Decorators import time_it
@@ -35,6 +35,7 @@ class StatsExtractor(BaseExtractor):
         self.train_feats = None
         self.test_feats = None
         self.n_components = None
+        self.logger = logging.getLogger('FedotIndustrialAPI')
 
     def fit(self, input_data: InputData):
         pass

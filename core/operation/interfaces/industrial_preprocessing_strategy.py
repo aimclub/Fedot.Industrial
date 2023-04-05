@@ -8,8 +8,8 @@ from fedot.core.repository.operation_types_repository import OperationTypesRepos
 from core.architecture.utils.utils import PROJECT_PATH
 from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
-from core.models.statistical.QuantileRunner import StatsExtractor
-from core.models.topological.TopologicalRunner import TopologicalExtractor
+from core.models.statistical.StatsExtractor import StatsExtractor
+from core.models.topological.TopologicalExtractor import TopologicalExtractor
 from core.operation.dummy.dummy_operation import DummyOperation
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from core.operation.transformation.basis.fourier import FourierBasisImplementation

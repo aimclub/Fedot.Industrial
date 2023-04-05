@@ -1,4 +1,5 @@
 import gc
+import logging
 import sys
 from typing import Optional
 
@@ -39,6 +40,7 @@ class TopologicalExtractor(BaseExtractor):
         self.feature_extractor = None
         self.te_dimension = params.get('te_dimension')
         self.te_time_delay = params.get('te_time_delay')
+        self.logger = logging.getLogger('FedotIndustrialAPI')
 
     def fit(self, input_data: InputData) -> OutputData:
         pass
