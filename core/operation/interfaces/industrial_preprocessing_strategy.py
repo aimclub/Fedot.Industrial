@@ -35,7 +35,7 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
     __operations_by_types = {
         'data_driven_basis': DataDrivenBasisImplementation,
         'wavelet_basis': WaveletBasisImplementation,
-        'fourier_basic': FourierBasisImplementation,
+        'fourier_basis': FourierBasisImplementation,
         'topological_extractor': TopologicalExtractor,
         'quantile_extractor': StatsExtractor,
         'signal_extractor': SignalExtractor,

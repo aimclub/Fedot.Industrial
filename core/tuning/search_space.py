@@ -9,7 +9,8 @@ industrial_search_space = {
         {'n_components': (hp.uniformint, [2, 10]),
          'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])},
     'fourier_basis':
-        {'spectrum': (hp.choice, [['real', 'imaginary']])},
+        {'spectrum': (hp.choice, [['smoothed']]),
+         'threshold':(hp.uniformint, [10000, 50000])},
     'quantile_extractor':
         {'window_size': (hp.uniformint, [1, 50]),
          'win_mode': (hp.choice, [[True, False]])},

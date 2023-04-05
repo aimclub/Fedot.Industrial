@@ -62,6 +62,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         decompose = lambda signal: ListMonad(self._decompose_signal(signal))
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis
+
     def _transform(self, input_data: InputData) -> np.array:
         """
             Method for transforming all samples
@@ -80,4 +81,3 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis
-

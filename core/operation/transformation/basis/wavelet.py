@@ -36,7 +36,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
                                            wavelet=self.wavelet)
             low_freq = high_freq[-1, :]
             high_freq = np.delete(high_freq, (-1), axis=0)
-
+            low_freq =low_freq[np.newaxis, :]
         return high_freq, low_freq
 
     def _decomposing_level(self):
@@ -47,7 +47,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         """
         return pywt.dwt_max_level(len(self.time_series), self.wavelet)
 
-    def _transform(self, series: np.array):
+    def _transform_one_sample(self, series: np.array):
         return self._get_basis(series)
 
     def _get_1d_basis(self, data):
@@ -58,7 +58,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
                                               Monoid[1]])
 
         basis = Either.insert(data).then(decompose).then(threshold).value[0]
-
+        basis = np.concatenate(basis)
         return basis
 
     def _get_multidim_basis(self, data):
