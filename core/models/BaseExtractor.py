@@ -14,6 +14,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.metrics.metrics_implementation import *
+from core.operation.transformation.WindowSelection import WindowSizeSelection
 from core.operation.utils.cache import DataCacher
 
 
@@ -37,6 +38,7 @@ class BaseExtractor(DataOperationImplementation):
         super().__init__(params)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.current_window = None
+        self.window_size = params.get('window_size')
         self.n_processes = cpu_count() // 2
         self.use_cache = params.get('use_cache')
 
@@ -213,16 +215,21 @@ class BaseExtractor(DataOperationImplementation):
                 del dataframe[col]
         return dataframe
 
-    @staticmethod
-    def apply_window_for_stat_feature(ts_data: Union[np.ndarray, pd.DataFrame],
+    # @staticmethod
+    def apply_window_for_stat_feature(self, ts_data: Union[np.ndarray, pd.DataFrame],
                                       feature_generator: callable,
                                       window_size: int = None):
         # ts_data = ts_data.T
-        ts_data = pd.DataFrame(ts_data)
-        if window_size is None:
-            # window size is 10% of the length of the time series
-            window_size = round(ts_data.shape[1] / 10)
-
+        # ts_data = pd.DataFrame(ts_data)
+        # to avoid window size bigger than half of the time series
+        # self.window_size = window_size
+        # # if window_size is None or (window_size > ts_data.shape[1]/2):
+        # if self.current_window is None or (self.current_window > ts_data.shape[1]/2):
+        #     # window size is 10% of the length of the time series
+        #     self.logger.info(f'Window size not specified or > ts_length/2. Using 10% of the time series length')
+        #     self.current_window = round(ts_data.shape[1] / 10)
+        #
+        # window = self.current_window
         tmp_list = []
         for i in range(0, ts_data.shape[1], window_size):
             slice_ts = ts_data.iloc[:, i:i + window_size]
@@ -290,3 +297,9 @@ class BaseExtractor(DataOperationImplementation):
         except ValueError:
             self.logger.info('Variance reducer has not found any features with low variance')
         return features
+
+    def validate_window_size(self, ts: np.ndarray):
+        if self.window_size is None or self.window_size > ts.shape[0] / 2:
+            self.logger.info('Window size is not defined or too big (> ts_length/2)')
+            self.window_size, _ = WindowSizeSelection(time_series=ts).get_window_size()
+            self.logger.info(f'Window size was set to {self.window_size}')

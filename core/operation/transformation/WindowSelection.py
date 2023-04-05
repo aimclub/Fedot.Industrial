@@ -59,10 +59,10 @@ class WindowSizeSelection:
         self.length_ts = len(time_series)
 
         if self.window_max is None:
-            self.window_max = int(len(time_series) / 5)
+            self.window_max = int(len(self.time_series) / 3)
 
         if self.window_min is None:
-            self.window_min = 10
+            self.window_min = int(len(self.time_series) / 10)
 
     def autocorrelation(self) -> Tuple[int, list]:
         """Main function for the highest_autocorrelation (AC) to find an appropriate window size.
@@ -283,7 +283,7 @@ class WindowSizeSelection:
         id_local_minimum_list = argrelextrema(np.array(scorer_list), np.less)[0]
         return id_local_minimum_list, id_max
 
-    def runner_wss(self) -> Tuple[int, list]:
+    def get_window_size(self) -> Tuple[int, list]:
         """Main function to run WSS class over selected time series
 
         Note:

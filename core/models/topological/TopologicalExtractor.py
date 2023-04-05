@@ -43,8 +43,8 @@ class TopologicalExtractor(BaseExtractor):
         super().__init__(params)
         self.filtered_features = None
         self.feature_extractor = None
-        self.max_te_dimension = params.get('te_dimension')
-        self.max_te_time_delay = params.get('te_time_delay')
+        self.max_te_dimension = params.get('max_te_dimension')
+        self.max_te_time_delay = params.get('max_te_time_delay')
         self.stride = params.get('stride')
         self.te_dimension = None
         self.te_time_delay = None

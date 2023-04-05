@@ -26,7 +26,7 @@ class ResultSaver:
         return path
 
     def save(self, predicted_data, prediction_type: str):
-        self.logger.info(f'Saving {prediction_type} type to {self.path}')
+        self.logger.info(f'Saving predicted {prediction_type} to {self.path}')
         try:
             self.save_method_dict[prediction_type](predicted_data)
         except Exception:
