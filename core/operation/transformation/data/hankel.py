@@ -23,7 +23,7 @@ class HankelMatrix:
             self.__ts_length = self.__time_series.size
 
         if self.__window_length is None:
-                self.__window_length = round(self.__ts_length * 0.35)
+            self.__window_length = round(self.__ts_length * 0.35)
         else:
             self.__window_length = round(self.__ts_length * self.__window_length // 100)
         self.__subseq_length = self.__ts_length - self.__window_length + 1

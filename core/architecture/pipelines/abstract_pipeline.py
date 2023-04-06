@@ -4,7 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from core.api.utils.hp_generator_collection import GeneratorParams
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.architecture.settings.pipeline_settings import BasisTransformations, FeatureGenerator, MlModel
+from core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel
 
 
 class AbstractPipelines:
