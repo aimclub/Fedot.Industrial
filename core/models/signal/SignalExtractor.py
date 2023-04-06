@@ -1,6 +1,7 @@
 from multiprocessing import Pool
 from typing import Optional
 
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
@@ -63,6 +64,12 @@ class SignalExtractor(BaseExtractor):
                 feature_list.append(feature_df)
                 HF = self.wavelet_basis._decompose_signal(input_data=HF)[0]
         return feature_list
+
+    def fit(self, input_data: InputData):
+        pass
+
+    def transform(self, input_data: InputData):
+        pass
 
     def generate_vector_from_ts(self, ts_frame: Union[pd.DataFrame, np.ndarray]) -> list:
         """Generate vector from time series.

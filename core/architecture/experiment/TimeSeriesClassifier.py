@@ -1,28 +1,39 @@
 import logging
 from typing import List, Union
-
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
+import os
+from typing import Tuple, Optional
+import torch
+from pymonad.list import ListMonad
+
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
-from pymonad.list import ListMonad
-
 from core.api.utils.checkers_collections import DataCheck
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot.core.operations.operation_parameters import OperationParameters
+from core.architecture.datasets.classification_datasets import CustomClassificationDataset
+from core.architecture.experiment.CVModule import ClassificationExperimenter
+from core.architecture.utils.utils import default_path_to_save_results
 from core.models.BaseExtractor import BaseExtractor
+from core.models.nn.inception import InceptionTimeNetwork
+
+TSCCLF_MODEL = {
+    'inception_time': InceptionTimeNetwork
+}
 
 
 class TimeSeriesClassifier:
     """Class responsible for interaction with Fedot classifier.
 
     Args:
-        generator_name: name of the generator for feature extraction
-        generator_runner: generator runner instance for feature extraction
-        model_hyperparams: hyperparameters for Fedot model
-        ecm_model_flag: flag for error correction model
+        params: which are ``generator_name``, ``generator_runner``, ``model_hyperparams``,
+                ``ecm_model_flag``, ``dataset_name``, ``output_dir``.
+
 
     Attributes:
         logger (Logger): logger instance
@@ -32,28 +43,27 @@ class TimeSeriesClassifier:
 
     """
 
-    def __init__(self,
-                 generator_name: str = None,
-                 generator_runner: BaseExtractor = None,
-                 model_hyperparams: dict = None,
-                 ecm_model_flag: bool = False,
-                 dataset_name: str = None,
-                 output_dir: str = None):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        self.generator_name = params.get('generator_name', 'quantile')
+        self.model_hyperparams = params.get('model_hyperparams')
+        self.generator_runner = params.get('generator_runner')
+        self.dataset_name = params.get('dataset_name')
+        self.ecm_model_flag = params.get('ecm_model_flag', False)
+        self.output_dir = params.get('output_dir', None)
+
+        self.saver = ResultSaver(dataset_name=self.dataset_name,
+                                 generator_name=self.generator_name,
+                                 output_dir=self.output_dir)
+        self.logger = logging.getLogger('TimeSeriesClassifier')
+        self.datacheck = DataCheck()
+
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
-        self.dataset_name = dataset_name
-        self.saver = ResultSaver(dataset_name=dataset_name, generator_name=generator_name, output_dir=output_dir)
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.datacheck = DataCheck()
 
-        self.generator_name = generator_name
-        self.generator_runner = generator_runner
-        self.model_hyperparams = model_hyperparams
-        self.ecm_model_flag = ecm_model_flag
         self.logger.info('TimeSeriesClassifier initialised')
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
@@ -140,7 +150,8 @@ class TimeSeriesClassifier:
         else:
             self.predictor = self._fit_model(self.train_features, train_target)
 
-        self.logger.info(f'Solver fitted: {self.generator_name}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
+        self.logger.info(
+            f'Solver fitted: {self.generator_name}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
     def predict(self, test_features: np.ndarray) -> dict:
@@ -179,3 +190,100 @@ class TimeSeriesClassifier:
                       }
 
         return operations
+
+
+class TimeSeriesImageClassifier(TimeSeriesClassifier):
+
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+
+    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
+
+        num_epochs = self.model_hyperparams['epoch']
+        del self.model_hyperparams['epoch']
+
+        if 'optimization_method' in self.model_hyperparams.keys():
+            modes = {'none': {},
+                     'SVD': self.model_hyperparams['optimization_method']['svd_parameters'],
+                     'SFP': self.model_hyperparams['optimization_method']['sfp_parameters']}
+            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['optimization_method']['mode']
+            self.model_hyperparams['structure_optimization_params'] = modes[
+                self.model_hyperparams['optimization_method']['mode']]
+            del self.model_hyperparams['optimization_method']
+
+        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
+                                                                    self.generator_name,
+                                                                    '../../models')
+        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
+                                                              self.generator_name,
+                                                              'runs')
+        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
+
+        if target.min() != 0:
+            target = target - 1
+
+        return num_epochs, target
+
+    def fit(self, train_ts_frame: Union[np.ndarray, pd.DataFrame],
+            train_target: np.ndarray,
+            **kwargs) -> object:
+        if type(train_ts_frame) is pd.DataFrame:
+            train_ts_frame =train_ts_frame.values
+        return self._fit_model(features=train_ts_frame, target=train_target)
+
+    def _fit_model(self, features: np.ndarray, target: np.ndarray) -> ClassificationExperimenter:
+        """Fit Fedot model with feature and target.
+
+        Args:
+            features: features for training
+            target: target for training
+
+        Returns:
+            Fitted Fedot model
+
+        """
+        num_epochs, target = self._init_model_param(target)
+
+        train_dataset = CustomClassificationDataset(images=features, targets=target)
+        NN_model = ClassificationExperimenter(train_dataset=train_dataset,
+                                              val_dataset=train_dataset,
+                                              **self.model_hyperparams)
+        NN_model.fit(num_epochs=num_epochs)
+        return NN_model
+
+    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_label = self.__predict_abstraction(test_features, dataset_name)
+        prediction_label = list(prediction_label.values())
+        return dict(label=prediction_label, test_features=self.test_features)
+
+    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_proba = self.__predict_abstraction(test_features=test_features,
+                                                      mode='probs')
+        prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
+        return dict(class_probability=prediction_proba, test_features=self.test_features)
+
+
+class TimeSeriesClassifierNN(TimeSeriesImageClassifier):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.device = torch.device('cuda' if params.get('gpu', False) else 'cpu')
+        self.model = TSCCLF_MODEL[params.get('model', 'inception_time')].network_architecture
+        self.num_epochs = params.get('num_epochs', 10)
+
+    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
+        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCNN',
+                                                                    '../../models')
+        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCNN',
+                                                              'runs')
+        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
+
+        if target.min() != 0:
+            target = target - 1
+
+        return self.num_epochs, target
+
+    # def predict(self, test_features: np.ndarray) -> dict:
+    #     self.model.eval()
+    #     with torch.no_grad():
+    #         x_pred = np.argmax(self.model(torch.tensor(test_features).float()).detach(), axis=1)
+    #     return x_pred
