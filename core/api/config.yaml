@@ -8,6 +8,8 @@ error_correction: False
 
 n_ecm_cycles: 3
 
+logging_level: 20
+
 ensemble_algorithm: None
 
 fedot_params:

@@ -90,6 +90,7 @@ class YamlReader:
             self.experiment_dict.update(**industrial_config)
             self.experiment_dict['fedot_params']['timeout'] = config['timeout']
             self.experiment_dict['fedot_params']['n_jobs'] = config['n_jobs']
+            self.experiment_dict['fedot_params']['logging_level'] = config['logging_level']
 
         elif isinstance(config, str):
             self.experiment_dict = self.read_yaml_config(config_path=config,

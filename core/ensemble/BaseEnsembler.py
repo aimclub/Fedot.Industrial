@@ -1,4 +1,5 @@
 import logging
+from abc import abstractmethod
 
 dict_of_dataset = dict
 dict_of_win_list = dict
@@ -18,8 +19,9 @@ class BaseEnsemble:
         self.metric_dict = None
         self.prediction_proba_dict = None
 
-    def ensemble(self, modelling_results: dict = None, single_mode=False) -> dict:
-        pass
+    @abstractmethod
+    def ensemble(self) -> dict:
+        raise NotImplementedError
 
     def create_proba_and_metrics_dicts(self, modelling_results: dict) -> (dict, dict):
         """

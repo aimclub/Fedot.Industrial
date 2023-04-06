@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -16,13 +15,18 @@ class RankEnsemble(BaseEnsemble):
 
     Args:
         dataset_name: name of dataset
+        proba_dict: dictionary with prediction probabilities
+        metric_dict: dictionary with metrics
 
     Attributes:
 
     """
 
-    def __init__(self, dataset_name: str):
+    def __init__(self, dataset_name: str, proba_dict, metric_dict):
         super().__init__(dataset_name=dataset_name)
+        self.proba_dict = proba_dict
+        self.metric_dict = metric_dict
+
         self.performance_analyzer = PerformanceAnalyzer()
         self.experiment_results = {}
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -33,7 +37,7 @@ class RankEnsemble(BaseEnsemble):
 
         self.strategy_exclude_list = ['WeightedEnsemble']
 
-    def ensemble(self, modelling_results: Union[dict, tuple] = None, single_mode=False) -> dict:
+    def ensemble(self) -> dict:
         """Returns dictionary with ranking ensemble results
 
         The process of ensemble consists of 3 stages. At the first stage, a dictionary is created
@@ -43,23 +47,13 @@ class RankEnsemble(BaseEnsemble):
         which are stored in the dictionary self.best_base_results. The third stage is iterative, in accordance
         with the assigned rank, adding models to a single composite model and ensemble their predictions.
 
-        Args:
-            modelling_results:
-            single_mode:
-
         Returns:
             Fitted Fedot pipeline with baseline model
 
         """
-        try:
-            self.test_target = self._deep_search_in_dict(modelling_results, 'test_target')
-        except AttributeError:
-            (_, _), (_, self.test_target) = DataLoader(self.dataset_name).load_data()
+        (_, _), (_, self.test_target) = DataLoader(self.dataset_name).load_data()
 
-        if isinstance(modelling_results, dict):
-            prediction_proba_dict, metric_dict = self.create_proba_and_metrics_dicts(modelling_results)
-        else:
-            prediction_proba_dict, metric_dict = modelling_results
+        prediction_proba_dict, metric_dict = self.proba_dict[self.dataset_name], self.metric_dict[self.dataset_name]
 
         model_rank_dict = self._create_models_rank_dict(prediction_proba_dict, metric_dict)
         self.best_base_results = self._sort_models(model_rank_dict)
@@ -255,7 +249,7 @@ class RankEnsemble(BaseEnsemble):
                         list_proba.append(proba_frame)
                     else:
                         try:
-                            list_proba.append(proba_frame['class_probability'])
+                            list_proba.append(proba_frame.values)
                         except KeyError:
                             self.target = proba_frame['Target'].values
                             if 'Preds' in proba_frame.columns:

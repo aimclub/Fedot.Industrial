@@ -54,7 +54,6 @@ class StatsExtractor(BaseExtractor):
         else:
             aggregation_df = self.aggregator.create_baseline_features(ts)
 
-        self.logger.info('Statistical features extraction finished')
         return aggregation_df
 
     def generate_features_from_ts(self,

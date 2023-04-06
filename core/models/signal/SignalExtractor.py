@@ -37,7 +37,7 @@ class SignalExtractor(BaseExtractor):
     def _ts_chunk_function(self, ts):
 
         ts = self.check_for_nan(ts)
-        high_freq, low_freq = self.wavelet_basis._transform(series=ts)
+        high_freq, low_freq = self.wavelet_basis._transform(input_data=ts)
         hf_AC_features = self.generate_features_from_AC(HF=high_freq,
                                                         LF=low_freq)
         feature_df = pd.concat(hf_AC_features, axis=1)
