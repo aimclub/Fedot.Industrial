@@ -1,13 +1,10 @@
 from enum import Enum
-
-from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from core.operation.transformation.basis.chebyshev import ChebyshevBasis
 from core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
-from core.operation.transformation.basis.fourier import FourierBasis
-from core.operation.transformation.basis.legendre import LegenderBasis
-from core.operation.transformation.basis.power import PowerBasis
+from core.operation.transformation.basis.fourier import FourierBasisImplementation
+from core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from core.models.detection.subspaces.func_pca import FunctionalPCA
 from core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from core.models.signal.SignalExtractor import SignalExtractor
@@ -16,11 +13,10 @@ from core.models.topological.TopologicalExtractor import TopologicalExtractor
 
 
 class BasisTransformations(Enum):
-    legender = LegenderBasis
     chebyshev = ChebyshevBasis
     datadriven = DataDrivenBasisImplementation
-    power = PowerBasis
-    Fourier = FourierBasis
+    wavelet = WaveletBasisImplementation
+    Fourier = FourierBasisImplementation
 
 
 class FeatureGenerator(Enum):
@@ -31,7 +27,6 @@ class FeatureGenerator(Enum):
 
 
 class MlModel(Enum):
-    tsc = TimeSeriesClassifier
     functional_pca = FunctionalPCA
     kalman_filter = UnscentedKalmanFilter
     sst = SingularSpectrumTransformation
