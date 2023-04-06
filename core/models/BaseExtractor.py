@@ -1,7 +1,6 @@
-import hashlib
 import logging
 import os
-import timeit
+from abc import abstractmethod
 from multiprocessing import cpu_count
 from typing import Optional
 
@@ -16,7 +15,6 @@ from tqdm import tqdm
 
 from core.architecture.utils.utils import PROJECT_PATH
 from core.metrics.metrics_implementation import *
-from core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from core.operation.transformation.WindowSelection import WindowSizeSelection
 from core.operation.utils.cache import DataCacher
 
@@ -29,18 +27,21 @@ class BaseExtractor(DataOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.current_window = None
         self.window_size = params.get('window_size')
+        self.use_cache = params.get('use_cache')
+
+        self.current_window = None
         self.n_processes = cpu_count() // 2
         self.data_type = DataTypesEnum.table
-        self.use_cache = params.get('use_cache')
+        self.data_cacher = DataCacher(data_type_prefix='Features',
+                                      cache_folder=os.path.join(PROJECT_PATH, 'cache'))
 
     def fit(self, input_data: InputData):
         pass
 
-    def _transform(self, input_data: InputData) -> np.array:
-        """
-            Method for feature generation for all series
+    def transform(self, input_data: InputData) -> np.array:
+        """Method for feature generation for all series.
+
         """
         v = []
         for series in tqdm(np.squeeze(input_data.features, 3)):
@@ -50,14 +51,15 @@ class BaseExtractor(DataOperationImplementation):
 
     @staticmethod
     def _clean_predict(predict: np.array):
-        """
-            Clean predict from nan, inf and reshape data for Fedot appropriate form
+        """Clean predict from nan, inf and reshape data for Fedot appropriate form.
+
         """
         predict = np.where(np.isnan(predict), 0, predict)
         predict = np.where(np.isinf(predict), 0, predict)
         predict = predict.reshape(predict.shape[0], -1)
         return predict
 
+    @abstractmethod
     def get_features(self, *args, **kwargs) -> pd.DataFrame:
         """Method responsible for extracting features from time series dataframe.
 
@@ -91,64 +93,21 @@ class BaseExtractor(DataOperationImplementation):
             self.logger.info(f'Window mode: {self.window_mode}')
 
         if self.use_cache:
-            generator_info = {k: v for k, v in self.__dict__.items() if k not in ['aggregator',
-                                                                                  'pareto_front',
-                                                                                  'spectrum_extractor']}
-            hashed_info = self.hash_info(dataframe=train_features,
-                                         name=dataset_name,
-                                         obj_info_dict=generator_info)
-            cache_path = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_info + '.pkl')
-
+            generator_info = self.__dir__()
+            hashed_info = self.data_cacher.hash_info(data=train_features,
+                                                     name=dataset_name,
+                                                     obj_info_dict=generator_info)
             try:
                 self.logger.info('Trying to load features from cache')
-                return self.load_features_from_cache(cache_path)
+                return self.data_cacher.load_data_from_cache(hashed_info)
+
             except FileNotFoundError:
                 self.logger.info('Cache not found. Generating features')
                 features = self.get_features(train_features, dataset_name)
-                self.save_features_to_cache(hashed_info, features)
+                self.data_cacher.cache_data(hashed_info, features)
                 return features
         else:
             return self.get_features(train_features, dataset_name)
-
-    @staticmethod
-    def hash_info(dataframe: pd.DataFrame, name: str, obj_info_dict: dict) -> str:
-        """Method responsible for hashing information about initial dataset, its name and feature generator.
-        It utilizes md5 hashing algorithm.
-
-        Args:
-            dataframe: dataframe with time series.
-            name: name of dataset.
-            obj_info_dict: dictionary with information about feature generator.
-
-        Returns:
-            Hashed string.
-        """
-        key = (repr(dataframe) + repr(name) + repr(obj_info_dict)).encode('utf8')
-        hsh = hashlib.md5(key).hexdigest()[:10]
-        return hsh
-
-    def load_features_from_cache(self, cache_path):
-        start = timeit.default_timer()
-        features = pd.read_pickle(cache_path)
-        elapsed_time = round(timeit.default_timer() - start, 5)
-        self.logger.info(f'Features loaded from cache in {elapsed_time} sec')
-        return features
-
-    def save_features_to_cache(self, hashed_data: str, features: pd.DataFrame):
-        """Method responsible for saving features to cache folder. It utilizes pickle format for saving data.
-
-        Args:
-            hashed_data: hashed string.
-            features: dataframe with extracted features.
-
-        """
-        cache_folder = os.path.join(PROJECT_PATH, 'cache')
-        generator_name = self.__class__.__name__
-        cache_file = os.path.join(PROJECT_PATH, 'cache', f'{generator_name}_' + hashed_data + '.pkl')
-
-        os.makedirs(cache_folder, exist_ok=True)
-        features.to_pickle(cache_file)
-        self.logger.info(f'Features for {generator_name} cached with {hashed_data} hash')
 
     def generate_features_from_ts(self, ts_frame: pd.DataFrame,
                                   window_length: int = None) -> pd.DataFrame:
@@ -199,7 +158,6 @@ class BaseExtractor(DataOperationImplementation):
                 del dataframe[col]
         return dataframe
 
-    # @staticmethod
     def apply_window_for_stat_feature(self, ts_data: Union[np.ndarray, pd.DataFrame],
                                       feature_generator: callable,
                                       window_size: int = None):

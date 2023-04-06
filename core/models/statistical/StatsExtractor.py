@@ -1,13 +1,13 @@
+import logging
 from multiprocessing import Pool
 from typing import Optional
 
-import pandas as pd
-
 import numpy as np
-from fedot.core.data.data import InputData, OutputData
+import pandas as pd
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
-import logging
+
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 
