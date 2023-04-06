@@ -15,7 +15,34 @@ from core.architecture.utils.utils import default_path_to_save_results
 class FedotIndustrial(Fedot):
     """
     This class is used to run Fedot in industrial mode as FedotIndustrial.
+    Example:
+        if __name__ == "__main__":
+            datasets = ['ItalyPowerDemand'
+                        ]
 
+            for dataset_name in datasets:
+                config = dict(task='ts_classification',
+                              dataset=dataset_name,
+                              feature_generator='topological',
+                              use_cache=False,
+                              error_correction=False,
+                              timeout=1,
+                              n_jobs=2,
+                              window_sizes='auto')
+
+                industrial = FedotIndustrial(input_config=config, output_folder=None)
+                train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
+                model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
+
+                labels = industrial.predict(test_features=test_data[0])
+                probs = industrial.predict_proba(test_features=test_data[0])
+                metric = industrial.get_metrics(target=test_data[1],
+                                                metric_names=['f1', 'roc_auc'])
+
+                for pred, kind in zip([labels, probs], ['labels', 'probs']):
+                    industrial.save_predict(predicted_data=pred, kind=kind)
+
+                industrial.save_metrics(metrics=metric)
     Args:
 
     """
@@ -173,32 +200,3 @@ class FedotIndustrial(Fedot):
 
     def explain(self, **kwargs):
         raise NotImplementedError()
-
-
-if __name__ == "__main__":
-    datasets = ['ItalyPowerDemand'
-                ]
-
-    for dataset_name in datasets:
-        config = dict(task='ts_classification',
-                      dataset=dataset_name,
-                      feature_generator='statistical',
-                      use_cache=False,
-                      error_correction=False,
-                      timeout=1,
-                      n_jobs=2,
-                      window_sizes='auto')
-
-        industrial = FedotIndustrial(input_config=config, output_folder=None)
-        train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
-        model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
-
-        labels = industrial.predict(test_features=test_data[0])
-        probs = industrial.predict_proba(test_features=test_data[0])
-        metric = industrial.get_metrics(target=test_data[1],
-                                        metric_names=['f1', 'roc_auc'])
-
-        for pred, kind in zip([labels, probs], ['labels', 'probs']):
-            industrial.save_predict(predicted_data=pred, kind=kind)
-
-        industrial.save_metrics(metrics=metric)
