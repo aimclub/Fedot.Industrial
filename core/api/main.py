@@ -7,7 +7,7 @@ import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
-from core.api.utils.method_collections import TaskGenerator
+from core.architecture.settings.task_factory import TaskGenerator
 from core.api.utils.reader_collections import DataReader, YamlReader
 from core.api.utils.reporter import ReporterTSC
 from core.architecture.postprocessing.results_picker import ResultsPicker
@@ -17,7 +17,34 @@ from core.architecture.utils.utils import default_path_to_save_results
 class FedotIndustrial(Fedot):
     """
     This class is used to run Fedot in industrial mode as FedotIndustrial.
+    Example:
+        if __name__ == "__main__":
+            datasets = ['ItalyPowerDemand'
+                        ]
 
+            for dataset_name in datasets:
+                config = dict(task='ts_classification',
+                              dataset=dataset_name,
+                              feature_generator='topological',
+                              use_cache=False,
+                              error_correction=False,
+                              timeout=1,
+                              n_jobs=2,
+                              window_sizes='auto')
+
+                industrial = FedotIndustrial(input_config=config, output_folder=None)
+                train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
+                model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
+
+                labels = industrial.predict(test_features=test_data[0])
+                probs = industrial.predict_proba(test_features=test_data[0])
+                metric = industrial.get_metrics(target=test_data[1],
+                                                metric_names=['f1', 'roc_auc'])
+
+                for pred, kind in zip([labels, probs], ['labels', 'probs']):
+                    industrial.save_predict(predicted_data=pred, kind=kind)
+
+                industrial.save_metrics(metrics=metric)
     Args:
 
     """
@@ -53,12 +80,16 @@ class FedotIndustrial(Fedot):
         self.logger.info('Initialising solver')
         solver_params = dict(generator_name=self.config_dict['feature_generator'],
                              generator_runner=self.config_dict['generator_class'],
-                             model_hyperparams=self.config_dict['fedot_params'],
+                             model_hyperparams=self.config_dict['model_params'],
                              ecm_model_flag=self.config_dict['error_correction'],
                              dataset_name=self.config_dict['dataset'],
                              output_dir=self.output_folder)
 
-        return TaskGenerator[self.config_dict['task']].value(solver_params)
+        if self.config_dict['feature_generator'] is None and self.config_dict['task'] == 'ts_classification':
+            solver = TaskGenerator[self.config_dict['task']].value[1]
+        else:
+            solver = TaskGenerator[self.config_dict['task']].value[0]
+        return solver(solver_params)
 
     def fit(self,
             train_features: pd.DataFrame,

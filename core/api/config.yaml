@@ -12,7 +12,7 @@ logging_level: 20
 
 ensemble_algorithm: None
 
-fedot_params:
+model_params:
   {
     'problem': 'classification',
     'seed': 42,

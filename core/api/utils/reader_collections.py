@@ -7,7 +7,7 @@ import yaml
 
 from core.api.utils.checkers_collections import ParameterCheck
 from core.api.utils.hp_generator_collection import GeneratorParams
-from core.api.utils.method_collections import FeatureGenerator
+from core.architecture.settings.pipeline_factory import FeatureGenerator
 from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.utils.utils import PROJECT_PATH
 from core.models.BaseExtractor import BaseExtractor
@@ -88,9 +88,9 @@ class YamlReader:
             industrial_config = {k: v for k, v in config.items() if k not in ['timeout', 'n_jobs']}
 
             self.experiment_dict.update(**industrial_config)
-            self.experiment_dict['fedot_params']['timeout'] = config['timeout']
-            self.experiment_dict['fedot_params']['n_jobs'] = config['n_jobs']
-            self.experiment_dict['fedot_params']['logging_level'] = config['logging_level']
+            self.experiment_dict['model_params']['timeout'] = config['timeout']
+            self.experiment_dict['model_params']['n_jobs'] = config['n_jobs']
+            self.experiment_dict['model_params']['logging_level'] = config['logging_level']
 
         elif isinstance(config, str):
             self.experiment_dict = self.read_yaml_config(config_path=config,
@@ -113,18 +113,21 @@ class YamlReader:
 
         """
         generator = self.experiment_dict['feature_generator']
-        if generator.startswith('ensemble'):
-            dict_of_generators = {}
-            generators_to_ensemble = generator.split(': ')[1].split(' ')
-            for gen in generators_to_ensemble:
-                single_gen_class = self._extract_generator_class(gen)
-                dict_of_generators[gen] = single_gen_class
-            ensemble_gen_class = FeatureGenerator['ensemble'].value(list_of_generators=dict_of_generators)
-            self.feature_generator = 'ensemble'
-            return ensemble_gen_class
+        if generator is None:
+            return None
+        else:
+            if generator.startswith('ensemble'):
+                dict_of_generators = {}
+                generators_to_ensemble = generator.split(': ')[1].split(' ')
+                for gen in generators_to_ensemble:
+                    single_gen_class = self._extract_generator_class(gen)
+                    dict_of_generators[gen] = single_gen_class
+                ensemble_gen_class = FeatureGenerator['ensemble'].value(list_of_generators=dict_of_generators)
+                self.feature_generator = 'ensemble'
+                return ensemble_gen_class
 
-        feature_gen_class = self._extract_generator_class(generator)
-        return feature_gen_class
+            feature_gen_class = self._extract_generator_class(generator)
+            return feature_gen_class
 
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
@@ -143,8 +146,8 @@ class YamlReader:
         feature generator - {experiment_dict['feature_generator']},
         use_cache - {experiment_dict['use_cache']},
         error_correction - {experiment_dict['error_correction']},
-        n_jobs - {experiment_dict['fedot_params']['n_jobs']},
-        timeout - {experiment_dict['fedot_params']['timeout']},
+        n_jobs - {experiment_dict['model_params']['n_jobs']},
+        timeout - {experiment_dict['model_params']['timeout']},
         ensemble - {experiment_dict['ensemble_algorithm']}''')
 
 

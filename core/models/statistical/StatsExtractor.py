@@ -42,6 +42,9 @@ class StatsExtractor(BaseExtractor):
     def fit(self, input_data: InputData):
         pass
 
+    def transform(self, input_data: InputData):
+        pass
+
     def extract_stats_features(self, ts):
         if self.window_mode:
 

@@ -52,7 +52,10 @@ class TopologicalExtractor(BaseExtractor):
 
         self.logger = logging.getLogger('TopologicalExtractor')
 
-    def fit(self, input_data: InputData) -> OutputData:
+    def fit(self, input_data: InputData):
+        pass
+
+    def transform(self, input_data: InputData):
         pass
 
     def generate_topological_features(self, ts_data: pd.DataFrame) -> pd.DataFrame:

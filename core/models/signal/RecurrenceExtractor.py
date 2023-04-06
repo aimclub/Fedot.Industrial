@@ -1,6 +1,7 @@
 from multiprocessing import Pool
 from typing import Optional
 
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
@@ -48,6 +49,12 @@ class RecurrenceExtractor(BaseExtractor):
         if not self.image_mode:
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
         return feature_df
+
+    def fit(self, input_data: InputData):
+        pass
+
+    def transform(self, input_data: InputData):
+        pass
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
         """Generate vector from time series.
