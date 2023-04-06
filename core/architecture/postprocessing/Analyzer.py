@@ -98,5 +98,6 @@ class PerformanceAnalyzer:
                 result_metric.append(0)
 
         result_dict = dict(zip(metric_list, result_metric))
+        self.logger.info(f'Metrics are: {result_dict}')
 
         return result_dict

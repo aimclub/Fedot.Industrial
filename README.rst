@@ -73,33 +73,29 @@ to use its capabilities in a simple way.
 Classification
 ______________
 
-To conduct time series classification you need to set experiment configuration via dictionary, then make an instance if ``Industrial`` class, and call its ``run_experiment`` method:
+To conduct time series classification you need to set experiment configuration via dictionary, then make an instance if ``FedotIndustrial`` class, and pass it config:
 
 .. code-block:: python
 
-    from core.api.API import Industrial
+    from core.api.main import FedotIndustrial
 
-    if __name__ == '__main__':
-        config = {'feature_generator': ['spectral', 'wavelet'],
-                  'datasets_list': ['UMD', 'Lightning7'],
-                  'use_cache': True,
-                  'error_correction': False,
-                  'launches': 3,
-                  'timeout': 15,
-                  'n_jobs': 2}
-                  
-        ExperimentHelper = Industrial()
-        ExperimentHelper.run_experiment(config)
+    config = dict(task='ts_classification',
+              dataset='ItalyPowerDemand',
+              feature_generator='quantile',
+              use_cache=False,
+              timeout=5,
+              n_jobs=-1,
+              window_sizes='auto')
+
+    industrial = FedotIndustrial(input_config=config,
+                                 output_folder=None)
 
 
 Config contains the following parameters:
 
-- ``feature_generators`` - list of feature generators to use in the experiment
+- ``feature_generator`` - feature extractor to use in the experiment
 - ``use_cache`` - whether to use cache or not
-- ``datasets_list`` - list of datasets to use in the experiment
-- ``launches`` - number of launches for each dataset
-- ``error_correction`` - flag for application of error correction model in the experiment
-- ``n_ecm_cycles`` - number of cycles for error correction model
+- ``dataset`` - name of dataset to use in the experiment
 - ``timeout`` - the maximum amount of time for classification pipeline composition
 - ``n_jobs`` - number of jobs to run in parallel
 
@@ -110,8 +106,7 @@ to use in the experiment. In case of data absence in the local folder, implement
 class will try to load data from the `UCR archive`_.
 
 Possible feature generators which could be specified in configuration are
-``window_quantile``, ``quantile``, ``spectral_window``, ``spectral``,
-``wavelet``, ``recurrence`` and ``topological``.
+``quantile``, ``spectral``, ``wavelet``, ``recurrence`` and ``topological``.
 
 There is also a possibility to ensemble several feature generators.
 It could be done by the following instruction in
@@ -123,8 +118,8 @@ you need to specify the list of feature generators:
     'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
 
 Results of experiment which include generated features, predicted classes, metrics and
-pipelines are stored in ``results_of_experiments/{feature_generator name}`` directory.
-Logs of experiment are stored in ``log`` directory.
+pipelines by default are stored in ``results_of_experiments/{feature_generator name}`` directory, but it could
+be adjusted by ``output_folder`` parameter of ``FedotIndustrial`` class.
 
 Error correction model
 ++++++++++++++++++++++
@@ -218,7 +213,7 @@ Current R&D and future plans
 
 – Development of meta-knowledge storage for data obtained from the experiments
 
-– Research on time series clusterization
+– Research on time series clustering
 
 Documentation
 -------------

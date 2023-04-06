@@ -1,31 +1,27 @@
-from itertools import repeat
 from multiprocessing import Pool
 from typing import Optional
+
+from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from fedot.core.operations.operation_parameters import OperationParameters
 
 
 class SignalExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
 
     Args:
-        wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.
-        use_cache: flag to use cache or not. Defined in Config_Classification.yaml
+        params: parameters of the operation based on defined and default values.
 
     Attributes:
-        ts_samples_count (int): number of samples in time series
         aggregator (StatFeaturesExtractor): class to aggregate features
-        wavelet_extractor (WaveletExtractor): class to extract wavelet features
         wavelet (str): current wavelet type
-        vis_flag (bool): flag to visualize or not
-        train_feats (pd.DataFrame): train features
-        test_feats (pd.DataFrame): test features
-        dict_of_methods (dict): dictionary of methods to extract features
+        features (pd.DataFrame): extracted features
+        wavelet_basis (WaveletBasisImplementation): class to implement wavelet basis
+        feature_generator (StatFeaturesExtractor): class to generate features
 
     """
 
@@ -36,6 +32,7 @@ class SignalExtractor(BaseExtractor):
         self.wavelet = params.get('wavelet')
         self.wavelet_basis = WaveletBasisImplementation(params)
         self.feature_generator = StatFeaturesExtractor()
+        self.features = None
 
     def _ts_chunk_function(self, ts):
 
@@ -67,12 +64,11 @@ class SignalExtractor(BaseExtractor):
                 HF = self.wavelet_basis._decompose_signal(input_data=HF)[0]
         return feature_list
 
-    def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
+    def generate_vector_from_ts(self, ts_frame: Union[pd.DataFrame, np.ndarray]) -> list:
         """Generate vector from time series.
 
         Args:
             ts_frame (pd.DataFrame): time series to be transformed.
-            method_name (str): method to be used for transformation.
 
         Returns:
             list: list of components and vectors.
@@ -80,9 +76,9 @@ class SignalExtractor(BaseExtractor):
         """
         ts_samples_count = ts_frame.shape[0]
         n_processes = self.n_processes
+
         with Pool(n_processes) as p:
-            components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
-                                                         zip(ts_frame, repeat(method_name))),
+            components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function, ts_frame),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
@@ -97,13 +93,10 @@ class SignalExtractor(BaseExtractor):
 
         ts_data = np.array(ts_data)
         if len(ts_data.shape) == 1:
-            self.test_feats = self._ts_chunk_function(ts_data)
+            self.features = self._ts_chunk_function(ts_data)
         else:
-            test_feats = self.generate_vector_from_ts(ts_data)
-            # test_feats = self.generate_vector_from_ts(np.array(ts_data))
-            test_feats = pd.concat(test_feats)
-            test_feats.index = list(range(len(test_feats)))
-            self.test_feats = test_feats
+            features = self.generate_vector_from_ts(ts_data)
+            self.features = pd.concat(features).reset_index(drop=True)
 
         self.logger.info('Wavelet feature generation finished')
-        return self.test_feats
+        return self.features

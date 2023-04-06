@@ -30,7 +30,7 @@ def test_WindowCutting(basic_periodic_data):
 def test_WindowSizeSelection(basic_periodic_data):
     finder = WindowSizeSelection(
                 time_series=basic_periodic_data)
-    result = finder.runner_wss()
+    result = finder.get_window_size()
     assert type(result[0]) is int and type(result[1]) is list
     assert result[0] != 0
 

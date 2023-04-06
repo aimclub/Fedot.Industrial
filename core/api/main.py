@@ -128,7 +128,7 @@ class FedotIndustrial(Fedot):
         """
         return self.solver.get_metrics(target, metric_names)
 
-    def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray]) -> None:
+    def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray], **kwargs) -> None:
         """
         Method to save prediction locally in csv format
 
@@ -139,7 +139,8 @@ class FedotIndustrial(Fedot):
             None
 
         """
-        self.solver.save_prediction(predicted_data)
+        kind = kwargs.get('kind')
+        self.solver.save_prediction(predicted_data, kind=kind)
 
     def save_metrics(self, metrics: dict) -> None:
         """
@@ -178,7 +179,10 @@ if __name__ == "__main__":
     for dataset_name in datasets:
         config = dict(task='ts_classification',
                       dataset=dataset_name,
-                      feature_generator='topological',
+                      # feature_generator='topological',
+                      # feature_generator='quantile',
+                      # feature_generator='wavelet',
+                      feature_generator='spectral',
                       use_cache=False,
                       error_correction=False,
                       timeout=1,
@@ -194,7 +198,10 @@ if __name__ == "__main__":
         metric = industrial.get_metrics(target=test_data[1],
                                         metric_names=['f1', 'roc_auc'])
 
-        for pred in [labels, probs]:
-            industrial.save_predict(predicted_data=pred)
+        # metrcis without reduce: {'f1': 0.966, 'roc_auc': 0.966}
+        # metrics with reduce:
+
+        for pred, kind in zip([labels, probs], ['labels', 'probs']):
+            industrial.save_predict(predicted_data=pred, kind=kind)
 
         industrial.save_metrics(metrics=metric)

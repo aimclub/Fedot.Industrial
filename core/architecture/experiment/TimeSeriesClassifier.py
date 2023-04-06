@@ -160,9 +160,8 @@ class TimeSeriesClassifier:
                                           predicted_probs=self.prediction_proba,
                                           target_metrics=metric_names)
 
-    def save_prediction(self, predicted_data: np.ndarray):
-        prediction_type = 'labels' if predicted_data.shape[1] == 1 else 'probs'
-        self.saver.save(predicted_data, prediction_type)
+    def save_prediction(self, predicted_data: np.ndarray, kind: str):
+        self.saver.save(predicted_data, kind)
 
     def save_metrics(self, metrics: dict):
         self.saver.save(metrics, 'metrics')

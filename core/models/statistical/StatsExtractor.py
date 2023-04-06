@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from typing import Optional
 
 import pandas as pd
@@ -5,27 +6,28 @@ import pandas as pd
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from tqdm import tqdm
 import logging
 from core.models.BaseExtractor import BaseExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
-from core.architecture.abstraction.Decorators import time_it
 
 
 class StatsExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
 
     Args:
-        window_mode: Flag for window mode. Defaults to False.
-        use_cache: Flag for cache usage. Defaults to False.
+        params: parameters of the operation based on defined and default values.
 
     Attributes:
-        use_cache (bool): Flag for cache usage.
         aggregator (StatFeaturesExtractor): StatFeaturesExtractor object.
         vis_flag (bool): Flag for visualization.
         train_feats (pd.DataFrame): Train features.
         test_feats (pd.DataFrame): Test features.
+        window_mode (bool): Flag for window mode.
+        window_size (int): Size of the window.
 
     """
+
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.aggregator = StatFeaturesExtractor()
@@ -42,7 +44,9 @@ class StatsExtractor(BaseExtractor):
 
     def extract_stats_features(self, ts):
         if self.window_mode:
+
             aggregator = self.aggregator.create_baseline_features
+
             list_of_stat_features_on_interval = self.apply_window_for_stat_feature(ts_data=ts,
                                                                                    feature_generator=aggregator,
                                                                                    window_size=self.window_size)
@@ -74,7 +78,7 @@ class StatsExtractor(BaseExtractor):
 
         return aggregation_df
 
-    #@time_it
+    # @time_it
     def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
         self.logger.info('Statistical features extraction started')
         return self.generate_features_from_ts(ts_data)
@@ -93,11 +97,17 @@ class StatsExtractor(BaseExtractor):
 
     def __get_feature_matrix(self, ts):
 
-        ts_components = [x.reshape(-1) for x in ts.values]
-        tmp_list = []
-        for index, component in enumerate(ts_components):
-            aggregation_df = self.extract_stats_features(component)
-            tmp_list.append(aggregation_df)
+        ts_components = [pd.DataFrame(x).T for x in ts.values]
+
+        self.validate_window_size(ts=ts_components[0].values[0])
+
+        with Pool(processes=self.n_processes) as pool:
+            tmp_list = list(tqdm(pool.imap(self.extract_stats_features,
+                                           ts_components),
+                                 total=len(ts_components),
+                                 desc='TS processed',
+                                 colour='green',
+                                 unit=' ts'))
         aggregation_df = pd.concat(tmp_list, axis=0).reset_index(drop=True)
 
         self.logger.info('Statistical features extraction finished')

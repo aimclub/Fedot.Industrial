@@ -2,8 +2,9 @@ from enum import Enum
 
 
 class GeneratorParams(Enum):
-    quantile = {'window_mode': False,
-                'use_cache': False}
+    quantile = {'window_mode': True,
+                'use_cache': False,
+                'window_size': 20}
 
     statistical = {'window_mode': False,
                    'use_cache': False}
@@ -15,8 +16,9 @@ class GeneratorParams(Enum):
                   'rec_metric': 'euclidean'}
 
     topological = {'use_cache': False,
-                   'te_dimension': None,
-                   'te_time_delay': None}
+                   'max_te_dimension': 5,
+                   'max_te_time_delay': 2,
+                   'stride': 1}
 
     spectral = {'window_sizes': [],
                 'window_mode': True,
@@ -27,12 +29,10 @@ class GeneratorParams(Enum):
     ensemble = {'list_of_generators': {},
                 'use_cache': False}
 
-    window_quantile = {'window_mode': True,
-                       'use_cache': False}
-
     window_spectral = {'window_mode': True,
                        'window_sizes': [],
                        'use_cache': False}
 
-    wavelet = {'wavelet_types': ['db5', 'sym5', 'coif5', 'bior2.4'],
-               'use_cache': False}
+    wavelet = {'wavelet_types': ['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5'],
+               'use_cache': False,
+               'wavelet': 'mexh'}

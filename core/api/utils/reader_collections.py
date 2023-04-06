@@ -10,6 +10,7 @@ from core.api.utils.hp_generator_collection import GeneratorParams
 from core.api.utils.method_collections import FeatureGenerator
 from core.architecture.preprocessing.DatasetLoader import DataLoader
 from core.architecture.utils.utils import PROJECT_PATH
+from core.models.BaseExtractor import BaseExtractor
 
 
 class YamlReader:
@@ -103,14 +104,11 @@ class YamlReader:
 
         return self.experiment_dict
 
-    def _get_generator_class(self) -> object:
+    def _get_generator_class(self) -> BaseExtractor:
         """Support method that combines the name of the generator with the parameters from the config file.
 
-        Args:
-            generator: name of the generator.
-
         Returns:
-            Dictionary with the name of the generator and its class.
+            Class of the feature generator.
 
         """
         generator = self.experiment_dict['feature_generator']
@@ -129,7 +127,6 @@ class YamlReader:
 
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
-        # TODO: change place where HP are stored
         feature_gen_params = GeneratorParams[generator].value
 
         for param in feature_gen_params:
@@ -140,8 +137,7 @@ class YamlReader:
 
     def __report_experiment_setup(self, experiment_dict):
 
-        # self.logger.info
-        print(f'''Experiment setup:
+        self.logger.info(f'''Experiment setup:
         dataset - {experiment_dict['dataset']},
         feature generator - {experiment_dict['feature_generator']},
         use_cache - {experiment_dict['use_cache']},
@@ -161,7 +157,6 @@ class DataReader:
     def __init__(self):
 
         self.logger = logging.getLogger(self.__class__.__name__)
-        # self.logger = logger(self.__class__.__name__)
 
     def read(self, dataset_name: str):
 

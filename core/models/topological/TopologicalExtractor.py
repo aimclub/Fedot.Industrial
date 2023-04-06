@@ -30,7 +30,13 @@ class TopologicalExtractor(BaseExtractor):
     """Class for extracting topological features from time series data.
 
     Args:
-        use_cache: flag for using cache
+        params: parameters for topological features extraction – ``use_cache``, ``max_te_dimension``,
+                ``max_te_time_delay``, ``stride``.
+
+    Notes:
+        Params for topological features extraction are used to define the optimal embedding parameters for the
+        Takens embedding algorithm. More you can read here:
+        https://giotto-ai.github.io/gtda-docs/0.5.1/modules/generated/time_series/embedding/gtda.time_series.takens_embedding_optimal_parameters.html
 
     """
 
@@ -38,9 +44,13 @@ class TopologicalExtractor(BaseExtractor):
         super().__init__(params)
         self.filtered_features = None
         self.feature_extractor = None
-        self.te_dimension = params.get('te_dimension')
-        self.te_time_delay = params.get('te_time_delay')
-        self.logger = logging.getLogger('FedotIndustrialAPI')
+        self.max_te_dimension = params.get('max_te_dimension')
+        self.max_te_time_delay = params.get('max_te_time_delay')
+        self.stride = params.get('stride')
+        self.te_dimension = None
+        self.te_time_delay = None
+
+        self.logger = logging.getLogger('TopologicalExtractor')
 
     def fit(self, input_data: InputData) -> OutputData:
         pass
@@ -95,8 +105,9 @@ class TopologicalExtractor(BaseExtractor):
             ts_data = pd.DataFrame(ts_data)
             single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
             delay, dim = takens_embedding_optimal_parameters(X=single_time_series,
-                                                             max_time_delay=2,
-                                                             max_dimension=5,
+                                                             max_time_delay=self.max_te_time_delay,
+                                                             max_dimension=self.max_te_dimension,
+                                                             stride=self.stride,
                                                              n_jobs=-1)
             delay_list.append(delay)
             dim_list.append(dim)
