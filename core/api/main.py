@@ -1,4 +1,5 @@
 import logging
+import os.path
 from typing import List, Union
 
 import numpy as np
@@ -9,6 +10,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 from core.api.utils.method_collections import TaskGenerator
 from core.api.utils.reader_collections import DataReader, YamlReader
 from core.api.utils.reporter import ReporterTSC
+from core.architecture.postprocessing.results_picker import ResultsPicker
 from core.architecture.utils.utils import default_path_to_save_results
 
 
@@ -56,7 +58,7 @@ class FedotIndustrial(Fedot):
                              dataset_name=self.config_dict['dataset'],
                              output_dir=self.output_folder)
 
-        return TaskGenerator[self.config_dict['task']].value(**solver_params)
+        return TaskGenerator[self.config_dict['task']].value(solver_params)
 
     def fit(self,
             train_features: pd.DataFrame,
@@ -181,9 +183,10 @@ if __name__ == "__main__":
                       dataset=dataset_name,
                       # feature_generator='topological',
                       # feature_generator='quantile',
-                      # feature_generator='wavelet',
-                      feature_generator='spectral',
-                      use_cache=False,
+                      feature_generator='wavelet',
+                      # feature_generator='spectral',
+                      use_cache=True,
+                      # use_cache=False,
                       error_correction=False,
                       timeout=1,
                       n_jobs=2,
@@ -198,10 +201,12 @@ if __name__ == "__main__":
         metric = industrial.get_metrics(target=test_data[1],
                                         metric_names=['f1', 'roc_auc'])
 
-        # metrcis without reduce: {'f1': 0.966, 'roc_auc': 0.966}
-        # metrics with reduce:
-
         for pred, kind in zip([labels, probs], ['labels', 'probs']):
             industrial.save_predict(predicted_data=pred, kind=kind)
 
         industrial.save_metrics(metrics=metric)
+
+
+    results_path = os.path.abspath('../../results_of_experiments')
+    picker = ResultsPicker(path=results_path)
+    picker.run(get_metrics_df=True, add_info=True)

@@ -6,6 +6,8 @@ import pandas as pd
 
 from core.architecture.utils.utils import PROJECT_PATH
 
+DS_INFO_PATH = os.path.join(PROJECT_PATH, 'core', 'architecture', 'postprocessing', 'ucr_datasets.json')
+
 
 class ResultsPicker:
     """Class for parsing results of experiments. It parses all experiments in ``results_of_experiments``
@@ -62,11 +64,11 @@ class ResultsPicker:
         metrics_df = pd.DataFrame()
         for ds in metric_dict.keys():
             for exp in metric_dict[ds].keys():
-                metrics = metric_dict[ds][exp]
-                metrics_df = metrics_df.append({'dataset': ds, 'experiment': exp, 'f1': metrics['f1'][0],
-                                                'roc_auc': metrics['roc_auc'][0], 'accuracy': metrics['accuracy'][0],
-                                                'precision': metrics['precision'][0], 'logloss': metrics['logloss'][0]},
-                                               ignore_index=True)
+                metrics = metric_dict[ds][exp].to_dict(orient='records')[0]
+                metrics_df = metrics_df.append({'dataset': ds, 'experiment': exp,
+                                                'f1': metrics.get('f1'), 'roc_auc': metrics.get('roc_auc'),
+                                                'accuracy': metrics.get('accuracy'), 'precision': metrics.get('precision'),
+                                                'logloss': metrics.get('logloss')}, ignore_index=True)
 
         metrics_df = pd.concat([metrics_df[['dataset', 'experiment']],
                                 metrics_df[[col for col in metrics_df.columns if col not in columns]]], axis=1)
@@ -182,20 +184,8 @@ class ResultsPicker:
         return launch
 
     def get_datasets_info(self):
-        # TODO: remove download option and replace it with static file
-        try:
-            json_url = 'http://www.timeseriesclassification.com/JSON/datasetTable.json?order=asc'
-            table = pd.read_json(json_url)
 
-            if table.shape[0] < 180:
-                self.logger.warning('Downloaded table is not full. Reading from file.')
-                raise Exception('Table is not full')
-            else:
-                table.to_json('./ucr_datasets.json')
-
-        except Exception:
-            self.logger.error('Cannot get datasets info from http://www.timeseriesclassification.com')
-            table = pd.read_json('./ucr_datasets.json')
+        table = pd.read_json(DS_INFO_PATH)
 
         table = table.drop([col for col in table.columns if len(col) == 1] + ['Dataset_id'], axis=1)
         table.columns = list(map(str.lower, table.columns))
