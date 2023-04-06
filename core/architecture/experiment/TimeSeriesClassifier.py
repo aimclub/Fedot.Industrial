@@ -1,10 +1,11 @@
 import logging
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 from pymonad.list import ListMonad
@@ -12,17 +13,15 @@ from pymonad.list import ListMonad
 from core.api.utils.checkers_collections import DataCheck
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.models.BaseExtractor import BaseExtractor
 
 
 class TimeSeriesClassifier:
     """Class responsible for interaction with Fedot classifier.
 
     Args:
-        generator_name: name of the generator for feature extraction
-        generator_runner: generator runner instance for feature extraction
-        model_hyperparams: hyperparameters for Fedot model
-        ecm_model_flag: flag for error correction model
+        params: which are ``generator_name``, ``generator_runner``, ``model_hyperparams``,
+                ``ecm_model_flag``, ``dataset_name``, ``output_dir``.
+
 
     Attributes:
         logger (Logger): logger instance
@@ -32,28 +31,27 @@ class TimeSeriesClassifier:
 
     """
 
-    def __init__(self,
-                 generator_name: str = None,
-                 generator_runner: BaseExtractor = None,
-                 model_hyperparams: dict = None,
-                 ecm_model_flag: bool = False,
-                 dataset_name: str = None,
-                 output_dir: str = None):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        self.generator_name = params.get('generator_name', 'quantile')
+        self.model_hyperparams = params.get('model_hyperparams')
+        self.generator_runner = params.get('generator_runner')
+        self.dataset_name = params.get('dataset_name')
+        self.ecm_model_flag = params.get('ecm_model_flag', False)
+        self.output_dir = params.get('output_dir', None)
+
+        self.saver = ResultSaver(dataset_name=self.dataset_name,
+                                 generator_name=self.generator_name,
+                                 output_dir=self.output_dir)
+        self.logger = logging.getLogger('TimeSeriesClassifier')
+        self.datacheck = DataCheck()
+
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
-        self.dataset_name = dataset_name
-        self.saver = ResultSaver(dataset_name=dataset_name, generator_name=generator_name, output_dir=output_dir)
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.datacheck = DataCheck()
 
-        self.generator_name = generator_name
-        self.generator_runner = generator_runner
-        self.model_hyperparams = model_hyperparams
-        self.ecm_model_flag = ecm_model_flag
         self.logger.info('TimeSeriesClassifier initialised')
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:

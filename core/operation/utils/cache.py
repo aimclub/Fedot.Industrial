@@ -36,7 +36,7 @@ class DataCacher:
             Hashed string.
         """
         key = ''.join([repr(arg) for arg in kwargs.values()]).encode('utf8')
-        key += data
+        key += data.__str__().encode('utf8')
         hsh = hashlib.md5(key).hexdigest()[:10]
         return hsh
 
