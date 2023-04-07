@@ -2,15 +2,13 @@ task: 'ts_classification' # time series classification
 
 dataset: None
 
-feature_generator: None
+modelling_strategy: 'fedot_preset'
 
-error_correction: False
-
-n_ecm_cycles: 3
-
-logging_level: 20
-
-ensemble_algorithm: None
+#error_correction: False
+#
+#n_ecm_cycles: 3
+#
+#ensemble_algorithm: None
 
 model_params:
   {

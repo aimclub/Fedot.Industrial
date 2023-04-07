@@ -25,19 +25,19 @@ if __name__ == '__main__':
     industrial = get_operations_for_task(task=train_data.task, mode='data_operation', tags=["extractor", "basis"])
     other = get_operations_for_task(task=train_data.task, forbidden_tags=["basis", "extractor"])
     metrics = {}
+    # #basic pipeline
+    # pipeline = PipelineBuilder().add_node(
+    #     'fourier_basis').add_node('quantile_extractor').add_node('rf').build()
 
-    # basic pipeline
     pipeline = PipelineBuilder().add_node(
-        'data_driven_basic', branch_idx=0).add_node('topological_extractor', branch_idx=0).add_node(
-        'data_driven_basic', branch_idx=1).add_node('quantile_extractor', branch_idx=1).add_node(
-        'data_driven_basic', branch_idx=2).add_node('signal_extractor', branch_idx=2).add_node(
-        'data_driven_basic', branch_idx=3).add_node('recurrence_extractor', branch_idx=3).join_branches('rf').build()
-
+        'data_driven_basis', branch_idx=0).add_node('quantile_extractor', branch_idx=0).add_node(
+        'fourier_basis', branch_idx=1).add_node('quantile_extractor', branch_idx=1).add_node(
+        'wavelet_basis', branch_idx=2).add_node('quantile_extractor', branch_idx=2).join_branches('rf').build()
     # tune pipeline
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(SimultaneousTuner) \
         .with_metric(ClassificationMetricsEnum.f1) \
-        .with_iterations(1) \
+        .with_iterations(30) \
         .build(train_data)
     pipeline = pipeline_tuner.tune(pipeline)
     pipeline.fit(train_data)
@@ -45,6 +45,7 @@ if __name__ == '__main__':
     # calculate metric of tuned pipeline
     predict = pipeline.predict(test_data, output_mode='labels')
     metrics['before fedot_composing'] = F1.metric(test_data, predict)
+    print(metrics)
     pipeline.print_structure()
 
     # magic where we are replacing rf node on node that simply returns merged features
@@ -56,7 +57,10 @@ if __name__ == '__main__':
 
     # generate table feature data from train and test samples using "magic" pipeline
     train_data_preprocessed = pipeline.root_node.predict(train_data)
+    train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
     test_data_preprocessed = pipeline.root_node.predict(test_data)
+    test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+
     train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
                                         features=train_data_preprocessed.predict,
                                         target=train_data_preprocessed.target,
@@ -70,7 +74,7 @@ if __name__ == '__main__':
 
     # remove industrial workaround. Now here are only FEDOT
     remove_industrial_models()
-    model_fedot = Fedot(problem='classification', timeout=3, n_jobs=1, metric=['f1'])
+    model_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'])
 
     pipeline = model_fedot.fit(train_data_preprocessed)
     predict = pipeline.predict(test_data_preprocessed, output_mode='labels')
@@ -79,3 +83,4 @@ if __name__ == '__main__':
     metrics['after_fedot_composing_auto'] = model_fedot.get_metrics()['f1']
     pipeline.show()
     print(metrics)
+    _ = 1
