@@ -34,6 +34,7 @@ if __name__ == '__main__':
         'fourier_basis', branch_idx=1).add_node('quantile_extractor', branch_idx=1).add_node(
         'wavelet_basis', branch_idx=2).add_node('quantile_extractor', branch_idx=2).join_branches('rf').build()
     # tune pipeline
+    pipeline.show()
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(SimultaneousTuner) \
         .with_metric(ClassificationMetricsEnum.f1) \
@@ -72,7 +73,7 @@ if __name__ == '__main__':
                                        data_type=test_data_preprocessed.data_type,
                                        task=test_data_preprocessed.task)
 
-    # remove industrial workaround. Now here are only FEDOT
+    # remove industrial workaround. Now here is only FEDOT
     remove_industrial_models()
     model_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'])
 

@@ -1,7 +1,6 @@
 from multiprocessing import Pool
 from typing import Optional
 
-from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
@@ -13,11 +12,9 @@ from core.operation.transformation.extraction.sequences import ReccurenceFeature
 
 class RecurrenceExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
-
     Args:
         window_mode: boolean flag - if True, window mode is used. Defaults to False.
         use_cache: boolean flag - if True, cache is used. Defaults to False.
-
     Attributes:
         transformer: TSTransformer object.
         self.extractor: ReccurenceExtractor object.
@@ -32,8 +29,6 @@ class RecurrenceExtractor(BaseExtractor):
         self.window_mode = params.get('window_mode')
         self.min_signal_ratio = params.get('min_signal_ratio')
         self.max_signal_ratio = params.get('max_signal_ratio')
-        self.rec_metric = params.get('rec_metric')
-        self.threshold_baseline = params.get('threshold_baseline')
         self.rec_metric = params.get('rec_metric')
 
         self.transformer = TSTransformer
@@ -50,18 +45,10 @@ class RecurrenceExtractor(BaseExtractor):
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
         return feature_df
 
-    def fit(self, input_data: InputData):
-        pass
-
-    def transform(self, input_data: InputData):
-        pass
-
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
         """Generate vector from time series.
-
         Args:
             ts_frame: time series frame
-
         Returns:
             Feature vector
         """
@@ -70,7 +57,7 @@ class RecurrenceExtractor(BaseExtractor):
 
         with Pool(n_processes) as p:
             components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
-                                                      ts_frame.values),
+                                                      ts_frame),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
@@ -82,21 +69,17 @@ class RecurrenceExtractor(BaseExtractor):
             components_and_vectors = components_and_vectors[:, np.newaxis, :, :]
         else:
             components_and_vectors = pd.concat(components_and_vectors, axis=1).T
-
-        self.logger.info('Recurrence feature extraction finished')
         return components_and_vectors
 
-    # @time_it
-    def get_features(self, ts_data: pd.DataFrame,
-                     window_length: int = None) -> pd.DataFrame:
-        self.logger.info('Recurrence feature extraction started')
+    def generate_features_from_ts(self, ts_data: pd.DataFrame,
+                                  window_length: int = None) -> pd.DataFrame:
 
         if self.train_feats is None:
-            train_feats = self.generate_vector_from_ts(ts_frame=ts_data)
+            train_feats = self.generate_vector_from_ts(ts_data)
             self.train_feats = train_feats
             return self.train_feats
         else:
-            test_feats = self.generate_vector_from_ts(ts_frame=ts_data)
+            test_feats = self.generate_vector_from_ts(ts_data)
             if self.image_mode:
                 self.test_feats = test_feats
             else:
