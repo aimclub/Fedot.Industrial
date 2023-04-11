@@ -1,7 +1,7 @@
 from statistics import mean
 import numpy as np
 import pytest
-from core.models.detection.subspaces.SSTdetector import SingularSpectrumTransformation
+from core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from core.models.detection.abstract_objects.FileObject import FileObject
 from core.models.detection.area.ThresholdZonesDetector import ThresholdZonesDetector
 from core.models.detection.vector.AngleBasedDetector import AngleBasedDetector

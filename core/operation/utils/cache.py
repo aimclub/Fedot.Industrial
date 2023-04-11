@@ -4,6 +4,7 @@ import timeit
 
 import numpy as np
 import pandas as pd
+import logging
 
 from core.architecture.utils.utils import PROJECT_PATH
 
@@ -25,7 +26,18 @@ class DataCacher:
     def __init__(self, data_type_prefix: str = 'Data', cache_folder: str = None):
         self.data_type = data_type_prefix
         self.cache_folder = cache_folder
+        self.cache_folder = self._init_cache_folder(cache_folder)
+
+        self.logger = logging.getLogger('DataCacher')
+
+    def _init_cache_folder(self, cache_folder):
+        if cache_folder is None:
+            cache_folder = os.path.join(PROJECT_PATH, 'cache')
+        else:
+            cache_folder = os.path.abspath(cache_folder)
+
         os.makedirs(cache_folder, exist_ok=True)
+        return cache_folder
 
     def hash_info(self, data, **kwargs) -> str:
         """Method responsible for hashing distinct information about the data that is going to be cached.
@@ -45,6 +57,8 @@ class DataCacher:
         Args:
             hashed_info: hashed string of needed info about the data.
         """
+        self.logger.info('Trying to load features from cache')
+
         start = timeit.default_timer()
         file_path = os.path.join(self.cache_folder, hashed_info + '.npy')
         data = np.load(file_path)
@@ -58,6 +72,7 @@ class DataCacher:
             hashed_info: hashed string.
             data: pd.DataFrame.
         """
+        self.logger.info('Caching features')
         cache_file = os.path.join(self.cache_folder, hashed_info)
 
         try:

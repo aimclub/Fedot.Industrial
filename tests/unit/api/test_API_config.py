@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import pytest
-from core.api.API import Industrial
 from core.api.main import FedotIndustrial
 
 

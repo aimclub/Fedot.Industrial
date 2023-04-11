@@ -1,5 +1,4 @@
 import logging
-import os.path
 from typing import List, Union
 
 import numpy as np
@@ -7,45 +6,42 @@ import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
-from core.architecture.settings.task_factory import TaskGenerator
 from core.api.utils.reader_collections import DataReader, YamlReader
 from core.api.utils.reporter import ReporterTSC
-from core.architecture.postprocessing.results_picker import ResultsPicker
+from core.architecture.settings.task_factory import TaskGenerator
 from core.architecture.utils.utils import default_path_to_save_results
 
 
 class FedotIndustrial(Fedot):
-    """
-    This class is used to run Fedot in industrial mode as FedotIndustrial.
-    Example:
-        if __name__ == "__main__":
-            datasets = ['ItalyPowerDemand'
-                        ]
+    """This class is used to run Fedot in industrial mode as FedotIndustrial.
 
-            for dataset_name in datasets:
-                config = dict(task='ts_classification',
-                              dataset=dataset_name,
-                              feature_generator='topological',
-                              use_cache=False,
-                              error_correction=False,
-                              timeout=1,
-                              n_jobs=2,
-                              window_sizes='auto')
-
-                industrial = FedotIndustrial(input_config=config, output_folder=None)
-                train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
-                model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
-
-                labels = industrial.predict(test_features=test_data[0])
-                probs = industrial.predict_proba(test_features=test_data[0])
-                metric = industrial.get_metrics(target=test_data[1],
-                                                metric_names=['f1', 'roc_auc'])
-
-                for pred, kind in zip([labels, probs], ['labels', 'probs']):
-                    industrial.save_predict(predicted_data=pred, kind=kind)
-
-                industrial.save_metrics(metrics=metric)
     Args:
+        input_config: dictionary with the parameters of the experiment.
+        output_folder: path to the folder where the results will be saved.
+
+    Example:
+        First, configure experiment::
+
+            config = dict(task='ts_classification',
+                          dataset='ItalyPowerDemand',
+                          feature_generator='topological',
+                          use_cache=False,
+                          timeout=15,
+                          n_jobs=2,
+                          logging_level=20)
+
+        Next, instantiate FedotIndustrial class and download data::
+
+            industrial = FedotIndustrial(input_config=config, output_folder=None)
+            train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
+
+        Finally, fit the model and get predictions::
+
+            model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
+            labels = industrial.predict(test_features=test_data[0])
+            probs = industrial.predict_proba(test_features=test_data[0])
+            metric = industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc'])
+
 
     """
 
@@ -83,12 +79,20 @@ class FedotIndustrial(Fedot):
                              model_hyperparams=self.config_dict['model_params'],
                              ecm_model_flag=self.config_dict['error_correction'],
                              dataset_name=self.config_dict['dataset'],
-                             output_dir=self.output_folder)
+                             output_dir=self.output_folder,
+                             logging_level=self.config_dict['logging_level'],)
 
-        if self.config_dict['feature_generator'] is None and self.config_dict['task'] == 'ts_classification':
-            solver = TaskGenerator[self.config_dict['task']].value[1]
+        if self.config_dict['task'] == 'ts_classification':
+            if self.config_dict['feature_generator'] == 'fedot_preset':
+                solver = TaskGenerator[self.config_dict['task']].value['fedot_preset']
+            elif self.config_dict['feature_generator'] is None:
+                solver = TaskGenerator[self.config_dict['task']].value['nn']
+            else:
+                solver = TaskGenerator[self.config_dict['task']].value['default']
+
         else:
             solver = TaskGenerator[self.config_dict['task']].value[0]
+
         return solver(solver_params)
 
     def fit(self,
@@ -101,7 +105,7 @@ class FedotIndustrial(Fedot):
         Args:
             train_features: raw time series data
             train_target: target labels
-            kwargs: additional parameters for solver, for example `baseline_type` model type that could be selected
+            kwargs: additional parameters for solver, for example ``baseline_type`` – a model that could be selected
                     instead of Fedot pipeline
 
         Returns:
@@ -205,23 +209,25 @@ class FedotIndustrial(Fedot):
 
 
 if __name__ == "__main__":
+    import os.path
+    from core.architecture.postprocessing.results_picker import ResultsPicker
+
     datasets = ['ItalyPowerDemand',
-                # 'UMD'
+                'UMD'
                 ]
 
     for dataset_name in datasets:
         config = dict(task='ts_classification',
                       dataset=dataset_name,
-                      # feature_generator='topological',
-                      # feature_generator='quantile',
-                      feature_generator='wavelet',
-                      # feature_generator='spectral',
+                      feature_generator='fedot_preset',
+                      # feature_generator='statistical',
                       use_cache=True,
-                      # use_cache=False,
                       error_correction=False,
                       timeout=1,
                       n_jobs=2,
-                      window_sizes='auto')
+                      window_sizes='auto',
+                      logging_level=20
+                      )
 
         industrial = FedotIndustrial(input_config=config, output_folder=None)
         train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
@@ -240,4 +246,10 @@ if __name__ == "__main__":
 
     results_path = os.path.abspath('../../results_of_experiments')
     picker = ResultsPicker(path=results_path)
-    picker.run(get_metrics_df=True, add_info=True)
+    proba_dict, metric_dict = picker.run()
+    from core.ensemble.static.RankEnsembler import RankEnsemble
+
+    ensembler = RankEnsemble(dataset_name='ItalyPowerDemand',
+                              proba_dict=proba_dict,
+                              metric_dict=metric_dict)
+    ensembler.ensemble()

@@ -68,9 +68,8 @@ class StatsExtractor(BaseExtractor):
 
         return aggregation_df
 
-
-    def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
-        return self.generate_features_from_ts(ts_data)
+    # def get_features(self, ts_data, dataset_name: str = None, target: np.ndarray = None):
+    #     return self.generate_features_from_ts(ts_data)
 
     def __component_extraction(self, ts):
         ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]

@@ -33,6 +33,5 @@ class GeneratorParams(Enum):
                        'window_sizes': [],
                        'use_cache': False}
 
-    wavelet = {'wavelet_types': ['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5'],
-               'use_cache': False,
+    wavelet = {'use_cache': False,
                'wavelet': 'mexh'}

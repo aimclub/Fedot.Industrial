@@ -105,7 +105,7 @@ class YamlReader:
 
         return self.experiment_dict
 
-    def _get_generator_class(self) -> BaseExtractor:
+    def _get_generator_class(self) -> Union[BaseExtractor, None]:
         """Support method that combines the name of the generator with the parameters from the config file.
 
         Returns:
@@ -114,6 +114,8 @@ class YamlReader:
         """
         generator = self.experiment_dict['feature_generator']
         if generator is None:
+            return None
+        elif generator == 'fedot_preset':
             return None
         else:
             if generator.startswith('ensemble'):
@@ -145,10 +147,8 @@ class YamlReader:
         dataset - {experiment_dict['dataset']},
         feature generator - {experiment_dict['feature_generator']},
         use_cache - {experiment_dict['use_cache']},
-        error_correction - {experiment_dict['error_correction']},
         n_jobs - {experiment_dict['model_params']['n_jobs']},
-        timeout - {experiment_dict['model_params']['timeout']},
-        ensemble - {experiment_dict['ensemble_algorithm']}''')
+        timeout - {experiment_dict['model_params']['timeout']}''')
 
 
 class DataReader:

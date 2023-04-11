@@ -1,25 +1,23 @@
 import logging
+import os
 from typing import List, Union
-from tqdm import tqdm
+from typing import Optional, Tuple
+
 import numpy as np
 import pandas as pd
-import os
-from typing import Tuple, Optional
 import torch
-from pymonad.list import ListMonad
-
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
+
 from core.api.utils.checkers_collections import DataCheck
 from core.api.utils.saver_collections import ResultSaver
-from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from fedot.core.operations.operation_parameters import OperationParameters
 from core.architecture.datasets.classification_datasets import CustomClassificationDataset
 from core.architecture.experiment.CVModule import ClassificationExperimenter
+from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.utils import default_path_to_save_results
-from core.models.BaseExtractor import BaseExtractor
 from core.models.nn.inception import InceptionTimeNetwork
 
 TSCCLF_MODEL = {
@@ -177,20 +175,6 @@ class TimeSeriesClassifier:
     def save_metrics(self, metrics: dict):
         self.saver.save(metrics, 'metrics')
 
-    def _pipeline_operations(self) -> dict:
-        feature_extractor = self.generator_runner
-        fedot_model = Fedot(**self.model_hyperparams)
-
-        operations = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
-                      # 'reduce_basis': lambda x: x[:, 0] if x.shape[1] == 1 else x[:, kwargs['component']],
-                      'extract_features': lambda x: feature_extractor.get_features(x),
-                      'fit_model': lambda x: fedot_model.fit(features=x, target=self.y_train),
-                      'predict': lambda x: ListMonad({'predicted_labels': fedot_model.predict(test_features=x),
-                                                      'predicted_probs': fedot_model.predict_proba(test_features=x)})
-                      }
-
-        return operations
-
 
 class TimeSeriesImageClassifier(TimeSeriesClassifier):
 
@@ -251,13 +235,13 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
         NN_model.fit(num_epochs=num_epochs)
         return NN_model
 
-    def predict(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_features, dataset_name)
+    def predict(self, test_ts_frame: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_label = self.__predict_abstraction(test_ts_frame, dataset_name)
         prediction_label = list(prediction_label.values())
         return dict(label=prediction_label, test_features=self.test_features)
 
-    def predict_proba(self, test_features: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_features,
+    def predict_proba(self, test_ts_frame: np.ndarray, dataset_name: str = None) -> dict:
+        prediction_proba = self.__predict_abstraction(test_features=test_ts_frame,
                                                       mode='probs')
         prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
         return dict(class_probability=prediction_proba, test_features=self.test_features)
@@ -281,9 +265,3 @@ class TimeSeriesClassifierNN(TimeSeriesImageClassifier):
             target = target - 1
 
         return self.num_epochs, target
-
-    # def predict(self, test_features: np.ndarray) -> dict:
-    #     self.model.eval()
-    #     with torch.no_grad():
-    #         x_pred = np.argmax(self.model(torch.tensor(test_features).float()).detach(), axis=1)
-    #     return x_pred

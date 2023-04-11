@@ -29,7 +29,7 @@ def apply_rank_ensemble(proba_dict: dict,
         print(f'*---------ENSEMBLING FOR DATASET - {dataset}')
         modelling_results = proba_dict[dataset]
         modelling_metrics = metric_dict[dataset]
-        rank_ensemble = RankEnsemble(prediction_proba_dict=modelling_results,
+        rank_ensemble = RankEnsemble(proba_dict=modelling_results,
                                      metric_dict=modelling_metrics)
 
         experiment_results.update({dataset: rank_ensemble.ensemble()})

@@ -82,6 +82,9 @@ class ResultsPicker:
             exp_path = os.path.join(self.exp_path, exp)
             ds_list, metrics_list, proba_list = self.read_exp_folder(exp_path)
 
+            if ds_list is None:
+                continue
+
             for metric, proba, dataset in zip(metrics_list, proba_list, ds_list):
                 if dataset not in proba_dict.keys() and proba is not None:
                     proba_dict[dataset] = {}

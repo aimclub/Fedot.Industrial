@@ -13,6 +13,7 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 from core.repository.initializer_industrial_models import initialize_industrial_models
 from core.tuning.search_space import industrial_search_space, get_industrial_search_space
 from tests.unit.api.test_API_config import load_data
+from core.api.utils.reader_collections import DataReader
 
 
 def test_fedot_multi_series():
@@ -28,7 +29,7 @@ def test_fedot_multi_series():
 
 
 def initialize_uni_data():
-    train_data, test_data, n_classes = load_data('Lightning7')
+    train_data, test_data, n_classes = DataReader().read('Lightning7')
     train_data = InputData(idx=np.arange(len(train_data[0])),
                            features=train_data[0].values,
                            target=train_data[1].reshape(-1, 1),
