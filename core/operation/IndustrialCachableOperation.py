@@ -31,7 +31,6 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         """
         pass
 
-
     def try_load_from_cache(self, hashed_info: str) -> np.array:
         predict = self.cacher.load_data_from_cache(hashed_info=hashed_info)
         return predict
@@ -40,8 +39,9 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         """
             Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
         """
-        hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
-                                            **self.params.to_dict())
+
+        hashed_info = self.cacher.hash_info(data=input_data.features,
+                                            generator_info=self.__dir__())
         try:
             predict = self.try_load_from_cache(hashed_info)
         except FileNotFoundError:

@@ -34,9 +34,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             Method for feature generation for all series
         """
         v = []
-        for series in tqdm(np.squeeze(input_data.features, 3)):
+        for series in tqdm(input_data.features.values):
             v.append(self.generate_features_from_ts(series))
         predict = self._clean_predict(np.array(v))
+
         return predict
 
     @staticmethod

@@ -20,19 +20,18 @@ class FedotIndustrial(Fedot):
         output_folder: path to the folder where the results will be saved.
 
     Example:
-        First, configure experiment::
+        First, configure experiment and instantiate FedotIndustrial class::
 
-            config = dict(task='ts_classification',
-                          dataset='ItalyPowerDemand',
-                          feature_generator='topological',
-                          use_cache=False,
-                          timeout=15,
-                          n_jobs=2,
-                          logging_level=20)
+            industrial = FedotIndustrial(task='ts_classification',
+                                         dataset='ItalyPowerDemand',
+                                         feature_generator='topological',
+                                         use_cache=False,
+                                         timeout=15,
+                                         n_jobs=2,
+                                         logging_level=20)
 
-        Next, instantiate FedotIndustrial class and download data::
+        Next, download data::
 
-            industrial = FedotIndustrial(input_config=config, output_folder=None)
             train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
 
         Finally, fit the model and get predictions::
@@ -45,42 +44,37 @@ class FedotIndustrial(Fedot):
 
     """
 
-    def __init__(self,
-                 input_config: Union[dict, str] = None,
-                 output_folder: str = None):
+    def __init__(self, **kwargs):
         super(Fedot, self).__init__()
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
         self.reporter = ReporterTSC()
-        self.solvers = {method.name: method.value for method in TaskGenerator}
         self.YAML = YamlReader()
         self.reader = DataReader()
 
-        self.input_config = input_config
         self.config_dict = None
-        self.output_folder = output_folder
+        self.output_folder = kwargs.get('output_folder', None)
 
-        self.__init_experiment_setup()
+        self.__init_experiment_setup(**kwargs)
         self.solver = self.__init_solver()
 
-    def __init_experiment_setup(self):
+    def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
         if not self.output_folder:
             self.output_folder = default_path_to_save_results()
         self.reporter.path_to_save = self.output_folder
 
-        self.config_dict = self.YAML.init_experiment_setup(self.input_config)
+        self.config_dict = self.YAML.init_experiment_setup(**kwargs)
 
     def __init_solver(self):
         self.logger.info('Initialising solver')
-        solver_params = dict(generator_name=self.config_dict['feature_generator'],
-                             generator_runner=self.config_dict['generator_class'],
-                             model_hyperparams=self.config_dict['model_params'],
-                             ecm_model_flag=self.config_dict['error_correction'],
-                             dataset_name=self.config_dict['dataset'],
-                             output_dir=self.output_folder,
-                             logging_level=self.config_dict['logging_level'],)
+        # solver_params = dict(generator_name=self.config_dict['feature_generator'],
+        #                      generator_runner=self.config_dict['generator_class'],
+        #                      model_hyperparams=self.config_dict['model_params'],
+        #                      dataset_name=self.config_dict['dataset'],
+        #                      output_dir=self.output_folder,
+        #                      logging_level=self.config_dict['logging_level'], )
 
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['feature_generator'] == 'fedot_preset':
@@ -93,7 +87,8 @@ class FedotIndustrial(Fedot):
         else:
             solver = TaskGenerator[self.config_dict['task']].value[0]
 
-        return solver(solver_params)
+        return solver(self.config_dict)
+        # return solver(solver_params)
 
     def fit(self,
             train_features: pd.DataFrame,
@@ -217,19 +212,17 @@ if __name__ == "__main__":
                 ]
 
     for dataset_name in datasets:
-        config = dict(task='ts_classification',
-                      dataset=dataset_name,
-                      feature_generator='fedot_preset',
-                      # feature_generator='statistical',
-                      use_cache=True,
-                      error_correction=False,
-                      timeout=1,
-                      n_jobs=2,
-                      window_sizes='auto',
-                      logging_level=20
-                      )
 
-        industrial = FedotIndustrial(input_config=config, output_folder=None)
+        industrial = FedotIndustrial(task='ts_classification',
+                                     dataset=dataset_name,
+                                     feature_generator='statistical',
+                                     use_cache=True,
+                                     timeout=1,
+                                     n_jobs=2,
+                                     window_sizes='auto',
+                                     logging_level=20,
+                                     output_folder=None)
+
         train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
         model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
 
@@ -243,13 +236,12 @@ if __name__ == "__main__":
 
         industrial.save_metrics(metrics=metric)
 
-
     results_path = os.path.abspath('../../results_of_experiments')
     picker = ResultsPicker(path=results_path)
     proba_dict, metric_dict = picker.run()
     from core.ensemble.static.RankEnsembler import RankEnsemble
 
     ensembler = RankEnsemble(dataset_name='ItalyPowerDemand',
-                              proba_dict=proba_dict,
-                              metric_dict=metric_dict)
+                             proba_dict=proba_dict,
+                             metric_dict=metric_dict)
     ensembler.ensemble()

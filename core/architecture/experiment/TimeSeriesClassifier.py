@@ -42,16 +42,15 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.generator_name = params.get('generator_name', 'quantile')
-        self.model_hyperparams = params.get('model_hyperparams')
-        self.generator_runner = params.get('generator_runner')
-        self.dataset_name = params.get('dataset_name')
-        self.ecm_model_flag = params.get('ecm_model_flag', False)
-        self.output_dir = params.get('output_dir', None)
+        self.generator_name = params.get('feature_generator', 'statistical')
+        self.model_hyperparams = params.get('model_params')
+        self.generator_runner = params.get('generator_class')
+        self.dataset_name = params.get('dataset')
+        self.output_folder = params.get('output_folder', None)
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
                                  generator_name=self.generator_name,
-                                 output_dir=self.output_dir)
+                                 output_dir=self.output_folder)
         self.logger = logging.getLogger('TimeSeriesClassifier')
         self.datacheck = DataCheck()
 
