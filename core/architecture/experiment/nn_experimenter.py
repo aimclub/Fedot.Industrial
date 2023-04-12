@@ -35,6 +35,7 @@ class FitParameters:
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
         class_metrics: If ``True``, calculates validation metrics for each class.
+        description: Additional line describing the experiment.
     """
 
     dataset_name: str
@@ -48,6 +49,7 @@ class FitParameters:
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
     class_metrics: bool = False
+    description: str = ''
 
 
 class NNExperimenter:
@@ -98,8 +100,8 @@ class NNExperimenter:
             model_losses: Function for calculating losses from model weights.
             start_epoch: Initial training epoch.
         """
-        model_path = os.path.join(p.models_path, p.dataset_name, self.name, phase)
-        summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, phase)
+        model_path = os.path.join(p.models_path, p.dataset_name, self.name, p.description, phase)
+        summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, p.description, phase)
         writer = WriterComposer(summary_path, [TFWriter, CSVWriter])
 
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")

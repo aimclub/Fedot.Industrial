@@ -1,40 +1,51 @@
 import os
-from typing import Dict, Union, Optional, List, Tuple
+from typing import Dict, Union, Optional, List, Tuple, Callable
 from functools import wraps
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import numpy as np
 import pandas as pd
 
 
-FIG_SIZE=(16, 8)
-
-def savefig(func):
+def savefig(func) -> Callable:
     """Adds the ability to save a figure."""
+
     @wraps(func)
     def wrapper(saving_path: Optional[Union[str, Path]] = None, **kwargs):
         fig = func(**kwargs)
         if saving_path is not None:
             fig.savefig(saving_path)
         return fig
+
     return wrapper
 
 
-def limits(func):
-    """Adds the ability to set display borders."""
+def limits(func) -> Callable:
+    """Adds the ability to set plot parameters."""
+
     @wraps(func)
     def wrapper(
+            title: str = '',
+            xlabel: str = '',
+            ylabel: str = '',
             xlim: Optional[Tuple[float, float]] = None,
             ylim: Optional[Tuple[float, float]] = None,
             **kwargs
     ):
         fig = func(**kwargs)
+        plt.grid()
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
         if xlim is not None:
             plt.xlim(xlim)
         if ylim is not None:
             plt.ylim(ylim)
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         return fig
+
     return wrapper
 
 
@@ -68,72 +79,6 @@ def pair_color(r: float, g: float, b: float, delta=0.2) -> Tuple[float, float, f
     return r, g, b
 
 
-@savefig
-@limits
-def show_train_scores(
-        exps: Dict[str, Union[str, Path]],
-        metric: str,
-) -> plt.Figure:
-    """Draws training graphs.
-
-    Args:
-        exps: Dictionary of experiments: `{exp_name: exp_path}`.
-        metric: Target metric for plotting.
-
-    Return:
-        Figure with graphs.
-    """
-    train_scores = pd.DataFrame()
-    for name, exp in exps.items():
-        df = pd.read_csv(os.path.join(exp, 'train/val.csv'), index_col=0)
-        train_scores[name]=df[metric]
-    return train_scores.plot(
-        figsize=FIG_SIZE,
-        title=metric,
-        xlabel='epochs',
-        ylabel=metric
-    ).figure
-
-
-@savefig
-@limits
-def show_mean_train_scores(
-        exps: Dict[str, List[Union[str, Path]]],
-        metric: str,
-        show_std: bool = True,
-        title: str = ''
-):
-    """Draws mean training graphs.
-
-    Args:
-        exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
-        metric: Target metric for plotting.
-        show_std: If `True` displays standard deviation on graphs.
-        title: Name of the graph.
-
-    Return:
-        Figure with graphs.
-    """
-    fig = plt.figure(figsize=FIG_SIZE)
-    plt.grid()
-    plt.xlabel('epochs')
-    plt.ylabel(metric)
-    plt.title(title)
-    for name, exp in exps.items():
-        exp_scores = pd.DataFrame()
-        for i, e in enumerate(exp):
-            df = pd.read_csv(os.path.join(e, 'train/val.csv'), index_col=0)
-            exp_scores[i]=df[metric]
-        mean = exp_scores.mean(axis=1)
-        std = exp_scores.std(axis=1)
-        r, g, b = random_color()
-        plt.plot(exp_scores.index, mean, label=name, color=(r, g, b))
-        if show_std:
-            plt.fill_between(exp_scores.index, mean + std, mean - std, color=(r, g, b, 0.3))
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    return fig
-
-
 def get_best_metric(
         exp_path: Union[str, Path],
         metric: str,
@@ -153,307 +98,275 @@ def get_best_metric(
     return df[metric].max()
 
 
+def create_mean_exp(path: str) -> None:
+    """
+    Averages all experiments in a folder.
+
+    Args:
+        path: Path to the folder with the results of experiments.
+    """
+    exps = os.listdir(path)
+    phases = os.listdir(os.path.join(path, exps[0]))
+    os.mkdir(os.path.join(path, 'mean'))
+    for phase in phases:
+        if phase.endswith('.csv'):
+            df = create_mean_df([os.path.join(path, exp, phase) for exp in exps])
+            df.to_csv(os.path.join(path, 'mean', phase))
+        else:
+            os.mkdir(os.path.join(path, 'mean', phase))
+            train_df = create_mean_df([os.path.join(path, exp, phase, 'train.csv') for exp in exps])
+            train_df.to_csv(os.path.join(path, 'mean', phase, 'train.csv'))
+            val_df = create_mean_df([os.path.join(path, exp, phase, 'val.csv') for exp in exps])
+            val_df.to_csv(os.path.join(path, 'mean', phase, 'val.csv'))
+
+
+def create_mean_df(paths: List[Union[str, Path]]) -> pd.DataFrame:
+    """
+    Combine dataframes of experiments by calculating their mean and std.
+
+    Args:
+        paths: List of paths to dataframes.
+
+    Returns:
+        The dataframe of mean and std values.
+    """
+    df = pd.read_csv(paths[0], index_col=0)
+    data = [df.to_numpy()]
+    for path in paths[1:]:
+        tmp = pd.read_csv(path, index_col=0)
+        assert np.array_equal(df.index, tmp.index)
+        assert np.array_equal(df.columns, tmp.columns)
+        data.append(tmp.to_numpy())
+    data = np.array(data)
+    mean = data.mean(axis=0)
+    std = data.std(axis=0)
+    df = pd.DataFrame(
+        data=np.concatenate((mean, std), axis=1),
+        index=df.index,
+        columns=df.columns.tolist() + [f'{c} std' for c in df.columns]
+    )
+    return df
+
+
 @savefig
 @limits
-def show_svd_results(
+def show_train_scores(
+        exps: Dict[str, Union[str, Path]],
+        metric: str,
+        show_std: bool = False,
+        figsize: Tuple[int, int] = (16, 8)
+) -> plt.Figure:
+    """Draws mean training graphs.
+
+    Args:
+        exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
+        metric: Target metric for plotting.
+        show_std: If `True` displays standard deviation on graphs.
+        figsize: Width, height in inches.
+
+    Return:
+        Figure with graphs.
+    """
+    fig = plt.figure(figsize=figsize)
+    for name, exp in exps.items():
+        exp_scores = pd.read_csv(os.path.join(exp, 'train/val.csv'), index_col=0)
+        r, g, b = random_color()
+        plt.plot(exp_scores.index, exp_scores[metric], label=name, color=(r, g, b))
+        if show_std:
+            plt.fill_between(
+                exp_scores.index,
+                exp_scores[metric] + exp_scores[f'{metric} std'],
+                exp_scores[metric] - exp_scores[f'{metric} std'],
+                color=(r, g, b, 0.3)
+            )
+    return fig
+
+
+def compare_svd_results(
         baseline: Union[str, Path],
         svd_exps: Dict[str, Union[str, Path]],
         metric: str,
-        pruning: bool,
-        finetuning: bool,
-        title: str = '',
-        fig: Optional[plt.Figure] = None,
-):
-    """Draws graphs of the target metric depending on the size of the compressed SVD model.
+) -> Dict[str, pd.DataFrame]:
+    """Creates dataframe.
 
     Args:
         baseline: The path to the base experiment for comparison.
         svd_exps: Dictionary of experiments: `{exp_name: exp_path}`.
-        metric: Target metric for plotting.
-        pruning: If `True` draws pruned results.
-        finetuning: If `True` draws fine-tuned results.
-        title: Name of the graph.
-        fig: Figure for drawing graphs.
+        metric: Target metric.
 
     Returns:
-        Figure with graphs.
+        Dictionary `{exp_name: exp_dataframe}`.
     """
-    baseline_metric = get_best_metric(exp_path=baseline, metric=metric)
-    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
-    plt.grid()
-    plt.xlabel('size, %')
-    plt.ylabel(f'{metric}, %')
-    plt.title(title)
-    for i, exp in enumerate(svd_exps):
-        metrics_df = pd.read_csv(os.path.join(svd_exps[exp], 'pruning.csv'), index_col=0)
-        energy_thresholds = list(metrics_df.index)
-        size_df = pd.read_csv(os.path.join(svd_exps[exp], 'size.csv'), index_col=0)
-        r, g, b = random_color()
+    factor = 100 / get_best_metric(exp_path=baseline, metric=metric)
+    result = {}
 
-        if pruning:
-            plt.plot(
-                size_df.loc[energy_thresholds, 'size'] / size_df.loc['default', 'size'] * 100,
-                metrics_df[metric] / baseline_metric * 100,
-                label=exp,
-                color=(r, g, b)
-            )
+    for exp, path in svd_exps.items():
+        metrics_df = pd.read_csv(os.path.join(path, 'pruning.csv'), index_col=0)
+        size_df = pd.read_csv(os.path.join(path, 'size.csv'), index_col=0)
+        df = pd.DataFrame()
+        df['size'] = metrics_df['size'] / size_df.loc['default', 'size'] * 100
+        df['pruned'] = metrics_df[metric] * factor
+        if f'{metric} std' in metrics_df.columns:
+            df['pruned std'] = metrics_df[f'{metric} std'] * factor
 
-        if finetuning:
-            for e in energy_thresholds:
-                df = pd.read_csv(os.path.join(svd_exps[exp], e, 'val.csv'), index_col=0)
-                metrics_df.loc[e, exp] = df[metric].max() / baseline_metric
-            plt.plot(
-                size_df.loc[energy_thresholds, 'size'] / size_df.loc['default', 'size'] * 100,
-                metrics_df[exp] / baseline_metric * 100,
-                label=f'{exp} fine-tuned',
-                color=pair_color(r, g, b)
-            )
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    return fig
+        for e in df.index:
+            e_path = os.path.join(path, e, 'val.csv')
+            if os.path.exists(e_path):
+                e_df = pd.read_csv(e_path, index_col=0)
+                idx = e_df[metric].idxmax()
+                df.loc[e, 'fine-tuned'] = e_df.loc[idx, metric] * factor
+                if f'{metric} std' in e_df.columns:
+                    df['fine-tuned std'] = e_df.loc[idx, f'{metric} std'] * factor
+        df.set_index('size', inplace=True)
+        result[exp] = df
+    return result
 
 
 @savefig
 @limits
-def show_mean_svd_results(
-        baseline: List[Union[str, Path]],
-        svd_exps: Dict[str, List[Union[str, Path]]],
-        metric: str,
-        pruning: bool,
-        finetuning: bool,
-        show_std: bool = True,
-        title: str = '',
+def show_svd_results(
+        svd_exps: Dict[str, pd.DataFrame],
+        figsize: Tuple[int, int] = (16, 8),
         fig: Optional[plt.Figure] = None,
-):
+) -> plt.Figure:
     """Draws graphs of the mean target metric depending on the mean size of the compressed SVD models.
 
     Args:
-        baseline: The path to the base experiment for comparison.
-        svd_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
-        metric: Target metric for plotting.
-        pruning: If `True` draws pruned results.
-        finetuning: If `True` draws fine-tuned results.
-        show_std: If `True` displays standard deviation on graphs.
-        title: Name of the graph.
+        svd_exps: Dictionary of experiments: `{exp_name: exp_dataframe}`
         fig: Figure for drawing graphs.
+        figsize: Width, height in inches.
 
     Returns:
         Figure with graphs.
     """
-    baseline_metric = []
-    for exp in baseline:
-        baseline_metric.append(get_best_metric(exp_path=exp, metric=metric))
-    baseline_metric = np.array(baseline_metric)
-    baseline_mean = baseline_metric.mean()
+    if fig is None:
+        fig, ax = plt.subplots(figsize=figsize)
 
-    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
-    plt.grid()
-    plt.xlabel('size, %')
-    plt.ylabel(f'{metric}, %')
-    plt.title(title)
-    for i, exps in enumerate(svd_exps):
-        metrics_df = pd.DataFrame()
-        size_df = pd.DataFrame()
-        for j, exp in enumerate(svd_exps[exps]):
-            m_df = pd.read_csv(os.path.join(exp, 'pruning.csv'), index_col=0)
-            s_df = pd.read_csv(os.path.join(exp, 'size.csv'), index_col=0)
-            metrics_df[j] = m_df[metric] / baseline_mean * 100
-            size_df[j] = s_df['size'] / s_df.loc['default', 'size'] * 100
-        mean = metrics_df.mean(axis=1)
-        std = metrics_df.std(axis=1)
-        mean_size = size_df.mean(axis=1)
-        energy_thresholds = list(metrics_df.index)
+    for exp, df in svd_exps.items():
         r, g, b = random_color()
 
-        if pruning:
-            plt.plot(
-                mean_size[energy_thresholds],
-                mean,
-                label=exps,
-                color=(r, g, b),
-            )
-            if show_std:
+        if 'pruned' in df.columns:
+            plt.plot(df.index, df['pruned'], label=exp, color=(r, g, b))
+            if 'pruned std' in df.columns:
                 plt.fill_between(
-                    mean_size[energy_thresholds],
-                    mean + std,
-                    mean - std,
-                    color=(r, g, b, 0.3),
+                    df.index,
+                    df['pruned'] + df['pruned std'],
+                    df['pruned'] - df['pruned std'],
+                    color=(r, g, b, 0.3)
                 )
 
-        if finetuning:
-            for e in energy_thresholds:
-                for j, exp in enumerate(svd_exps[exps]):
-                    df = pd.read_csv(os.path.join(exp, e, 'val.csv'), index_col=0)
-                    metrics_df.loc[e, j] = df[metric].max() / baseline_mean * 100
-            mean = metrics_df.mean(axis=1)
-            std = metrics_df.std(axis=1)
-            plt.plot(
-                mean_size[energy_thresholds],
-                mean,
-                label=f'{exps} fine-tuned',
-                color=pair_color(r, g, b)
-            )
-            if show_std:
+        if 'fine-tuned' in df.columns:
+            plt.plot(df.index, df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
+            if 'fine-tuned std' in df.columns:
                 plt.fill_between(
-                    mean_size[energy_thresholds],
-                    mean + std,
-                    mean - std,
+                    df.index,
+                    df['fine-tuned'] + df['fine-tuned std'],
+                    df['fine-tuned'] - df['fine-tuned std'],
                     color=(*pair_color(r, g, b), 0.3),
                 )
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
+
+
+def compare_sfp_results(
+        baseline: Union[str, Path],
+        sfp_exps: Dict[str, Union[str, Path]],
+        metric: str,
+) -> pd.DataFrame:
+    """Creates dataframe.
+
+    Args:
+        baseline: The path to the base experiment for comparison.
+        sfp_exps: Dictionary of experiments: `{exp_name: exp_path}`.
+        metric: Target metric.
+
+    Returns:
+        Dataframe.
+    """
+    factor = 100 / get_best_metric(exp_path=baseline, metric=metric)
+    df = pd.DataFrame()
+    for exp, path in sfp_exps.items():
+        metric_df = pd.read_csv(os.path.join(path, 'train/val.csv'), index_col=0)
+        size_df = pd.read_csv(os.path.join(path, 'size.csv'), index_col=0)
+        size_factor = 100 / size_df.loc['default', 'size']
+        df.loc[exp, 'size'] = size_df.loc['pruned', 'size'] * size_factor
+
+        if 'size std' in size_df.columns:
+            df.loc[exp, 'size std'] = size_df.loc['pruned', 'size std'] * size_factor
+
+        idx = metric_df[metric].idxmax()
+        df.loc[exp, 'pruned'] = metric_df.loc[idx, metric] * factor
+        if f'{metric} std' in metric_df.columns:
+            df.loc[exp, 'pruned std'] = metric_df.loc[idx, f'{metric} std'] * factor
+        ft_path = os.path.join(path, 'pruned/val.csv')
+        if os.path.exists(ft_path):
+            ft_df = pd.read_csv(ft_path, index_col=0)
+            idx = ft_df[metric].idxmax()
+            df.loc[exp, 'fine-tuned'] = ft_df.loc[idx, metric] * factor
+            if f'{metric} std' in ft_df.columns:
+                df.loc[exp, 'fine-tuned std'] = ft_df.loc[idx, f'{metric} std'] * factor
+    return df
 
 
 @savefig
 @limits
 def show_sfp_results(
-        baseline: Union[str, Path],
-        sfp_exps: Dict[str, Union[str, Path]],
-        metric: str,
-        pruning: bool,
-        finetuning: bool,
-        title: str = '',
-        fig: Optional[plt.Figure] = None,
-):
-    """Draws graphs of the target metric depending on the size of the compressed SFP model.
-
-    Args:
-        baseline: The path to the base experiment for comparison.
-        sfp_exps: Dictionary of experiments: `{exp_name: exp_path}`.
-        metric: Target metric for plotting.
-        pruning: If `True` draws pruned results.
-        finetuning: If `True` draws fine-tuned results.
-        title: Name of the graph.
-        fig: Figure for drawing graphs.
-
-    Returns:
-        Figure with graphs.
-    """
-    baseline_metric = get_best_metric(exp_path=baseline, metric=metric)
-    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
-    plt.grid()
-    plt.xlabel('size, %')
-    plt.ylabel(f'{metric}, %')
-    plt.title(title)
-    for i, exp in enumerate(sfp_exps):
-        sfp_metric = get_best_metric(exp_path=sfp_exps[exp], metric=metric)
-        size_df = pd.read_csv(os.path.join(sfp_exps[exp], 'size.csv'), index_col=0)
-        r, g, b = random_color()
-
-        if pruning:
-            plt.scatter(
-                size_df.loc['pruned', 'size'] / size_df.loc['default', 'size'] * 100,
-                sfp_metric / baseline_metric * 100,
-                label=exp,
-                color=(r, g, b),
-                marker='o',
-            )
-
-        if finetuning:
-            sfp_metric = get_best_metric(exp_path=sfp_exps[exp], metric=metric, phase='pruned')
-            plt.scatter(
-                size_df.loc['pruned', 'size'] / size_df.loc['default', 'size'] * 100,
-                sfp_metric / baseline_metric * 100,
-                label=f'{exp} fine-tuned',
-                color=(r, g, b),
-                marker='v',
-            )
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    return fig
-
-
-@savefig
-@limits
-def show_mean_sfp_results(
-        baseline: List[Union[str, Path]],
-        sfp_exps: Dict[str, List[Union[str, Path]]],
-        metric: str,
-        pruning: bool,
-        finetuning: bool,
-        show_std: bool = True,
-        title: str = '',
+        sfp_exps: pd.DataFrame,
+        figsize: Tuple[int, int] = (16, 8),
         fig: Optional[plt.Figure] = None,
 ):
     """Draws graphs of the mean target metric depending on the mean size of the compressed SFP models.
 
     Args:
-        baseline: The path to the base experiment for comparison.
-        sfp_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
-        metric: Target metric for plotting.
-        pruning: If `True` draws pruned results.
-        finetuning: If `True` draws fine-tuned results.
-        show_std: If `True` displays standard deviation on graphs.
-        title: Name of the graph.
+        sfp_exps: Dataframe of experiments.
         fig: Figure for drawing graphs.
+        figsize: Width, height in inches.
 
     Returns:
         Figure with graphs.
     """
-    baseline_metric = []
-    for exp in baseline:
-        baseline_metric.append(get_best_metric(exp_path=exp, metric=metric))
-    baseline_metric = np.array(baseline_metric)
-    baseline_mean = baseline_metric.mean()
-
-    fig = plt.figure(figsize=FIG_SIZE)  if fig is None else fig
-    plt.grid()
-    plt.xlabel('size, %')
-    plt.ylabel(f'{metric}, %')
-    plt.title(title)
-    for i, exps in enumerate(sfp_exps):
-        sfp_metric = []
-        size = []
-        for j, exp in enumerate(sfp_exps[exps]):
-            sfp_metric.append(get_best_metric(exp_path=exp, metric=metric) / baseline_mean * 100)
-            size_df = pd.read_csv(os.path.join(exp, 'size.csv'), index_col=0)
-            size.append(size_df.loc['pruned', 'size'] / size_df.loc['default', 'size'] * 100)
-        size = sum(size) / len(size)
-
+    if fig is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        ax = fig.axes[0]
+    for exp in sfp_exps.index:
         r, g, b = random_color()
+        if 'pruned' in sfp_exps.columns:
+            plt.scatter(
+                sfp_exps.loc[exp, 'size'],
+                sfp_exps.loc[exp, 'pruned'],
+                label=exp,
+                color=(r, g, b),
+                marker='o',
+            )
+            if 'pruned std' in sfp_exps.columns:
+                ax.add_patch(Rectangle(
+                    xy=(
+                        sfp_exps.loc[exp, 'size'] - sfp_exps.loc[exp, 'size std'],
+                        sfp_exps.loc[exp, 'pruned'] - sfp_exps.loc[exp, 'pruned std'],
+                    ),
+                    width=sfp_exps.loc[exp, 'size std'] * 2,
+                    height=sfp_exps.loc[exp, 'pruned std'] * 2,
+                    color=(r, g, b, 0.3),
+                ))
 
-        if pruning:
-            if show_std:
-                bp = plt.boxplot(
-                    sfp_metric,
-                    positions=[size],
-                    labels=[int(size)],
-                    widths=0.5,
-                    patch_artist=True,
-                    boxprops = {'facecolor': (r, g, b)},
-                )
-                bp['boxes'][0].set_label(exps)
-            else:
-                plt.scatter(
-                    size,
-                    sum(sfp_metric) / len(sfp_metric),
-                    label=exps,
-                    color=(r, g, b),
-                    marker='o',
-                )
-
-        if finetuning:
-            sfp_metric = []
-            for j, exp in enumerate(sfp_exps[exps]):
-                sfp_metric.append(
-                    get_best_metric(exp_path=exp, metric=metric, phase='pruned') / baseline_mean * 100)
-
-            if show_std:
-                bp = plt.boxplot(
-                    sfp_metric,
-                    positions=[size],
-                    labels=[int(size)],
-                    widths=0.5,
-                    patch_artist=True,
-                    boxprops={'facecolor': pair_color(r, g, b)},
-                )
-                bp['boxes'][0].set_label(f'{exps} fine-tuned')
-            else:
-                plt.scatter(
-                    size,
-                    sum(sfp_metric) / len(sfp_metric),
-                    label=f'{exps} fine-tuned',
-                    color=(r, g, b),
-                    marker='v',
-                )
+        if 'fine-tuned' in sfp_exps.columns:
+            plt.scatter(
+                sfp_exps.loc[exp, 'size'],
+                sfp_exps.loc[exp, 'fine-tuned'],
+                label=f'{exp} fine-tuned',
+                color=pair_color(r, g, b),
+                marker='o',
+            )
+            if 'fine-tuned std' in sfp_exps.columns:
+                ax.add_patch(Rectangle(
+                    xy=(
+                        sfp_exps.loc[exp, 'size'] - sfp_exps.loc[exp, 'size std'],
+                        sfp_exps.loc[exp, 'fine-tuned'] - sfp_exps.loc[exp, 'fine-tuned std'],
+                    ),
+                    width=sfp_exps.loc[exp, 'size std'] * 2,
+                    height=sfp_exps.loc[exp, 'fine-tuned std'] * 2,
+                    color=(*pair_color(r, g, b), 0.3),
+                ))
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     return fig
 
@@ -461,98 +374,21 @@ def show_mean_sfp_results(
 @savefig
 @limits
 def show_svd_sfp_results(
-        baseline: Union[str, Path],
-        sfp_exps: Dict[str, Union[str, Path]],
-        svd_exps: Dict[str, Union[str, Path]],
-        metric: str,
-        pruning: bool,
-        finetuning: bool,
-        title: str = '',
-):
-    """Draws graphs of the target metric depending on the size of the compressed SVD and SFP models.
-
-    Args:
-        baseline: The path to the base experiment for comparison.
-        sfp_exps: Dictionary of experiments: `{exp_name: exp_path}`.
-        svd_exps: Dictionary of experiments: `{exp_name: exp_path}`.
-        metric: Target metric for plotting.
-        pruning: If `True` draws pruned results.
-        finetuning: If `True` draws fine-tuned results.
-        title: Name of the graph.
-
-    Returns:
-        Figure with graphs.
-    """
-    fig = plt.figure(figsize=FIG_SIZE)
-    show_svd_results(
-        baseline=baseline,
-        svd_exps=svd_exps,
-        metric=metric,
-        pruning=pruning,
-        finetuning=finetuning,
-        title=title,
-        fig=fig
-    )
-    show_sfp_results(
-        baseline=baseline,
-        sfp_exps=sfp_exps,
-        metric=metric,
-        pruning=pruning,
-        finetuning=finetuning,
-        title=title,
-        fig=fig
-    )
-    plt.grid()
-    return fig
-
-
-@savefig
-@limits
-def show_mean_svd_sfp_results(
-        baseline: List[Union[str, Path]],
-        sfp_exps: Dict[str, List[Union[str, Path]]],
-        svd_exps: Dict[str, List[Union[str, Path]]],
-        metric: str,
-        pruning: bool,
-        finetuning: bool,
-        show_std: bool = True,
-        title: str = '',
+        sfp_exps: pd.DataFrame,
+        svd_exps: Dict[str, pd.DataFrame],
+        figsize: Tuple[int, int] = (16, 8),
 ):
     """Draws graphs of the mean target metric depending on the mean size of the compressed SVD and SFP models.
 
     Args:
-        baseline: The path to the base experiment for comparison.
-        sfp_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
-        svd_exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
-        metric: Target metric for plotting.
-        pruning: If `True` draws pruned results.
-        finetuning: If `True` draws fine-tuned results.
-        show_std: If `True` displays standard deviation on graphs.
-        title: Name of the graph.
+        sfp_exps: Dataframe of experiments.
+        svd_exps: Dictionary of experiments: `{exp_name: exp_dataframe}`.
+        figsize: Width, height in inches.
 
     Returns:
         Figure with graphs.
     """
-    fig = plt.figure(figsize=FIG_SIZE)
-    show_mean_svd_results(
-        baseline=baseline,
-        svd_exps=svd_exps,
-        metric=metric,
-        pruning=pruning,
-        finetuning=finetuning,
-        show_std=show_std,
-        title=title,
-        fig=fig
-    )
-    show_mean_sfp_results(
-        baseline=baseline,
-        sfp_exps=sfp_exps,
-        metric=metric,
-        pruning=pruning,
-        finetuning=finetuning,
-        show_std=show_std,
-        title=title,
-        fig=fig
-    )
-    plt.grid()
+    fig, ax = plt.subplots(figsize=figsize)
+    show_svd_results(svd_exps=svd_exps, fig=fig)
+    show_sfp_results(sfp_exps=sfp_exps, fig=fig)
     return fig
