@@ -162,6 +162,7 @@ def show_train_scores(
         exps: Dictionary of experiments: `{exp_name: [exp_paths]}`.
         metric: Target metric for plotting.
         show_std: If `True` displays standard deviation on graphs.
+        figsize: Width, height in inches.
 
     Return:
         Figure with graphs.
@@ -233,14 +234,14 @@ def show_svd_results(
     Args:
         svd_exps: Dictionary of experiments: `{exp_name: exp_dataframe}`
         fig: Figure for drawing graphs.
+        figsize: Width, height in inches.
 
     Returns:
         Figure with graphs.
     """
     if fig is None:
         fig, ax = plt.subplots(figsize=figsize)
-    else:
-        ax = fig.axes[0]
+
     for exp, df in svd_exps.items():
         r, g, b = random_color()
 
@@ -318,6 +319,7 @@ def show_sfp_results(
     Args:
         sfp_exps: Dataframe of experiments.
         fig: Figure for drawing graphs.
+        figsize: Width, height in inches.
 
     Returns:
         Figure with graphs.
@@ -381,6 +383,7 @@ def show_svd_sfp_results(
     Args:
         sfp_exps: Dataframe of experiments.
         svd_exps: Dictionary of experiments: `{exp_name: exp_dataframe}`.
+        figsize: Width, height in inches.
 
     Returns:
         Figure with graphs.
