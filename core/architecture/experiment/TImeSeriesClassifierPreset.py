@@ -120,9 +120,6 @@ class TimeSeriesClassifierPreset:
                                             task=train_data_preprocessed.task)
         remove_industrial_models()
 
-        # TODO: add metrics validation
-        # TODO: add **self.model_hyperparams
-
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_hyperparams.update({'metric': metric})
         self.predictor = Fedot(**self.model_hyperparams)
@@ -157,12 +154,3 @@ class TimeSeriesClassifierPreset:
 
     def save_metrics(self, metrics: dict):
         self.saver.save(metrics, 'metrics')
-
-
-if __name__ == "__main__":
-    from core.api.utils.reader_collections import DataReader
-
-    tr_data, te_data, n_classes = DataReader().read('UMD')
-    solver = TimeSeriesClassifierPreset(params={'dataset_name': 'UMD'})
-    solver.fit(tr_data)
-    solver.predict(te_data)
