@@ -58,7 +58,7 @@
 
 Для этой цели мы предоставляем четыре генератора признаков:
 
-.. image:: /docs/img/all-generators-rus.png
+.. image:: /docs/img/all-generators.png
     :width: 700px
     :align: center
     :alt: All generators RUS
