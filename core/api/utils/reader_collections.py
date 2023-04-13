@@ -101,7 +101,7 @@ class YamlReader:
             Class of the feature generator.
 
         """
-        generator = self.experiment_dict['feature_generator']
+        generator = self.experiment_dict['strategy']
         if generator is None:
             return None
         elif generator == 'fedot_preset':
@@ -134,7 +134,7 @@ class YamlReader:
 
         self.logger.info(f'''Experiment setup:
         dataset - {experiment_dict['dataset']},
-        feature generator - {experiment_dict['feature_generator']},
+        strategy - {experiment_dict['strategy']},
         use_cache - {experiment_dict['use_cache']},
         n_jobs - {experiment_dict['model_params']['n_jobs']},
         timeout - {experiment_dict['model_params']['timeout']}''')

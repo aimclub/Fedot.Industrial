@@ -18,6 +18,7 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from core.architecture.utils.utils import default_path_to_save_results
 from core.repository.initializer_industrial_models import initialize_industrial_models, remove_industrial_models
 
 np.random.seed(0)
@@ -29,16 +30,16 @@ class TimeSeriesClassifierPreset:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
+        self.test_data_preprocessed = None
         self.generator_name = 'fedot_preset'
         self.branch_nodes = params.get('branch_nodes', ['data_driven_basis',
                                                         'fourier_basis',
                                                         'wavelet_basis'])
-        self.generator_name = 'quantile_extractor'
 
-        self.model_hyperparams = params.get('model_hyperparams')
-        self.dataset_name = params.get('dataset_name')
+        self.model_params = params.get('model_params')
+        self.dataset_name = params.get('dataset')
         self.ecm_model_flag = params.get('ecm_model_flag', False)
-        self.output_dir = params.get('output_dir', None)
+        self.output_dir = params.get('output_dir', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
                                  generator_name=self.generator_name,
@@ -121,25 +122,34 @@ class TimeSeriesClassifierPreset:
         remove_industrial_models()
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
-        self.model_hyperparams.update({'metric': metric})
-        self.predictor = Fedot(**self.model_hyperparams)
+        self.model_params.update({'metric': metric})
+        self.predictor = Fedot(**self.model_params)
 
         self.predictor.fit(train_data_preprocessed)
 
         return self.predictor
 
     def predict(self, test_features, test_target) -> dict:
-        test_data = self._init_input_data(test_features, test_target)
-        test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
-        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-        self.prediction_label = self.predictor.predict(test_data_preprocessed)
+        if self.test_data_preprocessed is None:
+            test_data = self._init_input_data(test_features, test_target)
+            test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
+            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+            self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                                    features=test_data_preprocessed.predict,
+                                                    target=test_data_preprocessed.target,
+                                                    data_type=test_data_preprocessed.data_type,
+                                                    task=test_data_preprocessed.task)
+
+        self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
         return self.prediction_label
 
     def predict_proba(self, test_features, test_target) -> dict:
-        test_data = self._init_input_data(test_features, test_target)
-        test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
-        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-        self.prediction_proba = self.predictor.predict_proba(test_data_preprocessed)
+        if self.test_data_preprocessed is None:
+            test_data = self._init_input_data(test_features, test_target)
+            test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
+            self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+
+        self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
         return self.prediction_proba
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):

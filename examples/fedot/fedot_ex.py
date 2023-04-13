@@ -29,12 +29,14 @@ if __name__ == '__main__':
     # pipeline = PipelineBuilder().add_node(
     #     'fourier_basis').add_node('quantile_extractor').add_node('rf').build()
 
-    pipeline = PipelineBuilder().add_node(
-        'data_driven_basis', branch_idx=0).add_node('quantile_extractor', branch_idx=0).add_node(
-        'fourier_basis', branch_idx=1).add_node('quantile_extractor', branch_idx=1).add_node(
-        'wavelet_basis', branch_idx=2).add_node('quantile_extractor', branch_idx=2).join_branches('rf').build()
-    # tune pipeline
-    pipeline.show()
+    pipeline = PipelineBuilder().add_node('data_driven_basis', branch_idx=0)\
+                                .add_node('quantile_extractor', branch_idx=0)\
+                                .add_node('fourier_basis', branch_idx=1)\
+                                .add_node('quantile_extractor', branch_idx=1)\
+                                .add_node('wavelet_basis', branch_idx=2)\
+                                .add_node('quantile_extractor', branch_idx=2)\
+                                .join_branches('rf').build()
+
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(SimultaneousTuner) \
         .with_metric(ClassificationMetricsEnum.f1) \

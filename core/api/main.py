@@ -24,7 +24,7 @@ class FedotIndustrial(Fedot):
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset='ItalyPowerDemand',
-                                         feature_generator='topological',
+                                         strategy='topological',
                                          use_cache=False,
                                          timeout=15,
                                          n_jobs=2,
@@ -77,9 +77,9 @@ class FedotIndustrial(Fedot):
         #                      logging_level=self.config_dict['logging_level'], )
 
         if self.config_dict['task'] == 'ts_classification':
-            if self.config_dict['feature_generator'] == 'fedot_preset':
+            if self.config_dict['strategy'] == 'fedot_preset':
                 solver = TaskGenerator[self.config_dict['task']].value['fedot_preset']
-            elif self.config_dict['feature_generator'] is None:
+            elif self.config_dict['strategy'] is None:
                 solver = TaskGenerator[self.config_dict['task']].value['nn']
             else:
                 solver = TaskGenerator[self.config_dict['task']].value['default']
@@ -115,7 +115,7 @@ class FedotIndustrial(Fedot):
 
     def predict(self,
                 test_features: pd.DataFrame,
-                ) -> np.ndarray:
+                **kwargs) -> np.ndarray:
         """
         Method to obtain prediction labels from trained Industrial model.
 
@@ -126,10 +126,11 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        return self.solver.predict(test_features=test_features)
+        return self.solver.predict(test_features=test_features, **kwargs)
 
     def predict_proba(self,
-                      test_features: pd.DataFrame) -> np.ndarray:
+                      test_features: pd.DataFrame,
+                      **kwargs) -> np.ndarray:
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -140,7 +141,7 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        return self.solver.predict_proba(test_features=test_features)
+        return self.solver.predict_proba(test_features=test_features, **kwargs)
 
     def get_metrics(self,
                     target: Union[np.ndarray, pd.Series] = None,
@@ -215,7 +216,8 @@ if __name__ == "__main__":
 
         industrial = FedotIndustrial(task='ts_classification',
                                      dataset=dataset_name,
-                                     feature_generator='statistical',
+                                     strategy='fedot_preset',
+                                     # strategy='statistical',
                                      use_cache=True,
                                      timeout=1,
                                      n_jobs=2,
@@ -226,8 +228,11 @@ if __name__ == "__main__":
         train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
         model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
 
-        labels = industrial.predict(test_features=test_data[0])
-        probs = industrial.predict_proba(test_features=test_data[0])
+        labels = industrial.predict(test_features=test_data[0],
+                                    test_target=test_data[1])
+
+        probs = industrial.predict_proba(test_features=test_data[0],
+                                         test_target=test_data[1])
         metric = industrial.get_metrics(target=test_data[1],
                                         metric_names=['f1', 'roc_auc'])
 
