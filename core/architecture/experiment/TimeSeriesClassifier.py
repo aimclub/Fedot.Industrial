@@ -151,12 +151,12 @@ class TimeSeriesClassifier:
             f'Solver fitted: {self.generator_name}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
-    def predict(self, test_features: np.ndarray) -> dict:
+    def predict(self, test_features: np.ndarray, **kwargs) -> dict:
         self.prediction_label = self.__predict_abstraction(test_features=test_features,
                                                            mode='labels')
         return self.prediction_label
 
-    def predict_proba(self, test_features: np.ndarray) -> dict:
+    def predict_proba(self, test_features: np.ndarray, **kwargs) -> dict:
         self.prediction_proba = self.__predict_abstraction(test_features=test_features,
                                                            mode='probs', )
         return self.prediction_proba
