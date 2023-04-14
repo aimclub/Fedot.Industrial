@@ -94,7 +94,6 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
             if current_operation not in basis_models:
                 raise ValueError(
                     f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination')
-    print('good mutation')
     return True
 
 

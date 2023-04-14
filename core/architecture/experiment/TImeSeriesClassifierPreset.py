@@ -19,7 +19,7 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from core.architecture.utils.utils import default_path_to_save_results
-from core.repository.initializer_industrial_models import initialize_industrial_models, remove_industrial_models
+from core.repository.initializer_industrial_models import IndustrialModels
 
 np.random.seed(0)
 
@@ -53,12 +53,8 @@ class TimeSeriesClassifierPreset:
         self.test_features = None
         self.input_test_data = None
 
-        self._init_industrial_repository()
         self.logger.info('TimeSeriesClassifierPreset initialised')
 
-    def _init_industrial_repository(self):
-        self.logger.info('Initializing industrial repository')
-        initialize_industrial_models()
 
     # TODO: put some datatype
     # TODO: add multidata option
@@ -99,27 +95,28 @@ class TimeSeriesClassifierPreset:
     def fit(self, train_ts_frame,
             train_target: np.ndarray = None,
             **kwargs) -> object:
-        self.train_data = self._init_input_data(train_ts_frame, train_target)
-        self.prerpocessing_pipeline = self._build_pipeline()
-        self.prerpocessing_pipeline = self._tune_pipeline(self.prerpocessing_pipeline,
-                                                          self.train_data)
-        self.prerpocessing_pipeline.fit(self.train_data)
+        with IndustrialModels():
+            self.train_data = self._init_input_data(train_ts_frame, train_target)
+            self.prerpocessing_pipeline = self._build_pipeline()
+            self.prerpocessing_pipeline = self._tune_pipeline(self.prerpocessing_pipeline,
+                                                              self.train_data)
+            self.prerpocessing_pipeline.fit(self.train_data)
 
-        rf_node = self.prerpocessing_pipeline.nodes[0]
-        self.prerpocessing_pipeline.update_node(rf_node, PipelineNode('dummy'))
-        rf_node.nodes_from = []
-        rf_node.unfit()
-        self.prerpocessing_pipeline.fit(self.train_data)
+            rf_node = self.prerpocessing_pipeline.nodes[0]
+            self.prerpocessing_pipeline.update_node(rf_node, PipelineNode('dummy'))
+            rf_node.nodes_from = []
+            rf_node.unfit()
+            self.prerpocessing_pipeline.fit(self.train_data)
 
-        train_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(self.train_data)
-        train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
+            train_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(self.train_data)
+            train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
-        train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
-                                            features=train_data_preprocessed.predict,
-                                            target=train_data_preprocessed.target,
-                                            data_type=train_data_preprocessed.data_type,
-                                            task=train_data_preprocessed.task)
-        remove_industrial_models()
+            train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
+                                                features=train_data_preprocessed.predict,
+                                                target=train_data_preprocessed.target,
+                                                data_type=train_data_preprocessed.data_type,
+                                                task=train_data_preprocessed.task)
+
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})

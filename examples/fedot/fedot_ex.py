@@ -1,4 +1,4 @@
-from core.Optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 
 if __name__ == '__main__':
     import numpy as np
@@ -31,8 +31,8 @@ if __name__ == '__main__':
             .join_branches('rf').build()
 
         industrial_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'],
-                                     initial_assumption=pipeline, optimizer=IndustrialEvoOptimizer,
-                                     available_operations =industrial+['rf'])
+                                 initial_assumption=pipeline, optimizer=IndustrialEvoOptimizer,
+                                 available_operations=industrial + ['rf'])
         pipeline = industrial_fedot.fit(train_data)
         predict = industrial_fedot.predict(test_data)
 
@@ -62,9 +62,9 @@ if __name__ == '__main__':
                                            features=test_data_preprocessed.predict,
                                            target=test_data_preprocessed.target,
                                            data_type=test_data_preprocessed.data_type,
-                                               task=test_data_preprocessed.task)
+                                           task=test_data_preprocessed.task)
 
-    model_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'])
+    model_fedot = Fedot(problem='classification', timeout=5, n_jobs=4, metric=['f1'])
 
     pipeline = model_fedot.fit(train_data_preprocessed)
     predict = pipeline.predict(test_data_preprocessed, output_mode='labels')

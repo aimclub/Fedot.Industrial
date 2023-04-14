@@ -3,6 +3,7 @@ from typing import Sequence
 from fedot.core.pipelines.pipeline_composer_requirements import PipelineComposerRequirements
 from golem.core.optimisers.genetic.gp_optimizer import EvoGraphOptimizer
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
+from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
 from golem.core.optimisers.graph import OptGraph
 from golem.core.optimisers.objective import Objective
 from golem.core.optimisers.optimization_parameters import GraphRequirements
@@ -20,7 +21,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  requirements: GraphRequirements,
                  graph_generation_params: GraphGenerationParams,
                  graph_optimizer_params: GPAlgorithmParameters):
-        graph_optimizer_params.mutation_types.append(add_preprocessing)
+        #graph_optimizer_params.mutation_types.append(add_preprocessing)
+        graph_optimizer_params.mutation_types.remove(MutationTypesEnum.single_drop)
         super().__init__(objective, initial_graphs, requirements, graph_generation_params, graph_optimizer_params)
         self.eval_dispatcher = IndustrialDispatcher(adapter=graph_generation_params.adapter,
                                                     n_jobs=requirements.n_jobs,
