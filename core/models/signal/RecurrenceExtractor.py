@@ -6,11 +6,12 @@ from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
+from core.models.signal.WindowedFeaturesExtractor import WindowedFeatureExtractor
 from core.operation.transformation.DataTransformer import TSTransformer
 from core.operation.transformation.extraction.sequences import ReccurenceFeaturesExtractor
 
 
-class RecurrenceExtractor(BaseExtractor):
+class RecurrenceExtractor(WindowedFeatureExtractor):
     """Class responsible for wavelet feature generator experiment.
     Args:
         window_mode: boolean flag - if True, window mode is used. Defaults to False.
@@ -37,7 +38,6 @@ class RecurrenceExtractor(BaseExtractor):
         self.test_feats = None
 
     def _ts_chunk_function(self, ts):
-        ts = self.check_for_nan(ts)
         specter = self.transformer(time_series=ts, min_signal_ratio=self.min_signal_ratio,
                                    max_signal_ratio=self.max_signal_ratio, rec_metric=self.rec_metric)
         feature_df = specter.ts_to_recurrence_matrix()

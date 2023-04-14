@@ -1,10 +1,12 @@
 import pathlib
 from typing import Optional, Tuple
 
-from fedot.core.optimisers.gp_comp.evaluation import MultiprocessingDispatcher, OptionalEvalResult
-from fedot.core.optimisers.graph import OptGraph
+from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher, OptionalEvalResult
+from golem.core.optimisers.graph import OptGraph
 
-from core.repository.initializer_industrial_models import initialize_industrial_models
+from core.repository.initializer_industrial_models import IndustrialModels
+
+
 
 
 class IndustrialDispatcher(MultiprocessingDispatcher):
@@ -12,6 +14,6 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                         cache_key: Optional[str] = None,
                         logs_initializer: Optional[Tuple[int, pathlib.Path]] = None) -> OptionalEvalResult:
         # we should do that due to this is copy of initial process, and it does not have industrial models in itself
-        initialize_industrial_models()
-        eval_res = super().evaluate_single(graph, uid_of_individual, with_time_limit, cache_key, logs_initializer)
+        with IndustrialModels():
+            eval_res = super().evaluate_single(graph, uid_of_individual, with_time_limit, cache_key, logs_initializer)
         return eval_res

@@ -17,15 +17,18 @@ from core.architecture.utils.utils import PROJECT_PATH
 from core.tuning.search_space import get_industrial_search_space
 
 
-def add_preprocessing(pipeline: Pipeline, requirements, params, **kwargs) -> Pipeline:
+def add_preprocessing(pipeline: Pipeline, **kwargs) -> Pipeline:
     task = Task(TaskTypesEnum.classification)
     basis_models = get_operations_for_task(task=task, mode='data_operation', tags=["basis"])
     extractors = get_operations_for_task(task=task, mode='data_operation', tags=["extractor"])
-
+    models = get_operations_for_task(task=task, mode='model')
     basis_model = PipelineNode(random.choice(basis_models))
     extractor_model = PipelineNode(random.choice(extractors), nodes_from=[basis_model])
 
-    node_to_mutate = random.choice(pipeline.nodes)
+    try:
+        node_to_mutate = list(filter(lambda x: x.name  in models, pipeline.nodes))[0]
+    except:
+        pipeline.show()
     if node_to_mutate.nodes_from:
         node_to_mutate.nodes_from.append(extractor_model)
     else:
@@ -42,6 +45,7 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum) -> Sequence[Muta
                  add_preprocessing
                  ]
     return mutations
+
 
 def _get_default_mutations(task_type: TaskTypesEnum) -> Sequence[MutationTypesEnum]:
     mutations = [parameter_change_mutation,
@@ -90,34 +94,44 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
             if current_operation not in basis_models:
                 raise ValueError(
                     f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination')
+    print('good mutation')
     return True
 
 
-def initialize_industrial_models():
-    path = pathlib.Path(PROJECT_PATH, 'core',
-                        'repository',
-                        'data',
-                        'industrial_data_operation_repository.json')
-    OperationTypesRepository.__repository_dict__.update({'data_operation':
-                                                             {'file': path,
-                                                              'initialized_repo': None,
-                                                              'default_tags': []}})
-    OperationTypesRepository.assign_repo('data_operation', path)
-    if has_no_data_flow_conflicts_in_industrial_pipeline not in class_rules:
-        class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+class IndustrialModels:
+    def __init__(self):
+        """Конструктор"""
+        self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH, 'core',
+                                                           'repository',
+                                                           'data',
+                                                           'industrial_data_operation_repository.json')
+        self.base_data_operation_path = pathlib.Path('data_operation_repository.json')
 
-    setattr(SearchSpace, "get_parameters_dict", get_industrial_search_space)
-    setattr(ApiComposer, "_get_default_mutations", _get_default_industrial_mutations)
+    def __enter__(self):
+        """
+        Switching to industrial models
+        """
+        OperationTypesRepository.__repository_dict__.update({'data_operation':
+                                                                 {'file': self.industrial_data_operation_path,
+                                                                  'initialized_repo': None,
+                                                                  'default_tags': []}})
+        OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
+        if has_no_data_flow_conflicts_in_industrial_pipeline not in class_rules:
+            class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
 
+        setattr(SearchSpace, "get_parameters_dict", get_industrial_search_space)
 
-def remove_industrial_models():
-    path = pathlib.Path('data_operation_repository.json')
-    OperationTypesRepository.__repository_dict__.update({'data_operation':
-                                                             {'file': path,
-                                                              'initialized_repo': None,
-                                                              'default_tags': [
-                                                                  OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
-    OperationTypesRepository.assign_repo('data_operation', path)
-    class_rules.remove(has_no_data_flow_conflicts_in_industrial_pipeline)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Switching to fedot models.
+        """
+        OperationTypesRepository.__repository_dict__.update({'data_operation':
+                                                                 {'file': self.base_data_operation_path,
+                                                                  'initialized_repo': None,
+                                                                  'default_tags': [
+                                                                      OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
+        OperationTypesRepository.assign_repo('data_operation', self.base_data_operation_path)
+        if has_no_data_flow_conflicts_in_industrial_pipeline in class_rules:
+            class_rules.remove(has_no_data_flow_conflicts_in_industrial_pipeline)
 
-    setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)
+        setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)

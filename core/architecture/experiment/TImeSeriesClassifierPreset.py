@@ -18,7 +18,6 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from core.api.utils.saver_collections import ResultSaver
 from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.repository.initializer_industrial_models import initialize_industrial_models, remove_industrial_models
 
 np.random.seed(0)
 
@@ -52,7 +51,7 @@ class TimeSeriesClassifierPreset:
         self.test_features = None
         self.input_test_data = None
 
-        self._init_industrial_repository()
+
         self.logger.info('TimeSeriesClassifierPreset initialised')
 
     def _init_industrial_repository(self):
@@ -98,6 +97,7 @@ class TimeSeriesClassifierPreset:
     def fit(self, train_ts_frame,
             train_target: np.ndarray = None,
             **kwargs) -> object:
+        self._init_industrial_repository()
         self.train_data = self._init_input_data(train_ts_frame, train_target)
         self.prerpocessing_pipeline = self._build_pipeline()
         self.prerpocessing_pipeline = self._tune_pipeline(self.prerpocessing_pipeline,
@@ -105,7 +105,7 @@ class TimeSeriesClassifierPreset:
         self.prerpocessing_pipeline.fit(self.train_data)
 
         rf_node = self.prerpocessing_pipeline.nodes[0]
-        self.prerpocessing_pipeline.update_node(rf_node, PipelineNode('dummy'))
+        self.prerpocessing_pipeline.update_node(rf_node, PipelineNode('cat_features'))
         rf_node.nodes_from = []
         rf_node.unfit()
         self.prerpocessing_pipeline.fit(self.train_data)

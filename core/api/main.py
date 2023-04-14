@@ -47,7 +47,7 @@ class FedotIndustrial(Fedot):
 
     def __init__(self,
                  input_config: Union[dict, str] = None,
-                 output_folder: str = None):
+                 output_folder: str = None, **kwargs):
         super(Fedot, self).__init__()
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
@@ -217,7 +217,7 @@ if __name__ == "__main__":
                 ]
 
     for dataset_name in datasets:
-        config = dict(task='ts_classification',
+        config = dict(tak='ts_classification',
                       dataset=dataset_name,
                       feature_generator='fedot_preset',
                       # feature_generator='statistical',
@@ -229,7 +229,7 @@ if __name__ == "__main__":
                       logging_level=20
                       )
 
-        industrial = FedotIndustrial(input_config=config, output_folder=None)
+        industrial = FedotIndustrial(input_config=config, output_folder=None,)
         train_data, test_data, _ = industrial.reader.read(dataset_name=dataset_name)
         model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
 

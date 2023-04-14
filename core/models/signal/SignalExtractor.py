@@ -7,10 +7,11 @@ from tqdm import tqdm
 
 from core.metrics.metrics_implementation import *
 from core.models.BaseExtractor import BaseExtractor
+from core.models.signal.WindowedFeaturesExtractor import WindowedFeatureExtractor
 from core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 
 
-class SignalExtractor(BaseExtractor):
+class SignalExtractor(WindowedFeatureExtractor):
     """Class responsible for wavelet feature generator experiment.
     Args:
         wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.

@@ -41,7 +41,7 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         'signal_extractor': SignalExtractor,
         'recurrence_extractor': RecurrenceExtractor,
 
-        'dummy': DummyOperation
+        'cat_features': DummyOperation
     }
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
