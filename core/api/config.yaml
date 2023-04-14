@@ -2,7 +2,7 @@ task: 'ts_classification' # time series classification
 
 dataset: None
 
-model_strategy: 'fedot_preset'
+strategy: 'fedot_preset'
 
 model_params:
   {

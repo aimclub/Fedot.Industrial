@@ -22,22 +22,17 @@ if __name__ == '__main__':
         industrial = get_operations_for_task(task=train_data.task, mode='data_operation', tags=["extractor", "basis"])
         other = get_operations_for_task(task=train_data.task, forbidden_tags=["basis", "extractor"])
         metrics = {}
-        # #basic pipeline
-        pipeline_1 = PipelineBuilder().add_node(
-            'fourier_basis').add_node('quantile_extractor').add_node('rf').build()
-
-        pipeline_2 = PipelineBuilder().add_node(
-            'data_driven_basis').add_node('topological_extractor').join_branches('rf').build()
-        pipeline_3 = PipelineBuilder().add_node(
-            'wavelet_basis').add_node('quantile_extractor').join_branches('rf').build()
-
-        pipeline_4 = PipelineBuilder().add_node(
-            'wavelet_basis').add_node('recurrence_extractor').join_branches('rf').build()
-        assumption = [pipeline_1, pipeline_2, pipeline_3]
+        pipeline = PipelineBuilder().add_node('data_driven_basis', branch_idx=0) \
+            .add_node('quantile_extractor', branch_idx=0) \
+            .add_node('fourier_basis', branch_idx=1) \
+            .add_node('quantile_extractor', branch_idx=1) \
+            .add_node('wavelet_basis', branch_idx=2) \
+            .add_node('quantile_extractor', branch_idx=2) \
+            .join_branches('rf').build()
 
         industrial_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'],
-                                 initial_assumption=assumption, optimizer=IndustrialEvoOptimizer,
-                                 available_operations =industrial+['rf'])
+                                     initial_assumption=pipeline, optimizer=IndustrialEvoOptimizer,
+                                     available_operations =industrial+['rf'])
         pipeline = industrial_fedot.fit(train_data)
         predict = industrial_fedot.predict(test_data)
 
@@ -67,7 +62,7 @@ if __name__ == '__main__':
                                            features=test_data_preprocessed.predict,
                                            target=test_data_preprocessed.target,
                                            data_type=test_data_preprocessed.data_type,
-                                           task=test_data_preprocessed.task)
+                                               task=test_data_preprocessed.task)
 
     model_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'])
 
@@ -78,4 +73,3 @@ if __name__ == '__main__':
     metrics['after_fedot_composing_auto'] = model_fedot.get_metrics()['f1']
     pipeline.show()
     print(metrics)
-    _ = 1

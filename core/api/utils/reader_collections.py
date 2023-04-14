@@ -66,38 +66,27 @@ class YamlReader:
         if return_dict:
             return config_dict
 
-    def init_experiment_setup(self, config: Union[str, dict],
-                              direct_path: bool = False) -> dict:
+    def init_experiment_setup(self, **kwargs) -> dict:
         """Initializes the experiment setup with provided config file or dictionary.
 
         Args:
-            config: dictionary with the parameters of the experiment OR path to the config file.
-            direct_path: flag that indicates whether to use direct path to config file or read it from framework
-            directory.
+            kwargs: parameters of the experiment.
 
         Returns:
             Dictionary with the parameters of the experiment.
 
         """
 
-        if isinstance(config, dict):
-            base_config_path = 'core/api/config.yaml'
-            self.experiment_dict = self.read_yaml_config(config_path=base_config_path,
-                                                         return_dict=True)
+        base_config_path = os.path.join(PROJECT_PATH, 'core', 'api', 'config.yaml')
+        self.experiment_dict = self.read_yaml_config(config_path=base_config_path,
+                                                     return_dict=True)
 
-            industrial_config = {k: v for k, v in config.items() if k not in ['timeout', 'n_jobs']}
+        fedot_config = {}
+        industrial_config = {k: v if k not in ['timeout', 'n_jobs', 'logging_level'] else fedot_config.update({k: v})
+                             for k, v in kwargs.items()}
 
-            self.experiment_dict.update(**industrial_config)
-            self.experiment_dict['model_params']['timeout'] = config['timeout']
-            self.experiment_dict['model_params']['n_jobs'] = config['n_jobs']
-            self.experiment_dict['model_params']['logging_level'] = config['logging_level']
-
-        elif isinstance(config, str):
-            self.experiment_dict = self.read_yaml_config(config_path=config,
-                                                         direct_path=direct_path)
-        else:
-            self.logger.error('Wrong type of config file')
-            raise ValueError('Config must be a string or a dictionary!')
+        self.experiment_dict.update(**industrial_config)
+        self.experiment_dict['model_params'].update(**fedot_config)
 
         self.experiment_dict['generator_class'] = self._get_generator_class()
 
@@ -112,7 +101,7 @@ class YamlReader:
             Class of the feature generator.
 
         """
-        generator = self.experiment_dict['feature_generator']
+        generator = self.experiment_dict['strategy']
         if generator is None:
             return None
         elif generator == 'fedot_preset':
@@ -145,7 +134,7 @@ class YamlReader:
 
         self.logger.info(f'''Experiment setup:
         dataset - {experiment_dict['dataset']},
-        feature generator - {experiment_dict['feature_generator']},
+        strategy - {experiment_dict['strategy']},
         use_cache - {experiment_dict['use_cache']},
         n_jobs - {experiment_dict['model_params']['n_jobs']},
         timeout - {experiment_dict['model_params']['timeout']}''')
