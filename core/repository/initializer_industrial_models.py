@@ -8,6 +8,7 @@ from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import SearchSpace
 from fedot.core.pipelines.verification import class_rules
+from fedot.core.pipelines.verification_rules import has_no_conflicts_with_data_flow
 from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operations_for_task
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.dag.verification_rules import ERROR_PREFIX
@@ -99,7 +100,6 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
 class IndustrialModels:
     def __init__(self):
-        """Конструктор"""
         self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH, 'core',
                                                            'repository',
                                                            'data',
@@ -115,9 +115,6 @@ class IndustrialModels:
                                                                   'initialized_repo': None,
                                                                   'default_tags': []}})
         OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
-        if has_no_data_flow_conflicts_in_industrial_pipeline not in class_rules:
-            class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
-
         setattr(SearchSpace, "get_parameters_dict", get_industrial_search_space)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -130,7 +127,5 @@ class IndustrialModels:
                                                                   'default_tags': [
                                                                       OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
         OperationTypesRepository.assign_repo('data_operation', self.base_data_operation_path)
-        if has_no_data_flow_conflicts_in_industrial_pipeline in class_rules:
-            class_rules.remove(has_no_data_flow_conflicts_in_industrial_pipeline)
 
-        setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)
+        #setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)

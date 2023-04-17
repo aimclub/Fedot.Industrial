@@ -23,14 +23,14 @@ if __name__ == '__main__':
         other = get_operations_for_task(task=train_data.task, forbidden_tags=["basis", "extractor"])
         metrics = {}
         pipeline = PipelineBuilder().add_node('data_driven_basis', branch_idx=0) \
-            .add_node('quantile_extractor', branch_idx=0) \
+            .add_node('topological_extractor', branch_idx=0) \
             .add_node('fourier_basis', branch_idx=1) \
             .add_node('quantile_extractor', branch_idx=1) \
             .add_node('wavelet_basis', branch_idx=2) \
-            .add_node('quantile_extractor', branch_idx=2) \
+            .add_node('recurrence_extractor', branch_idx=2) \
             .join_branches('rf').build()
 
-        industrial_fedot = Fedot(problem='classification', timeout=10, n_jobs=4, metric=['f1'],
+        industrial_fedot = Fedot(problem='classification', timeout=20, n_jobs=1, metric=['f1'],
                                  initial_assumption=pipeline, optimizer=IndustrialEvoOptimizer,
                                  available_operations=industrial + ['rf'])
         pipeline = industrial_fedot.fit(train_data)

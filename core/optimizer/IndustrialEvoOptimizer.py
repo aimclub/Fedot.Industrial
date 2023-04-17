@@ -1,6 +1,7 @@
 from typing import Sequence
 
 from fedot.core.pipelines.pipeline_composer_requirements import PipelineComposerRequirements
+from fedot.core.pipelines.verification_rules import has_no_conflicts_with_data_flow
 from golem.core.optimisers.genetic.gp_optimizer import EvoGraphOptimizer
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
 from golem.core.optimisers.genetic.operators.base_mutations import MutationTypesEnum
@@ -11,7 +12,8 @@ from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.core.optimisers.populational_optimizer import _try_unfit_graph
 
 from core.repository.IndustrialDispatcher import IndustrialDispatcher
-from core.repository.initializer_industrial_models import add_preprocessing
+from core.repository.initializer_industrial_models import add_preprocessing, \
+    has_no_data_flow_conflicts_in_industrial_pipeline
 
 
 class IndustrialEvoOptimizer(EvoGraphOptimizer):
@@ -21,8 +23,11 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  requirements: GraphRequirements,
                  graph_generation_params: GraphGenerationParams,
                  graph_optimizer_params: GPAlgorithmParameters):
-        #graph_optimizer_params.mutation_types.append(add_preprocessing)
+
         graph_optimizer_params.mutation_types.remove(MutationTypesEnum.single_drop)
+        graph_generation_params.verifier._rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+        #graph_generation_params.verifier._rules.remove(has_no_conflicts_with_data_flow)
+
         super().__init__(objective, initial_graphs, requirements, graph_generation_params, graph_optimizer_params)
         self.eval_dispatcher = IndustrialDispatcher(adapter=graph_generation_params.adapter,
                                                     n_jobs=requirements.n_jobs,

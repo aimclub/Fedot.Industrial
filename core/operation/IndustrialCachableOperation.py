@@ -40,7 +40,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
         """
 
-        hashed_info = self.cacher.hash_info(data=input_data.features,
+        hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
                                             generator_info=self.__dir__())
         try:
             predict = self.try_load_from_cache(hashed_info)
