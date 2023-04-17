@@ -9,10 +9,10 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
-from core.api.main import FedotIndustrial
-from core.api.utils.metafeatures import MetaFeaturesDetector
-from core.architecture.postprocessing.results_picker import ResultsPicker
-from core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.api.main import FedotIndustrial
+from fedot_ind.api.utils.metafeatures import MetaFeaturesDetector
+from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):

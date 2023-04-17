@@ -3,7 +3,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from core.operation.optimization.DMD.PhysicDMD import piDMD
+from fedot_ind.core.operation.optimization.DMD.PhysicDMD import piDMD
 
 np.random.seed(1)  # Set random seed
 n = 10  # Number of features

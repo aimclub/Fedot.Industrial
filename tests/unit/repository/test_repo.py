@@ -10,9 +10,9 @@ from fedot.core.repository.tasks import TaskTypesEnum, Task
 from fedot.api.main import Fedot
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
-from core.tuning.search_space import industrial_search_space, get_industrial_search_space
+from fedot_ind.core.tuning.search_space import get_industrial_search_space
 from tests.unit.api.test_API_config import load_data
-from core.api.utils.reader_collections import DataReader
+from fedot_ind.api.utils.reader_collections import DataReader
 
 
 def test_fedot_multi_series():

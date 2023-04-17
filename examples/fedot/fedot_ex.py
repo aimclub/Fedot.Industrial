@@ -1,4 +1,4 @@
-from core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from fedot_ind.core.optimizer import IndustrialEvoOptimizer
 
 if __name__ == '__main__':
     import numpy as np
@@ -9,7 +9,7 @@ if __name__ == '__main__':
     from fedot.core.pipelines.pipeline_builder import PipelineBuilder
     from fedot.core.repository.operation_types_repository import get_operations_for_task
     from fedot.core.repository.tasks import TaskTypesEnum, Task
-    from core.repository.initializer_industrial_models import IndustrialModels
+    from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
     from tests.unit.repository.test_repo import initialize_uni_data
 
     np.random.seed(0)

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from core.api.main import FedotIndustrial
+from fedot_ind.api.main import FedotIndustrial
 
 
 @pytest.fixture()
@@ -12,7 +12,7 @@ def basic_config_API():
 
 @pytest.fixture()
 def basic_API_class():
-    ExperimentHelper = Industrial()
+    ExperimentHelper = FedotIndustrial()
     return ExperimentHelper
 
 

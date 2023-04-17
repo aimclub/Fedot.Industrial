@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "industrial_preprocessing": {
+      "tasks": "[TaskTypesEnum.classification]",
+      "input_type": "[DataTypesEnum.image]",
+      "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialPreprocessingStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of industrial preprocessing operations"
+    }
+  },
+  "operations": {
+    "data_driven_basis": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "basis"
+      ]
+    },
+    "wavelet_basis": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "basis"
+      ]
+    },
+    "fourier_basis": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "basis"
+      ]
+    },
+    "topological_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
+    "quantile_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
+    "signal_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+         "extractor"
+      ]
+    },
+    "recurrence_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
+    "cat_features": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "cat_features"
+      ]
+    }
+  }
+}

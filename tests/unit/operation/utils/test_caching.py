@@ -3,8 +3,8 @@ import unittest
 
 import pandas as pd
 
-from core.architecture.utils.utils import PROJECT_PATH
-from core.operation.utils.cache import DataCacher
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core.operation.utils.cache import DataCacher
 
 
 class TestDataCacher(unittest.TestCase):
