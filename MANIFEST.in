@@ -1,0 +1,2 @@
+include fedot_ind/core/repository/data/*
+include fedot_ind/core/architecture/postprocessing/*
