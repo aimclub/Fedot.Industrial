@@ -1,8 +1,4 @@
-from core.architecture.utils.Testing import ModelTestingModule
-from core.models.statistical.StatsExtractor import *
-from core.models.signal.SignalExtractor import *
-from core.models.signal.RecurrenceExtractor import *
-from core.models.topological.TopologicalExtractor import *
+from fedot_ind.core.architecture.utils.Testing import ModelTestingModule
 import pytest
 
 

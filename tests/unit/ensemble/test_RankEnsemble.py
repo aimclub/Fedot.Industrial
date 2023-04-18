@@ -1,9 +1,9 @@
 import os
 
 import pandas as pd
-from core.architecture.postprocessing.results_picker import ResultsPicker
-from core.architecture.utils.utils import PROJECT_PATH
-from core.ensemble.static.RankEnsembler import RankEnsemble
+from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core import RankEnsemble
 
 
 def create_report(experiment_results: dict):

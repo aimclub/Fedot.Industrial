@@ -1,7 +1,5 @@
 import pytest
 
-from core.metrics.metrics_implementation import *
-
 
 @pytest.fixture()
 def basic_metric_data_clf():

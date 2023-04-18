@@ -4,9 +4,8 @@ import os
 import pytest
 from torchvision.models import resnet18
 
-from core.architecture.utils.utils import PROJECT_PATH
-from core.models.cnn.decomposed_conv import DecomposedConv2d
-from core.operation.optimization.svd_tools import *
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core import DecomposedConv2d
 
 
 def test_decomposition_of_layer():

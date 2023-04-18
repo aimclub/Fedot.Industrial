@@ -1,6 +1,7 @@
-from core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
-from core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from core.architecture.utils.Testing import ModelTestingModule
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.core.architecture.utils.Testing import ModelTestingModule
+from fedot_ind.core.models.spectral.SSAExtractor import SSAExtractor
 
 
 def test_advanced_spectral_model():

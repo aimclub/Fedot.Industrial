@@ -1,10 +1,10 @@
 from statistics import mean
 import numpy as np
 import pytest
-from core.models.detection.subspaces.sst import SingularSpectrumTransformation
-from core.models.detection.abstract_objects.FileObject import FileObject
-from core.models.detection.area.ThresholdZonesDetector import ThresholdZonesDetector
-from core.models.detection.vector.AngleBasedDetector import AngleBasedDetector
+from fedot_ind.core import SingularSpectrumTransformation
+from fedot_ind.core.models.detection.abstract_objects.FileObject import FileObject
+from fedot_ind.core.models.detection.area.ThresholdZonesDetector import ThresholdZonesDetector
+from fedot_ind.core import AngleBasedDetector
 
 
 @pytest.fixture()

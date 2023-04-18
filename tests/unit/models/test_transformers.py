@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from core.operation.transformation.DataTransformer import \
+from fedot_ind.core.operation.transformation.DataTransformer import \
     TopologicalTransformation, TSTransformer
-from core.operation.transformation.WindowSelection import \
+from fedot_ind.core.operation.transformation.WindowSelection import \
     WindowSizeSelection, WindowCutter
 
 @pytest.fixture()

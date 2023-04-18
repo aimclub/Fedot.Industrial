@@ -3,20 +3,20 @@ from fedot.core.repository.quality_metrics_repository import ClassificationMetri
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
 
-from core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from fedot_ind.core.optimizer import IndustrialEvoOptimizer
+import numpy as np
+from fedot.api.main import Fedot
+from fedot.core.composer.metrics import F1
+from fedot.core.data.data import InputData
+from fedot.core.pipelines.node import PipelineNode
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.operation_types_repository import get_operations_for_task
+from fedot.core.repository.tasks import TaskTypesEnum, Task
+from tests.unit.repository.test_repo import initialize_uni_data
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
 
 if __name__ == '__main__':
-    import numpy as np
-    from fedot.api.main import Fedot
-    from fedot.core.composer.metrics import F1
-    from fedot.core.data.data import InputData
-    from fedot.core.pipelines.node import PipelineNode
-    from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-    from fedot.core.repository.operation_types_repository import get_operations_for_task
-    from fedot.core.repository.tasks import TaskTypesEnum, Task
-    from core.repository.initializer_industrial_models import IndustrialModels
-    from tests.unit.repository.test_repo import initialize_uni_data
-
     np.random.seed(0)
     mode = 'tuning'
     # initialize industrial repository
@@ -101,4 +101,3 @@ if __name__ == '__main__':
     metrics['after_fedot_composing_auto'] = model_fedot.get_metrics()['f1']
     pipeline.show()
     print(metrics)
-    _ = 1

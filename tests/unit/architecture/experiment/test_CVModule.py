@@ -5,10 +5,10 @@ import torch
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import Compose, ToTensor, Resize
 
-from core.architecture.datasets.object_detection_datasets import COCODataset, collate_fn
-from core.architecture.experiment.CVModule import ClassificationExperimenter, \
+from fedot_ind.core.architecture.datasets.object_detection_datasets import COCODataset, collate_fn
+from fedot_ind.core.architecture.experiment.CVModule import ClassificationExperimenter, \
     FasterRCNNExperimenter
-from core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
 
 SVD_PARAMS = {
     'orthogonal_loss_factor': 10,
