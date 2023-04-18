@@ -28,8 +28,8 @@ def test_fedot_multi_series():
         print(F1.metric(test_data, predict))
 
 
-def initialize_uni_data():
-    train_data, test_data, n_classes = load_data('Lightning7')
+def initialize_uni_data(dataset_name: str = 'Lightning7'):
+    train_data, test_data, n_classes = load_data(dataset_name)
     train_data = InputData(idx=np.arange(len(train_data[0])),
                            features=train_data[0].values,
                            target=train_data[1].reshape(-1, 1),

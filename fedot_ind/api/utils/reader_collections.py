@@ -95,11 +95,10 @@ class YamlReader:
         # self.experiment_dict = self.read_yaml_config(config_path=base_config_path,
         #                                              return_dict=True)
         self.experiment_dict = self.read_yaml_config()
-
         fedot_config = {}
         industrial_config = {k: v if k not in ['timeout', 'n_jobs', 'logging_level'] else fedot_config.update({k: v})
-                             for k, v in kwargs.items()}
-
+                             for k, v in kwargs['input_config'].items()}
+        industrial_config['output_folder'] = kwargs['output_folder']
         self.experiment_dict.update(**industrial_config)
         self.experiment_dict['model_params'].update(**fedot_config)
 

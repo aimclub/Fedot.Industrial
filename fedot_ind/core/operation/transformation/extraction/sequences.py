@@ -77,7 +77,7 @@ class ReccurenceFeaturesExtractor:
                 break
 
         # Calculating the entropy white vertical lines - Wentr
-        sum_white_vertical_frequency_distribution = np.float(
+        sum_white_vertical_frequency_distribution = float(
             np.sum(white_vertical_frequency_distribution[MWVL:]))
         entropy_white_vertical_lines = 0
         for w in range(MWVL, number_of_vectors + 1):
@@ -97,7 +97,7 @@ class ReccurenceFeaturesExtractor:
         number_of_vectors = self.recurrence_matrix.shape[0]
 
         # Calculating the recurrence rate - RR
-        recurrence_rate = np.float(np.sum(self.recurrence_matrix)) / np.power(number_of_vectors, 2)
+        recurrence_rate = float(np.sum(self.recurrence_matrix)) / np.power(number_of_vectors, 2)
 
         diagonal_frequency_distribution = self.calculate_DFD(
             number_of_vectors=number_of_vectors)
@@ -130,7 +130,7 @@ class ReccurenceFeaturesExtractor:
         divergence = 1. / longest_diagonal_line_length
 
         # Calculating the entropy diagonal lines - Lentr
-        sum_diagonal_frequency_distribution = np.float(
+        sum_diagonal_frequency_distribution = float(
             np.sum(diagonal_frequency_distribution[MDL:-1]))
         entropy_diagonal_lines = 0
         for l in range(MDL, number_of_vectors):
@@ -164,7 +164,7 @@ class ReccurenceFeaturesExtractor:
                 break
 
         # Calculating the entropy vertical lines - Ventr
-        sum_vertical_frequency_distribution = np.float(
+        sum_vertical_frequency_distribution = float(
             np.sum(vertical_frequency_distribution[MVL:]))
         entropy_vertical_lines = 0
         for v in range(MVL, number_of_vectors + 1):
