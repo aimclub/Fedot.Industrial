@@ -6,7 +6,7 @@ from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.tuning.search_space import SearchSpace
+from fedot.core.pipelines.tuning.search_space import SearchSpace, PipelineSearchSpace
 from fedot.core.pipelines.verification import class_rules
 from fedot.core.pipelines.verification_rules import has_no_conflicts_with_data_flow
 from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operations_for_task
@@ -115,7 +115,7 @@ class IndustrialModels:
                                                                   'initialized_repo': None,
                                                                   'default_tags': []}})
         OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
-        setattr(SearchSpace, "get_parameters_dict", get_industrial_search_space)
+        setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
