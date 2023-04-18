@@ -373,12 +373,11 @@ class ClassificationExperimenter(NNExperimenter):
         return pred
 
 
-class FasterRCNNExperimenter(NNExperimenter):
-    """Class for working with Faster R-CNN.
+class ObjectDetectionExperimenter(NNExperimenter):
+    """Class for working with object detection models.
 
     Args:
-        num_classes: Number of classes in the dataset.
-        model_params: Parameter dictionary passed to model initialization.
+        model: Trainable model.
         metric: Target metric by which models are compared.
             One of ``'map'``, ``'map_50'``, ``'map_75'``.
         name: Name of the model.
@@ -388,8 +387,7 @@ class FasterRCNNExperimenter(NNExperimenter):
 
     def __init__(
             self,
-            num_classes: int,
-            model_params: Dict = {},
+            model: torch.nn.Module,
             metric: str = 'map',
             name: Optional[str] = None,
             weights: Optional[str] = None,
@@ -400,9 +398,6 @@ class FasterRCNNExperimenter(NNExperimenter):
             value=metric,
             valid_values={'map', 'map_50', 'map_75'},
         )
-        model = fasterrcnn_resnet50_fpn(**model_params)
-        in_features = model.roi_heads.box_predictor.cls_score.in_features
-        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
         super().__init__(
             model=model,
             metric=metric,

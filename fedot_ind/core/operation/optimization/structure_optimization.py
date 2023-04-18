@@ -72,8 +72,8 @@ class SVDOptimization(StructureOptimization):
             self,
             energy_thresholds: List[float],
             decomposing_mode: str = 'channel',
-            hoer_loss_factor: float = 0.001,
-            orthogonal_loss_factor: float = 100,
+            hoer_loss_factor: float = 0.1,
+            orthogonal_loss_factor: float = 10,
     ) -> None:
         super().__init__(
             description=(
