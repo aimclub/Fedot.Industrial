@@ -13,53 +13,54 @@ for time series classification.
 
 .. code-block:: python
 
-    from core.api.API import Industrial
+    from core.api.main import FedotIndustrial
 
 Then, the config dict with experiment parameters must be defined.
 
 .. code-block:: python
 
-    config = {'feature_generator': ['spectral', 'wavelet'],
-              'datasets_list': ['UMD', 'Lightning7'],
-              'use_cache': True,
-              'error_correction': False,
-              'launches': 3,
-              'timeout': 15,
-              'n_jobs': 2}
+    config = dict(task='ts_classification',
+                  dataset='ItalyPowerDemand',
+                  feature_generator='quantile',
+                  use_cache=False,
+                  timeout=5,
+                  n_jobs=-1,
+                  window_sizes='auto')
 
 It is of a great importance to define corresponding parameters of experiment. The following parameters are required:
 
-- ``feature_generators`` - list of feature generators to use in the experiment
-- ``use_cache`` - whether to use cache or not
-- ``datasets_list`` - list of datasets to use in the experiment
-- ``launches`` - number of launches for each dataset
-- ``error_correction`` - flag for application of error correction model in the experiment
-- ``n_ecm_cycles`` - number of cycles for error correction model
+- ``task`` - type of task to solve. In this case, it is obviously time series classification
+- ``dataset`` - name of dataset to use in the experiment
+- ``feature_generator`` - feature extractor to use in the experiment
+- ``use_cache`` - whether to use cached features or not
 - ``timeout`` - the maximum amount of time for classification pipeline composition
 - ``n_jobs`` - number of jobs to run in parallel when Fedot composes a model
+- ``window_sizes`` - window sizes for feature extraction. Mode ``auto`` defines that the range of window sizes will be selected automatically.
 
-Finally, we create an instance of the class :ref:`Industrial<industrial-class-label>` and run the experiment.
+Finally, we create an instance of the class :ref:`FedotIndustrial<industrial-class-label>` and run the experiment.
 
 .. code-block:: python
 
-    ExperimentHelper = Industrial()
-    ExperimentHelper.run_experiment(config)
+    industrial = FedotIndustrial(input_config=config,
+                                 output_folder=None)
 
 To accelerate repetitive experiments, the feature caching mechanism is implemented. It allows to dump generated features
-to the disk and load them later. To enable this feature, set ``use_cache`` parameter to ``True`` in the config file.
+to the disk and load them later. To enable this feature, set ``use_cache`` parameter to ``True`` in the config.
 
 Results of experiment will be available in the ``results_of_experiment`` folder. For each feature generator there will be a
-folder containing folders for every dataset.
+folder containing sub-folders for every dataset.
 
-Analysis of obtained results can be done manually or using the :ref:`Results Parser<resultsparser-class-label>` class:
+Analysis of obtained results can be done manually or using the :ref:`Results Picker<resultspicker-class-label>` class:
 
 .. code-block:: python
 
-    from core.architecture.postprocessing.Parser import ResultsParser
-    parser = ResultsParser()
-    results = parser.run()
+    from core.architecture.postprocessing.results_picker import ResultsPicker
 
-where ``results`` is a dataframe of the following structure:
+    collector = ResultsPicker(path='to_your_results_folder', launch_type='max')
+    metrics_df = parser.run(get_metrics_df=True)
+
+
+where ``metrics_df`` is a dataframe of the following structure:
 
 +------------+------------+-----------+-----------+-----------+
 | dataset    | f1         | roc_auc   | generator | n_classes |
@@ -79,16 +80,13 @@ Feature ensemble experiment
 
 The feature ensemble experiment is a special case of the basic experiment. It allows to combine
 multiple feature spaces obtained with corresponding generators into one.
-To enable feature generators ensemble, set the following option among the feature generators
-in the config file:
+To enable feature generators ensemble, set the following option in the config:
 
-.. code-block:: yaml
+.. code-block:: python
 
-    feature_generators: ['ensemble: topological wavelet window_quantile quantile spectral spectral_window']
+    feature_generator = 'ensemble: topological quantile wavelet'
 
-This way the ensemble of feature space of ``topological``, ``wavelet``, ``window_quantile``,
-``quantile``, ``spectral`` and ``spectral_window``
-feature generators will be used as a single feature space.
+This way the ensemble of feature space of ``topological``, ``wavelet``, ``quantile`` feature generators will be used as a single feature space.
 
 
 .. note::

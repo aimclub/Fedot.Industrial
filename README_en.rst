@@ -90,29 +90,41 @@ then create an instance of the ``Industrial`` class, and call its ``run_experime
 
 .. code-block:: python
 
-    from core.api.API import Industrial
+    from core.api.main import FedotIndustrial
 
-    if __name__ == '__main__':
-        config = {'feature_generator': ['spectral', 'wavelet'],
-                  'datasets_list': ['UMD', 'Lightning7'],
-                  'use_cache': True,
-                  'error_correction': False,
-                  'launches': 3,
-                  'timeout': 15}
+    industrial = FedotIndustrial(task='ts_classification',
+                                 dataset=dataset_name,
+                                 strategy='statistical',
+                                 use_cache=True,
+                                 timeout=1,
+                                 n_jobs=2,
+                                 window_sizes='auto',
+                                 logging_level=20,
+                                 output_folder=None)
 
-        ExperimentHelper = Industrial()
-        ExperimentHelper.run_experiment(config)
+You can then load the data and run the experiment:
+
+.. code-block:: python
+
+    train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
+
+    model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
+    labels = industrial.predict(test_features=test_data[0])
+    metric = industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc'])
 
 
 The config contains the following parameters:
 
-- ``feature_generator`` - list of feature generators to use in the experiment
-- ``use_cache`` - whether to use cache or not
-- ``datasets_list`` - list of datasets to use in the experiment
-- ``launches`` - number of launches for each dataset
-- ``error_correction`` - flag to apply the error correction model in the experiment
-- ``n_ecm_cycles`` - number of cycles for the error correction model
-- ``timeout`` - the maximum amount of time for classification pipeline composition
+- ``task`` - type of task to be solved (``ts_classification``)
+- ``dataset`` - name of the data set for the experiment
+- ``strategy`` - the way to solve the problem: a specific generator or in ``fedot_preset`` mode
+- ``use_cache`` - a flag to use caching of extracted features
+- ``timeout`` - maximum amount of time to compile a pipeline for the classification
+- ``n_jobs`` - number of processes for parallel execution
+- ``window_sizes`` - window sizes for window generators
+- ``logging_level`` - logging level
+- ``output_folder`` - path to folder to save results
+
 
 Datasets for classification should be stored in the ``data`` directory and
 divided into ``train`` and ``test`` sets with ``.tsv`` extension. So the folder name
@@ -121,51 +133,23 @@ to use in the experiment. In case there is no data in the local folder, the ``Da
 class will try to load data from the `UCR archive`_.
 
 Possible feature generators which could be specified in the configuration are
-``window_quantile``, ``quantile``, ``spectral_window``, ``spectral``,
-``wavelet``, ``recurrence`` and ``topological``.
+``quantile``, ``wavelet``, ``recurrence`` и ``topological``.
 
 It is also possible to ensemble several feature generators.
-It could be done by setting the ``feature_generator`` field of the config, where
+It could be done by setting the ``strategy`` field of the config, where
 you need to specify the list of feature generators, to the following value:
 
 .. code-block:: python
 
-    'ensemble: topological wavelet window_quantile quantile spectral spectral_window'
+    'ensemble: topological wavelet quantile'
 
-The experiment results which include generated features, predicted classes, metrics and
-pipelines are stored in the ``results_of_experiments/{feature_generator name}`` directory.
-The experiment logs are stored in the ``log`` directory.
-
-Error correction model
-++++++++++++++++++++++
-
-It is up to you to decide whether to use the error correction model or not. To apply it, the ``error_correction``
-flag in the config should be set to ``True``. By default the number of
-cycles ``n_ecm_cycles=3``, but using an advanced technique of experiment managing through a ``YAML`` config file
-you can easily adjust it.
-In this case after each launch of teh FEDOT algorithmic kernel the error correction model will be trained on the
-produced error.
-
-.. image:: /docs/img/error_corr_model.png
-    :width: 900px
-    :align: center
-    :alt: Error correction model
-
-The error correction model is a linear regression model consisting of
-three stages: at every next stage the model learns the error of
-prediction. This type of ensemble model for error correction is dependent
-on a number of classes:
-- For ``binary classification`` the ensemble is also
-linear regression, trained on predictions of correction stages.
-- For ``multiclass classification`` the ensemble is a sum of previous predictions.
 
 Feature caching
 +++++++++++++++
 
 To speed up the experiment, you can cache the features produced by the feature generators.
 If ``use_cache`` bool flag in config is ``True``, then every feature space generated during the experiment is
-cached into the corresponding folder. To do so a hash from the function ``get_features`` arguments and the generator attributes
-is obtained. Then the resulting feature space is dumped via the ``pickle`` library.
+cached into the corresponding folder.
 
 The next time when the same feature space is requested, the hash is calculated again and the corresponding
 feature space is loaded from the cache which is much faster than generating it from scratch.
@@ -181,8 +165,9 @@ branch`_.
 
 The repository includes the following directories:
 
+- The ``api`` folder contains the main interface classes and scripts
 - Package ``core`` contains the main classes and scripts
-- Package ``cases`` includes several how-to-use-cases where you can start to discover how the framework works
+- Package ``examples`` includes several how-to-use-cases where you can start to discover how the framework works
 - All unit and integration tests are in the ``test`` directory
 - The sources of the documentation are in ``docs``
 

@@ -3,9 +3,8 @@ import os
 import pytest
 from torchvision.models import resnet18
 
-from core.architecture.utils.utils import PROJECT_PATH
-from core.operation.optimization.sfp_tools import *
-from core.operation.optimization.sfp_tools import _check_nonzero_filters, \
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core import _check_nonzero_filters, \
     _prune_filters, _index_union, _indexes_of_tensor_values, _parse_sd, _collect_sd
 
 

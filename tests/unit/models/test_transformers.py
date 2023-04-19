@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from core.operation.transformation.DataTransformer import \
+from fedot_ind.core.operation.transformation.DataTransformer import \
     TopologicalTransformation, TSTransformer
-from core.operation.transformation.WindowSelection import \
+from fedot_ind.core.operation.transformation.WindowSelection import \
     WindowSizeSelection, WindowCutter
 
 @pytest.fixture()
@@ -30,7 +30,7 @@ def test_WindowCutting(basic_periodic_data):
 def test_WindowSizeSelection(basic_periodic_data):
     finder = WindowSizeSelection(
                 time_series=basic_periodic_data)
-    result = finder.runner_wss()
+    result = finder.get_window_size()
     assert type(result[0]) is int and type(result[1]) is list
     assert result[0] != 0
 

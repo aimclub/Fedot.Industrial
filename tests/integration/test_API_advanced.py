@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from core.api.API import Industrial
+from fedot_ind.api.main import FedotIndustrial
 from tests.unit.api.test_API_config import load_data
 
 
@@ -13,14 +13,14 @@ def basic_config_API():
 
 @pytest.fixture()
 def basic_API_class():
-    ExperimentHelper = Industrial()
+    ExperimentHelper = FedotIndustrial()
     return ExperimentHelper
 
 
 def test_API_code_scenario(basic_API_class):
     train_data, test_data, n_classes = load_data('Lightning7')
 
-    IndustrialModel, train_feats = basic_API_class.fit(model_name='quantile',
+    IndustrialModel, train_feats = basic_API_class.fit(model_name='wavelet',
                                                        task_type='ts_classification',
                                                        model_params={
                                                            'problem': 'classification',
@@ -32,7 +32,7 @@ def test_API_code_scenario(basic_API_class):
                                                            'logging_level': 20,
                                                            'n_jobs': 2
                                                        },
-                                                       feature_generator_params={'window_mode': False},
+
                                                        train_features=train_data[0],
                                                        train_target=train_data[1])
 

@@ -1,9 +1,9 @@
 import os
 
 import pandas as pd
-from core.architecture.postprocessing.Parser import ResultsParser
-from core.architecture.utils.utils import PROJECT_PATH
-from core.ensemble.static.RankEnsembler import RankEnsemble
+from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core import RankEnsemble
 
 
 def create_report(experiment_results: dict):
@@ -17,9 +17,8 @@ def create_report(experiment_results: dict):
 
 
 def load_results(folder_path: str, launch_type, model_list: list):
-    parser = ResultsParser()
-    parser.exp_path = os.path.join(PROJECT_PATH, 'tests', 'data')
-    proba_dict, metric_dict = parser.read_proba(path=folder_path, launch=launch_type, exp_folders=model_list)
+    parser = ResultsPicker(path=os.path.join(PROJECT_PATH, 'tests', 'data', 'ensemble'))
+    proba_dict, metric_dict = parser.get_metrics_and_proba()
     return proba_dict, metric_dict
 
 
@@ -30,7 +29,7 @@ def apply_rank_ensemble(proba_dict: dict,
         print(f'*---------ENSEMBLING FOR DATASET - {dataset}')
         modelling_results = proba_dict[dataset]
         modelling_metrics = metric_dict[dataset]
-        rank_ensemble = RankEnsemble(prediction_proba_dict=modelling_results,
+        rank_ensemble = RankEnsemble(proba_dict=modelling_results,
                                      metric_dict=modelling_metrics)
 
         experiment_results.update({dataset: rank_ensemble.ensemble()})

@@ -1,5 +1,3 @@
-from core.metrics.metrics_implementation import *
-from core.metrics.loss.svd_loss import *
 import pytest
 
 
@@ -29,7 +27,7 @@ def test_pareto_metric():
                                       [0.1, 0.3]])
     pareto_front = ParetoMetrics().pareto_metric_list(costs=basic_multiopt_metric)
     assert pareto_front is not None
-    pareto_front[2] != True
+    assert pareto_front[2] is not True
 
 
 def test_basic_clf_metric(basic_metric_data_clf):

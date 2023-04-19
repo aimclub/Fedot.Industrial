@@ -1,0 +1,171 @@
+{
+  "rf": {
+    "n_jobs": 1
+  },
+  "rfr": {
+    "n_jobs": 1
+  },
+  "xgboost": {
+    "eval_metric": "mlogloss",
+    "nthread": -1
+  },
+  "catboost": {
+    "allow_writing_files": false,
+    "verbose": false
+  },
+  "catboostreg": {
+    "allow_writing_files": false,
+    "verbose": false
+  },
+  "lgbm": {
+    "num_leaves": 32,
+    "colsample_bytree": 0.8,
+    "subsample": 0.8,
+    "subsample_freq": 10,
+    "learning_rate": 0.03,
+    "n_estimators": 100
+  },
+  "lgbmreg": {
+    "num_leaves": 32,
+    "colsample_bytree": 0.8,
+    "subsample": 0.8,
+    "subsample_freq": 10,
+    "learning_rate": 0.03,
+    "n_estimators": 100
+  },
+  "lagged": {
+    "window_size": 10
+  },
+  "diff_filter": {
+    "window_size": 3,
+    "poly_degree": 2,
+    "order": 1
+  },
+  "cut": {
+    "cut_part": 0.5
+  },
+  "sparse_lagged": {
+    "window_size": 10,
+    "n_components": 0.5,
+    "sparse_transform": true,
+    "use_svd": false
+  },
+  "ar": {
+    "lag_1": 7,
+    "lag_2": 12
+  },
+  "arima": {
+    "p": 2,
+    "d": 0,
+    "q": 2
+  },
+  "ets": {
+    "error": "add",
+    "trend": null,
+    "seasonal": null,
+    "damped_trend": false,
+    "seasonal_periods": 7
+  },
+  "polyfit": {
+    "degree": 2
+  },
+  "glm": {
+    "family": "gaussian",
+    "link": "identity"
+  },
+  "ransac_lin_reg": {
+    "min_samples": 0.4,
+    "residual_threshold": 10,
+    "max_trials": 100,
+    "max_skips": 1000
+  },
+  "ransac_non_lin_reg": {
+    "min_samples": 0.4,
+    "residual_threshold": 10,
+    "max_trials": 100,
+    "max_skips": 1000
+  },
+  "cgru": {
+    "hidden_size": 200,
+    "learning_rate": 0.001,
+    "cnn1_kernel_size": 10,
+    "cnn1_output_size": 32,
+    "cnn2_kernel_size": 6,
+    "cnn2_output_size": 64,
+    "batch_size": 64,
+    "num_epochs": 50,
+    "optimizer": "adamw",
+    "loss": "mse"
+  },
+  "h2o_regr": {
+    "timeout": 20,
+    "seed": 42,
+    "max_models": 3
+  },
+  "h2o_class": {
+    "timeout": 20,
+    "seed": 42,
+    "max_models": 3
+  },
+  "tpot_class": {
+    "timeout": 2,
+    "generations": 3,
+    "population_size": 3
+  },
+  "tpot_regr": {
+    "timeout": 2,
+    "generations": 3,
+    "population_size": 3
+  },
+  "resample": {
+    "balance": "expand_minority",
+    "replace": false,
+    "balance_ratio": 1
+  },
+  "pca": {
+    "svd_solver": "full",
+    "n_components": 0.7
+  },
+  "ts_naive_average": {
+    "part_for_averaging": 1.0
+  },
+  "locf": {
+    "part_for_repeat": -1
+  },
+  "word2vec_pretrained": {
+    "model_name": "glove-twitter-25"
+  },
+  "tfidf": {
+    "min_df": 0.1,
+    "max_df": 0.9
+  },
+  "fast_ica": {
+    "whiten": "unit-variance"
+  },
+  "data_driven_basis": {
+    "n_components": 2,
+    "window_size": 35
+  },
+  "wavelet_basis": {
+    "wavelet": "mexh",
+    "n_components": 2
+  },
+  "fourier_basis": {
+    "spectrum_type": "smoothed",
+    "threshold": 20000
+  },
+  "quantile_extractor": {
+    "window_size": 20,
+    "win_mode": true
+  },
+  "recurrence_extractor": {
+    "window_size": 20,
+    "win_mode": true,
+    "min_signal_ratio": 0.5,
+    "max_signal_ratio": 0.75,
+    "rec_metric": "euclidean"
+  },
+  "signal_extractor": {
+    "wavelet": "mexh"
+  }
+}
