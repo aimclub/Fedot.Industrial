@@ -14,8 +14,8 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.saver_collections import ResultSaver
-from fedot_ind.core.architecture.datasets.classification_datasets import CustomClassificationDataset
-from fedot_ind.core.architecture.experiment.CVModule import ClassificationExperimenter
+# from fedot_ind.core.architecture.datasets.classification_datasets import CustomClassificationDataset
+# from fedot_ind.core.architecture.experiment.CVModule import ClassificationExperimenter
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
 from fedot_ind.core.models.nn.inception import InceptionTimeNetwork
@@ -42,14 +42,14 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.generator_name = params.get('feature_generator', 'statistical')
+        self.strategy = params.get('strategy', 'statistical')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
         self.dataset_name = params.get('dataset')
         self.output_folder = params.get('output_folder', None)
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
-                                 generator_name=self.generator_name,
+                                 generator_name=self.strategy,
                                  output_dir=self.output_folder)
         self.logger = logging.getLogger('TimeSeriesClassifier')
         self.datacheck = DataCheck()
@@ -108,7 +108,7 @@ class TimeSeriesClassifier:
     def __predict_abstraction(self,
                               test_features: Union[np.ndarray, pd.DataFrame],
                               mode: str = 'labels'):
-        self.logger.info(f'Predicting with {self.generator_name} generator')
+        self.logger.info(f'Predicting with {self.strategy} generator')
 
         if self.test_features is None:
             self.test_features = self.generator_runner.extract_features(train_features=test_features,
@@ -148,7 +148,7 @@ class TimeSeriesClassifier:
             self.predictor = self._fit_model(self.train_features, train_target)
 
         self.logger.info(
-            f'Solver fitted: {self.generator_name}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
+            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
     def predict(self, test_features: np.ndarray, **kwargs) -> dict:
@@ -195,10 +195,10 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
             del self.model_hyperparams['optimization_method']
 
         self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                                    self.generator_name,
+                                                                    self.strategy,
                                                                     '../../models')
         self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                              self.generator_name,
+                                                              self.strategy,
                                                               'runs')
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 
@@ -214,7 +214,7 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
             train_ts_frame =train_ts_frame.values
         return self._fit_model(features=train_ts_frame, target=train_target)
 
-    def _fit_model(self, features: np.ndarray, target: np.ndarray) -> ClassificationExperimenter:
+    def _fit_model(self, features: np.ndarray, target: np.ndarray):
         """Fit Fedot model with feature and target.
 
         Args:
@@ -227,12 +227,12 @@ class TimeSeriesImageClassifier(TimeSeriesClassifier):
         """
         num_epochs, target = self._init_model_param(target)
 
-        train_dataset = CustomClassificationDataset(images=features, targets=target)
-        NN_model = ClassificationExperimenter(train_dataset=train_dataset,
-                                              val_dataset=train_dataset,
-                                              **self.model_hyperparams)
-        NN_model.fit(num_epochs=num_epochs)
-        return NN_model
+        # train_dataset = CustomClassificationDataset(images=features, targets=target)
+        # NN_model = ClassificationExperimenter(train_dataset=train_dataset,
+        #                                       val_dataset=train_dataset,
+        #                                       **self.model_hyperparams)
+        # NN_model.fit(num_epochs=num_epochs)
+        # return NN_model
 
     def predict(self, test_ts_frame: np.ndarray, dataset_name: str = None) -> dict:
         prediction_label = self.__predict_abstraction(test_ts_frame, dataset_name)

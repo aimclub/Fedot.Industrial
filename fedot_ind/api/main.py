@@ -73,6 +73,7 @@ class FedotIndustrial(Fedot):
             if self.config_dict['strategy'] == 'fedot_preset':
                 solver = TaskGenerator[self.config_dict['task']].value['fedot_preset']
             elif self.config_dict['strategy'] is None:
+                self.config_dict['strategy'] = 'InceptionTime'
                 solver = TaskGenerator[self.config_dict['task']].value['nn']
             else:
                 solver = TaskGenerator[self.config_dict['task']].value['default']
