@@ -5,12 +5,13 @@ from torch import Tensor
 from torch.nn import Conv2d, Parameter
 from torch.nn.common_types import _size_2_t
 
-from core.architecture.abstraction.сheckers import parameter_value_check
+from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
 
 
 class DecomposedConv2d(Conv2d):
     """Extends the Conv2d layer by implementing the singular value decomposition of
     the weight matrix.
+
     Args:
         in_channels: Number of channels in the input image
         out_channels: Number of channels produced by the convolution
@@ -27,6 +28,7 @@ class DecomposedConv2d(Conv2d):
         groups: Number of blocked connections from input channels to output channels.
             Default: ``1``
         bias: If ``True``, adds a learnable bias to the output. Default: ``True``
+
     """
 
     def __init__(

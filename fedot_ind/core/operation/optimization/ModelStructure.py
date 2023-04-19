@@ -7,7 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from fedot_ind.core.metrics.loss.svd_loss import HoyerLoss, OrthogonalLoss
-from fedot_ind.core.models.cnn.decomposed_conv import DecomposedConv2d
+from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from fedot_ind.core.models.cnn.sfp_models import SFP_MODELS
 from fedot_ind.core.operation.optimization.sfp_tools import prune_resnet_state_dict, zerolize_filters
 from fedot_ind.core.operation.optimization.svd_tools import decompose_module, energy_threshold_pruning

@@ -1,6 +1,6 @@
 Ensemble Extractor
 ==================
 
-.. autoclass:: core.models.EnsembleExtractor.EnsembleExtractor
+.. autoclass:: fedot_ind.core.models.EnsembleExtractor.EnsembleExtractor
     :no-inherited-members:
     :no-undoc-members:
