@@ -1,3 +1,5 @@
+"""This module contains classes for image classification based on torch dataset."""
+
 from typing import Tuple
 
 import numpy as np
@@ -5,8 +7,8 @@ import torch
 from torch.utils.data import Dataset
 
 
-class CustomClassificationDataset(Dataset):
-    """Class for custom classification datasets.
+class NumpyImageDataset(Dataset):
+    """Class for converting numpy arrays to torch dataset (classification).
 
     Args:
         images: Numpy matrix of images.

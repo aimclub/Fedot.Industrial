@@ -1,35 +1,47 @@
-from typing import Optional
+"""This module contains functions for working with singular value decomposition.
+
+Model decomposition, pruning by threshold, decomposed model loading.
+"""
+from typing import Optional, Callable
 
 import torch
 from torch.nn.modules import Module
 from torch.nn.modules.conv import Conv2d
 
-from fedot_ind.core.models.cnn.decomposed_conv import DecomposedConv2d
+from core.operation.decomposition.decomposed_conv import DecomposedConv2d
 
 
-def energy_threshold_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
-    """Prune the weight matrices to the energy_threshold (in-place).
-
+def create_energy_svd_pruning(energy_threshold: float) -> Callable:
+    """Returns the pruning function.
     Args:
-        conv: The optimizable layer.
         energy_threshold: pruning hyperparameter must be in the range (0, 1].
-        the lower the threshold, the more singular values will be pruned.
-
+            the lower the threshold, the more singular values will be pruned.
+    Returns:
+        ``energy_svd_pruning`` function.
     Raises:
-        Assertion Error: If ``conv.decomposing`` is False.
+        Assertion Error: If ``energy_threshold`` is not in (0, 1].
     """
-    assert conv.decomposing, "for pruning, the model must be decomposed"
     assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
-    S, indices = conv.S.sort()
-    U = conv.U[:, indices]
-    Vh = conv.Vh[indices, :]
-    sum = (S ** 2).sum()
-    threshold = energy_threshold * sum
-    for i, s in enumerate(S):
-        sum -= s ** 2
-        if sum < threshold:
-            conv.set_U_S_Vh(U[:, i:].clone(), S[i:].clone(), Vh[i:, :].clone())
-            break
+    def energy_svd_pruning(conv: DecomposedConv2d) -> None:
+        """Prune the weight matrices to the energy_threshold (in-place).
+        Args:
+            conv: The optimizable layer.
+        Raises:
+            Assertion Error: If ``conv.decomposing`` is False.
+        """
+        assert conv.decomposing, "for pruning, the model must be decomposed"
+
+        S, indices = conv.S.sort()
+        U = conv.U[:, indices]
+        Vh = conv.Vh[indices, :]
+        sum = (S ** 2).sum()
+        threshold = energy_threshold * sum
+        for i, s in enumerate(S):
+            sum -= s ** 2
+            if sum < threshold:
+                conv.set_U_S_Vh(U[:, i:].clone(), S[i:].clone(), Vh[i:, :].clone())
+                break
+    return energy_svd_pruning
 
 
 def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> None:
@@ -38,7 +50,7 @@ def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> N
     Args:
         model: Decomposable module.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
-            If ``None`` replace layers without decomposition. Default: ``None``
+            If ``None`` replace layers without decomposition.
     """
     for name, module in model.named_children():
         if len(list(module.children())) > 0:

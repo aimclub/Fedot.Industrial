@@ -1,32 +1,81 @@
 from collections import OrderedDict
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List, Union, Callable
 
 import torch
 from torch import Tensor
 from torch.linalg import vector_norm
 from torch.nn import Conv2d
+from torchvision.models import ResNet
 
-from fedot_ind.core.models.cnn.sfp_models import SFP_MODELS
+from core.models.cnn.pruned_resnet import PRUNED_MODELS
 
+MODELS_FROM_LENGHT = {
+    122: 'ResNet18',
+    218: 'ResNet34',
+    320: 'ResNet50',
+    626: 'ResNet101',
+    932: 'ResNet152',
+}
 
-def zerolize_filters(conv: Conv2d, pruning_ratio: float) -> None:
-    """Zerolize filters of convolutional layer to the pruning_ratio (in-place).
+def create_percentage_filter_zeroing_fn(pruning_ratio: float) -> Callable:
+    """Returns the filter zeroing function.
 
     Args:
-        conv: The optimizable layer.
         pruning_ratio: pruning hyperparameter must be in the range (0, 1),
-            percentage of zerolized filters.
+            percentage of zeroed filters.
+    Returns:
+        ``percentage_filter_zeroing`` function.
+    Raises:
+        Assertion Error: If ``energy_threshold`` is not in (0, 1).
     """
     assert 0 < pruning_ratio < 1, "pruning_ratio must be in the range (0, 1)"
-    filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
-    filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
-    _, indices = filter_norms.sort()
-    with torch.no_grad():
-        conv.weight[indices[:filter_pruned_num]] = 0
+    def percentage_filter_zeroing(conv: Conv2d) -> None:
+        """Zero filters of convolutional layer to the pruning_ratio (in-place).
+
+        Args:
+            conv: The optimizable layer.
+        """
+        filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
+        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+        _, indices = filter_norms.sort()
+        with torch.no_grad():
+            conv.weight[indices[:filter_pruned_num]] = 0
+    return percentage_filter_zeroing
+
+
+def create_energy_filter_zeroing_fn(energy_threshold: float) -> Callable:
+    """Returns the filter zeroing function.
+
+    Args:
+        energy_threshold: pruning hyperparameter must be in the range (0, 1].
+            the lower the threshold, the more filters will be pruned.
+    Returns:
+        ``energy_filter_zeroing`` function.
+    Raises:
+        Assertion Error: If ``energy_threshold`` is not in (0, 1].
+    """
+    assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
+    def energy_filter_zeroing(conv: Conv2d) -> None:
+        """Zero filters of convolutional layer to the energy_threshold (in-place).
+
+        Args:
+            conv: The optimizable layer.
+        """
+        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+        sorted_filter_norms, indices = filter_norms.sort()
+        sum = (filter_norms ** 2).sum()
+        threshold = energy_threshold * sum
+        for index, filter_norm in zip(indices, sorted_filter_norms):
+            with torch.no_grad():
+                conv.weight[index] = 0
+            sum -= filter_norm ** 2
+            if sum < threshold:
+                break
+    return energy_filter_zeroing
 
 
 def _check_nonzero_filters(weight: Tensor) -> Tensor:
-    """Returns indices of zero filters."""
+    """Returns indices of nonzero filters."""
     filters = torch.count_nonzero(weight, dim=(1, 2, 3))
     indices = torch.flatten(torch.nonzero(filters))
     return indices
@@ -93,7 +142,7 @@ def _parse_sd(state_dict: OrderedDict) -> OrderedDict:
     return parsed_sd
 
 
-def _parse_param(param, value, dictionary) -> None:
+def _parse_param(param: List, value: Tensor, dictionary: OrderedDict) -> None:
     """Parses value from state_dict to nested dictionaries."""
     if len(param) > 1:
         dictionary.setdefault(param[0], OrderedDict())
@@ -102,7 +151,7 @@ def _parse_param(param, value, dictionary) -> None:
         dictionary[param[0]] = value
 
 
-def _collect_sd(parsed_state_dict) -> OrderedDict:
+def _collect_sd(parsed_state_dict: OrderedDict) -> OrderedDict:
     """Collect state_dict from nested dictionaries."""
     state_dict = OrderedDict()
     keys, values = _collect_param(parsed_state_dict)
@@ -112,7 +161,7 @@ def _collect_sd(parsed_state_dict) -> OrderedDict:
     return state_dict
 
 
-def _collect_param(dictionary) -> Tuple:
+def _collect_param(dictionary: Union[OrderedDict, Tensor]) -> Tuple:
     """Collect value from nested dictionaries."""
     if isinstance(dictionary, OrderedDict):
         all_keys = []
@@ -128,7 +177,7 @@ def _collect_param(dictionary) -> Tuple:
         return [[]], [dictionary]
 
 
-def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Tensor]:
+def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tensor:
     """Prune block of ResNet"""
     channels = input_channels
     downsample_channels = input_channels
@@ -169,13 +218,13 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tuple[Tensor, Te
     )
     channels = filters
     block[final_bn] = _prune_batchnorm(bn=block[final_bn], saving_channels=channels)
-    block['indexes'] = _indexes_of_tensor_values(channels, downsample_channels)
-    return channels, _indexes_of_tensor_values(channels, downsample_channels)
+    block['indices'] = _indexes_of_tensor_values(channels, downsample_channels)
+    return channels
 
 
 def prune_resnet_state_dict(
-        state_dict: OrderedDict
-) -> Tuple[OrderedDict, Dict[str, List[int]], Dict[str, List[int]]]:
+        state_dict: OrderedDict,
+) -> OrderedDict:
     """Prune state_dict of ResNet
 
     Args:
@@ -184,8 +233,6 @@ def prune_resnet_state_dict(
     Returns:
         Tuple(state_dict, input_channels, output_channels).
     """
-    input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
     sd = _parse_sd(state_dict)
     filters = _check_nonzero_filters(sd['conv1']['weight'])
     sd['conv1']['weight'] = _prune_filters(
@@ -193,52 +240,71 @@ def prune_resnet_state_dict(
     )
     channels = filters
     sd['bn1'] = _prune_batchnorm(bn=sd['bn1'], saving_channels=channels)
+
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
-        for k, v in sd[layer].items():
-            input_size[layer].append(channels.size()[0])
-            channels, index = _prune_resnet_block(block=v, input_channels=channels)
-            output_size[layer].append(channels.size()[0])
+        for block in sd[layer].values():
+            channels = _prune_resnet_block(block=block, input_channels=channels)
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_sd(sd)
-    return sd, input_size, output_size
+    return sd
+
+
+def sizes_from_state_dict(state_dict: OrderedDict) -> Dict:
+    sd = _parse_sd(state_dict)
+    sizes = {'conv1': sd['conv1']['weight'].shape}
+    for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
+        sizes[layer] = {}
+        for i, block in enumerate(sd[layer].values()):
+            sizes[layer][i] = {}
+            for k, v in block.items():
+                if k.startswith('conv'):
+                    sizes[layer][i][k] = v['weight'].shape
+                elif k == 'downsample':
+                    sizes[layer][k] = v['0']['weight'].shape
+                elif k == 'indices':
+                    sizes[layer][i][k] = v.shape
+    sizes['fc'] = sd['fc']['weight'].shape
+    return sizes
+
+
+def prune_resnet(model: ResNet) -> ResNet:
+    """Prune ResNet
+
+    Args:
+        model: ResNet model.
+
+    Returns:
+        Pruned ResNet model.
+
+    Raises:
+        AssertionError if model is not Resnet.
+    """
+    assert isinstance(model, ResNet), "Supports only ResNet models"
+    model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
+    pruned_sd = prune_resnet_state_dict(model.state_dict())
+    sizes = sizes_from_state_dict(pruned_sd)
+    model = PRUNED_MODELS[model_type](sizes=sizes)
+    model.load_state_dict(pruned_sd)
+    return model
 
 
 def load_sfp_resnet_model(
-        model_name: str,
-        num_classes: int,
+        model: ResNet,
         state_dict_path: str,
-        pruning_ratio: float,
 ) -> torch.nn.Module:
     """Loads SFP state_dict to model.
 
     Args:
-        model_name: Name of the model.
-        num_classes: Number of classes.
+        model: An instance of the base model.
         state_dict_path: Path to state_dict file.
-        pruning_ratio: pruning hyperparameter used in training.
-    """
-    if model_name not in SFP_MODELS.keys():
-        raise ValueError(
-            f"model_name must be one of {SFP_MODELS.keys()}, but got '{model_name}'"
-        )
-    state_dict = torch.load(state_dict_path, map_location='cpu')
-    input_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    output_size = {'layer1': [], 'layer2': [], 'layer3': [], 'layer4': []}
-    last_layer = ''
-    for k, v in state_dict.items():
-        k = k.split('.')
-        if len(k) > 3 and k[2] == 'conv1':
-            input_size[k[0]].append(v.size()[1])
-            if last_layer in output_size.keys():
-                output_size[last_layer].append(v.size()[1])
-            last_layer = k[0]
-    output_size['layer4'].append(state_dict['fc.weight'].size()[1])
 
-    model = SFP_MODELS[model_name](
-        num_classes=num_classes,
-        input_size=input_size,
-        output_size=output_size,
-        pruning_ratio=pruning_ratio
-    )
+    Raises:
+        AssertionError if model is not Resnet.
+    """
+    assert isinstance(model, ResNet), "Supports only ResNet models"
+    state_dict = torch.load(state_dict_path, map_location='cpu')
+    sizes = sizes_from_state_dict(state_dict)
+    model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
+    model = PRUNED_MODELS[model_type](sizes=sizes)
     model.load_state_dict(state_dict)
     return model
