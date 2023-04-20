@@ -3,20 +3,20 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Callable, Type, Union
+from typing import Callable, Dict, List, Optional, Type, Union
 
 import torch
-from fedot.core.log import default_log as Logger
+import logging
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
-from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
-from core.architecture.abstraction.сheckers import parameter_value_check
-from core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter, \
-    SegmentationMetricCounter, ObjectDetectionMetricCounter
+from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
+from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
+from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, ObjectDetectionMetricCounter, \
+    SegmentationMetricCounter
 
 
 @dataclass(frozen=True)
@@ -74,7 +74,7 @@ class NNExperimenter:
             weights: Optional[str],
             device: str,
     ):
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.model = model
         self.device = torch.device(device)
         if weights is not None:

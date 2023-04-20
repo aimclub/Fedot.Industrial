@@ -1,7 +1,6 @@
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
-from golem.core.tuning.sequential import SequentialTuner
 
 from fedot_ind.core.optimizer import IndustrialEvoOptimizer
 import numpy as np
@@ -12,7 +11,7 @@ from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.operation_types_repository import get_operations_for_task
 from fedot.core.repository.tasks import TaskTypesEnum, Task
-from tests.unit.repository.test_repo import initialize_uni_data
+from tests.integration.repository.test_repo import initialize_uni_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 if __name__ == '__main__':

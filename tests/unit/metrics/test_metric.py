@@ -1,4 +1,10 @@
+import numpy as np
 import pytest
+
+from fedot_ind.core.metrics.metrics_implementation import Accuracy, F1, Logloss, MAE, MAPE, MSE, ParetoMetrics, \
+    Precision, R2, \
+    RMSE, \
+    ROCAUC
 
 
 @pytest.fixture()

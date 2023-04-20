@@ -2,21 +2,20 @@
 This module contains classes for CNN structure optimization.
 """
 
+import logging
 import os
-from typing import Dict, List, Optional, Callable, Type
+from typing import Callable, Dict, List, Optional, Type
 
 import torch
-from fedot.core.log import default_log as Logger
 from torchvision.models import ResNet
 
-from core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, \
-    Writer
-from core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
-from core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
-from core.operation.decomposition.decomposed_conv import DecomposedConv2d
-from core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
-    create_energy_filter_zeroing_fn, prune_resnet
-from core.operation.optimization.svd_tools import create_energy_svd_pruning, \
+from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, Writer, WriterComposer
+from fedot_ind.core.architecture.experiment.nn_experimenter import FitParameters, NNExperimenter
+from fedot_ind.core.metrics.loss.svd_loss import HoyerLoss, OrthogonalLoss
+from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
+from fedot_ind.core.operation.optimization.sfp_tools import create_energy_filter_zeroing_fn, \
+    create_percentage_filter_zeroing_fn, prune_resnet
+from fedot_ind.core.operation.optimization.svd_tools import create_energy_svd_pruning, \
     decompose_module, load_svd_state_dict
 
 
@@ -27,7 +26,7 @@ class StructureOptimization:
             self,
             description,
     ) -> None:
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.description = description
 
     def fit(

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
-from tests.unit.api.test_API_config import load_data
+from tests.unit.api.test_api_main import load_data
 
 
 @pytest.fixture()
@@ -52,8 +52,8 @@ def test_API_code_scenario(basic_API_class):
     assert type(metrics) is dict
 
 
-def test_API_config_scenario(basic_API_class, basic_config_API):
-    experiment_results = basic_API_class.run_experiment(config=basic_config_API, save_flag=False)
+def test_API_config_scenario(basic_API_class, basic_tsc_config):
+    experiment_results = basic_API_class.run_experiment(config=basic_tsc_config, save_flag=False)
     dataset_list = basic_API_class.YAML.config_dict['datasets_list']
     fg_list = basic_API_class.YAML.config_dict['feature_generator']
     assert len(basic_API_class.YAML.config_dict['datasets_list']) == len(list(experiment_results.keys()))

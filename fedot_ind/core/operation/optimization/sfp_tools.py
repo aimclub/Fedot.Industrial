@@ -7,7 +7,7 @@ from torch.linalg import vector_norm
 from torch.nn import Conv2d
 from torchvision.models import ResNet
 
-from core.models.cnn.pruned_resnet import PRUNED_MODELS
+from fedot_ind.core.models.cnn.pruned_resnet import PRUNED_MODELS
 
 MODELS_FROM_LENGHT = {
     122: 'ResNet18',

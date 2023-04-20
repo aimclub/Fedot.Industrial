@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
-from fedot_ind.core.operation.transformation.DataTransformer import \
-    TopologicalTransformation, TSTransformer
-from fedot_ind.core.operation.transformation.WindowSelection import \
-    WindowSizeSelection, WindowCutter
+
+from fedot_ind.core.operation.transformation.DataTransformer import TopologicalTransformation, TSTransformer
+from fedot_ind.core.operation.transformation.WindowSelection import WindowCutter, WindowSizeSelection
+
 
 @pytest.fixture()
 def basic_periodic_data():
@@ -27,18 +27,23 @@ def test_WindowCutting(basic_periodic_data):
     assert len(windows_list) != 0
     assert list(windows_list[0].keys())[0] == "ts_1"
 
+
 def test_WindowSizeSelection(basic_periodic_data):
     finder = WindowSizeSelection(
-                time_series=basic_periodic_data)
+        time_series=basic_periodic_data)
     result = finder.get_window_size()
     assert type(result[0]) is int and type(result[1]) is list
     assert result[0] != 0
 
 
 def test_TSTransformer(basic_periodic_data):
-    transformer = TSTransformer(time_series=basic_periodic_data)
+    transformer = TSTransformer(time_series=basic_periodic_data,
+                                rec_metric="euclidean",
+                                min_signal_ratio=0.1,
+                                max_signal_ratio=0.9)
     result = transformer.get_recurrence_metrics()
     assert result.shape[0] > 0 and result.shape[1] > 0
+
 
 def test_TopologicalTransformation_time_series_rolling_betti_ripser(basic_periodic_data):
     topological_transformer = TopologicalTransformation(
@@ -47,6 +52,7 @@ def test_TopologicalTransformation_time_series_rolling_betti_ripser(basic_period
         epsilon=3,
         window_length=400)
     assert len(topological_transformer.time_series_rolling_betti_ripser(basic_periodic_data)) != 0
+
 
 def test_TopologicalTransformation_time_series_to_point_cloud(basic_periodic_data):
     topological_transformer = TopologicalTransformation(
