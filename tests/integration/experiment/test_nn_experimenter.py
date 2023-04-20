@@ -1,27 +1,30 @@
 import os
-from functools import partial
+
 import pytest
-import torch.optim
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
-from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 from torchvision.transforms import Compose, Resize, ToTensor
 
 from fedot_ind.core.architecture.datasets.object_detection_datasets import COCODataset
 from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
-from fedot_ind.core.architecture.experiment.nn_experimenter import FitParameters, \
-    ClassificationExperimenter, ObjectDetectionExperimenter
+from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, FasterRCNNExperimenter, \
+    FitParameters
 from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
 
 DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 
 
 @pytest.fixture()
-def prepare_classification(tmp_path):
+def prepare_classification(tmp_path: str = './tmp'):
+    from pathlib import Path
+    tmp_path = Path(os.path.abspath(tmp_path))
+
     transform = Compose([ToTensor(), Resize((256, 256))])
-    train_ds = ImageFolder(root=os.path.join(DATASETS_PATH, 'Agricultural/train'), transform=transform)
-    val_ds = ImageFolder(root=os.path.join(DATASETS_PATH, 'Agricultural/train'), transform=transform)
+    root_path_train = os.path.join(DATASETS_PATH, 'Agricultural/train')
+    root_path_val = os.path.join(DATASETS_PATH, 'Agricultural/val')
+    train_ds = ImageFolder(root=root_path_train, transform=transform)
+    val_ds = ImageFolder(root=root_path_val, transform=transform)
     exp_params = {
         'model': resnet18(num_classes=3),
         'device': 'cpu'
@@ -86,12 +89,13 @@ def prepare_detection(tmp_path):
     )
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=4,
-        num_workers=4,
+        batch_size=2,
+        num_workers=2,
         collate_fn=lambda x: tuple(zip(*x))
     )
     exp_params = {
-        'model': ssdlite320_mobilenet_v3_large(num_classes=len(dataset.classes) + 1),
+        'num_classes': len(dataset.classes) + 1,
+        'model_params': {'weights': 'DEFAULT'},
         'device': 'cpu'
     }
     fit_params = FitParameters(
@@ -99,7 +103,7 @@ def prepare_detection(tmp_path):
         train_dl=dataloader,
         val_dl=dataloader,
         num_epochs=1,
-        optimizer=partial(torch.optim.Adam, lr=0.0001),
+        optimizer_params={'lr': 0.0001},
         models_path=tmp_path.joinpath('models'),
         summary_path=tmp_path.joinpath('summary')
     )
@@ -127,11 +131,11 @@ def detection_predict(experimenter):
         assert set(v.keys()) == {'labels', 'boxes', 'scores'}
 
 
-def test_objectdetection_experimenter(prepare_detection):
+def test_fasterrcnn_experimenter(prepare_detection):
     exp_params, fit_params, tmp_path = prepare_detection
-    experimenter = ObjectDetectionExperimenter(**exp_params)
+    experimenter = FasterRCNNExperimenter(**exp_params)
     experimenter.fit(p=fit_params)
-    assert os.path.exists(tmp_path.joinpath('models/ALET10/SSD/train.sd.pt'))
-    assert os.path.exists(tmp_path.joinpath('summary/ALET10/SSD/train/train.csv'))
-    assert os.path.exists(tmp_path.joinpath('summary/ALET10/SSD/train/val.csv'))
+    assert os.path.exists(tmp_path.joinpath('models/ALET10/FasterRCNN/train.sd.pt'))
+    assert os.path.exists(tmp_path.joinpath('summary/ALET10/FasterRCNN/train/train.csv'))
+    assert os.path.exists(tmp_path.joinpath('summary/ALET10/FasterRCNN/train/val.csv'))
     detection_predict(experimenter)
