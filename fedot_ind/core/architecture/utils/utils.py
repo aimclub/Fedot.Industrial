@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-PROJECT_PATH = str(Path(__file__).parent.parent.parent.parent.parent)
+PROJECT_PATH = str(Path(__file__).parent.parent.parent.parent)
 
 
 def default_path_to_save_results() -> str:

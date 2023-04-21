@@ -19,8 +19,8 @@ DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 @pytest.fixture()
 def prepare_classification(tmp_path):
     transform = Compose([ToTensor(), Resize((256, 256))])
-    train_ds = ImageFolder(root=DATASETS_PATH + 'Agricultural/train', transform=transform)
-    val_ds = ImageFolder(root=DATASETS_PATH + 'Agricultural/val', transform=transform)
+    train_ds = ImageFolder(root=os.path.join(DATASETS_PATH, 'Agricultural/train'), transform=transform)
+    val_ds = ImageFolder(root=os.path.join(DATASETS_PATH, 'Agricultural/train'), transform=transform)
     exp_params = {
         'model': resnet18(num_classes=3),
         'device': 'cpu'
@@ -79,8 +79,8 @@ def test_classification_experimenter(prepare_classification):
 @pytest.fixture()
 def prepare_detection(tmp_path):
     dataset = COCODataset(
-        images_path=DATASETS_PATH + 'ALET10/test',
-        json_path=DATASETS_PATH + 'ALET10/test.json',
+        images_path=os.path.join(DATASETS_PATH, 'ALET10/test'),
+        json_path=os.path.join(DATASETS_PATH, 'ALET10/test.json'),
         transform=ToTensor()
     )
     dataloader = DataLoader(
