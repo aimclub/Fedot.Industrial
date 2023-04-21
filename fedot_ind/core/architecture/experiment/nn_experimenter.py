@@ -13,10 +13,10 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
+from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, ObjectDetectionMetricCounter, \
-    SegmentationMetricCounter
+from fedot_ind.core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter, \
+    SegmentationMetricCounter, ObjectDetectionMetricCounter
 
 
 @dataclass(frozen=True)
