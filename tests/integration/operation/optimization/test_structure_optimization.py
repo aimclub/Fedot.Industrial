@@ -4,7 +4,7 @@ from fedot_ind.core.architecture.experiment.nn_experimenter import Classificatio
     ObjectDetectionExperimenter
 from fedot_ind.core.operation.optimization.structure_optimization import SVDOptimization, \
     SFPOptimization
-from tests.unit.architecture.experiment.test_nn_experimenter import \
+from tests.integration.experiment.test_nn_experimenter import \
     classification_predict, detection_predict, prepare_detection, prepare_classification
 
 SVD_PARAMS = {'energy_thresholds': [0.9]}
