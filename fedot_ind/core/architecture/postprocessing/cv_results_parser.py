@@ -112,7 +112,7 @@ def create_mean_exp(path: str) -> None:
         if phase.endswith('.csv'):
             df = create_mean_df([os.path.join(path, exp, phase) for exp in exps])
             df.to_csv(os.path.join(path, 'mean', phase))
-        else:
+        elif os.path.isdir(os.path.join(path, exps[0], phase)):
             os.mkdir(os.path.join(path, 'mean', phase))
             train_df = create_mean_df([os.path.join(path, exp, phase, 'train.csv') for exp in exps])
             train_df.to_csv(os.path.join(path, 'mean', phase, 'train.csv'))
