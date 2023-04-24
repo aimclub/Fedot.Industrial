@@ -91,10 +91,9 @@ class FedotIndustrial(Fedot):
         Method for training Industrial model.
 
         Args:
-            train_features: raw time series data
-            train_target: target labels
-            kwargs: additional parameters for solver, for example ``baseline_type`` – a model that could be selected
-                    instead of Fedot pipeline
+            train_features: raw train data
+            train_target: target values
+            **kwargs: additional parameters
 
         Returns:
             :class:`Pipeline` object.
