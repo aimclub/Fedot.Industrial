@@ -15,16 +15,15 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 
-# def test_fedot_multi_series():
-#     with IndustrialModels():
-#         train_data, test_data = initialize_multi_data()
-#         pipeline = PipelineBuilder().add_node('data_driven_basis', params={'window_length': None}).add_node(
-#             'quantile_extractor', params={
-#                 'window_mode': True, 'window_size': 10}).add_node(
-#             'rf').build()
-#         pipeline.fit(train_data)
-#         predict = pipeline.predict(test_data, output_mode='labels')
-#         print(F1.metric(test_data, predict))
+def test_fedot_multi_series():
+    with IndustrialModels():
+        train_data, test_data = initialize_multi_data()
+        pipeline = PipelineBuilder().add_node('data_driven_basis', params={'window_length': None}).add_node(
+            'quantile_extractor').add_node(
+            'rf').build()
+        pipeline.fit(train_data)
+        predict = pipeline.predict(test_data, output_mode='labels')
+        print(F1.metric(test_data, predict))
 
 
 def initialize_uni_data(dataset_name: str = 'Lightning7'):
@@ -42,8 +41,8 @@ def initialize_uni_data(dataset_name: str = 'Lightning7'):
     return train_data, test_data
 
 
-def initialize_multi_data():
-    train_data, test_data = DataLoader('EMOPain').load_data()
+def initialize_multi_data(dataset_name: str = 'Epilepsy'):
+    train_data, test_data = DataLoader(dataset_name).load_data()
     train_data = InputData(idx=np.arange(len(train_data[0])),
                            features=np.array(train_data[0].values.tolist()),
                            target=train_data[1].reshape(-1, 1),
