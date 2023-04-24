@@ -134,8 +134,8 @@ def create_mean_df(paths: List[Union[str, Path]]) -> pd.DataFrame:
     data = [df.to_numpy()]
     for path in paths[1:]:
         tmp = pd.read_csv(path, index_col=0)
-        assert np.array_equal(df.index, tmp.index)
-        assert np.array_equal(df.columns, tmp.columns)
+        assert np.array_equal(df.index, tmp.index), f"{df.index} are not equal to {tmp.index} in {path}"
+        assert np.array_equal(df.columns, tmp.columns), f"{df.columns} are not equal to {tmp.columns} in {path}"
         data.append(tmp.to_numpy())
     data = np.array(data)
     mean = data.mean(axis=0)
