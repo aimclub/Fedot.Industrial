@@ -475,13 +475,14 @@ class SegmentationExperimenter(NNExperimenter):
     def forward(self, x):
         """Have to implement the forward method of the model and return predictions."""
         x = x.to(self.device)
-        return self.model(x)['out']
+        return self.model(x)['out'].to('cpu').detach()
 
     def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return loss."""
+        x = x.to(self.device)
         y = y.to(self.device)
-        preds = self.forward(x)
-        return {'loss': self.loss(preds, torch.squeeze(y).long())}
+        preds = self.model(x)['out']
+        return {'loss': self.loss(preds, y)}
 
     def predict_on_batch(self, x, proba: bool) -> List:
         """Returns prediction for sample."""
