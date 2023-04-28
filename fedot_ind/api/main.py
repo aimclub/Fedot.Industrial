@@ -6,7 +6,7 @@ import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
-from fedot_ind.api.utils.reader_collections import DataReader, YamlReader
+from fedot_ind.api.utils.reader_collections import Configurator
 from fedot_ind.api.utils.reporter import ReporterTSC
 from fedot_ind.core.architecture.settings.task_factory import TaskGenerator
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
@@ -22,6 +22,9 @@ class FedotIndustrial(Fedot):
 
     Example:
         First, configure experiment and instantiate FedotIndustrial class::
+            from fedot_ind.api.main import FedotIndustrial
+            from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset='ItalyPowerDemand',
@@ -31,9 +34,9 @@ class FedotIndustrial(Fedot):
                                          n_jobs=2,
                                          logging_level=20)
 
-        Next, download data::
+        Next, download data from UCR archive::
 
-            train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
+            train_data, test_data = DataLoader(dataset_name='ItalyPowerDemand').load_data()
 
         Finally, fit the model and get predictions::
 
@@ -50,8 +53,7 @@ class FedotIndustrial(Fedot):
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
         self.reporter = ReporterTSC()
-        self.YAML = YamlReader()
-        self.reader = DataReader()
+        self.configurator = Configurator()
 
         self.config_dict = None
 
@@ -65,7 +67,7 @@ class FedotIndustrial(Fedot):
         if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
             self.config_dict = kwargs
         else:
-            self.config_dict = self.YAML.init_experiment_setup(**kwargs)
+            self.config_dict = self.configurator.init_experiment_setup(**kwargs)
 
     def __init_solver(self):
         self.logger.info('Initialising solver')
