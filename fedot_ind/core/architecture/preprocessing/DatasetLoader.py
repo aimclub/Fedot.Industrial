@@ -35,7 +35,6 @@ class DataLoader:
             tuple: train and test data
         """
         dataset_name = self.dataset_name
-        self.logger.info(f'Trying to read {dataset_name} data locally')
 
         _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
                                                               data_path=os.path.join(PROJECT_PATH, 'data'))
@@ -64,28 +63,28 @@ class DataLoader:
 
             shutil.rmtree(cache_path)
             return train_data, test_data
-
+        self.logger.info(f'Data readed successfully from local folder')
         return train_data, test_data
 
     def read_train_test_files(self, data_path, dataset_name):
         # If data unpacked as .tsv file
         if os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.tsv'):
-            x_test, x_train, y_test, y_train = self.read_tsv(dataset_name, data_path)
+            x_train, y_train, x_test, y_test = self.read_tsv(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .txt file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt'):
-            x_test, x_train, y_test, y_train = self.read_txt_files(dataset_name, data_path)
+            x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .ts file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts'):
-            x_test, x_train, y_test, y_train = self.read_ts_files(dataset_name, data_path)
+            x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
             is_multi = True
 
         # If data unpacked as .arff file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff'):
-            x_test, x_train, y_test, y_train = self.read_arff_files(dataset_name, data_path)
+            x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
             is_multi = True
 
         else:
@@ -140,14 +139,14 @@ class DataLoader:
         data_test = np.genfromtxt(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.txt')
         x_train, y_train = data_train[:, 1:], data_train[:, 0]
         x_test, y_test = data_test[:, 1:], data_test[:, 0]
-        return x_test, x_train, y_test, y_train
+        return x_train, y_train, x_test, y_test
 
     def read_ts_files(self, dataset_name, data_path):
         x_test, y_test = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
                                                        return_separate_X_and_y=True)
         x_train, y_train = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
                                                          return_separate_X_and_y=True)
-        return x_test, x_train, y_test, y_train
+        return x_train, y_train, x_test, y_test
 
     def read_arff_files(self, dataset_name, temp_data_path):
         """Reads data from ``.arff`` file.
@@ -166,7 +165,7 @@ class DataLoader:
         except Exception:
             x_train, y_train = self.load_re_arff(temp_data_path + dataset_name + '_TRAIN.arff')
             x_test, y_test = self.load_re_arff(temp_data_path + dataset_name + '_TEST.arff')
-        return x_test, x_train, y_test, y_train
+        return x_train, y_train, x_test, y_test
 
     def extract_data(self, dataset_name: str, data_path: str):
         """Unpacks data from downloaded file and saves it into Data folder with ``.tsv`` extension.
@@ -203,7 +202,7 @@ class DataLoader:
             if not is_multi:
                 df = pd.DataFrame(x_train if subset == 'TRAIN' else x_test)
                 df.insert(0, 'class', y_train if subset == 'TRAIN' else y_test)
-                df.to_csv(os.path.join(data_path, f'{dataset_name}_{subset}.tsv'), sep='\t', index=False, header=False)
+                df.to_csv(os.path.join(new_path, f'{dataset_name}_{subset}.tsv'), sep='\t', index=False, header=False)
                 del df
 
             else:
