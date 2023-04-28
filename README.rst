@@ -7,11 +7,15 @@
 
 |sai| |itmo|
 
-|issues|  |stars|  |python| |license| |docs| |support| |eng| |mirror|
+|issues|  |stars|  |python| |license| |docs| |support| |eng| |mirror| |downloads|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
             :alt: Issues
+
+.. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=green&left_text=Downloads
+               :target: https://pepy.tech/project/fedot-ind
+               :alt: Downloads
 
 .. |stars| image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers
