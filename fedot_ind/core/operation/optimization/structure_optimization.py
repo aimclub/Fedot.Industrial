@@ -71,7 +71,7 @@ class SVDOptimization(StructureOptimization):
 
     def __init__(
             self,
-            energy_thresholds: List[float],
+            energy_thresholds: List[float] = [0.1, 0.3, 0.5, 0.7, 0.9, 0.93, 0.96, 0.99, 0.999],
             decomposing_mode: str = 'channel',
             hoer_loss_factor: float = 0.1,
             orthogonal_loss_factor: float = 10,
@@ -204,14 +204,14 @@ class SFPOptimization(StructureOptimization):
 
     def __init__(
             self,
-            zeroing_mode: str,
-            zeroing_mode_params: Dict,
+            zeroing_mode: str = 'percentage',
+            zeroing_mode_params: Dict = {'pruning_ratio': 0.2},
             final_pruning_fn: Callable = prune_resnet,
             model_class: Type = ResNet
     ) -> None:
         description = f"_SFP"
         for k, v in zeroing_mode_params.items():
-            description+=f"_{k}-{v}"
+            description += f"_{k}-{v}"
         super().__init__(
             description=description,
         )
