@@ -217,7 +217,6 @@ def compare_svd_results(
                 df.loc[e, 'fine-tuned'] = e_df.loc[idx, metric] * factor
                 if f'{metric} std' in e_df.columns:
                     df['fine-tuned std'] = e_df.loc[idx, f'{metric} std'] * factor
-        df.set_index('size', inplace=True)
         result[exp] = df
     return result
 
@@ -249,7 +248,7 @@ def show_svd_results(
             plt.plot(df.index, df['pruned'], label=exp, color=(r, g, b))
             if 'pruned std' in df.columns:
                 plt.fill_between(
-                    df.index,
+                    df['size'],
                     df['pruned'] + df['pruned std'],
                     df['pruned'] - df['pruned std'],
                     color=(r, g, b, 0.3)
@@ -259,7 +258,7 @@ def show_svd_results(
             plt.plot(df.index, df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
             if 'fine-tuned std' in df.columns:
                 plt.fill_between(
-                    df.index,
+                    df['size'],
                     df['fine-tuned'] + df['fine-tuned std'],
                     df['fine-tuned'] - df['fine-tuned std'],
                     color=(*pair_color(r, g, b), 0.3),
