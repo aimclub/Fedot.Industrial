@@ -10,6 +10,7 @@ from fedot_ind.api.utils.reader_collections import DataReader, YamlReader
 from fedot_ind.api.utils.reporter import ReporterTSC
 from fedot_ind.core.architecture.settings.task_factory import TaskGenerator
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 
 
 class FedotIndustrial(Fedot):
@@ -53,18 +54,18 @@ class FedotIndustrial(Fedot):
         self.reader = DataReader()
 
         self.config_dict = None
-        self.output_folder = kwargs.get('output_folder', None)
 
         self.__init_experiment_setup(**kwargs)
         self.solver = self.__init_solver()
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        if not self.output_folder:
-            self.output_folder = default_path_to_save_results()
-        self.reporter.path_to_save = self.output_folder
-
-        self.config_dict = self.YAML.init_experiment_setup(**kwargs)
+        kwargs.setdefault('output_folder', default_path_to_save_results())
+        self.reporter.path_to_save = kwargs.get('output_folder')
+        if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
+            self.config_dict = kwargs
+        else:
+            self.config_dict = self.YAML.init_experiment_setup(**kwargs)
 
     def __init_solver(self):
         self.logger.info('Initialising solver')

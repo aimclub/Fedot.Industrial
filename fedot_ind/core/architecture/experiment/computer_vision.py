@@ -1,4 +1,5 @@
 from typing import Union, Optional, Callable, Tuple, Dict
+import os
 
 import torch
 from torch.utils.data import DataLoader, random_split
@@ -74,18 +75,15 @@ OPTIMIZATIONS = {
 }
 
 class CVExperimenter:
-    def __init__(
-            self,
-            task: str,
-            **kwargs
-    ):
-        self.task: str = task
+    def __init__(self, kwargs):
+        self.task: str = kwargs.pop('task')
+        self.path: str = kwargs.pop('output_folder')
         self.optim: Optional[StructureOptimization] = None
         if 'model' in kwargs.keys():
             assert isinstance(kwargs['model'], torch.nn.Module), 'Model must be an instance of torch.nn.Module'
         else:
             assert 'num_classes' in kwargs.keys(), 'It is necessary to pass the number of classes or the model object'
-            kwargs['model'] = CV_TASKS[task]['model'](num_classes=kwargs.pop('num_classes'))
+            kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=kwargs.pop('num_classes'))
 
         if 'optimization' in kwargs.keys():
             optimization = kwargs.pop('optimization')
@@ -93,7 +91,7 @@ class CVExperimenter:
             opt_params = kwargs.pop('optimization_params', {})
             self.optim = OPTIMIZATIONS[optimization](**opt_params)
 
-        self.exp: NNExperimenter = CV_TASKS[task]['experimenter'](**kwargs)
+        self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](**kwargs)
 
 
     def fit(self, dataset_path: str, **kwargs):
@@ -110,6 +108,8 @@ class CVExperimenter:
             train_dl=train_dl,
             val_dl=val_dl,
             num_epochs=kwargs.pop('num_epochs', 50),
+            models_path=os.path.join(self.path, 'models'),
+            summary_path=os.path.join(self.path, 'summary'),
             **kwargs
         )
         if self.optim is None:
@@ -120,6 +120,8 @@ class CVExperimenter:
                 train_dl=train_dl,
                 val_dl=val_dl,
                 num_epochs=ft_params.pop('num_epochs', 10),
+                models_path=os.path.join(self.path, 'models'),
+                summary_path=os.path.join(self.path, 'summary'),
                 **ft_params
             )
-            self.optim.fit(exp=self.exp, params=fit_parameters, ft_params=fit_parameters)
+            self.optim.fit(exp=self.exp, params=fit_parameters, ft_params=ft_parameters)
