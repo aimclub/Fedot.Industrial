@@ -3,6 +3,7 @@ from enum import Enum
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN, \
     TimeSeriesImageClassifier
 from fedot_ind.core.architecture.experiment.TImeSeriesClassifierPreset import TimeSeriesClassifierPreset
+from fedot_ind.core.architecture.experiment.computer_vision import CVExperimenter
 from fedot_ind.core.ensemble.static.RankEnsembler import RankEnsemble
 
 
@@ -16,6 +17,7 @@ class TaskGenerator(Enum):
                              nn=TimeSeriesClassifierNN,
                              default=TimeSeriesClassifier)
 
-    image_classification = (TimeSeriesImageClassifier,)
     anomaly_detection = (TimeSeriesClassifier,)
-    object_detection = (TimeSeriesClassifier,)
+    image_classification = (CVExperimenter,)
+    object_detection = (CVExperimenter,)
+    semantic_segmentation = (CVExperimenter,)
