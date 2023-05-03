@@ -245,7 +245,7 @@ def show_svd_results(
         r, g, b = random_color()
 
         if 'pruned' in df.columns:
-            plt.plot(df.index, df['pruned'], label=exp, color=(r, g, b))
+            plt.plot(df['size'], df['pruned'], label=exp, color=(r, g, b))
             if 'pruned std' in df.columns:
                 plt.fill_between(
                     df['size'],
@@ -255,7 +255,7 @@ def show_svd_results(
                 )
 
         if 'fine-tuned' in df.columns:
-            plt.plot(df.index, df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
+            plt.plot(df['size'], df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
             if 'fine-tuned std' in df.columns:
                 plt.fill_between(
                     df['size'],
