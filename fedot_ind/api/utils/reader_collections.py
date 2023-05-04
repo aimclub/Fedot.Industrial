@@ -29,11 +29,8 @@ class IndustrialConfigs(Enum):
 
 class Configurator:
     """
-    Class for reading the config file for the experiment.
+    Class responsible for experiment configuration.
 
-    Attributes:
-        config_dict: dictionary with the parameters of the experiment.
-        experiment_check: class for checking the correctness of the parameters.
     """
 
     def __init__(self):
@@ -45,7 +42,7 @@ class Configurator:
         return IndustrialConfigs[task].value
 
     def init_experiment_setup(self, **kwargs) -> dict:
-        """Initializes the experiment setup with provided config file or dictionary.
+        """Initializes the experiment setup.
 
         Args:
             kwargs: parameters of the experiment.
