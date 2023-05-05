@@ -1,7 +1,7 @@
 import math
 import random
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,6 +26,10 @@ class TSSplitter:
     Example:
         Create time series and anomaly dictionary::
             ts = np.random.rand(800)
+
+            # of for multivariate time series
+            # ts = [ts1, ts2, ts3]
+
             anomaly_d = {
                 'anomaly1': '40:50, 60:80, 200:220, 410:420, 513:524, 641:645',
                 'anomaly2': '130:170, 300:320, 400:410, 589:620, 715:720',
@@ -39,7 +43,7 @@ class TSSplitter:
 
     """
 
-    def __init__(self, time_series: np.ndarray,
+    def __init__(self, time_series: Union[np.ndarray, list],
                  anomaly_dict: dict,
                  strategy: str = 'frequent',
                  delimiter: str = ':'):
@@ -49,13 +53,18 @@ class TSSplitter:
         self.anomaly_dict = anomaly_dict
         self.strategy = strategy
         self.selected_non_anomaly_intervals = []
+        self.multivariate = self.__check_multivariate(time_series)
 
     def split(self, plot: bool = False, binarize: bool = False) -> tuple:
         """
         Method for splitting time series into train and test parts.
 
+        Args:
+            plot: if True, plot time series with anomaly intervals.
+            binarize: if True, target will be binarized. Recommended for classification task if classes are imbalanced.
+
         Returns:
-            tuple with train and test parts of time series.
+            tuple with train and test parts of time series ready for classification task with FedotIndustrial.
 
         """
         classes, intervals = self._get_anomaly_intervals()
@@ -75,19 +84,21 @@ class TSSplitter:
         if binarize:
             target = self._binarize_target(target)
 
-        X_train, X_test, y_train, y_test = train_test_split(pd.DataFrame(features),
+        if self.multivariate:
+            features = self.convert_features_dimension(features)
+
+        X_train, X_test, y_train, y_test = train_test_split(features,
                                                             target,
                                                             test_size=0.2,
                                                             random_state=42,
                                                             stratify=target)
 
-        if plot:
+        if plot and not self.multivariate:
             self.plot_classes_and_intervals(classes=classes,
                                             intervals=intervals,
-                                            transformed_intervals=transformed_intervals,
-                                            non_anomaly_intervals=non_anomaly_inters)
+                                            transformed_intervals=transformed_intervals)
 
-        return (X_train, y_train), (X_test, y_test)
+        return (pd.DataFrame(X_train), y_train), (pd.DataFrame(X_test), y_test)
 
     def _get_anomaly_intervals(self) -> Tuple[List[str], List[list]]:
 
@@ -149,7 +160,7 @@ class TSSplitter:
             new_intervals.append(new_class_intervals)
         return new_intervals
 
-    def plot_classes_and_intervals(self, classes, intervals, transformed_intervals, non_anomaly_intervals):
+    def plot_classes_and_intervals(self, classes, intervals, transformed_intervals):
         fig, axes = plt.subplots(3, 1, figsize=(17, 7))
         fig.tight_layout()
         for ax in axes:
@@ -173,13 +184,16 @@ class TSSplitter:
                 axes[2].text(interval[0], 0.5, 'no_anomaly', fontsize=12, rotation=90)
         plt.show()
 
-    def _split_by_intervals(self, classes, transformed_intervals):
+    def _split_by_intervals(self, classes, transformed_intervals) -> Tuple[List[str], List[list]]:
         all_labels, all_ts = [], []
 
         for i, label in enumerate(classes):
             for inter in transformed_intervals[i]:
                 all_labels.append(label)
-                all_ts.append(self.time_series[inter[0]:inter[1]])
+                if self.multivariate:
+                    all_ts.append(self.time_series[inter[0]:inter[1], :])
+                else:
+                    all_ts.append(self.time_series[inter[0]:inter[1]])
         return all_labels, all_ts
 
     def _binarize_target(self, target):
@@ -197,7 +211,7 @@ class TSSplitter:
         non_anomaly_ts_list = []
         ts = self.time_series.copy()
         counter = 0
-        while len(non_anomaly_ts_list) != number_of_anomalies and counter != number_of_anomalies*100:
+        while len(non_anomaly_ts_list) != number_of_anomalies and counter != number_of_anomalies * 100:
             seed = np.random.randint(1000)
             random.seed(seed)
             random_inter = random.choice(non_anomaly_intervals)
@@ -207,9 +221,14 @@ class TSSplitter:
                 continue
             random_start_index = random.randint(random_inter[0], random_inter[0] + cropped_ts_len - anomaly_len)
             stop_index = random_start_index + anomaly_len
-            non_anomaly_ts = ts[random_start_index:random_start_index + anomaly_len]
+            if self.multivariate:
+                non_anomaly_ts = ts[random_start_index:stop_index, :]
+            else:
+                non_anomaly_ts = ts[random_start_index:stop_index]
+
             non_anomaly_ts_list.append(non_anomaly_ts)
-            self.selected_non_anomaly_intervals.append([random_start_index, random_start_index + anomaly_len])
+
+            self.selected_non_anomaly_intervals.append([random_start_index, stop_index])
 
         if len(non_anomaly_ts_list) == 0:
             raise Exception('No non-anomaly intervals found')
@@ -225,7 +244,11 @@ class TSSplitter:
             for element in sublist:
                 flat_intervals_list.append(element)
 
-        series = pd.Series(self.time_series).copy()
+        if self.multivariate:
+            series = pd.Series(self.time_series[:, 0]).copy()
+        else:
+            series = pd.Series(self.time_series).copy()
+
         for single_interval in flat_intervals_list:
             series[single_interval[0]:single_interval[1]] = np.nan
 
@@ -233,18 +256,44 @@ class TSSplitter:
         for k, g in series.groupby((series.notnull() != series.shift().notnull()).cumsum()):
             if g.notnull().any():
                 non_nan_intervals.append((g.index[0], g.index[-1]))
+
         return non_nan_intervals
+
+    def __check_multivariate(self, time_series: np.ndarray):
+        if isinstance(time_series, list):
+            self.time_series = np.array(time_series).T
+            return True
+        return False
+
+    def convert_features_dimension(self, features: np.ndarray):
+        multi_dimension = features[0].shape[1]
+        features_df = pd.DataFrame(columns=[f'dim{i}' for i in range(multi_dimension)],
+                                   index=[i for i in range(len(features))])
+        for row, sample in enumerate(features):
+            for dim, measurement in enumerate(sample.T):
+                _measurement = pd.Series(measurement)
+                features_df.at[row, f'dim{dim}'] = _measurement
+
+        return features_df
 
 
 if __name__ == '__main__':
-    ts = np.random.rand(800)
-    anomaly_d = {
-        'anomaly1': '40:50, 60:80, 200:220, 410:420, 513:524, 641:645',
-        'anomaly2': '130:170, 300:320, 400:410, 589:620, 715:720',
-        'anomaly3': '500:530, 710:740',
-        'anomaly4': '77:90, 98:112, 145:158, 290:322',
-    }
 
-    splitter = TSSplitter(ts, anomaly_d)
-    train, test = splitter.split(plot=True, binarize=False)
+    uni_ts = np.random.rand(800)
+    anomaly_d_uni = {'anomaly1': '40:50, 60:80, 200:220, 410:420, 513:524, 641:645',
+                     'anomaly2': '130:170, 300:320, 400:410, 589:620, 715:720',
+                     'anomaly3': '500:530, 710:740',
+                     'anomaly4': '77:90, 98:112, 145:158, 290:322'}
+
+    ts1 = np.arange(0, 100)
+    multi_ts = [ts1, ts1 * 2, ts1 * 3]
+    anomaly_d_multi = {'anomaly1': '0:5, 15:20, 22:24, 55:63, 70:90',
+                       'anomaly2': '10:12, 15:16, 27:31, 44:50, 98:100',
+                       'anomaly3': '0:3, 15:18, 19:24, 55:60, 85:90',}
+
+    splitter_multi = TSSplitter(multi_ts, anomaly_d_multi)
+    train_multi, test_multi = splitter_multi.split(plot=False, binarize=True)
+
+    splitter_uni = TSSplitter(uni_ts, anomaly_d_uni)
+    train_uni, test_uni = splitter_uni.split(plot=True, binarize=True)
     _ = 1
