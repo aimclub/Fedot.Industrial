@@ -160,6 +160,18 @@ class TSSplitter:
             new_intervals.append(new_class_intervals)
         return new_intervals
 
+    def _split_by_intervals(self, classes, transformed_intervals) -> Tuple[List[str], List[list]]:
+        all_labels, all_ts = [], []
+
+        for i, label in enumerate(classes):
+            for inter in transformed_intervals[i]:
+                all_labels.append(label)
+                if self.multivariate:
+                    all_ts.append(self.time_series[inter[0]:inter[1], :])
+                else:
+                    all_ts.append(self.time_series[inter[0]:inter[1]])
+        return all_labels, all_ts
+
     def plot_classes_and_intervals(self, classes, intervals, transformed_intervals):
         fig, axes = plt.subplots(3, 1, figsize=(17, 7))
         fig.tight_layout()
@@ -184,17 +196,6 @@ class TSSplitter:
                 axes[2].text(interval[0], 0.5, 'no_anomaly', fontsize=12, rotation=90)
         plt.show()
 
-    def _split_by_intervals(self, classes, transformed_intervals) -> Tuple[List[str], List[list]]:
-        all_labels, all_ts = [], []
-
-        for i, label in enumerate(classes):
-            for inter in transformed_intervals[i]:
-                all_labels.append(label)
-                if self.multivariate:
-                    all_ts.append(self.time_series[inter[0]:inter[1], :])
-                else:
-                    all_ts.append(self.time_series[inter[0]:inter[1]])
-        return all_labels, all_ts
 
     def _binarize_target(self, target):
         new_target = []
