@@ -15,6 +15,7 @@ from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimente
 from fedot_ind.core.operation.optimization.structure_optimization import StructureOptimization, SVDOptimization, \
     SFPOptimization
 from fedot_ind.core.architecture.datasets.splitters import train_test_split
+from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
 from fedot_ind.core.architecture.datasets.object_detection_datasets import YOLODataset
 
 
@@ -99,7 +100,7 @@ class CVExperimenter:
         train_dl, val_dl = CV_TASKS[self.task]['data'](
             dataset_path=dataset_path,
             dataloader_params=kwargs.pop('dataloader_params', {'batch_size': 8, 'num_workers': 4}),
-            transforms=kwargs.pop('transforms', ToTensor())
+            transform=kwargs.pop('transform', ToTensor())
         )
         self.val_dl = val_dl
 
@@ -130,11 +131,29 @@ class CVExperimenter:
 
         return self.exp.model
 
-    def predict(self, **kwargs):
-        return self.exp.predict(**kwargs)
+    def predict(self, data_path, **kwargs):
+        dataset = PredictionFolderDataset(
+            image_folder=data_path,
+            transform=kwargs.pop('transform', ToTensor())
+        )
+        dataloader = DataLoader(
+            dataset=dataset,
+            collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
+            **kwargs
+        )
+        return self.exp.predict(dataloader=dataloader)
 
-    def predict_proba(self, **kwargs):
-        return self.exp.predict_proba(**kwargs)
+    def predict_proba(self, data_path, **kwargs):
+        dataset = PredictionFolderDataset(
+            image_folder=data_path,
+            transform=kwargs.pop('transform', ToTensor())
+        )
+        dataloader = DataLoader(
+            dataset=dataset,
+            collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
+            **kwargs
+        )
+        return self.exp.predict_proba(dataloader=dataloader)
 
     def get_metrics(self, **kwargs):
         if self.val_dl is not None:
