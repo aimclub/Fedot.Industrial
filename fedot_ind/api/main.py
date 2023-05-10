@@ -84,10 +84,7 @@ class FedotIndustrial(Fedot):
 
         return solver(self.config_dict)
 
-    def fit(self,
-            train_features: pd.DataFrame,
-            train_target: np.ndarray,
-            **kwargs) -> Pipeline:
+    def fit(self, **kwargs) -> Pipeline:
         """
         Method for training Industrial model.
 
@@ -101,14 +98,10 @@ class FedotIndustrial(Fedot):
 
         """
 
-        fitted_pipeline = self.solver.fit(train_ts_frame=train_features,
-                                          train_target=train_target,
-                                          **kwargs)
+        fitted_pipeline = self.solver.fit(**kwargs)
         return fitted_pipeline
 
-    def predict(self,
-                test_features: pd.DataFrame,
-                **kwargs) -> np.ndarray:
+    def predict(self, **kwargs) -> np.ndarray:
         """
         Method to obtain prediction labels from trained Industrial model.
 
@@ -119,11 +112,9 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        return self.solver.predict(test_features=test_features, **kwargs)
+        return self.solver.predict(**kwargs)
 
-    def predict_proba(self,
-                      test_features: pd.DataFrame,
-                      **kwargs) -> np.ndarray:
+    def predict_proba(self, **kwargs) -> np.ndarray:
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -134,7 +125,7 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        return self.solver.predict_proba(test_features=test_features, **kwargs)
+        return self.solver.predict_proba(**kwargs)
 
     def get_metrics(self,
                     target: Union[np.ndarray, pd.Series] = None,

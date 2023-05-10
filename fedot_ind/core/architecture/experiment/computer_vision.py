@@ -125,3 +125,5 @@ class CVExperimenter:
                 **ft_params
             )
             self.optim.fit(exp=self.exp, params=fit_parameters, ft_params=ft_parameters)
+
+        return self.exp.model
