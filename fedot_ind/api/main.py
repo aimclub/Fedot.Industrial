@@ -129,10 +129,7 @@ class FedotIndustrial(Fedot):
         """
         return self.solver.predict_proba(**kwargs)
 
-    def get_metrics(self,
-                    target: Union[np.ndarray, pd.Series] = None,
-                    metric_names: Union[str, List[str]] = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
-                    **kwargs) -> dict:
+    def get_metrics(self, **kwargs) -> dict:
         """
         Method to obtain Gets quality metrics
 
@@ -145,7 +142,7 @@ class FedotIndustrial(Fedot):
             the dictionary with calculated metrics
 
         """
-        return self.solver.get_metrics(target, metric_names)
+        return self.solver.get_metrics(**kwargs)
 
     def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray], **kwargs) -> None:
         """
@@ -161,7 +158,7 @@ class FedotIndustrial(Fedot):
         kind = kwargs.get('kind')
         self.solver.save_prediction(predicted_data, kind=kind)
 
-    def save_metrics(self, metrics: dict) -> None:
+    def save_metrics(self, **kwargs) -> None:
         """
         Method to save metrics locally in csv format
 
@@ -171,7 +168,7 @@ class FedotIndustrial(Fedot):
         Returns:
             None
         """
-        self.solver.save_metrics(metrics)
+        self.solver.save_metrics(**kwargs)
 
     def load(self, path):
         """Loads saved Industrial model from disk
