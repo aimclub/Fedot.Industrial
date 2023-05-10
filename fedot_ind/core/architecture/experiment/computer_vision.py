@@ -92,7 +92,7 @@ class CVExperimenter:
             self.optim = OPTIMIZATIONS[optimization](**opt_params)
 
         self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](**kwargs)
-
+        self.val_dl: Optional[DataLoader] = None
 
     def fit(self, dataset_path: str, **kwargs):
 
@@ -101,6 +101,8 @@ class CVExperimenter:
             dataloader_params=kwargs.pop('dataloader_params', {'batch_size': 8, 'num_workers': 4}),
             transforms=kwargs.pop('transforms', ToTensor())
         )
+        self.val_dl = val_dl
+
         ds_name = kwargs.pop('dataset_name', dataset_path.split('/')[-1])
         ft_params = kwargs.pop('finetuning_params', {})
         fit_parameters = FitParameters(
@@ -127,3 +129,27 @@ class CVExperimenter:
             self.optim.fit(exp=self.exp, params=fit_parameters, ft_params=ft_parameters)
 
         return self.exp.model
+
+    def predict(self, **kwargs):
+        return self.exp.predict(**kwargs)
+
+    def predict_proba(self, **kwargs):
+        return self.exp.predict_proba(**kwargs)
+
+    def get_metrics(self, **kwargs):
+        if self.val_dl is not None:
+            return self.exp.val_loop(dataloader=self.val_dl, **kwargs)
+        else:
+            raise AttributeError('No validation data. Call the fit method before.')
+
+    def load(self, path) -> None:
+        if self.optim is None:
+            self.exp.load_model(path)
+        else:
+            self.optim.load_model(path)
+
+    def save_metrics(self, **kwargs) -> None:
+        print(f'All metrics were saved during training in {self.path}')
+
+    def save_predict(self, **kwargs) -> None:
+        raise NotImplementedError
