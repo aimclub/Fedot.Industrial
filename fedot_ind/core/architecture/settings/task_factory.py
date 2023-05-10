@@ -6,6 +6,7 @@ from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeri
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierNN import TimeSeriesClassifierNN
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.architecture.experiment.TimeSeriesRegression import TimeSeriesRegression
+from fedot_ind.core.architecture.experiment import TimeSeriesForecasingWithDecomposition
 from fedot_ind.core.ensemble.rank_ensembler import RankEnsemble
 
 
@@ -24,3 +25,5 @@ class TaskEnum(Enum):
     image_classification = (CVExperimenter,)
     object_detection = (CVExperimenter,)
     semantic_segmentation = (CVExperimenter,)
+
+

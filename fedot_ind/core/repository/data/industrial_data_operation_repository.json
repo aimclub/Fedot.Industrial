@@ -15,8 +15,25 @@
       "tags": [
       ],
       "description": "Implementations of industrial preprocessing operations"
+    },
+    "industrial_decomposition_for_forecasting": {
+      "tasks": "[TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.table]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_decomposition_for_forecasting_strategy",
+        "IndustrialDecompositionForForecastingStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of industrial operations for decomposition of time series for forecasting it's parts"
     }
   },
+
   "operations": {
     "data_driven_basis": {
       "meta": "industrial_preprocessing",
@@ -88,6 +105,15 @@
       ],
       "tags": [
         "cat_features"
+      ]
+    },
+    "data_driven_basis_for_forecasting": {
+      "meta": "industrial_decomposition_for_forecasting",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "decomposition"
       ]
     }
   }
