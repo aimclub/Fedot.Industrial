@@ -1,4 +1,5 @@
-from typing import Union, Optional, Callable, Tuple, Dict
+"""This module contains the class and functions for integrating the computer vision module into the framework API."""
+from typing import Optional, Callable, Tuple, Dict
 import os
 
 import torch
@@ -24,6 +25,17 @@ def get_classification_dataloaders(
         dataloader_params: Dict,
         transform: Callable
 ) -> Tuple[DataLoader, DataLoader]:
+    """
+    Returns the training and validation data loaders for image classification (`torchvision.datasets.ImageFolder`).
+
+    Args:
+        dataset_path: Image folder path.
+        dataloader_params: Parameter dictionary passed to `torch.utils.data.DataLoader`
+        transform: The image transformation function passed to (`torchvision.datasets.ImageFolder`).
+
+    Returns:
+        `(train_dataloader, validation_dataloader)`
+    """
     ds = ImageFolder(root=dataset_path, transform=transform)
     train_ds, val_ds = train_test_split(ds)
     train_dl = DataLoader(train_ds, shuffle=True, **dataloader_params)
@@ -36,6 +48,17 @@ def get_object_detection_dataloaders(
         dataloader_params: Dict,
         transform: Callable
 ) -> Tuple[DataLoader, DataLoader]:
+    """
+    Returns the training and validation data loaders for object detection (YOLO style).
+
+    Args:
+        dataset_path: Path to folder with images and their annotations.
+        dataloader_params: Parameter dictionary passed to `torch.utils.data.DataLoader`
+        transform: The image transformation function passed to dataset initialization.
+
+    Returns:
+        `(train_dataloader, validation_dataloader)`
+    """
     ds = YOLODataset(image_folder=dataset_path, transform=transform)
     n = int(0.8 * len(ds))
     train_ds, val_ds = random_split(ds, [n, len(ds) - n], generator=torch.Generator().manual_seed(31))
@@ -77,6 +100,9 @@ OPTIMIZATIONS = {
 
 class CVExperimenter:
     def __init__(self, kwargs):
+        """
+        Initializes the experimenter object according to the given computer vision task.
+        """
         self.task: str = kwargs.pop('task')
         self.path: str = kwargs.pop('output_folder')
         self.optim: Optional[StructureOptimization] = None
@@ -96,6 +122,15 @@ class CVExperimenter:
         self.val_dl: Optional[DataLoader] = None
 
     def fit(self, dataset_path: str, **kwargs):
+        """
+        Starts training the model.
+
+        Args:
+            dataset_path: Path to dataset.
+
+        Returns:
+            Trained model (`torch.nn.Module`).
+        """
 
         train_dl, val_dl = CV_TASKS[self.task]['data'](
             dataset_path=dataset_path,
@@ -132,6 +167,15 @@ class CVExperimenter:
         return self.exp.model
 
     def predict(self, data_path, **kwargs):
+        """
+        Computes predictions for data in folder.
+
+        Args:
+            data_path: Path to image folder.
+
+        Returns:
+            Predictions dictionary.
+        """
         dataset = PredictionFolderDataset(
             image_folder=data_path,
             transform=kwargs.pop('transform', ToTensor())
@@ -144,6 +188,15 @@ class CVExperimenter:
         return self.exp.predict(dataloader=dataloader)
 
     def predict_proba(self, data_path, **kwargs):
+        """
+        Computes probability predictions for data in folder.
+
+        Args:
+            data_path: Path to image folder.
+
+        Returns:
+            Predictions dictionary.
+        """
         dataset = PredictionFolderDataset(
             image_folder=data_path,
             transform=kwargs.pop('transform', ToTensor())
@@ -156,18 +209,31 @@ class CVExperimenter:
         return self.exp.predict_proba(dataloader=dataloader)
 
     def get_metrics(self, **kwargs):
+        """
+        Runs model validation and returns metric values.
+
+        Returns:
+            Metrics dictionary
+        """
         if self.val_dl is not None:
             return self.exp.val_loop(dataloader=self.val_dl, **kwargs)
         else:
             raise AttributeError('No validation data. Call the fit method before.')
 
     def load(self, path) -> None:
+        """
+        Load the model state dict.
+
+        Args:
+            path: Path to the model state dict.
+        """
         if self.optim is None:
             self.exp.load_model(path)
         else:
             self.optim.load_model(path)
 
     def save_metrics(self, **kwargs) -> None:
+        """Displays an informational message with the metrics save path"""
         print(f'All metrics were saved during training in {self.path}')
 
     def save_predict(self, **kwargs) -> None:
