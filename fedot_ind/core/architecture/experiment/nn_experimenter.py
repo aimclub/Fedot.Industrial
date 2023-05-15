@@ -362,7 +362,7 @@ class ClassificationExperimenter(NNExperimenter):
         return {'loss': self.loss(preds, y)}
 
     def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
-        """Returns prediction for sample."""
+        """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
         pred = self.model(x)
@@ -422,7 +422,7 @@ class ObjectDetectionExperimenter(NNExperimenter):
         return self.model(images, targets)
 
     def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
-        """Returns prediction for sample."""
+        """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         images = [image.to(self.device) for image in x]
         preds = self.model(images)
@@ -473,19 +473,19 @@ class SegmentationExperimenter(NNExperimenter):
         self.loss = loss
 
     def forward(self, x):
-        """Have to implement the forward method of the model and return predictions."""
+        """Implements the forward method of the model and returns predictions."""
         x = x.to(self.device)
         return self.model(x)['out'].to('cpu').detach()
 
     def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
-        """Have to implement the train forward method and return loss."""
+        """Implements the train forward method and returns loss."""
         x = x.to(self.device)
         y = y.to(self.device)
         preds = self.model(x)['out']
         return {'loss': self.loss(preds, y)}
 
     def predict_on_batch(self, x, proba: bool) -> List:
-        """Returns prediction for sample."""
+        """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
         pred = torch.sigmoid(self.model(x)).cpu().detach()
