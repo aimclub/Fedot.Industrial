@@ -179,7 +179,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "core.operation.interfaces.industrial_preprocessing_strategy",
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
         "IndustrialPreprocessingStrategy"
       ],
       "tags": [

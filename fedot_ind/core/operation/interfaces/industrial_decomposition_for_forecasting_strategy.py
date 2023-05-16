@@ -1,18 +1,8 @@
 from typing import Optional
 
-from fedot.core.operations.evaluation.common_preprocessing import FedotPreprocessingStrategy
-from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.signal.RecurrenceExtractor import RecurrenceExtractor
-from fedot_ind.core.models.signal.SignalExtractor import SignalExtractor
-from fedot_ind.core.models.statistical.StatsExtractor import StatsExtractor
-from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
-from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
-from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
-from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
-from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.ts_forecasting.data_driven_ts import DataDrivenForForecastingBasisImplementation
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 
