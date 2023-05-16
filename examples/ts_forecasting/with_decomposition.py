@@ -18,7 +18,8 @@ datasets = {
     'australia': f'../data/ts/australia.csv',
     'beer': f'../data/ts/beer.csv',
     'salaries': f'../data/ts/salaries.csv',
-    'stackoverflow': f'../data/ts/stackoverflow.csv'}
+    'stackoverflow': f'../data/ts/stackoverflow.csv',
+    'm4_yearly': f'../data/ts/M4YearlyTest.csv'}
 
 
 def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
@@ -26,11 +27,16 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
 
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=horizon))
+    if dataset == 'm4_yearly':
+        time_series = time_series[time_series['label'] == 'Y14791']
+
     if dataset not in ['australia']:
         idx = pd.to_datetime(time_series['idx'].values)
     else:
         # non datetime indexes
         idx = time_series['idx'].values
+
+
     time_series = time_series['value'].values
     train_input = InputData(idx=idx,
                             features=time_series,
@@ -41,7 +47,7 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
     return train_data, test_data
 
 
-train_data, test_data = get_ts_data('australia', 20)
+train_data, test_data = get_ts_data('m4_yearly', 7)
 
 with IndustrialModels():
     n, _ = WindowSizeSelection(time_series=train_data.features,

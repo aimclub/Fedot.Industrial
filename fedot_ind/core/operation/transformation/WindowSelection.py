@@ -59,10 +59,16 @@ class WindowSizeSelection:
         self.length_ts = len(time_series)
 
         if self.window_max is None:
-            self.window_max = int(len(self.time_series) / 3)
+            if len(time_series) >= 100:
+                self.window_max = int(len(self.time_series) / 3)
+            else:
+                self.window_max = int(len(self.time_series) / 2)
 
         if self.window_min is None:
-            self.window_min = int(len(self.time_series) / 10)
+            if len(time_series) >= 100:
+                self.window_min = int(len(self.time_series) / 10)
+            else:
+                self.window_min = int(len(self.time_series) / 2) - 1
 
     def autocorrelation(self) -> Tuple[int, list]:
         """Main function for the highest_autocorrelation (AC) to find an appropriate window size.
@@ -302,6 +308,8 @@ class WindowSizeSelection:
             raise ValueError('Hyperparameters error! self.window_max is equal or smaller to self.window_min')
         else:
             window_size_selected, list_score = self.dict_methods[self.wss_algorithm]()
+            if window_size_selected < self.window_min:
+                return self.window_min, list_score
         return window_size_selected, list_score
 
 
