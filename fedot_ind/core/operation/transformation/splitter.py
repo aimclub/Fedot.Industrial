@@ -52,6 +52,7 @@ class TSSplitter:
 
     def __init__(self, time_series: Union[np.ndarray, list],
                  anomaly_dict: dict,
+                 is_multivariate: bool = False,
                  strategy: str = 'frequent',
                  delimiter: str = ':'):
 
@@ -60,7 +61,7 @@ class TSSplitter:
         self.anomaly_dict = anomaly_dict
         self.strategy = strategy
         self.selected_non_anomaly_intervals = []
-        self.multivariate = self.__check_multivariate(time_series)
+        self.multivariate = is_multivariate
         self.split_methods = {'frequent': self._frequent_split,
                               'unique': self._unique_split}
 
@@ -145,19 +146,14 @@ class TSSplitter:
                                                             test_size=0.2,
                                                             random_state=42,
                                                             stratify=target)
-        return X_test, X_train, y_test, y_train
+        return X_train, X_test, y_train, y_test
 
     def _get_anomaly_intervals(self) -> Tuple[List[str], List[list]]:
-
         labels = list(self.anomaly_dict.keys())
         label_intervals = []
         for anomaly_label in labels:
-            # Extract the intervals using regular expressions
             s = self.anomaly_dict[anomaly_label]
-            intervals = re.findall(r'\d+{0}\d+'.format(re.escape(self.delimiter)), s)
-            result = [list(map(int, interval.split(self.delimiter))) for interval in intervals]
-
-            label_intervals.append(result)
+            label_intervals.append(s)
         return labels, label_intervals
 
     def _get_frequent_anomaly_length(self, intervals: List[list]):
@@ -305,12 +301,6 @@ class TSSplitter:
                 non_nan_intervals.append((g.index[0], g.index[-1]))
 
         return non_nan_intervals
-
-    def __check_multivariate(self, time_series: np.ndarray):
-        if isinstance(time_series, list):
-            self.time_series = np.array(time_series).T
-            return True
-        return False
 
     def convert_features_dimension(self, features: np.ndarray):
         multi_dimension = features[0].shape[1]
