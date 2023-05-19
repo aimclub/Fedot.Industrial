@@ -14,7 +14,7 @@ from fedot_ind.core.operation.utils.cache import DataCacher
 
 class BaseExtractor(IndustrialCachableOperationImplementation):
     """
-    Abstract class responsible for feature generators.
+    Abstract class responsible for feature generator.
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
