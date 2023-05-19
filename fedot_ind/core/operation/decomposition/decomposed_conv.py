@@ -33,15 +33,7 @@ class DecomposedConv2d(Conv2d):
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: _size_2_t,
-        stride: _size_2_t = 1,
-        padding: Union[str, _size_2_t] = 0,
-        dilation: _size_2_t = 1,
-        groups: int = 1,
-        bias: bool = True,
-        padding_mode: str = 'zeros',
+        base_conv: Conv2d,
         decomposing: bool = True,
         decomposing_mode: str = 'channel',
         device=None,
@@ -49,15 +41,15 @@ class DecomposedConv2d(Conv2d):
     ) -> None:
 
         super().__init__(
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride,
-            padding,
-            dilation,
-            groups,
-            bias,
-            padding_mode,
+            base_conv.in_channels,
+            base_conv.out_channels,
+            base_conv.kernel_size,
+            base_conv.stride,
+            base_conv.padding,
+            base_conv.dilation,
+            base_conv.groups,
+            (base_conv.bias is not None),
+            base_conv.padding_mode,
             device,
             dtype,
         )
