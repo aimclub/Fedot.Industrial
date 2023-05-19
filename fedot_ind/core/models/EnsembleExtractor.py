@@ -8,12 +8,12 @@ from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalEx
 
 
 class EnsembleExtractor(BaseExtractor):
-    """Class for performing experiments with ensemble of feature generators.
+    """Class for performing experiments with ensemble of feature generator.
 
     Args:
-        feature_generator_dict: Dictionary of feature generators consists of
+        feature_generator_dict: Dictionary of feature generator consists of
             'generator_name': generator_class pairs.
-        list_of_generators: List of feature generators.
+        list_of_generators: List of feature generator.
 
     """
 
@@ -44,7 +44,7 @@ class EnsembleExtractor(BaseExtractor):
             Dataframe with extracted features.
 
         """
-        self.logger.info(f'Extracting features using ensemble of generators: {self.list_of_generators.keys()}')
+        self.logger.info(f'Extracting features using ensemble of generator: {self.list_of_generators.keys()}')
         features = list()
         for generator_name, generator in self.list_of_generators.items():
             features_df = generator.extract_features(input_data, dataset_name)
