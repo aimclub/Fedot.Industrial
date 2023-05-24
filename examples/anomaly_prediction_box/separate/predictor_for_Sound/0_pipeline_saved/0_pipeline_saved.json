@@ -1,0 +1,30 @@
+{
+    "total_pipeline_operations": [
+        "rf"
+    ],
+    "depth": 1,
+    "nodes": [
+        {
+            "operation_id": 0,
+            "operation_type": "rf",
+            "operation_name": "RandomForestClassifier",
+            "custom_params": {
+                "n_jobs": 4
+            },
+            "params": {
+                "n_jobs": 4
+            },
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_0.pkl"
+            ],
+            "rating": null
+        }
+    ],
+    "preprocessing": [
+        "preprocessing",
+        "data_preprocessor.pkl"
+    ],
+    "descriptive_id": "/n_rf_{'n_jobs': 4}"
+}
