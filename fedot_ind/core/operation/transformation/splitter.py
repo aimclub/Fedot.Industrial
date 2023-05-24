@@ -212,7 +212,7 @@ class TSSplitter:
                 if self.multivariate:
                     all_ts.append(self.time_series[inter[0]:inter[1], :])
                 else:
-                    all_ts.append(self.time_series[inter[0]:inter[1]])
+                    all_ts.append(np.ravel(self.time_series[inter[0]:inter[1]]))
         return all_labels, all_ts
 
     def plot_classes_and_intervals(self, classes, intervals, transformed_intervals):
@@ -267,7 +267,7 @@ class TSSplitter:
             if self.multivariate:
                 non_anomaly_ts = ts[random_start_index:stop_index, :]
             else:
-                non_anomaly_ts = ts[random_start_index:stop_index]
+                non_anomaly_ts = np.ravel(ts[random_start_index:stop_index])
 
             non_anomaly_ts_list.append(non_anomaly_ts)
 
@@ -290,7 +290,7 @@ class TSSplitter:
         if self.multivariate:
             series = pd.Series(self.time_series[:, 0]).copy()
         else:
-            series = pd.Series(self.time_series).copy()
+            series = pd.Series(np.ravel(self.time_series)).copy()
 
         for single_interval in flat_intervals_list:
             series[single_interval[0]:single_interval[1]] = np.nan
