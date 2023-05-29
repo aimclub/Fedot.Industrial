@@ -47,7 +47,7 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
     return train_data, test_data
 
 
-train_data, test_data = get_ts_data('m4_yearly', 7)
+train_data, test_data = get_ts_data('beer', 7)
 
 with IndustrialModels():
     n, _ = WindowSizeSelection(time_series=train_data.features,
