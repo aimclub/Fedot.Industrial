@@ -1,17 +1,16 @@
 from enum import Enum
 
-from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN, \
-    TimeSeriesImageClassifier
-from fedot_ind.core.architecture.experiment.TImeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.architecture.experiment.computer_vision import CVExperimenter
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN
+from fedot_ind.core.architecture.experiment.TImeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.ensemble.static.RankEnsembler import RankEnsemble
 
 
-class EnsembleGenerator(Enum):
+class EnsembleEnum(Enum):
     Rank_Ensemble = RankEnsemble
 
 
-class TaskGenerator(Enum):
+class TaskEnum(Enum):
 
     ts_classification = dict(fedot_preset=TimeSeriesClassifierPreset,
                              nn=TimeSeriesClassifierNN,

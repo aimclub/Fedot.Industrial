@@ -1,23 +1,24 @@
 """This module contains the class and functions for integrating the computer vision module into the framework API."""
-from typing import Optional, Callable, Tuple, Dict
 import os
+from typing import Callable, Dict, Optional, Tuple
+from urllib.error import URLError
 
 import torch
 from torch.utils.data import DataLoader, random_split
+from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 from torchvision.models.segmentation import deeplabv3_resnet50
-from torchvision.datasets import ImageFolder
 from torchvision.transforms import ToTensor
 
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimenter, ClassificationExperimenter, \
-    ObjectDetectionExperimenter, SegmentationExperimenter, FitParameters
-from fedot_ind.core.operation.optimization.structure_optimization import StructureOptimization, SVDOptimization, \
-    SFPOptimization
-from fedot_ind.core.architecture.datasets.splitters import train_test_split
-from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
 from fedot_ind.core.architecture.datasets.object_detection_datasets import YOLODataset
+from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
+from fedot_ind.core.architecture.datasets.splitters import train_test_split
+from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, FitParameters, \
+    NNExperimenter, ObjectDetectionExperimenter, SegmentationExperimenter
+from fedot_ind.core.operation.optimization.structure_optimization import SFPOptimization, StructureOptimization, \
+    SVDOptimization
 
 
 def get_classification_dataloaders(
@@ -98,11 +99,23 @@ OPTIMIZATIONS = {
     'sfp': SFPOptimization,
 }
 
+
 class CVExperimenter:
+    """
+    This class is used to integrate the computer vision module into the framework API.
+
+    Args:
+        kwargs: Keyword arguments for the experimenter object.
+
+    Attributes:
+        task: Computer vision task name.
+        path: Path to the folder where the results of the experiment will be saved.
+        optim: Optimization object.
+        exp: Experimenter object.
+        val_dl: Validation data loader.
+
+    """
     def __init__(self, kwargs):
-        """
-        Initializes the experimenter object according to the given computer vision task.
-        """
         self.task: str = kwargs.pop('task')
         self.path: str = kwargs.pop('output_folder')
         self.optim: Optional[StructureOptimization] = None
@@ -110,7 +123,13 @@ class CVExperimenter:
             assert isinstance(kwargs['model'], torch.nn.Module), 'Model must be an instance of torch.nn.Module'
         else:
             assert 'num_classes' in kwargs.keys(), 'It is necessary to pass the number of classes or the model object'
-            kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=kwargs.pop('num_classes'))
+
+            try:
+                kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=kwargs.pop('num_classes'))
+            except URLError:
+                # Fix for possible SSL error
+                import ssl
+                ssl._create_default_https_context = ssl._create_unverified_context
 
         if 'optimization' in kwargs.keys():
             optimization = kwargs.pop('optimization')
@@ -231,6 +250,19 @@ class CVExperimenter:
             self.exp.load_model(path)
         else:
             self.optim.load_model(path)
+
+    def save(self, path) -> None:
+        """
+        Save the model state dict.
+
+        Args:
+            path: Path to the model state dict.
+
+        """
+        if self.optim is None:
+            self.exp.save_model(file_path=path)
+        else:
+            self.optim.save_model(file_path=path)
 
     def save_metrics(self, **kwargs) -> None:
         """Displays an informational message with the metrics save path"""

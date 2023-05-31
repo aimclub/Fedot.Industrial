@@ -1,4 +1,5 @@
 """This module contains classes for working with neural networks using pytorch."""
+import logging
 import os
 import shutil
 from dataclasses import dataclass, field
@@ -6,17 +7,14 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
 
 import torch
-import logging
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter
+from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import LossesAverager, ClassificationMetricCounter, \
-    SegmentationMetricCounter, ObjectDetectionMetricCounter
+from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, ObjectDetectionMetricCounter, \
+    SegmentationMetricCounter
 
 
 @dataclass(frozen=True)
@@ -36,6 +34,7 @@ class FitParameters:
         summary_path: Path to folder for writing experiment summary info.
         class_metrics: If ``True``, calculates validation metrics for each class.
         description: Additional line describing the experiment.
+
     """
 
     dataset_name: str
@@ -63,6 +62,7 @@ class NNExperimenter:
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
         device: String passed to ``torch.device`` initialization.
+
     """
 
     def __init__(
@@ -85,13 +85,12 @@ class NNExperimenter:
         self.metric = metric
         self.metric_counter = metric_counter
 
-    def fit(
-            self,
+    def fit(self,
             p: FitParameters,
             phase: str = 'train',
             model_losses: Optional[Callable] = None,
             start_epoch: int = 0
-    ) -> None:
+            ) -> None:
         """Run model training.
 
         Args:
@@ -99,6 +98,7 @@ class NNExperimenter:
             phase: String explanation of training.
             model_losses: Function for calculating losses from model weights.
             start_epoch: Initial training epoch.
+
         """
         model_path = os.path.join(p.models_path, p.dataset_name, self.name, p.description, phase)
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, p.description, phase)
@@ -113,7 +113,7 @@ class NNExperimenter:
         optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)
         lr_scheduler = None
         if p.lr_scheduler is not None:
-            lr_scheduler=p.lr_scheduler(optimizer, **p.lr_scheduler_params)
+            lr_scheduler = p.lr_scheduler(optimizer, **p.lr_scheduler_params)
         for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
@@ -139,6 +139,7 @@ class NNExperimenter:
         Args:
             val_scores: Validation metric dictionary.
             file_path: Path to the file without extension.
+
         """
         if val_scores[self.metric] > self.best_score:
             self.best_score = val_scores[self.metric]
@@ -156,6 +157,7 @@ class NNExperimenter:
             file_path: Path to the file without extension.
             state_dict: If ``True`` save state_dict with extension ".sd.pt",
                 else save all model with extension ".model.pt".
+
         """
         dir_path, file_name = os.path.split(file_path)
         os.makedirs(dir_path, exist_ok=True)
@@ -434,6 +436,7 @@ class ObjectDetectionExperimenter(NNExperimenter):
                 pred.pop('scores')
         preds = [{k: v.tolist() for k, v in p.items()} for p in preds]
         return preds
+
 
 class SegmentationExperimenter(NNExperimenter):
     """Class for working with semantic segmentation models.

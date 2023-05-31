@@ -8,7 +8,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.reader_collections import Configurator
 from fedot_ind.api.utils.reporter import ReporterTSC
-from fedot_ind.core.architecture.settings.task_factory import TaskGenerator
+from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
 from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 
@@ -74,15 +74,15 @@ class FedotIndustrial(Fedot):
 
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['strategy'] == 'fedot_preset':
-                solver = TaskGenerator[self.config_dict['task']].value['fedot_preset']
+                solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
             elif self.config_dict['strategy'] is None:
                 self.config_dict['strategy'] = 'InceptionTime'
-                solver = TaskGenerator[self.config_dict['task']].value['nn']
+                solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
-                solver = TaskGenerator[self.config_dict['task']].value['default']
+                solver = TaskEnum[self.config_dict['task']].value['default']
 
         else:
-            solver = TaskGenerator[self.config_dict['task']].value[0]
+            solver = TaskEnum[self.config_dict['task']].value[0]
 
         return solver(self.config_dict)
 
@@ -167,6 +167,7 @@ class FedotIndustrial(Fedot):
 
         Returns:
             None
+
         """
         self.solver.save_metrics(**kwargs)
 
@@ -175,8 +176,8 @@ class FedotIndustrial(Fedot):
 
         Args:
             path (str): path to the model
+
         """
-        # self.pipeline.load(path)
         raise NotImplementedError()
 
     def plot_prediction(self, **kwargs):
