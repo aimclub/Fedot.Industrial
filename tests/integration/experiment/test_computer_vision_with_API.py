@@ -1,16 +1,19 @@
 import os
+import platform
 
-from torchvision.transforms import ToTensor, Resize, Compose
+from torchvision.transforms import Compose, Resize, ToTensor
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-
 
 DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 
 
 def test_image_classification():
-    fed = FedotIndustrial(task='image_classification', num_classes=3)
+    fed = FedotIndustrial(task='image_classification',
+                          num_classes=3,
+                          # Taking into account hardware specifics
+                          device='cpu' if platform.system() == 'Darwin' else 'cuda')
     fed.fit(
         dataset_path=os.path.join(DATASETS_PATH, 'Agricultural/train'),
         transform=Compose([ToTensor(), Resize((256, 256))]),
@@ -33,7 +36,9 @@ def test_image_classification_svd():
         task='image_classification',
         num_classes=3,
         optimization='svd',
-        optimization_params={'energy_thresholds': [0.9]}
+        optimization_params={'energy_thresholds': [0.9]},
+        # Taking into account hardware specifics
+        device='cpu' if platform.system() == 'Darwin' else 'cuda'
     )
     fed.fit(
         dataset_path=os.path.join(DATASETS_PATH, 'Agricultural/train'),
@@ -41,10 +46,17 @@ def test_image_classification_svd():
         num_epochs=2,
         finetuning_params={'num_epochs': 1}
     )
+    fed.predict(
+        data_path=os.path.join(DATASETS_PATH, 'Agricultural/val'),
+        transform=Compose([ToTensor(), Resize((256, 256))]),
+    )
 
 
 def test_object_detection():
-    fed = FedotIndustrial(task='object_detection', num_classes=3)
+    fed = FedotIndustrial(task='object_detection',
+                          num_classes=3,
+                          # Taking into account hardware specifics
+                          device='cpu' if platform.system() == 'Darwin' else 'cuda')
     fed.fit(
         dataset_path=os.path.join(DATASETS_PATH, 'minerals'),
         num_epochs=2
