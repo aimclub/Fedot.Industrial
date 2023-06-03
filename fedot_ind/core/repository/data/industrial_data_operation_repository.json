@@ -204,6 +204,18 @@
     }
   },
   "operations": {
+    "data_source_ts": {
+      "meta": "data_sources",
+      "tags": [
+        "data_source_ts",
+        "non_lagged",
+        "non-default",
+        "nans-ignore",
+        "categorical-ignore"
+      ],
+      "input_type": "[DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.ts]"
+    },
     "data_driven_basis": {
       "meta": "industrial_preprocessing",
       "presets": [

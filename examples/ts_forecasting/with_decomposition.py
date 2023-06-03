@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pandas as pd
 from fedot.core.composer.metrics import smape
@@ -19,7 +21,8 @@ datasets = {
     'beer': f'../data/ts/beer.csv',
     'salaries': f'../data/ts/salaries.csv',
     'stackoverflow': f'../data/ts/stackoverflow.csv',
-    'm4_yearly': f'../data/ts/M4YearlyTest.csv'}
+    'm4_yearly': f'../data/ts/M4YearlyTest.csv',
+    'm4_weekly': f'../data/ts/M4WeeklyTest.csv'}
 
 
 def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
@@ -27,8 +30,10 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
 
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=horizon))
-    if dataset == 'm4_yearly':
-        time_series = time_series[time_series['label'] == 'Y14791']
+    if 'm4' in dataset:
+        random_label = random.choice(np.unique(time_series['label']))
+        print(random_label)
+        time_series = time_series[time_series['label'] == random_label]
 
     if dataset not in ['australia']:
         idx = pd.to_datetime(time_series['idx'].values)
@@ -47,14 +52,15 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
     return train_data, test_data
 
 
-train_data, test_data = get_ts_data('beer', 7)
+train_data, test_data = get_ts_data('m4_weekly', 13)
 
 with IndustrialModels():
     n, _ = WindowSizeSelection(time_series=train_data.features,
                                wss_algorithm='dominant_fourier_frequency').get_window_size()
     print(n)
+    n = 30
     pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
-                                          params={'n_components': 6, 'window_size': n,
+                                          params={'n_components': 3, 'window_size': n,
                                                   'estimator': PipelineBuilder().add_node('ar').build()
                                                   },
                                           ).build()

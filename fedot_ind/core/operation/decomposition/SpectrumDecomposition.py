@@ -36,10 +36,11 @@ class SpectrumDecomposer:
                                                    singular_value_hard_threshold(singular_values=Monoid[1],
                                                                                  beta=data.shape[0] / data.shape[1],
                                                                                  threshold=None),
-                                                   Monoid[2]]) if n_components is None else ListMonad([Monoid[0][:, :n_components],
-                                                                                                            Monoid[1][
-                                                                                                            :n_components],
-                                                                                                            Monoid[2][:n_components, :]])
+                                                   Monoid[2]]) if n_components is None else ListMonad(
+            [Monoid[0][:, :n_components],
+             Monoid[1][
+             :n_components],
+             Monoid[2][:n_components, :]])
         self.data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                             Monoid[1],
                                                                             Monoid[2],
@@ -63,4 +64,5 @@ class SpectrumDecomposer:
              :,
              :n_components].T])
 
-        self.combine_components = lambda Monoid: ListMonad(combine_eigenvectors(Monoid, window_length=window_size, correlation_level=0.6))
+        self.combine_components = lambda Monoid: ListMonad(
+            combine_eigenvectors(Monoid, window_length=window_size, correlation_level=0.6))

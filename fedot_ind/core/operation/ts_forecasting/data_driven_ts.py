@@ -8,6 +8,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.quality_metrics_repository import RegressionMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
+from matplotlib import pyplot as plt
 from pymonad.either import Either
 
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
@@ -44,16 +45,16 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
         reconstructed_target = []
         reconstructed_features = []
+        components = components
         print(len(components))
-        for row in components:
+        for i, row in enumerate(components):
             # auto_model = Fedot(problem='ts_forecasting', task_params=input_data.task.task_params,
             #                    timeout=0.5,
             #                    n_jobs=1)
-            reconstructed_features.append(row)
             train_data = InputData(idx=np.arange(row.shape[0]), features=row, target=row,
                                    data_type=input_data.data_type,
                                    task=input_data.task)
-            test_data = InputData(idx=input_data.idx, features=row, target=input_data.target,
+            test_data = InputData(idx=input_data.idx, features=row, target=None,
                                   data_type=input_data.data_type,
                                   task=input_data.task)
             pipeline_tuner = TunerBuilder(train_data.task) \
@@ -68,37 +69,28 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
             predict = np.ravel(self.estimator.predict(test_data).predict)
             reconstructed_target.append(predict)
             self.estimator.unfit()
-        reconstructed_features = np.array(reconstructed_features).sum(axis=0)
-        remains = input_data.features - reconstructed_features
 
+        remains = input_data.features - np.array(components).sum(axis=0)
         train_data = InputData(idx=np.arange(remains.shape[0]), features=remains, target=remains,
                                data_type=input_data.data_type,
                                task=input_data.task)
-        test_data = InputData(idx=input_data.idx, features=remains, target=input_data.target,
+        test_data = InputData(idx=input_data.idx, features=remains, target=None,
                               data_type=input_data.data_type,
                               task=input_data.task)
-        pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(SimultaneousTuner) \
-            .with_metric(RegressionMetricsEnum.MAE) \
-            .with_iterations(10) \
-            .with_cv_folds(3) \
-            .with_validation_blocks(2) \
-            .build(train_data)
-        self.estimator = pipeline_tuner.tune(self.estimator)
-        self.estimator.fit(train_data)
-        predict = np.ravel(self.estimator.predict(test_data).predict)
+        auto_model = Fedot(problem='ts_forecasting', task_params=input_data.task.task_params,
+                           timeout=0.5,
+                           n_jobs=2)
+        auto_model.fit(train_data)
+        predict = auto_model.current_pipeline.predict(test_data).predict
         reconstructed_target.append(predict)
-        self.estimator.unfit()
-
         return np.array(reconstructed_target).sum(axis=0)
 
     def fit(self, input_data: InputData):
         pass
 
     def get_combined_components(self, data):
-        components = Either.insert(data).then(self.decomposer.svd).then(self.decomposer.threshold).then(
+        components = Either.insert(data).then(self.decomposer.svd).then(
             self.decomposer.data_driven_basis).then(
             self.decomposer.combine_components).value[0]
 
         return components
-

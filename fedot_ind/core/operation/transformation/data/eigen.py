@@ -22,15 +22,14 @@ def calculate_matrix_norms(TS_comps, window_length, ts_length):
 
 
 def calculate_corr_matrix(TS_comps, F_wnorms, window_length, ts_length):
-    Wcorr = np.identity(len(TS_comps))
-    components = [i for i in range(TS_comps.shape[1])]
-    for i in components:
-        for j in range(i + 1, len(components)):
+    Wcorr = np.identity(TS_comps.shape[1])
+    for i in range(Wcorr.shape[0]):
+        for j in range(i + 1, Wcorr.shape[0]):
             Wcorr[i, j] = abs(
                 weighted_inner_product(TS_comps[:, i], TS_comps[:, j], window_length, ts_length) *
                 F_wnorms[i] * F_wnorms[j])
             Wcorr[j, i] = Wcorr[i, j]
-    return Wcorr, components
+    return Wcorr, [i for i in range(Wcorr.shape[0])]
 
 
 def combine_eigenvectors(TS_comps, window_length,  correlation_level: float = 0.8):
@@ -52,24 +51,15 @@ def combine_eigenvectors(TS_comps, window_length,  correlation_level: float = 0.
     # Calculate Wcorr.
     Wcorr, components = calculate_corr_matrix(TS_comps, F_wnorms, window_length, ts_length)
 
-    # Calculate Wcorr. and Select Correlated Eigenvectors.
-    corr_dict = {i: [i for i, v in enumerate(Wcorr[:, i]) if v > correlation_level] for i in components}
-    # copy of the dictionary for deleting keys
-    filtred_dict = copy.deepcopy(corr_dict)
-
-    # Select Correlated Eigenvectors.
-    for list_of_corr_vectors in list(corr_dict.values()):
-        final_component = None
-        if len(list_of_corr_vectors) < 2:
-            final_component = TS_comps[:, list_of_corr_vectors[0]]
-            combined_components.append(final_component)
+    combined_components = []
+    current_group = []
+    for i in range(len(components)):
+        if i == 0 or Wcorr[i, i-1] > correlation_level:
+            current_group.append(TS_comps[:, i])
         else:
-            for corr_vector in list_of_corr_vectors:
-                if corr_vector in filtred_dict.keys():
-                    if final_component is None:
-                        final_component = np.sum(TS_comps[:, list_of_corr_vectors], axis=1)
-                        combined_components.append(final_component)
-                    del filtred_dict[corr_vector]
+            combined_components.append(np.array(current_group).sum(axis=0))
+            current_group = [TS_comps[:, i]]
+
 
 
     return combined_components
