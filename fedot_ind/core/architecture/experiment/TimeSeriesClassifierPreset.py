@@ -39,6 +39,9 @@ class TimeSeriesClassifierPreset:
     Notes:
         ``branch_nodes`` can be one of the following: ``'data_driven_basis'``, ``'fourier_basis'``, ``'wavelet_basis'``.
 
+    Attributes:
+        branch_nodes: list of nodes to be used in the pipeline
+
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
