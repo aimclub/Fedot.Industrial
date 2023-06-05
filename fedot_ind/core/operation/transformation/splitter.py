@@ -61,11 +61,18 @@ class TSSplitter:
         self.anomaly_dict = anomaly_dict
         self.strategy = strategy
         self.selected_non_anomaly_intervals = []
-        self.multivariate = is_multivariate
+        self.multivariate = self.__check_multivariate(time_series)
+        # self.multivariate = is_multivariate
         self.split_methods = {'frequent': self._frequent_split,
                               'unique': self._unique_split}
 
         self.classes, self.intervals = self._get_anomaly_intervals()
+
+    def __check_multivariate(self, time_series: np.ndarray):
+        if isinstance(time_series, list):
+            self.time_series = np.array(time_series).T
+            return True
+        return False
 
     def split(self, **kwargs):
         method = self.split_methods.get(self.strategy, None)
@@ -78,10 +85,11 @@ class TSSplitter:
         Split time series into train and test parts based on unique anomalies.
 
         Args:
-            plot:
-            binarize:
+            plot: if True, plot time series with anomaly intervals. Available only for univariate time series.
+            binarize: if True, target will be binarized. Recommended for classification task if classes are imbalanced.
 
         Returns:
+            tuple with train and test parts of time series ready for classification task with FedotIndustrial.
 
         """
         # classes, intervals = self._get_anomaly_intervals()
@@ -153,7 +161,10 @@ class TSSplitter:
         label_intervals = []
         for anomaly_label in labels:
             s = self.anomaly_dict[anomaly_label]
-            label_intervals.append(s)
+            intervals = re.findall(r'\d+{0}\d+'.format(re.escape(self.delimiter)), s)
+            result = [list(map(int, interval.split(self.delimiter))) for interval in intervals]
+            label_intervals.append(result)
+            # label_intervals.append(s)
         return labels, label_intervals
 
     def _get_frequent_anomaly_length(self, intervals: List[list]):
@@ -166,6 +177,7 @@ class TSSplitter:
         return max(set(lengths), key=lengths.count)
 
     def _transform_intervals(self, intervals, freq_len):
+        # ts = self.time_series if not self.multivariate else self.time_series.T[0]
         new_intervals = []
         for class_inter in intervals:
             new_class_intervals = []

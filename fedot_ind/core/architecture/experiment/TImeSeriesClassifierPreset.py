@@ -27,14 +27,17 @@ np.random.seed(0)
 class TimeSeriesClassifierPreset:
     """Class responsible for interaction with Fedot classifier.
 
+    Attributes:
+        branch_nodes: list of nodes to be used in the pipeline
+
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
         self.test_data_preprocessed = None
         self.generator_name = 'fedot_preset'
-        self.branch_nodes = params.get('branch_nodes', ['data_driven_basis',
-                                                        'fourier_basis',
-                                                        'wavelet_basis'])
+        self.branch_nodes: list = params.get('branch_nodes', ['data_driven_basis',
+                                                              'fourier_basis',
+                                                              'wavelet_basis'])
 
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
@@ -52,16 +55,16 @@ class TimeSeriesClassifierPreset:
         self.test_features = None
         self.input_test_data = None
 
-        self.logger.info('TimeSeriesClassifierPreset initialised')
-
+        self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes')
 
     # TODO: put some datatype
     # TODO: add multidata option
     def _init_input_data(self, X, y):
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
-                               target=y.reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table)
+                               target=np.ravel(y).reshape(-1, 1),
+                               task=Task(TaskTypesEnum.classification),
+                               data_type=DataTypesEnum.table)
 
         # Multidata option
 
@@ -117,7 +120,6 @@ class TimeSeriesClassifierPreset:
                                                 data_type=train_data_preprocessed.data_type,
                                                 task=train_data_preprocessed.task)
 
-
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
         self.predictor = Fedot(**self.model_params)
@@ -151,7 +153,7 @@ class TimeSeriesClassifierPreset:
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):
         analyzer = PerformanceAnalyzer()
-        return analyzer.calculate_metrics(target=target,
+        return analyzer.calculate_metrics(target=np.ravel(target),
                                           predicted_labels=self.prediction_label,
                                           predicted_probs=self.prediction_proba,
                                           target_metrics=metric_names)
