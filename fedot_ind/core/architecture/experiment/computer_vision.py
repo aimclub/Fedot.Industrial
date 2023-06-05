@@ -1,6 +1,7 @@
 """This module contains the class and functions for integrating the computer vision module into the framework API."""
 import os
 from typing import Callable, Dict, Optional, Tuple
+import logging
 from urllib.error import URLError
 
 import torch
@@ -25,7 +26,7 @@ def get_classification_dataloaders(
         dataset_path: str,
         dataloader_params: Dict,
         transform: Callable
-) -> Tuple[DataLoader, DataLoader]:
+) -> Tuple[DataLoader, DataLoader, Dict[int, str]]:
     """
     Returns the training and validation data loaders for image classification (`torchvision.datasets.ImageFolder`).
 
@@ -35,20 +36,21 @@ def get_classification_dataloaders(
         transform: The image transformation function passed to (`torchvision.datasets.ImageFolder`).
 
     Returns:
-        `(train_dataloader, validation_dataloader)`
+        `(train_dataloader, validation_dataloader, idx_to_class)`
     """
     ds = ImageFolder(root=dataset_path, transform=transform)
     train_ds, val_ds = train_test_split(ds)
     train_dl = DataLoader(train_ds, shuffle=True, **dataloader_params)
     val_dl = DataLoader(val_ds, **dataloader_params)
-    return train_dl, val_dl
+    idx_to_class = {idx: cls for cls, idx in ds.class_to_idx.items()}
+    return train_dl, val_dl, idx_to_class
 
 
 def get_object_detection_dataloaders(
         dataset_path: str,
         dataloader_params: Dict,
         transform: Callable
-) -> Tuple[DataLoader, DataLoader]:
+) -> Tuple[DataLoader, DataLoader, Dict[int, str]]:
     """
     Returns the training and validation data loaders for object detection (YOLO style).
 
@@ -58,14 +60,15 @@ def get_object_detection_dataloaders(
         transform: The image transformation function passed to dataset initialization.
 
     Returns:
-        `(train_dataloader, validation_dataloader)`
+        `(train_dataloader, validation_dataloader, idx_to_class)`
     """
     ds = YOLODataset(image_folder=dataset_path, transform=transform)
     n = int(0.8 * len(ds))
     train_ds, val_ds = random_split(ds, [n, len(ds) - n], generator=torch.Generator().manual_seed(31))
     train_dl = DataLoader(train_ds, shuffle=True, collate_fn=lambda x: tuple(zip(*x)), **dataloader_params)
     val_dl = DataLoader(val_ds, collate_fn=lambda x: tuple(zip(*x)), **dataloader_params)
-    return train_dl, val_dl
+    idx_to_class = {}
+    return train_dl, val_dl, idx_to_class
 
 
 def get_segmentation_dataloaders(
@@ -76,21 +79,28 @@ def get_segmentation_dataloaders(
     return NotImplementedError
 
 
+def classification_idx_to_class(preds: Dict[str, int], idx_to_class: Dict[int, str]) -> Dict[str, str]:
+    return {img: idx_to_class[idx] for img, idx in preds.items()}
+
+
 CV_TASKS = {
     'image_classification': {
         'experimenter': ClassificationExperimenter,
         'model': resnet18,
         'data': get_classification_dataloaders,
+        'idx_to_class': classification_idx_to_class,
     },
     'object_detection': {
         'experimenter': ObjectDetectionExperimenter,
         'model': ssdlite320_mobilenet_v3_large,
-        'data': get_object_detection_dataloaders
+        'data': get_object_detection_dataloaders,
+        'idx_to_class': lambda x, y: x
     },
     'semantic_segmentation': {
         'experimenter': SegmentationExperimenter,
         'model': deeplabv3_resnet50,
-        'data': get_segmentation_dataloaders
+        'data': get_segmentation_dataloaders,
+        'idx_to_class': lambda x, y: x
     }
 }
 
@@ -116,6 +126,7 @@ class CVExperimenter:
 
     """
     def __init__(self, kwargs):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.task: str = kwargs.pop('task')
         self.path: str = kwargs.pop('output_folder')
         self.optim: Optional[StructureOptimization] = None
@@ -145,6 +156,7 @@ class CVExperimenter:
 
         self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](**kwargs)
         self.val_dl: Optional[DataLoader] = None
+        self.idx_to_class: Optional[Dict[int: str]] = None
 
     def fit(self, dataset_path: str, **kwargs):
         """
@@ -156,13 +168,14 @@ class CVExperimenter:
         Returns:
             Trained model (`torch.nn.Module`).
         """
-
-        train_dl, val_dl = CV_TASKS[self.task]['data'](
+        self.logger.info('dataset preparing')
+        train_dl, val_dl, idx_to_class = CV_TASKS[self.task]['data'](
             dataset_path=dataset_path,
             dataloader_params=kwargs.pop('dataloader_params', {'batch_size': 8, 'num_workers': 4}),
             transform=kwargs.pop('transform', ToTensor())
         )
         self.val_dl = val_dl
+        self.idx_to_class = idx_to_class
 
         ds_name = kwargs.pop('dataset_name', dataset_path.split('/')[-1])
         ft_params = kwargs.pop('finetuning_params', {})
@@ -210,7 +223,7 @@ class CVExperimenter:
             collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
             **kwargs
         )
-        return self.exp.predict(dataloader=dataloader)
+        return CV_TASKS[self.task]['idx_to_class'](self.exp.predict(dataloader=dataloader), self.idx_to_class)
 
     def predict_proba(self, data_path, **kwargs):
         """
