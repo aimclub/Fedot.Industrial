@@ -124,18 +124,24 @@ class CVExperimenter:
         else:
             assert 'num_classes' in kwargs.keys(), 'It is necessary to pass the number of classes or the model object'
 
+            num_classes = kwargs.pop('num_classes')
+
             try:
-                kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=kwargs.pop('num_classes'))
+                kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=num_classes)
             except URLError:
                 # Fix for possible SSL error
                 import ssl
                 ssl._create_default_https_context = ssl._create_unverified_context
+                kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=num_classes)
 
         if 'optimization' in kwargs.keys():
             optimization = kwargs.pop('optimization')
             parameter_value_check('optimization', optimization, set(OPTIMIZATIONS.keys()))
             opt_params = kwargs.pop('optimization_params', {})
             self.optim = OPTIMIZATIONS[optimization](**opt_params)
+
+        if 'device' not in kwargs.keys():
+            kwargs['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](**kwargs)
         self.val_dl: Optional[DataLoader] = None
@@ -257,12 +263,8 @@ class CVExperimenter:
 
         Args:
             path: Path to the model state dict.
-
         """
-        if self.optim is None:
-            self.exp.save_model(file_path=path)
-        else:
-            self.optim.save_model(file_path=path)
+        self.exp.save_model(file_path=path)
 
     def save_metrics(self, **kwargs) -> None:
         """Displays an informational message with the metrics save path"""
