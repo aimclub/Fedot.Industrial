@@ -45,4 +45,5 @@ sphinx
 sphinx_rtd_theme
 autodocsumm
 
-
+PyYAML>=6.0
+Pillow>=9.5.0
