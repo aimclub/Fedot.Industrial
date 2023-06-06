@@ -5,7 +5,7 @@ import logging
 from urllib.error import URLError
 
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
@@ -62,12 +62,11 @@ def get_object_detection_dataloaders(
     Returns:
         `(train_dataloader, validation_dataloader, idx_to_class)`
     """
-    ds = YOLODataset(image_folder=dataset_path, transform=transform)
-    n = int(0.8 * len(ds))
-    train_ds, val_ds = random_split(ds, [n, len(ds) - n], generator=torch.Generator().manual_seed(31))
+    train_ds = YOLODataset(path=dataset_path, transform=transform)
+    val_ds = YOLODataset(path=dataset_path, transform=transform, train=False)
     train_dl = DataLoader(train_ds, shuffle=True, collate_fn=lambda x: tuple(zip(*x)), **dataloader_params)
     val_dl = DataLoader(val_ds, collate_fn=lambda x: tuple(zip(*x)), **dataloader_params)
-    idx_to_class = {}
+    idx_to_class = {idx: cls for idx, cls in enumerate(train_ds.classes)}
     return train_dl, val_dl, idx_to_class
 
 
