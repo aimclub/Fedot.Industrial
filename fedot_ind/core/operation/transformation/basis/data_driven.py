@@ -99,3 +99,23 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         derivative_coefs = np.array([np.polyder(x[::-1], order)[::-1] for x in coefs])
 
         return basis, derivative_coefs
+
+
+if __name__ == "__main__":
+    from fedot_ind.api.main import FedotIndustrial
+    from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+
+    (X_train, y_train), (X_test, y_test) = DataLoader('Lightning7').load_data()
+
+    fed = FedotIndustrial(task='ts_classification',
+                          strategy='fedot_preset',
+                          branch_nodes=['data_driven_basis'],
+                          dataset_name='custom',
+                          timeout=2,
+                          n_jobs=4,
+                          logging_level=40)
+
+    model = fed.fit(train_features=X_train, train_target=y_train)
+    labels = fed.predict(test_features=X_test)
+    _ = 1
+

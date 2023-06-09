@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
 class TimeSeriesDatasetsGenerator:
@@ -27,6 +28,7 @@ class TimeSeriesDatasetsGenerator:
         self.max_ts_len = max_ts_len
         self.n_classes = n_classes
         self.test_size = test_size
+        self.ts_types = None
 
     def generate_data(self):
         """

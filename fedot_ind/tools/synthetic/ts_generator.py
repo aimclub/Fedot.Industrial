@@ -29,7 +29,8 @@ class TimeSeriesGenerator:
 
     def get_ts(self):
         if self.ts_type not in self.ts_types.keys():
-            raise ValueError('ts_type must be one of the following: "sin", "smooth_normal"')
+            raise ValueError('ts_type must be one of the following: "sin", "smooth_normal", "random_walk", '
+                             '"auto_regression"')
         else:
             ts_class = self.ts_types[self.ts_type](self.params)
             return ts_class.get_ts()
