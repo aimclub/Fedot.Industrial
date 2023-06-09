@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-class TimeSeriesGenerator:
+class TimeSeriesDatasetsGenerator:
     def __init__(self, num_samples: int = 80, max_ts_len: int = 50, n_classes: int = 3, test_size: float = 0.5):
         """
         Generates dummy time series datasets for classification tasks.
