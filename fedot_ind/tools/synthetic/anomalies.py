@@ -102,8 +102,8 @@ class Peak(Anomaly):
         shift = np.zeros(ts.size)
         sector = ts_[interval[0]: interval[1]+1]
         peak_value = abs(np.mean(sector) * (self.level / 100))
-        random_point = np.random.randint(interval[0], interval[1]+1)
-        shift[random_point] = peak_value
+        center_point = int((interval[1]+1 + interval[0]) / 2)
+        shift[center_point] = peak_value
         return self.apply_shift(ts_, shift)
 
     def apply_shift(self, ts_, shift):
