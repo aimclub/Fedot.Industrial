@@ -131,6 +131,7 @@ class NNExperimenter:
             if lr_scheduler is not None:
                 lr_scheduler.step()
         self.load_model(model_path)
+        self.logger.info(f'{self.metric} score: {self.best_score}')
         writer.close()
 
     def save_model_sd_if_best(self, val_scores: Dict, file_path):
@@ -244,6 +245,7 @@ class NNExperimenter:
             dataloader: Data loader with prediction dataset.
             proba: If ``True`` computes probabilities.
         """
+        self.logger.info('Computing predictions')
         ids = []
         preds = []
         self.model.eval()
