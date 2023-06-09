@@ -125,7 +125,7 @@ class AnomalyGenerator:
         return initial_ts, t_series, anomaly_intervals_dict
 
     def plot_anomalies(self, initial_ts, modified_ts, anomaly_intervals_dict):
-        fig, ax = plt.subplots(figsize=(15, 7))
+        fig, ax = plt.subplots(figsize=(12, 7))
         ax.plot(modified_ts, label='Modified Time Series')
         ax.plot(initial_ts, label='Initial Time Series')
         ax.set_title('Time Series with Anomalies')
@@ -157,45 +157,78 @@ class AnomalyGenerator:
 
 if __name__ == '__main__':
 
-    config = {'decrease_dispersion': {'level': 70,
-                                      'number': 2,
-                                      'min_anomaly_length': 10,
-                                      'max_anomaly_length': 15},
-              'dip': {'level': 20,
-                      'number': 2,
-                      'min_anomaly_length': 10,
-                      'max_anomaly_length': 20},
+    # config = {'decrease_dispersion': {'level': 70,
+    #                                   'number': 2,
+    #                                   'min_anomaly_length': 10,
+    #                                   'max_anomaly_length': 15},
+    #           'dip': {'level': 20,
+    #                   'number': 2,
+    #                   'min_anomaly_length': 10,
+    #                   'max_anomaly_length': 20},
+    #
+    #           'peak': {'level': 2,
+    #                    'number': 2,
+    #                    'min_anomaly_length': 5,
+    #                    'max_anomaly_length': 10},
+    #           'increase_dispersion': {'level': 70,
+    #                                   'number': 2,
+    #                                   'min_anomaly_length': 30,
+    #                                   'max_anomaly_length': 40},
+    #           'shift_trend_up': {'level': 10,
+    #                              'number': 2,
+    #                              'min_anomaly_length': 10,
+    #                              'max_anomaly_length': 20},
+    #           'shift_trend_down': {'level': 10,
+    #                                'number': 2,
+    #                                'min_anomaly_length': 10,
+    #                                'max_anomaly_length': 20},
+    #           'add_noise': {'level': 80,
+    #                         'number': 2,
+    #                         'noise_type': 'uniform',
+    #                         'min_anomaly_length': 50,
+    #                         'max_anomaly_length': 60}
+    #           }
+    #
+    # generator = AnomalyGenerator(config=config)
+    #
+    # ts_conf = {'ts_type': 'sin',
+    #            'ts_length': 2000}
+    #
+    # init_ts, mot_ts, inters = generator.generate(time_series_data=ts_conf,
+    #                                              plot=True,
+    #                                              overlap=0.1)
 
-              'peak': {'level': 2,
-                       'number': 2,
-                       'min_anomaly_length': 5,
-                       'max_anomaly_length': 10},
-              'increase_dispersion': {'level': 70,
-                                      'number': 2,
-                                      'min_anomaly_length': 30,
-                                      'max_anomaly_length': 40},
-              'shift_trend_up': {'level': 10,
-                                 'number': 2,
-                                 'min_anomaly_length': 10,
-                                 'max_anomaly_length': 20},
-              'shift_trend_down': {'level': 10,
-                                   'number': 2,
-                                   'min_anomaly_length': 10,
-                                   'max_anomaly_length': 20},
-              'add_noise': {'level': 80,
-                            'number': 2,
-                            'noise_type': 'uniform',
-                            'min_anomaly_length': 50,
-                            'max_anomaly_length': 60}
-              }
+    synth_ts = {'ts_type': 'sin',
+                'length': 1000,
+                'amplitude': 10,
+                'period': 500}
 
-    generator = AnomalyGenerator(config=config)
+    anomaly_config = {'dip': {'level': 20,
+                              'number': 5,
+                              'min_anomaly_length': 10,
+                              'max_anomaly_length': 20},
+                      'peak': {'level': 2,
+                               'number': 5,
+                               'min_anomaly_length': 5,
+                               'max_anomaly_length': 10},
+                      # 'increase_dispersion': {'level': 50,
+                      #                         'number': 2,
+                      #                         'min_anomaly_length': 10,
+                      #                         'max_anomaly_length': 15},
+                      # 'shift_trend_up': {'level': 10,
+                      #                    'number': 2,
+                      #                    'min_anomaly_length': 10,
+                      #                    'max_anomaly_length': 20},
+                      # 'add_noise': {'level': 80,
+                      #               'number': 2,
+                      #               'noise_type': 'uniform',
+                      #               'min_anomaly_length': 10,
+                      #               'max_anomaly_length': 20}
+                      }
 
-    ts_conf = {'ts_type': 'sin',
-               'ts_length': 2000}
+    generator = AnomalyGenerator(config=anomaly_config)
 
-    init_ts, mot_ts, inters = generator.generate(time_series_data=ts_conf,
-                                                 plot=True,
-                                                 overlap=0.1)
-
+    init_synth_ts, mod_synth_ts, synth_inters = generator.generate(time_series_data=synth_ts,
+                                                                   plot=True,
+                                                                   overlap=0.1)
     _ = 1
