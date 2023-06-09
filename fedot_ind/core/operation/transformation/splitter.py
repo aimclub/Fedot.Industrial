@@ -52,7 +52,6 @@ class TSSplitter:
 
     def __init__(self, time_series: Union[np.ndarray, list],
                  anomaly_dict: dict,
-                 is_multivariate: bool = False,
                  strategy: str = 'frequent',
                  delimiter: str = ':'):
 
@@ -62,7 +61,6 @@ class TSSplitter:
         self.strategy = strategy
         self.selected_non_anomaly_intervals = []
         self.multivariate = self.__check_multivariate(time_series)
-        # self.multivariate = is_multivariate
         self.split_methods = {'frequent': self._frequent_split,
                               'unique': self._unique_split}
 
@@ -130,7 +128,7 @@ class TSSplitter:
         freq_length = self._get_frequent_anomaly_length(self.intervals)
         transformed_intervals = self._transform_intervals(self.intervals, freq_length)
 
-        X_test, X_train, y_test, y_train = self.get_train_test(classes=self.classes,
+        X_train, X_test, y_train, y_test = self.get_train_test(classes=self.classes,
                                                                transformed_intervals=transformed_intervals,
                                                                binarize=binarize)
 
