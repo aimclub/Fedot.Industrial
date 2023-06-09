@@ -78,8 +78,24 @@ def get_segmentation_dataloaders(
     return NotImplementedError
 
 
-def classification_idx_to_class(preds: Dict[str, int], idx_to_class: Dict[int, str]) -> Dict[str, str]:
-    return {img: idx_to_class[idx] for img, idx in preds.items()}
+def classification_idx_to_class(
+        preds: Dict[str, int],
+        idx_to_class: Dict[int, str],
+        proba: bool = False
+) -> Dict[str, str]:
+    return preds if proba else {img: idx_to_class[idx] for img, idx in preds.items()}
+
+
+def detection_idx_to_class(
+        preds: Dict[str, Dict],
+        idx_to_class: Dict[int, str],
+        proba: bool = False,
+) -> Dict[str, Dict]:
+    return {
+        img: {
+            k: (v if k != 'labels' else [idx_to_class[idx] for idx in v]) for k, v in pred.items()
+        } for img, pred in preds.items()
+    }
 
 
 CV_TASKS = {
@@ -93,13 +109,13 @@ CV_TASKS = {
         'experimenter': ObjectDetectionExperimenter,
         'model': ssdlite320_mobilenet_v3_large,
         'data': get_object_detection_dataloaders,
-        'idx_to_class': lambda x, y: x
+        'idx_to_class': detection_idx_to_class,
     },
     'semantic_segmentation': {
         'experimenter': SegmentationExperimenter,
         'model': deeplabv3_resnet50,
         'data': get_segmentation_dataloaders,
-        'idx_to_class': lambda x, y: x
+        'idx_to_class': lambda x, y, z: x
     }
 }
 
@@ -156,6 +172,7 @@ class CVExperimenter:
         self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](**kwargs)
         self.val_dl: Optional[DataLoader] = None
         self.idx_to_class: Optional[Dict[int: str]] = None
+        self.logger.info(f'{type(self.exp).__name__} initialised')
 
     def fit(self, dataset_path: str, **kwargs):
         """
@@ -167,7 +184,7 @@ class CVExperimenter:
         Returns:
             Trained model (`torch.nn.Module`).
         """
-        self.logger.info('dataset preparing')
+        self.logger.info('Dataset preparing')
         train_dl, val_dl, idx_to_class = CV_TASKS[self.task]['data'](
             dataset_path=dataset_path,
             dataloader_params=kwargs.pop('dataloader_params', {'batch_size': 8, 'num_workers': 4}),
@@ -222,7 +239,8 @@ class CVExperimenter:
             collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
             **kwargs
         )
-        return CV_TASKS[self.task]['idx_to_class'](self.exp.predict(dataloader=dataloader), self.idx_to_class)
+        predictions = self.exp.predict(dataloader=dataloader)
+        return CV_TASKS[self.task]['idx_to_class'](predictions, self.idx_to_class)
 
     def predict_proba(self, data_path, **kwargs):
         """
@@ -243,7 +261,8 @@ class CVExperimenter:
             collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
             **kwargs
         )
-        return self.exp.predict_proba(dataloader=dataloader)
+        predictions = self.exp.predict_proba(dataloader=dataloader)
+        return CV_TASKS[self.task]['idx_to_class'](predictions, self.idx_to_class, True)
 
     def get_metrics(self, **kwargs):
         """
