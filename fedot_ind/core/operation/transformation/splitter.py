@@ -239,15 +239,15 @@ class TSSplitter:
 
         for i, label in enumerate(classes):
             for interval_ in transformed_intervals[i]:
-                axes[1].axvspan(interval_[0], interval_[1], alpha=0.3, color='blue', edgecolor="black")
+                axes[1].axvspan(interval_[0], interval_[1], alpha=0.3, color='blue')
                 axes[1].text(interval_[0], 0.5, label, fontsize=12, rotation=90)
             for interval in intervals[i]:
-                axes[0].axvspan(interval[0], interval[1], alpha=0.3, color='red', edgecolor="black")
+                axes[0].axvspan(interval[0], interval[1], alpha=0.3, color='red')
                 axes[0].text(interval[0], 0.5, label, fontsize=12, rotation=90)
 
         if self.selected_non_anomaly_intervals is not None:
             for interval in self.selected_non_anomaly_intervals:
-                axes[2].axvspan(interval[0], interval[1], alpha=0.3, color='green', edgecolor="black")
+                axes[2].axvspan(interval[0], interval[1], alpha=0.3, color='green')
                 axes[2].text(interval[0], 0.5, 'no_anomaly', fontsize=12, rotation=90)
         plt.show()
 
@@ -266,16 +266,28 @@ class TSSplitter:
         non_anomaly_ts_list = []
         ts = self.time_series.copy()
         counter = 0
+        taken_slots = pd.Series([0 for _ in range(len(ts))])
+        # for non_anom in non_anomaly_intervals:
+        #     taken_slots[non_anom[0]:non_anom[1]] = 0
+
         while len(non_anomaly_ts_list) != number_of_anomalies and counter != number_of_anomalies * 100:
             seed = np.random.randint(1000)
             random.seed(seed)
             random_inter = random.choice(non_anomaly_intervals)
             cropped_ts_len = random_inter[1] - random_inter[0]
             counter += 1
+            # Exclude intervals that are too short
             if cropped_ts_len < anomaly_len:
                 continue
             random_start_index = random.randint(random_inter[0], random_inter[0] + cropped_ts_len - anomaly_len)
             stop_index = random_start_index + anomaly_len
+
+            # Check if this interval overlaps with another interval
+            if taken_slots[random_start_index:stop_index].mean() > 0.1:
+                continue
+            else:
+                taken_slots[random_start_index:stop_index] = 1
+
             if self.multivariate:
                 non_anomaly_ts = ts[random_start_index:stop_index, :]
             else:
@@ -340,7 +352,7 @@ if __name__ == '__main__':
                        'anomaly3': '0:3, 15:18, 19:24, 55:60, 85:90', }
 
     splitter_multi = TSSplitter(multi_ts, anomaly_d_multi)
-    train_multi, test_multi = splitter_multi.split(plot=False, binarize=True)
+    # train_multi, test_multi = splitter_multi.split(plot=False, binarize=True)
 
     splitter_uni = TSSplitter(uni_ts, anomaly_d_uni)
     train_uni, test_uni = splitter_uni.split(plot=True, binarize=True)
