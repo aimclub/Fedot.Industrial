@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional, Type, Union
 import torch
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau, LRScheduler
 from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
@@ -43,8 +44,10 @@ class FitParameters:
     num_epochs: int
     optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
     optimizer_params: Dict = field(default_factory=dict)
-    lr_scheduler: Optional[Type] = None
-    lr_scheduler_params: Dict = field(default_factory=dict)
+    lr_scheduler: Optional[Type] = ReduceLROnPlateau
+    lr_scheduler_params: Dict = field(
+        default_factory=lambda: {'factor': 0.2, 'mode': 'max', 'patience': 5, 'verbose': True}
+    )
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
     class_metrics: bool = False
@@ -128,7 +131,9 @@ class NNExperimenter:
             )
             writer.write_scores('val', val_scores, epoch)
             self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
-            if lr_scheduler is not None:
+            if isinstance(lr_scheduler, ReduceLROnPlateau):
+                lr_scheduler.step(val_scores[self.metric])
+            elif isinstance(lr_scheduler, LRScheduler):
                 lr_scheduler.step()
         self.load_model(model_path)
         self.logger.info(f'{self.metric} score: {self.best_score}')
