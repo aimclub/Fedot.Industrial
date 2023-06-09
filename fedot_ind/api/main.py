@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import List, Union
 
 import numpy as np
@@ -48,6 +49,16 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
+        kwargs.setdefault('output_folder', default_path_to_save_results())
+        Path(kwargs.get('output_folder')).mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
+            handlers=[
+                logging.FileHandler(Path(kwargs.get('output_folder')) / 'log.log'),
+                logging.StreamHandler()
+            ]
+        )
         super(Fedot, self).__init__()
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
@@ -62,7 +73,6 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        kwargs.setdefault('output_folder', default_path_to_save_results())
         self.reporter.path_to_save = kwargs.get('output_folder')
         if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
             self.config_dict = kwargs
