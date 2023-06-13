@@ -44,10 +44,8 @@ class FitParameters:
     num_epochs: int
     optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
     optimizer_params: Dict = field(default_factory=dict)
-    lr_scheduler: Optional[Type] = ReduceLROnPlateau
-    lr_scheduler_params: Dict = field(
-        default_factory=lambda: {'factor': 0.2, 'mode': 'max', 'patience': 5, 'verbose': True}
-    )
+    lr_scheduler: Optional[Type] = None
+    lr_scheduler_params: Dict = field(default_factory=dict)
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
     class_metrics: bool = False

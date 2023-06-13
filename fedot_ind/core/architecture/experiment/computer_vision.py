@@ -6,6 +6,7 @@ from urllib.error import URLError
 
 import torch
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
@@ -195,11 +196,21 @@ class CVExperimenter:
 
         ds_name = kwargs.pop('dataset_name', dataset_path.split('/')[-1])
         ft_params = kwargs.pop('finetuning_params', {})
+        num_epoch = kwargs.pop('num_epochs', 50)
+        if 'lr_scheduler' not in kwargs.keys():
+            kwargs['lr_scheduler'] = ReduceLROnPlateau
+            kwargs['lr_scheduler_params'] = {
+                'factor': 0.2,
+                'mode': 'max',
+                'patience': int(num_epoch / 10),
+                'verbose': True
+            }
+
         fit_parameters = FitParameters(
             dataset_name=ds_name,
             train_dl=train_dl,
             val_dl=val_dl,
-            num_epochs=kwargs.pop('num_epochs', 50),
+            num_epochs=num_epoch,
             models_path=os.path.join(self.path, 'models'),
             summary_path=os.path.join(self.path, 'summary'),
             **kwargs
