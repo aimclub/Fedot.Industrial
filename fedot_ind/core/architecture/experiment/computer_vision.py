@@ -224,7 +224,7 @@ class CVExperimenter:
                 ft_params['lr_scheduler_params'] = {
                     'factor': 0.2,
                     'mode': 'max',
-                    'patience': int(num_epoch / 10),
+                    'patience': int(ft_num_epoch / 10),
                     'verbose': True
                 }
             ft_parameters = FitParameters(
