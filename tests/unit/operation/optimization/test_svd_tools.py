@@ -2,6 +2,7 @@ import copy
 import os
 
 import pytest
+import torch
 from torchvision.models import resnet18
 
 from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
@@ -10,7 +11,7 @@ from fedot_ind.core.operation.optimization.svd_tools import *
 
 def test_decomposition_of_layer():
     energy_threshold_pruning = create_energy_svd_pruning(energy_threshold=0.5)
-    conv = DecomposedConv2d(3, 6, 3, decomposing=False)
+    conv = DecomposedConv2d(torch.nn.Conv2d(3, 6, 3), decomposing=False)
     with pytest.raises(AssertionError):
         energy_threshold_pruning(conv=conv)
 
@@ -23,7 +24,7 @@ def test_energy_threshold_range():
 
 
 def test_energy_threshold_pruning():
-    conv = DecomposedConv2d(3, 6, 3)
+    conv = DecomposedConv2d(torch.nn.Conv2d(3, 6, 3))
     conv.set_U_S_Vh(
         u=torch.rand((6, 6)),
         s=torch.Tensor([6, 1, 4, 5, 3, 2]),

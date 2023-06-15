@@ -1,4 +1,5 @@
 """This module contains classes for working with neural networks using pytorch."""
+import logging
 import os
 import shutil
 from dataclasses import dataclass, field
@@ -6,11 +7,9 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
 
 import torch
-import logging
 from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torch.optim.lr_scheduler import ReduceLROnPlateau, LRScheduler
 from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
@@ -36,6 +35,7 @@ class FitParameters:
         summary_path: Path to folder for writing experiment summary info.
         class_metrics: If ``True``, calculates validation metrics for each class.
         description: Additional line describing the experiment.
+
     """
 
     dataset_name: str
@@ -63,6 +63,7 @@ class NNExperimenter:
         name: Name of the model.
         weights: Path to the model state_dict to load weights.
         device: String passed to ``torch.device`` initialization.
+
     """
 
     def __init__(
@@ -85,13 +86,12 @@ class NNExperimenter:
         self.metric = metric
         self.metric_counter = metric_counter
 
-    def fit(
-            self,
+    def fit(self,
             p: FitParameters,
             phase: str = 'train',
             model_losses: Optional[Callable] = None,
             start_epoch: int = 0
-    ) -> None:
+            ) -> None:
         """Run model training.
 
         Args:
@@ -99,6 +99,7 @@ class NNExperimenter:
             phase: String explanation of training.
             model_losses: Function for calculating losses from model weights.
             start_epoch: Initial training epoch.
+
         """
         model_path = os.path.join(p.models_path, p.dataset_name, self.name, p.description, phase)
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, p.description, phase)
@@ -113,7 +114,7 @@ class NNExperimenter:
         optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)
         lr_scheduler = None
         if p.lr_scheduler is not None:
-            lr_scheduler=p.lr_scheduler(optimizer, **p.lr_scheduler_params)
+            lr_scheduler = p.lr_scheduler(optimizer, **p.lr_scheduler_params)
         for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
@@ -128,9 +129,12 @@ class NNExperimenter:
             )
             writer.write_scores('val', val_scores, epoch)
             self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
-            if lr_scheduler is not None:
+            if isinstance(lr_scheduler, ReduceLROnPlateau):
+                lr_scheduler.step(val_scores[self.metric])
+            elif isinstance(lr_scheduler, LRScheduler):
                 lr_scheduler.step()
         self.load_model(model_path)
+        self.logger.info(f'{self.metric} score: {self.best_score}')
         writer.close()
 
     def save_model_sd_if_best(self, val_scores: Dict, file_path):
@@ -139,6 +143,7 @@ class NNExperimenter:
         Args:
             val_scores: Validation metric dictionary.
             file_path: Path to the file without extension.
+
         """
         if val_scores[self.metric] > self.best_score:
             self.best_score = val_scores[self.metric]
@@ -156,6 +161,7 @@ class NNExperimenter:
             file_path: Path to the file without extension.
             state_dict: If ``True`` save state_dict with extension ".sd.pt",
                 else save all model with extension ".model.pt".
+
         """
         dir_path, file_name = os.path.split(file_path)
         os.makedirs(dir_path, exist_ok=True)
@@ -242,6 +248,7 @@ class NNExperimenter:
             dataloader: Data loader with prediction dataset.
             proba: If ``True`` computes probabilities.
         """
+        self.logger.info('Computing predictions')
         ids = []
         preds = []
         self.model.eval()
@@ -362,7 +369,7 @@ class ClassificationExperimenter(NNExperimenter):
         return {'loss': self.loss(preds, y)}
 
     def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
-        """Returns prediction for sample."""
+        """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
         pred = self.model(x)
@@ -373,12 +380,11 @@ class ClassificationExperimenter(NNExperimenter):
         return pred
 
 
-class FasterRCNNExperimenter(NNExperimenter):
-    """Class for working with Faster R-CNN.
+class ObjectDetectionExperimenter(NNExperimenter):
+    """Class for working with object detection models.
 
     Args:
-        num_classes: Number of classes in the dataset.
-        model_params: Parameter dictionary passed to model initialization.
+        model: Trainable model.
         metric: Target metric by which models are compared.
             One of ``'map'``, ``'map_50'``, ``'map_75'``.
         name: Name of the model.
@@ -388,8 +394,7 @@ class FasterRCNNExperimenter(NNExperimenter):
 
     def __init__(
             self,
-            num_classes: int,
-            model_params: Dict = {},
+            model: torch.nn.Module,
             metric: str = 'map',
             name: Optional[str] = None,
             weights: Optional[str] = None,
@@ -400,9 +405,6 @@ class FasterRCNNExperimenter(NNExperimenter):
             value=metric,
             valid_values={'map', 'map_50', 'map_75'},
         )
-        model = fasterrcnn_resnet50_fpn(**model_params)
-        in_features = model.roi_heads.box_predictor.cls_score.in_features
-        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
         super().__init__(
             model=model,
             metric=metric,
@@ -427,7 +429,7 @@ class FasterRCNNExperimenter(NNExperimenter):
         return self.model(images, targets)
 
     def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
-        """Returns prediction for sample."""
+        """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         images = [image.to(self.device) for image in x]
         preds = self.model(images)
@@ -439,6 +441,7 @@ class FasterRCNNExperimenter(NNExperimenter):
                 pred.pop('scores')
         preds = [{k: v.tolist() for k, v in p.items()} for p in preds]
         return preds
+
 
 class SegmentationExperimenter(NNExperimenter):
     """Class for working with semantic segmentation models.
@@ -478,18 +481,19 @@ class SegmentationExperimenter(NNExperimenter):
         self.loss = loss
 
     def forward(self, x):
-        """Have to implement the forward method of the model and return predictions."""
+        """Implements the forward method of the model and returns predictions."""
         x = x.to(self.device)
-        return self.model(x)['out']
+        return self.model(x)['out'].to('cpu').detach()
 
     def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
-        """Have to implement the train forward method and return loss."""
+        """Implements the train forward method and returns loss."""
+        x = x.to(self.device)
         y = y.to(self.device)
-        preds = self.forward(x)
-        return {'loss': self.loss(preds, torch.squeeze(y).long())}
+        preds = self.model(x)['out']
+        return {'loss': self.loss(preds, y)}
 
     def predict_on_batch(self, x, proba: bool) -> List:
-        """Returns prediction for sample."""
+        """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
         pred = torch.sigmoid(self.model(x)).cpu().detach()

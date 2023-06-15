@@ -1,17 +1,17 @@
 import logging
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 
 from fedot_ind.api.utils.reader_collections import Configurator
 from fedot_ind.api.utils.reporter import ReporterTSC
 from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 
 
 class FedotIndustrial(Fedot):

@@ -58,15 +58,7 @@ def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> N
 
         if isinstance(module, Conv2d):
             new_module = DecomposedConv2d(
-                in_channels=module.in_channels,
-                out_channels=module.out_channels,
-                kernel_size=module.kernel_size,
-                stride=module.stride,
-                padding=module.padding,
-                dilation=module.dilation,
-                groups=module.groups,
-                bias=(module.bias is not None),
-                padding_mode=module.padding_mode,
+                base_conv=module,
                 decomposing=False,
             )
             new_module.load_state_dict(module.state_dict())

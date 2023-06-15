@@ -26,7 +26,6 @@ Content:
    API/index
    Basics/index
    examples/index
-   Advanced/index
    contribution
    faq
    about

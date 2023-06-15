@@ -1,7 +1,8 @@
 """This module contains classes for object detection task based on torch dataset."""
 
-import json
 import os
+import json
+import yaml
 from typing import Tuple, Callable, Dict
 
 import numpy as np
@@ -99,44 +100,48 @@ class COCODataset(Dataset):
         return len(self.samples)
 
 
+def img2label_paths(img_path):
+    """Define label path as a function of image path."""
+    sa, sb = f'{os.sep}images{os.sep}', f'{os.sep}labels{os.sep}'  # /images/, /labels/ substrings
+    return sb.join(img_path.rsplit(sa, 1)).rsplit('.', 1)[0] + '.txt'
+
+
 class YOLODataset(Dataset):
-    """Class-loader for YOLO format.
+    """Class-loader for YOLO format (https://docs.ultralytics.com/datasets/detect/).
 
     Args:
-        image_folder: Image folder path.
+        path: YAML file path.
         transform: A function/transform that takes in an PIL image and returns a
             transformed version.
-        fix_zero_class: If ``True`` add 1 for each class label
-            (0 represents always the background class).
+        train: If True, creates dataset from training set, otherwise creates from test set.
         replace_to_binary: If ``True`` set label 1 for any class.
     """
 
     def __init__(
         self,
-        image_folder: str,
+        path: str,
         transform: Callable,
-        fix_zero_class: bool = False,
+        train: bool = True,
         replace_to_binary: bool = False,
     ) -> None:
+
         self.transform = transform
-        self.root = image_folder
-        self.samples = []
-        self.fix_zero_class = fix_zero_class
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f)
+        self.root = os.path.abspath(os.path.join(os.path.dirname(path), (data['train'] if train else data['val'])))
+        self.classes = ['background']
+        self.classes.extend(['object'] if replace_to_binary else data['names'])
         self.binary = replace_to_binary
-        for address, dirs, files in os.walk(image_folder):
-            for file in files:
-                if file.lower().endswith(IMG_EXTENSIONS):
-                    name, ext = os.path.splitext(file)
-                    annot = os.path.join(address, f'{name}.txt')
-                    if os.path.exists(annot):
-                        self.samples.append(
-                            {
-                                'image': os.path.join(address, file),
-                                'annotation': annot
-                            }
-                        )
-                    else:
-                         print(f'Annotation {annot} does not exist, skip sample.')
+        self.samples = []
+
+        for file in os.listdir(self.root):
+            if file.lower().endswith(IMG_EXTENSIONS):
+                self.samples.append(
+                    {
+                        'image': os.path.join(self.root, file),
+                        'label': img2label_paths(os.path.join(self.root, file))
+                    }
+                )
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Returns a sample from a dataset.
@@ -152,15 +157,15 @@ class YOLODataset(Dataset):
         sample = self.samples[idx]
         image = Image.open(sample['image']).convert('RGB')
         image = self.transform(image)
-        annotation = np.loadtxt(sample['annotation'], ndmin=2)
-        labels = annotation[:, 0] + 1 if self.fix_zero_class else annotation[:, 0]
+        annotation = np.loadtxt(sample['label'], ndmin=2)
+        labels = annotation[:, 0] + 1
         labels = np.ones_like(labels) if self.binary else labels
         boxes = annotation[:, 1:]
         c, h, w = image.shape
         boxes *= [w, h, w, h]
         area = boxes[:, 2] * boxes[:, 3]
-        boxes[:, :2] -= boxes[:, 2:] / 2 # x centre, y centre, w, h -> x1, y1, w, h
-        boxes[:, 2:] += boxes[:, :2] # x1, y1, w, h -> x1, y1, x2, y2
+        boxes[:, :2] -= boxes[:, 2:] / 2  # x centre, y centre, w, h -> x1, y1, w, h
+        boxes[:, 2:] += boxes[:, :2]  # x1, y1, w, h -> x1, y1, x2, y2
 
         target = {
             'boxes': torch.tensor(boxes, dtype=torch.float32),
