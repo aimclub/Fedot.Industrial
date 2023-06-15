@@ -1,10 +1,9 @@
 import pytest
 
-from fedot_ind.core.architecture.utils.Testing import ModelTestingModule
+from fedot_ind.api.utils.hp_generator_collection import GeneratorParams
+from fedot_ind.core.models.signal.RecurrenceExtractor import RecurrenceExtractor
 from fedot_ind.core.models.statistical.StatsExtractor import StatsExtractor
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
-from fedot_ind.core.models.signal.RecurrenceExtractor import RecurrenceExtractor
-from fedot_ind.api.utils.hp_generator_collection import GeneratorParams
 
 
 @pytest.fixture()
@@ -25,13 +24,16 @@ def get_binary_data():
     (train_features, train_target), (test_features, test_target) = DataLoader('Chinatown').load_data()
     return (train_features, train_target), (test_features, test_target)
 
+
 @pytest.fixture()
 def get_topological_extractor():
     return TopologicalExtractor(GeneratorParams['topological'].value)
 
+
 @pytest.fixture()
 def get_stats_extractor():
     return StatsExtractor(GeneratorParams['statistical'].value)
+
 
 @pytest.fixture()
 def get_recurrence_extractor():
@@ -114,4 +116,3 @@ def test_recurrence_multilabel(get_multilabel_data, get_recurrence_extractor):
     assert test_features is not None
     assert train_features.shape[0] == train_target.shape[0]
     assert test_features.shape[0] == test_target.shape[0]
-
