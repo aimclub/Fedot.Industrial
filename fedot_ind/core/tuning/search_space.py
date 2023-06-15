@@ -27,7 +27,12 @@ industrial_search_space = {
          'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])},
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
-                     'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}}
+                     'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
+    'data_driven_basis_for_forecasting': {
+        'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
+        'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]},
+        'seasonality': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [20, 70]}
+    }
 }
 
 

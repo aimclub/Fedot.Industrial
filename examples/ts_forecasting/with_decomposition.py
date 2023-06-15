@@ -55,25 +55,33 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
 train_data, test_data = get_ts_data('m4_weekly', 13)
 
 with IndustrialModels():
-    n, _ = WindowSizeSelection(time_series=train_data.features,
-                               wss_algorithm='dominant_fourier_frequency').get_window_size()
-    print(n)
-    n = 30
+    # n, _ = WindowSizeSelection(time_series=train_data.features,
+    #                            wss_algorithm='dominant_fourier_frequency').get_window_size()
+    # print(n)
+    # n = 30
     pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
-                                          params={'n_components': 3, 'window_size': n,
-                                                  'estimator': PipelineBuilder().add_node('ar').build()
+                                          params={'n_components': 3, 'window_size': 20,
+                                                  'seasonality': 20
                                                   },
                                           ).build()
-    pipeline2 = PipelineBuilder().add_node('ar').build()
     pipeline_tuner = TunerBuilder(train_data.task) \
+        .with_tuner(SimultaneousTuner) \
+        .with_metric(RegressionMetricsEnum.MAE) \
+        .with_cv_folds(2) \
+        .with_validation_blocks(2) \
+        .with_iterations(5) \
+        .build(train_data)
+    pipeline = pipeline_tuner.tune(pipeline)
+    pipeline.fit(train_data)
+    pipeline2 = PipelineBuilder().add_node('ar').build()
+    pipeline_tuner2 = TunerBuilder(train_data.task) \
         .with_tuner(SimultaneousTuner) \
         .with_metric(RegressionMetricsEnum.MAE) \
         .with_cv_folds(3) \
         .with_validation_blocks(2) \
         .with_iterations(10) \
         .build(train_data)
-    pipeline2 = pipeline_tuner.tune(pipeline2)
-    pipeline.fit(train_data)
+    pipeline2 = pipeline_tuner2.tune(pipeline2)
     pipeline2.fit(train_data)
     predict = np.ravel(pipeline.predict(test_data).predict)
     no_ssa = np.ravel(pipeline2.predict(test_data).predict)
