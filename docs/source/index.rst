@@ -6,7 +6,7 @@ Here you can find comprehensive documentation for the
 machine learning.
 
 It provides a set of tools for solving several problems related to time series and computer vision:
-anomaly detection, classification, object detection and image classification.
+anomaly detection, classification, and object detection and classification.
 
 The framework is based on the FEDOT_ framework using its algorithmic
 kernel in terms of evolutionary optimization and obtaining graph-like

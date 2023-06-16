@@ -25,10 +25,19 @@ np.random.seed(0)
 
 
 class TimeSeriesClassifierPreset:
-    """Class responsible for interaction with Fedot classifier.
+    """Class responsible for interaction with Fedot classifier. It allows to use FEDOT optimization
+    for hyperparameters tuning and pipeline building. Nodes of the pipeline are basis functions
+    from the list of branch_nodes and statistical extractor.
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
+        model_params: parameters of the FEDOT classification model
+        dataset_name: name of the dataset to be used
+        output_dir: path to the directory where results will be saved
+        saver: object of ``ResultSaver`` class
+
+    Notes:
+        ``branch_nodes`` can be one of the following: ``'data_driven_basis'``, ``'fourier_basis'``, ``'wavelet_basis'``.
 
     """
 
@@ -59,7 +68,17 @@ class TimeSeriesClassifierPreset:
 
     # TODO: put some datatype
     # TODO: add multidata option
-    def _init_input_data(self, X, y):
+    def _init_input_data(self, X: pd.DataFrame, y: np.ndarray) -> InputData:
+        """Method for initialization of InputData object from pandas DataFrame and numpy array with target values.
+
+        Args:
+            X: pandas DataFrame with features
+            y: numpy array with target values
+
+        Returns:
+            InputData object convinient for FEDOT framework
+
+        """
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
                                target=np.ravel(y).reshape(-1, 1),
@@ -76,6 +95,10 @@ class TimeSeriesClassifierPreset:
         return input_data
 
     def _build_pipeline(self):
+        """
+        Method for building pipeline with nodes from ``branch_nodes`` list and statistical extractor.
+
+        """
         pipeline_builder = PipelineBuilder()
         branch_idx = 0
         for node in self.branch_nodes:
@@ -86,6 +109,17 @@ class TimeSeriesClassifierPreset:
         return pipeline_builder.build()
 
     def _tune_pipeline(self, pipeline: Pipeline, train_data: InputData):
+        """
+        Method for tuning pipeline with simultaneous tuner.
+
+        Args:
+            pipeline: pipeline to be tuned
+            train_data: InputData object with train data
+
+        Returns:
+            tuned pipeline
+
+        """
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
             .with_metric(ClassificationMetricsEnum.f1) \
@@ -97,6 +131,17 @@ class TimeSeriesClassifierPreset:
     def fit(self, features,
             target: np.ndarray = None,
             **kwargs) -> object:
+        """
+        Method for fitting pipeline on train data. It also tunes pipeline and updates it with categorical features.
+
+        Args:
+            features: pandas DataFrame with features
+            target: numpy array with target values
+
+        Returns:
+            fitted FEDOT model as object of ``Pipeline`` class
+
+        """
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, target)
@@ -128,7 +173,15 @@ class TimeSeriesClassifierPreset:
 
         return self.predictor
 
-    def predict(self, features, target) -> dict:
+    def predict(self, features: pd.DataFrame, target: np.array) -> dict:
+        """
+        Method for prediction on test data.
+
+        Args:
+            features: pandas DataFrame with features
+            target: numpy array with target values
+
+        """
         if self.test_data_preprocessed is None:
             test_data = self._init_input_data(features, target)
             test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
@@ -151,7 +204,18 @@ class TimeSeriesClassifierPreset:
         self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
         return self.prediction_proba
 
-    def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):
+    def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]) -> dict:
+        """
+        Method for calculating metrics on test data.
+
+        Args:
+            target: numpy array with target values
+            metric_names: list of desirable metrics names
+
+        Returns:
+            dictionary with metrics values that looks like ``{metric_name: metric_value}``
+
+        """
         analyzer = PerformanceAnalyzer()
         return analyzer.calculate_metrics(target=np.ravel(target),
                                           predicted_labels=self.prediction_label,
