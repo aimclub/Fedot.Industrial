@@ -2,7 +2,7 @@ import pytest
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN
-from fedot_ind.core.architecture.experiment.TImeSeriesClassifierPreset import TimeSeriesClassifierPreset
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
 
 
