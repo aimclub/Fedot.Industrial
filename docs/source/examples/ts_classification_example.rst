@@ -8,24 +8,12 @@ This example shows how to use the framework to perform time series classificatio
 Basic TSC experiment
 --------------------
 
-First, we import the necessary modules. Base class :ref:`Industrial<industrial-class-label>` provides all the capabilities
+First, we import the necessary modules. Base class :ref:`FedotIndustrial<industrial-class-label>` provides all the capabilities
 for time series classification.
 
 .. code-block:: python
 
     from fedot_ind.core.api.main import FedotIndustrial
-
-Then, the config dict with experiment parameters must be defined.
-
-.. code-block:: python
-
-    config = dict(task='ts_classification',
-                  dataset='ItalyPowerDemand',
-                  feature_generator='quantile',
-                  use_cache=False,
-                  timeout=5,
-                  n_jobs=-1,
-                  window_sizes='auto')
 
 It is of a great importance to define corresponding parameters of experiment. The following parameters are required:
 
@@ -41,8 +29,13 @@ Finally, we create an instance of the class :ref:`FedotIndustrial<industrial-cla
 
 .. code-block:: python
 
-    industrial = FedotIndustrial(input_config=config,
-                                 output_folder=None)
+    industrial = FedotIndustrial(task='ts_classification',
+                                 dataset='ItalyPowerDemand',
+                                 feature_generator='quantile',
+                                 use_cache=False,
+                                 timeout=5,
+                                 n_jobs=-1,
+                                 window_sizes='auto')
 
 To accelerate repetitive experiments, the feature caching mechanism is implemented. It allows to dump generated features
 to the disk and load them later. To enable this feature, set ``use_cache`` parameter to ``True`` in the config.
@@ -84,9 +77,9 @@ To enable feature generators ensemble, set the following option in the config:
 
 .. code-block:: python
 
-    feature_generator = 'ensemble: topological quantile wavelet'
+    feature_generator = 'ensemble: topological quantile'
 
-This way the ensemble of feature space of ``topological``, ``wavelet``, ``quantile`` feature generators will be used as a single feature space.
+This way the ensemble of feature space of ``topological``, ``quantile`` feature generators will be used as a single feature space.
 
 
 Ensemble of models predictions
