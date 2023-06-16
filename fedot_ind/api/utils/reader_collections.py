@@ -103,10 +103,17 @@ class Configurator:
         return feature_gen_class
 
     def __report_experiment_setup(self, experiment_dict):
+        """Prints the experiment setup."""
 
-        self.logger.info(f'''Experiment setup:
-        dataset - {experiment_dict['dataset']},
-        strategy - {experiment_dict['strategy']},
-        use_cache - {experiment_dict['use_cache']},
-        n_jobs - {experiment_dict['model_params']['n_jobs']},
-        timeout - {experiment_dict['model_params']['timeout']}''')
+        top_info = ['task', 'dataset', 'strategy', 'branch_nodes', 'use_cache', 'n_jobs', 'timeout']
+        label, data = [], []
+
+        for obj in top_info:
+            status = experiment_dict.get(obj, None)
+            if status is not None:
+                label.append(obj)
+                data.append(status)
+
+        self.logger.info('Experiment setup:')
+        for i in range(len(label)):
+            self.logger.info(f'{label[i]} - {data[i]}')

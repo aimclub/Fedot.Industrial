@@ -124,33 +124,33 @@ class TimeSeriesClassifier:
                 prediction_label = self.predictor.predict_proba(self.test_features)
             return prediction_label
 
-    def fit(self, train_ts_frame: Union[np.ndarray, pd.DataFrame],
-            train_target: np.ndarray,
+    def fit(self, features: Union[np.ndarray, pd.DataFrame],
+            target: np.ndarray,
             **kwargs) -> object:
 
         baseline_type = kwargs.get('baseline_type', None)
         self.logger.info(f'Fitting model')
-        self.y_train = train_target
+        self.y_train = target
         if self.generator_runner is None:
             raise AttributeError('Feature generator is not defined')
 
-        train_features = self.generator_runner.extract_features(train_features=train_ts_frame,
+        train_features = self.generator_runner.extract_features(train_features=features,
                                                                 dataset_name=self.dataset_name)
 
         self.train_features = self.datacheck.check_data(input_data=train_features,
                                                         return_df=True)
 
         if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
+            self.predictor = self._fit_baseline_model(self.train_features, target, baseline_type)
         else:
-            self.predictor = self._fit_model(self.train_features, train_target)
+            self.predictor = self._fit_model(self.train_features, target)
 
         self.logger.info(
             f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
-    def predict(self, test_features: np.ndarray, **kwargs) -> dict:
-        self.prediction_label = self.__predict_abstraction(test_features=test_features,
+    def predict(self, features: np.ndarray, **kwargs) -> dict:
+        self.prediction_label = self.__predict_abstraction(test_features=features,
                                                            mode='labels')
         return self.prediction_label
 
