@@ -3,8 +3,8 @@ import math
 import pytest
 import torch
 
-from core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager
-from core.metrics.cv_metrics import iou_score, dice_score, SegmentationMetricCounter
+from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager
+from fedot_ind.core.metrics.cv_metrics import iou_score, dice_score, SegmentationMetricCounter
 
 
 @pytest.fixture()

@@ -4,22 +4,27 @@ import pytest
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
-from torchvision.transforms import Compose, ToTensor, Resize
+from torchvision.transforms import Compose, Resize, ToTensor
 
-from core.architecture.datasets.object_detection_datasets import COCODataset
-from core.architecture.datasets.prediction_datasets import PredictionFolderDataset
-from core.architecture.experiment.nn_experimenter import FitParameters, \
-    ClassificationExperimenter, FasterRCNNExperimenter
-from core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core.architecture.datasets.object_detection_datasets import COCODataset
+from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
+from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, FasterRCNNExperimenter, \
+    FitParameters
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
 
-DATASETS_PATH = os.path.join(PROJECT_PATH, 'tests/data/datasets/')
+DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 
 
 @pytest.fixture()
-def prepare_classification(tmp_path):
+def prepare_classification(tmp_path: str = './tmp'):
+    from pathlib import Path
+    tmp_path = Path(os.path.abspath(tmp_path))
+
     transform = Compose([ToTensor(), Resize((256, 256))])
-    train_ds = ImageFolder(root=DATASETS_PATH + 'Agricultural/train', transform=transform)
-    val_ds = ImageFolder(root=DATASETS_PATH + 'Agricultural/val', transform=transform)
+    root_path_train = os.path.join(DATASETS_PATH, 'Agricultural/train')
+    root_path_val = os.path.join(DATASETS_PATH, 'Agricultural/val')
+    train_ds = ImageFolder(root=root_path_train, transform=transform)
+    val_ds = ImageFolder(root=root_path_val, transform=transform)
     exp_params = {
         'model': resnet18(num_classes=3),
         'device': 'cpu'
@@ -78,8 +83,8 @@ def test_classification_experimenter(prepare_classification):
 @pytest.fixture()
 def prepare_detection(tmp_path):
     dataset = COCODataset(
-        images_path=DATASETS_PATH + 'ALET10/test',
-        json_path=DATASETS_PATH + 'ALET10/test.json',
+        images_path=os.path.join(DATASETS_PATH, 'ALET10/test'),
+        json_path=os.path.join(DATASETS_PATH, 'ALET10/test.json'),
         transform=ToTensor()
     )
     dataloader = DataLoader(

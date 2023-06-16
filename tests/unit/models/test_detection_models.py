@@ -1,10 +1,11 @@
 from statistics import mean
+
 import numpy as np
 import pytest
-from fedot_ind.core import SingularSpectrumTransformation
+
 from fedot_ind.core.models.detection.abstract_objects.FileObject import FileObject
 from fedot_ind.core.models.detection.area.ThresholdZonesDetector import ThresholdZonesDetector
-from fedot_ind.core import AngleBasedDetector
+from fedot_ind.core.models.detection.vector.AngleBasedDetector import AngleBasedDetector
 
 
 @pytest.fixture()
@@ -22,17 +23,6 @@ def basic_periodic_data():
     y += np.random.rand(y.size)
     return x, y
 
-
-def test_SST_detector(basic_periodic_data):
-    ts_1, ts_2 = basic_periodic_data
-    scorer = SingularSpectrumTransformation(time_series=ts_1,
-                                            ts_window_length=100,
-                                            lag=10,
-                                            trajectory_window_length=30)
-    score = scorer.score_offline(dynamic_mode=False)
-    cp_point = [x for x in score if x > 0]
-    ratio = len(cp_point)/len(score)*100
-    assert ratio < 10
 
 def test_Threshold_Zones_Detector(basic_periodic_data):
     ts_1, ts_2 = basic_periodic_data

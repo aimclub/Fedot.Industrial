@@ -5,15 +5,17 @@ import pytest
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import ToTensor
 
-from core.architecture.datasets.splitters import k_fold, split_data
-from core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core.architecture.datasets.splitters import k_fold, split_data
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
 
-DATASETS_PATH = os.path.join(PROJECT_PATH, 'tests/data/datasets/')
+DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 
 
 @pytest.fixture()
 def dataset():
-    yield ImageFolder(root=DATASETS_PATH + 'Agricultural/train', transform=ToTensor())
+    path = os.path.join(DATASETS_PATH, 'Agricultural/train')
+
+    yield ImageFolder(root=path, transform=ToTensor())
 
 
 def test_split_data(dataset):

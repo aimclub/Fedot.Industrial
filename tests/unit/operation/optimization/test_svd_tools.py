@@ -4,8 +4,8 @@ import os
 import pytest
 from torchvision.models import resnet18
 
-from core.architecture.utils.utils import PROJECT_PATH
-from core.operation.optimization.svd_tools import *
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core.operation.optimization.svd_tools import *
 
 
 def test_decomposition_of_layer():
@@ -61,7 +61,7 @@ def test_decompose_module():
 
 
 def test_load_svd_channel_state_dict():
-    svd_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_svd_channel.sd.pt')
+    svd_state_dict_path = os.path.join(PROJECT_PATH, '../', 'tests/data/cv_test_models/ResNet18_svd_channel.sd.pt')
     svd_model = resnet18(num_classes=3)
     load_svd_state_dict(
         svd_model,
@@ -75,7 +75,7 @@ def test_load_svd_channel_state_dict():
 
 
 def test_load_svd_spatial_state_dict():
-    svd_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_svd_spatial.sd.pt')
+    svd_state_dict_path = os.path.join(PROJECT_PATH, '../', 'tests/data/cv_test_models/ResNet18_svd_spatial.sd.pt')
     svd_model = resnet18(num_classes=3)
     load_svd_state_dict(
         svd_model,

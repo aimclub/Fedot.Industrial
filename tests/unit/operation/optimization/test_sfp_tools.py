@@ -1,11 +1,13 @@
 import os
+from collections import OrderedDict
 
 import pytest
+import torch
 from torchvision.models import resnet18
 
 from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-from fedot_ind.core import _check_nonzero_filters, \
-    _prune_filters, _index_union, _indexes_of_tensor_values, _parse_sd, _collect_sd
+from fedot_ind.core.operation.optimization.sfp_tools import _check_nonzero_filters, _collect_sd, _index_union, \
+    _indexes_of_tensor_values, _parse_sd, _prune_filters, create_percentage_filter_zeroing_fn, load_sfp_resnet_model
 
 
 def test_percentage_filter_zeroing():
@@ -69,7 +71,7 @@ def test_parse_collect_sd():
 
 
 def test_load_sfp_resnet_model():
-    sfp_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
+    sfp_state_dict_path = os.path.join(PROJECT_PATH, '../', 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
     sfp_model = load_sfp_resnet_model(
         model=resnet18(num_classes=3),
         state_dict_path=sfp_state_dict_path,

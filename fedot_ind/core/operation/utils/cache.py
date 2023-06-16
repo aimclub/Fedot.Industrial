@@ -25,7 +25,6 @@ class DataCacher:
 
     def __init__(self, data_type_prefix: str = 'Data', cache_folder: str = None):
         self.data_type = data_type_prefix
-        self.cache_folder = cache_folder
         self.cache_folder = self._init_cache_folder(cache_folder)
 
         self.logger = logging.getLogger('DataCacher')

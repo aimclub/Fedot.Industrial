@@ -8,7 +8,7 @@ import torch
 from torch.nn.modules import Module
 from torch.nn.modules.conv import Conv2d
 
-from core.operation.decomposition.decomposed_conv import DecomposedConv2d
+from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 
 
 def create_energy_svd_pruning(energy_threshold: float) -> Callable:

@@ -37,8 +37,10 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
         self.test_feats = None
 
     def _ts_chunk_function(self, ts):
-        specter = self.transformer(time_series=ts, min_signal_ratio=self.min_signal_ratio,
-                                   max_signal_ratio=self.max_signal_ratio, rec_metric=self.rec_metric)
+        specter = self.transformer(time_series=ts,
+                                   min_signal_ratio=self.min_signal_ratio,
+                                   max_signal_ratio=self.max_signal_ratio,
+                                   rec_metric=self.rec_metric)
         feature_df = specter.ts_to_recurrence_matrix()
         if not self.image_mode:
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
@@ -56,7 +58,7 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
 
         with Pool(n_processes) as p:
             components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
-                                                      ts_frame),
+                                                      ts_frame.values),
                                                total=ts_samples_count,
                                                desc='Feature Generation. TS processed',
                                                unit=' ts',
