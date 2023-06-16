@@ -94,12 +94,12 @@ class TimeSeriesClassifierPreset:
         pipeline = pipeline_tuner.tune(pipeline)
         return pipeline
 
-    def fit(self, train_ts_frame,
-            train_target: np.ndarray = None,
+    def fit(self, features,
+            target: np.ndarray = None,
             **kwargs) -> object:
 
         with IndustrialModels():
-            self.train_data = self._init_input_data(train_ts_frame, train_target)
+            self.train_data = self._init_input_data(features, target)
             self.prerpocessing_pipeline = self._build_pipeline()
             self.prerpocessing_pipeline = self._tune_pipeline(self.prerpocessing_pipeline,
                                                               self.train_data)
@@ -128,9 +128,9 @@ class TimeSeriesClassifierPreset:
 
         return self.predictor
 
-    def predict(self, test_features, test_target) -> dict:
+    def predict(self, features, target) -> dict:
         if self.test_data_preprocessed is None:
-            test_data = self._init_input_data(test_features, test_target)
+            test_data = self._init_input_data(features, target)
             test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
             self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
@@ -142,9 +142,9 @@ class TimeSeriesClassifierPreset:
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
         return self.prediction_label
 
-    def predict_proba(self, test_features, test_target) -> dict:
+    def predict_proba(self, features, target) -> dict:
         if self.test_data_preprocessed is None:
-            test_data = self._init_input_data(test_features, test_target)
+            test_data = self._init_input_data(features, target)
             test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
             self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
 
