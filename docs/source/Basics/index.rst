@@ -9,5 +9,4 @@ problems which our framework is designed to solve.
 
    ts_classification
    anomaly_detection
-   change_point_detection
    object_detection

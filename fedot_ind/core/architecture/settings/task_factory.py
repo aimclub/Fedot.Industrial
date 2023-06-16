@@ -2,7 +2,7 @@ from enum import Enum
 
 from fedot_ind.core.architecture.experiment.computer_vision import CVExperimenter
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN
-from fedot_ind.core.architecture.experiment.TImeSeriesClassifierPreset import TimeSeriesClassifierPreset
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.ensemble.static.RankEnsembler import RankEnsemble
 
 
