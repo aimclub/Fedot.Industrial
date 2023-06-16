@@ -7,6 +7,7 @@ from pymonad.either import Either
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
 
+from fedot_ind.core.operation.decomposition.matrix_decomposition.cur_decomp import CURDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, reconstruct_basis
@@ -38,21 +39,25 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return self._get_basis(data)
 
     def _get_1d_basis(self, data):
-        svd = lambda x: ListMonad(np.linalg.svd(x))
-        threshold = lambda Monoid: ListMonad([Monoid[0],
-                                              singular_value_hard_threshold(singular_values=Monoid[1],
-                                                                            beta=data.shape[0] / data.shape[1],
-                                                                            threshold=None),
-                                              Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
-                                                                                                       Monoid[1][
-                                                                                                       :self.n_components],
-                                                                                                       Monoid[2]])
+        # svd = lambda x: ListMonad(np.linalg.svd(x))
+        cur = lambda x: ListMonad(CURDecomposition(rank=self.n_components).fit_transform(x))
+
+        # threshold = lambda Monoid: ListMonad([Monoid[0],
+        #                                       singular_value_hard_threshold(singular_values=Monoid[1],
+        #                                                                     beta=data.shape[0] / data.shape[1],
+        #                                                                     threshold=None),
+        #                                       Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
+        #                                                                                                Monoid[1][
+        #                                                                                                :self.n_components],
+        #                                                                                                Monoid[2]])
+
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
-        basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
+        # basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
+        basis = Either.insert(data).then(cur).then(data_driven_basis).value[0]
 
         return np.swapaxes(basis, 1, 0)
 
@@ -102,6 +107,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
 
 if __name__ == "__main__":
+
     from fedot_ind.api.main import FedotIndustrial
     from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
@@ -110,12 +116,12 @@ if __name__ == "__main__":
     fed = FedotIndustrial(task='ts_classification',
                           strategy='fedot_preset',
                           branch_nodes=['data_driven_basis'],
-                          dataset_name='custom',
+                          dataset='custom',
                           timeout=2,
                           n_jobs=4,
                           logging_level=40)
 
-    model = fed.fit(train_features=X_train, train_target=y_train)
-    labels = fed.predict(test_features=X_test)
+    model = fed.fit(features=X_train, target=y_train)
+    labels = fed.predict(features=X_test, target=y_test)
     _ = 1
 
