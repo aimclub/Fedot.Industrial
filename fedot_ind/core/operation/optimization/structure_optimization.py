@@ -5,6 +5,7 @@ This module contains classes for CNN structure optimization.
 import logging
 import os
 from typing import Callable, Dict, List, Optional, Type
+from abc import ABC, abstractmethod
 
 import torch
 from torchvision.models import ResNet
@@ -15,12 +16,12 @@ from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimente
 from fedot_ind.core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from fedot_ind.core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
-    create_energy_filter_zeroing_fn, prune_resnet
+    create_energy_filter_zeroing_fn, prune_resnet, load_sfp_resnet_model
 from fedot_ind.core.operation.optimization.svd_tools import create_energy_svd_pruning, \
     decompose_module, load_svd_state_dict
 
 
-class StructureOptimization:
+class StructureOptimization(ABC):
     """Generalized class for model structure optimization."""
 
     def __init__(
@@ -30,6 +31,7 @@ class StructureOptimization:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.description = description
 
+    @abstractmethod
     def fit(
             self,
             exp: NNExperimenter,
@@ -46,6 +48,7 @@ class StructureOptimization:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def load_model(self, exp: NNExperimenter, state_dict_path: str) -> None:
         """Loads the optimized model into the experimenter.
 
@@ -198,16 +201,18 @@ class SFPOptimization(StructureOptimization):
     Args:
         zeroing_mode: ``'percentage'`` or ``'energy'`` zeroing strategy of convolutional layer filters.
         zeroing_mode_params: Parameter dictionary passed to zeroing function.
-        final_pruning_fn: Function implementing the final pruning of the model.
         model_class: The class of models to which the final pruning function is applicable.
+        final_pruning_fn: Function implementing the model final pruning of the ``model_class``.
+        load_model_fn: Function implementing the model loading of the ``model_class``.
     """
 
     def __init__(
             self,
             zeroing_mode: str = 'percentage',
             zeroing_mode_params: Dict = {'pruning_ratio': 0.2},
+            model_class: Type = ResNet,
             final_pruning_fn: Callable = prune_resnet,
-            model_class: Type = ResNet
+            load_model_fn: Callable = load_sfp_resnet_model
     ) -> None:
         description = f"_SFP"
         for k, v in zeroing_mode_params.items():
@@ -222,6 +227,7 @@ class SFPOptimization(StructureOptimization):
         self.zeroing_fn = self.modes[zeroing_mode](**zeroing_mode_params)
         self.pruning_fn = final_pruning_fn
         self.model_class = model_class
+        self.load_model_fn = load_model_fn
 
     def fit(
             self,
@@ -245,7 +251,7 @@ class SFPOptimization(StructureOptimization):
             writers=[TFWriter, CSVWriter]
         )
 
-        optimizer = params.optimizer(exp.model.parameters(), **params.optimizer_params)
+        optimizer = params.optimizer(exp.model.parameters())
         self.logger.info(f"{exp.name}, using device: {exp.device}")
         for epoch in range(1, params.num_epochs + 1):
             self.logger.info(f"Epoch {epoch}")
@@ -304,3 +310,18 @@ class SFPOptimization(StructureOptimization):
         exp.best_score = 0
         if ft_params is not None:
             exp.fit(p=ft_params, phase='pruned', start_epoch=params.num_epochs)
+
+    def load_model(self, exp: NNExperimenter, state_dict_path: str) -> None:
+        """Loads the optimized model into the experimenter.
+
+        Args:
+            exp: An instance of the experimenter class, e.g.
+            ``ClassificationExperimenter``.
+            state_dict_path: Path to state_dict file.
+        """
+        try:
+            exp.model = self.load_model_fn(model=exp.model, state_dict_path=state_dict_path)
+            self.logger.info("Model state dict loaded.")
+        except Exception:
+            self.logger.error(f'Loading function "{self.load_model_fn.__name__}"' +
+                              f"can't load {self.model_class.__name__} model.")

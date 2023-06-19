@@ -2,9 +2,10 @@
 import logging
 import os
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
+from abc import ABC, abstractmethod
 
 import torch
 from torch.nn.functional import softmax
@@ -14,8 +15,8 @@ from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, ObjectDetectionMetricCounter, \
-    SegmentationMetricCounter
+from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, \
+    ObjectDetectionMetricCounter, SegmentationMetricCounter
 
 
 @dataclass(frozen=True)
@@ -28,9 +29,7 @@ class FitParameters:
         val_dl: Validation dataloader.
         num_epochs: Number of training epochs.
         optimizer: Type of model optimizer, e.g. ``torch.optim.Adam``.
-        optimizer_params: Parameter dictionary passed to optimizer initialization.
         lr_scheduler: Type of learning rate scheduler, e.g ``torch.optim.lr_scheduler.StepLR``.
-        lr_scheduler_params: Parameter dictionary passed to scheduler initialization.
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
         class_metrics: If ``True``, calculates validation metrics for each class.
@@ -42,17 +41,15 @@ class FitParameters:
     train_dl: DataLoader
     val_dl: DataLoader
     num_epochs: int
-    optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
-    optimizer_params: Dict = field(default_factory=dict)
-    lr_scheduler: Optional[Type] = None
-    lr_scheduler_params: Dict = field(default_factory=dict)
+    optimizer: Union[Type[torch.optim.Optimizer], Callable] = torch.optim.Adam
+    lr_scheduler: Union[Optional[Type], Callable] = None
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
     class_metrics: bool = False
     description: str = ''
 
 
-class NNExperimenter:
+class NNExperimenter(ABC):
     """Generalized class for working with neural models.
 
     Args:
@@ -111,10 +108,10 @@ class NNExperimenter:
         self.save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
-        optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)
+        optimizer = p.optimizer(self.model.parameters())
         lr_scheduler = None
         if p.lr_scheduler is not None:
-            lr_scheduler = p.lr_scheduler(optimizer, **p.lr_scheduler_params)
+            lr_scheduler = p.lr_scheduler(optimizer)
         for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
@@ -225,14 +222,17 @@ class NNExperimenter:
         for module in filter(condition, self.model.modules()):
             func(module)
 
+    @abstractmethod
     def forward(self, x: torch.Tensor):
         """Have to implement the forward method of the model and return predictions."""
         raise NotImplementedError
 
+    @abstractmethod
     def forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return dictionary of losses."""
         raise NotImplementedError
 
+    @abstractmethod
     def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Have to implement the prediction method on batch."""
         raise NotImplementedError

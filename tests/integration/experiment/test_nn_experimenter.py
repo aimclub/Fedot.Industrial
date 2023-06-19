@@ -1,6 +1,7 @@
 import os
-
+from functools import partial
 import pytest
+import torch.optim
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
@@ -98,7 +99,7 @@ def prepare_detection(tmp_path):
         train_dl=dataloader,
         val_dl=dataloader,
         num_epochs=1,
-        optimizer_params={'lr': 0.0001},
+        optimizer=partial(torch.optim.Adam, lr=0.0001),
         models_path=tmp_path.joinpath('models'),
         summary_path=tmp_path.joinpath('summary')
     )

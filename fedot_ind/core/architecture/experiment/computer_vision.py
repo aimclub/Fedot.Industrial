@@ -1,6 +1,7 @@
 """This module contains the class and functions for integrating the computer vision module into the framework API."""
 import os
 from typing import Callable, Dict, Optional, Tuple
+from functools import partial
 import logging
 from urllib.error import URLError
 
@@ -198,13 +199,13 @@ class CVExperimenter:
         ft_params = kwargs.pop('finetuning_params', {})
         num_epoch = kwargs.pop('num_epochs', 50)
         if 'lr_scheduler' not in kwargs.keys():
-            kwargs['lr_scheduler'] = ReduceLROnPlateau
-            kwargs['lr_scheduler_params'] = {
-                'factor': 0.2,
-                'mode': 'max',
-                'patience': int(num_epoch / 10),
-                'verbose': True
-            }
+            kwargs['lr_scheduler'] = partial(
+                ReduceLROnPlateau,
+                factor=0.2,
+                mode='max',
+                patience=int(num_epoch / 10),
+                verbose=True
+            )
 
         fit_parameters = FitParameters(
             dataset_name=ds_name,
@@ -220,13 +221,13 @@ class CVExperimenter:
         else:
             ft_num_epoch = ft_params.pop('num_epochs', 10)
             if 'lr_scheduler' not in ft_params.keys():
-                ft_params['lr_scheduler'] = ReduceLROnPlateau
-                ft_params['lr_scheduler_params'] = {
-                    'factor': 0.2,
-                    'mode': 'max',
-                    'patience': int(ft_num_epoch / 10),
-                    'verbose': True
-                }
+                ft_params['lr_scheduler'] = partial(
+                    ReduceLROnPlateau,
+                    factor=0.2,
+                    mode='max',
+                    patience=int(ft_num_epoch / 10),
+                    verbose=True
+                )
             ft_parameters = FitParameters(
                 dataset_name=ds_name,
                 train_dl=train_dl,
