@@ -253,7 +253,7 @@ class NNExperimenter:
         preds = []
         self.model.eval()
         with torch.no_grad():
-            for x, id in tqdm(dataloader):
+            for x, id in tqdm(dataloader, desc='predict'):
                 ids.extend(id)
                 preds.extend(self.predict_on_batch(x, proba=proba))
         return dict(zip(ids, preds))
@@ -284,7 +284,7 @@ class NNExperimenter:
         """
         self.model.train()
         train_scores = LossesAverager()
-        batches = tqdm(dataloader)
+        batches = tqdm(dataloader, desc='train')
         for x, y in batches:
             losses = self.forward_with_loss(x, y)
             if model_losses is not None:
@@ -314,7 +314,7 @@ class NNExperimenter:
         self.model.eval()
         metric = self.metric_counter(class_metrics=class_metrics)
         with torch.no_grad():
-            for x, y in tqdm(dataloader):
+            for x, y in tqdm(dataloader, desc='val'):
                 preds = self.forward(x)
                 metric.update(preds, y)
         return metric.compute()
