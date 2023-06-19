@@ -1,6 +1,6 @@
+import logging
 from multiprocessing import cpu_count
 from typing import Optional
-import logging
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -31,14 +31,20 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     def _transform(self, input_data: InputData) -> np.array:
         """
-            Method for feature generation for all series
+        Method for feature generation for all series
         """
         v = []
-
-        for series in tqdm(np.squeeze(input_data.features, 3)):
+        for series in tqdm(np.squeeze(input_data.features, 3),
+                           total=input_data.features.shape[0],
+                           desc=f'{self.__class__.__name__} transform',
+                           colour='green',
+                           unit='ts',
+                           ascii=False,
+                           position=0,
+                           leave=True):
             v.append(self.generate_features_from_ts(series))
-        predict = self._clean_predict(np.array(v))
 
+        predict = self._clean_predict(np.array(v))
         return predict
 
     @staticmethod

@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from typing import Optional
 import numpy as np
 from fedot.core.data.data import InputData
@@ -5,7 +6,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
@@ -37,7 +38,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """
         pass
 
-    def _decompose_signal(self):
+    def _decompose_signal(self, signal) -> list:
         pass
 
     def evaluate_derivative(self, order: int = 1):
@@ -64,14 +65,20 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
             Method for transforming all samples
         """
         features = np.array(ListMonad(*input_data.features.tolist()).value)
-        v = []
-        for series in tqdm(features):
-            v.append(self._transform_one_sample(series[~np.isnan(series)]))
+        with Pool(2) as p:
+            v = list(tqdm(p.imap(self._transform_one_sample, features),
+                          total=features.shape[0],
+                          desc=f'{self.__class__.__name__} transform',
+                          colour='red',
+                          unit='ts',
+                          ascii=False,
+                          position=0,
+                          leave=True,
+                          )
+                     )
+
         predict = np.array(v)
         return predict
-
-    def _get_multidim_basis(self, data):
-        pass
 
     def _get_multidim_basis(self, input_data):
         decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))

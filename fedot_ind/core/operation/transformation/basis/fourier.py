@@ -6,16 +6,15 @@ from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDe
 
 class FourierBasisImplementation(BasisDecompositionImplementation):
     """A class for decomposing data on the Fourier basis and evaluating the derivative of the resulting decomposition.
-        Example:
-            ts1 = np.random.rand(200)
-            ts2 = np.random.rand(200)
-            ts = [ts1, ts2]
-            bss = FourierBasisImplementation({'spectrum_type': 'real'})
-            basis_multi = bss._transform(ts)
-            basis_1d = bss._transform(ts1)
 
-    Attributes:
-        data (np.array): The array of data to be decomposed.
+    Example::
+        ts1 = np.random.rand(200)
+        ts2 = np.random.rand(200)
+        ts = [ts1, ts2]
+        bss = FourierBasisImplementation({'spectrum_type': 'real'})
+        basis_multi = bss._transform(ts)
+        basis_1d = bss._transform(ts1)
+
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
