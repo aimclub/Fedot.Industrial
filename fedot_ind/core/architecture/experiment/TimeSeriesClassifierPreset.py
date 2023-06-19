@@ -50,6 +50,7 @@ class TimeSeriesClassifierPreset:
 
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
+        self.tuning_iters = params.get('tuning_iterations', 30)
         self.output_dir = params.get('output_dir', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
@@ -64,9 +65,9 @@ class TimeSeriesClassifierPreset:
         self.test_features = None
         self.input_test_data = None
 
-        self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes')
+        self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
+                         f'[{self.tuning_iters}] tuning iterations')
 
-    # TODO: put some datatype
     # TODO: add multidata option
     def _init_input_data(self, X: pd.DataFrame, y: np.ndarray) -> InputData:
         """Method for initialization of InputData object from pandas DataFrame and numpy array with target values.
@@ -118,13 +119,13 @@ class TimeSeriesClassifierPreset:
 
         Returns:
             tuned pipeline
-
         """
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
             .with_metric(ClassificationMetricsEnum.f1) \
-            .with_iterations(30) \
+            .with_iterations(self.tuning_iters) \
             .build(train_data)
+
         pipeline = pipeline_tuner.tune(pipeline)
         return pipeline
 

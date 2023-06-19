@@ -39,7 +39,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """
         pass
 
-    def _decompose_signal(self):
+    def _decompose_signal(self, signal) -> list:
         pass
 
     def evaluate_derivative(self, order: int = 1):
@@ -71,17 +71,17 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         with Pool(2) as p:
             v = list(tqdm(p.imap(self._transform_one_sample, features),
                           total=features.shape[0],
+                          desc=f'{self.__class__.__name__} transform',
                           colour='red',
                           unit='ts',
-                          desc='Components processed'
+                          ascii=False,
+                          position=0,
+                          leave=True,
                           )
                      )
 
         predict = np.array(v)
         return predict
-
-    def _get_multidim_basis(self, data):
-        pass
 
     def _get_multidim_basis(self, input_data):
         decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))
