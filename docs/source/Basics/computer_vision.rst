@@ -74,7 +74,7 @@ This approach avoids the decomposition procedure at each training step.
 
 .. image:: img_basics/SVD.png
    :alt: Singular value decomposition
-   :width: 500px
+   :height: 500px
    :align: center
 
 **2. Pruning**
@@ -90,6 +90,6 @@ The 2-norm was chosen as the criterion of the filter selection strategy.
 
 .. image:: img_basics/SFP.png
    :alt: Soft filter pruning
-   :width: 500px
+   :height: 300px
    :align: center
 
