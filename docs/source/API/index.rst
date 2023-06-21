@@ -45,6 +45,7 @@ Object detection and image classification
 
     cv/computer_vision_api
     cv/nn_experimenter_api
+    cv/structure_optimization_api
 
 
 
