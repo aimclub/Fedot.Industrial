@@ -301,7 +301,8 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
                 .with_tuner(SimultaneousTuner) \
                 .with_metric(RegressionMetricsEnum.MAE) \
                 .with_iterations(5) \
-                .with_cv_folds(22)\
+                .with_cv_folds(3)\
+                .with_validation_blocks(2)
                 .build(train_data)
             self.estimator = pipeline_tuner.tune(self.estimator)
             self.estimator.fit(train_data)
