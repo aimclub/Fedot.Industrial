@@ -105,7 +105,7 @@ class NNExperimenter(ABC):
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
         init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
         writer.write_scores('val', init_scores, start_epoch)
-        self.__save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
+        self._save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
         optimizer = p.optimizer(self.model.parameters())
@@ -125,7 +125,7 @@ class NNExperimenter(ABC):
                 class_metrics=p.class_metrics
             )
             writer.write_scores('val', val_scores, epoch)
-            self.__save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
+            self._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
             if isinstance(lr_scheduler, ReduceLROnPlateau):
                 lr_scheduler.step(val_scores[self.metric])
             elif isinstance(lr_scheduler, LRScheduler):
@@ -134,7 +134,7 @@ class NNExperimenter(ABC):
         self.logger.info(f'{self.metric} score: {self.best_score}')
         writer.close()
 
-    def __save_model_sd_if_best(self, val_scores: Dict, file_path):
+    def _save_model_sd_if_best(self, val_scores: Dict, file_path):
         """Save the model state dict if the best result on the target metric is achieved.
 
         Args:
@@ -208,7 +208,7 @@ class NNExperimenter(ABC):
         """Returns number of model parameters."""
         return sum(p.numel() for p in self.model.parameters())
 
-    def __apply_func(
+    def _apply_func(
             self,
             func: Callable,
             condition: Optional[Callable] = None
@@ -223,17 +223,17 @@ class NNExperimenter(ABC):
             func(module)
 
     @abstractmethod
-    def __forward(self, x: torch.Tensor):
+    def _forward(self, x: torch.Tensor):
         """Have to implement the forward method of the model and return predictions."""
         raise NotImplementedError
 
     @abstractmethod
-    def __forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return dictionary of losses."""
         raise NotImplementedError
 
     @abstractmethod
-    def __predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
+    def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Have to implement the prediction method on batch."""
         raise NotImplementedError
 
@@ -255,7 +255,7 @@ class NNExperimenter(ABC):
         with torch.no_grad():
             for x, id in tqdm(dataloader, desc='predict'):
                 ids.extend(id)
-                preds.extend(self.__predict_on_batch(x, proba=proba))
+                preds.extend(self._predict_on_batch(x, proba=proba))
         return dict(zip(ids, preds))
 
     def predict_proba(self, dataloader: DataLoader) -> Dict:
@@ -286,7 +286,7 @@ class NNExperimenter(ABC):
         train_scores = LossesAverager()
         batches = tqdm(dataloader, desc='train')
         for x, y in batches:
-            losses = self.__forward_with_loss(x, y)
+            losses = self._forward_with_loss(x, y)
             if model_losses is not None:
                 losses.update(model_losses(self.model))
             train_scores.update(losses)
@@ -315,7 +315,7 @@ class NNExperimenter(ABC):
         metric = self.metric_counter(class_metrics=class_metrics)
         with torch.no_grad():
             for x, y in tqdm(dataloader, desc='val'):
-                preds = self.__forward(x)
+                preds = self._forward(x)
                 metric.update(preds, y)
         return metric.compute()
 
@@ -357,18 +357,18 @@ class ClassificationExperimenter(NNExperimenter):
         )
         self.loss = loss
 
-    def __forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Implements the forward method of the model and returns predictions."""
         x = x.to(self.device)
         return self.model(x)
 
-    def __forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Implements the train forward method and returns loss."""
         y = y.to(self.device)
-        preds = self.__forward(x)
+        preds = self._forward(x)
         return {'loss': self.loss(preds, y)}
 
-    def __predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
+    def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
@@ -414,21 +414,21 @@ class ObjectDetectionExperimenter(NNExperimenter):
             device=device
         )
 
-    def __forward(self, x: torch.Tensor) -> List:
+    def _forward(self, x: torch.Tensor) -> List:
         """Implements the forward method of the model and returns predictions."""
         assert not self.model.training
         images = list(image.to(self.device) for image in x)
         preds = self.model(images)
         return [{k: v.to('cpu').detach() for k, v in p.items()} for p in preds]
 
-    def __forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Implements the train forward method and returns loss."""
         assert self.model.training, "model must be in training mode"
         images = [image.to(self.device) for image in x]
         targets = [{k: v.to(self.device) for k, v in target.items()} for target in y]
         return self.model(images, targets)
 
-    def __predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
+    def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         images = [image.to(self.device) for image in x]
@@ -480,19 +480,19 @@ class SegmentationExperimenter(NNExperimenter):
         )
         self.loss = loss
 
-    def __forward(self, x):
+    def _forward(self, x):
         """Implements the forward method of the model and returns predictions."""
         x = x.to(self.device)
         return self.model(x)['out'].to('cpu').detach()
 
-    def __forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Implements the train forward method and returns loss."""
         x = x.to(self.device)
         y = y.to(self.device)
         preds = self.model(x)['out']
         return {'loss': self.loss(preds, y)}
 
-    def __predict_on_batch(self, x, proba: bool) -> List:
+    def _predict_on_batch(self, x, proba: bool) -> List:
         """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
