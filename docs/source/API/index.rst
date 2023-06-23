@@ -44,8 +44,11 @@ Object detection and image classification
     :maxdepth: 1
 
     cv/computer_vision_api
-    cv/nn_experimenter_api
-    cv/structure_optimization_api
+    cv/fit_parameters_api
+    cv/classification_experimenter_api
+    cv/object_detection_experimenter_api
+    cv/svd_optimization_api
+    cv/sfp_optimization_api
 
 
 
