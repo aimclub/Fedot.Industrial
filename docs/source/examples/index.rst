@@ -12,18 +12,11 @@ Time series classification
 
    ts_classification_example
 
-Image classification
+Computer vision
 --------------------
 
 .. toctree::
    :maxdepth: 1
 
    image_classification_example
-
-Object detection
-----------------
-
-.. toctree::
-   :maxdepth: 1
-
    object_detection_example

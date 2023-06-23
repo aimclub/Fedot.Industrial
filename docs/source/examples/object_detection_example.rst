@@ -41,3 +41,38 @@ To visualize the predictions, you can use the following method:
 
     for image, prediction in predict_proba:
         fig = draw_sample_with_bboxes(image=image, prediction=prediction)
+
+Advanced object detection options
+-------------------------------------
+
+When initializing `FedotIndustrial` class, you can pass the following additional parameters:
+
+* **output_folder** - path to record all experiment results.
+* **optimization** - model compression method. Can be "svd" or "sfp", where svd is the singular value decomposition method, and sfp is the soft pruning filter method.
+* **optimization_params** - parameters passed to optimizer initialization (see :ref:`svd_optimization_api_label` or :ref:`sfp_optimization_api_label`).
+* **parameters passed to** :ref:`object_detection_experimenter_api`.
+
+Also, additional arguments can be passed to the fit method:
+
+* **dataset_name** - name of dataset.
+* **num_epochs** - number of training epochs.
+* **optimizer** - type of model optimizer, e.g. ``torch.optim.Adam``.
+* **lr_scheduler** - Type of learning rate scheduler, e.g ``torch.optim.lr_scheduler.StepLR``.
+* **class_metrics** - if ``True``, calculates validation metrics for each class.
+* **description** - additional line describing the experiment.
+* **finetuning_params** - if you use one of the optimization methods, you can set up the model fine-tuning parameters by passing a dictionary with keys equivalent to the main training: ``dataset_name``, ``num_epochs``, ``optimizer``, ``lr_scheduler``, ``class_metrics``, ``description``.
+
+.. hint::
+    If you want to customize part of the optimizer or scheduler options, you can use partial like this:
+
+    .. code-block:: python
+
+        from functools import partial
+
+        fed.fit(
+            dataset_path='your dataset path'
+            optimizer=partial(
+                torch.optim.Adam,
+                lr=0.0005,
+            )
+        )
