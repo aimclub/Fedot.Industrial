@@ -12,7 +12,7 @@ Basic image classification example
 
     from fedot_ind.api.main import FedotIndustrial
 
-    fed = FedotIndustrial(task='classification', num_classes=10)
+    fed = FedotIndustrial(task='image_classification', num_classes=10)
     trained_model = fed.fit(dataset_path='your dataset path')
 
 At the first step we need to import the necessary libraries and packages.
