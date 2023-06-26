@@ -39,9 +39,15 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         """
             Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
         """
-
+        operation_parameters = [f'{key}:{value}' for key, value in self.params.to_dict().items()]
+        class_params = list(self.__dir__())
+        operational_info = operation_parameters + class_params
         hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
-                                            operation_info=self.params.to_dict())
+                                            operation_info=operational_info)
+
+        # hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
+        #                                     operation_info=self.params.to_dict())
+
         try:
             predict = self.try_load_from_cache(hashed_info)
         except FileNotFoundError:

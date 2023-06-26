@@ -1,4 +1,5 @@
-from multiprocessing import Pool
+import math
+from multiprocessing import cpu_count, Pool
 from typing import Optional
 
 import numpy as np
@@ -19,6 +20,9 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
+        self.n_processes = self.n_processes = math.ceil(cpu_count() * 0.7) // 2 if cpu_count() > 1 else 1
+        # TODO: fix this
+        # self.n_processes = self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.n_components = params.get('n_components', 2)
         self.basis = None
         self.data_type = DataTypesEnum.image
@@ -68,10 +72,11 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         features = np.array(ListMonad(*input_data.features.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
 
-        with Pool(2) as p:
+        with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self._transform_one_sample, features),
                           total=features.shape[0],
                           desc=f'{self.__class__.__name__} transform',
+                          postfix=f'n_jobs - {self.n_processes}',
                           colour='red',
                           unit='ts',
                           ascii=False,
