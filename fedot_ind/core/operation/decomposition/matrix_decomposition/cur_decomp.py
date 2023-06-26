@@ -7,11 +7,28 @@ from sklearn.preprocessing import MinMaxScaler
 
 class CURDecomposition:
     def __init__(self, rank):
+        self.selection_rank = None
         self.rank = rank
         self.column_indices = None
         self.row_indices = None
-
+        
+    def _get_selection_rank(self, rank, matrix):
+        """
+        Compute the selection rank for the CUR decomposition. It must be at least 4 times the rank of the matrix but not
+        greater than the number of rows or columns of the matrix.
+        
+        Args:
+            rank: the rank of the matrix.
+            matrix: the matrix to decompose.
+            
+        Returns:
+            the selection rank
+        """
+        
+        return min(4 * rank, min(matrix.shape))
+    
     def fit_transform(self, matrix: np.ndarray) -> tuple:
+        self.selection_rank = self._get_selection_rank(self.rank, matrix)
 
         array = np.array(matrix.copy())
         c, w, r = self.select_rows_cols(array)
@@ -22,20 +39,22 @@ class CURDecomposition:
         u = y_T.T @ Sigma_plus @ Sigma_plus @ X.T
         return c, u, r
 
-    def optimize_rank(self, matrix: np.ndarray, max_rank: int = 100, plot: bool = False) -> int:
-        if max_rank > matrix.shape[0]:
-            max_rank = matrix.shape[0]
-        error = []
-        for rank in range(1, max_rank):
-            self.rank = rank
-            c, u, r = self.fit_transform(matrix)
-            error.append(np.linalg.norm(matrix - c @ u @ r))
-        if plot:
-            plt.plot(range(1, max_rank), error)
-            plt.show()
-        return np.argmin(error) + 1
+    def reconstruct_basis(self, C, U, R, ts_length):
+        # if len(U.shape) > 1:
+        #     multi_reconstruction = lambda x: self.reconstruct_basis(C=C, U=U, R=x, ts_length=ts_length)
+        #     TS_comps = list(map(multi_reconstruction, R))
+        # else:
+        rank = U.shape[1]
+        TS_comps = np.zeros((ts_length, rank))
+        for i in range(rank):
+            X_elem = np.outer(C @ U[:, i], R[i, :])
+            X_rev = X_elem[::-1]
+            eigenvector = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+            TS_comps[:, i] = eigenvector
+        return TS_comps
 
     def select_rows_cols(self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        
         col_norms = np.sum(matrix ** 2, axis=0)
         row_norms = np.sum(matrix ** 2, axis=1)
 
@@ -46,16 +65,16 @@ class CURDecomposition:
         row_probs = row_norms / matrix_norm
 
         # Select k columns and rows based on the probabilities p and q
-        selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
-        selected_rows = np.random.choice(matrix.shape[0], size=self.rank, replace=False, p=row_probs)
+        # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
+        # selected_rows = np.random.choice(matrix.shape[0], size=self.rank, replace=False, p=row_probs)
         #
-        # selected_cols = np.sort(np.argsort(col_probs)[-self.rank:])
-        # selected_rows = np.sort(np.argsort(row_probs)[-self.rank:])
+        selected_cols = np.sort(np.argsort(col_probs)[-self.selection_rank:])
+        selected_rows = np.sort(np.argsort(row_probs)[-self.selection_rank:])
         # selected_cols = np.argsort(col_probs)[-self.rank:]
         # selected_rows = np.argsort(row_probs)[-self.rank:]
 
-        row_scale_factors = 1 / np.sqrt(self.rank * row_probs[selected_rows])
-        col_scale_factors = 1 / np.sqrt(self.rank * col_probs[selected_cols])
+        row_scale_factors = 1 / np.sqrt(self.selection_rank * row_probs[selected_rows])
+        col_scale_factors = 1 / np.sqrt(self.selection_rank * col_probs[selected_cols])
 
         C_matrix = matrix[:, selected_cols] * col_scale_factors
         R_matrix = matrix[selected_rows, :] * row_scale_factors[:, np.newaxis]
@@ -103,24 +122,25 @@ if __name__ == '__main__':
                     [0, 0, 0, 5, 5],
                     [0, 0, 0, 2, 2]])
 
+    (X_train, y_train), (X_test, y_test) = DataLoader('Lightning7').load_data()
 
-    train, test = DataLoader('Lightning7').load_data()
-
-    init_ts = train[0].iloc[0, :].values
-    scaler = MinMaxScaler()
-    scaler.fit(init_ts.reshape(-1, 1))
-    single_ts = scaler.transform(init_ts.reshape(-1, 1)).reshape(-1)
+    # init_ts = train[0].iloc[0, :].values
+    # scaler = MinMaxScaler()
+    # scaler.fit(init_ts.reshape(-1, 1))
+    # single_ts = scaler.transform(init_ts.reshape(-1, 1)).reshape(-1)
 
     cur = CURDecomposition(rank=20)
-    M = cur.ts_to_matrix(single_ts, 30)
-    C, U, R = cur.fit_transform(M)
-    rec_ts = cur.matrix_to_ts(C @ U @ R)
-    err = np.linalg.norm(single_ts - rec_ts)
+    # M = cur.ts_to_matrix(single_ts, 30)
+    C, U, R = cur.fit_transform(X_train)
+    basis = cur.reconstruct_basis(C, U, R, X_train.shape[1])
 
-    plt.plot(init_ts, label='init_ts')
-    plt.plot(scaler.inverse_transform(rec_ts.reshape(-1, 1)), label='rec_ts')
-    plt.legend()
-    plt.show()
+    # rec_ts = cur.matrix_to_ts(C @ U @ R)
+    # err = np.linalg.norm(single_ts - rec_ts)
+
+    # plt.plot(init_ts, label='init_ts')
+    # plt.plot(scaler.inverse_transform(rec_ts.reshape(-1, 1)), label='rec_ts')
+    # plt.legend()
+    # plt.show()
     _ = 1
 
     # ranks = list(range(5, 20))

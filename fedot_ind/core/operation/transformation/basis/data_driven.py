@@ -1,3 +1,4 @@
+import time
 from typing import Tuple, TypeVar, Optional
 
 import numpy as np
@@ -5,9 +6,10 @@ import tensorly as tl
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from pymonad.list import ListMonad
+from sklearn.metrics import f1_score, roc_auc_score
 from tensorly.decomposition import parafac
+from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import bksvd
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.cur_decomp import CURDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, reconstruct_basis
@@ -39,25 +41,49 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return self._get_basis(data)
 
     def _get_1d_basis(self, data):
+        data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
+                                                                       Monoid[1],
+                                                                       Monoid[2],
+                                                                       ts_length=self.ts_length))
+        threshold = lambda Monoid: ListMonad([Monoid[0],
+                                              singular_value_hard_threshold(singular_values=Monoid[1],
+                                                                            beta=data.shape[0] / data.shape[1],
+                                                                            threshold=None),
+                                              Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
+                                                                                                       Monoid[1][
+                                                                                                       :self.n_components],
+                                                                                                       Monoid[2]])
+        dim = data.shape
+        if dim[0] * dim[1] > 10000:
+            self.svd_type = 'fast'
+            svd = lambda x: ListMonad(bksvd(tensor=x, k='full'))
+        else:
+            self.svd_type = 'ordinary'
+            svd = lambda x: ListMonad(np.linalg.svd(x))
+
+        basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
+
+
         # svd = lambda x: ListMonad(np.linalg.svd(x))
-        cur = lambda x: ListMonad(CURDecomposition(rank=self.n_components).fit_transform(x))
+        fast_svd = lambda x: ListMonad(bksvd(tensor=x, k='full'))
+        # fast_svd = lambda x: ListMonad(bksvd(tensor=x, k=self.n_components))
 
-        # threshold = lambda Monoid: ListMonad([Monoid[0],
-        #                                       singular_value_hard_threshold(singular_values=Monoid[1],
-        #                                                                     beta=data.shape[0] / data.shape[1],
-        #                                                                     threshold=None),
-        #                                       Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
-        #                                                                                                Monoid[1][
-        #                                                                                                :self.n_components],
-        #                                                                                                Monoid[2]])
-
+        threshold = lambda Monoid: ListMonad([Monoid[0],
+                                              singular_value_hard_threshold(singular_values=Monoid[1],
+                                                                            beta=data.shape[0] / data.shape[1],
+                                                                            threshold=None),
+                                              Monoid[2]]) if self.n_components is None else ListMonad([Monoid[0],
+                                                                                                       Monoid[1][
+                                                                                                       :self.n_components],
+                                                                                                       Monoid[2]])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
                                                                        ts_length=self.ts_length))
 
+        basis = Either.insert(data).then(fast_svd).then(threshold).then(data_driven_basis).value[0]
         # basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
-        basis = Either.insert(data).then(cur).then(data_driven_basis).value[0]
+        # basis = Either.insert(data).then(fast_svd).then(data_driven_basis).value[0]
 
         return np.swapaxes(basis, 1, 0)
 
@@ -107,21 +133,50 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
 
 if __name__ == "__main__":
-
     from fedot_ind.api.main import FedotIndustrial
     from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
-    (X_train, y_train), (X_test, y_test) = DataLoader('Lightning7').load_data()
+    (X_train, y_train), (X_test, y_test) = DataLoader('HouseTwenty').load_data()
+    # (X_train, y_train), (X_test, y_test) = DataLoader('Lightning7').load_data()
 
     fed = FedotIndustrial(task='ts_classification',
                           strategy='fedot_preset',
                           branch_nodes=['data_driven_basis'],
+                          tuning_iterations=30,
                           dataset='custom',
-                          timeout=2,
+                          timeout=5,
                           n_jobs=4,
                           logging_level=40)
-
+    start_time = time.time()
     model = fed.fit(features=X_train, target=y_train)
     labels = fed.predict(features=X_test, target=y_test)
-    _ = 1
+    elapsed_time = time.time() - start_time
+    # metrics
+    roc = roc_auc_score(y_test, labels)
+    _ =1
 
+    # HouseTwenty
+    # Base svd with threshold
+    # ROC: 0.818
+    # time: 669
+
+    # Fast svd with threshold
+    # ROC: 0.864
+    # time: 658
+
+    # Fast svd without threshold
+    # ROC: 0.843
+    # time: 670
+
+    # Lightning7
+    # Base svd with threshold
+    # F1: 0.659679
+    # time: 632.916
+
+    # Fast svd with threshold
+    # F1: 0.540515
+    # time: 644.521
+
+    # Fast svd without threshold
+    # F1: 0.558863
+    # time: 619.871
