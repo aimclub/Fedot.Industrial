@@ -307,7 +307,7 @@ class CVExperimenter:
         if self.optim is None:
             self.exp.load_model(path)
         else:
-            self.optim.load_model(path)
+            self.optim.load_model(self.exp, path)
 
     def save(self, path) -> None:
         """

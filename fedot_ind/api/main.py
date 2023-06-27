@@ -188,7 +188,7 @@ class FedotIndustrial(Fedot):
             path (str): path to the model
 
         """
-        raise NotImplementedError()
+        self.solver.load(path)
 
     def plot_prediction(self, **kwargs):
         """Plot prediction of the model"""
