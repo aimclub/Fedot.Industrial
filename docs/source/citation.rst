@@ -2,7 +2,9 @@ How to cite us
 ================
 Here is a list of options if you'd like to cite us in your paper:
 
-- Repository
+
+Repository
+----------
 
 .. code-block:: console
 
@@ -14,12 +16,23 @@ Here is a list of options if you'd like to cite us in your paper:
     urldate = {2022-05-05}
     }
 
-- Our articles
+Our articles
+------------
+
+
+`Automated machine learning approach for time series classification pipelines using
+evolutionary optimization`_
 
 .. code-block:: console
 
-    Article 1 - coming soon
+    @article{revin2023automated,
+      title={Automated machine learning approach for time series classification pipelines using evolutionary optimization},
+      author={Revin, Ilia and Potemkin, Vadim A and Balabanov, Nikita R and Nikitin, Nikolay O},
+      journal={Knowledge-Based Systems},
+      volume={268},
+      pages={110483},
+      year={2023},
+      publisher={Elsevier}
+    }
 
-.. code-block:: console
-
-    Article 2 - coming soon
+.. _`Automated machine learning approach for time series classification pipelines using evolutionary optimization`: https://www.sciencedirect.com/science/article/abs/pii/S0950705123002332

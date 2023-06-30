@@ -115,7 +115,7 @@ def _extract_classes(dataset: Dataset) -> np.ndarray:
         dataset: Torch dataset object.
     """
     classes_of_imgs = []
-    for i in tqdm(range(len(dataset))):
+    for i in tqdm(range(len(dataset)), desc='prepare dataset'):
         img, target = dataset.__getitem__(i)
         classes_of_imgs.append(target)
     return np.array(classes_of_imgs)
@@ -160,7 +160,7 @@ def get_dataset_mean_std(dataset: Dataset) -> Tuple[Tuple, Tuple]:
         psum = np.zeros(1)
         psum_sq = np.zeros(1)
         pixels = np.zeros(1)
-        for i in tqdm(range(len(dataset))):
+        for i in tqdm(range(len(dataset)), desc='computing mean and std'):
             img, target = dataset.__getitem__(i)
             psum += img.sum().numpy()
             psum_sq += (img ** 2).sum().numpy()
@@ -169,10 +169,10 @@ def get_dataset_mean_std(dataset: Dataset) -> Tuple[Tuple, Tuple]:
         psum = np.zeros(shape[0])
         psum_sq = np.zeros(shape[0])
         pixels = np.zeros(1)
-        for i in tqdm(range(len(dataset))):
+        for i in tqdm(range(len(dataset)), desc='computing mean and std'):
             img, target = dataset.__getitem__(i)
-            psum += img.sum(dim=[1,2]).numpy()
-            psum_sq += (img ** 2).sum(dim=[1,2]).numpy()
+            psum += img.sum(dim=[1, 2]).numpy()
+            psum_sq += (img ** 2).sum(dim=[1, 2]).numpy()
             c, w, h = img.size()
             pixels += w * h
     mean = psum / pixels

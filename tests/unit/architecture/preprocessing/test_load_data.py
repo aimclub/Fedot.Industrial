@@ -25,3 +25,4 @@ def test_load_fake_data():
     train_data, test_data = DataLoader('Fake').load_data()
     assert train_data is None
     assert test_data is None
+

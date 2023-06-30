@@ -54,7 +54,7 @@ def test_API_code_scenario(basic_API_class):
 
 def test_API_config_scenario(basic_API_class, basic_tsc_config):
     experiment_results = basic_API_class.run_experiment(config=basic_tsc_config, save_flag=False)
-    dataset_list = basic_API_class.YAML.config_dict['datasets_list']
-    fg_list = basic_API_class.YAML.config_dict['feature_generator']
-    assert len(basic_API_class.YAML.config_dict['datasets_list']) == len(list(experiment_results.keys()))
+    dataset_list = basic_API_class.configurator.config_dict['datasets_list']
+    fg_list = basic_API_class.configurator.config_dict['feature_generator']
+    assert len(basic_API_class.configurator.config_dict['datasets_list']) == len(list(experiment_results.keys()))
     assert len(fg_list) == len(list(experiment_results[dataset_list[0]]['Original'].keys()))

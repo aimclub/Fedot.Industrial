@@ -14,8 +14,6 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.saver_collections import ResultSaver
-# from fedot_ind.core.architecture.datasets.classification_datasets import CustomClassificationDataset
-# from fedot_ind.core.architecture.experiment.CVModule import ClassificationExperimenter
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
 from fedot_ind.core.models.nn.inception import InceptionTimeNetwork
@@ -175,78 +173,7 @@ class TimeSeriesClassifier:
         self.saver.save(metrics, 'metrics')
 
 
-class TimeSeriesImageClassifier(TimeSeriesClassifier):
-
-    def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
-
-    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
-
-        num_epochs = self.model_hyperparams['epoch']
-        del self.model_hyperparams['epoch']
-
-        if 'optimization_method' in self.model_hyperparams.keys():
-            modes = {'none': {},
-                     'SVD': self.model_hyperparams['optimization_method']['svd_parameters'],
-                     'SFP': self.model_hyperparams['optimization_method']['sfp_parameters']}
-            self.model_hyperparams['structure_optimization'] = self.model_hyperparams['optimization_method']['mode']
-            self.model_hyperparams['structure_optimization_params'] = modes[
-                self.model_hyperparams['optimization_method']['mode']]
-            del self.model_hyperparams['optimization_method']
-
-        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                                    self.strategy,
-                                                                    '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCImage',
-                                                              self.strategy,
-                                                              'runs')
-        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
-
-        if target.min() != 0:
-            target = target - 1
-
-        return num_epochs, target
-
-    def fit(self, train_ts_frame: Union[np.ndarray, pd.DataFrame],
-            train_target: np.ndarray,
-            **kwargs) -> object:
-        if type(train_ts_frame) is pd.DataFrame:
-            train_ts_frame =train_ts_frame.values
-        return self._fit_model(features=train_ts_frame, target=train_target)
-
-    def _fit_model(self, features: np.ndarray, target: np.ndarray):
-        """Fit Fedot model with feature and target.
-
-        Args:
-            features: features for training
-            target: target for training
-
-        Returns:
-            Fitted Fedot model
-
-        """
-        num_epochs, target = self._init_model_param(target)
-
-        # train_dataset = CustomClassificationDataset(images=features, targets=target)
-        # NN_model = ClassificationExperimenter(train_dataset=train_dataset,
-        #                                       val_dataset=train_dataset,
-        #                                       **self.model_hyperparams)
-        # NN_model.fit(num_epochs=num_epochs)
-        # return NN_model
-
-    def predict(self, test_ts_frame: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_label = self.__predict_abstraction(test_ts_frame, dataset_name)
-        prediction_label = list(prediction_label.values())
-        return dict(label=prediction_label, test_features=self.test_features)
-
-    def predict_proba(self, test_ts_frame: np.ndarray, dataset_name: str = None) -> dict:
-        prediction_proba = self.__predict_abstraction(test_features=test_ts_frame,
-                                                      mode='probs')
-        prediction_proba = np.concatenate(list(prediction_proba.values()), axis=0)
-        return dict(class_probability=prediction_proba, test_features=self.test_features)
-
-
-class TimeSeriesClassifierNN(TimeSeriesImageClassifier):
+class TimeSeriesClassifierNN(TimeSeriesClassifier):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.device = torch.device('cuda' if params.get('gpu', False) else 'cpu')

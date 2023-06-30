@@ -1,11 +1,13 @@
+from multiprocessing import Pool
 from typing import Optional
+
 import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
@@ -60,13 +62,21 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         return basis
 
     def _transform(self, input_data: InputData) -> np.array:
-        """
-            Method for transforming all samples
+        """Method for transforming all samples
+
         """
         features = np.array(ListMonad(*input_data.features.tolist()).value)
-        v = []
-        for series in tqdm(features):
-            v.append(self._transform_one_sample(series[~np.isnan(series)]))
+        features = np.array([series[~np.isnan(series)] for series in features])
+
+        with Pool(2) as p:
+            v = list(tqdm(p.imap(self._transform_one_sample, features),
+                          total=features.shape[0],
+                          colour='red',
+                          unit='ts',
+                          desc='Components processed'
+                          )
+                     )
+
         predict = np.array(v)
         return predict
 
