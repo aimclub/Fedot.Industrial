@@ -44,13 +44,18 @@ def create_energy_svd_pruning(energy_threshold: float) -> Callable:
     return energy_svd_pruning
 
 
-def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> None:
+def decompose_module(
+        model: Module,
+        decomposing_mode: Optional[str] = None,
+        forward_mode: str = 'one_layer',
+) -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place).
 
     Args:
         model: Decomposable module.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
             If ``None`` replace layers without decomposition.
+        forward_mode: ``'one_layer'``, ``'two_layers'`` or ``'three_layers'`` forward pass calculation method.
     """
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -59,11 +64,9 @@ def decompose_module(model: Module, decomposing_mode: Optional[str] = None) -> N
         if isinstance(module, Conv2d):
             new_module = DecomposedConv2d(
                 base_conv=module,
-                decomposing=False,
+                decomposing_mode=decomposing_mode,
+                forward_mode=forward_mode
             )
-            new_module.load_state_dict(module.state_dict())
-            if decomposing_mode is not None:
-                new_module.decompose(decomposing_mode=decomposing_mode)
             setattr(model, name, new_module)
 
 
