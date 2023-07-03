@@ -2,6 +2,7 @@
 import logging
 import os
 import shutil
+from functools import partial
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
@@ -41,8 +42,8 @@ class FitParameters:
     train_dl: DataLoader
     val_dl: DataLoader
     num_epochs: int
-    optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
-    lr_scheduler: Optional[Type[torch.optim.lr_scheduler.LRScheduler]] = None
+    optimizer: Union[Type[torch.optim.Optimizer], partial] = torch.optim.Adam
+    lr_scheduler: Optional[Union[Type[torch.optim.lr_scheduler.LRScheduler], partial]] = None
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
     class_metrics: bool = False

@@ -196,8 +196,7 @@ class SFPOptimization(StructureOptimization):
     """Soft filter pruning for model structure optimization.
 
     Args:
-        zeroing_mode: ``'percentage'`` or ``'energy'`` zeroing strategy of convolutional layer filters.
-        zeroing_mode_params: Parameter dictionary passed to zeroing function.
+        zeroing_fn: Partially initialized filter zeroing function.
         model_class: The class of models to which the final pruning function is applicable.
         final_pruning_fn: Function implementing the model final pruning of the ``model_class``.
         load_model_fn: Function implementing the model loading of the ``model_class``.
