@@ -87,7 +87,8 @@ def _load_svd_params(model, state_dict, prefix='') -> None:
 def load_svd_state_dict(
         model: Module,
         decomposing_mode: str,
-        state_dict_path: str
+        state_dict_path: str,
+        forward_mode: str = 'one_layer',
 ) -> None:
     """Loads SVD state_dict to model.
 
@@ -95,8 +96,9 @@ def load_svd_state_dict(
         model: An instance of the base model.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
         state_dict_path: Path to state_dict file.
+        forward_mode: ``'one_layer'``, ``'two_layers'`` or ``'three_layers'`` forward pass calculation method.
     """
     state_dict = torch.load(state_dict_path, map_location='cpu')
-    decompose_module(model=model, decomposing_mode=decomposing_mode)
+    decompose_module(model=model, decomposing_mode=decomposing_mode, forward_mode=forward_mode)
     _load_svd_params(model, state_dict)
     model.load_state_dict(state_dict)
