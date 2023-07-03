@@ -59,7 +59,7 @@ def decompose_module(
     """
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
-            decompose_module(module, decomposing_mode=decomposing_mode)
+            decompose_module(module, decomposing_mode=decomposing_mode, forward_mode=forward_mode)
 
         if isinstance(module, Conv2d):
             new_module = DecomposedConv2d(
