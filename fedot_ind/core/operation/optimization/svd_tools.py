@@ -11,37 +11,29 @@ from torch.nn.modules.conv import Conv2d
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 
 
-def create_energy_svd_pruning(energy_threshold: float) -> Callable:
-    """Returns the pruning function.
+def energy_svd_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
+    """Prune the weight matrices to the energy_threshold (in-place).
     Args:
+        conv: The optimizable layer.
         energy_threshold: pruning hyperparameter must be in the range (0, 1].
             the lower the threshold, the more singular values will be pruned.
-    Returns:
-        ``energy_svd_pruning`` function.
     Raises:
+        Assertion Error: If ``conv.decomposing`` is False.
         Assertion Error: If ``energy_threshold`` is not in (0, 1].
     """
+    assert conv.decomposing is not None, "for pruning, the model must be decomposed"
     assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
-    def energy_svd_pruning(conv: DecomposedConv2d) -> None:
-        """Prune the weight matrices to the energy_threshold (in-place).
-        Args:
-            conv: The optimizable layer.
-        Raises:
-            Assertion Error: If ``conv.decomposing`` is False.
-        """
-        assert conv.decomposing, "for pruning, the model must be decomposed"
 
-        S, indices = conv.S.sort()
-        U = conv.U[:, indices]
-        Vh = conv.Vh[indices, :]
-        sum = (S ** 2).sum()
-        threshold = energy_threshold * sum
-        for i, s in enumerate(S):
-            sum -= s ** 2
-            if sum < threshold:
-                conv.set_U_S_Vh(U[:, i:].clone(), S[i:].clone(), Vh[i:, :].clone())
-                break
-    return energy_svd_pruning
+    S, indices = conv.S.sort()
+    U = conv.U[:, indices]
+    Vh = conv.Vh[indices, :]
+    sum = (S ** 2).sum()
+    threshold = energy_threshold * sum
+    for i, s in enumerate(S):
+        sum -= s ** 2
+        if sum < threshold:
+            conv.set_U_S_Vh(U[:, i:].clone(), S[i:].clone(), Vh[i:, :].clone())
+            break
 
 
 def decompose_module(

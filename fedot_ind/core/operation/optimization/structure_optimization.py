@@ -6,19 +6,18 @@ import logging
 import os
 from typing import Callable, Dict, List, Optional, Type
 from abc import ABC, abstractmethod
+from functools import partial
 
 import torch
 from torchvision.models import ResNet
 
-from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, \
-    Writer
+from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, Writer
 from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from fedot_ind.core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from fedot_ind.core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
     create_energy_filter_zeroing_fn, prune_resnet, load_sfp_resnet_model
-from fedot_ind.core.operation.optimization.svd_tools import create_energy_svd_pruning, \
-    decompose_module, load_svd_state_dict
+from fedot_ind.core.operation.optimization.svd_tools import energy_svd_pruning, decompose_module, load_svd_state_dict
 
 
 class StructureOptimization(ABC):
@@ -64,6 +63,7 @@ class SVDOptimization(StructureOptimization):
     Args:
         energy_thresholds: List of pruning hyperparameters.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
+        forward_mode: ``'one_layer'``, ``'two_layers'`` or ``'three_layers'`` forward pass calculation method.
         hoer_loss_factor: The hyperparameter by which the Hoyer loss function is
             multiplied.
         orthogonal_loss_factor: The hyperparameter by which the orthogonal loss
@@ -74,6 +74,7 @@ class SVDOptimization(StructureOptimization):
             self,
             energy_thresholds: List[float] = [0.9, 0.95, 0.99, 0.999],
             decomposing_mode: str = 'channel',
+            forward_mode: str = 'one_layer',
             hoer_loss_factor: float = 0.1,
             orthogonal_loss_factor: float = 10,
     ) -> None:
@@ -85,6 +86,7 @@ class SVDOptimization(StructureOptimization):
         )
         self.energy_thresholds = energy_thresholds
         self.decomposing_mode = decomposing_mode
+        self.forward_mode = forward_mode
         self.hoer_loss = HoyerLoss(hoer_loss_factor)
         self.orthogonal_loss = OrthogonalLoss(orthogonal_loss_factor)
         self.finetuning = False
@@ -108,7 +110,7 @@ class SVDOptimization(StructureOptimization):
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
-        decompose_module(exp.model, self.decomposing_mode)
+        decompose_module(exp.model, self.decomposing_mode, forward_mode=self.forward_mode)
         exp.model.to(exp.device)
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='decomposed')
@@ -139,7 +141,7 @@ class SVDOptimization(StructureOptimization):
             str_e = f'e_{e}'
             exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
             exp._apply_func(
-                func=create_energy_svd_pruning(energy_threshold=e),
+                func=partial(energy_svd_pruning, energy_threshold=e),
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
             exp.save_model(os.path.join(models_path, str_e))
@@ -184,7 +186,8 @@ class SVDOptimization(StructureOptimization):
         load_svd_state_dict(
             model=exp.model,
             state_dict_path=state_dict_path,
-            decomposing_mode=self.decomposing_mode
+            decomposing_mode=self.decomposing_mode,
+            forward_mode=self.forward_mode
         )
         exp.model.to(exp.device)
         self.logger.info("Model state dict loaded.")
