@@ -61,8 +61,9 @@ class DecomposedConv2d(Conv2d):
         decomposing_modes = {
             'channel': {
                 'type': 'channel',
-                'decompose_fn': lambda x: x.reshape(n, c * w * h),
-                'compose_fn': lambda x: x.reshape(n, c, w, h),
+                'permute': (0, 1, 2, 3),
+                'decompose_shape': (n, c * w * h),
+                'compose_shape': (n, c, w, h),
                 'U shape': (n, 1, 1, -1),
                 'U': {
                     'stride': 1,
@@ -78,8 +79,9 @@ class DecomposedConv2d(Conv2d):
             },
             'spatial': {
                 'type': 'spatial',
-                'decompose_fn': lambda x: x.permute(0, 2, 1, 3).reshape(n * w, c * h),
-                'compose_fn': lambda x: x.reshape(n, w, c, h).permute(0, 2, 1, 3),
+                'permute': (0, 2, 1, 3),
+                'decompose_shape': (n * w, c * h),
+                'compose_shape': (n, w, c, h),
                 'U shape': (n, w, 1, -1),
                 'U': {
                     'stride': (self.stride[0], 1),
@@ -106,7 +108,7 @@ class DecomposedConv2d(Conv2d):
             ValueError: If ``decomposing_mode`` not in valid values.
         """
         self.set_decomposing_params(decomposing_mode=decomposing_mode)
-        W = self.decomposing['decompose_fn'](self.weight)
+        W = self.weight.permute(self.decomposing['permute']).reshape(self.decomposing['decompose_shape'])
         U, S, Vh = torch.linalg.svd(W, full_matrices=False)
         self.U = Parameter(U)
         self.S = Parameter(S)
@@ -118,7 +120,7 @@ class DecomposedConv2d(Conv2d):
         Replaces U, S, Vh matrices with weights such that weights = U * S * Vh.
         """
         W = self.U @ torch.diag(self.S) @ self.Vh
-        self.weight = Parameter(self.decomposing['compose_fn'](W))
+        self.weight = Parameter(W.reshape(self.decomposing['compose_shape']).permute(self.decomposing['permute']))
         self.register_parameter('U', None)
         self.register_parameter('S', None)
         self.register_parameter('Vh', None)
@@ -137,7 +139,8 @@ class DecomposedConv2d(Conv2d):
 
     def _one_layer_forward(self, input: torch.Tensor) -> torch.Tensor:
         W = self.U @ torch.diag(self.S) @ self.Vh
-        return self._conv_forward(input, self.decomposing['compose_fn'](W), self.bias)
+        W = W.reshape(self.decomposing['compose_shape']).permute(self.decomposing['permute'])
+        return self._conv_forward(input, W, self.bias)
 
     def _two_layers_forward(self, input: torch.Tensor) -> torch.Tensor:
         SVh = (torch.diag(self.S) @ self.Vh).view(self.decomposing['Vh shape'])
