@@ -17,61 +17,46 @@ MODELS_FROM_LENGHT = {
     932: 'ResNet152',
 }
 
-def create_percentage_filter_zeroing_fn(pruning_ratio: float) -> Callable:
-    """Returns the filter zeroing function.
+
+def percentage_filter_zeroing(conv: Conv2d, pruning_ratio: float) -> None:
+    """Zero filters of convolutional layer to the pruning_ratio (in-place).
 
     Args:
+        conv: The optimizable layer.
         pruning_ratio: pruning hyperparameter must be in the range (0, 1),
             percentage of zeroed filters.
-    Returns:
-        ``percentage_filter_zeroing`` function.
     Raises:
         Assertion Error: If ``energy_threshold`` is not in (0, 1).
     """
     assert 0 < pruning_ratio < 1, "pruning_ratio must be in the range (0, 1)"
-    def percentage_filter_zeroing(conv: Conv2d) -> None:
-        """Zero filters of convolutional layer to the pruning_ratio (in-place).
-
-        Args:
-            conv: The optimizable layer.
-        """
-        filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
-        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
-        _, indices = filter_norms.sort()
-        with torch.no_grad():
-            conv.weight[indices[:filter_pruned_num]] = 0
-    return percentage_filter_zeroing
+    filter_pruned_num = int(conv.weight.size()[0] * pruning_ratio)
+    filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+    _, indices = filter_norms.sort()
+    with torch.no_grad():
+        conv.weight[indices[:filter_pruned_num]] = 0
 
 
-def create_energy_filter_zeroing_fn(energy_threshold: float) -> Callable:
-    """Returns the filter zeroing function.
+def energy_filter_zeroing(conv: Conv2d, energy_threshold: float) -> None:
+    """Zero filters of convolutional layer to the energy_threshold (in-place).
 
     Args:
+        conv: The optimizable layer.
         energy_threshold: pruning hyperparameter must be in the range (0, 1].
             the lower the threshold, the more filters will be pruned.
-    Returns:
-        ``energy_filter_zeroing`` function.
     Raises:
         Assertion Error: If ``energy_threshold`` is not in (0, 1].
     """
     assert 0 < energy_threshold <= 1, "energy_threshold must be in the range (0, 1]"
-    def energy_filter_zeroing(conv: Conv2d) -> None:
-        """Zero filters of convolutional layer to the energy_threshold (in-place).
-
-        Args:
-            conv: The optimizable layer.
-        """
-        filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
-        sorted_filter_norms, indices = filter_norms.sort()
-        sum = (filter_norms ** 2).sum()
-        threshold = energy_threshold * sum
-        for index, filter_norm in zip(indices, sorted_filter_norms):
-            with torch.no_grad():
-                conv.weight[index] = 0
-            sum -= filter_norm ** 2
-            if sum < threshold:
-                break
-    return energy_filter_zeroing
+    filter_norms = vector_norm(conv.weight, dim=(1, 2, 3))
+    sorted_filter_norms, indices = filter_norms.sort()
+    sum = (filter_norms ** 2).sum()
+    threshold = energy_threshold * sum
+    for index, filter_norm in zip(indices, sorted_filter_norms):
+        with torch.no_grad():
+            conv.weight[index] = 0
+        sum -= filter_norm ** 2
+        if sum < threshold:
+            break
 
 
 def _check_nonzero_filters(weight: Tensor) -> Tensor:

@@ -15,8 +15,7 @@ from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWr
 from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from fedot_ind.core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
-from fedot_ind.core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
-    create_energy_filter_zeroing_fn, prune_resnet, load_sfp_resnet_model
+from fedot_ind.core.operation.optimization.sfp_tools import percentage_filter_zeroing, energy_filter_zeroing, prune_resnet, load_sfp_resnet_model
 from fedot_ind.core.operation.optimization.svd_tools import energy_svd_pruning, decompose_module, load_svd_state_dict
 
 
@@ -206,23 +205,18 @@ class SFPOptimization(StructureOptimization):
 
     def __init__(
             self,
-            zeroing_mode: str = 'percentage',
-            zeroing_mode_params: Dict = {'pruning_ratio': 0.2},
+            zeroing_fn: partial = partial(percentage_filter_zeroing, pruning_ratio=0.2),
             model_class: Type = ResNet,
             final_pruning_fn: Callable = prune_resnet,
             load_model_fn: Callable = load_sfp_resnet_model
     ) -> None:
         description = f"_SFP"
-        for k, v in zeroing_mode_params.items():
+        for k, v in zeroing_fn.keywords.items():
             description += f"_{k}-{v}"
         super().__init__(
             description=description,
         )
-        self.modes = {
-            'percentage': create_percentage_filter_zeroing_fn,
-            'energy': create_energy_filter_zeroing_fn
-        }
-        self.zeroing_fn = self.modes[zeroing_mode](**zeroing_mode_params)
+        self.zeroing_fn = zeroing_fn
         self.pruning_fn = final_pruning_fn
         self.model_class = model_class
         self.load_model_fn = load_model_fn

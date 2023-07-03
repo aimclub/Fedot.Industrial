@@ -1,15 +1,13 @@
 import os
+from functools import partial
 
-from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, \
-    ObjectDetectionExperimenter
-from fedot_ind.core.operation.optimization.structure_optimization import SVDOptimization, \
-    SFPOptimization
-from tests.integration.experiment.test_nn_experimenter import \
-    classification_predict, detection_predict, prepare_detection, prepare_classification
+from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, ObjectDetectionExperimenter
+from fedot_ind.core.operation.optimization.structure_optimization import SVDOptimization, SFPOptimization
+from fedot_ind.core.operation.optimization.sfp_tools import energy_filter_zeroing
+from tests.integration.experiment.test_nn_experimenter import classification_predict, detection_predict, prepare_detection, prepare_classification
 
 SVD_PARAMS = {'energy_thresholds': [0.9]}
-SFP_PERCENTAGE_PARAMS = {'zeroing_mode': 'percentage', 'zeroing_mode_params': {'pruning_ratio': 0.5}}
-SFP_ENERGY_PARAMS = {'zeroing_mode': 'energy', 'zeroing_mode_params': {'energy_threshold': 0.9}}
+SFP_ENERGY_PARAMS = {'zeroing_fn': partial(energy_filter_zeroing, energy_threshold=0.9)}
 
 
 def check_sfp_paths(models, summary, classification=True):
@@ -38,10 +36,10 @@ def check_svd_paths(models, summary, classification=True):
 def test_sfp_percentage_classification_experimenter(prepare_classification):
     exp_params, fit_params, tmp_path = prepare_classification
     experimenter = ClassificationExperimenter(**exp_params)
-    optimization = SFPOptimization(**SFP_PERCENTAGE_PARAMS)
+    optimization = SFPOptimization()
     optimization.fit(exp=experimenter, params=fit_params, ft_params=fit_params)
-    models = tmp_path.joinpath('models/Agricultural/ResNet_SFP_pruning_ratio-0.5/')
-    summary = tmp_path.joinpath('summary/Agricultural/ResNet_SFP_pruning_ratio-0.5/')
+    models = tmp_path.joinpath('models/Agricultural/ResNet_SFP_pruning_ratio-0.2/')
+    summary = tmp_path.joinpath('summary/Agricultural/ResNet_SFP_pruning_ratio-0.2/')
     check_sfp_paths(models, summary)
     classification_predict(experimenter)
 
@@ -104,10 +102,10 @@ def test_svd_spatial_classification_experimenter(prepare_classification):
 def test_sfp_percentage_objectdetection_experimenter(prepare_detection):
     exp_params, fit_params, tmp_path = prepare_detection
     experimenter = ObjectDetectionExperimenter(**exp_params)
-    optimization = SFPOptimization(**SFP_PERCENTAGE_PARAMS)
+    optimization = SFPOptimization()
     optimization.fit(exp=experimenter, params=fit_params)
-    models = tmp_path.joinpath('models/ALET10/SSD_SFP_pruning_ratio-0.5/')
-    summary = tmp_path.joinpath('summary/ALET10/SSD_SFP_pruning_ratio-0.5/')
+    models = tmp_path.joinpath('models/ALET10/SSD_SFP_pruning_ratio-0.2/')
+    summary = tmp_path.joinpath('summary/ALET10/SSD_SFP_pruning_ratio-0.2/')
     check_sfp_paths(models, summary, classification=False)
     detection_predict(experimenter)
 
