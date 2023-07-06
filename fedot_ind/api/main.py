@@ -7,7 +7,7 @@ import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
-from fedot_ind.api.utils.reader_collections import Configurator
+from fedot_ind.api.utils.configurator import Configurator
 from fedot_ind.api.utils.reporter import ReporterTSC
 from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
@@ -85,9 +85,9 @@ class FedotIndustrial(Fedot):
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['strategy'] == 'fedot_preset':
                 solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-            elif self.config_dict['strategy'] is None:
-                self.config_dict['strategy'] = 'InceptionTime'
-                solver = TaskEnum[self.config_dict['task']].value['nn']
+            # elif self.config_dict['strategy'] in (None, 'inception_time'):
+            #     self.config_dict['strategy'] = 'InceptionTime'
+            #     solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
                 solver = TaskEnum[self.config_dict['task']].value['default']
 

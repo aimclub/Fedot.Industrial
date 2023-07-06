@@ -1,5 +1,8 @@
 import numpy as np
-from typing import Tuple, TypeVar
+from typing import Optional, Tuple, TypeVar
+
+from fedot.core.operations.operation_parameters import OperationParameters
+
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 class_type = TypeVar("T", bound="PowerBasis")
@@ -15,10 +18,15 @@ class PowerBasis(BasisDecompositionImplementation):
             end values of the interval over which the basis can be evaluated.
         n_components: number of functions in the basis.
     """
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.n_components = params.get('n_components')
+        self.basis = None
+
+        self.logging_params.update({'n_components': self.n_components})
 
     def _get_basis(self, n_components: int = None):
         self.basis = np.arange(self.n_components)
-
         return self.basis
 
     def fit(self, data):
