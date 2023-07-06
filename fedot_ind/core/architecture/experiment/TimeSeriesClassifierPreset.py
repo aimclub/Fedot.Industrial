@@ -31,39 +31,39 @@ class TimeSeriesClassifierPreset:
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
-        tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
         output_dir: path to the directory where results will be saved
         saver: object of ``ResultSaver`` class
 
-    Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
-           ``'wavelet_basis'``.
+    Notes:
+        ``branch_nodes`` can be one of the following: ``'data_driven_basis'``, ``'fourier_basis'``, ``'wavelet_basis'``.
 
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
+        self.test_data_preprocessed = None
         self.branch_nodes: list = params.get('branch_nodes', None)
+        # self.branch_nodes: list = params.get('branch_nodes', ['data_driven_basis',
+        #                                                               'fourier_basis',
+        #                                                               'wavelet_basis'])
+
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
         self.tuning_iters = params.get('tuning_iterations', 30)
-        self.output_folder = params.get('output_folder', default_path_to_save_results())
+        self.output_dir = params.get('output_dir', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
                                  generator_name='fedot_preset',
-                                 output_dir=self.output_folder)
-        self.logger = logging.getLogger('TimeSeriesClassifier_Preset')
+                                 output_dir=self.output_dir)
+        self.logger = logging.getLogger('TimeSeriesClassifier')
 
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
         self.train_features = None
-        self.train_data = None
         self.test_features = None
-        self.train_data_preprocessed = None
-        self.test_data_preprocessed = None
         self.input_test_data = None
-        self.prediction_proba = None
 
         self.preprocessing_pipeline = self._build_pipeline()
         self.logger.info(f'TimeSeriesClassifierPreset initialised with {set(self.branch_nodes)} nodes and '
@@ -79,7 +79,7 @@ class TimeSeriesClassifierPreset:
             True if data is multivariate, False otherwise
 
         """
-        if isinstance(data.iloc[0, 0], pd.Series):
+        if isinstance(data.iloc[0,0], pd.Series):
             return True
         else:
             return False
@@ -113,19 +113,16 @@ class TimeSeriesClassifierPreset:
 
     def _build_pipeline(self):
         """
-        Method for building pipeline with nodes from ``branch_nodes`` list and statistical extractor. If
-        ``branch_nodes`` is not specified, the default list of nodes will be used: ``['data_driven_basis',
-        'fourier_basis', 'wavelet_basis']``. Then those nodes will be joined with statistical extractor and Random
-        Forest classifier.
-
-        Returns:
-            pipeline: pipeline with nodes from ``branch_nodes`` list and statistical extractor
+        Method for building pipeline with nodes from ``branch_nodes`` list and statistical extractor.
 
         """
 
         if self.branch_nodes is None:
             self.branch_nodes = ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
+            self.extractors = ['quantile_extractor', 'topological_extractor', 'recurrence_extractor']
         else:
+            # TODO: dont forget to change it
+            # self.extractors = ['recurrence_extractor'] * len(self.branch_nodes)
             self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
 
         pipeline_builder = PipelineBuilder()
@@ -134,6 +131,8 @@ class TimeSeriesClassifierPreset:
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
         pipeline_builder.join_branches('rf')
+        # pipeline_builder.join_branches('xgboost')
+        # pipeline_builder.join_branches('knn')
 
         return pipeline_builder.build()
 
@@ -158,11 +157,14 @@ class TimeSeriesClassifierPreset:
             .with_metric(metric) \
             .with_iterations(self.tuning_iters) \
             .build(train_data)
+            # .with_timeout(1) \
 
         pipeline = pipeline_tuner.tune(pipeline)
         return pipeline
 
-    def fit(self, features, target: np.ndarray = None, **kwargs) -> object:
+    def fit(self, features,
+            target: np.ndarray = None,
+            **kwargs) -> object:
         """
         Method for fitting pipeline on train data. It also tunes pipeline and updates it with categorical features.
 
@@ -177,11 +179,13 @@ class TimeSeriesClassifierPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, target)
-            metric = 'f1' if self.train_data.num_classes > 2 else 'roc_auc'
+            self.metric = 'f1' if self.train_data.num_classes > 2 else 'roc_auc'
 
             self.preprocessing_pipeline = self._tune_pipeline(self.preprocessing_pipeline,
                                                               self.train_data)
             self.preprocessing_pipeline.fit(self.train_data)
+
+            # self.initial_assumption_ppl = self.preprocessing_pipeli
 
             rf_node = self.preprocessing_pipeline.nodes[0]
             self.preprocessing_pipeline.update_node(rf_node, PipelineNode('cat_features'))
@@ -192,16 +196,16 @@ class TimeSeriesClassifierPreset:
             train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
-            self.train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
-                                                     features=train_data_preprocessed.predict,
-                                                     target=train_data_preprocessed.target,
-                                                     data_type=train_data_preprocessed.data_type,
-                                                     task=train_data_preprocessed.task)
+            train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
+                                                features=train_data_preprocessed.predict,
+                                                target=train_data_preprocessed.target,
+                                                data_type=train_data_preprocessed.data_type,
+                                                task=train_data_preprocessed.task)
 
-        self.model_params.update({'metric': metric})
+        self.model_params.update({'metric': self.metric})
         self.predictor = Fedot(**self.model_params)
 
-        self.predictor.fit(self.train_data_preprocessed)
+        self.predictor.fit(train_data_preprocessed)
 
         return self.predictor
 

@@ -3,30 +3,31 @@ from hyperopt import hp
 
 industrial_search_space = {
     'data_driven_basis':
-        {'window_size': (hp.uniformint, [1, 30]),
-         'svd_type': (hp.choice, [['krylov', 'base']])},
-
+        {
+            # 'n_components': (hp.uniformint, [2, 10]),
+         'window_size': (hp.uniformint, [1, 30]),
+         'singular_threshold': (hp.choice, [[True, False]]),
+         'ortho_iterations': (hp.uniformint, [3, 20])
+         },
     'wavelet_basis':
         {'n_components': (hp.uniformint, [2, 10]),
          'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])},
-
     'fourier_basis':
-        {'spectrum_type': (hp.choice, [['smoothed']]),
+        {'spectrum': (hp.choice, [['smoothed']]),
          'threshold': (hp.uniformint, [10000, 50000])},
-
     'quantile_extractor':
-        {'window_mode': (hp.choice, [[True, False]]),
+        # TODO: add 'win_mode': (hp.choice, [[True, False]]),
+        {'win_mode': (hp.choice, [[True, True]]),
          # percent of the signal length
-         'window_size': (hp.uniformint, [1, 30])},
-
+         'window_size': (hp.uniformint, [1, 30])
+         },
     'recurrence_extractor':
         {
-         'win_mode': (hp.choice, [[True, False]]),
-         'window_size': (hp.uniformint, [1, 50]),
+         # 'win_mode': (hp.choice, [[True, False]]),
+         # 'window_size': (hp.uniformint, [1, 50]),
          'min_signal_ratio': (hp.uniform, [0, 0.5]),
          'max_signal_ratio': (hp.uniform, [0.5, 1]),
          'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean' 'mahalanobis']])},
-
     'signal_extractor':
         {'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])}
 }

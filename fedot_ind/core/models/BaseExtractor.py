@@ -20,12 +20,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
+        # TODO: delete this
+        # self.current_window = None
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
-        self.logger = logging.getLogger(self.__class__.__name__)
 
-        self.logging_params = {'jobs': self.n_processes}
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def fit(self, input_data: InputData):
         pass
@@ -43,45 +44,57 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         v = []
         input_data_squeezed = np.squeeze(input_data.features, 3)
 
-        with Pool(self.n_processes) as p:
-            v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=input_data.features.shape[0],
-                          desc=f'{self.__class__.__name__} transform',
-                          postfix=f'{self.logging_params}',
-                          colour='green',
-                          unit='ts',
-                          ascii=False,
-                          position=0,
-                          initial=0,
-                          leave=True)
-                     )
+        # TODO: return to this code
+        # with Pool(4) as p:
+        # # with Pool(self.n_processes) as p:
+        #     v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
+        #                   total=input_data.features.shape[0],
+        #                   desc=f'{self.__class__.__name__} transform',
+        #                   postfix=f'n_jobs:{self.n_processes}, win_size,%:{self.window_size}',
+        #                   colour='green',
+        #                   unit='ts',
+        #                   ascii=False,
+        #                   position=0,
+        #                   initial=0,
+        #                   leave=True)
+        #              )
+
+        for series in tqdm(input_data_squeezed,
+                           total=input_data.features.shape[0],
+                           desc=f'{self.__class__.__name__} transform',
+                           colour='green',
+                           unit='ts',
+                           ascii=False,
+                           position=0,
+                           leave=True):
+            v.append(self.generate_features_from_ts(series))
 
         predict = self._clean_predict(np.array(v))
         return predict
 
     @staticmethod
     def _clean_predict(predict: np.array):
-        """Clean predict from nan, inf and reshape data for Fedot appropriate form
-
+        """
+            Clean predict from nan, inf and reshape data for Fedot appropriate form
         """
         predict = np.where(np.isnan(predict), 0, predict)
         predict = np.where(np.isinf(predict), 0, predict)
         predict = predict.reshape(predict.shape[0], -1)
         return predict
 
-    def generate_features_from_ts(self, **kwargs) -> pd.DataFrame:
+    def generate_features_from_ts(self, ts_frame: pd.DataFrame,
+                                  window_length: int = None) -> pd.DataFrame:
         """Method responsible for generation of features from time series.
-
         """
         pass
 
     def extract_features(self, train_features: pd.DataFrame,
                          dataset_name: str = None) -> pd.DataFrame:
-        """Wrapper method for feature extraction method ``get_features()`` with caching results into pickle file. The
-        idea is to create a unique pointer from dataset name, subsample (test or train) and feature generator object.
-        We can uniquely identify the generator in our case only using a set of parameters in the form of
-        ``obj.__dict__``, while excluding some dynamic attributes. In this way we can create a hash of incoming data
-        unique for each case, and then associate it with the output data – the feature set.
+        """Wrapper method for feature extraction method get_features() with caching results into pickle file. The idea
+        is to create a unique pointer from dataset name, subsample (test or train) and feature generator object. We
+        can uniquely identify the generator in our case only using a set of parameters in the form of obj.__dict__,
+        while excluding some dynamic attributes. In this way we can create a hash of incoming data unique for each
+        case, and then associate it with the output data - the feature set.
 
         Args:
             train_features: dataframe with time series.
