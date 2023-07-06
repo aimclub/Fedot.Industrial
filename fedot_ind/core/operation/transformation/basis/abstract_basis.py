@@ -21,11 +21,11 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        # self.n_components = params.get('n_components', 2)
+        # self.ortho_iterations = params.get('ortho_iterations', 3)
         self.basis = None
         self.data_type = DataTypesEnum.image
         self.min_rank = 1
-
-        self.logging_params = {'jobs': self.n_processes}
 
     def _get_basis(self, data):
         if type(data) == list:
@@ -45,7 +45,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
     def _decompose_signal(self, signal) -> list:
         pass
 
-    def evaluate_derivative(self, **kwargs):
+    def evaluate_derivative(self, order: int = 1):
         """Evaluates the derivative of the decomposition of the given data.
 
         Returns:
@@ -71,11 +71,12 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         features = np.array(ListMonad(*input_data.features.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
 
+        #  TODO: return to this code
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self._transform_one_sample, features),
                           total=features.shape[0],
                           desc=f'{self.__class__.__name__} transform',
-                          postfix=f'{self.logging_params}',
+                          postfix=f'SC: {self.n_components}, OI: {self.ortho_iterations}, WS: {self.window_size}, jobs: {self.n_processes}',
                           colour='red',
                           unit='ts',
                           ascii=False,
@@ -84,6 +85,21 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
                           leave=True,
                           )
                      )
+
+        # without multiprocessing
+        # v = []
+        # for series in tqdm(features,
+        #                    total=features.shape[0],
+        #                    desc=f'{self.__class__.__name__} transform',
+        #                    postfix=f'SC: {self.n_components}, OI: {self.ortho_iterations}, WS: {self.window_size}, jobs: {self.n_processes}',
+        #                    colour='red',
+        #                    unit='ts',
+        #                    ascii=False,
+        #                    position=0,
+        #                    initial=0,
+        #                    leave=True,
+        #                    ):
+        #     v.append(self._transform_one_sample(series))
 
         predict = np.array(v)
         return predict

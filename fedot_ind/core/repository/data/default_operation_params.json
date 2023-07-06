@@ -143,8 +143,10 @@
     "whiten": "unit-variance"
   },
   "data_driven_basis": {
+    "n_components": 2,
     "window_size": 5,
-    "svd_type": "base"
+    "singular_threshold": true,
+    "ortho_iterations": 3
   },
   "wavelet_basis": {
     "wavelet": "mexh",
@@ -156,7 +158,7 @@
   },
   "quantile_extractor": {
     "window_size": 5,
-    "window_mode": true
+    "win_mode": true
   },
   "recurrence_extractor": {
     "window_size": 20,
@@ -167,5 +169,6 @@
   },
   "signal_extractor": {
     "wavelet": "mexh"
-  }
+  },
+  "//    TODO: change window size to percent": {}
 }

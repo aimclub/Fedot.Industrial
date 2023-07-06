@@ -42,15 +42,11 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         Returns:
             OutputData: The decomposition of the given data.
         """
-
         operation_parameters = [f'{key}:{value}' for key, value in self.params.to_dict().items()]
         class_params = list(self.__dir__())
-        input_data_params = [input_data.__repr__()]
-        operational_info = operation_parameters + class_params + input_data_params
+        operational_info = operation_parameters + class_params
         hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
                                             operation_info=operational_info)
-
-        predict = self._transform(input_data)
 
         # hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
         #                                     operation_info=self.params.to_dict())
@@ -58,18 +54,14 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         # try:
         #     predict = self.try_load_from_cache(hashed_info)
         # except FileNotFoundError:
-        #     predict = self._transform(input_data)
-        #     self.cacher.cache_data(hashed_info, predict)
+        predict = self._transform(input_data)
+            # self.cacher.cache_data(hashed_info, predict)
 
-        # predict = self.try_load_from_cache(hashed_info)
-        # if predict is None:
-        #     predict = self._transform(input_data)
-        #     self.cacher.cache_data(hashed_info, predict)
-        # predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+        predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
         return predict
 
     def _transform(self, input_data) -> np.array:
-        """Method for feature generation for all series
-
+        """
+            Method for feature generation for all series
         """
         pass

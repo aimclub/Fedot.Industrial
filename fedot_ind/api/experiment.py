@@ -5,43 +5,42 @@ from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 if __name__ == "__main__":
 
-    # datasets_bad_f1 = [
+    datasets_bad_f1 = [
     #         'EOGVerticalSignal',
     #     'ScreenType',
-    #     'CricketY',
+        'CricketY',
     #     'ElectricDevices',
-    #     'Lightning7'
-    # ]
+        'Lightning7'
+    ]
 
-    # datasets_good_f1 = [
-    #     'Car',
+    datasets_good_f1 = [
+        # 'Car',
     # 'ECG5000',
         # 'Phoneme',
-        # 'Meat',
-        # 'RefrigerationDevices'
-    # ]
+        'Meat',
+        'RefrigerationDevices'
+    ]
 
     datasets_good_roc = [
     #     # 'Chinatown',
-    # 'Earthquakes',
-    # 'Ham',
+    'Earthquakes',
+    # # 'Ham',
     'ECG200',
     # 'MiddlePhalanxOutlineCorrect',
     # 'MoteStrain',
-    # 'TwoLeadECG'
+    'TwoLeadECG']
+
+    datasets_bad_roc = [
+        'Lightning2',
+    #     'WormsTwoClass',
+        'DistalPhalanxOutlineCorrect'
     ]
 
-    # datasets_bad_roc = [
-    #     'Lightning2',
-    #     'WormsTwoClass',
-    #     'DistalPhalanxOutlineCorrect'
-    # ]
-
     for group in [
-        # datasets_bad_f1,
-        # datasets_good_f1,
+        datasets_bad_f1,
+        datasets_good_f1,
         datasets_good_roc,
-        # datasets_bad_roc
+        datasets_bad_roc
     ]:
 
         for dataset_name in group:
@@ -49,17 +48,14 @@ if __name__ == "__main__":
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset=dataset_name,
+                                         # metric='f1',
                                          strategy='fedot_preset',
-                                         branch_nodes=[
-                                             # 'fourier_basis',
-                                             # 'wavelet_basis',
-                                             'data_driven_basis'
-                                         ],
-                                         tuning_iterations=3,
+                                         branch_nodes=['data_driven_basis'],
+                                         tuning_iterations=30,
                                          use_cache=False,
                                          timeout=5,
                                          n_jobs=2,
-                                         )
+                                         output_folder=f'/Users/technocreep/Desktop/Working-Folder/fedot-industrial/Fedot.Industrial/fedot_ind/results_of_experiments/{experiment}', )
 
             train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
             model = industrial.fit(features=train_data[0], target=train_data[1])
