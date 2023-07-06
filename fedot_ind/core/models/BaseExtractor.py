@@ -41,7 +41,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         """
         v = []
-        input_data_squeezed = np.squeeze(input_data.features, 3)
+        try:
+            input_data_squeezed = np.squeeze(input_data.features, 3)
+        except Exception as _:
+            input_data_squeezed = np.squeeze(input_data.features)
 
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
