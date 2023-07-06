@@ -36,8 +36,11 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         return predict
 
     def transform(self, input_data: InputData) -> OutputData:
-        """
-            Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
+        """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
+        and save them to cache.
+
+        Returns:
+            OutputData: The decomposition of the given data.
         """
         operation_parameters = [f'{key}:{value}' for key, value in self.params.to_dict().items()]
         class_params = list(self.__dir__())
@@ -48,11 +51,11 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         # hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
         #                                     operation_info=self.params.to_dict())
 
-        try:
-            predict = self.try_load_from_cache(hashed_info)
-        except FileNotFoundError:
-            predict = self._transform(input_data)
-            self.cacher.cache_data(hashed_info, predict)
+        # try:
+        #     predict = self.try_load_from_cache(hashed_info)
+        # except FileNotFoundError:
+        predict = self._transform(input_data)
+            # self.cacher.cache_data(hashed_info, predict)
 
         predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
         return predict

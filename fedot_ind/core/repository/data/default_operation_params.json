@@ -144,7 +144,9 @@
   },
   "data_driven_basis": {
     "n_components": 2,
-    "window_size": 35
+    "window_size": 5,
+    "singular_threshold": true,
+    "ortho_iterations": 3
   },
   "wavelet_basis": {
     "wavelet": "mexh",
@@ -155,7 +157,7 @@
     "threshold": 20000
   },
   "quantile_extractor": {
-    "window_size": 20,
+    "window_size": 5,
     "win_mode": true
   },
   "recurrence_extractor": {
@@ -167,5 +169,6 @@
   },
   "signal_extractor": {
     "wavelet": "mexh"
-  }
+  },
+  "//    TODO: change window size to percent": {}
 }

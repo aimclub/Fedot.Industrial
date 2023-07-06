@@ -1,10 +1,13 @@
+from multiprocessing import Pool
 from typing import Optional
 
+import numpy as np
 import pandas as pd
-
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from tqdm import tqdm
 
+from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 from fedot_ind.core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 
@@ -82,8 +85,50 @@ class StatsExtractor(BaseExtractor):
         if ts_components[0].shape[0] != 1:
             ts_components = [x.T for x in ts_components]
         tmp_list = []
+
+        # with tqdm(total=len(ts_components)) as pbar:
+        #     for index, component in enumerate(ts_components):
+        #         aggregation_df = self.extract_stats_features(component)
+        #         tmp_list.append(aggregation_df)
+        #         pbar.update(1)
+
+        # with Pool(self.n_components) as p:
+        #     tmp_list = list(tqdm(p.imap(self.extract_stats_features, ts_components),
+        #                          total=len(ts_components),
+        #                          desc='Extracting features'))
+
         for index, component in enumerate(ts_components):
             aggregation_df = self.extract_stats_features(component)
             tmp_list.append(aggregation_df)
         aggregation_df = pd.concat(tmp_list, axis=0)
         return aggregation_df
+
+    # TODO: temporary solution, need to refactor
+    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
+                                      feature_generator: callable,
+                                      window_size: int = None):
+        # ts_data = ts_data.T
+        if window_size is None:
+            # 10% of time series length by default
+            window_size = round(ts_data.shape[1] / 10)
+        else:
+            window_size = round(ts_data.shape[1] * (window_size/100))
+        tmp_list = []
+        for i in range(0, ts_data.shape[1], window_size):
+            slice_ts = ts_data.iloc[:, i:i + window_size]
+            if slice_ts.shape[1] == 1:
+                break
+            else:
+                df = feature_generator(slice_ts)
+                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+                tmp_list.append(df)
+        return tmp_list
+
+
+if __name__ == "__main__":
+
+    train_data, test_data = DataLoader('Lightning7').load_data()
+
+    extractor = StatsExtractor({'window_mode':True, 'window_size':10})
+    features = extractor.generate_features_from_ts(train_data[0])
+    _ = 1

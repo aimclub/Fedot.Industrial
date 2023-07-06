@@ -93,7 +93,7 @@ class TopologicalExtractor(BaseExtractor):
             delay, dim = takens_embedding_optimal_parameters(X=single_time_series,
                                                              max_time_delay=1,
                                                              max_dimension=5,
-                                                             n_jobs=-1)
+                                                             n_jobs=self.n_processes)
             delay_list.append(delay)
             dim_list.append(dim)
 

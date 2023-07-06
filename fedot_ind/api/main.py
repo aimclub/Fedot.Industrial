@@ -85,9 +85,9 @@ class FedotIndustrial(Fedot):
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['strategy'] == 'fedot_preset':
                 solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-            elif self.config_dict['strategy'] is None:
-                self.config_dict['strategy'] = 'InceptionTime'
-                solver = TaskEnum[self.config_dict['task']].value['nn']
+            # elif self.config_dict['strategy'] in (None, 'inception_time'):
+            #     self.config_dict['strategy'] = 'InceptionTime'
+            #     solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
                 solver = TaskEnum[self.config_dict['task']].value['default']
 

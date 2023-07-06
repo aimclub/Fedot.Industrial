@@ -1,3 +1,4 @@
+import math
 from typing import Union
 
 import numpy as np
@@ -8,6 +9,10 @@ from scipy.linalg import hankel
 class HankelMatrix:
     """
     This class implements an algorithm for converting an original time series into a Hankel matrix.
+
+    Args:
+        time_series: original time series
+        window_size: size of the window for creating a Hankel matrix
     """
 
     def __init__(self,
@@ -25,7 +30,7 @@ class HankelMatrix:
         if self.__window_length is None:
             self.__window_length = round(self.__ts_length * 0.35)
         else:
-            self.__window_length = round(self.__ts_length * self.__window_length // 100)
+            self.__window_length = math.ceil(self.__ts_length * self.__window_length / 100)
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()
