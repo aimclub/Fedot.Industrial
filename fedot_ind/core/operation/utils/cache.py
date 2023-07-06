@@ -59,11 +59,15 @@ class DataCacher:
         self.logger.info('Trying to load features from cache')
 
         start = timeit.default_timer()
-        file_path = os.path.join(self.cache_folder, hashed_info + '.npy')
-        data = np.load(file_path)
-        elapsed_time = round(timeit.default_timer() - start, 5)
-        print(f'{self.data_type} of {type(data)} type is loaded from cache in {elapsed_time} sec')
-        return data
+        try:
+            file_path = os.path.join(self.cache_folder, hashed_info + '.npy')
+            data = np.load(file_path)
+            elapsed_time = round(timeit.default_timer() - start, 5)
+            print(f'{self.data_type} of {type(data)} type is loaded from cache in {elapsed_time} sec')
+            return data
+        except FileNotFoundError:
+            self.logger.info('Features were not found in cache')
+            return None
 
     def cache_data(self, hashed_info: str, data: pd.DataFrame):
         """Method responsible for saving cached data. It utilizes pickle format for saving data.
