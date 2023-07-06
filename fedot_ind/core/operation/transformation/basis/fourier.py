@@ -1,6 +1,9 @@
 from typing import Optional
 import numpy as np
 from fedot.core.operations.operation_parameters import OperationParameters
+from pymonad.either import Either
+from pymonad.list import ListMonad
+
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
@@ -23,6 +26,13 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         self.threshold = params.get('threshold')
         self.basis = None
 
+        self.logging_params.update({'spectr': self.spectrum_type, 'thresh': self.threshold})
+
+    def _get_1d_basis(self, input_data):
+        decompose = lambda signal: ListMonad(self._decompose_signal(signal))
+        basis = Either.insert(input_data).then(decompose).value[0]
+        return basis.reshape(1, -1)
+
     def low_pass(self, input_data):
         fourier_coef = np.fft.rfft(input_data)
         frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
@@ -35,8 +45,10 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
             spectrum = spectrum.imag
         elif self.spectrum_type == 'smoothed':
             spectrum = self.low_pass(input_data)
-        else:
+        elif self.spectrum_type == 'real':
             spectrum = spectrum.real
+        else:
+            raise ValueError('Unknown spectrum type. Must be either ``real``, ``imaginary`` or ``smoothed``')
         return spectrum
 
     def _transform_one_sample(self, series: np.array):
