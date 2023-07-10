@@ -17,9 +17,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 if __name__ == '__main__':
     np.random.seed(0)
     mode = 'tuning'
-    dataset_list = ['Adiac'
-        # , 'ArrowHead', 'Mallat', 'Meat', 'Rock'
-                    ]
+    dataset_list = ['Adiac', 'ArrowHead', 'Mallat', 'Meat', 'Rock']
     # initialize industrial repository
     for dataset_name in dataset_list:
         with IndustrialModels():
