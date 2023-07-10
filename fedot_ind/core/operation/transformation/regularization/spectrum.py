@@ -41,9 +41,6 @@ def singular_value_hard_threshold(singular_values: np.array,
         return singular_values[:rank]
     else:
         # Find the median of the singular values
-        singular_values = [s_val for s_val in singular_values if s_val > 0.001]
-        if len(singular_values) == 1:
-            return singular_values[:1]
         median_sv = np.median(singular_values[:rank])
         # Find the adjusted rank
         if threshold is None:

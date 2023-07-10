@@ -120,7 +120,6 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
             svd = lambda x: ListMonad(bksvd(tensor=x))
         elif self.svd_type == 'base':
             svd = lambda x: ListMonad(np.linalg.svd(x))
-            svd = lambda x: ListMonad(bksvd(tensor=x))
         else:
             raise ValueError('svd_type must be "krylov" or "base"')
 
