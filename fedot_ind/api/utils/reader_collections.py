@@ -54,7 +54,7 @@ class Configurator:
 
         self.experiment_dict = self._base_config(task=kwargs['task'])
         fedot_config = {}
-        industrial_config = {k: v if k not in ['timeout', 'n_jobs', 'logging_level', 'metric'] else fedot_config.update({k: v})
+        industrial_config = {k: v if k not in ['timeout', 'n_jobs', 'logging_level'] else fedot_config.update({k: v})
                              for k, v in kwargs.items()}
         industrial_config['output_folder'] = kwargs['output_folder']
         self.experiment_dict.update(**industrial_config)

@@ -1,6 +1,7 @@
 from typing import Optional
 
 import pandas as pd
+
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
@@ -10,16 +11,15 @@ from fedot_ind.core.operation.transformation.extraction.statistical import StatF
 
 class StatsExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
-
-    Attributes:
+    Args:
         window_mode: Flag for window mode. Defaults to False.
         use_cache: Flag for cache usage. Defaults to False.
+    Attributes:
         use_cache (bool): Flag for cache usage.
         aggregator (StatFeaturesExtractor): StatFeaturesExtractor object.
         vis_flag (bool): Flag for visualization.
         train_feats (pd.DataFrame): Train features.
         test_feats (pd.DataFrame): Test features.
-
     """
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
@@ -29,8 +29,7 @@ class StatsExtractor(BaseExtractor):
         self.vis_flag = False
         self.train_feats = None
         self.test_feats = None
-
-        self.logging_params.update({'WS': self.window_size, 'WM': self.window_mode})
+        self.n_components = None
 
     def fit(self, input_data: InputData):
         pass
@@ -46,7 +45,9 @@ class StatsExtractor(BaseExtractor):
             aggregation_df = self.aggregator.create_baseline_features(ts)
         return aggregation_df
 
-    def generate_features_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
+    def generate_features_from_ts(self,
+                                  ts_frame: pd.DataFrame,
+                                  window_length: int = None) -> pd.DataFrame:
 
         ts = pd.DataFrame(ts_frame, dtype=float)
         ts = ts.fillna(method='ffill')
@@ -80,26 +81,9 @@ class StatsExtractor(BaseExtractor):
         ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
         if ts_components[0].shape[0] != 1:
             ts_components = [x.T for x in ts_components]
-
-        tmp_list = [self.extract_stats_features(x) for x in ts_components]
+        tmp_list = []
+        for index, component in enumerate(ts_components):
+            aggregation_df = self.extract_stats_features(component)
+            tmp_list.append(aggregation_df)
         aggregation_df = pd.concat(tmp_list, axis=0)
         return aggregation_df
-
-    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
-                                      feature_generator: callable,
-                                      window_size: int = None):
-        if window_size is None:
-            # 10% of time series length by default
-            window_size = round(ts_data.shape[1] / 10)
-        else:
-            window_size = round(ts_data.shape[1] * (window_size/100))
-        tmp_list = []
-        for i in range(0, ts_data.shape[1], window_size):
-            slice_ts = ts_data.iloc[:, i:i + window_size]
-            if slice_ts.shape[1] == 1:
-                break
-            else:
-                df = feature_generator(slice_ts)
-                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
-                tmp_list.append(df)
-        return tmp_list

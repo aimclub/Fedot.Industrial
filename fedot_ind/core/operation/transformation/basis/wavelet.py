@@ -27,8 +27,6 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
         self.scales = [2, 4, 10, 20]
 
-        self.logging_params.update({'n_components': self.n_components, 'wavelet': self.wavelet})
-
     def _decompose_signal(self, input_data):
         if self.wavelet in self.discrete_wavelets:
             high_freq, low_freq = pywt.dwt(input_data, self.wavelet, 'smooth')
