@@ -105,7 +105,8 @@ _____________
                                  timeout=15,
                                  n_jobs=4,
                                  window_sizes='auto',
-                                 logging_level=20)
+                                 logging_level=20,
+                                 output_folder=None)
 
 Затем можно загрузить данные и запустить эксперимент:
 
