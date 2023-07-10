@@ -7,7 +7,7 @@ from torch.linalg import vector_norm
 from torch.nn import Conv2d
 from torchvision.models import ResNet
 
-from fedot_ind.core.models.cnn.pruned_resnet import PRUNED_MODELS
+from fedot_ind.core.models.cnn.pruned_resnet import PRUNED_MODELS, PrunedResNet
 
 MODELS_FROM_LENGHT = {
     122: 'ResNet18',
@@ -252,7 +252,7 @@ def sizes_from_state_dict(state_dict: OrderedDict) -> Dict:
     return sizes
 
 
-def prune_resnet(model: ResNet) -> ResNet:
+def prune_resnet(model: ResNet) -> PrunedResNet:
     """Prune ResNet
 
     Args:
@@ -274,22 +274,19 @@ def prune_resnet(model: ResNet) -> ResNet:
 
 
 def load_sfp_resnet_model(
-        model: ResNet,
         state_dict_path: str,
 ) -> torch.nn.Module:
-    """Loads SFP state_dict to model.
+    """Loads SFP state_dict to PrunedResNet model.
 
     Args:
-        model: An instance of the base model.
         state_dict_path: Path to state_dict file.
 
-    Raises:
-        AssertionError if model is not Resnet.
+    Returns:
+        PrunedResNet model.
     """
-    assert isinstance(model, ResNet), "Supports only ResNet models"
     state_dict = torch.load(state_dict_path, map_location='cpu')
     sizes = sizes_from_state_dict(state_dict)
-    model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
+    model_type = MODELS_FROM_LENGHT[len(list(filter((lambda x: not x.endswith('indices')), state_dict.keys())))]
     model = PRUNED_MODELS[model_type](sizes=sizes)
     model.load_state_dict(state_dict)
     return model
