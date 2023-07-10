@@ -42,6 +42,7 @@ def singular_value_hard_threshold(singular_values: np.array,
     else:
         # Find the median of the singular values
         singular_values = [s_val for s_val in singular_values if s_val > 0.001]
+
         if len(singular_values) == 1:
             return singular_values[:1]
         median_sv = np.median(singular_values[:rank])
@@ -53,8 +54,9 @@ def singular_value_hard_threshold(singular_values: np.array,
         adjusted_rank = np.sum(singular_values >= sv_threshold)
         # If the adjusted rank is 0, recalculate the threshold value
         if adjusted_rank == 0:
-            sv_threshold = 2.31 * median_sv
-            adjusted_rank = np.sum(singular_values >= sv_threshold)
+            # sv_threshold = 2.31 * median_sv
+            # adjusted_rank = np.sum(singular_values >= sv_threshold)
+            adjusted_rank = 1
         return singular_values[:adjusted_rank]
 
 

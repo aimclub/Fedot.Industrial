@@ -144,7 +144,7 @@
   },
   "data_driven_basis": {
     "window_size": 5,
-    "svd_type": "base"
+    "svd_type": "krylov"
   },
   "wavelet_basis": {
     "wavelet": "mexh",
@@ -155,7 +155,7 @@
     "threshold": 20000
   },
   "quantile_extractor": {
-    "window_size": 5,
+    "window_size": 10,
     "window_mode": true
   },
   "recurrence_extractor": {

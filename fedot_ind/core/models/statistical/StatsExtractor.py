@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -31,7 +32,7 @@ class StatsExtractor(BaseExtractor):
         self.train_feats = None
         self.test_feats = None
 
-        self.logging_params.update({'WS': self.window_size, 'WM': self.window_mode})
+        self.logging_params.update({'Wsize': self.window_size, 'Wmode': self.window_mode})
 
     def fit(self, input_data: InputData):
         pass
@@ -47,12 +48,20 @@ class StatsExtractor(BaseExtractor):
             aggregation_df = self.aggregator.create_baseline_features(ts)
         return aggregation_df
 
-    def generate_features_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
+    def generate_features_from_ts(self, ts_frame: np.array) -> pd.DataFrame:
 
-        if ts_frame.shape[0] > 1:
-            ts = pd.DataFrame(ts_frame, dtype=float)
-        else:
+        # if ts_frame.shape[0] > 1:
+        #     ts = pd.DataFrame(ts_frame, dtype=float)
+        # else:
+        #     ts = pd.DataFrame(ts_frame, dtype=float).T
+
+        # if 1D vector
+        if len(ts_frame.shape) == 1:
             ts = pd.DataFrame(ts_frame, dtype=float).T
+
+        # if n-D matrix
+        else:
+            ts = pd.DataFrame(ts_frame, dtype=float)
 
         ts = ts.fillna(method='ffill')
 
@@ -87,7 +96,7 @@ class StatsExtractor(BaseExtractor):
             ts_components = [x.T for x in ts_components]
 
         tmp_list = [self.extract_stats_features(x) for x in ts_components]
-        aggregation_df = pd.concat(tmp_list, axis=0)
+        aggregation_df = pd.concat(tmp_list, axis=1)
         return aggregation_df
 
     def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
@@ -95,12 +104,16 @@ class StatsExtractor(BaseExtractor):
                                       window_size: int = None):
         if window_size is None:
             # 10% of time series length by default
+            # window_size = round(ts_data.shape[0] / 10)
             window_size = round(ts_data.shape[1] / 10)
         else:
             window_size = round(ts_data.shape[1] * (window_size / 100))
+            # window_size = round(ts_data.shape[0] * (window_size / 100))
         tmp_list = []
+        # for i in range(0, ts_data.shape[0], window_size):
         for i in range(0, ts_data.shape[1], window_size):
             slice_ts = ts_data.iloc[:, i:i + window_size]
+            # slice_ts = ts_data.iloc[i:i + window_size, :]
             if slice_ts.shape[1] == 1:
                 break
             else:
