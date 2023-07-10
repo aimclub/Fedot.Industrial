@@ -31,6 +31,8 @@ class StatsExtractor(BaseExtractor):
         self.test_feats = None
         self.n_components = None
 
+        self.logging_params.update({'WS': self.window_size, 'WM': self.window_mode})
+
     def fit(self, input_data: InputData):
         pass
 
@@ -86,4 +88,27 @@ class StatsExtractor(BaseExtractor):
             aggregation_df = self.extract_stats_features(component)
             tmp_list.append(aggregation_df)
         aggregation_df = pd.concat(tmp_list, axis=0)
+
+        # tmp_list = [self.extract_stats_features(x) for x in ts_components]
+        # aggregation_df = pd.concat(tmp_list, axis=0)
+
         return aggregation_df
+
+    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
+                                      feature_generator: callable,
+                                      window_size: int = None):
+        if window_size is None:
+            # 10% of time series length by default
+            window_size = round(ts_data.shape[1] / 10)
+        else:
+            window_size = round(ts_data.shape[1] * (window_size/100))
+        tmp_list = []
+        for i in range(0, ts_data.shape[1], window_size):
+            slice_ts = ts_data.iloc[:, i:i + window_size]
+            if slice_ts.shape[1] == 1:
+                break
+            else:
+                df = feature_generator(slice_ts)
+                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+                tmp_list.append(df)
+        return tmp_list

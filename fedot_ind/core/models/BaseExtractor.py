@@ -21,13 +21,15 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.current_window = None
-        self.n_processes = math.ceil(cpu_count() * 0.7) // 2 if cpu_count() > 1 else 1
+        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         # TODO: fix this
         # self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
 
         self.logger = logging.getLogger(self.__class__.__name__)
+
+        self.logging_params = {'jobs': self.n_processes}
 
     def fit(self, input_data: InputData):
         pass
@@ -37,29 +39,19 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         Method for feature generation for all series
         """
         v = []
-        input_data_squezed = np.squeeze(input_data.features, 3)
+        input_data_squeezed = np.squeeze(input_data.features, 3)
 
         with Pool(self.n_processes) as p:
-            v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squezed),
+            v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
                           total=input_data.features.shape[0],
                           desc=f'{self.__class__.__name__} transform',
-                          postfix=f'n_jobs - {self.n_processes}',
+                          postfix=f'{self.logging_params}',
                           colour='green',
                           unit='ts',
                           ascii=False,
                           position=0,
                           leave=True)
                      )
-
-        # for series in tqdm(input_data_squezed,
-        #                    total=input_data.features.shape[0],
-        #                    desc=f'{self.__class__.__name__} transform',
-        #                    colour='green',
-        #                    unit='ts',
-        #                    ascii=False,
-        #                    position=0,
-        #                    leave=True):
-        #     v.append(self.generate_features_from_ts(series))
 
         predict = self._clean_predict(np.array(v))
         return predict
