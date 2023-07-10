@@ -3,8 +3,8 @@ from hyperopt import hp
 
 industrial_search_space = {
     'data_driven_basis':
-        {'svd_type': (hp.choice, [['krylov', 'base']]),
-         'window_size': (hp.uniformint, [10, 50])},
+        {'svd_type': (hp.choice, [['krylov']]),
+         'window_size': (hp.choice, [[x for x in range(5, 50, 5)]])},
     'wavelet_basis':
         {'n_components': (hp.uniformint, [2, 10]),
          'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])},
@@ -13,7 +13,7 @@ industrial_search_space = {
          'threshold': (hp.uniformint, [10000, 50000])},
     'quantile_extractor':
         {'window_mode': (hp.choice, [[True, False]]),
-         'window_size': (hp.uniformint, [1, 30])
+         'window_size': (hp.choice, [[x for x in range(1, 50, 3)]])
          },
     'recurrence_extractor':
         {'win_mode': (hp.choice, [[True, False]]),

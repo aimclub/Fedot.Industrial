@@ -144,7 +144,7 @@
   },
   "data_driven_basis": {
     "svd_type": "base",
-    "window_size": 5
+    "window_size": 25
   },
   "wavelet_basis": {
     "wavelet": "mexh",
