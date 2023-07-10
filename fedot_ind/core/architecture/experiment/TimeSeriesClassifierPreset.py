@@ -147,6 +147,7 @@ class TimeSeriesClassifierPreset:
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
             .with_metric(metric) \
+            .with_timeout(15.0)  \
             .with_iterations(self.tuning_iters) \
             .build(train_data)
 
