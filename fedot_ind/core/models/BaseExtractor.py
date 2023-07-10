@@ -42,10 +42,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         """
         v = []
-        try:
-            input_data_squeezed = np.squeeze(input_data.features, 3)
-        except Exception as _:
-            input_data_squeezed = np.squeeze(input_data.features)
+        input_data_squeezed = np.squeeze(input_data.features, 3)
 
         # TODO: return to this code
         # with Pool(4) as p:
