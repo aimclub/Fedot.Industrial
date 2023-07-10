@@ -38,7 +38,6 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         self.svd_type = params.get('svd_type')
         self.window_size = params.get('window_size')
         self.basis = None
-
         self.SV_threshold = None
 
         self.logging_params.update({'WS': self.window_size, 'SV_thr': self.SV_threshold, 'SVD': self.svd_type})
@@ -52,6 +51,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
         if self.SV_threshold is None:
             self.SV_threshold = self.get_threshold(features)
+            self.logging_params.update({'SV_thr': self.SV_threshold})
 
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self._transform_one_sample, features),
@@ -93,6 +93,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
             svd = lambda x: ListMonad(bksvd(tensor=x))
         elif self.svd_type == 'base':
             svd = lambda x: ListMonad(np.linalg.svd(x))
+            svd = lambda x: ListMonad(bksvd(tensor=x))
         else:
             raise ValueError('svd_type must be "krylov" or "base"')
         basis = Either.insert(data).then(svd).then(threshold).value[0][1]
