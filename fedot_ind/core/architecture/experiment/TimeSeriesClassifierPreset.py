@@ -31,32 +31,30 @@ class TimeSeriesClassifierPreset:
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
+        tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
         output_dir: path to the directory where results will be saved
         saver: object of ``ResultSaver`` class
 
-    Notes:
-        ``branch_nodes`` can be one of the following: ``'data_driven_basis'``, ``'fourier_basis'``, ``'wavelet_basis'``.
+    Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
+           ``'wavelet_basis'``.
 
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
         self.test_data_preprocessed = None
-        self.generator_name = 'fedot_preset'
-        self.branch_nodes: list = params.get('branch_nodes', ['data_driven_basis',
-                                                              'fourier_basis',
-                                                              'wavelet_basis'])
+        self.branch_nodes: list = params.get('branch_nodes', None)
 
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
         self.tuning_iters = params.get('tuning_iterations', 30)
-        self.output_dir = params.get('output_dir', default_path_to_save_results())
+        self.output_folder = params.get('output_folder', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
-                                 generator_name=self.generator_name,
-                                 output_dir=self.output_dir)
-        self.logger = logging.getLogger('TimeSeriesClassifier')
+                                 generator_name='fedot_preset',
+                                 output_dir=self.output_folder)
+        self.logger = logging.getLogger('TimeSeriesClassifier_Preset')
 
         self.prediction_label = None
         self.predictor = None
@@ -64,11 +62,26 @@ class TimeSeriesClassifierPreset:
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
+        self.preprocessing_pipeline = self._build_pipeline()
 
         self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
                          f'[{self.tuning_iters}] tuning iterations')
 
-    # TODO: add multidata option
+    def __check_multivariate_data(self, data: pd.DataFrame) -> bool:
+        """Method for checking if the data is multivariate.
+
+        Args:
+            X: pandas DataFrame with features
+
+        Returns:
+            True if data is multivariate, False otherwise
+
+        """
+        if isinstance(data.iloc[0, 0], pd.Series):
+            return True
+        else:
+            return False
+
     def _init_input_data(self, X: pd.DataFrame, y: np.ndarray) -> InputData:
         """Method for initialization of InputData object from pandas DataFrame and numpy array with target values.
 
@@ -80,18 +93,19 @@ class TimeSeriesClassifierPreset:
             InputData object convinient for FEDOT framework
 
         """
-        input_data = InputData(idx=np.arange(len(X)),
-                               features=X.values,
-                               target=np.ravel(y).reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
-                               data_type=DataTypesEnum.table)
-
-        # Multidata option
-
-        # train_data = InputData(idx=np.arange(len(train_data[0])),
-        #                        features=np.array(train_data[0].values.tolist()),
-        #                        target=train_data[1].reshape(-1, 1),
-        #                        task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.image)
+        is_multivariate_data = self.__check_multivariate_data(X)
+        if is_multivariate_data:
+            input_data = InputData(idx=np.arange(len(X)),
+                                   features=np.array(X.values.tolist()),
+                                   target=y.reshape(-1, 1),
+                                   task=Task(TaskTypesEnum.classification),
+                                   data_type=DataTypesEnum.image)
+        else:
+            input_data = InputData(idx=np.arange(len(X)),
+                                   features=X.values,
+                                   target=np.ravel(y).reshape(-1, 1),
+                                   task=Task(TaskTypesEnum.classification),
+                                   data_type=DataTypesEnum.table)
 
         return input_data
 
@@ -100,13 +114,18 @@ class TimeSeriesClassifierPreset:
         Method for building pipeline with nodes from ``branch_nodes`` list and statistical extractor.
 
         """
+        if self.branch_nodes is None:
+            self.branch_nodes = ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
+        else:
+            self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
+
         pipeline_builder = PipelineBuilder()
-        branch_idx = 0
-        for node in self.branch_nodes:
-            pipeline_builder.add_node(node, branch_idx=branch_idx)
-            pipeline_builder.add_node('quantile_extractor', branch_idx=branch_idx)
-            branch_idx += 1
+
+        for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
+            pipeline_builder.add_node(basis, branch_idx=index)
+            pipeline_builder.add_node(extractor, branch_idx=index)
         pipeline_builder.join_branches('rf')
+
         return pipeline_builder.build()
 
     def _tune_pipeline(self, pipeline: Pipeline, train_data: InputData):
@@ -120,9 +139,14 @@ class TimeSeriesClassifierPreset:
         Returns:
             tuned pipeline
         """
+        if train_data.num_classes > 2:
+            metric = ClassificationMetricsEnum.f1
+        else:
+            metric = ClassificationMetricsEnum.ROCAUC
+
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
-            .with_metric(ClassificationMetricsEnum.f1) \
+            .with_metric(metric) \
             .with_iterations(self.tuning_iters) \
             .build(train_data)
 
@@ -146,20 +170,21 @@ class TimeSeriesClassifierPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, target)
-            self.prerpocessing_pipeline = self._build_pipeline()
-            self.prerpocessing_pipeline = self._tune_pipeline(self.prerpocessing_pipeline,
-                                                              self.train_data)
-            self.prerpocessing_pipeline.fit(self.train_data)
 
-            rf_node = self.prerpocessing_pipeline.nodes[0]
-            self.prerpocessing_pipeline.update_node(rf_node, PipelineNode('cat_features'))
+            self.preprocessing_pipeline = self._tune_pipeline(self.preprocessing_pipeline,
+                                                              self.train_data)
+            self.preprocessing_pipeline.fit(self.train_data)
+
+            rf_node = self.preprocessing_pipeline.nodes[0]
+            self.preprocessing_pipeline.update_node(rf_node, PipelineNode('cat_features'))
             rf_node.nodes_from = []
             rf_node.unfit()
-            self.prerpocessing_pipeline.fit(self.train_data)
+            self.preprocessing_pipeline.fit(self.train_data)
 
-            train_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(self.train_data)
+            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
+            # TODO: тут не стал загонять в аттрибуты
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
                                                 features=train_data_preprocessed.predict,
                                                 target=train_data_preprocessed.target,
@@ -185,7 +210,7 @@ class TimeSeriesClassifierPreset:
         """
         if self.test_data_preprocessed is None:
             test_data = self._init_input_data(features, target)
-            test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
+            test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
             self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                                     features=test_data_preprocessed.predict,
@@ -199,7 +224,7 @@ class TimeSeriesClassifierPreset:
     def predict_proba(self, features, target) -> dict:
         if self.test_data_preprocessed is None:
             test_data = self._init_input_data(features, target)
-            test_data_preprocessed = self.prerpocessing_pipeline.root_node.predict(test_data)
+            test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
             self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
 
         self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
