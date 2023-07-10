@@ -20,13 +20,13 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.n_processes = self.n_processes = math.ceil(cpu_count() * 0.7) // 2 if cpu_count() > 1 else 1
-        # TODO: fix this
-        # self.n_processes = self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.n_components = params.get('n_components', 2)
         self.basis = None
         self.data_type = DataTypesEnum.image
         self.min_rank = 1
+
+        self.logging_params = {'jobs': self.n_processes}
 
     def _get_basis(self, data):
         if type(data) == list:
@@ -76,7 +76,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
             v = list(tqdm(p.imap(self._transform_one_sample, features),
                           total=features.shape[0],
                           desc=f'{self.__class__.__name__} transform',
-                          postfix=f'n_jobs - {self.n_processes}',
+                          postfix=f'{self.logging_params}',
                           colour='red',
                           unit='ts',
                           ascii=False,
