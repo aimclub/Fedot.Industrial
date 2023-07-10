@@ -32,7 +32,6 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
             basis = self._get_multidim_basis(data)
         else:
             basis = self._get_1d_basis(data)
-
         return basis
 
     def fit(self, data):
