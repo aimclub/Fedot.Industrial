@@ -2,7 +2,6 @@ import os
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesPatternGenerator
 
 if __name__ == "__main__":
 
@@ -14,23 +13,23 @@ if __name__ == "__main__":
     #     'Lightning7'
     # ]
 
-    datasets_good_f1 = [
+    # datasets_good_f1 = [
     #     'Car',
     # 'ECG5000',
         # 'Phoneme',
-        'Meat',
+        # 'Meat',
         # 'RefrigerationDevices'
-    ]
+    # ]
 
-    # datasets_good_roc = [
-    #     'Chinatown',
+    datasets_good_roc = [
+    #     # 'Chinatown',
     # 'Earthquakes',
     # 'Ham',
-    # 'ECG200',
+    'ECG200',
     # 'MiddlePhalanxOutlineCorrect',
     # 'MoteStrain',
     # 'TwoLeadECG'
-    # ]
+    ]
 
     # datasets_bad_roc = [
     #     'Lightning2',
@@ -40,12 +39,13 @@ if __name__ == "__main__":
 
     for group in [
         # datasets_bad_f1,
-        datasets_good_f1,
-        # datasets_good_roc,
+        # datasets_good_f1,
+        datasets_good_roc,
         # datasets_bad_roc
     ]:
 
         for dataset_name in group:
+            experiment = 'good_f1'
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset=dataset_name,
@@ -57,19 +57,11 @@ if __name__ == "__main__":
                                          ],
                                          tuning_iterations=3,
                                          use_cache=False,
-                                         timeout=1,
+                                         timeout=5,
                                          n_jobs=2,
                                          )
 
             train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
-
-            # ts_length = 50
-            # n_classes = 2
-            # n_samples = 25
-
-            # tsg = TimeSeriesPatternGenerator(ts_length, n_classes, n_samples)
-            # train_data, test_data = tsg.generate_dataset()
-
             model = industrial.fit(features=train_data[0], target=train_data[1])
             labels = industrial.predict(features=test_data[0],
                                         target=test_data[1])
