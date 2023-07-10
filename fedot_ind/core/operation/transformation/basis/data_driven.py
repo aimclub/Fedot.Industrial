@@ -41,7 +41,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         self.SV_threshold = None
         self.basis = None
 
-        self.logging_params.update({'Wsize': self.window_size, 'SVD': self.svd_type})
+        self.logging_params.update({'WS': self.window_size, 'SVD': self.svd_type})
 
     def _transform(self, input_data: InputData) -> np.array:
         """Method for transforming all samples
@@ -52,7 +52,6 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
         if self.SV_threshold is None:
             self.SV_threshold = self.get_threshold(features)
-            self.logging_params.update({'SV_thr': self.SV_threshold})
 
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self._transform_one_sample, features),
@@ -85,7 +84,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
         return math.ceil(np.median(svd_numbers))
 
-    # TODO: old but gold
+    # TODO: old but good
     # def _get_1d_basis(self, data):
     #     data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
     #                                                                    Monoid[1],
@@ -112,26 +111,16 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
     #     return np.swapaxes(basis, 1, 0)
 
     def estimate_singular_values(self, data):
-
+        threshold = lambda Monoid: ListMonad([Monoid[0],
+                                              singular_value_hard_threshold(singular_values=Monoid[1],
+                                                                            beta=data.shape[0] / data.shape[1],
+                                                                            threshold=None),
+                                              Monoid[2]])
         if self.svd_type == 'krylov':
             svd = lambda x: ListMonad(bksvd(tensor=x))
-            # threshold = lambda Monoid: ListMonad([Monoid[0],
-            #                                       [i for i in Monoid[1] if i > 0.001],
-            #                                       Monoid[2]])
-
-            threshold = lambda Monoid: ListMonad([Monoid[0],
-                                                  singular_value_hard_threshold(singular_values=Monoid[1],
-                                                                                beta=data.shape[0] / data.shape[1],
-                                                                                threshold=None),
-                                                  Monoid[2]])
-
         elif self.svd_type == 'base':
             svd = lambda x: ListMonad(np.linalg.svd(x))
-            threshold = lambda Monoid: ListMonad([Monoid[0],
-                                                  singular_value_hard_threshold(singular_values=Monoid[1],
-                                                                                beta=data.shape[0] / data.shape[1],
-                                                                                threshold=None),
-                                                  Monoid[2]])
+            svd = lambda x: ListMonad(bksvd(tensor=x))
         else:
             raise ValueError('svd_type must be "krylov" or "base"')
 
@@ -148,7 +137,6 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                                               Monoid[2]])
         svd = lambda x: ListMonad(bksvd(tensor=x))
         basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
-
         return np.swapaxes(basis, 1, 0)
 
     def _get_multidim_basis(self, data):

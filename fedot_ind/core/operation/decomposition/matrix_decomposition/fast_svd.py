@@ -59,7 +59,7 @@ def bksvd(tensor, k=6, block_size=None, num_iter=3) -> tuple:
     Ut_ = Ut[:, :low_rank]
     tensor_approx = block @ Ut_
     reconstr_m = tensor_approx @ tensor_approx.T @ tensor
-    diff_norm = np.linalg.norm(reconstr_m) - np.linalg.norm(tensor)
+    # diff_norm = np.linalg.norm(reconstr_m) - np.linalg.norm(tensor)
 
     U_, S_, V_ = np.linalg.svd(reconstr_m, full_matrices=False)
 
