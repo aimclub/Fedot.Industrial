@@ -76,7 +76,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
     def get_threshold(self, data, selector: str):
 
         selectors = {'median': np.median,
-                     'mean': np.mean,
+                     '0.75%': lambda x: np.quantile(x, 0.75),
                      '0.25%': lambda x: np.quantile(x, 0.25)}
 
         svd_numbers = []
@@ -94,14 +94,11 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return self._get_basis(data)
 
     def estimate_singular_values(self, data):
-        threshold = lambda Monoid: ListMonad([Monoid[0],
-                                              singular_value_hard_threshold(singular_values=Monoid[1],
-                                                                            beta=data.shape[0] / data.shape[1],
-                                                                            threshold=None),
-                                              Monoid[2]])
         svd = lambda x: ListMonad(bksvd(tensor=x))
-        basis = Either.insert(data).then(svd).then(threshold).value[0][1]
-        return len(basis)
+        basis = Either.insert(data).then(svd).value[0]
+        spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
+        #self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
+        return len(spectrum)
 
     def _get_1d_basis(self, data):
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
