@@ -147,7 +147,7 @@ class TimeSeriesClassifierPreset:
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
             .with_metric(metric) \
-            .with_timeout(15.0)  \
+            .with_timeout(15.0) \
             .with_iterations(self.tuning_iters) \
             .build(train_data)
 
@@ -176,10 +176,10 @@ class TimeSeriesClassifierPreset:
                                                               self.train_data)
             self.preprocessing_pipeline.fit(self.train_data)
 
-            rf_node = self.preprocessing_pipeline.nodes[0]
-            self.preprocessing_pipeline.update_node(rf_node, PipelineNode('cat_features'))
-            rf_node.nodes_from = []
-            rf_node.unfit()
+            self.baseline_model = self.preprocessing_pipeline.nodes[0]
+            self.preprocessing_pipeline.update_node(self.baseline_model, PipelineNode('cat_features'))
+            self.baseline_model.nodes_from = []
+            # rf_node.unfit()
             self.preprocessing_pipeline.fit(self.train_data)
 
             train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
@@ -218,7 +218,7 @@ class TimeSeriesClassifierPreset:
                                                     target=test_data_preprocessed.target,
                                                     data_type=test_data_preprocessed.data_type,
                                                     task=test_data_preprocessed.task)
-
+        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
         return self.prediction_label
 
@@ -228,6 +228,7 @@ class TimeSeriesClassifierPreset:
             test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
             self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
 
+        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed,'probs').predict
         self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
         return self.prediction_proba
 
@@ -244,6 +245,10 @@ class TimeSeriesClassifierPreset:
 
         """
         analyzer = PerformanceAnalyzer()
+        self.baseline_metrics = analyzer.calculate_metrics(target=np.ravel(target),
+                                                           predicted_labels=self.prediction_label_baseline,
+                                                           predicted_probs=self.prediction_proba_baseline,
+                                                           target_metrics=metric_names)
         return analyzer.calculate_metrics(target=np.ravel(target),
                                           predicted_labels=self.prediction_label,
                                           predicted_probs=self.prediction_proba,
@@ -253,4 +258,5 @@ class TimeSeriesClassifierPreset:
         self.saver.save(predicted_data, kind)
 
     def save_metrics(self, metrics: dict):
+        self.saver.save(self.baseline_metrics, 'baseline_metrics')
         self.saver.save(metrics, 'metrics')

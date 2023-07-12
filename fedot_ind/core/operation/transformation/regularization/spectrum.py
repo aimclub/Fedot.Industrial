@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+
 
 
 def sv_to_explained_variance_ratio(singular_values, rank):
@@ -61,7 +61,7 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
         # If the adjusted rank is 0, recalculate the threshold value
         if adjusted_rank == 0:
             sv_threshold = 2.31 * median_sv
-            adjusted_rank = np.sum(singular_values >= sv_threshold)
+            adjusted_rank = max(np.sum(singular_values >= sv_threshold), 1)
         return singular_values[:adjusted_rank]
 
 
