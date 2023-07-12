@@ -22,8 +22,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         super().__init__(params)
         self.current_window = None
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
-        # TODO: fix this
-        # self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
 
@@ -38,7 +36,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        v = []
         input_data_squeezed = np.squeeze(input_data.features, 3)
 
         with Pool(self.n_processes) as p:
