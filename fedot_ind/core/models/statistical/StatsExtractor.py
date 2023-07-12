@@ -21,6 +21,7 @@ class StatsExtractor(BaseExtractor):
         train_feats (pd.DataFrame): Train features.
         test_feats (pd.DataFrame): Test features.
     """
+
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.aggregator = StatFeaturesExtractor()
@@ -101,8 +102,9 @@ class StatsExtractor(BaseExtractor):
             # 10% of time series length by default
             window_size = round(ts_data.shape[1] / 10)
         else:
-            window_size = round(ts_data.shape[1] * (window_size/100))
+            window_size = round(ts_data.shape[1] * (window_size / 100))
         tmp_list = []
+        window_size = max(window_size, 5)
         for i in range(0, ts_data.shape[1], window_size):
             slice_ts = ts_data.iloc[:, i:i + window_size]
             if slice_ts.shape[1] == 1:
