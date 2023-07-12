@@ -17,7 +17,8 @@ from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import
 
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, reconstruct_basis
+from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
+    reconstruct_basis
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 
@@ -35,12 +36,14 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.svd_type = params.get('svd_type')
         self.window_size = params.get('window_size')
         self.basis = None
         self.SV_threshold = None
+        self.sv_selector = params.get('sv_selector')
 
-        self.logging_params.update({'WS': self.window_size, 'SV_thr': self.SV_threshold, 'SVD': self.svd_type})
+        self.logging_params.update({'WS': self.window_size,
+                                    'SV_selector': self.sv_selector,
+                                    })
 
     def _transform(self, input_data: InputData) -> np.array:
         """Method for transforming all samples
@@ -50,7 +53,8 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         features = np.array([series[~np.isnan(series)] for series in features])
 
         if self.SV_threshold is None:
-            self.SV_threshold = self.get_threshold(features)
+            self.SV_threshold = self.get_threshold(data=features,
+                                                   selector=self.sv_selector)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         with Pool(self.n_processes) as p:
@@ -69,11 +73,17 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         predict = np.array(v)
         return predict
 
-    def get_threshold(self, data):
+    def get_threshold(self, data, selector: str):
+
+        selectors = {'median': np.median,
+                     'mean': np.mean,
+                     '0.25%': lambda x: np.quantile(x, 0.25)}
+
         svd_numbers = []
         for signal in data:
             svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
-        return math.ceil(np.median(svd_numbers))
+
+        return math.ceil(selectors[selector](svd_numbers))
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
@@ -89,13 +99,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                                                                             beta=data.shape[0] / data.shape[1],
                                                                             threshold=None),
                                               Monoid[2]])
-        if self.svd_type == 'krylov':
-            svd = lambda x: ListMonad(bksvd(tensor=x))
-        elif self.svd_type == 'base':
-            svd = lambda x: ListMonad(np.linalg.svd(x))
-            svd = lambda x: ListMonad(bksvd(tensor=x))
-        else:
-            raise ValueError('svd_type must be "krylov" or "base"')
+        svd = lambda x: ListMonad(bksvd(tensor=x))
         basis = Either.insert(data).then(svd).then(threshold).value[0][1]
         return len(basis)
 
