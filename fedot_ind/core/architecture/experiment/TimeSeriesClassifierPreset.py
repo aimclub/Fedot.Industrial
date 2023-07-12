@@ -49,6 +49,7 @@ class TimeSeriesClassifierPreset:
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
         self.tuning_iters = params.get('tuning_iterations', 30)
+        self.tuning_timeout = params.get('tuning_timeout', 15)
         self.output_folder = params.get('output_folder', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
@@ -65,7 +66,7 @@ class TimeSeriesClassifierPreset:
         self.preprocessing_pipeline = self._build_pipeline()
 
         self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
-                         f'[{self.tuning_iters}] tuning iterations')
+                         f'[{self.tuning_iters}] tuning iterations and [{self.tuning_timeout}] timeout')
 
     def __check_multivariate_data(self, data: pd.DataFrame) -> bool:
         """Method for checking if the data is multivariate.
@@ -147,7 +148,7 @@ class TimeSeriesClassifierPreset:
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
             .with_metric(metric) \
-            .with_timeout(15.0) \
+            .with_timeout(self.tuning_timeout) \
             .with_iterations(self.tuning_iters) \
             .build(train_data)
 
@@ -185,7 +186,6 @@ class TimeSeriesClassifierPreset:
             train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
-            # TODO: тут не стал загонять в аттрибуты
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
                                                 features=train_data_preprocessed.predict,
                                                 target=train_data_preprocessed.target,
