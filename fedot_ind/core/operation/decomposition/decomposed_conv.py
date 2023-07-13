@@ -56,7 +56,7 @@ class DecomposedConv2d(Conv2d):
             self.Vh = None
             self.decomposing = None
 
-    def set_decomposing_params(self, decomposing_mode):
+    def __set_decomposing_params(self, decomposing_mode):
         n, c, w, h = self.weight.size()
         decomposing_modes = {
             'channel': {
@@ -107,7 +107,7 @@ class DecomposedConv2d(Conv2d):
         Raises:
             ValueError: If ``decomposing_mode`` not in valid values.
         """
-        self.set_decomposing_params(decomposing_mode=decomposing_mode)
+        self.__set_decomposing_params(decomposing_mode=decomposing_mode)
         W = self.weight.permute(self.decomposing['permute']).reshape(self.decomposing['decompose_shape'])
         U, S, Vh = torch.linalg.svd(W, full_matrices=False)
         self.U = Parameter(U)
