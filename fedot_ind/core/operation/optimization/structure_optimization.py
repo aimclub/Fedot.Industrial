@@ -139,7 +139,7 @@ class SVDOptimization(StructureOptimization):
         for e in self.energy_thresholds:
             str_e = f'e_{e}'
             exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
-            exp._apply_func(
+            exp._apply_function(
                 func=partial(energy_svd_pruning, energy_threshold=e),
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
@@ -156,7 +156,8 @@ class SVDOptimization(StructureOptimization):
                     p=ft_params,
                     phase=str_e,
                     model_losses=self.__loss,
-                    start_epoch=params.num_epochs
+                    start_epoch=params.num_epochs,
+                    initial_validation=True
                 )
 
     def __loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
@@ -234,35 +235,7 @@ class SFPOptimization(StructureOptimization):
             ft_params: An object containing fine-tuning parameters for optimized model.
         """
         exp.name += self.description
-        path = os.path.join(params.dataset_name, exp.name, params.description, 'train')
-        model_path = os.path.join(params.models_path, path)
-        writer = WriterComposer(
-            path=os.path.join(params.summary_path, path),
-            writers=[TFWriter, CSVWriter]
-        )
-
-        optimizer = params.optimizer(exp.model.parameters())
-        self.logger.info(f"{exp.name}, using device: {exp.device}")
-        for epoch in range(1, params.num_epochs + 1):
-            self.logger.info(f"Epoch {epoch}")
-            train_scores = exp.train_loop(
-                dataloader=params.train_dl,
-                optimizer=optimizer
-            )
-            writer.write_scores('train', train_scores, epoch)
-            exp._apply_func(
-                func=self.zeroing_fn,
-                condition=lambda x: isinstance(x, torch.nn.Conv2d)
-            )
-            val_scores = exp.val_loop(
-                dataloader=params.val_dl,
-                class_metrics=params.class_metrics
-            )
-            writer.write_scores('val', val_scores, epoch)
-            exp._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
-        exp.load_model(model_path)
-        writer.close()
-
+        exp.fit(p=params, filter_pruning=dict(func=self.zeroing_fn, condition=lambda x: isinstance(x, torch.nn.Conv2d)))
         if isinstance(exp.model, self.model_class):
             self.final_pruning(exp=exp, params=params, ft_params=ft_params)
         else:
