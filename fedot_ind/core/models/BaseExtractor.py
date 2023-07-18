@@ -36,11 +36,20 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        input_data_squeezed = np.squeeze(input_data.features, 3)
+        if type(input_data) == InputData:
+            features = input_data.features
+            n_samples = input_data.features.shape[0]
+        else:
+            features = input_data
+            n_samples = input_data.shape[0]
+        try:
+            input_data_squeezed = np.squeeze(features, 3)
+        except Exception:
+            input_data_squeezed = np.squeeze(features)
 
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=input_data.features.shape[0],
+                          total=n_samples,
                           desc=f'{self.__class__.__name__} transform',
                           postfix=f'{self.logging_params}',
                           colour='green',

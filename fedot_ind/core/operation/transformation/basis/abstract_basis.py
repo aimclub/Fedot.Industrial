@@ -69,7 +69,10 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """Method for transforming all samples
 
         """
-        features = np.array(ListMonad(*input_data.features.tolist()).value)
+        if type(input_data) is InputData:
+            features = np.array(ListMonad(*input_data.features.tolist()).value)
+        else:
+            features = np.array(ListMonad(*input_data.values.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
 
         with Pool(self.n_processes) as p:
