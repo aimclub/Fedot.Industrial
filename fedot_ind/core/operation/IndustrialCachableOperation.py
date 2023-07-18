@@ -56,7 +56,8 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         #     self.cacher.cache_data(hashed_info, predict)
 
         predict = self._transform(input_data)
-        predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+        if type(input_data) == InputData:
+            predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
         return predict
 
     def _transform(self, input_data) -> np.array:
