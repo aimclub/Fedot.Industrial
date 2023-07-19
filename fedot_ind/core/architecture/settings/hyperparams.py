@@ -1,10 +1,6 @@
 import numpy as np
 
 
-def quantile(column, q: str):
-    return np.quantile(a=column, q=q)
-
-
 def softmax(w, theta=1.0) -> np.ndarray:
     """Takes a vector w of S N-element and returns a vectors where each column
         of the vector sums to 1, with elements exponentially proportional to the
@@ -25,17 +21,6 @@ def softmax(w, theta=1.0) -> np.ndarray:
     return dist
 
 
-stat_methods_default = {
-    'mean_': np.mean,
-    'median_': np.median,
-    'std_': np.std,
-    'var_': np.var,
-    'q5_': quantile,
-    'q25_': quantile,
-    'q75_': quantile,
-    'q95_': quantile,
-}
-
 stat_methods_ensemble = {
     'MeanEnsemble': np.mean,
     'MedianEnsemble': np.median,
@@ -43,27 +28,3 @@ stat_methods_ensemble = {
     'MaxEnsemble': np.max,
     'ProductEnsemble': np.prod
 }
-
-stat_methods_full = {
-    'mean_': np.mean,
-    'median_': np.median,
-    'lambda_less_zero': lambda x: x < 0.01,
-    'std_': np.std,
-    'var_': np.var,
-    'max': np.max,
-    'min': np.min,
-    'q5_': quantile,
-    'q25_': quantile,
-    'q75_': quantile,
-    'q95_': quantile,
-    'sum_': np.sum,
-    'dif_': np.diff
-}
-
-hyper_param_dict = {'statistical_methods': stat_methods_default,
-                    'statistical_methods_extra': stat_methods_full,
-                    'stat_methods_ensemble': stat_methods_ensemble}
-
-
-def select_hyper_param(param_name):
-    return hyper_param_dict[param_name]

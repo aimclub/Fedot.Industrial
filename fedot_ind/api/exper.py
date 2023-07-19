@@ -3,49 +3,43 @@ from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 if __name__ == "__main__":
 
-    datasets_bad_f1 = [
-        #'EOGVerticalSignal',
-        # 'ScreenType',
-        # 'CricketY',
-        # 'ElectricDevices',
-        'Lightning7'
-    ]
+    # datasets_bad_f1 = [
+    #         'EOGVerticalSignal',
+    #     'ScreenType',
+    #     'CricketY',
+    #     'ElectricDevices',
+    #     'Lightning7'
+    # ]
 
-    datasets_good_f1 = [
-        'Car',
-        'ECG5000',
-        "Beef",
-        #     'Phoneme',
-        #'Meat',
+    # datasets_good_f1 = [
+    #     'Car',
+    # 'ECG5000',
+        # 'Phoneme',
+        # 'Meat',
         # 'RefrigerationDevices'
-    ]
+    # ]
 
     datasets_good_roc = [
         # 'Chinatown',
-        'Computers',
-        # 'Earthquakes',
-        'Ham',
-        'ECG200',
-        'ECGFiveDays'
-        # 'MiddlePhalanxOutlineCorrect',
-        # 'MoteStrain',
-        # 'TwoLeadECG'
+    # 'Earthquakes',
+    # 'Ham',
+    'ECG200',
+    # 'MiddlePhalanxOutlineCorrect',
+    # 'MoteStrain',
+    # 'TwoLeadECG'
     ]
-    # node_scaling = PipelineNode('scaling')
-    # node_final = PipelineNode('rf', nodes_from=[node_scaling])
-    # rf_model = Pipeline(node_final)
 
-    datasets_bad_roc = [
-        'Lightning2',
-        # 'WormsTwoClass',
-        # 'DistalPhalanxOutlineCorrect'
-    ]
+    # datasets_bad_roc = [
+    #     'Lightning2',
+    #     'WormsTwoClass',
+    #     'DistalPhalanxOutlineCorrect'
+    # ]
 
     for group in [
-        datasets_bad_f1,
-        datasets_good_f1,
+        # datasets_bad_f1,
+        # datasets_good_f1,
         datasets_good_roc,
-        datasets_bad_roc
+        # datasets_bad_roc
     ]:
 
         for dataset_name in group:
@@ -58,14 +52,15 @@ if __name__ == "__main__":
                                              # 'wavelet_basis',
                                              'data_driven_basis'
                                          ],
-                                         tuning_iterations=30,
-                                         tuning_timeout=15.0,
+                                         tuning_iterations=5,
+                                         tuning_timeout=15,
                                          use_cache=False,
-                                         timeout=10,
-                                         n_jobs=6,
+                                         timeout=1,
+                                         n_jobs=2,
                                          )
 
             train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+
             model = industrial.fit(features=train_data[0], target=train_data[1])
             labels = industrial.predict(features=test_data[0],
                                         target=test_data[1])
@@ -75,5 +70,5 @@ if __name__ == "__main__":
                                             metric_names=['f1', 'roc_auc'])
             for pred, kind in zip([labels, probs], ['labels', 'probs']):
                 industrial.save_predict(predicted_data=pred, kind=kind)
+
             industrial.save_metrics(metrics=metric)
-    _ = 1

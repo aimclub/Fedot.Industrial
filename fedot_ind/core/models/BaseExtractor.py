@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
+from fedot_ind.core.operation.transformation.extraction.statistical import stat_methods
 from fedot_ind.core.operation.utils.cache import DataCacher
 
 
@@ -21,7 +22,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.current_window = None
-        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        # TODO: get back
+        self.n_processes = 2
+        # self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
 
@@ -112,3 +115,30 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 return features
         else:
             return self.generate_features_from_ts(train_features, dataset_name)
+
+    @staticmethod
+    def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+        """
+        Method for creating baseline statistical features for a given time series.
+
+        Args:
+            time_series: time series for which features are generated
+
+        Returns:
+            Row vector of statistical features in the form of a pandas DataFrame
+
+        """
+        names = []
+        vals = []
+        # flatten time series
+        if isinstance(time_series, (pd.DataFrame, pd.Series)):
+            time_series = time_series.values
+        time_series = time_series.flatten()
+
+        for name, method in stat_methods.items():
+            try:
+                vals.append(method(time_series))
+                names.append(name)
+            except ValueError:
+                continue
+        return pd.DataFrame([vals], columns=names)

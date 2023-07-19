@@ -5,7 +5,7 @@ import pandas as pd
 
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.architecture.settings.hyperparams import select_hyper_param
+from fedot_ind.core.architecture.settings.hyperparams import stat_methods_ensemble
 from fedot_ind.core.ensemble.BaseEnsembler import BaseEnsemble
 
 
@@ -32,7 +32,7 @@ class RankEnsemble(BaseEnsemble):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.best_ensemble_metric = 0
 
-        self.ensemble_strategy_dict = select_hyper_param('stat_methods_ensemble')
+        self.ensemble_strategy_dict = stat_methods_ensemble
         self.ensemble_strategy = self.ensemble_strategy_dict.keys()
 
         self.strategy_exclude_list = ['WeightedEnsemble']
