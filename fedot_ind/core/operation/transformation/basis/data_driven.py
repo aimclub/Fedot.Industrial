@@ -1,22 +1,21 @@
 import math
 from multiprocessing import Pool
-from typing import Tuple, TypeVar, Optional
+from typing import Optional, Tuple, TypeVar
 
 import numpy as np
 import tensorly as tl
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from sklearn.metrics import f1_score, roc_auc_score
 from tensorly.decomposition import parafac
 from tqdm import tqdm
-from fedot.core.data.data import InputData
-from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import RSVDDecomposition
 
+from fedot_ind.core.architecture.preprocessing import InputData
+from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import bksvd
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
-    reconstruct_basis
+from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
+    singular_value_hard_threshold
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 
@@ -27,7 +26,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
             ts1 = np.random.rand(200)
             ts2 = np.random.rand(200)
             ts = [ts1, ts2]
-            bss = DataDrivenBasisImplementation({'sv_selector': 'median', 'window_size': 30})
+            bss = DataDrivenBasisImplementation({'n_components': 3, 'window_size': 30})
             basis_multi = bss._transform(ts)
             basis_1d = bss._transform(ts1)
     """
@@ -37,10 +36,8 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         self.window_size = params.get('window_size')
         self.basis = None
         self.SV_threshold = None
-        #self.sv_selector = params.get('sv_selector')
-        self.sv_selector = 'median'
-        self.svd_estimator = RSVDDecomposition()
-        self.low_rank_approximation = True
+        self.sv_selector = params.get('sv_selector')
+
         self.logging_params.update({'WS': self.window_size,
                                     'SV_selector': self.sv_selector,
                                     })
@@ -49,10 +46,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         """Method for transforming all samples
 
         """
-        if type(input_data) is InputData:
-            features = np.array(ListMonad(*input_data.features.tolist()).value)
-        else:
-            features = np.array(ListMonad(*input_data.values.tolist()).value)
+        features = np.array(ListMonad(*input_data.features.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
 
         if self.SV_threshold is None:
@@ -85,7 +79,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         svd_numbers = []
         for signal in data:
             svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
-            self.rank_distribution = svd_numbers
+
         return math.ceil(selectors[selector](svd_numbers))
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
@@ -97,10 +91,10 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return self._get_basis(data)
 
     def estimate_singular_values(self, data):
-        svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x, approximation=self.low_rank_approximation))
+        svd = lambda x: ListMonad(bksvd(tensor=x))
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
-        # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
+        #self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
         return len(spectrum)
 
     def _get_1d_basis(self, data):
@@ -111,9 +105,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         threshold = lambda Monoid: ListMonad([Monoid[0],
                                               Monoid[1][:self.SV_threshold],
                                               Monoid[2]])
-        svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x,
-                                                          approximation=self.low_rank_approximation,
-                                                          regularized_rank=self.SV_threshold))
+        svd = lambda x: ListMonad(bksvd(tensor=x))
         basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
         return np.swapaxes(basis, 1, 0)
 
@@ -150,7 +142,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return basis
 
     def evaluate_derivative(self:
-    class_type,
+                            class_type,
                             coefs: np.array,
                             order: int = 1) -> Tuple[class_type, np.array]:
         basis = type(self)(

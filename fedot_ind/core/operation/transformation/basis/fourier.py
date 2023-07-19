@@ -23,6 +23,8 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         self.threshold = params.get('threshold')
         self.basis = None
 
+        self.logging_params.update({'threshold': self.threshold})
+
     def low_pass(self, input_data):
         fourier_coef = np.fft.rfft(input_data)
         frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
