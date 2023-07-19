@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.signal.WindowedFeaturesExtractor import WindowedFeatureExtractor
-from fedot_ind.core.operation.transformation.extraction.statistical import StatFeaturesExtractor
+# from fedot_ind.core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 
 
 class SignalExtractor(WindowedFeatureExtractor):
@@ -17,7 +17,7 @@ class SignalExtractor(WindowedFeatureExtractor):
         use_cache: flag to use cache or not. Defined in Config_Classification.yaml
     Attributes:
         ts_samples_count (int): number of samples in time series
-        aggregator (StatFeaturesExtractor): class to aggregate features
+        # aggregator (StatFeaturesExtractor): class to aggregate features
         wavelet_extractor (WaveletExtractor): class to extract wavelet features
         wavelet (str): current wavelet type
         vis_flag (bool): flag to visualize or not
@@ -29,8 +29,8 @@ class SignalExtractor(WindowedFeatureExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.ts_samples_count = None
-        self.aggregator = StatFeaturesExtractor()
-        self.wavelet_extractor = WaveletExtractor
+        # self.aggregator = StatFeaturesExtractor()
+        # self.wavelet_extractor = WaveletExtractor
 
         self.wavelet = params.get('wavelet')
         self.vis_flag = False

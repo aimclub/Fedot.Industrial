@@ -40,11 +40,15 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
         """
         # TODO: get back to
-        # operation_parameters = [f'{key}:{value}' for key, value in self.params.to_dict().items()]
-        # class_params = list(self.__dir__())
-        # operational_info = operation_parameters + class_params
-        # hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
-        #                                     operation_info=operational_info)
+        # operation_parameters = self.params.to_dict()
+        # class_params = {k:v for k,v in self.__dict__.items() if k not in ['cacher',
+        #                                                                   'params',
+        #                                                                   'n_processes',
+        #                                                                   'logging_params']}
+        #
+        # operation_parameters.update(class_params)
+        # hashed_info = self.cacher.hash_info(data=input_data.features,
+        #                                     operation_info=operation_parameters.__repr__())
 
         # hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
         #                                     operation_info=self.params.to_dict())

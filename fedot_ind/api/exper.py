@@ -20,10 +20,10 @@ if __name__ == "__main__":
     # ]
 
     datasets_good_roc = [
-        'Chinatown',
+        # 'Chinatown',
     # 'Earthquakes',
     # 'Ham',
-    # 'ECG200',
+    'ECG200',
     # 'MiddlePhalanxOutlineCorrect',
     # 'MoteStrain',
     # 'TwoLeadECG'
@@ -52,8 +52,8 @@ if __name__ == "__main__":
                                              # 'wavelet_basis',
                                              'data_driven_basis'
                                          ],
-                                         tuning_iterations=10,
-                                         tuning_timeout=2,
+                                         tuning_iterations=5,
+                                         tuning_timeout=15,
                                          use_cache=False,
                                          timeout=1,
                                          n_jobs=2,

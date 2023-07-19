@@ -4,8 +4,8 @@ from hyperopt import hp
 industrial_search_space = {
     'data_driven_basis':
         {
-         'sv_selector': (hp.choice, [['median', 'mean', '0.25%']]),
-         'window_size': (hp.choice, [[x for x in range(5, 50, 5)]])},
+            'sv_selector': (hp.choice, [['median', '0.75%', '0.25%']]),
+            'window_size': (hp.choice, [[x for x in range(5, 50, 5)]])},
     'wavelet_basis':
         {'n_components': (hp.uniformint, [2, 10]),
          'wavelet': (hp.choice, [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']])},
@@ -13,9 +13,25 @@ industrial_search_space = {
         {'spectrum': (hp.choice, [['smoothed']]),
          'threshold': (hp.uniformint, [10000, 50000])},
 
-    'quantile_extractor':
-        {'window_mode': (hp.choice, [[True, False]]),
-         'window_size': (hp.choice, [[x for x in range(1, 50, 3)]])},
+    # 'quantile_extractor':
+    #     {'window_mode': (hp.choice, [[True, True]]),
+    #     {'window_mode': (hp.choice, [[True, False]]),
+         # 'window_size': (hp.choice, [[x for x in range(1, 50, 3)]]),
+         # 'var_threshold': (hp.choice, [[_ for _ in np.linspace(0, 0.02, 35)]])},
+
+    'quantile_extractor': {'nested_space': (hp.choice, [[
+        {
+            'window_mode': True,
+            'window_size': hp.choice('window_size_true', list(range(1, 50, 3))),
+            'var_threshold': hp.uniform('threshold_true', 0, 0.02)
+        },
+        {
+            'window_mode': False,
+            'window_size': None,
+            'var_threshold': hp.uniform('threshold_false', 0, 0.02)
+        }
+
+    ]])},
 
     'recurrence_extractor':
         {'win_mode': (hp.choice, [[True, False]]),

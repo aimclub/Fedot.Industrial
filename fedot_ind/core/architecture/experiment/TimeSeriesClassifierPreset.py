@@ -15,6 +15,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
+from golem.core.tuning.sequential import SequentialTuner
 
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
@@ -91,7 +92,7 @@ class TimeSeriesClassifierPreset:
             y: numpy array with target values
 
         Returns:
-            InputData object convinient for FEDOT framework
+            InputData object convenient for FEDOT framework
 
         """
         is_multivariate_data = self.__check_multivariate_data(X)
