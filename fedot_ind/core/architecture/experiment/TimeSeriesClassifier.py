@@ -146,8 +146,8 @@ class TimeSeriesClassifier:
                                                            mode='labels')
         return self.prediction_label
 
-    def predict_proba(self, test_features: np.ndarray, **kwargs) -> dict:
-        self.prediction_proba = self.__predict_abstraction(test_features=test_features,
+    def predict_proba(self, features: np.ndarray, **kwargs) -> dict:
+        self.prediction_proba = self.__predict_abstraction(test_features=features,
                                                            mode='probs', )
         return self.prediction_proba
 
