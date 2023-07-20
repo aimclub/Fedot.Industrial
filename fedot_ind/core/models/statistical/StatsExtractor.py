@@ -3,7 +3,6 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pandas import Index
@@ -52,10 +51,14 @@ class StatsExtractor(BaseExtractor):
         stat_features = v[0].columns
         n_components = v[0].shape[0]
         predict = self._clean_predict(np.array(v))
-        predict = self.drop_features(predict, stat_features, n_components)
-        return predict.values
+        # predict = self.drop_features(predict=predict,
+        #                              target_values=input_data.target,
+        #                              columns=stat_features,
+        #                              n_components=n_components)
+        return predict
+        # return predict.values
 
-    def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
+    def drop_features(self, predict: pd.DataFrame, target_values, columns: Index, n_components: int):
         """
         Method for dropping features with low variance
         """
