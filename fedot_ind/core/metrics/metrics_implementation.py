@@ -41,8 +41,8 @@ class QualityMetric:
                  metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
-        self.predicted_labels = predicted_labels.reshape(-1)
-        self.target = target.reshape(-1)
+        self.predicted_labels = np.array(predicted_labels).flatten()
+        self.target = np.array(target).flatten()
         self.metric_list = metric_list
         self.default_value = default_value
 
