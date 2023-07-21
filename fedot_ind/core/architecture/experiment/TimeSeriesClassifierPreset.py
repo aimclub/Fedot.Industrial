@@ -20,6 +20,7 @@ from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.core.operation.utils.cache import DataCacher
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 np.random.seed(0)
@@ -44,7 +45,6 @@ class TimeSeriesClassifierPreset:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.test_data_preprocessed = None
         self.branch_nodes: list = params.get('branch_nodes', None)
 
         self.model_params = params.get('model_params')
@@ -58,6 +58,8 @@ class TimeSeriesClassifierPreset:
                                  output_dir=self.output_folder)
         self.logger = logging.getLogger('TimeSeriesClassifier_Preset')
 
+        self.test_predict_hash = None
+        self.test_data_preprocessed = None
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
@@ -210,26 +212,46 @@ class TimeSeriesClassifierPreset:
             target: numpy array with target values
 
         """
-        if self.test_data_preprocessed is None:
-            test_data = self._init_input_data(features, target)
-            test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
+        # data_cacher = DataCacher()
+        # # get unique hash of input data
+        # test_predict_hash = data_cacher.hash_info(data=features,
+        #                                           obj_info_dict=self.__dict__)
+        # # compare it to existed hash
+        # if self.test_predict_hash != test_predict_hash:
+        test_data = self._init_input_data(features, target)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
+
+        if test_data.features.shape[0] == 1:
+            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
+        else:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-            self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
-                                                    features=test_data_preprocessed.predict,
-                                                    target=test_data_preprocessed.target,
-                                                    data_type=test_data_preprocessed.data_type,
-                                                    task=test_data_preprocessed.task)
-        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
+        self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                                features=test_data_preprocessed.predict,
+                                                target=test_data_preprocessed.target,
+                                                data_type=test_data_preprocessed.data_type,
+                                                task=test_data_preprocessed.task)
+
+        # self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
+        # self.test_predict_hash = test_predict_hash
+
         return self.prediction_label
 
-    def predict_proba(self, features, target) -> dict:
-        if self.test_data_preprocessed is None:
-            test_data = self._init_input_data(features, target)
-            test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
-            self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+        # else:
+        #     return self.prediction_label
 
-        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed,'probs').predict
+    def predict_proba(self, features, target) -> dict:
+        # data_cacher = DataCacher()
+        # # get unique hash of input data
+        # test_predict_hash = data_cacher.hash_info(data=features,
+        #                                           obj_info_dict=self.__dict__)
+        # # compare it to existed hash
+        # if self.test_predict_hash != test_predict_hash:
+        test_data = self._init_input_data(features, target)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
+        self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+
+        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed, 'probs').predict
         self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
         return self.prediction_proba
 
