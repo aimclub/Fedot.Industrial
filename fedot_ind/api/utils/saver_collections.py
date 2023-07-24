@@ -14,7 +14,9 @@ class ResultSaver:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.save_method_dict = {'labels': self.save_labels,
                                  'probs': self.save_probs,
-                                 'metrics': self.save_metrics}
+                                 'metrics': self.save_metrics,
+                                 'baseline_metrics': self.save_baseline_metrics
+                                 }
 
     def __init_save_path(self, dataset_name, generator_name, output_dir):
         if output_dir is None:
@@ -46,3 +48,6 @@ class ResultSaver:
         df = pd.DataFrame(metrics, index=[0])
         df.to_csv(os.path.join(self.path, 'metrics.csv'))
 
+    def save_baseline_metrics(self, metrics: dict):
+        df = pd.DataFrame(metrics, index=[0])
+        df.to_csv(os.path.join(self.path, 'baseline_metrics.csv'))

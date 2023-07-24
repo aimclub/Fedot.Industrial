@@ -1,5 +1,4 @@
 import math
-import time
 from multiprocessing import Pool
 from typing import Tuple, TypeVar, Optional
 
@@ -11,8 +10,7 @@ from pymonad.list import ListMonad
 from sklearn.metrics import f1_score, roc_auc_score
 from tensorly.decomposition import parafac
 from tqdm import tqdm
-
-from fedot_ind.core.architecture.preprocessing import InputData
+from fedot.core.data.data import InputData
 from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import RSVDDecomposition
 
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
@@ -39,7 +37,8 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         self.window_size = params.get('window_size')
         self.basis = None
         self.SV_threshold = None
-        self.sv_selector = params.get('sv_selector')
+        #self.sv_selector = params.get('sv_selector')
+        self.sv_selector = 'median'
         self.svd_estimator = RSVDDecomposition()
         self.low_rank_approximation = True
         self.logging_params.update({'WS': self.window_size,

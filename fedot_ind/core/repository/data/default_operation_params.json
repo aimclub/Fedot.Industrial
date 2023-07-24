@@ -2,6 +2,12 @@
   "rf": {
     "n_jobs": 1
   },
+  "mlp":{
+
+    "max_iter":300,
+    "activation":"relu",
+    "solver":"adam"
+  },
   "rfr": {
     "n_jobs": 1
   },
