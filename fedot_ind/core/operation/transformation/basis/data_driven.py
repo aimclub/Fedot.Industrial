@@ -1,22 +1,23 @@
 import math
 from multiprocessing import Pool
-from typing import Tuple, TypeVar, Optional
+from typing import Optional, Tuple, TypeVar
 
 import numpy as np
 import tensorly as tl
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from sklearn.metrics import f1_score, roc_auc_score
 from tensorly.decomposition import parafac
 from tqdm import tqdm
+
+from fedot_ind.core.architecture.preprocessing import InputData
 from fedot.core.data.data import InputData
 from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import RSVDDecomposition
 
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
-    reconstruct_basis
+from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
+    singular_value_hard_threshold
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 

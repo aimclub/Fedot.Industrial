@@ -161,8 +161,9 @@
     "threshold": 20000
   },
   "quantile_extractor": {
-    "window_size": 5,
-    "window_mode": false
+    "window_size": null,
+    "window_mode": false,
+    "var_threshold": 0.01
   },
   "recurrence_extractor": {
     "window_size": 20,

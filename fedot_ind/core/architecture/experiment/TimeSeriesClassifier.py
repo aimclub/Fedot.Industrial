@@ -13,6 +13,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.core.operation.utils.cache import DataCacher
 
 
 class TimeSeriesClassifier:
@@ -32,6 +33,7 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
+        self.test_predict_hash = None
         self.strategy = params.get('strategy', 'statistical')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
@@ -100,10 +102,17 @@ class TimeSeriesClassifier:
                               mode: str = 'labels'):
         self.logger.info(f'Predicting with {self.strategy} generator')
 
-        if self.test_features is None:
-            self.test_features = self.generator_runner.extract_features(train_features=test_features,
-                                                                        dataset_name=self.dataset_name)
-            self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
+        # data_cacher = DataCacher()
+        # # get unique hash of input data
+        # predict_hash = data_cacher.hash_info(data=test_features,
+        #                                           obj_info_dict=self.__dict__)
+        # # compare it to existed hash
+        # if self.test_predict_hash == predict_hash:
+        #     pass
+
+        self.test_features = self.generator_runner.extract_features(train_features=test_features,
+                                                                    dataset_name=self.dataset_name)
+        self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
 
         if isinstance(self.predictor, Pipeline):
             self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
@@ -142,12 +151,11 @@ class TimeSeriesClassifier:
         return self.predictor
 
     def predict(self, features: np.ndarray, **kwargs) -> dict:
-        self.prediction_label = self.__predict_abstraction(test_features=features,
-                                                           mode='labels')
+        self.prediction_label = self.__predict_abstraction(test_features=features, mode='labels')
         return self.prediction_label
 
-    def predict_proba(self, test_features: np.ndarray, **kwargs) -> dict:
-        self.prediction_proba = self.__predict_abstraction(test_features=test_features,
+    def predict_proba(self, features: np.ndarray, **kwargs) -> dict:
+        self.prediction_proba = self.__predict_abstraction(test_features=features,
                                                            mode='probs', )
         return self.prediction_proba
 

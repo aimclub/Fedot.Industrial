@@ -23,3 +23,4 @@ class WindowedFeatureExtractor(BaseExtractor):
                 df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
                 tmp_list.append(df)
         return tmp_list
+
