@@ -20,10 +20,10 @@ class StatsExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.var_threshold = params.get('var_threshold')
+        # self.var_threshold = params.get('var_threshold')
         self.window_mode = params.get('window_mode')
         self.window_size = params.get('window_size')
-
+        self.var_threshold = 0.1
         self.logging_params.update({'Wsize': self.window_size,
                                     'Wmode': self.window_mode,
                                     'VarTh': self.var_threshold})
@@ -51,11 +51,10 @@ class StatsExtractor(BaseExtractor):
         stat_features = v[0].columns
         n_components = v[0].shape[0]
         predict = self._clean_predict(np.array(v))
-        predict = self.drop_features(predict=predict,
-                                     columns=stat_features,
-                                     n_components=n_components)
-        # return predict
-        return predict.values
+        # predict = self.drop_features(predict=predict,
+        #                              columns=stat_features,
+        #                              n_components=n_components)
+        return predict
 
     def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
         """
@@ -63,7 +62,7 @@ class StatsExtractor(BaseExtractor):
         """
         # Fill columns names for every extracted ts component
         predict = pd.DataFrame(predict,
-                               columns=[f'{col}{str(i)}' for i in range(1, n_components+1) for col in columns])
+                               columns=[f'{col}{str(i)}' for i in range(1, n_components + 1) for col in columns])
 
         if self.relevant_features is None:
             reduced_df, self.relevant_features = self.filter_by_var(predict, threshold=self.var_threshold)
@@ -83,13 +82,17 @@ class StatsExtractor(BaseExtractor):
 
     def extract_stats_features(self, ts):
         if self.window_mode:
-            # aggregator = self.aggregator.create_baseline_features
+            global_features = self.get_statistical_features(ts, add_global_features=True)
             list_of_stat_features = self.apply_window_for_stat_feature(ts_data=ts.T if ts.shape[1] == 1 else ts,
                                                                        feature_generator=self.get_statistical_features,
                                                                        window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features, axis=1)
+            aggregation_df = pd.concat([aggregation_df, global_features], axis=1)
         else:
-            aggregation_df = self.get_statistical_features(ts)
+            statistical_features = self.get_statistical_features(ts)
+            global_features = self.get_statistical_features(ts, add_global_features=True)
+            aggregation_df = pd.concat([statistical_features, global_features], axis=1)
+            #aggregation_df = statistical_features
         return aggregation_df
 
     def generate_features_from_ts(self,

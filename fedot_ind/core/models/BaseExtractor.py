@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
-from fedot_ind.core.operation.transformation.extraction.statistical import stat_methods
+from fedot_ind.core.operation.transformation.extraction.statistical import stat_methods, stat_methods_global
 from fedot_ind.core.operation.utils.cache import DataCacher
 
 
@@ -117,7 +117,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             return self.generate_features_from_ts(train_features, dataset_name)
 
     @staticmethod
-    def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+    def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray],
+                                 add_global_features: bool = False) -> pd.DataFrame:
         """
         Method for creating baseline statistical features for a given time series.
 
@@ -135,10 +136,15 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             time_series = time_series.values
         time_series = time_series.flatten()
 
-        for name, method in stat_methods.items():
+        if add_global_features:
+            list_of_methods = [*stat_methods_global.items()]
+        else:
+            list_of_methods = [*stat_methods.items()]
+
+        for method in list_of_methods:
             try:
-                vals.append(method(time_series))
-                names.append(name)
+                vals.append(method[1](time_series))
+                names.append(method[0])
             except ValueError:
                 continue
         return pd.DataFrame([vals], columns=names)
