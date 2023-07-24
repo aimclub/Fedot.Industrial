@@ -4,7 +4,7 @@ from hyperopt import hp
 industrial_search_space = {
     'data_driven_basis':
         {
-            #'sv_selector': {'hyperopt-dist': hp.choice, 'sampling-scope': [['median', '0.75%', '0.25%']]},
+            # 'sv_selector': {'hyperopt-dist': hp.choice, 'sampling-scope': [['median', '0.75%', '0.25%']]},
             'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]}},
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
@@ -16,6 +16,7 @@ industrial_search_space = {
 
     'quantile_extractor':
         {'window_mode': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, True]]},
+         #'var_threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [np.linspace(0, 0.02, 35)]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 50, 3)]]}},
 
     'recurrence_extractor':
@@ -269,12 +270,12 @@ def get_industrial_search_space(self):
             'reg_lambda': (hp.loguniform, [np.log(1e-8), np.log(10)])
         },
         'catboost': {
-            'max_depth': {'hyperopt-dist':hp.uniformint, 'sampling-scope': [1, 11]},
-            'learning_rate': {'hyperopt-dist':hp.loguniform, 'sampling-scope': [np.log(0.01), np.log(0.2)]},
-            'min_data_in_leaf': {'hyperopt-dist':hp.qloguniform, 'sampling-scope': [0, 6, 1]},
-            'border_count': {'hyperopt-dist':hp.uniformint, 'sampling-scope': [2, 255]},
-            'l2_leaf_reg': {'hyperopt-dist':hp.loguniform, 'sampling-scope': [np.log(1e-8), np.log(10)]},
-            'loss_function': {'hyperopt-dist':hp.choice, 'sampling-scope': [['Logloss', 'CrossEntropy']]}
+            'max_depth': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [1, 11]},
+            'learning_rate': {'hyperopt-dist': hp.loguniform, 'sampling-scope': [np.log(0.01), np.log(0.2)]},
+            'min_data_in_leaf': {'hyperopt-dist': hp.qloguniform, 'sampling-scope': [0, 6, 1]},
+            'border_count': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 255]},
+            'l2_leaf_reg': {'hyperopt-dist': hp.loguniform, 'sampling-scope': [np.log(1e-8), np.log(10)]},
+            'loss_function': {'hyperopt-dist': hp.choice, 'sampling-scope': [['Logloss', 'CrossEntropy']]}
         },
         'catboostreg': {
             'max_depth': (hp.uniformint, [1, 11]),
@@ -284,9 +285,9 @@ def get_industrial_search_space(self):
             'l2_leaf_reg': (hp.loguniform, [np.log(1e-8), np.log(10)])
         },
         'resample': {
-            'balance': {'hyperopt-dist':hp.choice,'sampling-scope':  [['expand_minority', 'reduce_majority']]},
-            'replace': {'hyperopt-dist':hp.choice, 'sampling-scope': [[True, False]]},
-            'balance_ratio': {'hyperopt-dist':hp.uniform, 'sampling-scope': [0.3, 1]}
+            'balance': {'hyperopt-dist': hp.choice, 'sampling-scope': [['expand_minority', 'reduce_majority']]},
+            'replace': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]},
+            'balance_ratio': {'hyperopt-dist': hp.uniform, 'sampling-scope': [0.3, 1]}
         },
         'lda': {
             'solver': (hp.choice, [['svd', 'lsqr', 'eigen']]),
