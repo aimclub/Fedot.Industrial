@@ -15,7 +15,6 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
-
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
@@ -49,7 +48,7 @@ class TimeSeriesClassifierPreset:
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
         self.tuning_iters = params.get('tuning_iterations', 30)
-        self.tuning_timeout = params.get('tuning_timeout', 15)
+        self.tuning_timeout = params.get('tuning_timeout', 15.0)
         self.output_folder = params.get('output_folder', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
@@ -125,7 +124,10 @@ class TimeSeriesClassifierPreset:
         for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
-        pipeline_builder.join_branches('rf')
+        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (150, 100, 50),
+                                                      'max_iter': 300,
+                                                      'activation': 'relu',
+                                                      'solver': 'adam', })
 
         return pipeline_builder.build()
 
@@ -194,7 +196,18 @@ class TimeSeriesClassifierPreset:
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
-        self.predictor = Fedot(**self.model_params)
+        self.predictor = Fedot(available_operations=['scaling',
+                                                     'normalization',
+                                                     'fast_ica',
+                                                     'xgboost',
+                                                     'rfr',
+                                                     'rf',
+                                                     'logit',
+                                                     'mlp',
+                                                     'knn',
+                                                     'lgbm',
+                                                     'pca']
+                               , **self.model_params)
 
         self.predictor.fit(train_data_preprocessed)
 
@@ -218,7 +231,7 @@ class TimeSeriesClassifierPreset:
                                                     target=test_data_preprocessed.target,
                                                     data_type=test_data_preprocessed.data_type,
                                                     task=test_data_preprocessed.task)
-        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
+        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed,'labels').predict
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
         return self.prediction_label
 
@@ -228,7 +241,7 @@ class TimeSeriesClassifierPreset:
             test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
             self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
 
-        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed,'probs').predict
+        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed, 'probs').predict
         self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
         return self.prediction_proba
 
