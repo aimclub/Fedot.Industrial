@@ -70,7 +70,7 @@ class NNExperimenter(ABC):
             self,
             model: torch.nn.Module,
             metric: str,
-            metric_counter: type[MetricCounter],
+            metric_counter: Type[MetricCounter],
             name: Optional[str],
             weights: Optional[str],
             device: str,
