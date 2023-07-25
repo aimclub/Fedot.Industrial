@@ -212,28 +212,27 @@ class TimeSeriesClassifierPreset:
             target: numpy array with target values
 
         """
-        # data_cacher = DataCacher()
-        # # get unique hash of input data
-        # test_predict_hash = data_cacher.hash_info(data=features,
-        #                                           obj_info_dict=self.__dict__)
-        # # compare it to existed hash
-        # if self.test_predict_hash != test_predict_hash:
-        test_data = self._init_input_data(features, target)
-        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
+        data_cacher = DataCacher()
+        # get unique hash of input data
+        test_predict_hash = data_cacher.hash_info(data=features)
+        # compare it to existed hash
+        if self.test_predict_hash != test_predict_hash:
+            test_data = self._init_input_data(features, target)
+            test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
 
-        if test_data.features.shape[0] == 1:
-            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
-        else:
-            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-        self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
-                                                features=test_data_preprocessed.predict,
-                                                target=test_data_preprocessed.target,
-                                                data_type=test_data_preprocessed.data_type,
-                                                task=test_data_preprocessed.task)
+            if test_data.features.shape[0] == 1:
+                test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
+            else:
+                test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+            self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                                    features=test_data_preprocessed.predict,
+                                                    target=test_data_preprocessed.target,
+                                                    data_type=test_data_preprocessed.data_type,
+                                                    task=test_data_preprocessed.task)
 
-        # self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
-        self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
-        # self.test_predict_hash = test_predict_hash
+            # self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
+            self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
+            self.test_predict_hash = test_predict_hash
 
         return self.prediction_label
 

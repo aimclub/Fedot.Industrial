@@ -36,7 +36,10 @@ class StatsExtractor(BaseExtractor):
         """
         Method for feature generation for all series
         """
-        input_data_squeezed = np.squeeze(input_data.features, 3)
+        try:
+            input_data_squeezed = np.squeeze(input_data.features, 3)
+        except ValueError:
+            input_data_squeezed = input_data.features
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
                           total=input_data.features.shape[0],
@@ -55,6 +58,8 @@ class StatsExtractor(BaseExtractor):
                                      columns=stat_features,
                                      n_components=n_components)
         # return predict
+        # percent of feature space reduction
+        self.logger.info(f'Feature space reduced by {len(stat_features)*n_components / predict.shape[1]}%')
         return predict.values
 
     def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):

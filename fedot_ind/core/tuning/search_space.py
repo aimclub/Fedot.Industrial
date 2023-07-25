@@ -15,7 +15,6 @@ industrial_search_space = {
 
     'quantile_extractor':
         {'window_mode': (hp.choice, [[True, True]]),
-        # {'window_mode': (hp.choice, [[True, False]]),
          'window_size': (hp.choice, [[x for x in range(1, 50, 3)]]),
          'var_threshold': (hp.choice, [np.linspace(0, 0.02, 35)])},
 

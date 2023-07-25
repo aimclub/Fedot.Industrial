@@ -46,11 +46,11 @@ if __name__ == "__main__":
                                      # 'wavelet_basis',
                                      'data_driven_basis'
                                  ],
-                                 tuning_iterations=3,
-                                 tuning_timeout=15,
+                                 tuning_iterations=1,
+                                 tuning_timeout=1,
                                  # next are default for every solver
                                  use_cache=False,
-                                 timeout=2,
+                                 timeout=1,
                                  n_jobs=2)
 
     # use your own ts or let Industrial method generate_anomaly_ts produce it with anomalies
@@ -77,7 +77,6 @@ if __name__ == "__main__":
     predicted = industrial.predict(features=test_data[0], target=test_data[1])
     proba = industrial.predict_proba(features=test_data[0], target=test_data[1])
 
-    # Doestn work for now :(
     industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc'])
 
     print(classification_report(test_data[1], predicted))
