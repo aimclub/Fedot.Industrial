@@ -29,7 +29,7 @@ def init_input(X, y):
 
 
 if __name__ == "__main__":
-    # dataset_name = 'BenzeneConcentration'
+    dataset_name = 'BenzeneConcentration'
     # ddb_features_train = DataDrivenBasisImplementation({'window_size': 30,
     #                                                     'sv_selector': 'median'}).transform(train_input_data)
     # fourier_features_train = FourierBasisImplementation({"spectrum_type": "smoothed",
@@ -37,8 +37,8 @@ if __name__ == "__main__":
     # fourier_features_test = FourierBasisImplementation({"spectrum_type": "smoothed",
     #                                                     "threshold": 20000}).transform(test_input_data)
 
-    dataset_name = 'LiveFuelMoistureContent'
-    pca_n_components = 300
+    # dataset_name = 'LiveFuelMoistureContent'
+    pca_n_components = 0.95
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     train_target = np.array([float(i) for i in train_data[1]])
@@ -53,6 +53,9 @@ if __name__ == "__main__":
               svd_solver='full')
 
     extracted_features_train = extractor.transform(train_input_data)
+
+    # number of extracted features
+
     train_size = extracted_features_train.features.shape
     train_features = extracted_features_train.features.reshape(train_size[0], train_size[1] * train_size[2])
     train_features = pca.fit_transform(train_features)
