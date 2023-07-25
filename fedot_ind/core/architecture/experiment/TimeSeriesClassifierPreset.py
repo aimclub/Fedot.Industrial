@@ -128,7 +128,7 @@ class TimeSeriesClassifierPreset:
         for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
-        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (150, 100, 50),
+        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
                                                       'max_iter': 300,
                                                       'activation': 'relu',
                                                       'solver': 'adam', })
@@ -243,9 +243,7 @@ class TimeSeriesClassifierPreset:
         self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
 
-
         return self.prediction_label
-
 
     def predict_proba(self, features, target) -> dict:
         test_data = self._init_input_data(features, target)

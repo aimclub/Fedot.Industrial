@@ -92,7 +92,6 @@ class StatsExtractor(BaseExtractor):
             statistical_features = self.get_statistical_features(ts)
             global_features = self.get_statistical_features(ts, add_global_features=True)
             aggregation_df = pd.concat([statistical_features, global_features], axis=1)
-            #aggregation_df = statistical_features
         return aggregation_df
 
     def generate_features_from_ts(self,
