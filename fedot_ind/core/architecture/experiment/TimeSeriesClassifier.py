@@ -33,7 +33,6 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.test_predict_hash = None
         self.strategy = params.get('strategy', 'statistical')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
@@ -45,7 +44,10 @@ class TimeSeriesClassifier:
                                  output_dir=self.output_folder)
         self.logger = logging.getLogger('TimeSeriesClassifier')
         self.datacheck = DataCheck()
+        self.cacher = DataCacher()
 
+        self.prediction_proba = None
+        self.test_predict_hash = None
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
@@ -97,34 +99,6 @@ class TimeSeriesClassifier:
         self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
-    def __predict_abstraction(self,
-                              test_features: Union[np.ndarray, pd.DataFrame],
-                              mode: str = 'labels'):
-        self.logger.info(f'Predicting with {self.strategy} generator')
-
-        # data_cacher = DataCacher()
-        # # get unique hash of input data
-        # predict_hash = data_cacher.hash_info(data=test_features,
-        #                                           obj_info_dict=self.__dict__)
-        # # compare it to existed hash
-        # if self.test_predict_hash == predict_hash:
-        #     pass
-
-        self.test_features = self.generator_runner.extract_features(train_features=test_features,
-                                                                    dataset_name=self.dataset_name)
-        self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
-
-        if isinstance(self.predictor, Pipeline):
-            self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
-            prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
-            return prediction_label
-        else:
-            if mode == 'labels':
-                prediction_label = self.predictor.predict(self.test_features)
-            else:
-                prediction_label = self.predictor.predict_proba(self.test_features)
-            return prediction_label
-
     def fit(self, features: Union[np.ndarray, pd.DataFrame],
             target: np.ndarray,
             **kwargs) -> object:
@@ -158,6 +132,26 @@ class TimeSeriesClassifier:
         self.prediction_proba = self.__predict_abstraction(test_features=features,
                                                            mode='probs', )
         return self.prediction_proba
+
+    def __predict_abstraction(self,
+                              test_features: Union[np.ndarray, pd.DataFrame],
+                              mode: str = 'labels'):
+        self.logger.info(f'Predicting with {self.strategy} generator')
+
+        self.test_features = self.generator_runner.extract_features(train_features=test_features,
+                                                                    dataset_name=self.dataset_name)
+        self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
+
+        if isinstance(self.predictor, Pipeline):
+            self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
+            prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
+            return prediction_label
+        else:
+            if mode == 'labels':
+                prediction_label = self.predictor.predict(self.test_features)
+            else:
+                prediction_label = self.predictor.predict_proba(self.test_features)
+            return prediction_label
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):
         analyzer = PerformanceAnalyzer()

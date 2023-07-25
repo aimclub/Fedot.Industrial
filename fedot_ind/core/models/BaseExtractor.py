@@ -22,9 +22,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.current_window = None
-        # TODO: get back
-        self.n_processes = 2
-        # self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
 

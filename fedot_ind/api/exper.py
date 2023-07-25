@@ -46,14 +46,15 @@ if __name__ == "__main__":
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset=dataset_name,
+                                         # strategy='statistical',
                                          strategy='fedot_preset',
                                          branch_nodes=[
                                              # 'fourier_basis',
                                              # 'wavelet_basis',
                                              'data_driven_basis'
                                          ],
-                                         tuning_iterations=5,
-                                         tuning_timeout=15,
+                                         tuning_iterations=10,
+                                         tuning_timeout=30,
                                          use_cache=False,
                                          timeout=1,
                                          n_jobs=2,
@@ -62,8 +63,16 @@ if __name__ == "__main__":
             train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
 
             model = industrial.fit(features=train_data[0], target=train_data[1])
-            labels = industrial.predict(features=test_data[0],
-                                        target=test_data[1])
+
+            labels = industrial.predict(features=test_data[0].iloc[:5, :],
+                                        target=test_data[1][:5])
+
+            labels = industrial.predict(features=test_data[0].iloc[:5, :],
+                                        target=test_data[1][:5])
+
+            labels = industrial.predict(features=test_data[0].iloc[:1, :],
+                                        target=test_data[1][:1])
+
             probs = industrial.predict_proba(features=test_data[0],
                                              target=test_data[1])
             metric = industrial.get_metrics(target=test_data[1],
