@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, \
+from fedot_ind.core.metrics.cv_metrics import MetricCounter, ClassificationMetricCounter, LossesAverager, \
     ObjectDetectionMetricCounter, SegmentationMetricCounter
 
 
@@ -70,7 +70,7 @@ class NNExperimenter(ABC):
             self,
             model: torch.nn.Module,
             metric: str,
-            metric_counter,
+            metric_counter: type[MetricCounter],
             name: Optional[str],
             weights: Optional[str],
             device: str,
