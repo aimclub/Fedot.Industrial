@@ -84,9 +84,11 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                      '0.25%': lambda x: np.quantile(x, 0.25)}
 
         svd_numbers = []
-        for signal in data:
-            svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
-            self.rank_distribution = svd_numbers
+        with tqdm(total=len(data), desc='SVD estimation') as pbar:
+            for signal in data:
+                svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
+                pbar.update(1)
+
         return math.ceil(selectors[selector](svd_numbers))
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
@@ -151,7 +153,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return basis
 
     def evaluate_derivative(self:
-    class_type,
+                            class_type,
                             coefs: np.array,
                             order: int = 1) -> Tuple[class_type, np.array]:
         basis = type(self)(
