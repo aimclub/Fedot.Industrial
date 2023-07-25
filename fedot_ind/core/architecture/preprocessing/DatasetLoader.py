@@ -54,7 +54,7 @@ class DataLoader:
             url = f"http://www.timeseriesclassification.com/ClassificationDownloads/{dataset_name}.zip"
             request.urlretrieve(url, download_path + filename)
             try:
-                zipfile.ZipFile(download_path + filename).extractall(temp_data_path + dataset_name)
+                zipfile.ZipFile(download_path + filename).extractall(temp_data_path+dataset_name)
             except zipfile.BadZipFile:
                 self.logger.error(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
                 return None, None
@@ -93,11 +93,8 @@ class DataLoader:
             return None, None, None
         return is_multi, (x_train, y_train), (x_test, y_test)
 
-    def _load_from_tsfile_to_dataframe(self,
-                                       full_file_path_and_name,
-                                       return_separate_X_and_y=True,
-                                       replace_missing_vals_with='NaN',
-                                       encoding: str = 'utf-8'):
+    def _load_from_tsfile_to_dataframe(self, full_file_path_and_name, return_separate_X_and_y=True,
+                                      replace_missing_vals_with='NaN'):
         """Loads data from a .ts file into a Pandas DataFrame.
 
         Parameters
@@ -140,7 +137,7 @@ class DataLoader:
         TsFileParseException = Exception
         # Parse the file
         # print(full_file_path_and_name)
-        with open(full_file_path_and_name, 'r', encoding=encoding) as file:
+        with open(full_file_path_and_name, 'r', encoding='utf-8') as file:
             dataset_name = os.path.basename(full_file_path_and_name)
             for line in tqdm(file.readlines(), desc='Loading data', leave=False, postfix=dataset_name, unit='lines'):
                 # print(".", end='')
@@ -669,25 +666,14 @@ class DataLoader:
         try:
             x_test, y_test = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
                                                            return_separate_X_and_y=True)
-            x_train, y_train = load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                return_separate_X_and_y=True)
+            x_train, y_train = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
+                                                             return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
         except Exception:
-            try:
-                x_test, y_test = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                    return_separate_X_and_y=True)
-                x_train, y_train = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                    return_separate_X_and_y=True)
-            except Exception:
-                x_test, y_test = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                    return_separate_X_and_y=True,encoding='ISO-8859-1')
-                x_train, y_train = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                    return_separate_X_and_y=True,encoding='ISO-8859-1')
+            x_test, y_test = self._load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
+                                                           return_separate_X_and_y=True)
+            x_train, y_train = self._load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
+                                                             return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
 
     def read_arff_files(self, dataset_name, temp_data_path):
