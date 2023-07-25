@@ -50,7 +50,7 @@ class TimeSeriesClassifierPreset:
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
         self.tuning_iters = params.get('tuning_iterations', 30)
-        self.tuning_timeout = params.get('tuning_timeout', 15)
+        self.tuning_timeout = params.get('tuning_timeout', 15.0)
         self.output_folder = params.get('output_folder', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
@@ -128,7 +128,10 @@ class TimeSeriesClassifierPreset:
         for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
-        pipeline_builder.join_branches('rf')
+        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
+                                                      'max_iter': 300,
+                                                      'activation': 'relu',
+                                                      'solver': 'adam', })
 
         return pipeline_builder.build()
 
@@ -197,7 +200,18 @@ class TimeSeriesClassifierPreset:
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
-        self.predictor = Fedot(**self.model_params)
+        self.predictor = Fedot(available_operations=['scaling',
+                                                     'normalization',
+                                                     'fast_ica',
+                                                     'xgboost',
+                                                     'rfr',
+                                                     'rf',
+                                                     'logit',
+                                                     'mlp',
+                                                     'knn',
+                                                     'lgbm',
+                                                     'pca']
+                               , **self.model_params)
 
         self.predictor.fit(train_data_preprocessed)
 
@@ -212,12 +226,7 @@ class TimeSeriesClassifierPreset:
             target: numpy array with target values
 
         """
-        # data_cacher = DataCacher()
-        # # get unique hash of input data
-        # test_predict_hash = data_cacher.hash_info(data=features,
-        #                                           obj_info_dict=self.__dict__)
-        # # compare it to existed hash
-        # if self.test_predict_hash != test_predict_hash:
+
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
 
@@ -231,22 +240,12 @@ class TimeSeriesClassifierPreset:
                                                 data_type=test_data_preprocessed.data_type,
                                                 task=test_data_preprocessed.task)
 
-        # self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
+        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
-        # self.test_predict_hash = test_predict_hash
 
         return self.prediction_label
 
-        # else:
-        #     return self.prediction_label
-
     def predict_proba(self, features, target) -> dict:
-        # data_cacher = DataCacher()
-        # # get unique hash of input data
-        # test_predict_hash = data_cacher.hash_info(data=features,
-        #                                           obj_info_dict=self.__dict__)
-        # # compare it to existed hash
-        # if self.test_predict_hash != test_predict_hash:
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
         self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
