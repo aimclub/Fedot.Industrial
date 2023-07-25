@@ -20,10 +20,10 @@ class StatsExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        # self.var_threshold = params.get('var_threshold')
+        self.var_threshold = params.get('var_threshold')
         self.window_mode = params.get('window_mode')
         self.window_size = params.get('window_size')
-        self.var_threshold = 0.1
+
         self.logging_params.update({'Wsize': self.window_size,
                                     'Wmode': self.window_mode,
                                     'VarTh': self.var_threshold})
@@ -36,7 +36,10 @@ class StatsExtractor(BaseExtractor):
         """
         Method for feature generation for all series
         """
-        input_data_squeezed = np.squeeze(input_data.features, 3)
+        try:
+            input_data_squeezed = np.squeeze(input_data.features, 3)
+        except ValueError:
+            input_data_squeezed = input_data.features
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
                           total=input_data.features.shape[0],
@@ -51,10 +54,13 @@ class StatsExtractor(BaseExtractor):
         stat_features = v[0].columns
         n_components = v[0].shape[0]
         predict = self._clean_predict(np.array(v))
-        # predict = self.drop_features(predict=predict,
-        #                              columns=stat_features,
-        #                              n_components=n_components)
-        return predict
+        predict = self.drop_features(predict=predict,
+                                     columns=stat_features,
+                                     n_components=n_components)
+        # return predict
+        # percent of feature space reduction
+        self.logger.info(f'Feature space reduced by {len(stat_features)*n_components / predict.shape[1]}%')
+        return predict.values
 
     def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
         """
@@ -62,7 +68,7 @@ class StatsExtractor(BaseExtractor):
         """
         # Fill columns names for every extracted ts component
         predict = pd.DataFrame(predict,
-                               columns=[f'{col}{str(i)}' for i in range(1, n_components + 1) for col in columns])
+                               columns=[f'{col}{str(i)}' for i in range(1, n_components+1) for col in columns])
 
         if self.relevant_features is None:
             reduced_df, self.relevant_features = self.filter_by_var(predict, threshold=self.var_threshold)
@@ -82,16 +88,13 @@ class StatsExtractor(BaseExtractor):
 
     def extract_stats_features(self, ts):
         if self.window_mode:
-            global_features = self.get_statistical_features(ts, add_global_features=True)
+            # aggregator = self.aggregator.create_baseline_features
             list_of_stat_features = self.apply_window_for_stat_feature(ts_data=ts.T if ts.shape[1] == 1 else ts,
                                                                        feature_generator=self.get_statistical_features,
                                                                        window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features, axis=1)
-            aggregation_df = pd.concat([aggregation_df, global_features], axis=1)
         else:
-            statistical_features = self.get_statistical_features(ts)
-            global_features = self.get_statistical_features(ts, add_global_features=True)
-            aggregation_df = pd.concat([statistical_features, global_features], axis=1)
+            aggregation_df = self.get_statistical_features(ts)
         return aggregation_df
 
     def generate_features_from_ts(self,

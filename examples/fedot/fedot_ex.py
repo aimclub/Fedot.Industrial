@@ -11,17 +11,20 @@ from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.operation_types_repository import get_operations_for_task
 from fedot.core.repository.tasks import TaskTypesEnum, Task
-from tests.integration.repository.test_repo import initialize_uni_data
+from tests.integration.repository.test_repo import initialize_multi_data, initialize_uni_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 if __name__ == '__main__':
     np.random.seed(0)
     mode = 'tuning'
-    dataset_list = ['Adiac', 'ArrowHead', 'Mallat', 'Meat', 'Rock']
+    dataset_list = [
+        # 'Adiac', 'ArrowHead', 'Mallat', 'Meat', 'Rock',
+    'LiveFuelMoistureContent']
     # initialize industrial repository
     for dataset_name in dataset_list:
         with IndustrialModels():
-            train_data, test_data = initialize_uni_data(dataset_name)
+            train_data, test_data = initialize_multi_data(dataset_name)
+            # train_data, test_data = initialize_uni_data(dataset_name)
 
             task = Task(TaskTypesEnum.classification)
             industrial = get_operations_for_task(task=train_data.task, mode='data_operation', tags=["extractor", "basis"])
