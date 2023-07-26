@@ -54,7 +54,7 @@ class DataLoader:
             url = f"http://www.timeseriesclassification.com/ClassificationDownloads/{dataset_name}.zip"
             request.urlretrieve(url, download_path + filename)
             try:
-                zipfile.ZipFile(download_path + filename).extractall(temp_data_path+dataset_name)
+                zipfile.ZipFile(download_path + filename).extractall(temp_data_path + dataset_name)
             except zipfile.BadZipFile:
                 self.logger.error(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
                 return None, None
@@ -70,21 +70,25 @@ class DataLoader:
     def read_train_test_files(self, data_path, dataset_name):
         # If data unpacked as .tsv file
         if os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.tsv'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_tsv(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .txt file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .ts file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
             is_multi = True
 
         # If data unpacked as .arff file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
             is_multi = True
 
@@ -94,8 +98,9 @@ class DataLoader:
         return is_multi, (x_train, y_train), (x_test, y_test)
 
     def _load_from_tsfile_to_dataframe(self, full_file_path_and_name, return_separate_X_and_y=True,
-                                      replace_missing_vals_with='NaN'):
+                                       replace_missing_vals_with='NaN'):
         """Loads data from a .ts file into a Pandas DataFrame.
+        Taken from https://github.com/ChangWeiTan/TS-Extrinsic-Regression/blob/master/utils/data_loader.py
 
         Parameters
         ----------
@@ -666,14 +671,17 @@ class DataLoader:
         try:
             x_test, y_test = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
                                                            return_separate_X_and_y=True)
-            x_train, y_train = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                                                             return_separate_X_and_y=True)
+            x_train, y_train = load_from_tsfile_to_dataframe(
+                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
+                return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
         except Exception:
-            x_test, y_test = self._load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                                                           return_separate_X_and_y=True)
-            x_train, y_train = self._load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                                                             return_separate_X_and_y=True)
+            x_test, y_test = self._load_from_tsfile_to_dataframe(
+                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
+                return_separate_X_and_y=True)
+            x_train, y_train = self._load_from_tsfile_to_dataframe(
+                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
+                return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
 
     def read_arff_files(self, dataset_name, temp_data_path):

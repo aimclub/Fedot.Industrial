@@ -18,9 +18,19 @@ class IndustrialConfigs(Enum):
                                            'max_arity': 4,
                                            'cv_folds': 2,
                                            'logging_level': 20,
-                                           'n_jobs': -1
-                                           }
-                             )
+                                           'n_jobs': -1})
+
+    ts_regression = dict(task='ts_regression',
+                         dataset=None,
+                         strategy='statistical',
+                         model_params={'problem': 'regression',
+                                       'seed': 42,
+                                       'timeout': 15,
+                                       'max_depth': 10,
+                                       'max_arity': 4,
+                                       'cv_folds': 2,
+                                       'logging_level': 20,
+                                       'n_jobs': -1})
 
     anomaly_detection = NotImplementedError
     image_classification = NotImplementedError
@@ -54,8 +64,9 @@ class Configurator:
 
         self.experiment_dict = self._base_config(task=kwargs['task'])
         fedot_config = {}
-        industrial_config = {k: v if k not in ['timeout', 'n_jobs', 'logging_level', 'metric'] else fedot_config.update({k: v})
-                             for k, v in kwargs.items()}
+        industrial_config = {
+            k: v if k not in ['timeout', 'n_jobs', 'logging_level', 'metric'] else fedot_config.update({k: v})
+            for k, v in kwargs.items()}
         industrial_config['output_folder'] = kwargs['output_folder']
         self.experiment_dict.update(**industrial_config)
         self.experiment_dict['model_params'].update(**fedot_config)
