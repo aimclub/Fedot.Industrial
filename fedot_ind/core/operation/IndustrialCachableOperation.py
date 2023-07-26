@@ -35,33 +35,34 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         predict = self.cacher.load_data_from_cache(hashed_info=hashed_info)
         return predict
 
-    def transform(self, input_data: InputData) -> OutputData:
+    def transform(self, input_data: InputData, use_cache: bool = False) -> OutputData:
+        """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
         """
-            Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
-        """
-        # TODO: get back to
-        # class_params = {k: v for k, v in self.__dict__.items() if k not in ['cacher',
-        #                                                                     'data_type',
-        #                                                                     'params',
-        #                                                                     'n_processes',
-        #                                                                     'logging_params']}
-        #
-        # hashed_info = self.cacher.hash_info(data=input_data.features,
-        #                                     operation_info=class_params.__repr__())
-        # '5258e575f6'
-        # hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
-        #                                     operation_info=self.params.to_dict())
+        if use_cache:
+            class_params = {k: v for k, v in self.__dict__.items() if k not in ['cacher',
+                                                                                'data_type',
+                                                                                'params',
+                                                                                'n_processes',
+                                                                                'logging_params',
+                                                                                'logger',
+                                                                                'relevant_features']}
 
-        # try:
-        #     predict = self.try_load_from_cache(hashed_info)
-        # except FileNotFoundError:
-        #     predict = self._transform(input_data)
-        #     self.cacher.cache_data(hashed_info, predict)
+            hashed_info = self.cacher.hash_info(data=input_data.features,
+                                                operation_info=class_params.__repr__())
+            # '9123f78f08'
+            try:
+                predict = self.try_load_from_cache(hashed_info)
+            except FileNotFoundError:
+                predict = self._transform(input_data)
+                self.cacher.cache_data(hashed_info, predict)
 
-        predict = self._transform(input_data)
-        if type(input_data) == InputData:
+        # predict = self._transform(input_data)
             predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
-        return predict
+            return predict
+        else:
+            predict = self._transform(input_data)
+            predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+            return predict
 
     def _transform(self, input_data) -> np.array:
         """
