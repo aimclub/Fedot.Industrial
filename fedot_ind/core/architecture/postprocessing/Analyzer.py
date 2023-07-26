@@ -13,7 +13,7 @@ class Metrics(Enum):
     precision = Precision
     accuracy = Accuracy
     logloss = Logloss
-    rmse = RMSE,
+    rmse = RMSE
     r2 = R2
     mae = MAE
     mse = MSE
