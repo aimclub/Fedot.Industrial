@@ -8,8 +8,8 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.operation.caching import DataCacher
+from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.core.operation.utils.cache import DataCacher
 
 
 class IndustrialCachableOperationImplementation(DataOperationImplementation):
@@ -56,7 +56,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                 predict = self._transform(input_data)
                 self.cacher.cache_data(hashed_info, predict)
 
-            # predict = self._transform(input_data)
+        # predict = self._transform(input_data)
             predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
             return predict
         else:
