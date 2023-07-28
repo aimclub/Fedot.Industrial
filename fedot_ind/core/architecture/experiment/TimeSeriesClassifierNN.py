@@ -6,7 +6,7 @@ import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
-from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.core.models.nn.inception import InceptionTimeNetwork
 
 TSCCLF_MODEL = {

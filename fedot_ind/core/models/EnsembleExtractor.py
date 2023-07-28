@@ -3,7 +3,7 @@ import pandas as pd
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 from fedot_ind.core.models.signal.SignalExtractor import SignalExtractor
 from fedot_ind.core.models.spectral.SSAExtractor import SSAExtractor
-from fedot_ind.core.models.statistical.StatsExtractor import StatsExtractor
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
 
 
@@ -22,8 +22,8 @@ class EnsembleExtractor(BaseExtractor):
         super().__init__(feature_generator_dict)
         self.use_cache = use_cache
         self.list_of_generators = list_of_generators
-        self.generator_dict = dict(quantile=StatsExtractor,
-                                   window_quantile=StatsExtractor,
+        self.generator_dict = dict(quantile=QuantileExtractor,
+                                   window_quantile=QuantileExtractor,
                                    wavelet=SignalExtractor,
                                    spectral=SSAExtractor,
                                    spectral_window=SSAExtractor,

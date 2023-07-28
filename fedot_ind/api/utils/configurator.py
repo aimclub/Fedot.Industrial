@@ -1,9 +1,11 @@
+import json
 import logging
+import os
 from enum import Enum
 from typing import Union
 
-from fedot_ind.api.utils.hp_generator_collection import GeneratorParams
 from fedot_ind.core.architecture.settings.pipeline_factory import FeatureGenerator
+from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 
 
@@ -22,7 +24,7 @@ class IndustrialConfigs(Enum):
 
     ts_regression = dict(task='ts_regression',
                          dataset=None,
-                         strategy='statistical',
+                         strategy='quantile',
                          model_params={'problem': 'regression',
                                        'seed': 42,
                                        'timeout': 15,
@@ -105,7 +107,10 @@ class Configurator:
 
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
-        feature_gen_params = GeneratorParams[generator].value
+
+        with open(PATH_TO_DEFAULT_PARAMS, 'r') as file:
+            _feature_gen_params = json.load(file)
+            feature_gen_params = _feature_gen_params[f'{generator}_extractor']
 
         for param in feature_gen_params:
             feature_gen_params[param] = self.experiment_dict.get(param, feature_gen_params[param])

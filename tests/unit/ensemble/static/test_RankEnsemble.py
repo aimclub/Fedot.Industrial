@@ -3,13 +3,13 @@ import os
 import pytest
 
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-from fedot_ind.core.ensemble.static.RankEnsembler import RankEnsemble
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.ensemble.rank_ensembler import RankEnsemble
 
 
 @pytest.fixture()
 def get_proba_metric_dict():
-    results_path = os.path.join(PROJECT_PATH, '../tests/data/classification_results')
+    results_path = os.path.join(PROJECT_PATH, 'tests/data/classification_results')
     picker = ResultsPicker(path=results_path)
     proba_dict, metric_dict = picker.run()
     return proba_dict, metric_dict

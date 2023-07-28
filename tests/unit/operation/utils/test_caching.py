@@ -4,8 +4,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.operation.caching import DataCacher
 
 
 class TestDataCacher(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestDataCacher(unittest.TestCase):
                                                                                         'industrial',
                                                                                         'time series'])
         self.assertIsInstance(hashed_info, str)
-        self.assertEqual(len(hashed_info), 10)
+        self.assertEqual(len(hashed_info), 20)
 
     def test_cache_data(self):
         hashed_info = self.data_cacher.hash_info(name='data', data=self.data)

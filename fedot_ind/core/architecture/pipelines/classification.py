@@ -140,7 +140,7 @@ if __name__ == "__main__":
     }
 
     pipeline = ClassificationPipelines(train_data=train_data, test_data=test_data).__call__('DataDrivenMultiTSC')
-    pipeline(feature_generator_type='statistical',
+    pipeline(feature_generator_type='quantile',
              model_hyperparams=model_hyperparams,
              feature_hyperparams=None,
              data_driven_hyperparams={'n_components': 3, 'window_size': 30})

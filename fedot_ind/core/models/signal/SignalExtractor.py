@@ -6,8 +6,8 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.models.signal.WindowedFeaturesExtractor import WindowedFeatureExtractor
-# from fedot_ind.core.operation.transformation.extraction.statistical import StatFeaturesExtractor
+from fedot_ind.core.models.WindowedFeaturesExtractor import WindowedFeatureExtractor
+# from fedot_ind.core.operation.transformation.extraction.quantile import StatFeaturesExtractor
 
 
 class SignalExtractor(WindowedFeatureExtractor):
