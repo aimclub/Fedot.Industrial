@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset=dataset_name,
-                                         # strategy='statistical',
+                                         # strategy='quantile',
                                          strategy='fedot_preset',
                                          branch_nodes=[
                                              # 'fourier_basis',

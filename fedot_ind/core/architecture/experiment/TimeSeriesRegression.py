@@ -10,13 +10,13 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from sklearn.decomposition import PCA
 
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
 
 class TimeSeriesRegression:
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.strategy = params.get('strategy', 'statistical')
+        self.strategy = params.get('strategy', 'quantile')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
         self.dataset_name = params.get('dataset')

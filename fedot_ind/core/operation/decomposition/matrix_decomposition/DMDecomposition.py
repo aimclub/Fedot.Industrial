@@ -1,7 +1,5 @@
 import numpy as np
-import scipy
 from numpy.linalg import svd
-from scipy.sparse.linalg import svds
 
 
 def rq(A):

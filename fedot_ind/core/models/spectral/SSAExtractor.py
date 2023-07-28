@@ -12,7 +12,6 @@ from fedot_ind.core.metrics.metrics_implementation import ParetoMetrics
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.eigen import combine_eigenvectors
-from fedot_ind.core.operation.transformation.extraction.statistical import StatFeaturesExtractor
 from fedot_ind.core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 
@@ -25,7 +24,7 @@ class SSAExtractor(BaseExtractor):
         use_cache: flag for cache usage. If True, SSA algorithm will be applied to each window of time series.
 
     Attributes:
-        aggregator (StatFeaturesExtractor): class for statistical features extraction.
+        aggregator (StatFeaturesExtractor): class for quantile features extraction.
         spectrum_extractor (SpectrumDecomposer): class for SSA algorithm.
         pareto_front (ParetoMetrics): class for pareto front calculation.
         vis_flag (bool): flag for visualization.
@@ -46,7 +45,6 @@ class SSAExtractor(BaseExtractor):
         self.spectral_hyperparams = params.get('spectral_hyperparams')
         self.__init_spectral_hyperparams()
 
-        self.aggregator = StatFeaturesExtractor()
         self.spectrum_extractor = SpectrumDecomposer
         self.pareto_front = ParetoMetrics()
         self.datacheck = DataCheck()
@@ -143,7 +141,7 @@ class SSAExtractor(BaseExtractor):
     def generate_features_from_ts(self, eigenvectors_list: list, window_mode: bool = False) -> pd.DataFrame:
         eigenvectors_list = list(map(lambda x: self.datacheck.check_data(x, return_df=True), eigenvectors_list))
         if self.window_mode:
-            gen = self.aggregator.create_baseline_features
+            gen = self.get_statistical_features
             function_for_stat_features = lambda x: self.apply_window_for_stat_feature(ts_data=x.T,
                                                                                       feature_generator=gen,
                                                                                       window_size=self.current_window)

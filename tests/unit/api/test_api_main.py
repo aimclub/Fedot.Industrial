@@ -1,7 +1,8 @@
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifierNN import TimeSeriesClassifierNN
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
 
@@ -58,15 +59,7 @@ def test_main_api_fedot_preset(tsc_fedot_preset_config):
 
     assert type(industrial) is FedotIndustrial
     assert type(industrial.solver) is TimeSeriesClassifierPreset
-    assert industrial.solver.generator_name == 'fedot_preset'
+    assert industrial.solver.extractors == ['quantile_extractor', 'quantile_extractor', 'quantile_extractor']
+    assert industrial.solver.branch_nodes == ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
     assert industrial.config_dict['task'] == 'ts_classification'
     assert industrial.solver.dataset_name == 'Chinatown'
-
-
-def test_main_api_none(none_tsc_config):
-    industrial = FedotIndustrial(**none_tsc_config)
-
-    assert type(industrial.solver) is TimeSeriesClassifierNN
-
-
-

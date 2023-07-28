@@ -2,10 +2,9 @@ import copy
 import os
 
 import pytest
-import torch
 from torchvision.models import resnet18
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.operation.optimization.svd_tools import *
 
 

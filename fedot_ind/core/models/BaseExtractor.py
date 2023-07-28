@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
-from fedot_ind.core.operation.transformation.extraction.statistical import stat_methods, stat_methods_global
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.core.models.quantile.stat_methods import stat_methods
+from fedot_ind.core.operation.caching import DataCacher
 
 
 class BaseExtractor(IndustrialCachableOperationImplementation):
@@ -37,20 +37,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        if type(input_data) == InputData:
-            features = input_data.features
-            n_samples = input_data.features.shape[0]
-        else:
-            features = input_data
-            n_samples = input_data.shape[0]
-        try:
-            input_data_squeezed = np.squeeze(features, 3)
-        except Exception:
-            input_data_squeezed = np.squeeze(features)
+        input_data_squeezed = np.squeeze(input_data.features, 3)
 
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=n_samples,
+                          total=input_data.features.shape[0],
                           desc=f'{self.__class__.__name__} transform',
                           postfix=f'{self.logging_params}',
                           colour='green',
@@ -115,16 +106,15 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             return self.generate_features_from_ts(train_features, dataset_name)
 
     @staticmethod
-    def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray],
-                                 add_global_features: bool = False) -> pd.DataFrame:
+    def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         """
-        Method for creating baseline statistical features for a given time series.
+        Method for creating baseline quantile features for a given time series.
 
         Args:
             time_series: time series for which features are generated
 
         Returns:
-            Row vector of statistical features in the form of a pandas DataFrame
+            Row vector of quantile features in the form of a pandas DataFrame
 
         """
         names = []
@@ -134,15 +124,31 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             time_series = time_series.values
         time_series = time_series.flatten()
 
-        if add_global_features:
-            list_of_methods = [*stat_methods_global.items()]
-        else:
-            list_of_methods = [*stat_methods.items()]
-
-        for method in list_of_methods:
+        for name, method in stat_methods.items():
             try:
-                vals.append(method[1](time_series))
-                names.append(method[0])
+                vals.append(method(time_series))
+                names.append(name)
             except ValueError:
                 continue
         return pd.DataFrame([vals], columns=names)
+
+    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
+                                      feature_generator: callable,
+                                      window_size: int = None):
+        if window_size is None:
+            # 10% of time series length by default
+            window_size = round(ts_data.shape[1] / 10)
+        else:
+            window_size = round(ts_data.shape[1] * (window_size / 100))
+        tmp_list = []
+        window_size = max(window_size, 5)
+        for i in range(0, ts_data.shape[1], window_size):
+            slice_ts = ts_data.iloc[:, i:i + window_size]
+            if slice_ts.shape[1] == 1:
+                break
+            else:
+                df = feature_generator(slice_ts)
+                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+                tmp_list.append(df)
+        return tmp_list
+
