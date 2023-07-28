@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
-from fedot_ind.core.operation.transformation.extraction.statistical import stat_methods
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.core.models.quantile.stat_methods import stat_methods
+from fedot_ind.core.operation.caching import DataCacher
 
 
 class BaseExtractor(IndustrialCachableOperationImplementation):
@@ -108,13 +108,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     @staticmethod
     def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         """
-        Method for creating baseline statistical features for a given time series.
+        Method for creating baseline quantile features for a given time series.
 
         Args:
             time_series: time series for which features are generated
 
         Returns:
-            Row vector of statistical features in the form of a pandas DataFrame
+            Row vector of quantile features in the form of a pandas DataFrame
 
         """
         names = []
@@ -131,3 +131,24 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             except ValueError:
                 continue
         return pd.DataFrame([vals], columns=names)
+
+    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
+                                      feature_generator: callable,
+                                      window_size: int = None):
+        if window_size is None:
+            # 10% of time series length by default
+            window_size = round(ts_data.shape[1] / 10)
+        else:
+            window_size = round(ts_data.shape[1] * (window_size / 100))
+        tmp_list = []
+        window_size = max(window_size, 5)
+        for i in range(0, ts_data.shape[1], window_size):
+            slice_ts = ts_data.iloc[:, i:i + window_size]
+            if slice_ts.shape[1] == 1:
+                break
+            else:
+                df = feature_generator(slice_ts)
+                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+                tmp_list.append(df)
+        return tmp_list
+

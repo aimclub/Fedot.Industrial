@@ -168,5 +168,10 @@
   },
   "signal_extractor": {
     "wavelet": "mexh"
+  },
+  "topological_extractor": {
+    "max_te_dimension": 5,
+    "max_te_time_delay": 2,
+    "stride": 1
   }
 }

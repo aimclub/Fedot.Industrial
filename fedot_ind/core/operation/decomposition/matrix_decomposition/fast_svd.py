@@ -41,8 +41,6 @@ def bksvd(tensor) -> list:
     Returns:
         u, s, vt (array_like): decomposition
 
-    Notes:
-
     """
     import math
 

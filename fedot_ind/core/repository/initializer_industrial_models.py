@@ -12,7 +12,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.dag.verification_rules import ERROR_PREFIX
 from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 

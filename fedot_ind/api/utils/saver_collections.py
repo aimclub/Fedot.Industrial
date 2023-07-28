@@ -3,7 +3,7 @@ import os
 
 import pandas as pd
 
-from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import default_path_to_save_results
 
 
 class ResultSaver:

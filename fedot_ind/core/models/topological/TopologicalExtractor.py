@@ -11,7 +11,7 @@ from scipy import stats
 from tqdm import tqdm
 
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
-from fedot_ind.core.operation.transformation.extraction.topological import AverageHoleLifetimeFeature, \
+from fedot_ind.core.models.topological.topological import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature, TopologicalFeaturesExtractor
