@@ -11,7 +11,7 @@ from tqdm import tqdm
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 
 
-class StatsExtractor(BaseExtractor):
+class QuantileExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
 
     Attributes:
@@ -138,23 +138,3 @@ class StatsExtractor(BaseExtractor):
         aggregation_df = pd.concat(tmp_list, axis=0)
 
         return aggregation_df
-
-    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
-                                      feature_generator: callable,
-                                      window_size: int = None):
-        if window_size is None:
-            # 10% of time series length by default
-            window_size = round(ts_data.shape[1] / 10)
-        else:
-            window_size = round(ts_data.shape[1] * (window_size / 100))
-        tmp_list = []
-        window_size = max(window_size, 5)
-        for i in range(0, ts_data.shape[1], window_size):
-            slice_ts = ts_data.iloc[:, i:i + window_size]
-            if slice_ts.shape[1] == 1:
-                break
-            else:
-                df = feature_generator(slice_ts)
-                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
-                tmp_list.append(df)
-        return tmp_list

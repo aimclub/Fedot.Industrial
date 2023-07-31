@@ -37,7 +37,7 @@ if __name__ == "__main__":
     anomaly_labels = {}
     # Create FedotIndustrial object
     industrial = FedotIndustrial(task='ts_classification',
-                                 strategy='statistical',  # or 'fedot_preset'
+                                 strategy='quantile',  # or 'fedot_preset'
                                  dataset='your_dataset_name',
                                  # if 'fedot_preset' then you need to specify the following three parameters,
                                  # otherwise they will be ignored:

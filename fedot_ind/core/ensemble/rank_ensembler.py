@@ -3,10 +3,9 @@ import logging
 import numpy as np
 import pandas as pd
 
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.architecture.settings.hyperparams import stat_methods_ensemble
-from fedot_ind.core.ensemble.BaseEnsembler import BaseEnsemble
+from fedot_ind.core.ensemble.base_ensembler import BaseEnsemble
 
 
 class RankEnsemble(BaseEnsemble):
@@ -32,7 +31,12 @@ class RankEnsemble(BaseEnsemble):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.best_ensemble_metric = 0
 
-        self.ensemble_strategy_dict = stat_methods_ensemble
+        self.ensemble_strategy_dict = {'MeanEnsemble': np.mean,
+                                       'MedianEnsemble': np.median,
+                                       'MinEnsemble': np.min,
+                                       'MaxEnsemble': np.max,
+                                       'ProductEnsemble': np.prod}
+
         self.ensemble_strategy = self.ensemble_strategy_dict.keys()
 
         self.strategy_exclude_list = ['WeightedEnsemble']
@@ -120,7 +124,7 @@ class RankEnsemble(BaseEnsemble):
 
     def __iterative_model_selection(self, prediction_proba_dict):
         """
-        Method that iterative adding models to a single composite model and ensemble their predictions
+        Method that iteratively adds models to a single composite model and ensemble their predictions
 
         Returns:
             dictionary with structure {'Ensemble_models': 'best ensemble metric',
@@ -131,7 +135,7 @@ class RankEnsemble(BaseEnsemble):
 
             modelling_results_top = {k: v for k, v in prediction_proba_dict.items() if
                                      k in list(self.sorted_dict.keys())[:top_K_models + 1]}
-            self.logger.info(f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models+1} models')
+            self.logger.info(f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models + 1} models')
 
             ensemble_results = self.agg_ensemble(modelling_results=modelling_results_top, single_mode=True)
 
@@ -165,9 +169,6 @@ class RankEnsemble(BaseEnsemble):
         top_ensemble_dict = {}
         for ensemble_method in ensemble_results:
             ensemble_dict = ensemble_results[ensemble_method]
-            # ensemble_metrics = self.IndustrialModel.get_metrics(target=ensemble_dict['target'],
-            #                                                     prediction_label=ensemble_dict['label'],
-            #                                                     prediction_proba=ensemble_dict['proba'])
 
             ensemble_metrics = self.performance_analyzer.calculate_metrics(target=ensemble_dict['target'],
                                                                            predicted_labels=ensemble_dict['label'],
@@ -211,7 +212,7 @@ class RankEnsemble(BaseEnsemble):
             target = self.test_target
             metrics = self.performance_analyzer.calculate_metrics(target=target,
                                                                   predicted_labels=label_predictions,
-                                                                  predicted_probs=average_proba_predictions,)
+                                                                  predicted_probs=average_proba_predictions, )
         except KeyError:
             metrics = None
             target = None

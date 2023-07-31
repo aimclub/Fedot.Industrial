@@ -15,12 +15,11 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
-from golem.core.tuning.sequential import SequentialTuner
 
+from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.api.utils.saver_collections import ResultSaver
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
+from fedot_ind.core.operation.caching import DataCacher
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 np.random.seed(0)
@@ -29,14 +28,13 @@ np.random.seed(0)
 class TimeSeriesClassifierPreset:
     """Class responsible for interaction with Fedot classifier. It allows to use FEDOT optimization
     for hyperparameters tuning and pipeline building. Nodes of the pipeline are basis functions
-    from the list of branch_nodes and statistical extractor.
+    from the list of branch_nodes and quantile extractor.
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
         tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
-        output_dir: path to the directory where results will be saved
         saver: object of ``ResultSaver`` class
 
     Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
@@ -115,13 +113,13 @@ class TimeSeriesClassifierPreset:
 
     def _build_pipeline(self):
         """
-        Method for building pipeline with nodes from ``branch_nodes`` list and statistical extractor.
+        Method for building pipeline with nodes from ``branch_nodes`` list and quantile extractor.
 
         """
         if self.branch_nodes is None:
             self.branch_nodes = ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
-        else:
-            self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
+
+        self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
 
         pipeline_builder = PipelineBuilder()
 

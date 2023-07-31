@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
-from MKLpy.algorithms import MEMO, CKA
-from MKLpy.scheduler import ReduceOnWorsening
+from fedot_ind.core.architecture.settings.pipeline_factory import KernelFeatureGenerator
+from MKLpy.algorithms import CKA, MEMO
 from MKLpy.callbacks import EarlyStopping
+from MKLpy.scheduler import ReduceOnWorsening
+from scipy.spatial.distance import pdist, squareform
+
 from fedot_ind.core.architecture.pipelines.classification import ClassificationPipelines
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from scipy.spatial.distance import pdist, squareform
-from fedot_ind.core.architecture.settings.pipeline_factory import KernelFeatureGenerator
 
 
 class KernelEnsembler(ClassificationPipelines):
@@ -112,7 +113,7 @@ if __name__ == '__main__':
     #     'window_mode': True,
     #     'window_size': 10
     # }
-    # model_stats, prediction_stats = pipelines('SpecifiedFeatureGeneratorTSC')(feature_generator_type='statistical',
+    # model_stats, prediction_stats = pipelines('SpecifiedFeatureGeneratorTSC')(feature_generator_type='quantile',
     #                                                                           model_hyperparams=model_hyperparams,
     #                                                                           feature_hyperparams=feature_hyperparams)
     # feature_hyperparams = {

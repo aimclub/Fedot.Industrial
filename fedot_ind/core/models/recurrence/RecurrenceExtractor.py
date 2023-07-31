@@ -5,9 +5,9 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.models.signal.WindowedFeaturesExtractor import WindowedFeatureExtractor
+from fedot_ind.core.models.WindowedFeaturesExtractor import WindowedFeatureExtractor
 from fedot_ind.core.operation.transformation.DataTransformer import TSTransformer
-from fedot_ind.core.operation.transformation.extraction.sequences import ReccurenceFeaturesExtractor
+from fedot_ind.core.models.recurrence.sequences import ReccurenceFeaturesExtractor
 
 
 class RecurrenceExtractor(WindowedFeatureExtractor):

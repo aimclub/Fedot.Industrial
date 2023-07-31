@@ -4,7 +4,8 @@ from fedot_ind.core.architecture.experiment.computer_vision import CVExperimente
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierNN import TimeSeriesClassifierNN
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
-from fedot_ind.core.ensemble.static.RankEnsembler import RankEnsemble
+from fedot_ind.core.architecture.experiment.TimeSeriesRegression import TimeSeriesRegression
+from fedot_ind.core.ensemble.rank_ensembler import RankEnsemble
 
 
 class EnsembleEnum(Enum):
@@ -17,6 +18,7 @@ class TaskEnum(Enum):
                              nn=TimeSeriesClassifierNN,
                              default=TimeSeriesClassifier)
 
+    ts_regression = (TimeSeriesRegression,)
     anomaly_detection = (TimeSeriesClassifier,)
     image_classification = (CVExperimenter,)
     object_detection = (CVExperimenter,)

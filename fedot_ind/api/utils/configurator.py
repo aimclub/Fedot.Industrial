@@ -1,9 +1,11 @@
+import json
 import logging
+import os
 from enum import Enum
 from typing import Union
 
-from fedot_ind.api.utils.hp_generator_collection import GeneratorParams
 from fedot_ind.core.architecture.settings.pipeline_factory import FeatureGenerator
+from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 
 
@@ -18,9 +20,19 @@ class IndustrialConfigs(Enum):
                                            'max_arity': 4,
                                            'cv_folds': 2,
                                            'logging_level': 20,
-                                           'n_jobs': -1
-                                           }
-                             )
+                                           'n_jobs': -1})
+
+    ts_regression = dict(task='ts_regression',
+                         dataset=None,
+                         strategy='quantile',
+                         model_params={'problem': 'regression',
+                                       'seed': 42,
+                                       'timeout': 15,
+                                       'max_depth': 10,
+                                       'max_arity': 4,
+                                       'cv_folds': 2,
+                                       'logging_level': 20,
+                                       'n_jobs': -1})
 
     anomaly_detection = NotImplementedError
     image_classification = NotImplementedError
@@ -54,8 +66,9 @@ class Configurator:
 
         self.experiment_dict = self._base_config(task=kwargs['task'])
         fedot_config = {}
-        industrial_config = {k: v if k not in ['timeout', 'n_jobs', 'logging_level', 'metric'] else fedot_config.update({k: v})
-                             for k, v in kwargs.items()}
+        industrial_config = {
+            k: v if k not in ['timeout', 'n_jobs', 'logging_level', 'metric'] else fedot_config.update({k: v})
+            for k, v in kwargs.items()}
         industrial_config['output_folder'] = kwargs['output_folder']
         self.experiment_dict.update(**industrial_config)
         self.experiment_dict['model_params'].update(**fedot_config)
@@ -94,7 +107,10 @@ class Configurator:
 
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
-        feature_gen_params = GeneratorParams[generator].value
+
+        with open(PATH_TO_DEFAULT_PARAMS, 'r') as file:
+            _feature_gen_params = json.load(file)
+            feature_gen_params = _feature_gen_params[f'{generator}_extractor']
 
         for param in feature_gen_params:
             feature_gen_params[param] = self.experiment_dict.get(param, feature_gen_params[param])

@@ -5,7 +5,7 @@ from sklearn.feature_selection import VarianceThreshold
 from fedot_ind.core.operation.transformation.WindowSelection import WindowSizeSelection
 
 
-class FeatureSpaceReductor:
+class FeatureSpaceReducer:
 
     def reduce_feature_space(self, features: pd.DataFrame,
                              var_threshold: float = 0.01,

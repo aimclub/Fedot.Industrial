@@ -12,8 +12,8 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.saver_collections import ResultSaver
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
+from fedot_ind.core.operation.caching import DataCacher
 
 
 class TimeSeriesClassifier:
@@ -33,7 +33,7 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.strategy = params.get('strategy', 'statistical')
+        self.strategy = params.get('strategy', 'quantile')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
         self.dataset_name = params.get('dataset')

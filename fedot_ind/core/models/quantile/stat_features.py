@@ -34,7 +34,7 @@ def diff(array: np.array) -> float:
     return np.diff(array, n=len(array) - 1)[0]
 
 
-# Extra methods for statistical features extraction
+# Extra methods for quantile features extraction
 def skewness(array: np.array) -> float:
     if not isinstance(array, pd.Series):
         array = pd.Series(array)
@@ -57,9 +57,15 @@ def slope(array: np.array) -> float:
 
 
 def ben_corr(x):
-    """
-     Useful for anomaly detection applications [1][2]. Returns the correlation from first digit distribution when
+    """Useful for anomaly detection applications [1][2]. Returns the correlation from first digit distribution when
      compared to the Newcomb-Benford's Law distribution [3][4].
+
+     Args:
+            x (np.array): time series to calculate the feature of
+
+     Returns:
+            float: the value of this feature
+
 
      .. math::
 
@@ -76,10 +82,6 @@ def ben_corr(x):
      |  [4] Note on the frequency of use of the different digits in natural numbers, Simon Newcomb, American Journal of
      |  mathematics, 1881
 
-    :param x: the time series to calculate the feature of
-    :type x: numpy.ndarray
-    :return: the value of this feature
-    :return type: float
     """
     x = np.asarray(x)
 
@@ -136,7 +138,6 @@ def base_entropy(array: np.array) -> float:
     # Normalize the time series to sum up to 1
     normalized_series = array / np.sum(array)
     return entropy(normalized_series)
-
 
 def ptp_amp(array: np.array) -> float:
     """Returns the peak-to-peak amplitude of the time series.
@@ -195,15 +196,19 @@ def hjorth_complexity(array):
 
 
 def hurst_exponent(array):
-    """
-     Notes
-    --------
-    Author of this function is Xin Liu
+    """ Compute the Hurst Exponent of the time series. The Hurst exponent is used as a measure of long-term memory of
+    time series. It relates to the autocorrelations of the time series, and the rate at which these decrease as the
+    lag between pairs of values increases. For a stationary time series, the Hurst exponent is equivalent to the
+    autocorrelation exponent.
 
     Args:
-        array:
+        array: Time series
 
     Returns:
+        hurst_exponent: Hurst exponent of the time series
+
+    Notes:
+        Author of this function is Xin Liu
 
     """
     X = np.array(array)
@@ -224,15 +229,13 @@ def hurst_exponent(array):
     R_S = np.log(R_S)[1:]
     n = np.log(T)[1:]
     A = np.column_stack((n, np.ones(n.size)))
-    [m, c] = np.linalg.lstsq(A, R_S, rcond=None)[0]
+    [m, c] = np.linalg.lstsq(A, R_S,rcond=None)[0]
     H = m
     return H
 
 
 def pfd(X, D=None):
-    import numpy
-    """
-    The Petrosian fractal dimension (PFD) is a chaotic algorithm used to calculate EEG signal complexity
+    """The Petrosian fractal dimension (PFD) is a chaotic algorithm used to calculate EEG signal complexity
     Compute Petrosian Fractal Dimension of a time series from either two
     cases below:
         1. X, the time series of type list (default)
@@ -246,17 +249,13 @@ def pfd(X, D=None):
     again will slow down.
     """
     if D is None:
-        D = numpy.diff(X)
+        D = np.diff(X)
         D = D.tolist()
     N_delta = 0  # number of sign changes in derivative of the signal
     for i in range(1, len(D)):
         if D[i] * D[i - 1] < 0:
             N_delta += 1
     n = len(X)
-    return numpy.log10(n) / (
-            numpy.log10(n) + numpy.log10(n / n + 0.4 * N_delta)
+    return np.log10(n) / (
+        np.log10(n) + np.log10(n / n + 0.4 * N_delta)
     )
-
-
-if __name__ == "__main__":
-    arr = np.array([1, 2, 3, 4, 5])

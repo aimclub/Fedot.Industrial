@@ -3,9 +3,9 @@ from typing import Optional
 from fedot.core.operations.evaluation.common_preprocessing import FedotPreprocessingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.signal.RecurrenceExtractor import RecurrenceExtractor
+from fedot_ind.core.models.recurrence.RecurrenceExtractor import RecurrenceExtractor
 from fedot_ind.core.models.signal.SignalExtractor import SignalExtractor
-from fedot_ind.core.models.statistical.StatsExtractor import StatsExtractor
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
@@ -34,7 +34,7 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         'wavelet_basis': WaveletBasisImplementation,
         'fourier_basis': FourierBasisImplementation,
         'topological_extractor': TopologicalExtractor,
-        'quantile_extractor': StatsExtractor,
+        'quantile_extractor': QuantileExtractor,
         'signal_extractor': SignalExtractor,
         'recurrence_extractor': RecurrenceExtractor,
 

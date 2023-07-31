@@ -3,7 +3,7 @@ import os
 from torchvision.transforms import Compose, Resize, ToTensor
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 

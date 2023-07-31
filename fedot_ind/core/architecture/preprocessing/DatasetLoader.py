@@ -3,14 +3,16 @@ import os
 import shutil
 import urllib.request as request
 import zipfile
+from pathlib import Path
 
+import chardet
 import numpy as np
 import pandas as pd
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 
 class DataLoader:
@@ -25,9 +27,10 @@ class DataLoader:
         >>> train_data, test_data = data_loader.load_data()
     """
 
-    def __init__(self, dataset_name: str):
+    def __init__(self, dataset_name: str, folder: str = None):
         self.logger = logging.getLogger('DataLoader')
         self.dataset_name = dataset_name
+        self.folder = folder
 
     def load_data(self) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
@@ -37,8 +40,10 @@ class DataLoader:
         """
         dataset_name = self.dataset_name
 
+        data_path = os.path.join(PROJECT_PATH, 'data') if self.folder is None else self.folder
+
         _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
-                                                              data_path=os.path.join(PROJECT_PATH, 'data'))
+                                                              data_path=data_path)
 
         if train_data is None:
             self.logger.info(f'Downloading...')
@@ -70,21 +75,25 @@ class DataLoader:
     def read_train_test_files(self, data_path, dataset_name):
         # If data unpacked as .tsv file
         if os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.tsv'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_tsv(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .txt file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .ts file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
             is_multi = True
 
         # If data unpacked as .arff file
         elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff'):
+            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
             is_multi = True
 
@@ -93,29 +102,26 @@ class DataLoader:
             return None, None, None
         return is_multi, (x_train, y_train), (x_test, y_test)
 
-    def _load_from_tsfile_to_dataframe(self,
-                                       full_file_path_and_name,
-                                       return_separate_X_and_y=True,
-                                       replace_missing_vals_with='NaN',
-                                       encoding: str = 'utf-8'):
+    def predict_encoding(self, file_path: Path, n_lines: int = 20) -> str:
+        with Path(file_path).open('rb') as f:
+            rawdata = b''.join([f.readline() for _ in range(n_lines)])
+        return chardet.detect(rawdata)['encoding']
+
+    def _load_from_tsfile_to_dataframe(self, full_file_path_and_name, return_separate_X_and_y=True,
+                                       replace_missing_vals_with='NaN'):
         """Loads data from a .ts file into a Pandas DataFrame.
+        Taken from https://github.com/ChangWeiTan/TS-Extrinsic-Regression/blob/master/utils/data_loader.py
 
-        Parameters
-        ----------
-        full_file_path_and_name: str
-            The full pathname of the .ts file to read.
-        return_separate_X_and_y: bool
-            true if X and Y values should be returned as separate Data Frames (X) and a numpy array (y), false otherwise.
-            This is only relevant for data that
-        replace_missing_vals_with: str
-           The value that missing values in the text file should be replaced with prior to parsing.
+        Args: full_file_path_and_name: The full pathname of the .ts file to read. return_separate_X_and_y: true if X
+              and Y values should be returned as separate Data Frames (X) and a numpy array (y), false otherwise.
+              replace_missing_vals_with: The value that missing values in the text file should be replaced with prior to
+              parsing.
 
-        Returns
-        -------
-        DataFrame, ndarray
-            If return_separate_X_and_y then a tuple containing a DataFrame and a numpy array containing the relevant time-series and corresponding class values.
-        DataFrame
-            If not return_separate_X_and_y then a single DataFrame containing all time-series and (if relevant) a column "class_vals" the associated class values.
+        Returns: DataFrame, ndarray: If return_separate_X_and_y then a tuple containing a DataFrame and a numpy array
+                 containing the relevant time-series and corresponding class values.
+                 DataFrame: If not return_separate_X_and_y then a single DataFrame containing all time-series and
+                 (if relevant) a column "class_vals" the associated class values.
+
         """
 
         # Initialize flags and variables used when parsing the file
@@ -138,8 +144,9 @@ class DataLoader:
         class_val_list = []
         line_num = 0
         TsFileParseException = Exception
-        # Parse the file
-        # print(full_file_path_and_name)
+
+        encoding = self.predict_encoding(full_file_path_and_name)
+
         with open(full_file_path_and_name, 'r', encoding=encoding) as file:
             dataset_name = os.path.basename(full_file_path_and_name)
             for line in tqdm(file.readlines(), desc='Loading data', leave=False, postfix=dataset_name, unit='lines'):
@@ -674,20 +681,12 @@ class DataLoader:
                 return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
         except Exception:
-            try:
-                x_test, y_test = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                    return_separate_X_and_y=True)
-                x_train, y_train = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                    return_separate_X_and_y=True)
-            except Exception:
-                x_test, y_test = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                    return_separate_X_and_y=True,encoding='ISO-8859-1')
-                x_train, y_train = self._load_from_tsfile_to_dataframe(
-                    data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                    return_separate_X_and_y=True,encoding='ISO-8859-1')
+            x_test, y_test = self._load_from_tsfile_to_dataframe(
+                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
+                return_separate_X_and_y=True)
+            x_train, y_train = self._load_from_tsfile_to_dataframe(
+                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
+                return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
 
     def read_arff_files(self, dataset_name, temp_data_path):
@@ -696,17 +695,14 @@ class DataLoader:
         """
         train = loadarff(temp_data_path + dataset_name + f'/{dataset_name}_TRAIN.arff')
         test = loadarff(temp_data_path + dataset_name + f'/{dataset_name}_TEST.arff')
-        try:
-            data_train = np.asarray([train[0][name] for name in train[1].names()])
-            x_train = data_train[:-1].T.astype('float64')
-            y_train = data_train[-1]
 
-            data_test = np.asarray([test[0][name] for name in test[1].names()])
-            x_test = data_test[:-1].T.astype('float64')
-            y_test = data_test[-1]
-        except Exception:
-            x_train, y_train = self.load_re_arff(temp_data_path + dataset_name + '_TRAIN.arff')
-            x_test, y_test = self.load_re_arff(temp_data_path + dataset_name + '_TEST.arff')
+        data_train = np.asarray([train[0][name] for name in train[1].names()])
+        x_train = data_train[:-1].T.astype('float64')
+        y_train = data_train[-1]
+
+        data_test = np.asarray([test[0][name] for name in test[1].names()])
+        x_test = data_test[:-1].T.astype('float64')
+        y_test = data_test[-1]
         return x_train, y_train, x_test, y_test
 
     def extract_data(self, dataset_name: str, data_path: str):
@@ -758,5 +754,5 @@ class DataLoader:
 
 
 if __name__ == '__main__':
-    data_loader = DataLoader('Epilepsy')
-    train_data, test_data = data_loader.load_data()
+    data_loader = DataLoader('Car')
+    _train_data, _test_data = data_loader.load_data()
