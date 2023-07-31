@@ -44,6 +44,7 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
         feature_df = specter.ts_to_recurrence_matrix()
         if not self.image_mode:
             feature_df = pd.Series(self.extractor(recurrence_matrix=feature_df).recurrence_quantification_analysis())
+        feature_df = feature_df.fillna(0)
         return feature_df
 
     def generate_vector_from_ts(self, ts_frame: pd.DataFrame) -> pd.DataFrame:
@@ -53,18 +54,7 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
         Returns:
             Feature vector
         """
-        ts_samples_count = ts_frame.shape[0]
-        n_processes = self.n_processes
-
-        with Pool(n_processes) as p:
-            components_and_vectors = list(tqdm(p.imap(self._ts_chunk_function,
-                                                      ts_frame.values),
-                                               total=ts_samples_count,
-                                               desc='Feature Generation. TS processed',
-                                               unit=' ts',
-                                               colour='black'
-                                               )
-                                          )
+        components_and_vectors = [self._ts_chunk_function(component) for component in ts_frame]
         if self.image_mode:
             components_and_vectors = np.asarray(components_and_vectors)
             components_and_vectors = components_and_vectors[:, np.newaxis, :, :]

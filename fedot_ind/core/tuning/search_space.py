@@ -24,7 +24,7 @@ industrial_search_space = {
          'window_size': (hp.uniformint, [1, 50]),
          'min_signal_ratio': (hp.uniform, [0, 0.5]),
          'max_signal_ratio': (hp.uniform, [0.5, 1]),
-         'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean' 'mahalanobis']])},
+         'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])},
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}}

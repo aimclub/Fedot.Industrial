@@ -152,7 +152,7 @@ class TimeSeriesClassifierPreset:
             metric = ClassificationMetricsEnum.ROCAUC
 
         pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(SimultaneousTuner) \
+            .with_tuner(SequentialTuner(inverse_node_order=True)) \
             .with_metric(metric) \
             .with_timeout(self.tuning_timeout) \
             .with_iterations(self.tuning_iters) \
