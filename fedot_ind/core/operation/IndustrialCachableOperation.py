@@ -49,14 +49,12 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
             hashed_info = self.cacher.hash_info(data=input_data.features,
                                                 operation_info=class_params.__repr__())
-            # '9123f78f08'
             try:
                 predict = self.try_load_from_cache(hashed_info)
             except FileNotFoundError:
                 predict = self._transform(input_data)
                 self.cacher.cache_data(hashed_info, predict)
 
-        # predict = self._transform(input_data)
             predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
             return predict
         else:

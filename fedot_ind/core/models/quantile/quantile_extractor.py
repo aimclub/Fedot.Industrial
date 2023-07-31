@@ -40,6 +40,7 @@ class QuantileExtractor(BaseExtractor):
             input_data_squeezed = np.squeeze(input_data.features, 3)
         except ValueError:
             input_data_squeezed = input_data.features
+
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
                           total=input_data.features.shape[0],
@@ -57,7 +58,6 @@ class QuantileExtractor(BaseExtractor):
         predict = self.drop_features(predict=predict,
                                      columns=stat_features,
                                      n_components=n_components)
-        # return predict
         # percent of feature space reduction
         self.logger.info(f'Feature space reduced by {len(stat_features)*n_components / predict.shape[1]}%')
         return predict.values
@@ -108,6 +108,11 @@ class QuantileExtractor(BaseExtractor):
             mode = 'SingleTS'
         else:
             mode = 'MultiTS'
+
+        # either_result = Either.insert(self.extract_stats_features(ts)) if mode == 'SingleTS' else Either.insert(self.__get_feature_matrix(ts))
+        # either_result = either_result.bind(lambda x: x if x.monoid[1] else Either.insert(self.__component_extraction(ts)))
+        # aggregation_df = either_result.value.T
+
         try:
             if mode == 'MultiTS':
                 aggregation_df = self.__get_feature_matrix(ts)
