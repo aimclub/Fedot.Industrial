@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from fedot_ind.synth_anomalies.anomalies import AddNoise, DecreaseDispersion, Dip, IncreaseDispersion, Peak, \
+from fedot_ind.tools.synthetic.anomalies import AddNoise, DecreaseDispersion, Dip, IncreaseDispersion, Peak, \
     ShiftTrendDOWN, \
     ShiftTrendUP
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
