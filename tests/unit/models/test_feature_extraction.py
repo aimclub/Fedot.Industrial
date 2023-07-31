@@ -20,7 +20,7 @@ def feature_generators_list():
 def get_multilabel_data():
     path_to_local_folder = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets', 'classification_multi')
 
-    (train_features, train_target), (test_features, test_target) = DataLoader(dataset_name='ECG5000',
+    (train_features, train_target), (test_features, test_target) = DataLoader(dataset_name='ECG5000_small',
                                                                               folder=path_to_local_folder).load_data()
     return (train_features, train_target), (test_features, test_target)
 
@@ -29,7 +29,7 @@ def get_multilabel_data():
 def get_binary_data():
     path_to_local_folder = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets', 'classification_binary')
 
-    (train_features, train_target), (test_features, test_target) = DataLoader(dataset_name='ECG200',
+    (train_features, train_target), (test_features, test_target) = DataLoader(dataset_name='ECG200_small',
                                                                               folder=path_to_local_folder).load_data()
     return (train_features, train_target), (test_features, test_target)
 
