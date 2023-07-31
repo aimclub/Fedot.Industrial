@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import qr
+from scipy.spatial.distance import cdist
 from sklearn.preprocessing import MinMaxScaler
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold
 import math
@@ -78,6 +79,7 @@ class RSVDDecomposition:
             self._init_random_params(tensor)
             AAT = tensor @ tensor.T
             sampled_tensor = np.linalg.matrix_power(AAT, self.poly_deg) @ tensor @ self.random_projection
+
             # Orthogonalization of the sampled_tensor
             sampled_tensor_orto, _ = qr(sampled_tensor, mode='economic')
 
@@ -90,4 +92,7 @@ class RSVDDecomposition:
 
             reconstr_tensor = self._compute_matrix_approximation(Ut, sampled_tensor_orto, tensor, regularized_rank)
             U_, S_, V_ = np.linalg.svd(reconstr_tensor, full_matrices=False)
+            # ET1 = St[0] * np.outer(Ut[:, 0], Vt[0, :])
+            # ET2 = St[1] * np.outer(Ut[:, 1], Vt[1, :])
+            # ff = cdist(metric='correlation', XA=ET1, XB=ET2)
             return [U_, S_, V_]
