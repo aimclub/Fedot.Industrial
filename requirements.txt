@@ -69,7 +69,8 @@ PyYAML==6.0.1
 ripser==0.6.4
 scikit_learn>=1.0.0; python_version >= '3.8'
 
-scipy==1.11.1
+scipy==1.10.1
+# scipy==1.11.1
 sktime==0.16.1
 tensorly==0.8.1
 torch==2.0.0
