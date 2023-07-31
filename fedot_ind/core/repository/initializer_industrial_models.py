@@ -98,7 +98,8 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
 class IndustrialModels:
     def __init__(self):
-        self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH,                                                         'fedot_ind',
+        self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH,
+                                                           'fedot_ind',
                                                            'core',
                                                            'repository',
                                                            'data',
