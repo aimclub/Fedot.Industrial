@@ -36,7 +36,7 @@ def evaluate_model(feature_train, bss, test_data, model_type: str = 'MLP'):
             #                               'mlp',
             #                               'knn',
             #                               'pca'],
-                    metric=metric_name, timeout=10, problem='classification', n_jobs=6)
+            metric=metric_name, timeout=10, problem='classification', n_jobs=6)
 
     scaler = StandardScaler()
     scaler.fit(feature_train)
@@ -78,7 +78,7 @@ def evaluate_model(feature_train, bss, test_data, model_type: str = 'MLP'):
 if __name__ == "__main__":
 
     datasets_bad_f1 = [
-        #'EOGVerticalSignal',
+        # 'EOGVerticalSignal',
         # 'ScreenType',
         # 'CricketY',
         # 'ElectricDevices',
@@ -154,8 +154,8 @@ if __name__ == "__main__":
             bss.low_rank_approximation = True
             bss.SV_threshold = None
             train_feature, bss = extract_features(train_data, bss)
-            f1_PI, test_feature_PI = evaluate_model(train_feature, bss, test_data,model_type='Auto')
+            f1_PI, test_feature_PI = evaluate_model(train_feature, bss, test_data, model_type='Auto')
             print(f'Dataset-{dataset_name}')
-            #print(f'HT_metric-{f1_HT}')
+            # print(f'HT_metric-{f1_HT}')
             print(f'PI_metric-{f1_PI}')
     _ = 1
