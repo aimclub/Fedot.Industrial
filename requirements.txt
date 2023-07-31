@@ -52,9 +52,11 @@
 
 
 fedot==0.7.1
+thegolem==0.3.2
+
 giotto_tda==0.6.0
 hyperopt==0.2.7
-matplotlib==3.7.1
+matplotlib>=3.3.1; python_version >= '3.8'
 MKLpy==0.6
 
 numpy>=1.16.0, !=1.24.0
@@ -65,12 +67,11 @@ PyMonad==2.4.0
 PyWavelets==1.4.1
 PyYAML==6.0.1
 ripser==0.6.4
-scikit_learn==1.1.0
+scikit_learn>=1.0.0; python_version >= '3.8'
 
 scipy==1.11.1
 sktime==0.16.1
 tensorly==0.8.1
-thegolem==0.3.1
 torch==2.0.0
 torchmetrics==0.11.4
 torchvision==0.15.1
