@@ -112,7 +112,7 @@ def create_mean_exp(path: str) -> None:
         if phase.endswith('.csv'):
             df = create_mean_df([os.path.join(path, exp, phase) for exp in exps])
             df.to_csv(os.path.join(path, 'mean', phase))
-        else:
+        elif os.path.isdir(os.path.join(path, exps[0], phase)):
             os.mkdir(os.path.join(path, 'mean', phase))
             train_df = create_mean_df([os.path.join(path, exp, phase, 'train.csv') for exp in exps])
             train_df.to_csv(os.path.join(path, 'mean', phase, 'train.csv'))
@@ -134,8 +134,8 @@ def create_mean_df(paths: List[Union[str, Path]]) -> pd.DataFrame:
     data = [df.to_numpy()]
     for path in paths[1:]:
         tmp = pd.read_csv(path, index_col=0)
-        assert np.array_equal(df.index, tmp.index)
-        assert np.array_equal(df.columns, tmp.columns)
+        assert np.array_equal(df.index, tmp.index), f"{df.index} are not equal to {tmp.index} in {path}"
+        assert np.array_equal(df.columns, tmp.columns), f"{df.columns} are not equal to {tmp.columns} in {path}"
         data.append(tmp.to_numpy())
     data = np.array(data)
     mean = data.mean(axis=0)
@@ -217,7 +217,6 @@ def compare_svd_results(
                 df.loc[e, 'fine-tuned'] = e_df.loc[idx, metric] * factor
                 if f'{metric} std' in e_df.columns:
                     df['fine-tuned std'] = e_df.loc[idx, f'{metric} std'] * factor
-        df.set_index('size', inplace=True)
         result[exp] = df
     return result
 
@@ -246,20 +245,20 @@ def show_svd_results(
         r, g, b = random_color()
 
         if 'pruned' in df.columns:
-            plt.plot(df.index, df['pruned'], label=exp, color=(r, g, b))
+            plt.plot(df['size'], df['pruned'], label=exp, color=(r, g, b))
             if 'pruned std' in df.columns:
                 plt.fill_between(
-                    df.index,
+                    df['size'],
                     df['pruned'] + df['pruned std'],
                     df['pruned'] - df['pruned std'],
                     color=(r, g, b, 0.3)
                 )
 
         if 'fine-tuned' in df.columns:
-            plt.plot(df.index, df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
+            plt.plot(df['size'], df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
             if 'fine-tuned std' in df.columns:
                 plt.fill_between(
-                    df.index,
+                    df['size'],
                     df['fine-tuned'] + df['fine-tuned std'],
                     df['fine-tuned'] - df['fine-tuned std'],
                     color=(*pair_color(r, g, b), 0.3),

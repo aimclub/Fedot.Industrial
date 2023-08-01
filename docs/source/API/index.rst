@@ -18,37 +18,38 @@ Time series classification
 .. toctree::
     :maxdepth: 1
 
-    timeseriesclassifier_api
-    data_loader_api
-    models_tsc/base_extractor_api
-    models_tsc/stats_extractor_api.rst
-    models_tsc/spectral_extractor_api
-    models_tsc/topological_extractor_api
-    models_tsc/wavelet_extractor_api
-    models_tsc/ensemble_extractor_api
-    results_picker_api
-    models_tsc/error_correction_api
+    ts_classification/timeseriesclassifier_api
+    ts_classification/timeseriesclassifier_fedot_preset_api
+    ts_classification/models_tsc/base_extractor_api
+    ts_classification/models_tsc/stats_extractor_api.rst
+    ts_classification/models_tsc/topological_extractor_api
+    ts_classification/models_tsc/ensemble_extractor_api
+
+    ts_classification/data_loader_api
+    ts_classification/results_picker_api
+    ts_classification/rank_ensemble_api
 
 
 Anomaly detection
 -----------------
-**Note:** The anomaly detection models are currently not available in the
-public release.
 
-Change point detection
-----------------------
-**Note:** The change point detection models are currently not available in the
-public release.
+.. note::
+    The anomaly detection models are currently not available in the
+    public release.
+
+Object detection and image classification
+------------------------------------------
 
 .. toctree::
     :maxdepth: 1
 
-    models_cpd/classification_models_api
-    models_cpd/decomposed_conv_api
+    cv/computer_vision_api
+    cv/fit_parameters_api
+    cv/classification_experimenter_api
+    cv/object_detection_experimenter_api
+    cv/svd_optimization_api
+    cv/sfp_optimization_api
 
-Object detection
-----------------
-**Note:** The object detection models are currently not available in the
-public release.
+
 
 

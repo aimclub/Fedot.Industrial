@@ -189,7 +189,6 @@ def test_classification_metric_counter():
     scores = counter.compute()
     assert set(scores.keys()) == set(answer.keys())
     for k, v in answer.items():
-        print(k)
         assert math.isclose(scores[k], v, rel_tol=1e-5)
 
 

@@ -1,5 +1,6 @@
 from multiprocessing import Pool
 from typing import Optional
+
 import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -38,7 +39,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """
         pass
 
-    def _decompose_signal(self, signal) -> list:
+    def _decompose_signal(self):
         pass
 
     def evaluate_derivative(self, order: int = 1):
@@ -61,24 +62,26 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         return basis
 
     def _transform(self, input_data: InputData) -> np.array:
-        """
-            Method for transforming all samples
+        """Method for transforming all samples
+
         """
         features = np.array(ListMonad(*input_data.features.tolist()).value)
+        features = np.array([series[~np.isnan(series)] for series in features])
+
         with Pool(2) as p:
             v = list(tqdm(p.imap(self._transform_one_sample, features),
                           total=features.shape[0],
-                          desc=f'{self.__class__.__name__} transform',
                           colour='red',
                           unit='ts',
-                          ascii=False,
-                          position=0,
-                          leave=True,
+                          desc='Components processed'
                           )
                      )
 
         predict = np.array(v)
         return predict
+
+    def _get_multidim_basis(self, data):
+        pass
 
     def _get_multidim_basis(self, input_data):
         decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))

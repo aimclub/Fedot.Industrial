@@ -1,9 +1,6 @@
-from typing import Union
-
 import torch
 from torch import Tensor
 from torch.nn import Conv2d, Parameter
-from torch.nn.common_types import _size_2_t
 
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
 
@@ -13,35 +10,16 @@ class DecomposedConv2d(Conv2d):
     the weight matrix.
 
     Args:
-        in_channels: Number of channels in the input image
-        out_channels: Number of channels produced by the convolution
-        kernel_size: Size of the convolving kernel
-        stride: Stride of the convolution. Default: ``1``
-        padding: Padding added to all four sides of the input. Default: ``0``
-        padding_mode: ``'zeros'``, ``'reflect'``, ``'replicate'`` or ``'circular'``.
-            Default: ``'zeros'``
+        base_conv:  The convolutional layer whose parameters will be copied
         decomposing: If ``True``, decomposes weights after initialization.
             Default: ``True``
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
             Default: ``'channel'``
-        dilation: Spacing between kernel elements. Default: ``1``
-        groups: Number of blocked connections from input channels to output channels.
-            Default: ``1``
-        bias: If ``True``, adds a learnable bias to the output. Default: ``True``
-
     """
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: _size_2_t,
-        stride: _size_2_t = 1,
-        padding: Union[str, _size_2_t] = 0,
-        dilation: _size_2_t = 1,
-        groups: int = 1,
-        bias: bool = True,
-        padding_mode: str = 'zeros',
+        base_conv: Conv2d,
         decomposing: bool = True,
         decomposing_mode: str = 'channel',
         device=None,
@@ -49,15 +27,15 @@ class DecomposedConv2d(Conv2d):
     ) -> None:
 
         super().__init__(
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride,
-            padding,
-            dilation,
-            groups,
-            bias,
-            padding_mode,
+            base_conv.in_channels,
+            base_conv.out_channels,
+            base_conv.kernel_size,
+            base_conv.stride,
+            base_conv.padding,
+            base_conv.dilation,
+            base_conv.groups,
+            (base_conv.bias is not None),
+            base_conv.padding_mode,
             device,
             dtype,
         )

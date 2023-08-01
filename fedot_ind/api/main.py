@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import List, Union
 
 import numpy as np
@@ -6,10 +7,11 @@ import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
-from fedot_ind.api.utils.reader_collections import DataReader, YamlReader
+from fedot_ind.api.utils.reader_collections import Configurator
 from fedot_ind.api.utils.reporter import ReporterTSC
-from fedot_ind.core.architecture.settings.task_factory import TaskGenerator
+from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 
 
 class FedotIndustrial(Fedot):
@@ -21,6 +23,9 @@ class FedotIndustrial(Fedot):
 
     Example:
         First, configure experiment and instantiate FedotIndustrial class::
+            from fedot_ind.api.main import FedotIndustrial
+            from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+
 
             industrial = FedotIndustrial(task='ts_classification',
                                          dataset='ItalyPowerDemand',
@@ -30,9 +35,9 @@ class FedotIndustrial(Fedot):
                                          n_jobs=2,
                                          logging_level=20)
 
-        Next, download data::
+        Next, download data from UCR archive::
 
-            train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
+            train_data, test_data = DataLoader(dataset_name='ItalyPowerDemand').load_data()
 
         Finally, fit the model and get predictions::
 
@@ -44,49 +49,54 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
+        kwargs.setdefault('output_folder', default_path_to_save_results())
+        Path(kwargs.get('output_folder')).mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
+            handlers=[
+                logging.FileHandler(Path(kwargs.get('output_folder')) / 'log.log'),
+                logging.StreamHandler()
+            ]
+        )
         super(Fedot, self).__init__()
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
         self.reporter = ReporterTSC()
-        self.YAML = YamlReader()
-        self.reader = DataReader()
+        self.configurator = Configurator()
 
         self.config_dict = None
-        self.output_folder = kwargs.get('output_folder', None)
 
         self.__init_experiment_setup(**kwargs)
         self.solver = self.__init_solver()
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        if not self.output_folder:
-            self.output_folder = default_path_to_save_results()
-        self.reporter.path_to_save = self.output_folder
-
-        self.config_dict = self.YAML.init_experiment_setup(**kwargs)
+        self.reporter.path_to_save = kwargs.get('output_folder')
+        if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
+            self.config_dict = kwargs
+        else:
+            self.config_dict = self.configurator.init_experiment_setup(**kwargs)
 
     def __init_solver(self):
         self.logger.info('Initialising solver')
 
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['strategy'] == 'fedot_preset':
-                solver = TaskGenerator[self.config_dict['task']].value['fedot_preset']
+                solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
             elif self.config_dict['strategy'] is None:
                 self.config_dict['strategy'] = 'InceptionTime'
-                solver = TaskGenerator[self.config_dict['task']].value['nn']
+                solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
-                solver = TaskGenerator[self.config_dict['task']].value['default']
+                solver = TaskEnum[self.config_dict['task']].value['default']
 
         else:
-            solver = TaskGenerator[self.config_dict['task']].value[0]
+            solver = TaskEnum[self.config_dict['task']].value[0]
 
         return solver(self.config_dict)
 
-    def fit(self,
-            train_features: pd.DataFrame,
-            train_target: np.ndarray,
-            **kwargs) -> Pipeline:
+    def fit(self, **kwargs) -> Pipeline:
         """
         Method for training Industrial model.
 
@@ -100,14 +110,10 @@ class FedotIndustrial(Fedot):
 
         """
 
-        fitted_pipeline = self.solver.fit(train_ts_frame=train_features,
-                                          train_target=train_target,
-                                          **kwargs)
+        fitted_pipeline = self.solver.fit(**kwargs)
         return fitted_pipeline
 
-    def predict(self,
-                test_features: pd.DataFrame,
-                **kwargs) -> np.ndarray:
+    def predict(self, **kwargs) -> np.ndarray:
         """
         Method to obtain prediction labels from trained Industrial model.
 
@@ -118,11 +124,9 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        return self.solver.predict(test_features=test_features, **kwargs)
+        return self.solver.predict(**kwargs)
 
-    def predict_proba(self,
-                      test_features: pd.DataFrame,
-                      **kwargs) -> np.ndarray:
+    def predict_proba(self, **kwargs) -> np.ndarray:
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -133,12 +137,9 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        return self.solver.predict_proba(test_features=test_features, **kwargs)
+        return self.solver.predict_proba(**kwargs)
 
-    def get_metrics(self,
-                    target: Union[np.ndarray, pd.Series] = None,
-                    metric_names: Union[str, List[str]] = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
-                    **kwargs) -> dict:
+    def get_metrics(self, **kwargs) -> dict:
         """
         Method to obtain Gets quality metrics
 
@@ -151,7 +152,7 @@ class FedotIndustrial(Fedot):
             the dictionary with calculated metrics
 
         """
-        return self.solver.get_metrics(target, metric_names)
+        return self.solver.get_metrics(**kwargs)
 
     def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray], **kwargs) -> None:
         """
@@ -167,7 +168,7 @@ class FedotIndustrial(Fedot):
         kind = kwargs.get('kind')
         self.solver.save_prediction(predicted_data, kind=kind)
 
-    def save_metrics(self, metrics: dict) -> None:
+    def save_metrics(self, **kwargs) -> None:
         """
         Method to save metrics locally in csv format
 
@@ -176,17 +177,18 @@ class FedotIndustrial(Fedot):
 
         Returns:
             None
+
         """
-        self.solver.save_metrics(metrics)
+        self.solver.save_metrics(**kwargs)
 
     def load(self, path):
         """Loads saved Industrial model from disk
 
         Args:
             path (str): path to the model
+
         """
-        # self.pipeline.load(path)
-        raise NotImplementedError()
+        self.solver.load(path)
 
     def plot_prediction(self, **kwargs):
         """Plot prediction of the model"""

@@ -15,10 +15,6 @@ Frequently asked questions and answers
     As far as FEDOT is a general-purpose AutoML framework, FEDOT.Industrial uses the FEDOT framework capabilities
     for time series classification.
 
-.. topic:: Does FEDOT.Industrial support GPU?
-
-    No, FEDOT.Industrial does not support GPU.
-
 .. topic:: Does FEDOT.Industrial support multi-class classification?
 
     Yes, FEDOT.Industrial supports multi-class classification.
@@ -26,4 +22,6 @@ Frequently asked questions and answers
 .. topic:: Does FEDOT.Industrial support time series forecasting?
 
     At the moment, FEDOT.Industrial does not support time series forecasting, but its predecessor FEDOT does.
+
+
 

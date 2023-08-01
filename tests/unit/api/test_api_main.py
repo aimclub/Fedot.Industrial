@@ -2,7 +2,7 @@ import pytest
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier, TimeSeriesClassifierNN
-from fedot_ind.core.architecture.experiment.TImeSeriesClassifierPreset import TimeSeriesClassifierPreset
+from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
 
 
@@ -13,7 +13,6 @@ def tsc_topo_config():
                   strategy='topological',
                   timeout=0.5,
                   logging_level=40,
-                  output_folder=None,
                   use_cache=False)
     return config
 
@@ -25,7 +24,6 @@ def tsc_fedot_preset_config():
                   strategy='fedot_preset',
                   timeout=0.5,
                   logging_level=40,
-                  output_folder=None,
                   use_cache=False)
     return config
 
@@ -37,7 +35,6 @@ def none_tsc_config():
                   strategy=None,
                   timeout=0.5,
                   logging_level=40,
-                  output_folder=None,
                   use_cache=False)
     return config
 
