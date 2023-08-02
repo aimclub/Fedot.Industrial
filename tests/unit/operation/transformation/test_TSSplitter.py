@@ -1,9 +1,10 @@
 import unittest
 
 import numpy as np
+import pytest
 
 from fedot_ind.core.operation.transformation.splitter import TSSplitter
-import pytest
+
 
 # 1 case: аномалии стоят по краям - проверить корректность новых границ
 # 2 case: аномалии стоят в середине - проверить корректность границ
@@ -15,14 +16,13 @@ import pytest
 class TestAnomalyDetector(unittest.TestCase):
     def test_get_anomaly_intervals(self):
         data = np.random.rand(320)
-        anomaly_dict = {'anomaly1': '40:50, 60:80',
-                        'anomaly2': '130:170, 300:320'}
+        anomaly_dict = {'anomaly1': [[40, 50], [60, 80]],
+                        'anomaly2': [[130, 170], [300, 320]]}
         splitter = TSSplitter(time_series=data, anomaly_dict=anomaly_dict)
         classes, anomaly_intervals = splitter._get_anomaly_intervals()
 
-        expected_intervals = [[[40, 50],[60, 80]],
-                              [[130, 170],[300, 320]]
-                             ]
+        expected_intervals = [[[40, 50], [60, 80]],
+                              [[130, 170], [300, 320]]]
 
         self.assertEqual(anomaly_intervals, expected_intervals)
 

@@ -2,6 +2,7 @@ from multiprocessing import Pool
 from typing import Optional
 
 from fedot.core.operations.operation_parameters import OperationParameters
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
@@ -54,7 +55,9 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
         Returns:
             Feature vector
         """
-        components_and_vectors = [self._ts_chunk_function(component) for component in ts_frame]
+
+        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        components_and_vectors = parallel(delayed(self.generate_features_from_ts)(sample) for sample in ts_frame.value)
         if self.image_mode:
             components_and_vectors = np.asarray(components_and_vectors)
             components_and_vectors = components_and_vectors[:, np.newaxis, :, :]
