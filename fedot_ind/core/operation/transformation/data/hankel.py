@@ -34,7 +34,8 @@ class HankelMatrix:
 
     def __check_windows_length(self):
         if not 2 <= self.__window_length <= self.__ts_length / 2:
-            raise ValueError("The window length must be in the interval [2, N/2].")
+            self.__window_length = int(self.__ts_length / 3)
+
 
     def __convert_ts_to_array(self):
         if type(self.__time_series) == pd.DataFrame:

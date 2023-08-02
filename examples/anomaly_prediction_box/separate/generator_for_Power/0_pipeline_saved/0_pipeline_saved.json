@@ -13,12 +13,10 @@
             "operation_type": "data_driven_basis",
             "operation_name": "DataDrivenBasisImplementation",
             "custom_params": {
-                "n_components": 7,
-                "window_size": 27
+                "window_size": 45
             },
             "params": {
-                "n_components": 7,
-                "window_size": 27
+                "window_size": 45
             },
             "nodes_from": [],
             "fitted_operation_path": [
@@ -32,12 +30,12 @@
             "operation_type": "quantile_extractor",
             "operation_name": "StatsExtractor",
             "custom_params": {
-                "win_mode": false,
-                "window_size": 11
+                "window_mode": true,
+                "window_size": 16
             },
             "params": {
-                "win_mode": false,
-                "window_size": 11
+                "window_mode": true,
+                "window_size": 16
             },
             "nodes_from": [
                 2
@@ -54,11 +52,11 @@
             "operation_name": "FourierBasisImplementation",
             "custom_params": {
                 "spectrum": "smoothed",
-                "threshold": 15389
+                "threshold": 27995
             },
             "params": {
                 "spectrum": "smoothed",
-                "threshold": 15389
+                "threshold": 27995
             },
             "nodes_from": [],
             "fitted_operation_path": [
@@ -72,12 +70,12 @@
             "operation_type": "quantile_extractor",
             "operation_name": "StatsExtractor",
             "custom_params": {
-                "win_mode": true,
-                "window_size": 40
+                "window_mode": true,
+                "window_size": 13
             },
             "params": {
-                "win_mode": true,
-                "window_size": 40
+                "window_mode": true,
+                "window_size": 13
             },
             "nodes_from": [
                 4
@@ -93,12 +91,12 @@
             "operation_type": "wavelet_basis",
             "operation_name": "WaveletBasisImplementation",
             "custom_params": {
-                "n_components": 3,
-                "wavelet": "cmor"
+                "n_components": 4,
+                "wavelet": "mexh"
             },
             "params": {
-                "n_components": 3,
-                "wavelet": "cmor"
+                "n_components": 4,
+                "wavelet": "mexh"
             },
             "nodes_from": [],
             "fitted_operation_path": [
@@ -112,12 +110,12 @@
             "operation_type": "quantile_extractor",
             "operation_name": "StatsExtractor",
             "custom_params": {
-                "win_mode": true,
-                "window_size": 49
+                "window_mode": true,
+                "window_size": 4
             },
             "params": {
-                "win_mode": true,
-                "window_size": 49
+                "window_mode": true,
+                "window_size": 4
             },
             "nodes_from": [
                 6
@@ -150,5 +148,5 @@
         "preprocessing",
         "data_preprocessor.pkl"
     ],
-    "descriptive_id": "((/n_data_driven_basis_{'n_components': 7, 'window_size': 27};)/n_quantile_extractor_{'win_mode': False, 'window_size': 11};;(/n_fourier_basis_{'spectrum': 'smoothed', 'threshold': 15389};)/n_quantile_extractor_{'win_mode': True, 'window_size': 40};;(/n_wavelet_basis_{'n_components': 3, 'wavelet': 'cmor'};)/n_quantile_extractor_{'win_mode': True, 'window_size': 49};)/n_cat_features"
+    "descriptive_id": "((/n_data_driven_basis_{'window_size': 45};)/n_quantile_extractor_{'window_mode': True, 'window_size': 16};;(/n_fourier_basis_{'spectrum': 'smoothed', 'threshold': 27995};)/n_quantile_extractor_{'window_mode': True, 'window_size': 13};;(/n_wavelet_basis_{'n_components': 4, 'wavelet': 'mexh'};)/n_quantile_extractor_{'window_mode': True, 'window_size': 4};)/n_cat_features"
 }
