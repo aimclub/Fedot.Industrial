@@ -34,9 +34,9 @@ def generate_time_series(to_plot: bool = True,
         time_series[start_idx:end_idx] += anomaly
 
         if anomaly_class in anomaly_intervals:
-            anomaly_intervals[anomaly_class] += f', {start_idx}:{end_idx}'
+            anomaly_intervals[anomaly_class].append([start_idx, end_idx])
         else:
-            anomaly_intervals[anomaly_class] = f'{start_idx}:{end_idx}'
+            anomaly_intervals[anomaly_class] = [[start_idx, end_idx]]
 
     if to_plot:
         fig, ax = plt.subplots(figsize=(15, 7))

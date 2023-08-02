@@ -1,18 +1,20 @@
 {
     "total_pipeline_operations": [
-        "rf"
+        "catboost"
     ],
     "depth": 1,
     "nodes": [
         {
             "operation_id": 0,
-            "operation_type": "rf",
-            "operation_name": "RandomForestClassifier",
+            "operation_type": "catboost",
+            "operation_name": "CatBoostClassifier",
             "custom_params": {
-                "n_jobs": 4
+                "allow_writing_files": false,
+                "verbose": false
             },
             "params": {
-                "n_jobs": 4
+                "allow_writing_files": false,
+                "verbose": false
             },
             "nodes_from": [],
             "fitted_operation_path": [
@@ -26,5 +28,5 @@
         "preprocessing",
         "data_preprocessor.pkl"
     ],
-    "descriptive_id": "/n_rf_{'n_jobs': 4}"
+    "descriptive_id": "/n_catboost_{'allow_writing_files': False, 'verbose': False}"
 }

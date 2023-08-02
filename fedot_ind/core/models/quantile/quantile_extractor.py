@@ -1,3 +1,4 @@
+import datetime
 from multiprocessing import Pool
 from typing import Optional
 
@@ -5,13 +6,14 @@ import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from joblib import Parallel, delayed
 from pandas import Index
 from tqdm import tqdm
 
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 
 
-class QuantileExtractor(BaseExtractor):
+class StatsExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
 
     Attributes:
@@ -37,24 +39,13 @@ class QuantileExtractor(BaseExtractor):
         Method for feature generation for all series
         """
         try:
-            input_data_squeezed = np.squeeze(input_data.features)
-            total = input_data.features.shape[0]
-        except Exception:
-            input_data_squeezed = np.squeeze(input_data)
-            total = input_data.shape[0]
-        with Pool(self.n_processes) as p:
-            v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=total,
-                          desc=f'{self.__class__.__name__} transform',
-                          postfix=f'{self.logging_params}',
-                          colour='green',
-                          unit='ts',
-                          ascii=False,
-                          position=0,
-                          leave=True)
-                     )
-        # stat_features = v[0].columns
-        # n_components = v[0].shape[0]
+            input_data_squeezed = np.squeeze(input_data.features, 3)
+        except ValueError:
+            input_data_squeezed = input_data.features
+        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        v = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
+        stat_features = v[0].columns
+        n_components = v[0].shape[0]
         predict = self._clean_predict(np.array(v))
         # predict = self.drop_features(predict=predict,
         #                              columns=stat_features,
@@ -93,12 +84,10 @@ class QuantileExtractor(BaseExtractor):
                                                                        window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features, axis=1)
             aggregation_df = pd.concat([aggregation_df, global_features], axis=1)
-            aggregation_df = aggregation_df.fillna(0)
         else:
             statistical_features = self.get_statistical_features(ts)
             global_features = self.get_statistical_features(ts, add_global_features=True)
             aggregation_df = pd.concat([statistical_features, global_features], axis=1)
-            aggregation_df = aggregation_df.fillna(0)
         return aggregation_df
 
     def generate_features_from_ts(self,
@@ -142,3 +131,23 @@ class QuantileExtractor(BaseExtractor):
         aggregation_df = pd.concat(tmp_list, axis=0)
 
         return aggregation_df
+
+    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
+                                      feature_generator: callable,
+                                      window_size: int = None):
+        if window_size is None:
+            # 10% of time series length by default
+            window_size = round(ts_data.shape[1] / 10)
+        else:
+            window_size = round(ts_data.shape[1] * (window_size / 100))
+        tmp_list = []
+        window_size = max(window_size, 5)
+        for i in range(0, ts_data.shape[1], window_size):
+            slice_ts = ts_data.iloc[:, i:i + window_size]
+            if slice_ts.shape[1] == 1:
+                break
+            else:
+                df = feature_generator(slice_ts)
+                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
+                tmp_list.append(df)
+        return tmp_list

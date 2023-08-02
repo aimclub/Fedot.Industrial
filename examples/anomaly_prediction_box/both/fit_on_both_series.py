@@ -27,13 +27,12 @@ def get_anomaly_unique(labels, min_anomaly_len=5):
     return anomalies
 
 
-def split_time_series(series, features_columns: list, target_column: str, is_multivariate=False):
+def split_time_series(series, features_columns: list, target_column: str):
     anomaly_unique = get_anomaly_unique(series[target_column].values, min_anomaly_len=10)
 
     splitter_unique = TSSplitter(time_series=series[features_columns].values,
                                  anomaly_dict=anomaly_unique,
-                                 strategy='unique',
-                                 is_multivariate=is_multivariate)
+                                 strategy='unique')
 
     cls, train_data, test_data = splitter_unique.split(binarize=False)
     return cls, train_data, test_data
@@ -69,13 +68,9 @@ def convert_univar_to_input_data(data):
 
 def mark_series(series: pd.DataFrame, features_columns: list, target_column: str):
     method = convert_univar_to_input_data
-    is_multivariate = False
     if len(features_columns) > 1:
         method = convert_multivar_to_input_data
-        is_multivariate = True
-
-    classes, train_data, test_data = split_time_series(series, features_columns, target_column, is_multivariate)
-
+    classes, train_data, test_data = split_time_series(series, features_columns, target_column)
     train_data = method(train_data)
     test_data = method(test_data)
     return train_data, test_data
