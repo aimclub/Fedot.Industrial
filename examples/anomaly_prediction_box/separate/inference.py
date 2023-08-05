@@ -17,26 +17,32 @@ classes = ['Норма', 'Остановка', 'Попадание в лопас
 
 
 class UniPredictor:
-    def __init__(self, name_of_series: str):
-        self.name_of_series = name_of_series
+    def __init__(self,
+                 path_to_generator: str = 'generator/1_pipeline_saved/1_pipeline_saved.json',
+                 path_to_predictor: str = 'predictor/1_pipeline_saved/1_pipeline_saved.json'):
+        """
+        Initializes models for generator and predictor
+
+        :param path_to_generator: path to .json file of generator pipeline
+        :param path_to_predictor: path to .json file of predictor pipeline
+        """
         with IndustrialModels():
-            self.generator = Pipeline().load(f'generator_for_{name_of_series}/0_pipeline_saved/0_pipeline_saved.json')
-        self.predictor = Pipeline().load(f'predictor_for_{name_of_series}/0_pipeline_saved/0_pipeline_saved.json')
+            self.generator = Pipeline().load(path_to_generator)
+        self.predictor = Pipeline().load(path_to_predictor)
 
     def fit(self, series: np.ndarray, anomalies: np.ndarray):
-        """Fit generator and predictor"""
-        train_data = InputData(idx=np.array([1]),
+        """
+        Refit generator and predictor
+
+        :param series: array containing train features (lag windows)
+        :param anomalies: array containing anomaly label for each sample in features
+        """
+        train_data = InputData(idx=np.arrange(series.shape[0]),
                                features=series.reshape(1, -1),
-                               target=None,
+                               target=anomalies,
                                task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table)
         with IndustrialModels():
             self.generator.unfit()
-            pipeline_tuner = TunerBuilder(train_data.task) \
-                .with_tuner(SimultaneousTuner) \
-                .with_metric(ClassificationMetricsEnum.f1) \
-                .with_iterations(2) \
-                .build(train_data)
-            self.generator = pipeline_tuner.tune(self.generator)
             self.generator.fit(train_data)
 
             rf_node = self.generator.nodes[0]
@@ -52,10 +58,17 @@ class UniPredictor:
                                                 target=train_data_preprocessed.target,
                                                 data_type=train_data_preprocessed.data_type,
                                                 task=train_data_preprocessed.task)
-        model_fedot = Fedot(problem='classification', timeout=5, n_jobs=4, metric=['f1'])
-        self.predictor = model_fedot.fit(train_data_preprocessed)
+        self.predictor.fit(train_data_preprocessed)
 
-    def predict(self, series: np.ndarray):
+    def predict(self, series: np.ndarray, output_mode: str = 'label') -> np.ndarray:
+        """
+                Refit generator and predictor
+
+                :param series: array containing train features (lag windows)
+                :param output_mode: 'label' - returns only labels, 'default' - returns probabilities
+
+                :returns np.ndarray: predicted anomaly label for each sample
+                """
         data = InputData(idx=np.array([1]),
                          features=series.reshape(1, -1),
                          target=None,
@@ -69,13 +82,21 @@ class UniPredictor:
                                           data_type=predict.data_type,
                                           task=predict.task)
 
-        predict = self.predictor.predict(data_preprocessed, output_mode='probs').predict
+        predict = self.predictor.predict(data_preprocessed, output_mode=output_mode).predict
 
         return predict[0]
 
-    def save(self):
-        self.generator.save(f'generator_for_{self.name_of_series}')
-        self.predictor.save(f'predictor_for_{self.name_of_series}')
+    def save(self,
+             path_to_generator: str = 'generator',
+             path_to_predictor: str = 'predictor'):
+        """
+        Saves models for generator and predictor
+
+        :param path_to_generator: save path to generator pipeline
+        :param path_to_predictor: save path to predictor pipeline
+        """
+        self.generator.save(path_to_generator)
+        self.predictor.save(path_to_predictor)
 
 
 class IndustrialPredictor:
