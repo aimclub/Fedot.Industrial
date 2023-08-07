@@ -2,9 +2,11 @@
 import logging
 import os
 import shutil
-from dataclasses import dataclass, field
+from functools import partial
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
+from abc import ABC, abstractmethod
 
 import torch
 from torch.nn.functional import softmax
@@ -14,8 +16,8 @@ from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, ObjectDetectionMetricCounter, \
-    SegmentationMetricCounter
+from fedot_ind.core.metrics.cv_metrics import MetricCounter, ClassificationMetricCounter, LossesAverager, \
+    ObjectDetectionMetricCounter, SegmentationMetricCounter
 
 
 @dataclass(frozen=True)
@@ -28,11 +30,10 @@ class FitParameters:
         val_dl: Validation dataloader.
         num_epochs: Number of training epochs.
         optimizer: Type of model optimizer, e.g. ``torch.optim.Adam``.
-        optimizer_params: Parameter dictionary passed to optimizer initialization.
         lr_scheduler: Type of learning rate scheduler, e.g ``torch.optim.lr_scheduler.StepLR``.
-        lr_scheduler_params: Parameter dictionary passed to scheduler initialization.
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
+        validation_period: Validation frequency in epochs.
         class_metrics: If ``True``, calculates validation metrics for each class.
         description: Additional line describing the experiment.
 
@@ -42,17 +43,16 @@ class FitParameters:
     train_dl: DataLoader
     val_dl: DataLoader
     num_epochs: int
-    optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
-    optimizer_params: Dict = field(default_factory=dict)
-    lr_scheduler: Optional[Type] = None
-    lr_scheduler_params: Dict = field(default_factory=dict)
+    optimizer: Union[Type[torch.optim.Optimizer], partial] = torch.optim.Adam
+    lr_scheduler: Optional[Union[Type[torch.optim.lr_scheduler.LRScheduler], partial]] = None
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
+    validation_period: int = 1
     class_metrics: bool = False
     description: str = ''
 
 
-class NNExperimenter:
+class NNExperimenter(ABC):
     """Generalized class for working with neural models.
 
     Args:
@@ -70,7 +70,7 @@ class NNExperimenter:
             self,
             model: torch.nn.Module,
             metric: str,
-            metric_counter,
+            metric_counter: Type[MetricCounter],
             name: Optional[str],
             weights: Optional[str],
             device: str,
@@ -90,7 +90,9 @@ class NNExperimenter:
             p: FitParameters,
             phase: str = 'train',
             model_losses: Optional[Callable] = None,
-            start_epoch: int = 0
+            filter_pruning: Optional[Dict] = None,
+            start_epoch: int = 0,
+            initial_validation: bool = False
             ) -> None:
         """Run model training.
 
@@ -98,23 +100,27 @@ class NNExperimenter:
             p: An object containing training parameters.
             phase: String explanation of training.
             model_losses: Function for calculating losses from model weights.
+            filter_pruning: Parameters (pruning function and condition) passed to ``apply_func`` function.
             start_epoch: Initial training epoch.
+            initial_validation: If ``True`` run validation loop before training.
 
         """
         model_path = os.path.join(p.models_path, p.dataset_name, self.name, p.description, phase)
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, p.description, phase)
         writer = WriterComposer(summary_path, [TFWriter, CSVWriter])
-
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
-        init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
-        writer.write_scores('val', init_scores, start_epoch)
-        self.save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
+
+        if initial_validation:
+            init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
+            writer.write_scores('val', init_scores, start_epoch)
+            self._save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
-        optimizer = p.optimizer(self.model.parameters(), **p.optimizer_params)
+        optimizer = p.optimizer(self.model.parameters())
         lr_scheduler = None
         if p.lr_scheduler is not None:
-            lr_scheduler = p.lr_scheduler(optimizer, **p.lr_scheduler_params)
+            lr_scheduler = p.lr_scheduler(optimizer)
+
         for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
@@ -123,21 +129,27 @@ class NNExperimenter:
                 model_losses=model_losses
             )
             writer.write_scores('train', train_scores, epoch)
-            val_scores = self.val_loop(
-                dataloader=p.val_dl,
-                class_metrics=p.class_metrics
-            )
-            writer.write_scores('val', val_scores, epoch)
-            self.save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
-            if isinstance(lr_scheduler, ReduceLROnPlateau):
-                lr_scheduler.step(val_scores[self.metric])
-            elif isinstance(lr_scheduler, LRScheduler):
+
+            if filter_pruning is not None:
+                self._apply_function(**filter_pruning)
+
+            if epoch % p.validation_period == 0:
+                val_scores = self.val_loop(
+                    dataloader=p.val_dl,
+                    class_metrics=p.class_metrics
+                )
+                writer.write_scores('val', val_scores, epoch)
+                self._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
+                if isinstance(lr_scheduler, ReduceLROnPlateau):
+                    lr_scheduler.step(val_scores[self.metric])
+
+            if isinstance(lr_scheduler, LRScheduler) and not isinstance(lr_scheduler, ReduceLROnPlateau):
                 lr_scheduler.step()
         self.load_model(model_path)
         self.logger.info(f'{self.metric} score: {self.best_score}')
         writer.close()
 
-    def save_model_sd_if_best(self, val_scores: Dict, file_path):
+    def _save_model_sd_if_best(self, val_scores: Dict, file_path):
         """Save the model state dict if the best result on the target metric is achieved.
 
         Args:
@@ -211,7 +223,7 @@ class NNExperimenter:
         """Returns number of model parameters."""
         return sum(p.numel() for p in self.model.parameters())
 
-    def apply_func(
+    def _apply_function(
             self,
             func: Callable,
             condition: Optional[Callable] = None
@@ -225,15 +237,18 @@ class NNExperimenter:
         for module in filter(condition, self.model.modules()):
             func(module)
 
-    def forward(self, x: torch.Tensor):
+    @abstractmethod
+    def _forward(self, x: torch.Tensor):
         """Have to implement the forward method of the model and return predictions."""
         raise NotImplementedError
 
-    def forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
+    @abstractmethod
+    def _forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Have to implement the train forward method and return dictionary of losses."""
         raise NotImplementedError
 
-    def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
+    @abstractmethod
+    def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Have to implement the prediction method on batch."""
         raise NotImplementedError
 
@@ -253,9 +268,9 @@ class NNExperimenter:
         preds = []
         self.model.eval()
         with torch.no_grad():
-            for x, id in tqdm(dataloader):
+            for x, id in tqdm(dataloader, desc='predict'):
                 ids.extend(id)
-                preds.extend(self.predict_on_batch(x, proba=proba))
+                preds.extend(self._predict_on_batch(x, proba=proba))
         return dict(zip(ids, preds))
 
     def predict_proba(self, dataloader: DataLoader) -> Dict:
@@ -280,13 +295,13 @@ class NNExperimenter:
             model_losses: Function for calculating losses from model weights.
 
         Returns:
-            Dictionary {metric_name: value}.
+            Dict: {metric_name: value}.
         """
         self.model.train()
         train_scores = LossesAverager()
-        batches = tqdm(dataloader)
+        batches = tqdm(dataloader, desc='train')
         for x, y in batches:
-            losses = self.forward_with_loss(x, y)
+            losses = self._forward_with_loss(x, y)
             if model_losses is not None:
                 losses.update(model_losses(self.model))
             train_scores.update(losses)
@@ -309,13 +324,13 @@ class NNExperimenter:
             class_metrics: If ``True``, calculates validation metrics for each class.
 
         Returns:
-            Dictionary {metric_name: value}.
+            Dict: {metric_name: value}.
         """
         self.model.eval()
         metric = self.metric_counter(class_metrics=class_metrics)
         with torch.no_grad():
-            for x, y in tqdm(dataloader):
-                preds = self.forward(x)
+            for x, y in tqdm(dataloader, desc='val'):
+                preds = self._forward(x)
                 metric.update(preds, y)
         return metric.compute()
 
@@ -357,18 +372,18 @@ class ClassificationExperimenter(NNExperimenter):
         )
         self.loss = loss
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Implements the forward method of the model and returns predictions."""
         x = x.to(self.device)
         return self.model(x)
 
-    def forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Implements the train forward method and returns loss."""
         y = y.to(self.device)
-        preds = self.forward(x)
+        preds = self._forward(x)
         return {'loss': self.loss(preds, y)}
 
-    def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
+    def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)
@@ -414,21 +429,21 @@ class ObjectDetectionExperimenter(NNExperimenter):
             device=device
         )
 
-    def forward(self, x: torch.Tensor) -> List:
+    def _forward(self, x: torch.Tensor) -> List:
         """Implements the forward method of the model and returns predictions."""
         assert not self.model.training
         images = list(image.to(self.device) for image in x)
         preds = self.model(images)
         return [{k: v.to('cpu').detach() for k, v in p.items()} for p in preds]
 
-    def forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x: torch.Tensor, y) -> Dict[str, torch.Tensor]:
         """Implements the train forward method and returns loss."""
         assert self.model.training, "model must be in training mode"
         images = [image.to(self.device) for image in x]
         targets = [{k: v.to(self.device) for k, v in target.items()} for target in y]
         return self.model(images, targets)
 
-    def predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
+    def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:
         """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         images = [image.to(self.device) for image in x]
@@ -480,19 +495,19 @@ class SegmentationExperimenter(NNExperimenter):
         )
         self.loss = loss
 
-    def forward(self, x):
+    def _forward(self, x):
         """Implements the forward method of the model and returns predictions."""
         x = x.to(self.device)
         return self.model(x)['out'].to('cpu').detach()
 
-    def forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
+    def _forward_with_loss(self, x, y) -> Dict[str, torch.Tensor]:
         """Implements the train forward method and returns loss."""
         x = x.to(self.device)
         y = y.to(self.device)
         preds = self.model(x)['out']
         return {'loss': self.loss(preds, y)}
 
-    def predict_on_batch(self, x, proba: bool) -> List:
+    def _predict_on_batch(self, x, proba: bool) -> List:
         """Returns prediction on batch."""
         assert not self.model.training, "model must be in eval mode"
         x = x.to(self.device)

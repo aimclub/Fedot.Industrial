@@ -122,36 +122,36 @@ def get_tensors():
 
 def test_iou(get_tensors):
     truth, a, b = get_tensors
-    assert torch.allclose(iou_score(a, truth), torch.tensor([[5 / 6, 1, 0.5], [0, 5 / 9, 1]]))
+    assert torch.allclose(iou_score(a, truth), torch.tensor([[5 / 6, 1, 0.5], [0, 5 / 9, -1]]))
     assert torch.allclose(iou_score(b, truth), torch.tensor([[0.5, 1 / 3, 0], [0.8, 0.6, 0]]))
 
 
 def test_dice(get_tensors):
     truth, a, b = get_tensors
-    assert torch.allclose(dice_score(a, truth), torch.tensor([[10 / 11, 1, 2 / 3], [0, 5 / 7, 1]]))
+    assert torch.allclose(dice_score(a, truth), torch.tensor([[10 / 11, 1, 2 / 3], [0, 5 / 7, -1]]))
     assert torch.allclose(dice_score(b, truth), torch.tensor([[2 / 3, 0.5, 0], [8 / 9, 3 / 4, 0]]))
 
 
 def test_segmentation_metric_counter(get_tensors):
     answer1 = {
-        'iou': 0.510185,
-        'dice': 0.5913,
+        'iou': 0.426984,
+        'dice': 0.518707,
         'iou_for_class_0': 0.533333,
         'iou_for_class_1': 0.622222,
-        'iou_for_class_2': 0.375,
+        'iou_for_class_2': 0.166666,
         'dice_for_class_0': 0.616162,
         'dice_for_class_1': 0.741071,
-        'dice_for_class_2': 0.416666,
+        'dice_for_class_2': 0.222222,
     }
     answer2 = {
-        'iou': 0.464197,
-        'dice': 0.550064,
+        'iou': 0.356565,
+        'dice': 0.443722,
         'iou_for_class_0': 0.572222,
         'iou_for_class_1': 0.570370,
-        'iou_for_class_2': 0.25,
+        'iou_for_class_2': 0.1,
         'dice_for_class_0': 0.670034,
         'dice_for_class_1': 0.702380,
-        'dice_for_class_2': 0.277777,
+        'dice_for_class_2': 0.133333,
     }
     truth, a, b = get_tensors
     truth = truth.argmax(1)
