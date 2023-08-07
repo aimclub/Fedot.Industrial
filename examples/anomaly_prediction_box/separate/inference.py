@@ -52,14 +52,15 @@ class UniPredictor:
                                                 target=train_data_preprocessed.target,
                                                 data_type=train_data_preprocessed.data_type,
                                                 task=train_data_preprocessed.task)
+        self.predictor.unfit()
         self.predictor.fit(train_data_preprocessed)
 
-    def predict(self, series: np.ndarray, output_mode: str = 'label') -> np.ndarray:
+    def predict(self, series: np.ndarray, output_mode: str = 'labels') -> np.ndarray:
         """
                 Refit generator and predictor
 
                 :param series: array containing train features (lag windows)
-                :param output_mode: 'label' - returns only labels, 'default' - returns probabilities
+                :param output_mode: 'labels' - returns only labels, 'default' - returns probabilities
 
                 :returns np.ndarray: predicted anomaly label for each sample
                 """
