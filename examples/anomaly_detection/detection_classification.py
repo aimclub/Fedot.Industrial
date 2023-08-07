@@ -91,13 +91,13 @@ if __name__ == "__main__":
                                  logging_level=20,
                                  output_folder='.')
 
-    model = industrial.fit(train_features=train_data[0],
-                           train_target=train_data[1])
+    model = industrial.fit(features=train_data[0],
+                           target=train_data[1])
 
-    labels = industrial.predict(test_features=test_data[0],
-                                test_target=test_data[1])
-    probs = industrial.predict_proba(test_features=test_data[0],
-                                     test_target=test_data[1])
+    labels = industrial.predict(features=test_data[0],
+                                target=test_data[1])
+    probs = industrial.predict_proba(features=test_data[0],
+                                     target=test_data[1])
 
     industrial.solver.get_metrics(target=test_data[1],
                                   metric_names=['f1', 'roc_auc'])

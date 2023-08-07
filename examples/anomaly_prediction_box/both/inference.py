@@ -1,14 +1,9 @@
 import numpy as np
 import pandas as pd
-from fedot.api.main import Fedot
 from fedot.core.data.data import InputData
-from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
-from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
@@ -41,9 +36,9 @@ class IndustrialPredictor:
         :param series: array containing train features (lag windows)
         :param anomalies: array containing anomaly label for each sample in features
         """
-        train_data = InputData(idx=np.arrange(series.shape[0]),
-                               features=np.expand_dims(series, axis=0).swapaxes(1, 2),
-                               target=anomalies,
+        train_data = InputData(idx=np.arange(series.shape[0]),
+                               features=series,
+                               target=anomalies.reshape(-1, 1),
                                task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.image)
         with IndustrialModels():
             self.generator.unfit()
@@ -56,14 +51,15 @@ class IndustrialPredictor:
                                                 target=train_data_preprocessed.target,
                                                 data_type=train_data_preprocessed.data_type,
                                                 task=train_data_preprocessed.task)
+        self.predictor.unfit()
         self.predictor.fit(train_data_preprocessed)
 
-    def predict(self, series: np.ndarray, output_mode: str = 'label') -> np.ndarray:
+    def predict(self, series: np.ndarray, output_mode: str = 'labels') -> np.ndarray:
         """
         Refit generator and predictor
 
         :param series: array containing train features (lag windows)
-        :param output_mode: 'label' - returns only labels, 'default' - returns probabilities
+        :param output_mode: 'labels' - returns only labels, 'default' - returns probabilities
 
         :returns np.ndarray: predicted anomaly label for each sample
         """
@@ -97,7 +93,6 @@ class IndustrialPredictor:
             self.generator = Pipeline().load(path_to_generator)
         self.predictor = Pipeline().load(path_to_predictor)
 
-
     def save(self,
              path_to_generator: str = 'generator',
              path_to_predictor: str = 'predictor'):
@@ -118,9 +113,17 @@ def main():
     sub_series = series.iloc[start_random:start_random + anomaly_len, :-1]
     sub_series = np.array(sub_series.values.tolist())
 
-    predictor = IndustrialPredictor()
+    predictor = IndustrialPredictor(path_to_generator='generator/1_pipeline_saved/1_pipeline_saved.json',
+                                    path_to_predictor='predictor/1_pipeline_saved/1_pipeline_saved.json')
+
     predict = predictor.predict(sub_series)
+    series = np.load('data.npy')
+    labels = np.load('labels.npy')
+    predictor.fit(series, labels)
+    predict = predictor.predict(sub_series)
+
 
 
 if __name__ == '__main__':
     main()
+

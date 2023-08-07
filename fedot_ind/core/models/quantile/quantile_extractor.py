@@ -50,6 +50,8 @@ class StatsExtractor(BaseExtractor):
         # predict = self.drop_features(predict=predict,
         #                              columns=stat_features,
         #                              n_components=n_components)
+        if predict.shape[1] == 29:
+            print('a')
         return predict
 
     def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):

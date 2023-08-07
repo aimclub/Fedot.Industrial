@@ -14,13 +14,13 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
-from golem.core.tuning.sequential import SequentialTuner
 from golem.core.tuning.simultaneous import SimultaneousTuner
+from golem.core.tuning.sequential import SequentialTuner
 
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.api.utils.saver_collections import ResultSaver
-from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
-from fedot_ind.core.operation.caching import DataCacher
+from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.core.operation.utils.cache import DataCacher
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 np.random.seed(0)
@@ -29,13 +29,14 @@ np.random.seed(0)
 class TimeSeriesClassifierPreset:
     """Class responsible for interaction with Fedot classifier. It allows to use FEDOT optimization
     for hyperparameters tuning and pipeline building. Nodes of the pipeline are basis functions
-    from the list of branch_nodes and quantile extractor.
+    from the list of branch_nodes and statistical extractor.
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
         tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
+        output_dir: path to the directory where results will be saved
         saver: object of ``ResultSaver`` class
 
     Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
@@ -49,7 +50,7 @@ class TimeSeriesClassifierPreset:
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
         self.tuning_iters = params.get('tuning_iterations', 30)
-        self.tuning_timeout = params.get('tuning_timeout', 15)
+        self.tuning_timeout = params.get('tuning_timeout', 15.0)
         self.output_folder = params.get('output_folder', default_path_to_save_results())
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
@@ -114,20 +115,23 @@ class TimeSeriesClassifierPreset:
 
     def _build_pipeline(self):
         """
-        Method for building pipeline with nodes from ``branch_nodes`` list and quantile extractor.
+        Method for building pipeline with nodes from ``branch_nodes`` list and statistical extractor.
 
         """
         if self.branch_nodes is None:
             self.branch_nodes = ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
-
-        self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
+        else:
+            self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
 
         pipeline_builder = PipelineBuilder()
 
         for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
-        pipeline_builder.join_branches('rf')
+        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
+                                                      'max_iter': 300,
+                                                      'activation': 'relu',
+                                                      'solver': 'adam', })
 
         return pipeline_builder.build()
 
@@ -148,7 +152,7 @@ class TimeSeriesClassifierPreset:
             metric = ClassificationMetricsEnum.ROCAUC
 
         pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(SequentialTuner) \
+            .with_tuner(SimultaneousTuner) \
             .with_metric(metric) \
             .with_timeout(self.tuning_timeout) \
             .with_iterations(self.tuning_iters) \
@@ -196,7 +200,18 @@ class TimeSeriesClassifierPreset:
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
-        self.predictor = Fedot(**self.model_params)
+        self.predictor = Fedot(available_operations=['scaling',
+                                                     'normalization',
+                                                     'fast_ica',
+                                                     'xgboost',
+                                                     'rfr',
+                                                     'rf',
+                                                     'logit',
+                                                     'mlp',
+                                                     'knn',
+                                                     'lgbm',
+                                                     'pca']
+                               , **self.model_params)
 
         self.predictor.fit(train_data_preprocessed)
 
@@ -211,6 +226,9 @@ class TimeSeriesClassifierPreset:
             target: numpy array with target values
 
         """
+
+        test_data = self._init_input_data(features, target)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
         data_cacher = DataCacher()
         # get unique hash of input data
         test_predict_hash = data_cacher.hash_info(data=features)
@@ -219,19 +237,18 @@ class TimeSeriesClassifierPreset:
             test_data = self._init_input_data(features, target)
             test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
 
-            if test_data.features.shape[0] == 1:
-                test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
-            else:
-                test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-            self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
-                                                    features=test_data_preprocessed.predict,
-                                                    target=test_data_preprocessed.target,
-                                                    data_type=test_data_preprocessed.data_type,
-                                                    task=test_data_preprocessed.task)
+        if test_data.features.shape[0] == 1:
+            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
+        else:
+            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+        self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                                features=test_data_preprocessed.predict,
+                                                target=test_data_preprocessed.target,
+                                                data_type=test_data_preprocessed.data_type,
+                                                task=test_data_preprocessed.task)
 
-            # self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
-            self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
-            self.test_predict_hash = test_predict_hash
+        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
+        self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
 
         return self.prediction_label
 
