@@ -85,7 +85,7 @@ def test_parse_collect_sd():
 
 
 def test_load_sfp_resnet_model():
-    sfp_state_dict_path = os.path.join(PROJECT_PATH, '../', 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
+    sfp_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
     sfp_model = load_sfp_resnet_model(state_dict_path=sfp_state_dict_path)
     sfp_state_dict = torch.load(sfp_state_dict_path, map_location='cpu')
     assert sfp_state_dict.keys() == sfp_model.state_dict().keys()

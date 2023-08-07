@@ -10,7 +10,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from sklearn.decomposition import PCA
 
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
 
 class TimeSeriesRegression:

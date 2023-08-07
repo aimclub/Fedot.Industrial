@@ -53,7 +53,7 @@ class FedotIndustrial(Fedot):
 
     def __init__(self, **kwargs):
         kwargs.setdefault('output_folder', default_path_to_save_results())
-        Path(kwargs.get('output_folder')).mkdir(parents=True, exist_ok=True)
+        Path(kwargs.get('output_folder', default_path_to_save_results())).mkdir(parents=True, exist_ok=True)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(levelname)s: %(name)s - %(message)s',

@@ -8,8 +8,8 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.operation.caching import DataCacher
 
 
 class IndustrialCachableOperationImplementation(DataOperationImplementation):
