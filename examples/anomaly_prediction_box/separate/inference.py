@@ -44,12 +44,6 @@ class UniPredictor:
         with IndustrialModels():
             self.generator.unfit()
             self.generator.fit(train_data)
-
-            rf_node = self.generator.nodes[0]
-            self.generator.update_node(rf_node, PipelineNode('cat_features'))
-            rf_node.nodes_from = []
-            rf_node.unfit()
-            self.generator.fit(train_data)
             # generate table feature data from train and test samples using "magic" pipeline
             train_data_preprocessed = self.generator.root_node.predict(train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
@@ -97,6 +91,19 @@ class UniPredictor:
         """
         self.generator.save(path_to_generator)
         self.predictor.save(path_to_predictor)
+
+    def load(self,
+             path_to_generator: str = 'generator/1_pipeline_saved/1_pipeline_saved.json',
+             path_to_predictor: str = 'predictor/1_pipeline_saved/1_pipeline_saved.json'):
+        """
+        Loads models for generator and predictor
+
+        :param path_to_generator: path to .json file of generator pipeline
+        :param path_to_predictor: path to .json file of predictor pipeline
+        """
+        with IndustrialModels():
+            self.generator = Pipeline().load(path_to_generator)
+        self.predictor = Pipeline().load(path_to_predictor)
 
 
 class IndustrialPredictor:
