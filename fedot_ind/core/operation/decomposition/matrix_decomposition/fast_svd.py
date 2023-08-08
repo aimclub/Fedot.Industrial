@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from scipy.linalg import qr
 from scipy.spatial.distance import cdist
 from sklearn.preprocessing import MinMaxScaler
@@ -23,7 +24,7 @@ class RSVDDecomposition:
         reconstr_m = tensor_approx @ tensor_approx.T @ tensor
         return reconstr_m
 
-    def _regularize_rank(self, low_rank, Ut, block, tensor, l_reg: float = 0.2):
+    def _regularize_rank(self, low_rank, Ut, block, tensor, l_reg: float = 1.0):
         spectral_norms, fro_norms = [], []
         list_of_rank = list(range(1, low_rank + 1, 1))
         for rank in list_of_rank:
@@ -32,13 +33,10 @@ class RSVDDecomposition:
             fro_norms.append(abs(np.linalg.norm(tensor - reconstr_m, 'fro')))
         scaled_spectral = MinMaxScaler().fit_transform(np.array(spectral_norms).reshape(-1, 1))
         scaled_fro = MinMaxScaler().fit_transform(np.array(fro_norms).reshape(-1, 1))
-        # scaled_rank = MinMaxScaler().fit_transform(np.array(list_of_rank).reshape(-1, 1))
         aprox_error = (1 - l_reg) * scaled_spectral + l_reg * scaled_fro
         aprox_error = aprox_error.reshape(-1)
         deriviate_of_error = abs(np.diff(aprox_error))
         deriviate_of_error = deriviate_of_error[deriviate_of_error > 0.01]
-        #first_gap_idx = np.where(deriviate_of_error == deriviate_of_error.max())[0][0]
-        #regularized_rank = first_gap_idx+2
         error_threshold = np.median(deriviate_of_error)
         regularized_rank = np.sum(deriviate_of_error <= error_threshold)
         return regularized_rank
@@ -92,7 +90,5 @@ class RSVDDecomposition:
 
             reconstr_tensor = self._compute_matrix_approximation(Ut, sampled_tensor_orto, tensor, regularized_rank)
             U_, S_, V_ = np.linalg.svd(reconstr_tensor, full_matrices=False)
-            # ET1 = St[0] * np.outer(Ut[:, 0], Vt[0, :])
-            # ET2 = St[1] * np.outer(Ut[:, 1], Vt[1, :])
-            # ff = cdist(metric='correlation', XA=ET1, XB=ET2)
+
             return [U_, S_, V_]

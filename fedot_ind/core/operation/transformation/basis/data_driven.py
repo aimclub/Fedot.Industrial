@@ -1,12 +1,14 @@
 import math
 from multiprocessing import Pool
 from typing import Optional, Tuple, TypeVar
-
+from scipy import stats
 import numpy as np
+import pandas as pd
 import tensorly as tl
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from pymonad.list import ListMonad
+from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
 
@@ -38,13 +40,32 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         self.window_size = params.get('window_size')
         self.basis = None
         self.SV_threshold = None
-        #self.sv_selector = params.get('sv_selector')
+        # self.sv_selector = params.get('sv_selector')
         self.sv_selector = 'median'
         self.svd_estimator = RSVDDecomposition()
         self.low_rank_approximation = True
         self.logging_params.update({'WS': self.window_size,
                                     'SV_selector': self.sv_selector,
                                     })
+
+    def _combine_components(self, predict):
+        count = 0
+        grouped_v = []
+        for df in predict:
+            tmp = pd.DataFrame(df)
+            ff = cdist(metric='cosine', XA=tmp.values, XB=tmp.values)
+            if ff[-1, -2] < 0.5:
+                count += 1
+            tmp.iloc[-2, :] = tmp.iloc[-2,] + tmp.iloc[-1, :]
+            tmp.drop(tmp.tail(1).index, inplace=True)
+            grouped_v.append(tmp.values)
+
+        if count / len(predict) > 0.35:
+            self.SV_threshold = grouped_v[0].shape[0]
+            self.logging_params.update({'SV_thr': self.SV_threshold})
+            return np.array(grouped_v)
+        else:
+            return predict
 
     def _transform(self, input_data: InputData) -> np.array:
         """Method for transforming all samples
@@ -75,13 +96,21 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                           )
                      )
         predict = np.array(v)
+        # new_shape = predict[0].shape[0]
+        #
+        # reduce_dimension = True
+        # while reduce_dimension:
+        #     predict = self._combine_components(predict)
+        #     if predict[0].shape[0] == new_shape or predict[0].shape[0] == 1:
+        #         reduce_dimension = False
+        #     new_shape = predict[0].shape[0]
+        #predict = self._clean_predict(np.array(v))
         return predict
 
     def get_threshold(self, data, selector: str):
 
         selectors = {'median': np.median,
-                     '0.75%': lambda x: np.quantile(x, 0.75),
-                     '0.25%': lambda x: np.quantile(x, 0.25)}
+                     'mode': stats.mode}
 
         svd_numbers = []
         with tqdm(total=len(data), desc='SVD estimation') as pbar:
@@ -89,7 +118,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
 
-        return math.ceil(selectors[selector](svd_numbers))
+        return selectors[selector](svd_numbers).mode[0]
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
@@ -153,7 +182,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         return basis
 
     def evaluate_derivative(self:
-                            class_type,
+    class_type,
                             coefs: np.array,
                             order: int = 1) -> Tuple[class_type, np.array]:
         basis = type(self)(
