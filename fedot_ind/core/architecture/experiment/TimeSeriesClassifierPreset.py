@@ -15,7 +15,6 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
-from golem.core.tuning.sequential import SequentialTuner
 
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
@@ -210,8 +209,8 @@ class TimeSeriesClassifierPreset:
                                                      'mlp',
                                                      'knn',
                                                      'lgbm',
-                                                     'pca']
-                               , **self.model_params)
+                                                     'pca'],
+                               **self.model_params)
 
         self.predictor.fit(train_data_preprocessed)
 
@@ -247,8 +246,8 @@ class TimeSeriesClassifierPreset:
                                                 data_type=test_data_preprocessed.data_type,
                                                 task=test_data_preprocessed.task)
 
-        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
         self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
+        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
 
         return self.prediction_label
 

@@ -50,7 +50,7 @@ class StatsExtractor(BaseExtractor):
         # predict = self.drop_features(predict=predict,
         #                              columns=stat_features,
         #                              n_components=n_components)
-        if predict.shape[1] == 29:
+        if predict.shape[1] == 36:
             print('a')
         return predict
 

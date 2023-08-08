@@ -52,8 +52,8 @@ def generate_time_series(to_plot: bool = True,
                                          label=cls) for cls in anomaly_intervals.keys()]
 
         for anomaly_class, intervals in anomaly_intervals.items():
-            for interval in intervals.split(', '):
-                start_idx, end_idx = map(int, interval.split(':'))
+            for interval in intervals:
+                start_idx, end_idx = map(int, interval)
                 ax.axvspan(start_idx, end_idx, alpha=0.3, color=color_dict[anomaly_class])
 
         plt.legend(handles=set(legend_patches))
@@ -69,7 +69,7 @@ def generate_colors(num_colors):
 
 
 if __name__ == "__main__":
-    time_series, anomaly_intervals = generate_time_series(to_plot=False,
+    time_series, anomaly_intervals = generate_time_series(to_plot=True,
                                                           ts_length=1000,
                                                           num_anomaly_classes=4,
                                                           num_of_anomalies=50)
