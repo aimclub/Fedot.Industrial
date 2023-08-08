@@ -2,6 +2,7 @@
 import logging
 import os
 import shutil
+from functools import partial
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
@@ -15,7 +16,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, \
+from fedot_ind.core.metrics.cv_metrics import MetricCounter, ClassificationMetricCounter, LossesAverager, \
     ObjectDetectionMetricCounter, SegmentationMetricCounter
 
 
@@ -32,6 +33,7 @@ class FitParameters:
         lr_scheduler: Type of learning rate scheduler, e.g ``torch.optim.lr_scheduler.StepLR``.
         models_path: Path to folder for saving models.
         summary_path: Path to folder for writing experiment summary info.
+        validation_period: Validation frequency in epochs.
         class_metrics: If ``True``, calculates validation metrics for each class.
         description: Additional line describing the experiment.
 
@@ -41,10 +43,11 @@ class FitParameters:
     train_dl: DataLoader
     val_dl: DataLoader
     num_epochs: int
-    optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
-    lr_scheduler: Optional[Type[torch.optim.lr_scheduler.LRScheduler]] = None
+    optimizer: Union[Type[torch.optim.Optimizer], partial] = torch.optim.Adam
+    lr_scheduler: Optional[Union[Type[torch.optim.lr_scheduler.LRScheduler], partial]] = None
     models_path: Union[Path, str] = 'models'
     summary_path: Union[Path, str] = 'summary'
+    validation_period: int = 1
     class_metrics: bool = False
     description: str = ''
 
@@ -67,7 +70,7 @@ class NNExperimenter(ABC):
             self,
             model: torch.nn.Module,
             metric: str,
-            metric_counter,
+            metric_counter: Type[MetricCounter],
             name: Optional[str],
             weights: Optional[str],
             device: str,
@@ -87,7 +90,9 @@ class NNExperimenter(ABC):
             p: FitParameters,
             phase: str = 'train',
             model_losses: Optional[Callable] = None,
-            start_epoch: int = 0
+            filter_pruning: Optional[Dict] = None,
+            start_epoch: int = 0,
+            initial_validation: bool = False
             ) -> None:
         """Run model training.
 
@@ -95,23 +100,27 @@ class NNExperimenter(ABC):
             p: An object containing training parameters.
             phase: String explanation of training.
             model_losses: Function for calculating losses from model weights.
+            filter_pruning: Parameters (pruning function and condition) passed to ``apply_func`` function.
             start_epoch: Initial training epoch.
+            initial_validation: If ``True`` run validation loop before training.
 
         """
         model_path = os.path.join(p.models_path, p.dataset_name, self.name, p.description, phase)
         summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, p.description, phase)
         writer = WriterComposer(summary_path, [TFWriter, CSVWriter])
-
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
-        init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
-        writer.write_scores('val', init_scores, start_epoch)
-        self._save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
+
+        if initial_validation:
+            init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
+            writer.write_scores('val', init_scores, start_epoch)
+            self._save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
         optimizer = p.optimizer(self.model.parameters())
         lr_scheduler = None
         if p.lr_scheduler is not None:
             lr_scheduler = p.lr_scheduler(optimizer)
+
         for epoch in range(start_epoch, start_epoch + p.num_epochs):
             self.logger.info(f"Epoch {epoch}")
             train_scores = self.train_loop(
@@ -120,15 +129,21 @@ class NNExperimenter(ABC):
                 model_losses=model_losses
             )
             writer.write_scores('train', train_scores, epoch)
-            val_scores = self.val_loop(
-                dataloader=p.val_dl,
-                class_metrics=p.class_metrics
-            )
-            writer.write_scores('val', val_scores, epoch)
-            self._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
-            if isinstance(lr_scheduler, ReduceLROnPlateau):
-                lr_scheduler.step(val_scores[self.metric])
-            elif isinstance(lr_scheduler, LRScheduler):
+
+            if filter_pruning is not None:
+                self._apply_function(**filter_pruning)
+
+            if epoch % p.validation_period == 0:
+                val_scores = self.val_loop(
+                    dataloader=p.val_dl,
+                    class_metrics=p.class_metrics
+                )
+                writer.write_scores('val', val_scores, epoch)
+                self._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
+                if isinstance(lr_scheduler, ReduceLROnPlateau):
+                    lr_scheduler.step(val_scores[self.metric])
+
+            if isinstance(lr_scheduler, LRScheduler) and not isinstance(lr_scheduler, ReduceLROnPlateau):
                 lr_scheduler.step()
         self.load_model(model_path)
         self.logger.info(f'{self.metric} score: {self.best_score}')
@@ -208,7 +223,7 @@ class NNExperimenter(ABC):
         """Returns number of model parameters."""
         return sum(p.numel() for p in self.model.parameters())
 
-    def _apply_func(
+    def _apply_function(
             self,
             func: Callable,
             condition: Optional[Callable] = None

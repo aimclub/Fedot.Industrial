@@ -1,6 +1,7 @@
 """This module contains functions and classes for computing metrics
  in computer vision tasks.
  """
+from abc import ABC, abstractmethod
 from typing import Dict, List
 
 import torch
@@ -10,52 +11,68 @@ from torch.nn.functional import softmax
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 
-def iou_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torch.Tensor:
+def iou_score(
+        outputs: torch.Tensor,
+        masks: torch.Tensor,
+        threshold: float = 0.5,
+        smooth: float = 1e-10
+) -> torch.Tensor:
     """Computes intersection over union (masks) on batch.
 
     Args:
         outputs: Output from semantic segmentation model.
         masks: True masks.
+        threshold: Binarization threshold for output.
         smooth: Additional constant to avoid division by zero.
 
     Returns:
         Intersection over union for batch.
     """
-    outputs = (outputs > 0.5).float()
+    outputs = (outputs > threshold).float()
     intersection = torch.logical_and(outputs, masks).float().sum((2, 3))
     union = torch.logical_or(outputs, masks).float().sum((2, 3))
     iou = (intersection + smooth) / (union + smooth)
+    iou[union == 0] = -1
     return iou
 
 
-def dice_score(outputs: torch.Tensor, masks: torch.Tensor, smooth=1e-10) -> torch.Tensor:
+def dice_score(
+        outputs: torch.Tensor,
+        masks: torch.Tensor,
+        threshold: float = 0.5,
+        smooth: float = 1e-10
+) -> torch.Tensor:
     """Computes dice coefficient (masks) on batch.
 
     Args:
         outputs: Output from semantic segmentation model.
         masks: True masks.
+        threshold: Binarization threshold for output.
         smooth: Additional constant to avoid division by zero.
 
     Returns:
         Dice for batch.
     """
-    outputs = (outputs > 0.5).float()
+    outputs = (outputs > threshold).float()
     intersection = torch.logical_and(outputs, masks).float().sum((2, 3))
     total = (outputs + masks).sum((2, 3))
     dice = (2 * intersection + smooth) / (total + smooth)
+    dice[total == 0] = -1
     return dice
 
 
-class MetricCounter:
+class MetricCounter(ABC):
     """Generalized class for calculating metrics"""
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
         pass
 
+    @abstractmethod
     def update(self, **kwargs) -> None:
         """Have to implement updating, taking model outputs as input."""
         raise NotImplementedError
 
+    @abstractmethod
     def compute(self) -> Dict[str, float]:
         """Have to implement metrics computing."""
         raise NotImplementedError
@@ -112,37 +129,34 @@ class SegmentationMetricCounter(MetricCounter):
 
     def __init__(self, class_metrics: bool = False) -> None:
         super().__init__()
-        self.iou = None
-        self.dice = None
-        self.n = 0
+        self.iou = []
+        self.dice = []
         self.class_metrics = class_metrics
 
     def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
         """Accumulates iou and dice."""
         masks = torch.zeros_like(predictions)
-        for i in range(predictions.size()[1]):
+        for i in range(predictions.shape[1]):
             masks[:, i, :, :] = torch.squeeze(targets == i)
-        self.n += predictions.size()[0]
-        if self.iou is None:
-            self.iou = iou_score(predictions, masks).sum(0)
-        else:
-            self.iou += iou_score(predictions, masks).sum(0)
-        if self.dice is None:
-            self.dice = dice_score(predictions, masks).sum(0)
-        else:
-            self.dice += dice_score(predictions, masks).sum(0)
+        self.iou.append(iou_score(predictions, masks))
+        self.dice.append(dice_score(predictions, masks))
+
     def compute(self) -> Dict[str, float]:
         """Compute average metrics.
 
          Returns:
               Dictionary: `{metric: score}`.
         """
-        iou = self.iou / self.n
-        dice = self.dice/ self.n
-        scores = {'iou': iou.mean().item(), 'dice': dice.mean().item()}
+        iou = torch.cat(self.iou).T
+        dice = torch.cat(self.dice).T
+
+        scores = {
+            'iou': iou[1:][iou[1:] >= 0].mean().item(),
+            'dice': dice[1:][dice[1:] >= 0].mean().item()
+        }
         if self.class_metrics:
-            scores.update({f'iou_for_class_{i}': s.item() for i, s in enumerate(iou)})
-            scores.update({f'dice_for_class_{i}': s.item() for i, s in enumerate(dice)})
+            scores.update({f'iou_for_class_{i}': s[s >= 0].mean().item() for i, s in enumerate(iou)})
+            scores.update({f'dice_for_class_{i}': s[s >= 0].mean().item() for i, s in enumerate(dice)})
         return scores
 
 

@@ -6,19 +6,17 @@ import logging
 import os
 from typing import Callable, Dict, List, Optional, Type
 from abc import ABC, abstractmethod
+from functools import partial
 
 import torch
 from torchvision.models import ResNet
 
-from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, \
-    Writer
+from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, Writer
 from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
 from fedot_ind.core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
-from fedot_ind.core.operation.optimization.sfp_tools import create_percentage_filter_zeroing_fn, \
-    create_energy_filter_zeroing_fn, prune_resnet, load_sfp_resnet_model
-from fedot_ind.core.operation.optimization.svd_tools import create_energy_svd_pruning, \
-    decompose_module, load_svd_state_dict
+from fedot_ind.core.operation.optimization.sfp_tools import percentage_filter_zeroing, energy_filter_zeroing, prune_resnet, load_sfp_resnet_model
+from fedot_ind.core.operation.optimization.svd_tools import energy_svd_pruning, decompose_module, load_svd_state_dict
 
 
 class StructureOptimization(ABC):
@@ -64,6 +62,7 @@ class SVDOptimization(StructureOptimization):
     Args:
         energy_thresholds: List of pruning hyperparameters.
         decomposing_mode: ``'channel'`` or ``'spatial'`` weights reshaping method.
+        forward_mode: ``'one_layer'``, ``'two_layers'`` or ``'three_layers'`` forward pass calculation method.
         hoer_loss_factor: The hyperparameter by which the Hoyer loss function is
             multiplied.
         orthogonal_loss_factor: The hyperparameter by which the orthogonal loss
@@ -74,6 +73,7 @@ class SVDOptimization(StructureOptimization):
             self,
             energy_thresholds: List[float] = [0.9, 0.95, 0.99, 0.999],
             decomposing_mode: str = 'channel',
+            forward_mode: str = 'one_layer',
             hoer_loss_factor: float = 0.1,
             orthogonal_loss_factor: float = 10,
     ) -> None:
@@ -85,6 +85,7 @@ class SVDOptimization(StructureOptimization):
         )
         self.energy_thresholds = energy_thresholds
         self.decomposing_mode = decomposing_mode
+        self.forward_mode = forward_mode
         self.hoer_loss = HoyerLoss(hoer_loss_factor)
         self.orthogonal_loss = OrthogonalLoss(orthogonal_loss_factor)
         self.finetuning = False
@@ -108,7 +109,7 @@ class SVDOptimization(StructureOptimization):
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
-        decompose_module(exp.model, self.decomposing_mode)
+        decompose_module(exp.model, self.decomposing_mode, forward_mode=self.forward_mode)
         exp.model.to(exp.device)
         size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='decomposed')
@@ -138,8 +139,8 @@ class SVDOptimization(StructureOptimization):
         for e in self.energy_thresholds:
             str_e = f'e_{e}'
             exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
-            exp._apply_func(
-                func=create_energy_svd_pruning(energy_threshold=e),
+            exp._apply_function(
+                func=partial(energy_svd_pruning, energy_threshold=e),
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
             exp.save_model(os.path.join(models_path, str_e))
@@ -155,7 +156,8 @@ class SVDOptimization(StructureOptimization):
                     p=ft_params,
                     phase=str_e,
                     model_losses=self.__loss,
-                    start_epoch=params.num_epochs
+                    start_epoch=params.num_epochs,
+                    initial_validation=True
                 )
 
     def __loss(self, model: torch.nn.Module) -> Dict[str, torch.Tensor]:
@@ -184,7 +186,8 @@ class SVDOptimization(StructureOptimization):
         load_svd_state_dict(
             model=exp.model,
             state_dict_path=state_dict_path,
-            decomposing_mode=self.decomposing_mode
+            decomposing_mode=self.decomposing_mode,
+            forward_mode=self.forward_mode
         )
         exp.model.to(exp.device)
         self.logger.info("Model state dict loaded.")
@@ -194,8 +197,7 @@ class SFPOptimization(StructureOptimization):
     """Soft filter pruning for model structure optimization.
 
     Args:
-        zeroing_mode: ``'percentage'`` or ``'energy'`` zeroing strategy of convolutional layer filters.
-        zeroing_mode_params: Parameter dictionary passed to zeroing function.
+        zeroing_fn: Partially initialized filter zeroing function.
         model_class: The class of models to which the final pruning function is applicable.
         final_pruning_fn: Function implementing the model final pruning of the ``model_class``.
         load_model_fn: Function implementing the model loading of the ``model_class``.
@@ -203,23 +205,18 @@ class SFPOptimization(StructureOptimization):
 
     def __init__(
             self,
-            zeroing_mode: str = 'percentage',
-            zeroing_mode_params: Dict = {'pruning_ratio': 0.2},
+            zeroing_fn: partial = partial(percentage_filter_zeroing, pruning_ratio=0.2),
             model_class: Type = ResNet,
             final_pruning_fn: Callable = prune_resnet,
             load_model_fn: Callable = load_sfp_resnet_model
     ) -> None:
         description = f"_SFP"
-        for k, v in zeroing_mode_params.items():
+        for k, v in zeroing_fn.keywords.items():
             description += f"_{k}-{v}"
         super().__init__(
             description=description,
         )
-        self.modes = {
-            'percentage': create_percentage_filter_zeroing_fn,
-            'energy': create_energy_filter_zeroing_fn
-        }
-        self.zeroing_fn = self.modes[zeroing_mode](**zeroing_mode_params)
+        self.zeroing_fn = zeroing_fn
         self.pruning_fn = final_pruning_fn
         self.model_class = model_class
         self.load_model_fn = load_model_fn
@@ -238,35 +235,7 @@ class SFPOptimization(StructureOptimization):
             ft_params: An object containing fine-tuning parameters for optimized model.
         """
         exp.name += self.description
-        path = os.path.join(params.dataset_name, exp.name, params.description, 'train')
-        model_path = os.path.join(params.models_path, path)
-        writer = WriterComposer(
-            path=os.path.join(params.summary_path, path),
-            writers=[TFWriter, CSVWriter]
-        )
-
-        optimizer = params.optimizer(exp.model.parameters())
-        self.logger.info(f"{exp.name}, using device: {exp.device}")
-        for epoch in range(1, params.num_epochs + 1):
-            self.logger.info(f"Epoch {epoch}")
-            train_scores = exp.train_loop(
-                dataloader=params.train_dl,
-                optimizer=optimizer
-            )
-            writer.write_scores('train', train_scores, epoch)
-            exp._apply_func(
-                func=self.zeroing_fn,
-                condition=lambda x: isinstance(x, torch.nn.Conv2d)
-            )
-            val_scores = exp.val_loop(
-                dataloader=params.val_dl,
-                class_metrics=params.class_metrics
-            )
-            writer.write_scores('val', val_scores, epoch)
-            exp._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
-        exp.load_model(model_path)
-        writer.close()
-
+        exp.fit(p=params, filter_pruning=dict(func=self.zeroing_fn, condition=lambda x: isinstance(x, torch.nn.Conv2d)))
         if isinstance(exp.model, self.model_class):
             self.final_pruning(exp=exp, params=params, ft_params=ft_params)
         else:
