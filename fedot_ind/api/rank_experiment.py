@@ -6,7 +6,7 @@ from fedot.api.main import Fedot
 from sklearn.metrics import f1_score, roc_auc_score
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.models.statistical.StatsExtractor import StatsExtractor
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         # 'DistalPhalanxOutlineCorrect'
     ]
 
-    stats_model = StatsExtractor({'window_mode': False, 'window_size': 5, 'use_cache': False, 'n_jobs': 4})
+    stats_model = QuantileExtractor({'window_mode': False, 'window_size': 5, 'use_cache': False, 'n_jobs': 4})
     for group in [
         datasets_bad_f1,
         datasets_good_f1,

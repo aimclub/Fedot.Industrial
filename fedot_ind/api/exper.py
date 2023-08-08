@@ -58,8 +58,8 @@ if __name__ == "__main__":
                                              # 'wavelet_basis',
                                              'data_driven_basis'
                                          ],
-                                         tuning_iterations=30,
-                                         tuning_timeout=15.0,
+                                         tuning_iterations=10,
+                                         tuning_timeout=10.0,
                                          use_cache=False,
                                          timeout=10,
                                          n_jobs=6,

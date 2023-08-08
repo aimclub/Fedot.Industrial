@@ -12,8 +12,8 @@ from fedot.core.pipelines.pipeline import Pipeline
 from matplotlib import pyplot as plt
 
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.models.signal.RecurrenceExtractor import RecurrenceExtractor
-from fedot_ind.core.models.statistical.StatsExtractor import StatsExtractor
+from fedot_ind.core.models.recurrence.RecurrenceExtractor import RecurrenceExtractor
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from sklearn.decomposition import PCA
@@ -33,7 +33,10 @@ def init_input(X, y):
     return input_data
 
 
-def prepare_features(dataset_name, pca_n_components: float = 0.9):
+def prepare_features(dataset_name,
+                     pca_n_components: float = 0.95,
+                     feature_generator: list = ['statistical'],
+                     reduce_dimension: bool = False):
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
 
     train_target = np.array([float(i) for i in train_data[1]])
@@ -41,28 +44,34 @@ def prepare_features(dataset_name, pca_n_components: float = 0.9):
     train_input_data = init_input(train_data[0], train_target)
     test_input_data = init_input(test_data[0], test_target)
 
-    # extractor = StatsExtractor({'window_mode': False,
-    #                             'window_size': 10,
-    #                             'var_threshold': 0})
-    extractor = RecurrenceExtractor({'window_mode': False,
-                                     'min_signal_ratio': 0.3,
-                                     'max_signal_ratio': 0.8,
-                                     'rec_metric': 'euclidean'
-                                     })
+    generator_dict = {'statistical': QuantileExtractor({'window_mode': False,
+                                                        'window_size': 10,
+                                                        'var_threshold': 0}),
+                      'reccurence': RecurrenceExtractor({'window_mode': True,
+                                                         'min_signal_ratio': 0.7,
+                                                         'max_signal_ratio': 0.9,
+                                                         'rec_metric': 'cosine'
+                                                         })
+                      }
+    train_features_list, test_features_list = [], []
+    for extractor in feature_generator:
+        extractor = generator_dict[extractor]
+        extracted_features_train = extractor.transform(train_input_data)
+        train_size = extracted_features_train.predict.shape
+        train_features = extracted_features_train.predict
 
-    pca = PCA(n_components=pca_n_components,
-              svd_solver='full')
+        extracted_features_test = extractor.transform(test_input_data)
+        test_size = extracted_features_test.predict.shape
+        test_features = extracted_features_test.predict
 
-    extracted_features_train = extractor.transform(train_input_data)
-    train_size = extracted_features_train.features.shape
-    train_features = extracted_features_train.features.reshape(train_size[0], train_size[1] * train_size[2])
-    train_features = pca.fit_transform(train_features)
+        if reduce_dimension:
+            pca = PCA(n_components=pca_n_components,
+                      svd_solver='full')
+            train_features = pca.fit_transform(train_features)
+            test_features = pca.transform(test_features)
+        train_features_list.append(train_features), test_features_list.append(test_features)
 
-    extracted_features_test = extractor.transform(test_input_data)
-    test_size = extracted_features_test.features.shape
-    test_features = extracted_features_test.features.reshape(test_size[0], test_size[1] * test_size[2])
-    test_features = pca.transform(test_features)
-    return train_features, train_target, test_features, test_target
+    return train_features_list, train_target, test_features_list, test_target
 
 
 def calculate_metric(test_target, labels):
@@ -81,17 +90,17 @@ def calculate_metric(test_target, labels):
     return df
 
 
-def evaluate_baseline(train_features, train_target, test_features, test_target):
+def evaluate_baseline(train, train_target, test, test_target):
     node_scaling = PipelineNode('scaling')
     node_rfr = PipelineNode('lasso', nodes_from=[node_scaling])
     baseline_model = Pipeline(node_rfr)
-    input_fit = InputData(idx=np.arange(len(train_features)),
-                          features=train_features,
+    input_fit = InputData(idx=np.arange(len(train)),
+                          features=train,
                           target=train_target.reshape(-1, 1),
                           task=Task(TaskTypesEnum.regression),
                           data_type=DataTypesEnum.image)
-    input_predict = InputData(idx=np.arange(len(test_features)),
-                              features=test_features,
+    input_predict = InputData(idx=np.arange(len(test)),
+                              features=test,
                               target=test_target.reshape(-1, 1),
                               task=Task(TaskTypesEnum.regression),
                               data_type=DataTypesEnum.image)
@@ -111,21 +120,34 @@ def evaluate_baseline(train_features, train_target, test_features, test_target):
 
 if __name__ == "__main__":
     dataset_list = [
-        'AppliancesEnergy',
+        # 'Gazprom',
+        # 'AppliancesEnergy',
         # 'AustraliaRainfall',
-        # 'BeijingPM10Quality',
-        # 'BeijingPM25Quality',
-        # 'BenzeneConcentration',
+       # 'BeijingPM10Quality',
+        #'BeijingPM25Quality',
+        #'BenzeneConcentration',
         # 'HouseholdPowerConsumption1',
-        'HouseholdPowerConsumption2',
-        # 'IEEEPPG',
-        # 'FloodModeling1',
-        # 'FloodModeling2',
-        # 'FloodModeling3'
-        # 'LiveFuelMoistureContent',
+        #'HouseholdPowerConsumption2',
+        #'IEEEPPG',
+        #'FloodModeling1',
+        'FloodModeling2',
+        'FloodModeling3'
+        'LiveFuelMoistureContent',
         'BIDMC32HR',
         'BIDMC32RR',
-        'BIDMC32SpO2'
+        'BIDMC32SpO2',
+        'DailyOilGasPrices',
+        'ElectricityPredictor',
+        'OccupancyDetectionLight',
+        'SolarRadiationAndalusia',
+        'TetuanEnergyConsumption',
+        'WindTurbinePower',
+        'ElectricMotorTemperature',
+        'LPGasMonitoringHomeActivity',
+        'GasSensorArrayAcetone',
+        'GasSensorArrayEthanol',
+        'WaveTensionData'
+
     ]
     ten_minutes = range(0, 3, 1)
     one_hour = ['1hr']
@@ -135,17 +157,35 @@ if __name__ == "__main__":
         except Exception:
             _ = 1
 
-        train_features, train_target, test_features, test_target = prepare_features(dataset_name=dataset_name)
-        metric_df_baseline = evaluate_baseline(train_features, train_target, test_features, test_target)
+        train_features, train_target, test_features, test_target = prepare_features(dataset_name=dataset_name,
+                                                                                    reduce_dimension=False,
+                                                                                    feature_generator=[
+                                                                                        'statistical'
+                                                                                        # ,'reccurence'
+                                                                                    ])
+        if len(train_features) > 1:
+            concatenate_train = np.concatenate(train_features, axis=1)
+            concatenate_test = np.concatenate(test_features, axis=1)
+            train_features.append(concatenate_train)
+            test_features.append(concatenate_test)
+        else:
+            concatenate_train = train_features[0]
+            concatenate_test = test_features[0]
+
+        for train, test in zip(train_features, test_features):
+            metric_df_baseline = evaluate_baseline(train, train_target, test, test_target)
+            print(metric_df_baseline)
         metric_df_baseline.to_csv(f'./{dataset_name}/baseline_metrics.csv')
 
-        for run in ten_minutes:
+        for run in one_hour:
             predictor = Fedot(problem='regression',
-                              timeout=10,
                               metric='rmse',
+                              timeout=60,
+                              early_stopping_timeout=30,
+                              logging_level=20,
                               n_jobs=6)
-            model = predictor.fit(features=train_features, target=train_target)
-            labels = predictor.predict(features=test_features)
+            model = predictor.fit(features=concatenate_train, target=train_target)
+            labels = predictor.predict(features=concatenate_test)
             metric_df = calculate_metric(test_target, labels)
             metric_df.to_csv(f'./{dataset_name}/metrics_run_{run}.csv')
             pipeline = predictor.current_pipeline
