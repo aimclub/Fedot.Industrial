@@ -36,7 +36,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
                                            wavelet=self.wavelet)
             low_freq = high_freq[-1, :]
             high_freq = np.delete(high_freq, (-1), axis=0)
-            low_freq =low_freq[np.newaxis, :]
+            low_freq = low_freq[np.newaxis, :]
         return high_freq, low_freq
 
     def _decomposing_level(self):

@@ -1,13 +1,14 @@
-from itertools import repeat
-from multiprocessing import Pool
 from typing import Optional
 
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from tqdm import tqdm
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import TaskTypesEnum, Task
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.WindowedFeaturesExtractor import WindowedFeatureExtractor
-# from fedot_ind.core.operation.transformation.extraction.quantile import StatFeaturesExtractor
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
+from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 
 
 class SignalExtractor(WindowedFeatureExtractor):
@@ -29,9 +30,11 @@ class SignalExtractor(WindowedFeatureExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.ts_samples_count = None
-        # self.aggregator = StatFeaturesExtractor()
-        # self.wavelet_extractor = WaveletExtractor
-
+        self.aggregator = QuantileExtractor({'window_mode': False,
+                                             'window_size': 10,
+                                             'var_threshold': 0})
+        self.wavelet_basis = WaveletBasisImplementation
+        self.n_components = params.get('n_components')
         self.wavelet = params.get('wavelet')
         self.vis_flag = False
         self.train_feats = None
@@ -83,16 +86,7 @@ class SignalExtractor(WindowedFeatureExtractor):
         feature_df = pd.concat(hf_AC_features, axis=1)
         return feature_df
 
-    def _ts_chunk_function(self, ts,
-                           method_name: str = 'AC'):
-
-        ts = self.check_for_nan(ts)
-        specter = self.wavelet_extractor(time_series=ts, wavelet_name=self.wavelet)
-        feature_df = self.dict_of_methods[method_name](specter)
-
-        return feature_df
-
-    def generate_vector_from_ts(self, ts_frame: pd.DataFrame, method_name: str = 'AC') -> list:
+    def generate_features_from_ts(self, ts_frame: pd.DataFrame, dataset_name: str = None) -> list:
         """Generate vector from time series.
         Args:
             ts_frame (pd.DataFrame): time series to be transformed.
@@ -100,28 +94,15 @@ class SignalExtractor(WindowedFeatureExtractor):
         Returns:
             list: list of components and vectors.
         """
-        ts_samples_count = ts_frame.shape[0]
-        n_processes = self.n_processes
-        with Pool(n_processes) as p:
-            components_and_vectors = list(tqdm(p.starmap(self._ts_chunk_function,
-                                                         zip(ts_frame, repeat(method_name))),
-                                               total=ts_samples_count,
-                                               desc='Feature Generation. TS processed',
-                                               unit=' ts',
-                                               colour='black'
-                                               )
-                                          )
 
-        return components_and_vectors
+        wavelet_basis = self.wavelet_basis({'n_components': self.n_components,
+                                            'wavelet': self.wavelet})
+        transformed_ts = wavelet_basis._transform(ts_frame)
+        input_transformed_ts = InputData(idx=np.arange(len(transformed_ts)),
+                                         features=transformed_ts,
+                                         target=transformed_ts,
+                                         task=Task(TaskTypesEnum.regression),
+                                         data_type=DataTypesEnum.image)
 
-    def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None) -> pd.DataFrame:
-        if not self.wavelet:
-            train_feats = self._choose_best_wavelet(ts_data)
-            self.train_feats = train_feats
-            return self.train_feats
-        else:
-            test_feats = self.generate_vector_from_ts(ts_data)
-            test_feats = pd.concat(test_feats)
-            test_feats.index = list(range(len(test_feats)))
-            self.test_feats = test_feats
-        return self.test_feats
+        extracted_features_train = self.aggregator.transform(input_transformed_ts)
+        return extracted_features_train.predict
