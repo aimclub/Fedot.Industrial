@@ -40,7 +40,7 @@ class DataLoader:
         """
         dataset_name = self.dataset_name
 
-        data_path = os.path.join(PROJECT_PATH, 'data') if self.folder is None else self.folder
+        data_path = os.path.join(PROJECT_PATH, 'fedot_ind','data') if self.folder is None else self.folder
 
         _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
                                                               data_path=data_path)
