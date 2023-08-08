@@ -14,6 +14,7 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
+from golem.core.tuning.sequential import SequentialTuner
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
@@ -150,7 +151,7 @@ class TimeSeriesClassifierPreset:
             metric = ClassificationMetricsEnum.ROCAUC
 
         pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(SequentialTuner(inverse_node_order=True)) \
+            .with_tuner(SequentialTuner) \
             .with_metric(metric) \
             .with_timeout(self.tuning_timeout) \
             .with_iterations(self.tuning_iters) \

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
-from fedot_ind.core.models.quantile.stat_methods import stat_methods
+from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
 from fedot_ind.core.operation.caching import DataCacher
 
 
@@ -166,4 +166,3 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
                 tmp_list.append(df)
         return tmp_list
-

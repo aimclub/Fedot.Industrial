@@ -1,9 +1,9 @@
 from multiprocessing import Pool
 from typing import Optional
-
+from sklearn.preprocessing import StandardScaler
 from fedot.core.operations.operation_parameters import OperationParameters
 from tqdm import tqdm
-
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.WindowedFeaturesExtractor import WindowedFeatureExtractor
 from fedot_ind.core.operation.transformation.DataTransformer import TSTransformer
@@ -30,13 +30,22 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
         self.min_signal_ratio = params.get('min_signal_ratio')
         self.max_signal_ratio = params.get('max_signal_ratio')
         self.rec_metric = params.get('rec_metric')
-
+        self.window_size = 10
         self.transformer = TSTransformer
         self.extractor = ReccurenceFeaturesExtractor
         self.train_feats = None
         self.test_feats = None
 
     def _ts_chunk_function(self, ts):
+
+        ts = StandardScaler().fit_transform(ts.reshape(-1, 1))
+        ts = ts.reshape(-1)
+
+        if self.window_mode:
+            trajectory_transformer = HankelMatrix(time_series=ts, window_size=self.window_size)
+            ts = trajectory_transformer.trajectory_matrix
+            self.ts_length = trajectory_transformer.ts_length
+
         specter = self.transformer(time_series=ts,
                                    min_signal_ratio=self.min_signal_ratio,
                                    max_signal_ratio=self.max_signal_ratio,

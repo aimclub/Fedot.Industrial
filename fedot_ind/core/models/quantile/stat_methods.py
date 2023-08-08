@@ -9,8 +9,9 @@ stat_methods = {'mean_': np.mean,
                 'q25_': q25,
                 'q75_': q75,
                 'q95_': q95,
-                'sum_': np.sum,
-                'dif_': diff}
+                # 'sum_': np.sum,
+                # 'dif_': diff
+                }
 
 stat_methods_global = {
     'skewness_': skewness,

@@ -37,12 +37,14 @@ class QuantileExtractor(BaseExtractor):
         Method for feature generation for all series
         """
         try:
-            input_data_squeezed = np.squeeze(input_data.features, 3)
-        except ValueError:
-            input_data_squeezed = input_data.features
+            input_data_squeezed = np.squeeze(input_data.features)
+            total = input_data.features.shape[0]
+        except Exception:
+            input_data_squeezed = np.squeeze(input_data)
+            total = input_data.shape[0]
         with Pool(self.n_processes) as p:
             v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=input_data.features.shape[0],
+                          total=total,
                           desc=f'{self.__class__.__name__} transform',
                           postfix=f'{self.logging_params}',
                           colour='green',
@@ -51,8 +53,8 @@ class QuantileExtractor(BaseExtractor):
                           position=0,
                           leave=True)
                      )
-        stat_features = v[0].columns
-        n_components = v[0].shape[0]
+        # stat_features = v[0].columns
+        # n_components = v[0].shape[0]
         predict = self._clean_predict(np.array(v))
         # predict = self.drop_features(predict=predict,
         #                              columns=stat_features,
@@ -91,10 +93,12 @@ class QuantileExtractor(BaseExtractor):
                                                                        window_size=self.window_size)
             aggregation_df = pd.concat(list_of_stat_features, axis=1)
             aggregation_df = pd.concat([aggregation_df, global_features], axis=1)
+            aggregation_df = aggregation_df.fillna(0)
         else:
             statistical_features = self.get_statistical_features(ts)
             global_features = self.get_statistical_features(ts, add_global_features=True)
             aggregation_df = pd.concat([statistical_features, global_features], axis=1)
+            aggregation_df = aggregation_df.fillna(0)
         return aggregation_df
 
     def generate_features_from_ts(self,
