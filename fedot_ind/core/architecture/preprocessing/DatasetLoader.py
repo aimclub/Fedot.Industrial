@@ -73,26 +73,28 @@ class DataLoader:
         return train_data, test_data
 
     def read_train_test_files(self, data_path, dataset_name):
+
+        file_path = data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN'
         # If data unpacked as .tsv file
-        if os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.tsv'):
+        if os.path.isfile(file_path + '.tsv'):
             self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_tsv(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .txt file
-        elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt'):
+        elif os.path.isfile(file_path + '.txt'):
             self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .ts file
-        elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts'):
+        elif os.path.isfile(file_path + '.ts'):
             self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
             is_multi = True
 
         # If data unpacked as .arff file
-        elif os.path.isfile(data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff'):
+        elif os.path.isfile(file_path + '.arff'):
             self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
             is_multi = True

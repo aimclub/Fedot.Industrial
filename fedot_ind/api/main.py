@@ -13,7 +13,7 @@ from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.core.operation.transformation.splitter import TSSplitter
-from fedot_ind.synth_anomalies.anomaly_generator import AnomalyGenerator
+from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
