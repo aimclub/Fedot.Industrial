@@ -1,5 +1,6 @@
+import datetime
 import math
-from multiprocessing import cpu_count, Pool
+from joblib import Parallel, cpu_count, delayed
 from typing import Optional
 
 import numpy as np
@@ -75,18 +76,8 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
             features = np.array(ListMonad(*input_data.values.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
 
-        with Pool(self.n_processes) as p:
-            v = list(tqdm(p.imap(self._transform_one_sample, features),
-                          total=features.shape[0],
-                          desc=f'{self.__class__.__name__} transform',
-                          postfix=f'{self.logging_params}',
-                          colour='red',
-                          unit='ts',
-                          ascii=False,
-                          position=0,
-                          leave=True,
-                          )
-                     )
+        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
 
         predict = np.array(v)
         return predict

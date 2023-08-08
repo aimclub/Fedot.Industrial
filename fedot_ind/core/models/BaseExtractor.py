@@ -6,6 +6,7 @@ from typing import Optional
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from fedot_ind.core.metrics.metrics_implementation import *
@@ -48,17 +49,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         except Exception:
             input_data_squeezed = np.squeeze(features)
 
-        with Pool(self.n_processes) as p:
-            v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=n_samples,
-                          desc=f'{self.__class__.__name__} transform',
-                          postfix=f'{self.logging_params}',
-                          colour='green',
-                          unit='ts',
-                          ascii=False,
-                          position=0,
-                          leave=True)
-                     )
+        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        v = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
 
         predict = self._clean_predict(np.array(v))
         return predict

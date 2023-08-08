@@ -113,9 +113,9 @@ class AnomalyGenerator:
                 t_series = anomaly_obj(params).get(ts=t_series, interval=(start_idx, end_idx))
 
                 if anomaly_cls in anomaly_intervals_dict:
-                    anomaly_intervals_dict[anomaly_cls] += f', {start_idx}:{end_idx}'
+                    anomaly_intervals_dict[anomaly_cls].append([start_idx, end_idx])
                 else:
-                    anomaly_intervals_dict[anomaly_cls] = f'{start_idx}:{end_idx}'
+                    anomaly_intervals_dict[anomaly_cls] = [[start_idx, end_idx]]
 
         if plot:
             self.plot_anomalies(initial_ts=initial_ts, modified_ts=t_series,

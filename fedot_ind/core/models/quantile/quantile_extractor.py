@@ -1,3 +1,4 @@
+import datetime
 from multiprocessing import Pool
 from typing import Optional
 
@@ -5,6 +6,7 @@ import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from joblib import Parallel, delayed
 from pandas import Index
 from tqdm import tqdm
 
@@ -42,19 +44,10 @@ class QuantileExtractor(BaseExtractor):
         except Exception:
             input_data_squeezed = np.squeeze(input_data)
             total = input_data.shape[0]
-        with Pool(self.n_processes) as p:
-            v = list(tqdm(p.imap(self.generate_features_from_ts, input_data_squeezed),
-                          total=total,
-                          desc=f'{self.__class__.__name__} transform',
-                          postfix=f'{self.logging_params}',
-                          colour='green',
-                          unit='ts',
-                          ascii=False,
-                          position=0,
-                          leave=True)
-                     )
-        # stat_features = v[0].columns
-        # n_components = v[0].shape[0]
+        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        v = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
+        stat_features = v[0].columns
+        n_components = v[0].shape[0]
         predict = self._clean_predict(np.array(v))
         # predict = self.drop_features(predict=predict,
         #                              columns=stat_features,

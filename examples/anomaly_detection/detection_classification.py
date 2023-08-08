@@ -34,9 +34,9 @@ def generate_time_series(to_plot: bool = True,
         time_series[start_idx:end_idx] += anomaly
 
         if anomaly_class in anomaly_intervals:
-            anomaly_intervals[anomaly_class] += f', {start_idx}:{end_idx}'
+            anomaly_intervals[anomaly_class].append([start_idx, end_idx])
         else:
-            anomaly_intervals[anomaly_class] = f'{start_idx}:{end_idx}'
+            anomaly_intervals[anomaly_class] = [[start_idx, end_idx]]
 
     if to_plot:
         fig, ax = plt.subplots(figsize=(15, 7))
@@ -52,8 +52,8 @@ def generate_time_series(to_plot: bool = True,
                                          label=cls) for cls in anomaly_intervals.keys()]
 
         for anomaly_class, intervals in anomaly_intervals.items():
-            for interval in intervals.split(', '):
-                start_idx, end_idx = map(int, interval.split(':'))
+            for interval in intervals:
+                start_idx, end_idx = map(int, interval)
                 ax.axvspan(start_idx, end_idx, alpha=0.3, color=color_dict[anomaly_class])
 
         plt.legend(handles=set(legend_patches))
@@ -69,7 +69,7 @@ def generate_colors(num_colors):
 
 
 if __name__ == "__main__":
-    time_series, anomaly_intervals = generate_time_series(to_plot=False,
+    time_series, anomaly_intervals = generate_time_series(to_plot=True,
                                                           ts_length=1000,
                                                           num_anomaly_classes=4,
                                                           num_of_anomalies=50)
@@ -91,13 +91,13 @@ if __name__ == "__main__":
                                  logging_level=20,
                                  output_folder='.')
 
-    model = industrial.fit(train_features=train_data[0],
-                           train_target=train_data[1])
+    model = industrial.fit(features=train_data[0],
+                           target=train_data[1])
 
-    labels = industrial.predict(test_features=test_data[0],
-                                test_target=test_data[1])
-    probs = industrial.predict_proba(test_features=test_data[0],
-                                     test_target=test_data[1])
+    labels = industrial.predict(features=test_data[0],
+                                target=test_data[1])
+    probs = industrial.predict_proba(features=test_data[0],
+                                     target=test_data[1])
 
     industrial.solver.get_metrics(target=test_data[1],
                                   metric_names=['f1', 'roc_auc'])
