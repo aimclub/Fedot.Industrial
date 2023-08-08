@@ -68,19 +68,20 @@ class KernelFeatureGenerator(Enum):
          'feature_hyperparams': {
              'wavelet': "mexh",
              'n_components': 2
-         }},
-        {'feature_generator_type': 'wavelet',
-         'feature_hyperparams': {
-             'wavelet': "haar",
-             'n_components': 2
-         }
-         },
-        {'feature_generator_type': 'wavelet',
-         'feature_hyperparams': {
-             'wavelet': "dmey",
-             'n_components': 2
-         }
-         },
+         }}
+        # ,
+        # {'feature_generator_type': 'wavelet',
+        #  'feature_hyperparams': {
+        #      'wavelet': "haar",
+        #      'n_components': 2
+        #  }}
+        ,
+        # {'feature_generator_type': 'wavelet',
+        #  'feature_hyperparams': {
+        #      'wavelet': "dmey",
+        #      'n_components': 2
+        #  }
+        #  },
         {'feature_generator_type': 'wavelet',
          'feature_hyperparams': {
              'wavelet': "gaus3",

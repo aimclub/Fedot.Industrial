@@ -40,10 +40,8 @@ class QuantileExtractor(BaseExtractor):
         """
         try:
             input_data_squeezed = np.squeeze(input_data.features)
-            total = input_data.features.shape[0]
         except Exception:
             input_data_squeezed = np.squeeze(input_data)
-            total = input_data.shape[0]
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
         stat_features = v[0].columns
