@@ -32,37 +32,37 @@ class MlModel(Enum):
 
 
 class KernelFeatureGenerator(Enum):
-    statistical = [{'feature_generator_type': 'quantile',
-                    'feature_hyperparams': {
-                        'window_mode': True,
-                        'window_size': 5
-                    }
-                    },
-                   {'feature_generator_type': 'quantile',
-                    'feature_hyperparams': {
-                        'window_mode': True,
-                        'window_size': 10
-                    }
-                    },
-                   {'feature_generator_type': 'quantile',
-                    'feature_hyperparams': {
-                        'window_mode': True,
-                        'window_size': 20
-                    }
-                    },
-                   {'feature_generator_type': 'quantile',
-                    'feature_hyperparams': {
-                        'window_mode': True,
-                        'window_size': 30
-                    }
-                    },
-                   {'feature_generator_type': 'quantile',
-                    'feature_hyperparams': {
-                        'window_mode': True,
-                        'window_size': 40
-                    }
-                    }
-                   ]
+    quantile = [{'feature_generator_type': 'quantile',
+                 'feature_hyperparams': {
+                     'window_mode': True,
+                     'window_size': 5
+                 }
+                 },
+                {'feature_generator_type': 'quantile',
+                 'feature_hyperparams': {
+                     'window_mode': True,
+                     'window_size': 10
+                 }
+                 },
+                {'feature_generator_type': 'quantile',
+                 'feature_hyperparams': {
+                     'window_mode': True,
+                     'window_size': 20
+                 }
+                 },
+                {'feature_generator_type': 'quantile',
+                 'feature_hyperparams': {
+                     'window_mode': True,
+                     'window_size': 30
+                 }
+                 },
+                {'feature_generator_type': 'quantile',
+                 'feature_hyperparams': {
+                     'window_mode': True,
+                     'window_size': 40
+                 }
+                 }
+                ]
     wavelet = [
         {'feature_generator_type': 'wavelet',
          'feature_hyperparams': {
