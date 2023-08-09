@@ -13,7 +13,7 @@ from fedot.core.repository.quality_metrics_repository import ClassificationMetri
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
-from fedot_ind.core.operation.transformation.splitter import TSSplitter
+from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
@@ -30,11 +30,11 @@ def get_anomaly_unique(labels, min_anomaly_len=5):
 def split_time_series(series, features_columns: list, target_column: str):
     anomaly_unique = get_anomaly_unique(series[target_column].values, min_anomaly_len=10)
 
-    splitter_unique = TSSplitter(time_series=series[features_columns].values,
-                                 anomaly_dict=anomaly_unique,
-                                 strategy='unique')
+    splitter_unique = TSTransformer(time_series=series[features_columns].values,
+                                    anomaly_dict=anomaly_unique,
+                                    strategy='unique')
 
-    cls, train_data, test_data = splitter_unique.split(binarize=False)
+    cls, train_data, test_data = splitter_unique.transform_for_fit(binarize=False)
     return cls, train_data, test_data
 
 
