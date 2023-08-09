@@ -75,10 +75,12 @@ class AbstractPipelines:
                 _feature_gen_params = json.load(file)
                 params = _feature_gen_params[f'{generator}_extractor']
             feature_extractor = generator(params)
-
-        classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'],
-                                                    generator_name=kwargs['feature_generator_type'],
-                                                    generator_runner=feature_extractor)
+        try:
+            classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'],
+                                                        generator_name=kwargs['feature_generator_type'],
+                                                        generator_runner=feature_extractor)
+        except Exception:
+            classificator = None
     # TODO:
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'scale': lambda time_series: pd.DataFrame(MinMaxScaler().fit_transform(
