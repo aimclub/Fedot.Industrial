@@ -108,7 +108,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
 
-        return selectors[selector](svd_numbers).mode[0]
+        return selectors[selector](svd_numbers).astype(int)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)

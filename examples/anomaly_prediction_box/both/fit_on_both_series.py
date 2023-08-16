@@ -1,141 +1,80 @@
-from collections import defaultdict
-
 import numpy as np
 import pandas as pd
-from fedot.api.main import Fedot
-from fedot.core.composer.metrics import F1
-from fedot.core.data.data import InputData
-from fedot.core.pipelines.node import PipelineNode
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
-from golem.core.tuning.simultaneous import SimultaneousTuner
+from sklearn.metrics import classification_report
 
-from fedot_ind.core.operation.transformation.splitter import TSTransformer
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from examples.anomaly_detection.detection_classification import split_series, convert_anomalies_dict_to_points
+from fedot_ind.api.main import FedotIndustrial
 
 
-def get_anomaly_unique(labels, min_anomaly_len=5):
-    anomalies = defaultdict(list)
-    for i in range(labels.shape[0] - min_anomaly_len):
-        subseq = labels[i:i + min_anomaly_len]
-        if np.all(subseq == subseq[0]) and subseq[0] != 'Норма':
-            anomalies[subseq[0]].append([i, i + min_anomaly_len])
+def get_anomaly_subsequences(anomalies: np.ndarray, min_anomaly_len = 5):
+    # Finding the indices of ones in the boolean array
+    unique_anomalies = np.unique(anomalies[anomalies != 'no_anomaly'])
+    anomaly_dict = {}
+    for anomaly_class in unique_anomalies:
+        anomaly_indices = np.where(anomalies == anomaly_class)[0]
 
-    return anomalies
+        # Initializing variables
+        start = None
+        end = None
+        subsequences = []
+
+        # Iterating through the ones indices
+        for index in anomaly_indices:
+            if start is None:  # Starting a new subsequence
+                start = index
+                end = index
+            elif index == end + 1:  # Continuing the current subsequence
+                end = index
+            else:  # Ending the current subsequence
+                if end - start > min_anomaly_len:
+                    subsequences.append((start, end))
+                start = index
+                end = index
+
+        if start is not None and end is not None:  # Adding the last subsequence
+            subsequences.append((start, end))
+        anomaly_dict[anomaly_class] = subsequences
+    return anomaly_dict
 
 
 def split_time_series(series, features_columns: list, target_column: str):
-    anomaly_unique = get_anomaly_unique(series[target_column].values, min_anomaly_len=10)
+    series[target_column] = series[target_column].replace('Норма', 'no_anomaly')
+    anomaly_unique = get_anomaly_subsequences(series[target_column].values)
 
-    splitter_unique = TSTransformer(time_series=series[features_columns].values,
-                                    anomaly_dict=anomaly_unique,
-                                    strategy='unique')
-
-    cls, train_data, test_data = splitter_unique.transform_for_fit(binarize=False)
-    return cls, train_data, test_data
-
-
-def convert_multivar_to_input_data(data):
-    concated_df = pd.DataFrame()
-    concated_target = []
-    for df, target in data:
-        concated_df = pd.concat([concated_df, df], axis=0)
-        concated_target = concated_target + target
-    input_data = InputData(idx=np.arange(len(concated_target)),
-                           features=np.array(concated_df.values.tolist()),
-                           target=np.array(concated_target).reshape(-1, 1),
-                           data_type=DataTypesEnum.image,
-                           task=Task(TaskTypesEnum.classification)
-                           )
-    return input_data
-
-
-def convert_univar_to_input_data(data):
-    concated_df = pd.DataFrame()
-    concated_target = []
-    for df, target in data:
-        concated_df = pd.concat([concated_df, df], axis=0)
-        concated_target = concated_target + target
-    input_data = InputData(idx=np.arange(len(concated_target)),
-                           features=concated_df.values,
-                           target=np.array(concated_target).reshape(-1, 1),
-                           task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table)
-    return input_data
-
-
-def mark_series(series: pd.DataFrame, features_columns: list, target_column: str):
-    method = convert_univar_to_input_data
-    if len(features_columns) > 1:
-        method = convert_multivar_to_input_data
-    classes, train_data, test_data = split_time_series(series, features_columns, target_column)
-    train_data = method(train_data)
-    test_data = method(test_data)
-    return train_data, test_data
+    series_train, anomaly_train, series_test, anomaly_test = split_series(series[features_columns].values,
+                                                                          anomaly_unique,
+                                                                          test_part=2000)
+    return series_train, anomaly_train, series_test, anomaly_test
 
 
 def main():
-    with IndustrialModels():
-        cols = ['Power', 'Sound', 'Class']
-        series = pd.read_csv('../../data/power_cons_anomaly.csv')[cols]
-        train_data, test_data = mark_series(series, ['Power', 'Sound'], 'Class')
-        metrics = {}
-        pipeline = PipelineBuilder().add_node('data_driven_basis', branch_idx=0) \
-            .add_node('quantile_extractor', branch_idx=0) \
-            .add_node('fourier_basis'
-                      , branch_idx=1) \
-            .add_node('quantile_extractor', branch_idx=1) \
-            .add_node('wavelet_basis', branch_idx=2) \
-            .add_node('quantile_extractor', branch_idx=2) \
-            .join_branches('logit').build()
-        pipeline.show()
-        # tune pipeline
-        pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(SimultaneousTuner) \
-            .with_metric(ClassificationMetricsEnum.f1) \
-            .with_iterations(100) \
-            .build(train_data)
-        pipeline = pipeline_tuner.tune(pipeline)
-        pipeline.fit(train_data)
+    cols = ['Power', 'Sound', 'Class']
+    series = pd.read_csv('../../data/power_cons_anomaly.csv')[cols]
+    series_train, anomaly_train, series_test, anomaly_test = split_time_series(series, ['Power', 'Sound'], 'Class')
+    point_test = convert_anomalies_dict_to_points(series_test, anomaly_test)
 
-        # calculate metric of tuned pipeline
-        predict = pipeline.predict(test_data, output_mode='labels')
-        metrics['after_tuned_initial_assumption'] = F1.metric(test_data, predict)
-        pipeline.print_structure()
+    industrial = FedotIndustrial(task='anomaly_detection',
+                                 dataset='custom_dataset',
+                                 strategy='fedot_preset',
+                                 branch_nodes=['fourier_basis'],
+                                 use_cache=False,
+                                 timeout=1,
+                                 n_jobs=2,
+                                 logging_level=20,
+                                 output_folder='.')
 
-        # magic where we are replacing rf node on node that simply returns merged features
-        rf_node = pipeline.nodes[0]
-        pipeline.update_node(rf_node, PipelineNode('cat_features'))
-        rf_node.nodes_from = []
-        rf_node.unfit()
-        pipeline.fit(train_data)
-        pipeline.save('generator')
-        # generate table feature data from train and test samples using "magic" pipeline
-        train_data_preprocessed = pipeline.root_node.predict(train_data)
-        train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
-        test_data_preprocessed = pipeline.root_node.predict(test_data)
-        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+    model = industrial.fit(features=series_train,
+                           anomaly_dict=anomaly_train)
 
-        train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
-                                            features=train_data_preprocessed.predict,
-                                            target=train_data_preprocessed.target,
-                                            data_type=train_data_preprocessed.data_type,
-                                            task=train_data_preprocessed.task)
-        test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
-                                           features=test_data_preprocessed.predict,
-                                           target=test_data_preprocessed.target,
-                                           data_type=test_data_preprocessed.data_type,
-                                           task=test_data_preprocessed.task)
+    labels = industrial.predict(features=series_test)
+    probs = industrial.predict_proba(features=series_test)
 
-    model_fedot = Fedot(problem='classification', timeout=5, n_jobs=4, metric=['f1'])
-    pipeline = model_fedot.fit(train_data_preprocessed)
-    pipeline.save('predictor')
-    predict = pipeline.predict(test_data_preprocessed, output_mode='labels')
-    metrics['after_fedot_composing'] = F1.metric(test_data, predict)
-    pipeline.show()
-    print(metrics)
+    industrial.solver.get_metrics(target=point_test,
+                                  metric_names=['f1', 'roc_auc'])
+
+    print(classification_report(point_test, labels))
+
+    industrial.solver.plot_prediction(series_test, point_test)
 
 
 if __name__ == '__main__':

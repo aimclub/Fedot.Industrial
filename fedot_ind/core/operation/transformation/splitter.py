@@ -109,20 +109,20 @@ class TSTransformer:
         classes = list(anomaly_dict.keys())
         intervals = list(anomaly_dict.values())
         self.freq_length = self._get_frequent_anomaly_length(intervals)
-        transformed_intervals = self._transform_intervals(series, intervals, self.freq_length)
+        transformed_intervals = self._transform_intervals(series, intervals)
 
         features, target = self.get_features_and_target(series=series,
                                                         classes=classes,
                                                         transformed_intervals=transformed_intervals,
                                                         binarize=binarize)
 
-        if plot and not self.__check_multivariate(series):
+        if plot and self.__check_multivariate(series):
             self.plot_classes_and_intervals(series=series,
                                             classes=classes,
                                             intervals=intervals,
                                             transformed_intervals=transformed_intervals)
 
-        return pd.DataFrame(features), np.array(target)
+        return features, target
 
     def get_features_and_target(self, series, classes, transformed_intervals, binarize) -> tuple:
         target, features = self._split_by_intervals(series, classes, transformed_intervals)
@@ -130,9 +130,7 @@ class TSTransformer:
         target, features = self.balance_with_non_anomaly(series, target, features, non_anomaly_inters)
         if binarize:
             target = self._binarize_target(target)
-        if self.__check_multivariate(series):
-            features = self.convert_features_dimension(features)
-        return features, target
+        return np.array(features), np.array(target)
 
     def _get_anomaly_intervals(self, anomaly_dict: Dict) -> Tuple[List[str], List[list]]:
         labels = list(anomaly_dict.keys())
@@ -150,21 +148,21 @@ class TSTransformer:
         lengths = list(map(lambda x: x[1] - x[0], flat_intervals))
         return max(set(lengths), key=lengths.count)
 
-    def _transform_intervals(self, series, intervals, freq_len):
+    def _transform_intervals(self, series, intervals):
         # ts = self.time_series if not self.multivariate else self.time_series.T[0]
         new_intervals = []
         for class_inter in intervals:
             new_class_intervals = []
             for i in class_inter:
                 current_len = i[1] - i[0]
-                abs_diff = abs(current_len - freq_len)
+                abs_diff = abs(current_len - self.freq_length)
                 left_add = math.ceil(abs_diff / 2)
                 right_add = math.floor(abs_diff / 2)
                 # Calculate new borders
 
                 # If current anomaly interval is less than frequent length,
                 # we expand current interval to the size of frequent
-                if current_len < freq_len:
+                if current_len < self.freq_length:
                     left = i[0] - left_add
                     right = i[1] + right_add
                     # If left border is negative, shift right border to the right
@@ -178,14 +176,14 @@ class TSTransformer:
 
                 # If current anomaly interval is greater than frequent length,
                 # we shrink current interval to the size of frequent
-                elif current_len > freq_len:
-                    left = i[0] + left_add
-                    right = i[1] - right_add
+                elif current_len > self.freq_length:
+                    for l in range(i[0], i[1], self.freq_length):
+                        new_class_intervals.append([l, l + self.freq_length])
                 else:
                     left = i[0]
                     right = i[1]
 
-                new_class_intervals.append([left, right])
+                    new_class_intervals.append([left, right])
             new_intervals.append(new_class_intervals)
         return new_intervals
 
@@ -301,17 +299,6 @@ class TSTransformer:
 
         return non_nan_intervals
 
-    def convert_features_dimension(self, features: np.ndarray):
-        multi_dimension = features[0].shape[1]
-        features_df = pd.DataFrame(columns=[f'dim{i}' for i in range(multi_dimension)],
-                                   index=[i for i in range(len(features))])
-        for row, sample in enumerate(features):
-            for dim, measurement in enumerate(sample.T):
-                _measurement = pd.Series(measurement)
-                features_df.at[row, f'dim{dim}'] = _measurement
-
-        return features_df
-
     def _transform_test(self, series: np.array):
         transformed_data = []
         for i in range(0, series.shape[0], self.freq_length):
@@ -320,12 +307,12 @@ class TSTransformer:
                 if len(series_part) != self.freq_length:
                     series_part = series[-self.freq_length:]
             else:
-                series_part = series[i:i + self.freq_length, :]
-                if len(series_part) != self.freq_length:
-                    series_part = series[-self.freq_length:, :]
+                series_part = series[i:i + self.freq_length, :].T
+                if series_part.shape[1] != self.freq_length:
+                    series_part = series[-self.freq_length:, :].T
             transformed_data.append(series_part)
-        transformed_data = np.vstack(transformed_data)
-        return pd.DataFrame(transformed_data)
+        transformed_data = np.stack(transformed_data)
+        return transformed_data
 
 
 if __name__ == '__main__':

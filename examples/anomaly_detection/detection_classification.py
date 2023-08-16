@@ -89,7 +89,7 @@ def split_series(series, anomaly_dict, test_part: int = 200):
 
 
 def convert_anomalies_dict_to_points(series: np.array, anomaly_dict: Dict) -> np.array:
-    points = np.array(['no_anomaly' for _ in range(len(series))])
+    points = np.array(['no_anomaly' for _ in range(len(series))], dtype=object)
     for anomaly_class in anomaly_dict:
         for interval in anomaly_dict[anomaly_class]:
             points[interval[0]:interval[1]] = anomaly_class
@@ -111,15 +111,16 @@ if __name__ == "__main__":
     industrial = FedotIndustrial(task='anomaly_detection',
                                  dataset='custom_dataset',
                                  strategy='fedot_preset',
-                                 branch_nodes=['fourier_basis'],
+                                 branch_nodes=['data_driven_basis'],
                                  use_cache=False,
-                                 timeout=1,
-                                 n_jobs=2,
+                                 timeout=0.5,
+                                 n_jobs=1,
                                  logging_level=20,
                                  output_folder='.')
 
     model = industrial.fit(features=series_train,
                            anomaly_dict=anomaly_train)
+
 
     labels = industrial.predict(features=series_test)
     probs = industrial.predict_proba(features=series_test)
