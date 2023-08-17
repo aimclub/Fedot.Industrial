@@ -116,7 +116,7 @@ class TSTransformer:
                                                         transformed_intervals=transformed_intervals,
                                                         binarize=binarize)
 
-        if plot and self.__check_multivariate(series):
+        if plot and not self.__check_multivariate(series):
             self.plot_classes_and_intervals(series=series,
                                             classes=classes,
                                             intervals=intervals,
@@ -323,16 +323,18 @@ if __name__ == '__main__':
                      'anomaly4': [[77, 90], [98, 112], [145, 158], [290, 322]]}
 
     ts1 = np.arange(0, 100)
-    multi_ts = [ts1, ts1 * 2, ts1 * 3]
+    multi_ts = np.array([ts1, ts1 * 2, ts1 * 3]).T
     anomaly_d_multi = {'anomaly1': [[0, 5], [15, 20], [22, 24], [55, 63], [70, 90]],
                        'anomaly2': [[10, 12], [15, 16], [27, 31], [44, 50], [98, 100]],
                        'anomaly3': [[0, 3], [15, 18], [19, 24], [55, 60], [85, 90]]}
 
-    splitter_multi = TSTransformer(multi_ts, anomaly_d_multi)
-    # train_multi, test_multi = splitter_multi.split(plot=False, binarize=True)
+    splitter_multi = TSTransformer()
+    train_multi, test_multi = splitter_multi.transform_for_fit(series=multi_ts,
+                                                               anomaly_dict=anomaly_d_multi, plot=False, binarize=True)
 
-    splitter_uni = TSTransformer(uni_ts, anomaly_d_uni)
-    train_uni, test_uni = splitter_uni.transform_for_fit(plot=True, binarize=True)
+    splitter_uni = TSTransformer()
+    train_uni, test_uni = splitter_uni.transform_for_fit(series=uni_ts,
+                                                         anomaly_dict=anomaly_d_uni, plot=True, binarize=True)
 
     unique_ts = np.random.rand(800)
     anomaly_unique = {
@@ -343,8 +345,8 @@ if __name__ == '__main__':
                    [270, 280], [330, 340], [360, 370], [400, 410], [440, 450], [480, 490], [520, 530], [570, 580],
                    [610, 620], [660, 670], [700, 710]]}
 
-    splitter_unique = TSTransformer(strategy='unique')
-    unique_cls, unique_train, unique_test = splitter_unique.transform_for_fit(time_series=unique_ts,
-                                                                              anomaly_dict=anomaly_unique, plot=True,
-                                                                              binarize=False)
+    # splitter_unique = TSTransformer(strategy='unique')
+    # unique_cls, unique_train, unique_test = splitter_unique.transform_for_fit(series=unique_ts,
+    #                                                                           anomaly_dict=anomaly_unique, plot=True,
+    #                                                                           binarize=False)
     _ = 1

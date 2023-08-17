@@ -111,7 +111,7 @@ if __name__ == "__main__":
     industrial = FedotIndustrial(task='anomaly_detection',
                                  dataset='custom_dataset',
                                  strategy='fedot_preset',
-                                 branch_nodes=['data_driven_basis'],
+                                 branch_nodes=['fourier_basis'],
                                  use_cache=False,
                                  timeout=0.5,
                                  n_jobs=1,
@@ -120,7 +120,6 @@ if __name__ == "__main__":
 
     model = industrial.fit(features=series_train,
                            anomaly_dict=anomaly_train)
-
 
     labels = industrial.predict(features=series_test)
     probs = industrial.predict_proba(features=series_test)
