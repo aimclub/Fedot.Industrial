@@ -56,7 +56,7 @@ class DataLoader:
             for _ in (download_path, temp_data_path):
                 os.makedirs(_, exist_ok=True)
 
-            url = f"http://www.timeseriesclassification.com/ClassificationDownloads/{dataset_name}.zip"
+            url = f"http://www.timeseriesclassification.com/aeon-toolkit/{dataset_name}.zip"
             request.urlretrieve(url, download_path + filename)
             try:
                 zipfile.ZipFile(download_path + filename).extractall(temp_data_path + dataset_name)
