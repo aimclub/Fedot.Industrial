@@ -100,15 +100,27 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
     def get_threshold(self, data, selector: str):
 
         selectors = {'median': np.median,
-                     'mode': stats.mode}
+                     'mode': self.mode}
+                     # 'mode': stats.mode}
 
         svd_numbers = []
         with tqdm(total=len(data), desc='SVD estimation') as pbar:
             for signal in data:
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
+        return int(selectors[selector](svd_numbers))
 
-        return selectors[selector](svd_numbers).mode[0]
+    def mode(self, arr):
+        frequency_dict = {}
+        for num in arr:
+            if num in frequency_dict:
+                frequency_dict[num] += 1
+            else:
+                frequency_dict[num] = 1
+        max_frequency = max(frequency_dict.values())
+        modes = [num for num, frequency in frequency_dict.items() if frequency == max_frequency]
+        return modes[0]
+
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
