@@ -66,7 +66,7 @@ class RecurrenceExtractor(WindowedFeatureExtractor):
         """
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        components_and_vectors = parallel(delayed(self.generate_features_from_ts)(sample) for sample in ts_frame.value)
+        components_and_vectors = parallel(delayed(self._ts_chunk_function)(component) for component in ts_frame)
         if self.image_mode:
             components_and_vectors = np.asarray(components_and_vectors)
             components_and_vectors = components_and_vectors[:, np.newaxis, :, :]
