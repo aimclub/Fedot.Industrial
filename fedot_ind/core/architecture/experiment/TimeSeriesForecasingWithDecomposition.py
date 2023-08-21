@@ -16,8 +16,8 @@ from fedot.core.repository.quality_metrics_repository import ClassificationMetri
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 np.random.seed(0)

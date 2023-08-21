@@ -55,12 +55,8 @@ def get_ts_data(dataset='australia', horizon: int = 30, validation_blocks=None):
 train_data, test_data = get_ts_data('m4_weekly', 13)
 
 with IndustrialModels():
-    # n, _ = WindowSizeSelection(time_series=train_data.features,
-    #                            wss_algorithm='dominant_fourier_frequency').get_window_size()
-    # print(n)
-    # n = 30
     pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
-                                          params={'n_components': 3, 'window_size': 20,
+                                          params={'window_size': 20,
                                                   'seasonality': 20
                                                   },
                                           ).build()
