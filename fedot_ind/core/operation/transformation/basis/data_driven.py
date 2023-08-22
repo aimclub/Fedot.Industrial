@@ -94,12 +94,12 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         #     if predict[0].shape[0] == new_shape or predict[0].shape[0] == 1:
         #         reduce_dimension = False
         #     new_shape = predict[0].shape[0]
-        #predict = self._clean_predict(np.array(v))
+        # predict = self._clean_predict(np.array(v))
         return predict
 
     def get_threshold(self, data, selector: str):
 
-        selectors = {'median': np.median,
+        selectors = {'median': stats.mode,
                      'mode': stats.mode}
 
         svd_numbers = []
