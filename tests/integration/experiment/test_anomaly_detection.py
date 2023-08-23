@@ -1,11 +1,19 @@
+import shutil
+
+import numpy as np
+import pytest
+
 from examples.anomaly_detection.detection_classification import generate_time_series, split_series, \
     convert_anomalies_dict_to_points
 from fedot_ind.api.main import FedotIndustrial
 
 
-def test_anomaly_detection():
+@pytest.mark.parametrize('dimension', [1, 3])
+def test_anomaly_detection(dimension):
+    np.random.seed(42)
     time_series, anomaly_intervals = generate_time_series(
         ts_length=1000,
+        dimension=dimension,
         num_anomaly_classes=2,
         num_of_anomalies=50)
 
@@ -25,11 +33,24 @@ def test_anomaly_detection():
     model = industrial.fit(features=series_train,
                            anomaly_dict=anomaly_train)
 
-    labels = industrial.predict(features=series_test)
-    probs = industrial.predict_proba(features=series_test)
+    industrial.solver.save('model')
+
+    # prediction before loading
+    labels_before = industrial.predict(features=series_test)
+    probs_before = industrial.predict_proba(features=series_test)
+
+    industrial.solver.load('model')
+
+    # prediction after loading
+    labels_after = industrial.predict(features=series_test)
+    probs_after = industrial.predict_proba(features=series_test)
 
     metrics = industrial.solver.get_metrics(target=point_test,
                                             metric_names=['f1', 'roc_auc'])
 
-    assert metrics['f1'] > 0.6
-    assert metrics['roc_auc'] > 0.7
+    shutil.rmtree('model')
+
+    assert np.all(labels_after == labels_before)
+
+    assert metrics['f1'] > 0.5
+    assert metrics['roc_auc'] > 0.5

@@ -9,13 +9,17 @@ from fedot_ind.api.main import FedotIndustrial
 
 
 def generate_time_series(ts_length: int = 500,
+                         dimension: int = 1,
                          num_anomaly_classes: int = 4,
                          num_of_anomalies: int = 20,
                          min_anomaly_length: int = 5,
                          max_anomaly_length: int = 15):
     np.random.seed(42)
 
-    time_series = np.random.normal(0, 1, ts_length)
+    if dimension == 1:
+        time_series = np.random.normal(0, 1, ts_length)
+    else:
+        time_series = np.vstack([np.random.normal(0, 1, ts_length) for _ in range(dimension)]).swapaxes(1, 0)
     anomaly_classes = [f'anomaly{i + 1}' for i in range(num_anomaly_classes)]
 
     anomaly_intervals = {}
@@ -31,7 +35,11 @@ def generate_time_series(ts_length: int = 500,
 
         anomaly = np.random.normal(int(anomaly_class[-1]), 1, end_idx - start_idx)
 
-        time_series[start_idx:end_idx] += anomaly
+        if dimension == 1:
+            time_series[start_idx:end_idx] += anomaly
+        else:
+            for i in range(time_series.shape[1]):
+                time_series[start_idx:end_idx, i] += anomaly
 
         if anomaly_class in anomaly_intervals:
             anomaly_intervals[anomaly_class].append([start_idx, end_idx])
@@ -99,6 +107,7 @@ def convert_anomalies_dict_to_points(series: np.array, anomaly_dict: Dict) -> np
 if __name__ == "__main__":
     time_series, anomaly_intervals = generate_time_series(
         ts_length=1000,
+        dimension=5,
         num_anomaly_classes=7,
         num_of_anomalies=50)
 
