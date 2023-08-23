@@ -111,7 +111,6 @@ if __name__ == "__main__":
     industrial = FedotIndustrial(task='anomaly_detection',
                                  dataset='custom_dataset',
                                  strategy='fedot_preset',
-                                 branch_nodes=['fourier_basis'],
                                  use_cache=False,
                                  timeout=0.5,
                                  n_jobs=1,
