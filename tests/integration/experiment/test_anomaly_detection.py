@@ -25,6 +25,7 @@ def test_anomaly_detection():
     model = industrial.fit(features=series_train,
                            anomaly_dict=anomaly_train)
 
+    labels = industrial.predict(features=series_test)
     probs = industrial.predict_proba(features=series_test)
 
     metrics = industrial.solver.get_metrics(target=point_test,

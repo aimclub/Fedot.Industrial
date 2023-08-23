@@ -99,7 +99,7 @@ def convert_anomalies_dict_to_points(series: np.array, anomaly_dict: Dict) -> np
 if __name__ == "__main__":
     time_series, anomaly_intervals = generate_time_series(
         ts_length=1000,
-        num_anomaly_classes=2,
+        num_anomaly_classes=7,
         num_of_anomalies=50)
 
     # plot_anomalies(time_series, anomaly_intervals)
