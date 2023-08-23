@@ -231,9 +231,9 @@ class TimeSeriesClassifierPreset:
 
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
-        data_cacher = DataCacher()
+        # data_cacher = DataCacher()
         # get unique hash of input data
-        test_predict_hash = data_cacher.hash_info(data=features)
+        # test_predict_hash = data_cacher.hash_info(data=features)
         # compare it to existed hash
         # if self.test_predict_hash != test_predict_hash:
         #     test_data = self._init_input_data(features, target)
