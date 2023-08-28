@@ -1,8 +1,9 @@
+import json
 import logging
 from enum import Enum
 from typing import Union
 
-from fedot_ind.api.utils.hp_generator_collection import GeneratorParams
+from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
 from fedot_ind.core.architecture.settings.pipeline_factory import FeatureGenerator
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 
@@ -22,7 +23,7 @@ class IndustrialConfigs(Enum):
 
     ts_regression = dict(task='ts_regression',
                          dataset=None,
-                         strategy='statistical',
+                         strategy='quantile',
                          model_params={'problem': 'regression',
                                        'seed': 42,
                                        'timeout': 15,
@@ -32,7 +33,12 @@ class IndustrialConfigs(Enum):
                                        'logging_level': 20,
                                        'n_jobs': -1})
 
-    anomaly_detection = NotImplementedError
+    anomaly_detection = dict(task='anomaly_detection',
+                             dataset=None,
+                             strategy='fedot_preset',
+                             model_params={'problem': 'classification',
+                                           'seed': 42})
+
     image_classification = NotImplementedError
     object_detection = NotImplementedError
 
@@ -92,7 +98,7 @@ class Configurator:
         else:
             if generator.startswith('ensemble'):
                 dict_of_generators = {}
-                generators_to_ensemble = generator.split(': ')[1].split(' ')
+                generators_to_ensemble = generator.transform_for_fit(': ')[1].transform_for_fit(' ')
                 for gen in generators_to_ensemble:
                     single_gen_class = self._extract_generator_class(gen)
                     dict_of_generators[gen] = single_gen_class
@@ -105,7 +111,10 @@ class Configurator:
 
     def _extract_generator_class(self, generator):
         feature_gen_model = FeatureGenerator[generator].value
-        feature_gen_params = GeneratorParams[generator].value
+
+        with open(PATH_TO_DEFAULT_PARAMS, 'r') as file:
+            _feature_gen_params = json.load(file)
+            feature_gen_params = _feature_gen_params[f'{generator}_extractor']
 
         for param in feature_gen_params:
             feature_gen_params[param] = self.experiment_dict.get(param, feature_gen_params[param])

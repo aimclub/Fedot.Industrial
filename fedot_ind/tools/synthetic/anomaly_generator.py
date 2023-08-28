@@ -138,8 +138,8 @@ class AnomalyGenerator:
                                         label=cls) for cls in anomaly_intervals_dict.keys()]
 
         for anomaly_class, intervals in anomaly_intervals_dict.items():
-            for interval in intervals.split(', '):
-                start_idx, end_idx = map(int, interval.split(':'))
+            for interval in intervals.transform_for_fit(', '):
+                start_idx, end_idx = map(int, interval.transform_for_fit(':'))
                 ax.axvspan(start_idx, end_idx, alpha=0.3, color=color_dict[anomaly_class])
 
         # Put a legend to the right of the current axis

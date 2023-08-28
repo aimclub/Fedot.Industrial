@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from fedot.api.main import Fedot
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -51,8 +52,17 @@ class IndustrialPredictor:
                                                 target=train_data_preprocessed.target,
                                                 data_type=train_data_preprocessed.data_type,
                                                 task=train_data_preprocessed.task)
-        self.predictor.unfit()
-        self.predictor.fit(train_data_preprocessed)
+        model_fedot = Fedot(problem='classification', timeout=5, n_jobs=4, metric=['f1'])
+        self.predictor = model_fedot.fit(train_data_preprocessed)
+
+        individuals_with_positions \
+            = list({ind.graph.descriptive_id: (ind, gen_num, ind_num)
+                    for gen_num, gen in enumerate(model_fedot.history.generations)
+                    for ind_num, ind in reversed(list(enumerate(gen)))}.values())
+
+        top_individuals = sorted(individuals_with_positions,
+                                 key=lambda pos_ind: pos_ind[0].fitness, reverse=True)[:3]
+        _ = 1
 
     def predict(self, series: np.ndarray, output_mode: str = 'labels') -> np.ndarray:
         """
