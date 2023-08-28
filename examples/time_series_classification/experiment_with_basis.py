@@ -3,49 +3,38 @@ from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 if __name__ == "__main__":
 
-    datasets_bad_f1 = [
-        #'EOGVerticalSignal',
-        # 'ScreenType',
-        # 'CricketY',
-        # 'ElectricDevices',
-        'Lightning7'
-    ]
-
-    datasets_good_f1 = [
+    datasets_f1 = [
+        'EOGVerticalSignal',
+        'ScreenType',
+        'CricketY',
+        'ElectricDevices',
+        'Lightning7',
         'Car',
         'ECG5000',
         "Beef",
-        #     'Phoneme',
-        #'Meat',
-        # 'RefrigerationDevices'
+        'Phoneme',
+        'Meat',
+        'RefrigerationDevices'
     ]
 
-    datasets_good_roc = [
-        # 'Chinatown',
+    datasets_roc = [
+        'Chinatown',
         'Computers',
-        # 'Earthquakes',
+        'Earthquakes',
         'Ham',
         'ECG200',
         'ECGFiveDays'
-        # 'MiddlePhalanxOutlineCorrect',
-        # 'MoteStrain',
-        # 'TwoLeadECG'
-    ]
-    # node_scaling = PipelineNode('scaling')
-    # node_final = PipelineNode('rf', nodes_from=[node_scaling])
-    # rf_model = Pipeline(node_final)
-
-    datasets_bad_roc = [
+        'MiddlePhalanxOutlineCorrect',
+        'MoteStrain',
+        'TwoLeadECG'
         'Lightning2',
-        # 'WormsTwoClass',
-        # 'DistalPhalanxOutlineCorrect'
+        'WormsTwoClass',
+        'DistalPhalanxOutlineCorrect'
     ]
 
     for group in [
-        datasets_bad_f1,
-        datasets_good_f1,
-        datasets_good_roc,
-        datasets_bad_roc
+        datasets_f1,
+        datasets_roc,
     ]:
 
         for dataset_name in group:
@@ -76,4 +65,3 @@ if __name__ == "__main__":
             for pred, kind in zip([labels, probs], ['labels', 'probs']):
                 industrial.save_predict(predicted_data=pred, kind=kind)
             industrial.save_metrics(metrics=metric)
-    _ = 1
