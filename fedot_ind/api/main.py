@@ -12,7 +12,7 @@ from fedot_ind.api.utils.reporter import ReporterTSC
 from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
-from fedot_ind.core.operation.transformation.splitter import TSSplitter
+from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
@@ -247,11 +247,11 @@ class FedotIndustrial(Fedot):
                  strategy: str = 'frequent',
                  plot: bool = True) -> Tuple[np.array, np.array]:
 
-        splitter = TSSplitter(time_series=time_series,
-                              anomaly_dict=anomaly_dict,
-                              strategy=strategy)
+        splitter = TSTransformer(time_series=time_series,
+                                 anomaly_dict=anomaly_dict,
+                                 strategy=strategy)
 
-        train_data, test_data = splitter.split(plot=plot,
-                                               binarize=binarize)
+        train_data, test_data = splitter.transform_for_fit(plot=plot,
+                                                           binarize=binarize)
 
         return train_data, test_data

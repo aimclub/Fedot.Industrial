@@ -1,5 +1,6 @@
 from enum import Enum
 
+from fedot_ind.core.architecture.experiment.TimeSeriesAnomalyDetection import TimeSeriesAnomalyDetectionPreset
 from fedot_ind.core.architecture.experiment.computer_vision import CVExperimenter
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierNN import TimeSeriesClassifierNN
@@ -19,7 +20,7 @@ class TaskEnum(Enum):
                              default=TimeSeriesClassifier)
 
     ts_regression = (TimeSeriesRegression,)
-    anomaly_detection = (TimeSeriesClassifier,)
+    anomaly_detection = (TimeSeriesAnomalyDetectionPreset,)
     image_classification = (CVExperimenter,)
     object_detection = (CVExperimenter,)
     semantic_segmentation = (CVExperimenter,)
