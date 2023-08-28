@@ -1,11 +1,10 @@
 import json
 import logging
-import os
 from enum import Enum
 from typing import Union
 
-from fedot_ind.core.architecture.settings.pipeline_factory import FeatureGenerator
 from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
+from fedot_ind.core.architecture.settings.pipeline_factory import FeatureGenerator
 from fedot_ind.core.models.BaseExtractor import BaseExtractor
 
 
@@ -34,7 +33,12 @@ class IndustrialConfigs(Enum):
                                        'logging_level': 20,
                                        'n_jobs': -1})
 
-    anomaly_detection = NotImplementedError
+    anomaly_detection = dict(task='anomaly_detection',
+                             dataset=None,
+                             strategy='fedot_preset',
+                             model_params={'problem': 'classification',
+                                           'seed': 42})
+
     image_classification = NotImplementedError
     object_detection = NotImplementedError
 
@@ -94,7 +98,7 @@ class Configurator:
         else:
             if generator.startswith('ensemble'):
                 dict_of_generators = {}
-                generators_to_ensemble = generator.split(': ')[1].split(' ')
+                generators_to_ensemble = generator.transform_for_fit(': ')[1].transform_for_fit(' ')
                 for gen in generators_to_ensemble:
                     single_gen_class = self._extract_generator_class(gen)
                     dict_of_generators[gen] = single_gen_class

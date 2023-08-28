@@ -164,7 +164,7 @@ class DataLoader:
                         if data_started:
                             raise TsFileParseException("metadata must come before data")
                         # Check that the associated value is valid
-                        tokens = line.split(' ')
+                        tokens = line.transform_for_fit(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
@@ -179,7 +179,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.split(' ')
+                        tokens = line.transform_for_fit(' ')
                         token_len = len(tokens)
 
                         if token_len != 2:
@@ -198,7 +198,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.split(' ')
+                        tokens = line.transform_for_fit(' ')
                         token_len = len(tokens)
                         if token_len != 2:
                             raise TsFileParseException("univariate tag requires an associated Boolean value")
@@ -217,7 +217,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.split(' ')
+                        tokens = line.transform_for_fit(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
@@ -244,7 +244,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.split(' ')
+                        tokens = line.transform_for_fit(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
@@ -554,7 +554,7 @@ class DataLoader:
                             if target_labels and len(class_val_list) == 0:
                                 raise TsFileParseException("the cases have no associated class values")
                         else:
-                            dimensions = line.split(":")
+                            dimensions = line.transform_for_fit(":")
                             # If first row then note the number of dimensions (that must be the same for all cases)
                             if is_first_case:
                                 num_dimensions = len(dimensions)
@@ -582,7 +582,7 @@ class DataLoader:
                                 dimension = dimensions[dim].strip()
 
                                 if dimension:
-                                    data_series = dimension.split(",")
+                                    data_series = dimension.transform_for_fit(",")
                                     data_series = [float(i) for i in data_series]
                                     instance_list[dim].append(pd.Series(data_series))
                                 else:
