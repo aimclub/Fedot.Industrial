@@ -3,6 +3,7 @@ from typing import TypeVar, Optional
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.quality_metrics_repository import RegressionMetricsEnum
@@ -41,7 +42,14 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size')
-        self.estimator = params.get('estimator', PipelineBuilder().add_node('lagged').add_node('ridge').build())
+        estimator_name = params.get('estimator', 'ar')
+        print(estimator_name)
+        ESTIMATORS = {
+                      'ar': PipelineBuilder().add_node('ar').build(),
+                      'polyfit': PipelineBuilder().add_node('polyfit').build(),
+                      'glm': PipelineBuilder().add_node('glm').build()}
+        self.estimator = ESTIMATORS[estimator_name]
+
         self.SV_threshold = None
 
         self.decomposer = None
@@ -57,15 +65,8 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         self.decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length, self.SV_threshold)
         basis = self.get_svd(data).T
 
-        # precise_of_approximation = mean_absolute_percentage_error(input_data.features, np.sum(basis, axis=0))
-        # if precise_of_approximation > 0.3:
-        #     print(precise_of_approximation, 'use remain')
-        #     np.append(basis, input_data.features - np.sum(basis, axis=0))
         reconstructed_target = []
         for i, row in enumerate(basis):
-            # auto_model = Fedot(problem='ts_forecasting', task_params=input_data.task.task_params,
-            #                    timeout=0.5,
-            #                    n_jobs=1)
             appendix = 0
             if np.any(row < 0):
                 appendix = np.abs(min(row))
@@ -79,20 +80,21 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
             pipeline_tuner = TunerBuilder(train_data.task) \
                 .with_tuner(SimultaneousTuner) \
                 .with_metric(RegressionMetricsEnum.MAE) \
-                .with_iterations(5) \
-                .with_cv_folds(2) \
+                .with_iterations(3) \
+                .with_cv_folds(2)\
+                .with_validation_blocks(1)\
                 .build(train_data)
             self.estimator = pipeline_tuner.tune(self.estimator)
             self.estimator.fit(train_data)
             predict = np.ravel(self.estimator.predict(test_data).predict)
             reconstructed_target.append(predict - appendix)
             self.estimator.unfit()
-        plt.plot(input_data.features)
-        for i in basis:
-            plt.plot(i)
-        for i in reconstructed_target:
-            plt.plot(np.arange(input_data.features.shape[0], input_data.features.shape[0]+i.shape[0]), i)
-        plt.show()
+        # plt.plot(input_data.features)
+        # for i in basis:
+        #     plt.plot(i)
+        # for i in reconstructed_target:
+        #     plt.plot(np.arange(input_data.features.shape[0], input_data.features.shape[0]+i.shape[0]), i)
+        # plt.show()
         return np.array(reconstructed_target).sum(axis=0)
 
     def fit(self, input_data: InputData):
