@@ -182,6 +182,6 @@
   },
   "data_driven_basis_for_forecasting": {
     "window_size": 30,
-    "estimator": "ar"
+    "estimator": "arima"
   }
 }

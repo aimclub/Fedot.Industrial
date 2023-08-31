@@ -3,14 +3,12 @@ from typing import TypeVar, Optional
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.quality_metrics_repository import RegressionMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from matplotlib import pyplot as plt
 from pymonad.either import Either
-from sklearn.metrics import mean_absolute_percentage_error
 
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -45,9 +43,10 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         estimator_name = params.get('estimator', 'ar')
         print(estimator_name)
         ESTIMATORS = {
-                      'ar': PipelineBuilder().add_node('ar').build(),
-                      'polyfit': PipelineBuilder().add_node('polyfit').build(),
-                      'glm': PipelineBuilder().add_node('glm').build()}
+            'arima': PipelineBuilder().add_node('arima').build(),
+            'ridge': PipelineBuilder().add_node('lagged').add_node('ridge').build(),
+            'ar': PipelineBuilder().add_node('ar').build(),
+            'ets': PipelineBuilder().add_node('ets').build()}
         self.estimator = ESTIMATORS[estimator_name]
 
         self.SV_threshold = None
@@ -56,21 +55,19 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         self.basis = None
 
     def predict(self, input_data: InputData) -> OutputData:
+        forecast_length = input_data.task.task_params.forecast_length
         trajectory_transformer = HankelMatrix(time_series=input_data.features, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
-        self.decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length)
 
         self.window_size = trajectory_transformer.window_length
-        self.SV_threshold = self.estimate_singular_values(data)
-        self.decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length, self.SV_threshold)
-        basis = self.get_svd(data).T
+        self.decomposer = SpectrumDecomposer(data,
+                                             trajectory_transformer.ts_length + forecast_length,
+                                             self.SV_threshold)
+        U, s, VT = self.get_svd(data)
 
-        reconstructed_target = []
-        for i, row in enumerate(basis):
-            appendix = 0
-            if np.any(row < 0):
-                appendix = np.abs(min(row))
-            row = row + appendix
+        new_VT = []
+        for i in range(s.shape[0]):
+            row = VT[i]
             train_data = InputData(idx=np.arange(row.shape[0]), features=row, target=row,
                                    data_type=input_data.data_type,
                                    task=input_data.task)
@@ -81,24 +78,52 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
                 .with_tuner(SimultaneousTuner) \
                 .with_metric(RegressionMetricsEnum.MAE) \
                 .with_iterations(3) \
-                .with_cv_folds(2)\
-                .with_validation_blocks(1)\
+                .with_cv_folds(None) \
+                .with_validation_blocks(1) \
                 .build(train_data)
             self.estimator = pipeline_tuner.tune(self.estimator)
             self.estimator.fit(train_data)
             predict = np.ravel(self.estimator.predict(test_data).predict)
-            reconstructed_target.append(predict - appendix)
             self.estimator.unfit()
-        # plt.plot(input_data.features)
-        # for i in basis:
-        #     plt.plot(i)
-        # for i in reconstructed_target:
-        #     plt.plot(np.arange(input_data.features.shape[0], input_data.features.shape[0]+i.shape[0]), i)
+            # plt.plot(U[i])
+            # plt.plot(np.arange(len(row), len(row)+len(predict)), predict)
+            new_VT.append(np.concatenate([row, predict]))
+
+        new_VT = np.array(new_VT)
+        basis = self.reconstruct_basis(U, s, new_VT).T
+
+        self.decomposer = SpectrumDecomposer(data,
+                                             trajectory_transformer.ts_length,
+                                             self.SV_threshold)
+        self.train_basis = self.reconstruct_basis(U, s, VT).T
+
+        # plt.grid()
         # plt.show()
-        return np.array(reconstructed_target).sum(axis=0)
+        plt.plot(input_data.features)
+        for i in basis:
+            plt.plot(i)
+
+        plt.plot(np.arange(len(input_data.features), len(input_data.features) + forecast_length), np.array(basis).sum(axis=0)[-forecast_length:])
+        plt.show()
+
+        return np.array(basis).sum(axis=0)[-forecast_length:]
 
     def fit(self, input_data: InputData):
         pass
+
+    def predict_for_fit(self, input_data: InputData) -> OutputData:
+        trajectory_transformer = HankelMatrix(time_series=input_data.features, window_size=self.window_size)
+        data = trajectory_transformer.trajectory_matrix
+        self.decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length)
+
+        self.window_size = trajectory_transformer.window_length
+        self.SV_threshold = self.estimate_singular_values(data)
+        self.decomposer = SpectrumDecomposer(data,
+                                             trajectory_transformer.ts_length,
+                                             self.SV_threshold)
+        U, s, VT = self.get_svd(data)
+        basis = self.reconstruct_basis(U, s, VT).T
+        return np.array(basis).sum(axis=0)
 
     def estimate_singular_values(self, data):
         basis = Either.insert(data).then(self.decomposer.svd).value[0]
@@ -114,7 +139,9 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         return components
 
     def get_svd(self, data):
-        components = Either.insert(data).then(self.decomposer.svd).then(self.decomposer.threshold).then(
-            self.decomposer.data_driven_basis).value[0]
+        components = Either.insert(data).then(self.decomposer.svd).then(self.decomposer.threshold).value[0]
 
         return components
+
+    def reconstruct_basis(self, U, s, VT):
+        return Either.insert([U, s, VT]).then(self.decomposer.data_driven_basis).value[0]

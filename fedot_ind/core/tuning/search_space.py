@@ -31,9 +31,8 @@ industrial_search_space = {
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
     'data_driven_basis_for_forecasting': {
-        'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
         'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]},
-        'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope':  [['ridge', 'ar', 'polyfit', 'glm']]}
+        'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope':  [['ridge', 'ar', 'polyfit', 'ets']]}
     }
 }
 

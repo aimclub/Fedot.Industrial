@@ -56,18 +56,20 @@ def get_ts_data(dataset='australia', horizon: int = 30, m4_id=None):
     return train_data, test_data
 
 
-train_data, test_data = get_ts_data('m4_daily', 48)
+# , 'M39015'
+train_data, test_data = get_ts_data('m4_monthly', 7)
 
 with IndustrialModels():
     pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
-                                          params={'window_size': 20},
+                                          params={'window_size': int(len(train_data.features) * 0.35),
+                                                  'estimator': 'ets'}
                                           ).build()
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(SimultaneousTuner) \
         .with_metric(RegressionMetricsEnum.MAE) \
-        .with_cv_folds(2) \
+        .with_cv_folds(None) \
         .with_validation_blocks(1) \
-        .with_iterations(3) \
+        .with_iterations(5) \
         .build(train_data)
 
     pipeline = pipeline_tuner.tune(pipeline)
@@ -82,10 +84,14 @@ with IndustrialModels():
         .build(train_data)
     pipeline2 = pipeline_tuner2.tune(pipeline2)
     pipeline2.fit(train_data)
+
     predict = np.ravel(pipeline.predict(test_data).predict)
     no_ssa = np.ravel(pipeline2.predict(test_data).predict)
     plt.plot(train_data.idx, test_data.features, label='features')
     plt.plot(test_data.idx, test_data.target, label='target')
+    for comp in pipeline.nodes[0].fitted_operation.train_basis:
+        plt.plot(train_data.idx, comp,
+                 label='reconmstructed features')
     plt.plot(test_data.idx, predict, label='predicted ssa')
     plt.plot(test_data.idx, no_ssa, label='predicted no ssa')
     print(f"SSA smape: {smape(test_data.target, predict)}")
@@ -93,3 +99,4 @@ with IndustrialModels():
     plt.grid()
     plt.legend()
     plt.show()
+    pipeline.print_structure()
