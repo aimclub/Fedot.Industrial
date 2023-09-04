@@ -62,7 +62,7 @@ train_data, test_data = get_ts_data('m4_monthly', 7)
 with IndustrialModels():
     pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
                                           params={'window_size': int(len(train_data.features) * 0.35),
-                                                  'estimator': 'ets'}
+                                                  'estimator': 'arima'}
                                           ).build()
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(SimultaneousTuner) \
@@ -89,9 +89,9 @@ with IndustrialModels():
     no_ssa = np.ravel(pipeline2.predict(test_data).predict)
     plt.plot(train_data.idx, test_data.features, label='features')
     plt.plot(test_data.idx, test_data.target, label='target')
-    for comp in pipeline.nodes[0].fitted_operation.train_basis:
-        plt.plot(train_data.idx, comp,
-                 label='reconmstructed features')
+    # for comp in pipeline.nodes[0].fitted_operation.train_basis:
+    #     plt.plot(train_data.idx, comp,
+    #              label='reconmstructed features')
     plt.plot(test_data.idx, predict, label='predicted ssa')
     plt.plot(test_data.idx, no_ssa, label='predicted no ssa')
     print(f"SSA smape: {smape(test_data.target, predict)}")

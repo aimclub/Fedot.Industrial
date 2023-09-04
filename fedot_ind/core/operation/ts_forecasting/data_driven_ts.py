@@ -1,11 +1,13 @@
 from typing import TypeVar, Optional
 
+from fedot.api.main import Fedot
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.quality_metrics_repository import RegressionMetricsEnum
+from fedot.core.repository.tasks import TsForecastingParams
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from matplotlib import pyplot as plt
 from pymonad.either import Either
@@ -99,14 +101,29 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
         # plt.grid()
         # plt.show()
-        plt.plot(input_data.features)
-        for i in basis:
-            plt.plot(i)
+        # plt.plot(input_data.features)
+        # for i in basis:
+        #     plt.plot(i)
+        #
+        # plt.plot(np.arange(len(input_data.features), len(input_data.features) + forecast_length), np.array(basis).sum(axis=0)[-forecast_length:])
+        # plt.show()
+        reconstructed = np.array(basis).sum(axis=0)
+        remains = input_data.features - reconstructed[:-forecast_length]
 
-        plt.plot(np.arange(len(input_data.features), len(input_data.features) + forecast_length), np.array(basis).sum(axis=0)[-forecast_length:])
-        plt.show()
+        train_data = InputData(idx=np.arange(remains.shape[0]), features=remains, target=remains,
+                               data_type=input_data.data_type,
+                               task=input_data.task)
+        test_data = InputData(idx=input_data.idx, features=remains, target=None,
+                              data_type=input_data.data_type,
+                              task=input_data.task)
+        fedot = Fedot(problem='ts_forecasting',
+                      task_params=TsForecastingParams(forecast_length=forecast_length),
+                      timeout=0.5)
+        fedot.fit(train_data)
+        fedot_predict = fedot.predict(test_data)
 
-        return np.array(basis).sum(axis=0)[-forecast_length:]
+        predict = reconstructed[-forecast_length:] + fedot_predict
+        return predict
 
     def fit(self, input_data: InputData):
         pass
