@@ -1,29 +1,61 @@
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
-from golem.core.tuning.simultaneous import SimultaneousTuner
-
-from fedot_ind.core.optimizer import IndustrialEvoOptimizer
 import numpy as np
+import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.composer.metrics import F1
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import get_operations_for_task
-from fedot.core.repository.tasks import TaskTypesEnum, Task
-from tests.integration.repository.test_repo import initialize_multi_data, initialize_uni_data
+from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum
+from golem.core.tuning.simultaneous import SimultaneousTuner
+
+from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.core.optimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+
+def check_multivariate_data(data: pd.DataFrame) -> bool:
+    if isinstance(data.iloc[0, 0], pd.Series):
+        return True
+    else:
+        return False
+
+
+def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
+    is_multivariate_data = check_multivariate_data(X)
+    if is_multivariate_data:
+        input_data = InputData(idx=np.arange(len(X)),
+                               features=np.array(X.values.tolist()),
+                               target=y.reshape(-1, 1),
+                               task=Task(TaskTypesEnum.classification),
+                               data_type=DataTypesEnum.image)
+    else:
+        input_data = InputData(idx=np.arange(len(X)),
+                               features=X.values,
+                               target=np.ravel(y).reshape(-1, 1),
+                               task=Task(TaskTypesEnum.classification),
+                               data_type=DataTypesEnum.table)
+    return input_data
+
 
 if __name__ == '__main__':
     np.random.seed(0)
     mode = 'tuning'
     dataset_list = [
-        # 'Adiac', 'ArrowHead', 'Mallat', 'Meat', 'Rock',
-    'LiveFuelMoistureContent']
+        # 'Adiac', 'ArrowHead', 'Mallat', 'Meat',
+        'Ham',
+    # 'LiveFuelMoistureContent'
+    ]
     # initialize industrial repository
     for dataset_name in dataset_list:
-        with IndustrialModels():
-            train_data, test_data = initialize_multi_data(dataset_name)
+        with ((IndustrialModels())):
+            train, test = DataLoader(dataset_name).load_data()
+
+            train_data = init_input_data(train[0], train[1])
+            test_data = init_input_data(test[0], test[1])
             # train_data, test_data = initialize_uni_data(dataset_name)
 
             task = Task(TaskTypesEnum.classification)
@@ -31,7 +63,8 @@ if __name__ == '__main__':
             other = get_operations_for_task(task=train_data.task, forbidden_tags=["basis", "extractor"])
             metrics = {}
 
-            pipeline = PipelineBuilder().add_node('data_driven_basis', branch_idx=0) \
+            pipeline = PipelineBuilder() \
+                .add_node('data_driven_basis', branch_idx=0) \
                 .add_node('quantile_extractor', branch_idx=0) \
                 .add_node('fourier_basis'
                           , branch_idx=1) \
@@ -40,16 +73,16 @@ if __name__ == '__main__':
                 .add_node('quantile_extractor', branch_idx=2) \
                 .add_node('data_driven_basis', branch_idx=3) \
                 .add_node('topological_extractor', branch_idx=3) \
-                .add_node('data_driven_basis', branch_idx=4) \
-                .add_node('recurrence_extractor', branch_idx=4) \
                 .join_branches('logit').build()
+                # .add_node('data_driven_basis', branch_idx=4) \
+                # .add_node('recurrence_extractor', branch_idx=4) \
 
             if mode == 'tuning':
                 # tune pipeline
                 pipeline_tuner = TunerBuilder(train_data.task) \
                     .with_tuner(SimultaneousTuner) \
                     .with_metric(ClassificationMetricsEnum.f1) \
-                    .with_iterations(100) \
+                    .with_iterations(5) \
                     .build(train_data)
                 pipeline = pipeline_tuner.tune(pipeline)
                 pipeline.fit(train_data)
