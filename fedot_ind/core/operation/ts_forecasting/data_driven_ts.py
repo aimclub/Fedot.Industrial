@@ -1,16 +1,13 @@
 from typing import TypeVar, Optional
-
+from statsforecast.arima import AutoARIMA
 from fedot.api.main import Fedot
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.quality_metrics_repository import RegressionMetricsEnum
 from fedot.core.repository.tasks import TsForecastingParams
-from golem.core.tuning.simultaneous import SimultaneousTuner
-from matplotlib import pyplot as plt
 from pymonad.either import Either
+from statsforecast.models import AutoTheta, AutoETS
 
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -70,26 +67,16 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         new_VT = []
         for i in range(s.shape[0]):
             row = VT[i]
-            train_data = InputData(idx=np.arange(row.shape[0]), features=row, target=row,
-                                   data_type=input_data.data_type,
-                                   task=input_data.task)
-            test_data = InputData(idx=input_data.idx, features=row, target=None,
-                                  data_type=input_data.data_type,
-                                  task=input_data.task)
-            pipeline_tuner = TunerBuilder(train_data.task) \
-                .with_tuner(SimultaneousTuner) \
-                .with_metric(RegressionMetricsEnum.MAE) \
-                .with_iterations(3) \
-                .with_cv_folds(None) \
-                .with_validation_blocks(1) \
-                .build(train_data)
-            self.estimator = pipeline_tuner.tune(self.estimator)
-            self.estimator.fit(train_data)
-            predict = np.ravel(self.estimator.predict(test_data).predict)
-            self.estimator.unfit()
-            # plt.plot(U[i])
-            # plt.plot(np.arange(len(row), len(row)+len(predict)), predict)
-            new_VT.append(np.concatenate([row, predict]))
+            model_theta = AutoTheta()
+            model_arima = AutoARIMA()
+            model_ets = AutoETS()
+            forecast = []
+            for model in [model_theta, model_arima, model_ets]:
+                model.fit(row)
+                p = model.predict(forecast_length)['mean']
+                forecast.append(p)
+            pred = np.median(np.array(forecast), axis=0)
+            new_VT.append(np.concatenate([row, pred]))
 
         new_VT = np.array(new_VT)
         basis = self.reconstruct_basis(U, s, new_VT).T
@@ -99,31 +86,8 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
                                              self.SV_threshold)
         self.train_basis = self.reconstruct_basis(U, s, VT).T
 
-        # plt.grid()
-        # plt.show()
-        # plt.plot(input_data.features)
-        # for i in basis:
-        #     plt.plot(i)
-        #
-        # plt.plot(np.arange(len(input_data.features), len(input_data.features) + forecast_length), np.array(basis).sum(axis=0)[-forecast_length:])
-        # plt.show()
-        reconstructed = np.array(basis).sum(axis=0)
-        remains = input_data.features - reconstructed[:-forecast_length]
 
-        train_data = InputData(idx=np.arange(remains.shape[0]), features=remains, target=remains,
-                               data_type=input_data.data_type,
-                               task=input_data.task)
-        test_data = InputData(idx=input_data.idx, features=remains, target=None,
-                              data_type=input_data.data_type,
-                              task=input_data.task)
-        fedot = Fedot(problem='ts_forecasting',
-                      task_params=TsForecastingParams(forecast_length=forecast_length),
-                      timeout=0.5)
-        fedot.fit(train_data)
-        fedot_predict = fedot.predict(test_data)
-
-        predict = reconstructed[-forecast_length:] + fedot_predict
-        return predict
+        return np.array(basis).sum(axis=0)[-forecast_length:]
 
     def fit(self, input_data: InputData):
         pass
@@ -150,8 +114,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
     def get_combined_components(self, U, Sigma, V_T):
         components = Either.insert([U, Sigma, V_T]).then(
-            self.decomposer.data_driven_basis).then(
-            self.decomposer.combine_components).value[0]
+            self.decomposer.data_driven_basis).value[0]
 
         return components
 
