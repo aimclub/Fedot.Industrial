@@ -19,6 +19,8 @@ class RSVDDecomposition:
         self.random_projection = np.random.randn(tensor.shape[1], projection_rank)
 
     def _compute_matrix_approximation(self, Ut, block, tensor, rank):
+        if rank < 3:
+            rank = 3
         Ut_ = Ut[:, :rank]
         tensor_approx = block @ Ut_
         reconstr_m = tensor_approx @ tensor_approx.T @ tensor

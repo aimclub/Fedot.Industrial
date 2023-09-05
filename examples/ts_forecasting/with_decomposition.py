@@ -12,6 +12,7 @@ from fedot.core.repository.quality_metrics_repository import RegressionMetricsEn
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from matplotlib import pyplot as plt
+from statsforecast.models import AutoTheta, AutoARIMA, AutoETS
 
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
@@ -64,33 +65,26 @@ with IndustrialModels():
                                           params={'window_size': int(len(train_data.features) * 0.35),
                                                   'estimator': 'ar'}
                                           ).build()
-    # pipeline_tuner = TunerBuilder(train_data.task) \
-    #     .with_tuner(SimultaneousTuner) \
-    #     .with_metric(RegressionMetricsEnum.MAE) \
-    #     .with_cv_folds(None) \
-    #     .with_validation_blocks(1) \
-    #     .with_iterations(5) \
-    #     .build(train_data)
-    #
-    # pipeline = pipeline_tuner.tune(pipeline)
     pipeline.fit(train_data)
-    pipeline2 = PipelineBuilder().add_node('lagged').add_node('ridge').build()
-    pipeline_tuner2 = TunerBuilder(train_data.task) \
-        .with_tuner(SimultaneousTuner) \
-        .with_metric(RegressionMetricsEnum.MAE) \
-        .with_cv_folds(2) \
-        .with_validation_blocks(1) \
-        .with_iterations(10) \
-        .build(train_data)
-    pipeline2 = pipeline_tuner2.tune(pipeline2)
-    pipeline2.fit(train_data)
+
 
     predict = np.ravel(pipeline.predict(test_data).predict)
-    no_ssa = np.ravel(pipeline2.predict(test_data).predict)
+
+    model_theta = AutoTheta()
+    model_arima = AutoARIMA()
+    model_ets = AutoETS()
+    forecast = []
+    for model in [model_theta, model_arima, model_ets]:
+        model.fit(train_data.features)
+        p = model.predict(test_data.task.task_params.forecast_length)['mean']
+        forecast.append(p)
+    pred = np.median(np.array(forecast), axis=0)
+
+    no_ssa = np.ravel(pred)
     plt.plot(train_data.idx, test_data.features, label='features')
     plt.plot(test_data.idx, test_data.target, label='target')
     # for comp in pipeline.nodes[0].fitted_operation.train_basis:
-    plt.plot(train_data.idx, np.array(pipeline.nodes[0].fitted_operation.train_basis).sum(axis=0), label='reconmstructed features')
+    plt.plot(train_data.idx, np.array(pipeline.nodes[0].fitted_operation.train_basis).sum(axis=0), label='reconstructed features')
     plt.plot(test_data.idx, predict, label='predicted ssa')
     plt.plot(test_data.idx, no_ssa, label='predicted no ssa')
     print(f"SSA smape: {smape(test_data.target, predict)}")
