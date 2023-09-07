@@ -49,7 +49,12 @@ def kurtosis(array: np.array) -> float:
 
 
 def n_peaks(array: np.array) -> int:
-    return len(find_peaks(array))
+    return len(find_peaks(array)[0])
+
+
+def mean_ptp_distance(array: np.array):
+    peaks, _ = find_peaks(array)
+    return np.mean(np.diff(peaks))
 
 
 def slope(array: np.array) -> float:
