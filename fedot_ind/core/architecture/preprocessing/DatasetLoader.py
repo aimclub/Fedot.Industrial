@@ -734,7 +734,7 @@ class DataLoader:
             y_test = y_test.astype(str)
 
         # Save data to tsv files
-        new_path = os.path.join(PROJECT_PATH, 'data', dataset_name)
+        new_path = os.path.join(PROJECT_PATH, 'fedot_ind','data', dataset_name)
         os.makedirs(new_path, exist_ok=True)
 
         self.logger.info(f'Saving {dataset_name} data files')
