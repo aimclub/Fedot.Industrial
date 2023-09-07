@@ -26,6 +26,7 @@ stat_methods_global = {
     # 'base_entropy_': base_entropy,
     'shannon_entropy_': shannon_entropy,
     'ptp_amplitude_': ptp_amp,
+    'mean_ptp_distance_': mean_ptp_distance,
     'crest_factor_': crest_factor,
     'mean_ema_': mean_ema,
     'mean_moving_median_': mean_moving_median,
