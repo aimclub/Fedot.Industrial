@@ -2,7 +2,7 @@ from pymonad.list import ListMonad
 from pymonad.either import Right
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipelines
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.operation.implementation.basis.data_driven import DataDrivenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
 from functools import partial
 
 

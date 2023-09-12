@@ -19,7 +19,7 @@ scikit_learn>=1.0.0; python_version >= '3.8'
 scipy~=1.7.3
 sktime==0.16.1
 tensorly==0.8.1
-torch==2.0.0
+torch==2.0.0basis
 torchmetrics==0.11.4
 torchvision==0.15.1
 tensorboard>=2.12.0
