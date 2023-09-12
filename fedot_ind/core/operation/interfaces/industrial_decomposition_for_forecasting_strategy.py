@@ -3,7 +3,7 @@ from typing import Optional
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.operation.ts_forecasting.data_driven_ts import DataDrivenForForecastingBasisImplementation
+from fedot_ind.core.models.ts_forecasting.data_driven_ts import DataDrivenForForecastingBasisImplementation
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 
 
