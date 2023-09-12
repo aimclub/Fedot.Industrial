@@ -62,8 +62,5 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
             return predict
 
-    def _transform(self, input_data) -> np.array:
-        """
-            Method for feature generation for all series
-        """
+    def _transform(self, input_data):
         pass
