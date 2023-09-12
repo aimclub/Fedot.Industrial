@@ -1,8 +1,11 @@
+import math
+from multiprocessing import cpu_count
 from typing import TypeVar, Optional
 
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
+from joblib import Parallel, delayed
 from pymonad.either import Either
 from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
 from statsforecast.arima import AutoARIMA
@@ -43,7 +46,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         super().__init__(params)
         self.window_size = params.get('window_size')
         self.SV_threshold = None
-
+        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.decomposer = None
         self.basis = None
 
@@ -58,20 +61,8 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
                                              self.SV_threshold)
         U, s, VT = self.get_svd(data)
 
-        new_VT = []
-        for i in range(s.shape[0]):
-            row = VT[i]
-            model_theta = AutoTheta()
-            model_arima = AutoARIMA()
-            model_ets = AutoETS()
-            forecast = []
-            for model in [model_theta, model_arima, model_ets]:
-                model.fit(row)
-                p = model.predict(forecast_length)['mean']
-                forecast.append(p)
-            pred = np.median(np.array(forecast), axis=0)
-            new_VT.append(np.concatenate([row, pred]))
-
+        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        new_VT = parallel(delayed(self._predict_component)(sample, forecast_length) for sample in VT[:s.shape[0]])
         new_VT = np.array(new_VT)
         basis = self.reconstruct_basis(U, s, new_VT).T
 
@@ -106,10 +97,17 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
         return len(spectrum)
 
-    def get_combined_components(self, U, Sigma, V_T):
-        components = Either.insert([U, Sigma, V_T]).then(
-            self.decomposer.data_driven_basis).value[0]
-        return components
+    def _predict_component(self, comp: np.array, forecast_length: int):
+        model_theta = AutoTheta()
+        model_arima = AutoARIMA()
+        model_ets = AutoETS()
+        forecast = []
+        for model in [model_theta, model_arima, model_ets]:
+            model.fit(comp)
+            p = model.predict(forecast_length)['mean']
+            forecast.append(p)
+        forecast = np.median(np.array(forecast), axis=0)
+        return np.concatenate([comp, forecast])
 
     def get_svd(self, data):
         components = Either.insert(data).then(self.decomposer.svd).then(self.decomposer.threshold).value[0]
