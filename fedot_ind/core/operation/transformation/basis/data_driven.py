@@ -2,7 +2,6 @@ from typing import Optional, TypeVar
 
 import numpy as np
 import pandas as pd
-import tensorly as tl
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from joblib import Parallel, delayed
@@ -10,13 +9,11 @@ from pymonad.either import Either
 from pymonad.list import ListMonad
 from scipy import stats
 from scipy.spatial.distance import cdist
-from tensorly.decomposition import parafac
 from tqdm import tqdm
 
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from fedot_ind.core.operation.implementation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 
@@ -112,7 +109,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
 
-        return selectors[selector](svd_numbers).astype(int)
+        return selectors[selector](svd_numbers).mode[0]
 
     def estimate_singular_values(self, data):
         basis = Either.insert(data).then(self.decomposer.svd).value[0]
