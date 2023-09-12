@@ -7,9 +7,9 @@ from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.RecurrenceExtractor import RecurrenceExtractor
 from fedot_ind.core.models.signal.SignalExtractor import SignalExtractor
 from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
-from fedot_ind.core.operation.implementation.basis.fourier import FourierBasisImplementation
-from fedot_ind.core.operation.implementation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
+from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 
 
 
