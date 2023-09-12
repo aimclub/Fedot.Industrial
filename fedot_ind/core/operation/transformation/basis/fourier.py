@@ -1,7 +1,7 @@
 from typing import Optional
 import numpy as np
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot_ind.core.operation.implementation.basis.abstract_basis import BasisDecompositionImplementation
+from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
 class FourierBasisImplementation(BasisDecompositionImplementation):
