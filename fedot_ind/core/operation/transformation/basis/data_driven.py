@@ -1,22 +1,21 @@
-import math
-from multiprocessing import Pool
 from typing import Optional, Tuple, TypeVar
-from scipy import stats
+from typing import Optional, Tuple, TypeVar
+
 import numpy as np
 import pandas as pd
 import tensorly as tl
+from fedot.core.data.data import InputData
+
 from fedot.core.operations.operation_parameters import OperationParameters
 from joblib import Parallel, delayed
 from pymonad.either import Either
 from pymonad.list import ListMonad
+from scipy import stats
 from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.preprocessing import InputData
-from fedot.core.data.data import InputData
 from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import RSVDDecomposition
-
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
@@ -72,7 +71,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
         """Method for transforming all samples
 
         """
-        if type(input_data) is InputData:
+        if isinstance(input_data, InputData):
             features = np.array(ListMonad(*input_data.features.tolist()).value)
         else:
             features = np.array(ListMonad(*input_data.values.tolist()).value)
@@ -171,8 +170,7 @@ class DataDrivenBasisImplementation(BasisDecompositionImplementation):
 
         return basis
 
-    def evaluate_derivative(self:
-    class_type,
+    def evaluate_derivative(self: class_type,
                             coefs: np.array,
                             order: int = 1) -> Tuple[class_type, np.array]:
         basis = type(self)(

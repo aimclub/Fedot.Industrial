@@ -93,6 +93,9 @@ class FedotIndustrial(Fedot):
             #     solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
                 solver = TaskEnum[self.config_dict['task']].value['default']
+        elif self.config_dict['task'] == 'ts_forecasting':
+            if self.config_dict['strategy'] == 'decomposition':
+                solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
 
         else:
             solver = TaskEnum[self.config_dict['task']].value[0]

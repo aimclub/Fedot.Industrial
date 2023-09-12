@@ -1,4 +1,3 @@
-import math
 from typing import Union
 
 import numpy as np
@@ -26,7 +25,7 @@ class HankelMatrix:
         if self.__window_length is None:
             self.__window_length = round(self.__ts_length * 0.35)
         else:
-            self.__window_length = math.ceil(self.__ts_length * self.__window_length / 100)
+            self.__window_length = round(self.__window_length)
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()

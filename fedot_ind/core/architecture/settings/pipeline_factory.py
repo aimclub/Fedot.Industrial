@@ -12,6 +12,7 @@ from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisIm
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 
 
+
 class BasisTransformations(Enum):
     datadriven = DataDrivenBasisImplementation
     wavelet = WaveletBasisImplementation

@@ -23,6 +23,7 @@ torch==2.0.0
 torchmetrics==0.11.4
 torchvision==0.15.1
 tensorboard>=2.12.0
+statsforecast==1.5.0
 
 chardet
 tqdm
