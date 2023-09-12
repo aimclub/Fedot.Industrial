@@ -1,4 +1,5 @@
 from functools import partial
+
 from hyperopt import hp
 
 NESTED_PARAMS_LABEL = 'nested_label'
@@ -30,10 +31,9 @@ industrial_search_space = {
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
-    'data_driven_basis_for_forecasting': {
-        'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]},
-        'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope':  [['ridge', 'ar', 'polyfit', 'ets']]}
-    }
+    'data_driven_basis_for_forecasting':
+        {
+            'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]}}
 }
 
 

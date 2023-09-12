@@ -17,10 +17,6 @@ from statsforecast.models import AutoTheta, AutoARIMA, AutoETS
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 datasets = {
-    'australia': f'../data/ts/australia.csv',
-    'beer': f'../data/ts/beer.csv',
-    'salaries': f'../data/ts/salaries.csv',
-    'stackoverflow': f'../data/ts/stackoverflow.csv',
     'm4_yearly': f'../data/ts/M4YearlyTest.csv',
     'm4_weekly': f'../data/ts/M4WeeklyTest.csv',
     'm4_daily': f'../data/ts/M4DailyTest.csv',
@@ -62,14 +58,11 @@ train_data, test_data = get_ts_data('m4_monthly', 7)
 
 with IndustrialModels():
     pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
-                                          params={'window_size': int(len(train_data.features) * 0.35),
-                                                  'estimator': 'ar'}
+                                          params={'window_size': int(len(train_data.features) * 0.35)}
                                           ).build()
+
     pipeline.fit(train_data)
-
-
     predict = np.ravel(pipeline.predict(test_data).predict)
-
     model_theta = AutoTheta()
     model_arima = AutoARIMA()
     model_ets = AutoETS()

@@ -1,12 +1,11 @@
 from typing import TypeVar, Optional
-from statsforecast.arima import AutoARIMA
-from fedot.api.main import Fedot
+
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.repository.tasks import TsForecastingParams
 from pymonad.either import Either
+from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
+from statsforecast.arima import AutoARIMA
 from statsforecast.models import AutoTheta, AutoETS
 
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
@@ -25,6 +24,10 @@ from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 11, 4
 
 
+def MASE(A, F, y_train):
+    return mean_absolute_scaled_error(A, F, y_train=y_train)
+
+
 class DataDrivenForForecastingBasisImplementation(ModelImplementation):
     """DataDriven basis
         Example:
@@ -39,15 +42,6 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size')
-        estimator_name = params.get('estimator', 'ar')
-        print(estimator_name)
-        ESTIMATORS = {
-            'arima': PipelineBuilder().add_node('arima').build(),
-            'ridge': PipelineBuilder().add_node('lagged').add_node('ridge').build(),
-            'ar': PipelineBuilder().add_node('ar').build(),
-            'ets': PipelineBuilder().add_node('ets').build()}
-        self.estimator = ESTIMATORS[estimator_name]
-
         self.SV_threshold = None
 
         self.decomposer = None
@@ -86,7 +80,6 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
                                              self.SV_threshold)
         self.train_basis = self.reconstruct_basis(U, s, VT).T
 
-
         return np.array(basis).sum(axis=0)[-forecast_length:]
 
     def fit(self, input_data: InputData):
@@ -104,7 +97,8 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
                                              self.SV_threshold)
         U, s, VT = self.get_svd(data)
         basis = self.reconstruct_basis(U, s, VT).T
-        return np.array(basis).sum(axis=0)
+        reconstructed_features = np.array(basis).sum(axis=0)
+        return reconstructed_features
 
     def estimate_singular_values(self, data):
         basis = Either.insert(data).then(self.decomposer.svd).value[0]
@@ -115,12 +109,10 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
     def get_combined_components(self, U, Sigma, V_T):
         components = Either.insert([U, Sigma, V_T]).then(
             self.decomposer.data_driven_basis).value[0]
-
         return components
 
     def get_svd(self, data):
         components = Either.insert(data).then(self.decomposer.svd).then(self.decomposer.threshold).value[0]
-
         return components
 
     def reconstruct_basis(self, U, s, VT):
