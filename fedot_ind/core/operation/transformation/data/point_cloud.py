@@ -1,10 +1,10 @@
 from typing import Union
-
 import numpy as np
 import pandas as pd
 from ripser import Rips, ripser
 from scipy import sparse
-from scipy.spatial.distance import pdist, squareform
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot.core.data.data import InputData, OutputData
 
 
 class TopologicalTransformation:
@@ -26,7 +26,7 @@ class TopologicalTransformation:
     def __init__(self,
                  time_series: Union[pd.Series, np.ndarray, list] = None,
                  max_simplex_dim: int = None,
-                 epsilon: int = None,
+                 epsilon: int = 10,
                  persistence_params: dict = None,
                  window_length: int = None):
         self.time_series = time_series
@@ -73,29 +73,13 @@ class TopologicalTransformation:
         ys = np.unique(dgm0[:, 1])
         ys = ys[ys < np.inf]
 
-    @staticmethod
-    def rolling_window(array: np.array, window: int) -> np.array:
-        """Takes in an array and return array of rolling windows of specified length.
-
-        Args:
-            array: Array to be rolled.
-            window: Length of the window.
-
-        Returns:
-            Array of rolling windows.
-
-        """
-        shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
-        strides = array.strides + (array.strides[-1],)
-        a_windowed = np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
-        return a_windowed
-
-    def time_series_to_point_cloud(self, array: np.array = None,
+    def time_series_to_point_cloud(self,
+                                   input_data: np.array = None,
                                    dimension_embed=2) -> np.array:
         """Convert a time series into a point cloud in the dimension specified by dimension_embed.
 
         Args:
-            array: Time series to be converted.
+            input_data: Time series to be converted.
             dimension_embed: dimension of Euclidean space in which to embed the time series into by taking
             windows of dimension_embed length, e.g. if the time series is ``[t_1,...,t_n]`` and dimension_embed
             is ``2``, then the point cloud would be ``[(t_0, t_1), (t_1, t_2),...,(t_(n-1), t_n)]``
@@ -106,20 +90,15 @@ class TopologicalTransformation:
 
         """
 
-        assert len(self.time_series) >= dimension_embed, 'dimension_embed larger than length of time_series'
-
         if self.__window_length is None:
             self.__window_length = dimension_embed
 
-        # compute point cloud
-        if array is None:
-            array = self.time_series
+        trajectory_transformer = HankelMatrix(time_series=input_data, window_size=self.__window_length)
+        return trajectory_transformer.trajectory_matrix
 
-        point_cloud = self.rolling_window(array=array, window=dimension_embed)
-        return np.array(point_cloud)
-
-    def point_cloud_to_persistent_cohomology_ripser(self, point_cloud: np.array = None,
-                                                    max_simplex_dim: int = None):
+    def point_cloud_to_persistent_cohomology_ripser(self,
+                                                    point_cloud: np.array = None,
+                                                    max_simplex_dim: int = 1):
 
         # ensure epsilon_range is a numpy array
         epsilon_range = self.epsilon_range
@@ -185,54 +164,3 @@ class TopologicalTransformation:
         df_features.columns = cols
         df_features['Betti_sum'] = df_features.sum(axis=1)
         return df_features
-
-
-class TSTransformer:
-    def __init__(self, time_series, min_signal_ratio, max_signal_ratio, rec_metric):
-        self.time_series = time_series
-        self.recurrence_matrix = None
-        self.threshold_baseline = [0.95, 0.7] #cosine
-        self.min_signal_ratio = min_signal_ratio
-        self.max_signal_ratio = max_signal_ratio
-        self.rec_metric = rec_metric
-
-    def ts_to_recurrence_matrix(self,
-                                threshold=None):
-        distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.T)
-        distance_matrix = np.ones(shape=distance_matrix.shape[0])-distance_matrix
-        distance_matrix = self.binarization(distance_matrix, threshold=threshold)
-        self.recurrence_matrix = squareform(distance_matrix)
-        return self.recurrence_matrix
-
-    def binarization(self, distance_matrix, threshold):
-        best_threshold_flag = False
-        signal_ratio_list = []
-        reccurence_matrix = None
-        if threshold is None:
-            for threshold_baseline in self.threshold_baseline:
-                threshold = threshold_baseline
-                tmp_array = np.copy(distance_matrix)
-                tmp_array[tmp_array < threshold_baseline] = 0.0
-                tmp_array[tmp_array >= threshold_baseline] = 1.0
-                signal_ratio = np.where(tmp_array == 0)[0].shape[0] / tmp_array.shape[0]
-
-                if self.min_signal_ratio < signal_ratio < self.max_signal_ratio:
-                    best_ratio = signal_ratio
-                    reccurence_matrix = tmp_array
-                    best_threshold_flag = True
-                    if signal_ratio > best_ratio:
-                        reccurence_matrix = tmp_array
-                else:
-                    signal_ratio_list.append(abs(self.max_signal_ratio - signal_ratio))
-
-                del tmp_array
-
-        if not best_threshold_flag:
-            distance_matrix[distance_matrix < self.threshold_baseline[0]] = 0.0
-            distance_matrix[distance_matrix >= self.threshold_baseline[0]] = 1.0
-            reccurence_matrix = distance_matrix
-        return reccurence_matrix
-
-    def get_recurrence_metrics(self):
-        if self.recurrence_matrix is None:
-            return self.ts_to_recurrence_matrix()
