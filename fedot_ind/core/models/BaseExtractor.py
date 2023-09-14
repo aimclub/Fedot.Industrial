@@ -3,6 +3,8 @@ import math
 from multiprocessing import cpu_count, Pool
 from typing import Optional
 
+import numpy as np
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -38,12 +40,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        if type(input_data) == InputData:
-            features = input_data.features
-            n_samples = input_data.features.shape[0]
-        else:
-            features = input_data
-            n_samples = input_data.shape[0]
+        features = input_data.features
+        n_samples = input_data.features.shape[0]
+
         try:
             input_data_squeezed = np.squeeze(features, 3)
         except Exception:
