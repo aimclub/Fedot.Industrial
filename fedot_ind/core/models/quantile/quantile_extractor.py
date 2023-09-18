@@ -1,16 +1,13 @@
-import datetime
-from multiprocessing import Pool
+from itertools import chain
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from joblib import Parallel, delayed
 from pandas import Index
-from tqdm import tqdm
 
-from fedot_ind.core.models.BaseExtractor import BaseExtractor
+from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
 class QuantileExtractor(BaseExtractor):
@@ -18,6 +15,21 @@ class QuantileExtractor(BaseExtractor):
 
     Attributes:
         use_cache (bool): Flag for cache usage.
+    Example:
+        from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+        from examples.fedot.fedot_ex import init_input_data
+        from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+        from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+        train_data, test_data = DataLoader(dataset_name='Ham').load_data()
+        with IndustrialModels():
+            pipeline = PipelineBuilder().add_node('quantile_extractor',
+                                                  params={'window_size': 20,
+                                                          'window_mode': True}).add_node(
+                'rf').build()
+            input_data = init_input_data(train_data[0], train_data[1])
+            pipeline.fit(input_data)
+            features = pipeline.predict(input_data)
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -29,28 +41,6 @@ class QuantileExtractor(BaseExtractor):
         self.logging_params.update({'Wsize': self.window_size,
                                     'Wmode': self.window_mode,
                                     'VarTh': self.var_threshold})
-        self.relevant_features = None
-
-    def fit(self, input_data: InputData):
-        pass
-
-    def _transform(self, input_data: InputData) -> np.array:
-        """
-        Method for feature generation for all series
-        """
-        try:
-            input_data_squeezed = np.squeeze(input_data.features)
-        except Exception:
-            input_data_squeezed = np.squeeze(input_data)
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        v = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
-        stat_features = v[0].columns
-        n_components = v[0].shape[0]
-        predict = self._clean_predict(np.array(v))
-        # predict = self.drop_features(predict=predict,
-        #                              columns=stat_features,
-        #                              n_components=n_components)
-        return predict
 
     def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
         """
@@ -76,60 +66,43 @@ class QuantileExtractor(BaseExtractor):
 
         return pd.DataFrame(filtrat), list(filtrat.keys())
 
-    def extract_stats_features(self, ts):
+    def _concatenate_global_and_local_feature(self, global_features: InputData,
+                                              window_stat_features: InputData) -> InputData:
+        if type(window_stat_features.features) is list:
+            window_stat_features.features = np.concatenate(window_stat_features.features, axis=0)
+            window_stat_features.supplementary_data['feature_name'] = list(
+                chain(*window_stat_features.supplementary_data['feature_name']))
+
+        window_stat_features.features = np.concatenate([global_features.features,
+                                                        window_stat_features.features],
+                                                       axis=0)
+        window_stat_features.features = np.nan_to_num(window_stat_features.features)
+
+        window_stat_features.supplementary_data['feature_name'] = list(
+            chain(*[global_features.supplementary_data['feature_name'],
+                    window_stat_features.supplementary_data['feature_name']]))
+        return window_stat_features
+
+    def extract_stats_features(self, ts: np.array) -> InputData:
+        global_features = self.get_statistical_features(ts, add_global_features=True)
         if self.window_mode:
-            global_features = self.get_statistical_features(ts, add_global_features=True)
-            list_of_stat_features = self.apply_window_for_stat_feature(ts_data=ts.T if ts.shape[1] == 1 else ts,
-                                                                       feature_generator=self.get_statistical_features,
-                                                                       window_size=self.window_size)
-            aggregation_df = pd.concat(list_of_stat_features, axis=1)
-            aggregation_df = pd.concat([aggregation_df, global_features], axis=1)
-            aggregation_df = aggregation_df.fillna(0)
+            window_stat_features = self.apply_window_for_stat_feature(ts_data=ts,
+                                                                      feature_generator=self.get_statistical_features,
+                                                                      window_size=self.window_size)
         else:
-            statistical_features = self.get_statistical_features(ts)
-            global_features = self.get_statistical_features(ts, add_global_features=True)
-            aggregation_df = pd.concat([statistical_features, global_features], axis=1)
-            aggregation_df = aggregation_df.fillna(0)
-        return aggregation_df
+            window_stat_features = self.get_statistical_features(ts)
+
+        return self._concatenate_global_and_local_feature(global_features, window_stat_features)
 
     def generate_features_from_ts(self,
-                                  ts_frame: pd.DataFrame,
-                                  window_length: int = None) -> pd.DataFrame:
+                                  ts: np.array,
+                                  window_length: int = None) -> InputData:
 
-        ts = pd.DataFrame(ts_frame, dtype=float)
-        ts = ts.fillna(method='ffill')
+        ts = np.nan_to_num(ts)
 
-        if ts.shape[0] == 1 or ts.shape[1] == 1:
-            mode = 'SingleTS'
+        if len(ts.shape) == 1:
+            aggregation_df = self.extract_stats_features(ts)
         else:
-            mode = 'MultiTS'
-        try:
-            if mode == 'MultiTS':
-                aggregation_df = self.__get_feature_matrix(ts)
-            else:
-                aggregation_df = self.extract_stats_features(ts)
-        except Exception:
-            aggregation_df = self.__component_extraction(ts)
-
-        return aggregation_df
-
-    def __component_extraction(self, ts):
-        ts_components = [pd.DataFrame(x) for x in ts.T.values.tolist()]
-        tmp_list = []
-        for index, component in enumerate(ts_components):
-            aggregation_df = self.extract_stats_features(component)
-            col_name = [f'{x} for component {index}' for x in aggregation_df.columns]
-            aggregation_df.columns = col_name
-            tmp_list.append(aggregation_df)
-        aggregation_df = pd.concat(tmp_list, axis=1)
-        return aggregation_df
-
-    def __get_feature_matrix(self, ts):
-        ts_components = [pd.DataFrame(x) for x in ts.values.tolist()]
-        if ts_components[0].shape[0] != 1:
-            ts_components = [x.T for x in ts_components]
-
-        tmp_list = [self.extract_stats_features(x) for x in ts_components]
-        aggregation_df = pd.concat(tmp_list, axis=0)
+            aggregation_df = self._get_feature_matrix(self.extract_stats_features, ts)
 
         return aggregation_df

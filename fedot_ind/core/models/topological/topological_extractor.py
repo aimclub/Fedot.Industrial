@@ -1,25 +1,24 @@
 import gc
 import sys
+from functools import partial
 from typing import Optional
 
 import numpy as np
 import pandas as pd
-from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
+
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
-from examples.fedot.fedot_ex import init_input_data
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.models.BaseExtractor import BaseExtractor
+from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature, TopologicalFeaturesExtractor
 from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 sys.setrecursionlimit(1000000000)
 
@@ -44,6 +43,20 @@ class TopologicalExtractor(BaseExtractor):
     """Class for extracting topological features from time series data.
     Args:
         params: parameters for operation
+    Example:
+        from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+        from examples.fedot.fedot_ex import init_input_data
+        from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+        from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+        train_data, test_data = DataLoader(dataset_name='Ham').load_data()
+        with IndustrialModels():
+            pipeline = PipelineBuilder().add_node('eigen_basis').add_node('topological_extractor').add_node(
+                'rf').build()
+            input_data = init_input_data(train_data[0], train_data[1])
+            pipeline.fit(input_data)
+            features = pipeline.predict(input_data)
+            print(features)
 
     """
 
@@ -55,7 +68,7 @@ class TopologicalExtractor(BaseExtractor):
             persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
         self.data_transformer = None
 
-    def __evaluate_persistence_params(self, ts_data):
+    def __evaluate_persistence_params(self, ts_data: np.array) -> InputData:
         if self.feature_extractor is None:
             te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
 
@@ -68,10 +81,8 @@ class TopologicalExtractor(BaseExtractor):
                 persistence_diagram_extractor=persistence_diagram_extractor,
                 persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
 
-    def fit(self, input_data: InputData) -> OutputData:
-        pass
-
-    def _generate_features_from_ts(self, ts_data, persistence_params):
+    def _generate_features_from_ts(self, ts_data: np.array,
+                                   persistence_params: dict) -> InputData:
         if self.data_transformer is None:
             self.data_transformer = TopologicalTransformation(
                 persistence_params=persistence_params,
@@ -79,26 +90,30 @@ class TopologicalExtractor(BaseExtractor):
 
         point_cloud = self.data_transformer.time_series_to_point_cloud(input_data=ts_data)
         topological_features = self.feature_extractor.transform(point_cloud)
+        topological_features = InputData(idx=np.arange(len(topological_features.values)),
+                                         features=topological_features.values,
+                                         target='no_target',
+                                         task='no_task',
+                                         data_type=DataTypesEnum.table,
+                                         supplementary_data={'feature_name': topological_features.columns})
         return topological_features
 
-    def generate_topological_features(self, ts_data: np.array,
-                                      persistence_params: dict = None) -> pd.DataFrame:
+    def generate_topological_features(self, ts: np.array,
+                                      persistence_params: dict = None) -> InputData:
 
         if persistence_params is not None:
-            self._evaluate_persistence_params(ts_data)
+            self._evaluate_persistence_params(ts)
 
-        if len(ts_data.shape) > 1:
-            topological_features = [self._generate_features_from_ts(component, persistence_params)
-                                    for component in ts_data]
-            for component_idx, feature_df in enumerate(topological_features):
-                feature_df.columns = [f'{col}_component_{component_idx}' for col in feature_df.columns]
-            return pd.concat(topological_features, axis=1)
-
+        if len(ts.shape) == 1:
+            aggregation_df = self._generate_features_from_ts(ts, persistence_params)
         else:
-            return self._generate_features_from_ts(ts_data, persistence_params)
+            aggregation_df = self._get_feature_matrix(partial(self._generate_features_from_ts,
+                                                              persistence_params=persistence_params), ts)
 
-    def generate_features_from_ts(self, ts_data: pd.DataFrame, dataset_name: str = None):
-        return self.generate_topological_features(ts_data=ts_data)
+        return aggregation_df
+
+    def generate_features_from_ts(self, ts_data: np.array, dataset_name: str = None):
+        return self.generate_topological_features(ts=ts_data)
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
         """Method for getting optimal Takens embedding parameters.
@@ -136,13 +151,3 @@ class TopologicalExtractor(BaseExtractor):
     def _mode(arr: list) -> int:
         return int(stats.mode(arr)[0][0])
 
-
-# if __name__ == "__main__":
-#     train_data, test_data = DataLoader(dataset_name='Ham').load_data()
-#     with IndustrialModels():
-#         pipeline = PipelineBuilder().add_node('data_driven_basis').add_node('topological_extractor').add_node(
-#             'rf').build()
-#         input_data = init_input_data(train_data[0], train_data[1])
-#         pipeline.fit(input_data)
-#         features = pipeline.predict(input_data)
-#         print(features)
