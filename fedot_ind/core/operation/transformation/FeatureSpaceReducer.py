@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.feature_selection import VarianceThreshold
 
-from fedot_ind.core.operation.transformation.WindowSelection import WindowSizeSelection
+from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 
 
 class FeatureSpaceReducer:
@@ -67,5 +67,5 @@ class FeatureSpaceReducer:
     def validate_window_size(self, ts: np.ndarray):
         if self.window_size is None or self.window_size > ts.shape[0] / 2:
             self.logger.info('Window size is not defined or too big (> ts_length/2)')
-            self.window_size, _ = WindowSizeSelection(time_series=ts).get_window_size()
+            self.window_size, _ = WindowSizeSelector(time_series=ts).get_window_size()
             self.logger.info(f'Window size was set to {self.window_size}')
