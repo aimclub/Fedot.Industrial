@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from gtda.diagrams import BettiCurve, Filtering, PersistenceEntropy, PersistenceLandscape, Scaler
 from gtda.homology import VietorisRipsPersistence
-from gtda.time_series import TakensEmbedding
 
 
 class PersistenceDiagramFeatureExtractor(ABC):
@@ -19,7 +18,7 @@ class PersistenceDiagramFeatureExtractor(ABC):
         pass
 
     def fit_transform(self, x_pd):
-        return np.array([self.extract_feature_(diagram) for diagram in x_pd])
+        return self.extract_feature_(x_pd)
 
 
 class PersistenceDiagramsExtractor:
@@ -49,11 +48,6 @@ class PersistenceDiagramsExtractor:
         self.parallel_ = parallel
         self.n_job = None
 
-    def takens_embeddings_(self, data):
-        te = TakensEmbedding(dimension=self.takens_embedding_dim_,
-                             time_delay=self.takens_embedding_delay_)
-        return te.fit_transform(data)
-
     def persistence_diagrams_(self, x_embeddings):
         if self.parallel_:
             pool = ThreadPool()
@@ -62,10 +56,7 @@ class PersistenceDiagramsExtractor:
             pool.join()
             return x_transformed
         else:
-            x_transformed = list()
-            for embedding in x_embeddings:
-                x_transformed.append(self.parallel_embed_(embedding))
-            return x_transformed
+            return self.parallel_embed_(x_embeddings)
 
     def parallel_embed_(self, embedding):
         vr = VietorisRipsPersistence(metric='euclidean', homology_dimensions=self.homology_dimensions_,
@@ -77,8 +68,7 @@ class PersistenceDiagramsExtractor:
             persistence_diagrams = diagram_filter.fit_transform(persistence_diagrams)
         return persistence_diagrams[0]
 
-    def fit_transform(self, x):
-        x_embeddings = self.takens_embeddings_(x)
+    def transform(self, x_embeddings):
         x_persistence_diagrams = self.persistence_diagrams_(x_embeddings)
         return x_persistence_diagrams
 
@@ -88,20 +78,21 @@ class TopologicalFeaturesExtractor:
         self.persistence_diagram_extractor_ = persistence_diagram_extractor
         self.persistence_diagram_features_ = persistence_diagram_features
 
-    def fit_transform(self, x):
+    def transform(self, x):
 
-        x_pers_diag = self.persistence_diagram_extractor_.fit_transform(x)
-        tmp = []
+        x_pers_diag = self.persistence_diagram_extractor_.transform(x)
+        feature_list = []
         column_list = []
         for feature_name, feature_model in self.persistence_diagram_features_.items():
             try:
                 x_features = feature_model.fit_transform(x_pers_diag)
-                tmp.append(x_features)
-                for dim in range(len(x_features.shape)):
+                feature_list.append(x_features)
+                for dim in range(len(x_features)):
                     column_list.append('{}_{}'.format(feature_name, dim))
             except Exception:
                 continue
-        x_transformed = pd.DataFrame(data=np.hstack(tmp), columns=column_list)
+        x_transformed = pd.DataFrame(data=np.hstack(feature_list)).T
+        x_transformed.columns = column_list
         return x_transformed
 
 

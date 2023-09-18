@@ -7,7 +7,7 @@ from tqdm import tqdm
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.WindowedFeaturesExtractor import WindowedFeatureExtractor
-from fedot_ind.core.operation.transformation.DataTransformer import TSTransformer
+from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
 from fedot_ind.core.models.recurrence.sequences import ReccurenceFeaturesExtractor
 
 
