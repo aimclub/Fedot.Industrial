@@ -99,6 +99,7 @@ class QuantileExtractor(BaseExtractor):
                                   window_length: int = None) -> InputData:
 
         ts = np.nan_to_num(ts)
+        ts = ts.flatten()
 
         if len(ts.shape) == 1:
             aggregation_df = self.extract_stats_features(ts)

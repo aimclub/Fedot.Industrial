@@ -19,7 +19,7 @@ class TaskEnum(Enum):
     ts_classification = dict(fedot_preset=TimeSeriesClassifierPreset,
                              nn=TimeSeriesClassifierNN,
                              default=TimeSeriesClassifier)
-
+    ts_forecasting = (TimeSeriesForecasingWithDecomposition,)
     ts_regression = (TimeSeriesRegression,)
     anomaly_detection = (TimeSeriesAnomalyDetectionPreset,)
     image_classification = (CVExperimenter,)
