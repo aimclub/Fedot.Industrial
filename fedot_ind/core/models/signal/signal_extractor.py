@@ -6,12 +6,12 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.models.WindowedFeaturesExtractor import WindowedFeatureExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
+from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
-class SignalExtractor(WindowedFeatureExtractor):
+class SignalExtractor(BaseExtractor):
     """Class responsible for wavelet feature generator experiment.
     Args:
         wavelet_types: list of wavelet types to be used in experiment. Defined in Config_Classification.yaml.
