@@ -57,12 +57,10 @@ class RankEnsemble(BaseEnsemble):
         """
         (_, _), (_, self.test_target) = DataLoader(self.dataset_name).load_data()
 
-        prediction_proba_dict, metric_dict = self.proba_dict[self.dataset_name], self.metric_dict[self.dataset_name]
-
-        model_rank_dict = self._create_models_rank_dict(prediction_proba_dict, metric_dict)
+        model_rank_dict = self._create_models_rank_dict(self.proba_dict, self.metric_dict)
         self.best_base_results = self._sort_models(model_rank_dict)
 
-        return self.__iterative_model_selection(prediction_proba_dict)
+        return self.__iterative_model_selection(self.proba_dict)
 
     def _deep_search_in_dict(self, obj, key):
         if key in obj:
@@ -86,7 +84,7 @@ class RankEnsemble(BaseEnsemble):
         for model in metric_dict:
             self.logger.info(f'BASE RESULT FOR MODEL - {model}'.center(50, '-'))
             # if len(self.prediction_proba_dict[model].columns) == 3:
-            if prediction_proba_dict[model].shape[1] == 2:
+            if prediction_proba_dict[model].shape[1] == 1:
                 self.metric = 'roc_auc'
                 _type = 'binary'
             else:

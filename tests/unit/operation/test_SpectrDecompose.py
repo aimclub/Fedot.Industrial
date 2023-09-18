@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
+from fedot_ind.core.operation.decomposition.spectrum_decomposition import SpectrumDecomposer
 
 WINDOW_LENGTH = 10
 

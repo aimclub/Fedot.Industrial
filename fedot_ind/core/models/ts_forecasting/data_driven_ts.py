@@ -17,7 +17,7 @@ from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
 from statsforecast.arima import AutoARIMA
 from statsforecast.models import AutoTheta, AutoETS
 
-from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
+from fedot_ind.core.operation.decomposition.spectrum_decomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
