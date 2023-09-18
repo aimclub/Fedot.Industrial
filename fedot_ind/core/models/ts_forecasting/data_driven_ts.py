@@ -1,7 +1,13 @@
+try:
+    import seaborn
+except:
+    pass
+from matplotlib.pylab import rcParams
+
+import numpy as np
 import math
 from multiprocessing import cpu_count
 from typing import TypeVar, Optional
-
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -13,17 +19,9 @@ from statsforecast.models import AutoTheta, AutoETS
 
 from fedot_ind.core.operation.decomposition.SpectrumDecomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot_ind.core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
-
-import numpy as np
-
-try:
-    import seaborn
-except:
-    pass
-from matplotlib.pylab import rcParams
-
 rcParams['figure.figsize'] = 11, 4
 
 
@@ -37,7 +35,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
             ts1 = np.random.rand(200)
             ts2 = np.random.rand(200)
             ts = [ts1, ts2]
-            bss = DataDrivenBasisImplementation({'n_components': 3, 'window_size': 30})
+            bss = EigenBasisImplementation({'n_components': 3, 'window_size': 30})
             basis_multi = bss._transform(ts)
             basis_1d = bss._transform(ts1)
     """
@@ -64,6 +62,9 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         new_VT = parallel(delayed(self._predict_component)(sample, forecast_length) for sample in VT[:s.shape[0]])
         new_VT = np.array(new_VT)
+
+        fff = sv_to_explained_variance_ratio(s, 0)
+
         basis = self.reconstruct_basis(U, s, new_VT).T
 
         self.decomposer = SpectrumDecomposer(data,
@@ -86,8 +87,10 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         self.decomposer = SpectrumDecomposer(data,
                                              trajectory_transformer.ts_length,
                                              self.SV_threshold)
+
         U, s, VT = self.get_svd(data)
         basis = self.reconstruct_basis(U, s, VT).T
+
         reconstructed_features = np.array(basis).sum(axis=0)
         return reconstructed_features
 
@@ -98,11 +101,16 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         return len(spectrum)
 
     def _predict_component(self, comp: np.array, forecast_length: int):
-        model_theta = AutoTheta()
+        season_length = round(comp.shape[0] * 0.1)
+        # model_theta = AutoTheta(season_length=season_length)
         model_arima = AutoARIMA()
-        model_ets = AutoETS()
+        # model_ets = AutoETS(season_length=season_length)
         forecast = []
-        for model in [model_theta, model_arima, model_ets]:
+        for model in [
+            # model_theta,
+            model_arima,
+            # model_ets
+        ]:
             model.fit(comp)
             p = model.predict(forecast_length)['mean']
             forecast.append(p)

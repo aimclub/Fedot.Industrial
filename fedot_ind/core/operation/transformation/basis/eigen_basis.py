@@ -24,13 +24,13 @@ from fedot_ind.core.operation.transformation.regularization.spectrum import reco
 class_type = TypeVar("T", bound="DataDrivenBasis")
 
 
-class DataDrivenBasisImplementation(BasisDecompositionImplementation):
+class EigenBasisImplementation(BasisDecompositionImplementation):
     """DataDriven basis
         Example:
             ts1 = np.random.rand(200)
             ts2 = np.random.rand(200)
             ts = [ts1, ts2]
-            bss = DataDrivenBasisImplementation({'sv_selector': 'median', 'window_size': 30})
+            bss = EigenBasisImplementation({'sv_selector': 'median', 'window_size': 30})
             basis_multi = bss._transform(ts)
             basis_1d = bss._transform(ts1)
     """

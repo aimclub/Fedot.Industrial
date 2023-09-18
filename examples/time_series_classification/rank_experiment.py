@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
@@ -145,12 +145,12 @@ if __name__ == "__main__":
                 _ = 1
 
             train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
-            # bss = DataDrivenBasisImplementation({'sv_selector': 'median', 'window_size': 20})
+            # bss = EigenBasisImplementation({'sv_selector': 'median', 'window_size': 20})
             # bss.low_rank_approximation = False
             # train_feature, bss = extract_features(train_data, bss)
             # f1_HT, test_feature = evaluate_model(train_feature, bss, test_data,model_type='Auto')
 
-            bss = DataDrivenBasisImplementation({'sv_selector': 'median', 'window_size': 20})
+            bss = EigenBasisImplementation({'sv_selector': 'median', 'window_size': 20})
             bss.low_rank_approximation = True
             bss.SV_threshold = None
             train_feature, bss = extract_features(train_data, bss)

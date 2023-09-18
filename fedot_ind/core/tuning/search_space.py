@@ -5,7 +5,7 @@ from hyperopt import hp
 NESTED_PARAMS_LABEL = 'nested_label'
 
 industrial_search_space = {
-    'data_driven_basis':
+    'eigen_basis':
         {
             # 'sv_selector': {'hyperopt-dist': hp.choice, 'sampling-scope': [['median', '0.75%', '0.25%']]},
             'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]}},

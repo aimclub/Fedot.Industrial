@@ -12,9 +12,9 @@ from fedot.core.pipelines.pipeline import Pipeline
 from matplotlib import pyplot as plt
 
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.models.recurrence.RecurrenceExtractor import RecurrenceExtractor
+from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from sklearn.decomposition import PCA
 from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
@@ -110,7 +110,7 @@ def evaluate_baseline(train, train_target, test, test_target):
     metric_df_baseline = calculate_metric(test_target, labels_baseline)
     return metric_df_baseline
 
-    # ddb_features_train = DataDrivenBasisImplementation({'window_size': 30,
+    # ddb_features_train = EigenBasisImplementation({'window_size': 30,
     #                                                     'sv_selector': 'median'}).transform(train_input_data)
     # fourier_features_train = FourierBasisImplementation({"spectrum_type": "smoothed",
     #                                                      "threshold": 20000}).transform(train_input_data)
