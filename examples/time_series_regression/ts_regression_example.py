@@ -2,7 +2,7 @@ from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 if __name__ == "__main__":
-    dataset_name = 'LiveFuelMoistureContent'
+    dataset_name = 'ApplianceEnergy'
     industrial = FedotIndustrial(task='ts_regression',
                                  dataset=dataset_name,
                                  strategy='statistical',
