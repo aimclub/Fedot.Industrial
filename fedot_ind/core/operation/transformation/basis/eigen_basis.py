@@ -15,7 +15,7 @@ from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import RSVDDecomposition
+from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \

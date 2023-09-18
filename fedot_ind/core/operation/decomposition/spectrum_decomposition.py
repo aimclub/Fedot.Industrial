@@ -7,7 +7,7 @@ import tensorly as tl
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.fast_svd import RSVDDecomposition
+from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
     singular_value_hard_threshold
 

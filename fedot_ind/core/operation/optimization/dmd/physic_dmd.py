@@ -1,4 +1,4 @@
-from fedot_ind.core.operation.decomposition.matrix_decomposition.DMDecomposition import *
+from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd_decomposition import *
 
 
 class piDMD:
