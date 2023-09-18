@@ -14,7 +14,7 @@ class IndustrialDecompositionForForecastingStrategy(FedotTsForecastingStrategy):
 
             .. details:: possible operations:
 
-                - ``data_driven_basic``-> DataDrivenBasisImplementation,
+                - ``data_driven_basic``-> EigenBasisImplementation,
                 - ``topological_features``-> TopologicalExtractor,
 
 

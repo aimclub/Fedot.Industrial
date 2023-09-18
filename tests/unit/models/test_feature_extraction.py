@@ -5,9 +5,9 @@ import pytest
 
 
 from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS, PROJECT_PATH
-from fedot_ind.core.models.recurrence.RecurrenceExtractor import RecurrenceExtractor
+from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
+from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 

@@ -4,7 +4,7 @@ from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.experiment.TimeSeriesAnomalyDetection import TimeSeriesAnomalyDetectionPreset
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifierPreset import TimeSeriesClassifierPreset
-from fedot_ind.core.models.topological.TopologicalExtractor import TopologicalExtractor
+from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 
 
 @pytest.fixture()

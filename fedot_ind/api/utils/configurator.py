@@ -5,7 +5,7 @@ from typing import Union
 
 from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
 from fedot_ind.core.architecture.settings.pipeline_factory import FeatureGenerator
-from fedot_ind.core.models.BaseExtractor import BaseExtractor
+from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
 class IndustrialConfigs(Enum):
