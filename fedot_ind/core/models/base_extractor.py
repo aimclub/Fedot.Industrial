@@ -1,10 +1,9 @@
 import logging
 import math
+from itertools import chain
 from multiprocessing import cpu_count, Pool
 from typing import Optional
 
-import numpy as np
-import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -28,7 +27,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
-
+        self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.logging_params = {'jobs': self.n_processes}
@@ -49,9 +48,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             input_data_squeezed = np.squeeze(features)
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        v = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
-
-        predict = self._clean_predict(np.array(v))
+        feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
+        predict = self._clean_predict(np.array([ts.features for ts in feature_matrix]))
+        self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
         return predict
 
     @staticmethod
@@ -64,14 +63,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         predict = predict.reshape(predict.shape[0], -1)
         return predict
 
-    def generate_features_from_ts(self, ts_frame: pd.DataFrame,
-                                  window_length: int = None) -> pd.DataFrame:
+    def generate_features_from_ts(self, ts_frame: np.array,
+                                  window_length: int = None) -> np.array:
         """Method responsible for generation of features from time series.
         """
         pass
 
-    def extract_features(self, train_features: pd.DataFrame,
-                         dataset_name: str = None) -> pd.DataFrame:
+    def extract_features(self, train_features: np.array,
+                         dataset_name: str = None) -> np.array:
         """Wrapper method for feature extraction method get_features() with caching results into pickle file. The idea
         is to create a unique pointer from dataset name, subsample (test or train) and feature generator object. We
         can uniquely identify the generator in our case only using a set of parameters in the form of obj.__dict__,
@@ -106,8 +105,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             return self.generate_features_from_ts(train_features, dataset_name)
 
     @staticmethod
-    def get_statistical_features(time_series: Union[pd.DataFrame, np.ndarray],
-                                 add_global_features: bool = False) -> pd.DataFrame:
+    def get_statistical_features(time_series: np.ndarray,
+                                 add_global_features: bool = False) -> InputData:
         """
         Method for creating baseline quantile features for a given time series.
 
@@ -116,13 +115,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         Returns:
             Row vector of quantile features in the form of a pandas DataFrame
+            :param time_series:
+            :param add_global_features:
 
         """
         names = []
         vals = []
-        # flatten time series
-        if isinstance(time_series, (pd.DataFrame, pd.Series)):
-            time_series = time_series.values
         time_series = time_series.flatten()
 
         if add_global_features:
@@ -136,24 +134,60 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 names.append(method[0])
             except ValueError:
                 continue
-        return pd.DataFrame([vals], columns=names)
 
-    def apply_window_for_stat_feature(self, ts_data: pd.DataFrame,
+        stat_features = InputData(idx=np.arange(len(vals)),
+                                  features=np.array(vals),
+                                  target='no_target',
+                                  task='no_task',
+                                  data_type=DataTypesEnum.table,
+                                  supplementary_data={'feature_name': names})
+        return stat_features
+
+    def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,
-                                      window_size: int = None):
+                                      window_size: int = None) -> InputData:
         if window_size is None:
             # 10% of time series length by default
-            window_size = round(ts_data.shape[1] / 10)
+            window_size = round(ts_data.shape[0] / 10)
         else:
-            window_size = round(ts_data.shape[1] * (window_size / 100))
-        tmp_list = []
+            window_size = round(ts_data.shape[0] * (window_size / 100))
+        features = []
+        names = []
         window_size = max(window_size, 5)
-        for i in range(0, ts_data.shape[1], window_size):
-            slice_ts = ts_data.iloc[:, i:i + window_size]
-            if slice_ts.shape[1] == 1:
+        for i in range(0, ts_data.shape[0], window_size):
+            slice_ts = ts_data[i:i + window_size]
+            if slice_ts.shape[0] == 1:
                 break
             else:
-                df = feature_generator(slice_ts)
-                df.columns = [x + f'_on_interval: {i} - {i + window_size}' for x in df.columns]
-                tmp_list.append(df)
-        return tmp_list
+                stat_feature = feature_generator(slice_ts)
+                features.append(stat_feature.features)
+                names.append([x + f'_on_interval: {i} - {i + window_size}'
+                              for x in stat_feature.supplementary_data['feature_name']])
+        window_stat_features = InputData(idx=np.arange(len(features)),
+                                         features=features,
+                                         target='no_target',
+                                         task='no_task',
+                                         data_type=DataTypesEnum.table,
+                                         supplementary_data={'feature_name': names})
+        return window_stat_features
+
+    @staticmethod
+    def _get_feature_matrix(extraction_func: callable,
+                            ts: np.array) -> InputData:
+        multi_ts_stat_features = [extraction_func(x) for x in ts]
+        features = np.concatenate([component.features for component in multi_ts_stat_features], axis=0)
+
+        for index, component in enumerate(multi_ts_stat_features):
+            component.supplementary_data['feature_name'] = [f'{x} for component {index}'
+                                                            for x in component.supplementary_data['feature_name']]
+        names = list(
+            chain(*[x.supplementary_data['feature_name'] for x in multi_ts_stat_features]))
+
+        multi_ts_stat_features = InputData(idx=np.arange(len(features)),
+                                           features=features,
+                                           target='no_target',
+                                           task='no_task',
+                                           data_type=DataTypesEnum.table,
+                                           supplementary_data={'feature_name': names})
+
+        return multi_ts_stat_features
