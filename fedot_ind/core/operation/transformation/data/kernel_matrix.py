@@ -13,7 +13,7 @@ class TSTransformer:
 
     def ts_to_recurrence_matrix(self,
                                 threshold=None):
-        distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.T)
+        distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.reshape(-1,1))
         distance_matrix = np.ones(shape=distance_matrix.shape[0]) - distance_matrix
         distance_matrix = self.binarization(distance_matrix, threshold=threshold)
         self.recurrence_matrix = squareform(distance_matrix)
