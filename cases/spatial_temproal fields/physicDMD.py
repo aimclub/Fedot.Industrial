@@ -3,7 +3,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from fedot_ind.core.operation.optimization.DMD.PhysicDMD import piDMD
+from fedot_ind.core.operation.optimization.dmd.physic_dmd import piDMD
 
 np.random.seed(1)  # Set random seed
 n = 10  # Number of features
@@ -22,16 +22,16 @@ noiseMag = .5
 Yn = Y + noiseMag * np.random.randn(n, m)
 Xn = X + noiseMag * np.random.randn(n, m)
 
-ortoDMD = piDMD(method='orthogonal')  # Energy preserving DMD
+ortoDMD = piDMD(method='orthogonal')  # Energy preserving dmd
 svdDMD = piDMD(method='exact')
 # Train the models
-piA, piVals, piEgvectors = ortoDMD.fit(Xn, Yn)  # Energy preserving DMD
-exA, exVals, exactEgvectors = svdDMD.fit(Xn, Yn)  # Exact DMD
+piA, piVals, piEgvectors = ortoDMD.fit(Xn, Yn)  # Energy preserving dmd
+exA, exVals, exactEgvectors = svdDMD.fit(Xn, Yn)  # Exact dmd
 
 # Display the error between the learned operators
 I = np.eye(n)
 print('piDMD model error is     ' + str(np.linalg.norm(ortoDMD.predict(I) - trueA, 'fro') / np.linalg.norm(trueA, 'fro')))
-print('exact DMD model error is ' + str(np.linalg.norm(svdDMD.predict(I) - trueA, 'fro') / np.linalg.norm(trueA, 'fro')))
+print('exact dmd model error is ' + str(np.linalg.norm(svdDMD.predict(I) - trueA, 'fro') / np.linalg.norm(trueA, 'fro')))
 
 # Plot some results
 plt.figure(1)
@@ -42,7 +42,7 @@ p4 = plt.plot((trueVals) + 1j * np.finfo(float).eps, 'o', color=[0.5, 0.5, 0.5],
 plt.axis('equal')
 plt.axis(1.3 * np.array([-1, 1, -1, 1]))
 
-plt.legend([p2, p3, p4], ['exact DMD', 'piDMD', 'truth'], fontsize=15)
+plt.legend([p2, p3, p4], ['exact dmd', 'piDMD', 'truth'], fontsize=15)
 plt.title('Spectrum of linear operator', fontsize=20)
 
 plt.show()

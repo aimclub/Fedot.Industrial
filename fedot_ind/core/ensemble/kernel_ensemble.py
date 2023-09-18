@@ -12,6 +12,7 @@ from scipy.spatial.distance import pdist, squareform
 
 from fedot_ind.core.architecture.pipelines.classification import ClassificationPipelines
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.core.ensemble.rank_ensembler import RankEnsemble
 
 
 class KernelEnsembler(ClassificationPipelines):
@@ -89,7 +90,27 @@ class KernelEnsembler(ClassificationPipelines):
 
 def init_kernel_ensemble(train_data,
                          test_data,
-                         strategy: str = 'quantile'):
+                         strategy: str = 'quantile',
+                         kernel_list: dict = None):
+    kernels = KernelEnsembler(train_data=train_data, test_data=test_data)
+    set_of_fg = kernels('one_stage_kernel')(kernel_params_dict=kernel_list)
+
+    train_feats = kernels.feature_matrix_train
+    train_target = kernels.train_target
+
+    test_feats = kernels.feature_matrix_test
+    test_target = kernels.test_target
+
+    return set_of_fg, train_feats, train_target, test_feats, test_target
+
+
+if __name__ == '__main__':
+    n_best = 3
+    feature_dict = {}
+    metric_list = []
+    proba_dict = {}
+    metric_dict = {}
+    dataset_name = 'Lightning2'
     kernel_list = {'wavelet': [
         {'feature_generator_type': 'wavelet',
          'feature_hyperparams': {
@@ -115,35 +136,24 @@ def init_kernel_ensemble(train_data,
              }
              }]
     }
-    kernels = KernelEnsembler(train_data=train_data, test_data=test_data)
-    set_of_fg = kernels('one_stage_kernel')(kernel_params_dict=kernel_list)
+    fg_names = []
+    for key in kernel_list:
+        for model_params in kernel_list[key]:
+            fg_names.append(f'{key}_{model_params}')
 
-    train_feats = kernels.feature_matrix_train
-    train_target = kernels.train_target
-
-    test_feats = kernels.feature_matrix_test
-    test_target = kernels.test_target
-
-    return set_of_fg, train_feats, train_target, test_feats, test_target
-
-
-if __name__ == '__main__':
-    metric_list = []
-    dataset_name = 'Earthquakes'
     train_data, test_data = DataLoader(dataset_name).load_data()
-    set_of_fg, train_feats, train_target, test_feats, test_target = init_kernel_ensemble(train_data, test_data)
-    two_best_generators = set_of_fg.T.nlargest(2, 0).index
+    set_of_fg, train_feats, train_target, test_feats, test_target = init_kernel_ensemble(train_data,
+                                                                                         test_data,
+                                                                                         kernel_list=kernel_list)
 
-    train_best_solo = train_feats[two_best_generators[0]]
-    test_best_solo = test_feats[two_best_generators[0]]
-    train_second_solo = train_feats[two_best_generators[1]]
-    test_second_solo = test_feats[two_best_generators[1]]
+    n_best_generators = set_of_fg.T.nlargest(n_best, 0).index
+    for rank in range(n_best):
+        fg_rank = n_best_generators[rank]
+        train_best = train_feats[fg_rank]
+        test_best = test_feats[fg_rank]
+        feature_dict.update({fg_names[rank]: (test_best, test_best)})
 
-    train_best_combo = np.concatenate([train_best_solo, train_second_solo], axis=1)
-    test_best_combo = np.concatenate([test_best_solo, test_second_solo], axis=1)
-
-    for train, test in zip([train_best_solo, train_second_solo, train_best_combo],
-                           [test_best_solo, test_second_solo, test_best_combo]):
+    for model_name, feature in feature_dict.items():
         industrial = Fedot(
             # available_operations=['fast_ica', 'scaling','normalization',
             #                               'xgboost',
@@ -154,12 +164,13 @@ if __name__ == '__main__':
             #                               'pca'],
             metric='roc_auc', timeout=5, problem='classification', n_jobs=6)
 
-
-
-        model = industrial.fit(train, train_target)
-        labels = industrial.predict(test)
-        probs = industrial.predict_proba(test)
-
-        metric = roc_auc_score(test_target, industrial.predict(test), average='weighted')
-        metric_list.append(metric)
+        model = industrial.fit(feature[0], train_target)
+        labels = industrial.predict(feature[1])
+        proba_dict.update({model_name: industrial.predict_proba(feature[1])})
+        metric_dict.update({model_name: industrial.get_metrics(test_target, metric_names=['roc_auc', 'f1', 'acc'])})
+    rank_ensembler = RankEnsemble(dataset_name=dataset_name,
+                                  proba_dict=proba_dict,
+                                  metric_dict=metric_dict)
+    ensemble_result = rank_ensembler.ensemble()
     _ = 1
+
