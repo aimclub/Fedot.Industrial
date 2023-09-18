@@ -203,7 +203,7 @@ class TimeSeriesClassifierPreset:
         self.model_params.update({'metric': metric})
         self.predictor = Fedot(available_operations=['scaling',
                                                      'normalization',
-                                                     'fast_ica',
+                                                     #'fast_ica',
                                                      'xgboost',
                                                      'rfr',
                                                      'rf',
@@ -211,7 +211,8 @@ class TimeSeriesClassifierPreset:
                                                      'mlp',
                                                      'knn',
                                                      'lgbm',
-                                                     'pca']
+                                                     'pca'
+                                                     ]
                                , **self.model_params)
 
         self.predictor.fit(train_data_preprocessed)

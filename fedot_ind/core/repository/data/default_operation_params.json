@@ -148,7 +148,7 @@
   "fast_ica": {
     "whiten": "unit-variance"
   },
-  "data_driven_basis": {
+  "eigen_basis": {
     "window_size": 25,
     "sv_selector": "median"
   },

@@ -216,7 +216,7 @@
       "input_type": "[DataTypesEnum.ts]",
       "output_type": "[DataTypesEnum.ts]"
     },
-    "data_driven_basis": {
+    "eigen_basis": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
