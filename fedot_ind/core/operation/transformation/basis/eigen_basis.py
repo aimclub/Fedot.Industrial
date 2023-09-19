@@ -37,13 +37,12 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.window_size = params.get('window_size')
+        self.window_size = params.get('window_size', 20)
+        self.low_rank_approximation = params.get('low_rank_approximation', True)
         self.basis = None
         self.SV_threshold = None
-        # self.sv_selector = params.get('sv_selector')
         self.sv_selector = 'median'
         self.svd_estimator = RSVDDecomposition()
-        self.low_rank_approximation = True
         self.logging_params.update({'WS': self.window_size,
                                     'SV_selector': self.sv_selector,
                                     })
