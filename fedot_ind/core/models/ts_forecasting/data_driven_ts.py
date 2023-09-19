@@ -8,6 +8,7 @@ import numpy as np
 import math
 from multiprocessing import cpu_count
 from typing import TypeVar, Optional
+
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -17,9 +18,11 @@ from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
 from statsforecast.arima import AutoARIMA
 from statsforecast.models import AutoTheta, AutoETS
 
+
 from fedot_ind.core.operation.decomposition.spectrum_decomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
+from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 
 class_type = TypeVar("T", bound="DataDrivenBasis")
 rcParams['figure.figsize'] = 11, 4
@@ -82,8 +85,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         self.window_size = trajectory_transformer.window_length
         self.SV_threshold = self.estimate_singular_values(data)
         self.decomposer = SpectrumDecomposer(data,
-                                             trajectory_transformer.ts_length,
-                                             self.SV_threshold)
+                                             trajectory_transformer.ts_length)
         U, s, VT = self.get_svd(data)
         basis = self.reconstruct_basis(U, s, VT).T
 
@@ -91,12 +93,14 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         previous_ratio = 0
         while min_rank < len(s):
             variance_ratio = sv_to_explained_variance_ratio(s, min_rank)[0]
-            if variance_ratio - previous_ratio < 3:
+            if variance_ratio - previous_ratio < 3 and variance_ratio > 95:
                 print(variance_ratio)
                 break
+
             min_rank += 1
+            previous_ratio = variance_ratio
+        reconstructed_features = np.array(basis[:min_rank, :]).sum(axis=0)
         self.SV_threshold = min_rank
-        reconstructed_features = np.array(basis[:, :min_rank]).sum(axis=0)
         return reconstructed_features
 
     def estimate_singular_values(self, data):
@@ -107,7 +111,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
     def _predict_component(self, comp: np.array, forecast_length: int):
 
-        estimated_seasonal_length = WindowSizeSelection(time_series=comp).get_window_size()[0]
+        estimated_seasonal_length = WindowSizeSelector().get_window_size(comp)
         model_arima = AutoARIMA(period=estimated_seasonal_length)
         forecast = []
         for model in [model_arima]:
