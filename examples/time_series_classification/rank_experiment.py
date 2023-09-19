@@ -2,55 +2,11 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-from fedot.api.main import Fedot
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from sklearn.metrics import f1_score, roc_auc_score
-from fedot_ind.api.main import FedotIndustrial
+from examples.fedot.fedot_ex import init_input_data
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler
-
-
-def extract_features(train_data, bss):
-    basis_1d_raw = bss._transform(train_data[0])
-    feature_train = stats_model.transform(basis_1d_raw)
-    return feature_train, bss
-
-
-def evaluate_model(feature_train, bss, test_data, model_type: str = 'MLP'):
-    if len(np.unique(test_data[1])) > 2:
-        metric_name = 'f1'
-    else:
-        metric_name = 'roc_auc'
-
-    if model_type == 'MLP':
-        clf = MLPClassifier(hidden_layer_sizes=(150, 100, 50), max_iter=300, activation='relu', solver='adam',
-                            random_state=42)
-    else:
-        clf = Fedot(
-            # available_operations=['fast_ica', 'scaling','normalization',
-            #                               'xgboost',
-            #                               'rf',
-            #                               'logit',
-            #                               'mlp',
-            #                               'knn',
-            #                               'pca'],
-            metric=metric_name, timeout=10, problem='classification', n_jobs=6)
-
-    scaler = StandardScaler()
-    scaler.fit(feature_train)
-    feature_train = scaler.transform(feature_train)
-    clf.fit(feature_train, train_data[1])
-    basis_1d_raw = bss._transform(test_data[0])
-    test_feature = stats_model.transform(basis_1d_raw)
-    test_feature = scaler.transform(test_feature)
-    if len(np.unique(test_data[1])) > 2:
-        metric = f1_score(test_data[1], clf.predict(test_feature), average='weighted')
-    else:
-        metric = roc_auc_score(test_data[1], clf.predict(test_feature), average='weighted')
-    return metric, test_feature
-
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 # def visualise_and_save():
 #     for class_number in np.unique(train_data[1]):
@@ -74,88 +30,76 @@ def evaluate_model(feature_train, bss, test_data, model_type: str = 'MLP'):
 #                 f'New_{low_rank_after}_std_{rank_dispersion_new}.png', bbox_inches='tight')
 #     rank_distrib['classes'] = train_data[1]
 
+datasets_bad_f1 = [
+    'EOGVerticalSignal',
+    'ScreenType',
+    'CricketY',
+    'ElectricDevices',
+    'Lightning7'
+]
+
+datasets_good_f1 = [
+    'Car',
+    'ECG5000',
+    "Beef",
+    # 'Phoneme',
+    # 'Meat',
+    # 'RefrigerationDevices'
+]
+
+datasets_good_roc = [
+    'Chinatown',
+    'Computers',
+    'Earthquakes',
+    'Ham',
+    'ECG200',
+    'ECGFiveDays',
+    'MiddlePhalanxOutlineCorrect',
+    'MoteStrain',
+    'TwoLeadECG'
+]
+
+group = os.listdir('D:\WORK\Repo\Industiral\IndustrialTS\data')
+
+model_dict = {
+    'eigen_basis_basic': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': False}).add_node(
+        'quantile_extractor',
+        params={'window_size': 10,
+                'window_mode': False}).add_node(
+        'logit'),
+    'eigen_basis_advanced': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': True}).add_node(
+        'quantile_extractor',
+        params={'window_size': 10,
+                'window_mode': False}).add_node(
+        'logit')}
+metric_dict = {}
+
+
+def evaluate_metric(target, prediction):
+    try:
+        if len(np.unique(target)) > 2:
+            metric = f1_score(target, prediction, average='weighted')
+        else:
+            metric = roc_auc_score(target, prediction, average='weighted')
+    except Exception:
+        metric = 0
+    return metric
+
 
 if __name__ == "__main__":
-
-    datasets_bad_f1 = [
-        # 'EOGVerticalSignal',
-        # 'ScreenType',
-        # 'CricketY',
-        # 'ElectricDevices',
-        'Lightning7'
-    ]
-
-    datasets_good_f1 = [
-        'Car',
-        'ECG5000',
-        "Beef",
-        #     'Phoneme',
-        'Meat',
-        # 'RefrigerationDevices'
-    ]
-
-    datasets_good_roc = [
-        # 'Chinatown',
-        'Computers',
-        # 'Earthquakes',
-        'Ham',
-        'ECG200',
-        'ECGFiveDays'
-        # 'MiddlePhalanxOutlineCorrect',
-        # 'MoteStrain',
-        # 'TwoLeadECG'
-    ]
-    # node_scaling = PipelineNode('scaling')
-    # node_final = PipelineNode('rf', nodes_from=[node_scaling])
-    # rf_model = Pipeline(node_final)
-
-    datasets_bad_roc = [
-        'Lightning2',
-        # 'WormsTwoClass',
-        # 'DistalPhalanxOutlineCorrect'
-    ]
-
-    stats_model = QuantileExtractor({'window_mode': False, 'window_size': 5, 'use_cache': False, 'n_jobs': 4})
-    for group in [
-        datasets_bad_f1,
-        datasets_good_f1,
-        datasets_good_roc,
-        datasets_bad_roc
-    ]:
-
-        for dataset_name in group:
-
-            industrial = FedotIndustrial(task='ts_classification',
-                                         dataset=dataset_name,
-                                         strategy='fedot_preset',
-                                         branch_nodes=[
-                                             # 'fourier_basis',
-                                             # 'wavelet_basis',
-                                             'data_driven_basis'
-                                         ],
-                                         tuning_iterations=30,
-                                         tuning_timeout=15,
-                                         use_cache=False,
-                                         timeout=5,
-                                         n_jobs=6,
-                                         )
-            try:
-                os.makedirs(f'./{dataset_name}')
-            except Exception:
-                _ = 1
-
+    for dataset_name in group:
+        try:
             train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
-            # bss = EigenBasisImplementation({'sv_selector': 'median', 'window_size': 20})
-            # bss.low_rank_approximation = False
-            # train_feature, bss = extract_features(train_data, bss)
-            # f1_HT, test_feature = evaluate_model(train_feature, bss, test_data,model_type='Auto')
-
-            bss = EigenBasisImplementation({'sv_selector': 'median', 'window_size': 20})
-            bss.low_rank_approximation = True
-            bss.SV_threshold = None
-            train_feature, bss = extract_features(train_data, bss)
-            f1_PI, test_feature_PI = evaluate_model(train_feature, bss, test_data, model_type='Auto')
-            print(f'Dataset-{dataset_name}')
-            # print(f'HT_metric-{f1_HT}')
-            print(f'PI_metric-{f1_PI}')
-    _ = 1
+            input_data = init_input_data(train_data[0], train_data[1])
+            val_data = init_input_data(test_data[0], test_data[1])
+            with IndustrialModels():
+                for model in model_dict.keys():
+                    pipeline = model_dict[model].build()
+                    pipeline.fit(input_data)
+                    features = pipeline.predict(val_data, 'labels').predict
+                    metric = evaluate_metric(target=test_data[1], prediction=features)
+                    metric_dict.update({f'{dataset_name}_{model}': metric})
+                    print(f'{dataset_name}_{model} - {metric}')
+        except Exception:
+            print(f'{dataset_name} doesnt exist')
+    print(metric_dict)
