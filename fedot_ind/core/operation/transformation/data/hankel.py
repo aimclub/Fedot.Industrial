@@ -35,7 +35,6 @@ class HankelMatrix:
         if not 2 <= self.__window_length <= self.__ts_length / 2:
             self.__window_length = int(self.__ts_length / 3)
 
-
     def __convert_ts_to_array(self):
         if type(self.__time_series) == pd.DataFrame:
             self.__time_series = self.__time_series.values.reshape(-1, 1)
@@ -43,7 +42,6 @@ class HankelMatrix:
             self.__time_series = np.array(self.__time_series)
         else:
             self.__time_series = self.__time_series
-
 
     def __get_trajectory_matrix(self):
         if len(self.__time_series.shape) > 1:

@@ -31,11 +31,6 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
     def _get_basis(self, data):
         basis = Either.insert(data).then(self._get_1d_basis if type(data) != list else self._get_multidim_basis).value
-
-        # if type(data) == list:
-        #     basis = self._get_multidim_basis(data)
-        # else:
-        #     basis = self._get_1d_basis(data)
         return basis
 
     def fit(self, data):

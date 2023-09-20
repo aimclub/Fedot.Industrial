@@ -11,16 +11,13 @@ from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.sequential import SequentialTuner
-from golem.core.tuning.simultaneous import SimultaneousTuner
 
+from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
-from fedot_ind.core.operation.caching import DataCacher
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 np.random.seed(0)
@@ -70,47 +67,8 @@ class TimeSeriesClassifierPreset:
         self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
                          f'[{self.tuning_iters}] tuning iterations and [{self.tuning_timeout}] timeout')
 
-    def __check_multivariate_data(self, data: pd.DataFrame) -> bool:
-        """Method for checking if the data is multivariate.
-
-        Args:
-            X: pandas DataFrame with features
-
-        Returns:
-            True if data is multivariate, False otherwise
-
-        """
-        if isinstance(data.iloc[0, 0], pd.Series):
-            return True
-        else:
-            return False
-
     def _init_input_data(self, X: pd.DataFrame, y: np.ndarray) -> InputData:
-        """Method for initialization of InputData object from pandas DataFrame and numpy array with target values.
-
-        Args:
-            X: pandas DataFrame with features
-            y: numpy array with target values
-
-        Returns:
-            InputData object convenient for FEDOT framework
-
-        """
-        is_multivariate_data = self.__check_multivariate_data(X)
-        if is_multivariate_data:
-            input_data = InputData(idx=np.arange(len(X)),
-                                   features=np.array(X.values.tolist()),
-                                   target=y.reshape(-1, 1),
-                                   task=Task(TaskTypesEnum.classification),
-                                   data_type=DataTypesEnum.image)
-        else:
-            input_data = InputData(idx=np.arange(len(X)),
-                                   features=X.values,
-                                   target=np.ravel(y).reshape(-1, 1),
-                                   task=Task(TaskTypesEnum.classification),
-                                   data_type=DataTypesEnum.table)
-
-        return input_data
+        return init_input_data(X, y)
 
     def _build_pipeline(self):
         """
@@ -232,13 +190,6 @@ class TimeSeriesClassifierPreset:
 
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
-        # data_cacher = DataCacher()
-        # get unique hash of input data
-        # test_predict_hash = data_cacher.hash_info(data=features)
-        # compare it to existed hash
-        # if self.test_predict_hash != test_predict_hash:
-        #     test_data = self._init_input_data(features, target)
-        #     test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
 
         if test_data.features.shape[0] == 1:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
@@ -255,16 +206,7 @@ class TimeSeriesClassifierPreset:
 
         return self.prediction_label
 
-        # else:
-        #     return self.prediction_label
-
     def predict_proba(self, features, target) -> dict:
-        # data_cacher = DataCacher()
-        # # get unique hash of input data
-        # test_predict_hash = data_cacher.hash_info(data=features,
-        #                                           obj_info_dict=self.__dict__)
-        # # compare it to existed hash
-        # if self.test_predict_hash != test_predict_hash:
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
         self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
