@@ -1,13 +1,11 @@
 from typing import Optional, Tuple, TypeVar
-from typing import Optional, Tuple, TypeVar
 
 import numpy as np
 import pandas as pd
 import tensorly as tl
 from fedot.core.data.data import InputData
-
 from fedot.core.operations.operation_parameters import OperationParameters
-from joblib import Parallel, delayed
+from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from scipy import stats
@@ -25,12 +23,12 @@ class_type = TypeVar("T", bound="DataDrivenBasis")
 
 
 class EigenBasisImplementation(BasisDecompositionImplementation):
-    """DataDriven basis
+    """Eigen basis decomposition implementation
         Example:
             ts1 = np.random.rand(200)
             ts2 = np.random.rand(200)
             ts = [ts1, ts2]
-            bss = EigenBasisImplementation({'sv_selector': 'median', 'window_size': 30})
+            bss = EigenBasisImplementation({'window_size': 30})
             basis_multi = bss._transform(ts)
             basis_1d = bss._transform(ts1)
     """
@@ -41,11 +39,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         self.low_rank_approximation = params.get('low_rank_approximation', True)
         self.basis = None
         self.SV_threshold = None
-        self.sv_selector = 'median'
         self.svd_estimator = RSVDDecomposition()
-        self.logging_params.update({'WS': self.window_size,
-                                    'SV_selector': self.sv_selector,
-                                    })
+        self.logging_params.update({'WS': self.window_size})
 
     def _combine_components(self, predict):
         count = 0
@@ -77,36 +72,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         features = np.array([series[~np.isnan(series)] for series in features])
 
         if self.SV_threshold is None:
-            self.SV_threshold = self.get_threshold(data=features,
-                                                   selector=self.sv_selector)
+            self.SV_threshold = self.get_threshold(data=features)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
         predict = np.array(v)
-        # new_shape = predict[0].shape[0]
-        #
-        # reduce_dimension = True
-        # while reduce_dimension:
-        #     predict = self._combine_components(predict)
-        #     if predict[0].shape[0] == new_shape or predict[0].shape[0] == 1:
-        #         reduce_dimension = False
-        #     new_shape = predict[0].shape[0]
-        # predict = self._clean_predict(np.array(v))
         return predict
 
-    def get_threshold(self, data, selector: str):
-
-        selectors = {'median': stats.mode,
-                     'mode': stats.mode}
-
+    def get_threshold(self, data) -> int:
         svd_numbers = []
         with tqdm(total=len(data), desc='SVD estimation') as pbar:
             for signal in data:
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
-
-        return selectors[selector](svd_numbers).mode[0]
+        return stats.mode(svd_numbers).mode[0]
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
