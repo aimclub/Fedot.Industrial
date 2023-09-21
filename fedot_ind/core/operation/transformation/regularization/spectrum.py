@@ -26,7 +26,7 @@ def sv_to_explained_variance_ratio(singular_values, rank):
     return explained_variance, n_components
 
 
-def singular_value_hard_threshold(singular_values, rank=None, beta=None, threshold=1) -> list:
+def singular_value_hard_threshold(singular_values, rank=None, beta=None, threshold=2.58) -> list:
     """
     Calculate the hard threshold for the singular values.
 

@@ -45,6 +45,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
+
         self.window_size = params.get('window_size')
         self.SV_threshold = None
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
@@ -53,7 +54,10 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
     def predict(self, input_data: InputData) -> OutputData:
         forecast_length = input_data.task.task_params.forecast_length
-        trajectory_transformer = HankelMatrix(time_series=input_data.features, window_size=self.window_size)
+        features = input_data.features
+        if len(input_data.features > 250):
+            features = input_data.features[-250:]
+        trajectory_transformer = HankelMatrix(time_series=features, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
 
         self.window_size = trajectory_transformer.window_length
@@ -78,7 +82,12 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         pass
 
     def predict_for_fit(self, input_data: InputData) -> OutputData:
-        trajectory_transformer = HankelMatrix(time_series=input_data.features, window_size=self.window_size)
+        features = input_data.features
+        if len(input_data.features > 250):
+            features = input_data.features[-250:]
+        self.window_size = int(WindowSizeSelector(method='highest_autocorrelation').get_window_size(features) * len(
+            features) / 100)
+        trajectory_transformer = HankelMatrix(time_series=features, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length)
 
