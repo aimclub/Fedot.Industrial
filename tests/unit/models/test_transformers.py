@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.transformation.DataTransformer import TopologicalTransformation, TSTransformer
+from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
+from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
 from fedot_ind.core.operation.transformation.window_cutter import WindowCutter
 
 
