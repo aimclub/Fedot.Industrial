@@ -41,23 +41,25 @@ PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_di
 
 class TopologicalExtractor(BaseExtractor):
     """Class for extracting topological features from time series data.
+
     Args:
         params: parameters for operation
+
     Example:
-        from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-        from examples.fedot.fedot_ex import init_input_data
-        from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-        from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+        To use this operation you can create pipeline as follows::
+            from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+            from fedot_ind.api.utils.input_data import init_input_data
+            from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
-        train_data, test_data = DataLoader(dataset_name='Ham').load_data()
-        with IndustrialModels():
-            pipeline = PipelineBuilder().add_node('eigen_basis').add_node('topological_extractor').add_node(
-                'rf').build()
-            input_data = init_input_data(train_data[0], train_data[1])
-            pipeline.fit(input_data)
-            features = pipeline.predict(input_data)
-            print(features)
-
+            train_data, test_data = DataLoader(dataset_name='Ham').load_data()
+            with IndustrialModels():
+                pipeline = PipelineBuilder().add_node('eigen_basis').add_node('topological_extractor').add_node(
+                    'rf').build()
+                input_data = init_input_data(train_data[0], train_data[1])
+                pipeline.fit(input_data)
+                features = pipeline.predict(input_data)
+                print(features)
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -102,7 +104,7 @@ class TopologicalExtractor(BaseExtractor):
                                       persistence_params: dict = None) -> InputData:
 
         if persistence_params is not None:
-            self._evaluate_persistence_params(ts)
+            self.__evaluate_persistence_params(ts)
 
         if len(ts.shape) == 1:
             aggregation_df = self._generate_features_from_ts(ts, persistence_params)
@@ -150,4 +152,3 @@ class TopologicalExtractor(BaseExtractor):
     @staticmethod
     def _mode(arr: list) -> int:
         return int(stats.mode(arr)[0][0])
-

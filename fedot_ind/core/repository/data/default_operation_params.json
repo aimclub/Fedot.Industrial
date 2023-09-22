@@ -167,7 +167,7 @@
   },
   "recurrence_extractor": {
     "window_size": 20,
-    "win_mode": true,
+    "window_mode": true,
     "min_signal_ratio": 0.5,
     "max_signal_ratio": 0.75,
     "rec_metric": "euclidean"
