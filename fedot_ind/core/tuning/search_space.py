@@ -6,24 +6,18 @@ NESTED_PARAMS_LABEL = 'nested_label'
 
 industrial_search_space = {
     'eigen_basis':
-        {
-            # 'sv_selector': {'hyperopt-dist': hp.choice, 'sampling-scope': [['median', '0.75%', '0.25%']]},
-            'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]}},
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]}},
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
     'fourier_basis':
-        {'spectrum': {'hyperopt-dist': hp.choice, 'sampling-scope': [['smoothed']]},
-         'threshold': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [10000, 50000]}},
-
+        {'threshold': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [10000, 50000]}},
     'quantile_extractor':
         {'window_mode': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, True]]},
-         # 'var_threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [np.linspace(0, 0.02, 35)]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 50, 3)]]}},
-
     'recurrence_extractor':
-        {'win_mode': (hp.choice, [[True, False]]),
+        {'window_mode': (hp.choice, [[True, False]]),
          'window_size': (hp.uniformint, [1, 50]),
          'min_signal_ratio': (hp.uniform, [0, 0.5]),
          'max_signal_ratio': (hp.uniform, [0.5, 1]),
@@ -32,9 +26,8 @@ industrial_search_space = {
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
     'data_driven_basis_for_forecasting':
-        {
-            'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]}}
-}
+        {'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]}}
+    }
 
 
 def get_industrial_search_space(self):
