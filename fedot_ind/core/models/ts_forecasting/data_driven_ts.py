@@ -62,9 +62,6 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         new_VT = parallel(delayed(self._predict_component)(sample, forecast_length) for sample in VT[:s.shape[0]])
         new_VT = np.array(new_VT)
-
-        fff = sv_to_explained_variance_ratio(s, 0)
-
         basis = self.reconstruct_basis(U, s, new_VT).T
 
         self.decomposer = SpectrumDecomposer(data,
@@ -87,11 +84,19 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         self.decomposer = SpectrumDecomposer(data,
                                              trajectory_transformer.ts_length,
                                              self.SV_threshold)
-
         U, s, VT = self.get_svd(data)
         basis = self.reconstruct_basis(U, s, VT).T
 
-        reconstructed_features = np.array(basis).sum(axis=0)
+        min_rank = 1
+        previous_ratio = 0
+        while min_rank < len(s):
+            variance_ratio = sv_to_explained_variance_ratio(s, min_rank)[0]
+            if variance_ratio - previous_ratio < 3:
+                print(variance_ratio)
+                break
+            min_rank += 1
+        self.SV_threshold = min_rank
+        reconstructed_features = np.array(basis[:, :min_rank]).sum(axis=0)
         return reconstructed_features
 
     def estimate_singular_values(self, data):
@@ -101,20 +106,15 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
         return len(spectrum)
 
     def _predict_component(self, comp: np.array, forecast_length: int):
-        season_length = round(comp.shape[0] * 0.1)
-        # model_theta = AutoTheta(season_length=season_length)
-        model_arima = AutoARIMA()
-        # model_ets = AutoETS(season_length=season_length)
+
+        estimated_seasonal_length = WindowSizeSelection(time_series=comp).get_window_size()[0]
+        model_arima = AutoARIMA(period=estimated_seasonal_length)
         forecast = []
-        for model in [
-            # model_theta,
-            model_arima,
-            # model_ets
-        ]:
+        for model in [model_arima]:
             model.fit(comp)
             p = model.predict(forecast_length)['mean']
             forecast.append(p)
-        forecast = np.median(np.array(forecast), axis=0)
+        forecast = np.mean(np.array(forecast), axis=0)
         return np.concatenate([comp, forecast])
 
     def get_svd(self, data):
