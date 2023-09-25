@@ -55,38 +55,43 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
     def predict(self, input_data: InputData) -> OutputData:
         forecast_length = input_data.task.task_params.forecast_length
         features = input_data.features
-        if len(input_data.features > 250):
-            features = input_data.features[-250:]
+        if len(input_data.features > 100):
+            features = input_data.features[-100:]
         trajectory_transformer = HankelMatrix(time_series=features, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
 
         self.window_size = trajectory_transformer.window_length
         self.decomposer = SpectrumDecomposer(data,
-                                             trajectory_transformer.ts_length + forecast_length,
-                                             self.SV_threshold)
+                                             trajectory_transformer.ts_length + forecast_length)
         U, s, VT = self.get_svd(data)
 
+        s_basis = s[:self.SV_threshold]
+        s_error = s[self.SV_threshold:]
+
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        new_VT = parallel(delayed(self._predict_component)(sample, forecast_length) for sample in VT[:s.shape[0]])
+        new_VT = parallel(delayed(self._predict_component)(sample, forecast_length) for sample in VT[:s_basis.shape[0]])
         new_VT = np.array(new_VT)
-        basis = self.reconstruct_basis(U, s, new_VT).T
+        basis = self.reconstruct_basis(U, s_basis, new_VT).T
 
         self.decomposer = SpectrumDecomposer(data,
                                              trajectory_transformer.ts_length,
                                              self.SV_threshold)
-        self.train_basis = self.reconstruct_basis(U, s, VT).T
+        self.train_basis = self.reconstruct_basis(U, s_basis, VT).T
 
-        return np.array(basis).sum(axis=0)[-forecast_length:]
+        error = np.array(self.reconstruct_basis(U, s_error, VT[self.SV_threshold:]).T).sum(axis=0)[-forecast_length:]
+
+        return np.array(basis).sum(axis=0)[-forecast_length:] + error
 
     def fit(self, input_data: InputData):
         pass
 
     def predict_for_fit(self, input_data: InputData) -> OutputData:
         features = input_data.features
-        if len(input_data.features > 250):
-            features = input_data.features[-250:]
-        self.window_size = int(WindowSizeSelector(method='highest_autocorrelation').get_window_size(features) * len(
+        if len(input_data.features > 100):
+            features = input_data.features[-100:]
+        self.window_size = int(WindowSizeSelector(method='hac').get_window_size(features) * len(
             features) / 100)
+        print(self.window_size)
         trajectory_transformer = HankelMatrix(time_series=features, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length)
@@ -120,7 +125,7 @@ class DataDrivenForForecastingBasisImplementation(ModelImplementation):
 
     def _predict_component(self, comp: np.array, forecast_length: int):
 
-        estimated_seasonal_length = WindowSizeSelector().get_window_size(comp)
+        estimated_seasonal_length = WindowSizeSelector('hac').get_window_size(comp)
         model_arima = AutoARIMA(period=estimated_seasonal_length)
         forecast = []
         for model in [model_arima]:
