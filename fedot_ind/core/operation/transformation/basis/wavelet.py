@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 import numpy as np
 import pywt
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -27,7 +27,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         self.continuous_wavelets = pywt.wavelist(kind='continuous')
         self.scales = [2, 4, 10, 20]
 
-    def _decompose_signal(self, input_data):
+    def _decompose_signal(self, input_data) -> Tuple[np.array, np.array]:
         if self.wavelet in self.discrete_wavelets:
             high_freq, low_freq = pywt.dwt(input_data, self.wavelet, 'smooth')
         else:
@@ -39,7 +39,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
             low_freq = low_freq[np.newaxis, :]
         return high_freq, low_freq
 
-    def _decomposing_level(self):
+    def _decomposing_level(self) -> int:
         """The level of decomposition of the time series.
 
         Returns:
@@ -50,7 +50,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
     def _transform_one_sample(self, series: np.array):
         return self._get_basis(series)
 
-    def _get_1d_basis(self, data):
+    def _get_1d_basis(self, data) -> np.array:
 
         decompose = lambda signal: ListMonad(self._decompose_signal(signal))
         threshold = lambda Monoid: ListMonad([Monoid[0][
