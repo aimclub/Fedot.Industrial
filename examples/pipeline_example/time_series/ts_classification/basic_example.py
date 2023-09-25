@@ -1,9 +1,9 @@
-import numpy as np
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from examples.fedot.fedot_ex import init_input_data
+from examples.example_utils import evaluate_metric
+from examples.example_utils import init_input_data
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from sklearn.metrics import f1_score, roc_auc_score
+
 
 model_dict = {'basic_quantile': PipelineBuilder().add_node('quantile_extractor',
                                                            params={'window_size': 10,
@@ -33,9 +33,6 @@ with IndustrialModels():
         val_data = init_input_data(test_data[0], test_data[1])
         pipeline.fit(input_data)
         features = pipeline.predict(val_data).predict
-        if len(np.unique(test_data[1])) > 2:
-            metric = f1_score(test_data[1], features, average='weighted')
-        else:
-            metric = roc_auc_score(test_data[1], features, average='weighted')
+        metric = evaluate_metric(target=test_data[1], prediction=features)
         metric_dict.update({model: metric})
     print(metric_dict)

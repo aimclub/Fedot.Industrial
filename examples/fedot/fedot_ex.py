@@ -1,44 +1,26 @@
 import numpy as np
-import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.composer.metrics import F1
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.dataset_types import DataTypesEnum
+
 from fedot.core.repository.operation_types_repository import get_operations_for_task
 from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
+from examples.example_utils import init_input_data
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 from fedot_ind.core.optimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
-def check_multivariate_data(data: pd.DataFrame) -> bool:
-    if isinstance(data.iloc[0, 0], pd.Series):
-        return True
-    else:
-        return False
 
 
-def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
-    is_multivariate_data = check_multivariate_data(X)
-    if is_multivariate_data:
-        input_data = InputData(idx=np.arange(len(X)),
-                               features=np.array(X.values.tolist()),
-                               target=y.reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
-                               data_type=DataTypesEnum.image)
-    else:
-        input_data = InputData(idx=np.arange(len(X)),
-                               features=X.values,
-                               target=np.ravel(y).reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
-                               data_type=DataTypesEnum.table)
-    return input_data
+
+
 
 
 if __name__ == '__main__':

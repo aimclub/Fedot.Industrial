@@ -2,7 +2,7 @@ from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 if __name__ == "__main__":
-    dataset_name = 'ApplianceEnergy'
+    dataset_name = 'AppliancesEnergy'
     industrial = FedotIndustrial(task='ts_regression',
                                  dataset=dataset_name,
                                  strategy='quantile',
@@ -21,4 +21,5 @@ if __name__ == "__main__":
 
     metric = industrial.get_metrics(target=test_data[1], metric_names=['rmse'])
 
+    print(metric)
 
