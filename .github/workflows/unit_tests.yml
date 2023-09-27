@@ -2,7 +2,7 @@ name: unit tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main , Fedot_ver_0.3]
   pull_request:
     branches: [ main ]
 
@@ -30,3 +30,8 @@ jobs:
       - name: Test with pytest
         run: |
           pytest --cov=Fedot.Industrial -s tests/unit
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
