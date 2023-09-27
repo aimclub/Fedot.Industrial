@@ -128,7 +128,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
         """
         if self.branch_nodes is None:
-            self.branch_nodes = ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
+            self.branch_nodes = ['eigen_basis', 'fourier_basis', 'wavelet_basis']
 
         self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
 

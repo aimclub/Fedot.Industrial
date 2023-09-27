@@ -3,7 +3,7 @@ import shutil
 import numpy as np
 import pytest
 
-from examples.anomaly_detection.detection_classification import generate_time_series, split_series, \
+from examples.industrial_examples.skab_benchmark.detection_classification import generate_time_series, split_series, \
     convert_anomalies_dict_to_points
 from fedot_ind.api.main import FedotIndustrial
 
