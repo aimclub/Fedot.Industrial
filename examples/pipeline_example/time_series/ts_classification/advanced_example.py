@@ -14,12 +14,12 @@ model_dict = {
         'eigen_basis',
         params={'low_rank_approximation': False}).add_node(
         'quantile_extractor',
-        params={'window_size': 10, 'window_mode': False}).add_node(
+        params={'window_size': 10}).add_node(
         'logit'),
 
     'eigen_basis_advanced': PipelineBuilder().add_node(
         'eigen_basis', params={'low_rank_approximation': True}).add_node(
-        'quantile_extractor', params={'window_size': 10, 'window_mode': False}).add_node(
+        'quantile_extractor', params={'window_size': 10}).add_node(
         'logit')}
 
 datasets_bad_f1 = [

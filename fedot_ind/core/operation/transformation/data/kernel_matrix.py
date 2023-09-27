@@ -3,17 +3,17 @@ from scipy.spatial.distance import pdist, squareform
 
 
 class TSTransformer:
-    def __init__(self, time_series, min_signal_ratio, max_signal_ratio, rec_metric):
-        self.time_series = time_series
+    def __init__(self, time_series, rec_metric):
+        self.time_series = time_series.reshape(-1, 1) if len(time_series.shape) == 1 else time_series
         self.recurrence_matrix = None
-        self.threshold_baseline = [0.95, 0.7]  # cosine
-        self.min_signal_ratio = min_signal_ratio
-        self.max_signal_ratio = max_signal_ratio
+        self.threshold_baseline = [0.95, 0.7]  # TODO add threshold for other metrics
+        self.min_signal_ratio = 0.6
+        self.max_signal_ratio = 0.85
         self.rec_metric = rec_metric
 
     def ts_to_recurrence_matrix(self,
                                 threshold=None):
-        distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.reshape(-1, 1))
+        distance_matrix = pdist(metric=self.rec_metric, X=self.time_series)
         distance_matrix = np.ones(shape=distance_matrix.shape[0]) - distance_matrix
         distance_matrix = self.binarization(distance_matrix, threshold=threshold)
         self.recurrence_matrix = squareform(distance_matrix)

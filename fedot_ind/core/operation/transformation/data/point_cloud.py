@@ -24,14 +24,14 @@ class TopologicalTransformation:
     """
 
     def __init__(self,
-                 time_series: Union[pd.Series, np.ndarray, list] = None,
+                 time_series:  np.ndarray = None,
                  max_simplex_dim: int = None,
                  epsilon: int = 10,
                  persistence_params: dict = None,
-                 window_length: int = None):
+                 window_length: int = None,
+                 stride: int = 1):
         self.time_series = time_series
-        self.time_series = np.array(self.time_series)
-        self.time_series = self.time_series.astype(float)
+        self.stride = stride
         self.max_simplex_dim = max_simplex_dim
         self.epsilon_range = self.__create_epsilon_range(epsilon)
         self.persistence_params = persistence_params
@@ -93,7 +93,9 @@ class TopologicalTransformation:
         if self.__window_length is None:
             self.__window_length = dimension_embed
 
-        trajectory_transformer = HankelMatrix(time_series=input_data, window_size=self.__window_length)
+        trajectory_transformer = HankelMatrix(time_series=input_data,
+                                              window_size=self.__window_length,
+                                              strides=self.stride)
         return trajectory_transformer.trajectory_matrix
 
     def point_cloud_to_persistent_cohomology_ripser(self,

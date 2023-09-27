@@ -7,6 +7,7 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
+
 def check_multivariate_data(data: pd.DataFrame) -> bool:
     if isinstance(data.iloc[0, 0], pd.Series):
         return True
@@ -41,13 +42,17 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
                                data_type=DataTypesEnum.table)
     return input_data
 
-def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
+
+def get_ts_data(datasets,
+                dataset='m4_monthly',
+                horizon: int = 30,
+                m4_id=None):
     time_series = pd.read_csv(datasets[dataset])
 
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=horizon))
     if not m4_id:
-        label = random.choice(np.unique(time_series['label']))
+        label = np.random.choice(np.unique(time_series['label']))
     else:
         label = m4_id
     print(label)

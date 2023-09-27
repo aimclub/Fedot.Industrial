@@ -13,6 +13,7 @@ from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
 class BaseExtractor(IndustrialCachableOperationImplementation):
@@ -23,6 +24,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.current_window = None
+        self.stride = None
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get('use_cache', False)
@@ -123,15 +125,21 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         features = []
         names = []
         window_size = max(window_size, 5)
-        for i in range(0, ts_data.shape[0], window_size):
-            slice_ts = ts_data[i:i + window_size]
-            if slice_ts.shape[0] == 1:
-                break
-            else:
-                stat_feature = feature_generator(slice_ts)
-                features.append(stat_feature.features)
-                names.append([x + f'_on_interval: {i} - {i + window_size}'
-                              for x in stat_feature.supplementary_data['feature_name']])
+        self.stride = 3
+        if self.stride > 1:
+            trajectory_transformer = HankelMatrix(time_series=ts_data,
+                                                  window_size=window_size,
+                                                  strides=self.stride)
+            subseq_set = trajectory_transformer.trajectory_matrix
+        else:
+            subseq_set = np.lib.stride_tricks.sliding_window_view(ts_data,
+                                                                  ts_data.shape[0] - window_size)
+        for i in range(0, subseq_set.shape[1]):
+            slice_ts = subseq_set[:, i]
+            stat_feature = feature_generator(slice_ts)
+            features.append(stat_feature.features)
+            names.append([x + f'_on_interval: {i + 1} - {i + 1 + window_size}'
+                          for x in stat_feature.supplementary_data['feature_name']])
         window_stat_features = InputData(idx=np.arange(len(features)),
                                          features=features,
                                          target='no_target',
@@ -143,6 +151,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     @staticmethod
     def _get_feature_matrix(extraction_func: callable,
                             ts: np.array) -> InputData:
+
         multi_ts_stat_features = [extraction_func(x) for x in ts]
         features = np.concatenate([component.features for component in multi_ts_stat_features], axis=0)
 
