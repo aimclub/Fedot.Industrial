@@ -72,7 +72,7 @@ def test_parse_collect_sd():
 
 
 def test_load_sfp_resnet_model():
-    sfp_state_dict_path = os.path.join(PROJECT_PATH, '../', 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
+    sfp_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
     sfp_model = load_sfp_resnet_model(
         model=resnet18(num_classes=3),
         state_dict_path=sfp_state_dict_path,

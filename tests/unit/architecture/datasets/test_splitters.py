@@ -8,7 +8,7 @@ from torchvision.transforms import ToTensor
 from fedot_ind.core.architecture.datasets.splitters import k_fold, split_data
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
-DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
+DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/tests/data/datasets')
 
 
 @pytest.fixture()

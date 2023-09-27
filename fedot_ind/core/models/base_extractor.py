@@ -1,19 +1,18 @@
 import logging
 import math
 from itertools import chain
-from multiprocessing import cpu_count, Pool
+from multiprocessing import cpu_count
 from typing import Optional
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from joblib import Parallel, delayed
-from tqdm import tqdm
+from joblib import delayed, Parallel
 
+from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
-from fedot_ind.core.operation.caching import DataCacher
+from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
 
 class BaseExtractor(IndustrialCachableOperationImplementation):
@@ -35,12 +34,21 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def fit(self, input_data: InputData):
         pass
 
+    def extract_features(self, x, y) -> pd.DataFrame:
+        """For those cases when you need to use feature extractor as a stangalone object
+        """
+        input_data = init_input_data(x, y)
+        transformed_features = self.transform(input_data, use_cache=self.use_cache)
+        try:
+            return pd.DataFrame(transformed_features.predict, columns=self.relevant_features)
+        except ValueError:
+            return pd.DataFrame(transformed_features.predict)
+
     def _transform(self, input_data: InputData) -> np.array:
         """
         Method for feature generation for all series
         """
         features = input_data.features
-        n_samples = input_data.features.shape[0]
 
         try:
             input_data_squeezed = np.squeeze(features, 3)
@@ -55,54 +63,17 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     @staticmethod
     def _clean_predict(predict: np.array):
-        """
-            Clean predict from nan, inf and reshape data for Fedot appropriate form
+        """Clean predict from nan, inf and reshape data for Fedot appropriate form
         """
         predict = np.where(np.isnan(predict), 0, predict)
         predict = np.where(np.isinf(predict), 0, predict)
         predict = predict.reshape(predict.shape[0], -1)
         return predict
 
-    def generate_features_from_ts(self, ts_frame: np.array,
-                                  window_length: int = None) -> np.array:
+    def generate_features_from_ts(self, ts_frame: np.array, window_length: int = None) -> np.array:
         """Method responsible for generation of features from time series.
         """
         pass
-
-    def extract_features(self, train_features: np.array,
-                         dataset_name: str = None) -> np.array:
-        """Wrapper method for feature extraction method get_features() with caching results into pickle file. The idea
-        is to create a unique pointer from dataset name, subsample (test or train) and feature generator object. We
-        can uniquely identify the generator in our case only using a set of parameters in the form of obj.__dict__,
-        while excluding some dynamic attributes. In this way we can create a hash of incoming data unique for each
-        case, and then associate it with the output data - the feature set.
-
-        Args:
-            train_features: dataframe with time series.
-            dataset_name: name of dataset.
-
-        Returns:
-            Dataframe with extracted features.
-
-        """
-        generator_name = self.__class__.__name__
-
-        if self.use_cache:
-            generator_info = self.__dir__()
-            data_cacher = DataCacher()
-            hashed_info = data_cacher.hash_info(data=train_features,
-                                                name=dataset_name,
-                                                obj_info_dict=generator_info)
-            try:
-                return data_cacher.load_data_from_cache(hashed_info)
-            except FileNotFoundError:
-                self.logger.info('Cache not found. Generating features')
-
-                features = self.generate_features_from_ts(train_features, dataset_name)
-                data_cacher.cache_data(hashed_info, features)
-                return features
-        else:
-            return self.generate_features_from_ts(train_features, dataset_name)
 
     @staticmethod
     def get_statistical_features(time_series: np.ndarray,
@@ -114,9 +85,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             time_series: time series for which features are generated
 
         Returns:
-            Row vector of quantile features in the form of a pandas DataFrame
-            :param time_series:
-            :param add_global_features:
+            InputData: object with features
 
         """
         names = []

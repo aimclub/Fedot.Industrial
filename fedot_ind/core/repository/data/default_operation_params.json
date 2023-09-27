@@ -173,7 +173,8 @@
     "rec_metric": "euclidean"
   },
   "signal_extractor": {
-    "wavelet": "mexh"
+    "wavelet": "mexh",
+    "n_components": 2
   },
   "topological_extractor": {
     "max_te_dimension": 5,
