@@ -31,9 +31,7 @@ def test_WindowCutting(basic_periodic_data):
 
 def test_TSTransformer(basic_periodic_data):
     transformer = TSTransformer(time_series=basic_periodic_data,
-                                rec_metric="euclidean",
-                                min_signal_ratio=0.1,
-                                max_signal_ratio=0.9)
+                                rec_metric="euclidean")
     result = transformer.get_recurrence_metrics()
     assert result.shape[0] > 0 and result.shape[1] > 0
 

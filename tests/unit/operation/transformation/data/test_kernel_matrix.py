@@ -21,8 +21,6 @@ def params():
         recurrence_extractor_params = json.load(file)['recurrence_extractor']
 
     return dict(time_series=ts,
-                min_signal_ratio=recurrence_extractor_params['min_signal_ratio'],
-                max_signal_ratio=recurrence_extractor_params['max_signal_ratio'],
                 rec_metric=recurrence_extractor_params['rec_metric'])
 
 
