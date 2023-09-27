@@ -66,7 +66,7 @@ class FedotIndustrial(Fedot):
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
-        self.reporter = ReporterTSC()
+        # self.reporter = ReporterTSC()
         self.configurator = Configurator()
 
         self.config_dict = None
@@ -76,7 +76,7 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        self.reporter.path_to_save = kwargs.get('output_folder')
+        # self.reporter.path_to_save = kwargs.get('output_folder')
         if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
             self.config_dict = kwargs
         else:
@@ -99,7 +99,6 @@ class FedotIndustrial(Fedot):
 
         else:
             solver = TaskEnum[self.config_dict['task']].value[0]
-
         return solver(self.config_dict)
 
     def fit(self, **kwargs) -> Pipeline:

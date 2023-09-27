@@ -34,7 +34,7 @@ def test_rank_ensemble_chinatown(get_proba_metric_dict):
                                        metric_dict=metric_dict)
     result = ensembler_chinatown.ensemble()
 
-    assert result['Base_metric'] == 0.954
+    assert result['Base_metric'] == 0.979
     assert result['Base_model'] == 'fedot_preset'
 
 

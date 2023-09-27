@@ -1,15 +1,14 @@
-import datetime
 import math
-from joblib import Parallel, cpu_count, delayed
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from joblib import cpu_count, delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from tqdm import tqdm
 
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
@@ -63,7 +62,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis
 
-    def _transform(self, input_data: InputData) -> np.array:
+    def _transform(self, input_data: Union[InputData, pd.DataFrame]) -> np.array:
         """Method for transforming all samples
 
         """

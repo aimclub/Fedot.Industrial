@@ -49,7 +49,6 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
             hashed_info = self.cacher.hash_info(data=input_data.features,
                                                 operation_info=class_params.__repr__())
-            # '9123f78f08'
             try:
                 predict = self.try_load_from_cache(hashed_info)
             except FileNotFoundError:
