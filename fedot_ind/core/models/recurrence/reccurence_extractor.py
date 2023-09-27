@@ -43,25 +43,22 @@ class RecurrenceExtractor(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.image_mode = False
-
-        self.window_mode = params.get('window_mode')
-        self.min_signal_ratio = params.get('min_signal_ratio')
-        self.max_signal_ratio = params.get('max_signal_ratio')
-        self.rec_metric = params.get('rec_metric')
-        self.window_size = params.get('window_size')
+        self.window_size = params.get('window_size', 0)
+        self.stride = params.get('stride', 1)
+        self.rec_metric = params.get('rec_metric', 'cosine')
+        self.rec_metric = 'cosine' # TODO add threshold for other metrics
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor
 
     def _generate_features_from_ts(self, ts: np.array):
-
-        if self.window_mode:
-            trajectory_transformer = HankelMatrix(time_series=ts, window_size=self.window_size)
+        if self.window_size != 0:
+            trajectory_transformer = HankelMatrix(time_series=ts,
+                                                  window_size=self.window_size,
+                                                  strides=self.stride)
             ts = trajectory_transformer.trajectory_matrix
             self.ts_length = trajectory_transformer.ts_length
 
         specter = self.transformer(time_series=ts,
-                                   min_signal_ratio=self.min_signal_ratio,
-                                   max_signal_ratio=self.max_signal_ratio,
                                    rec_metric=self.rec_metric)
         feature_df = specter.ts_to_recurrence_matrix()
 

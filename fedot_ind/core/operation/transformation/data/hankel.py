@@ -12,11 +12,12 @@ class HankelMatrix:
 
     def __init__(self,
                  time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
-                 window_size: int = None):
+                 window_size: int = None,
+                 strides: int = 1):
         self.__time_series = time_series
         self.__convert_ts_to_array()
         self.__window_length = window_size
-
+        self.__strides = strides
         if len(self.__time_series.shape) > 1:
             self.__ts_length = self.__time_series[0].size
         else:
@@ -29,7 +30,10 @@ class HankelMatrix:
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()
-        self.__trajectory_matrix = self.__get_trajectory_matrix()
+        if len(self.__time_series.shape) > 1:
+            self.__trajectory_matrix = self.__get_2d_trajectory_matrix()
+        else:
+            self.__trajectory_matrix = self.__get_1d_trajectory_matrix()
 
     def __check_windows_length(self):
         if not 2 <= self.__window_length <= self.__ts_length / 2:
@@ -43,12 +47,25 @@ class HankelMatrix:
         else:
             self.__time_series = self.__time_series
 
-    def __get_trajectory_matrix(self):
-        if len(self.__time_series.shape) > 1:
-            return [hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
-                    in self.__time_series]
+    def __get_1d_trajectory_matrix(self):
+        if self.__strides > 1:
+            return self.__strided_trajectory_matrix(self.__time_series)
         else:
             return hankel(self.__time_series[:self.__window_length + 1], self.__time_series[self.__window_length:])
+
+    def __get_2d_trajectory_matrix(self):
+        if self.__strides > 1:
+            return [self.__strided_trajectory_matrix(time_series) for time_series
+                    in self.__time_series]
+        else:
+            return [hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
+                    in self.__time_series]
+
+    def __strided_trajectory_matrix(self, time_series):
+        shape = (time_series.shape[0] - self.__window_length + 1, self.__window_length)
+        strides = (time_series.strides[0],) + time_series.strides
+        rolled = np.lib.stride_tricks.as_strided(time_series, shape=shape, strides=strides)
+        return rolled[np.arange(0, shape[0], self.__strides)].T
 
     @property
     def window_length(self):
