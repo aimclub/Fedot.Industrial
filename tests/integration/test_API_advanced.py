@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
-from tests.unit.api.test_api_main import load_data
+from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 
 @pytest.fixture()
@@ -18,7 +18,7 @@ def basic_API_class():
 
 
 def test_API_code_scenario(basic_API_class):
-    train_data, test_data, n_classes = load_data('Lightning7')
+    train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
 
     IndustrialModel, train_feats = basic_API_class.fit(model_name='wavelet',
                                                        task_type='ts_classification',

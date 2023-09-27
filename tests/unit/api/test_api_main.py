@@ -70,7 +70,7 @@ def test_main_api_fedot_preset(tsc_fedot_preset_config):
     assert type(industrial) is FedotIndustrial
     assert type(industrial.solver) is TimeSeriesClassifierPreset
     assert industrial.solver.extractors == ['quantile_extractor', 'quantile_extractor', 'quantile_extractor']
-    assert industrial.solver.branch_nodes == ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
+    assert industrial.solver.branch_nodes == ['eigen_basis', 'fourier_basis', 'wavelet_basis']
     assert industrial.config_dict['task'] == 'ts_classification'
     assert industrial.solver.dataset_name == 'Chinatown'
 
@@ -80,5 +80,5 @@ def test_main_api_anomaly_detection_fedot_preset(anomaly_detection_fedot_preset_
     assert type(industrial) is FedotIndustrial
     assert type(industrial.solver) is TimeSeriesAnomalyDetectionPreset
     assert industrial.solver.extractors == ['quantile_extractor', 'quantile_extractor', 'quantile_extractor']
-    assert industrial.solver.branch_nodes == ['data_driven_basis', 'fourier_basis', 'wavelet_basis']
+    assert industrial.solver.branch_nodes == ['eigen_basis', 'fourier_basis', 'wavelet_basis']
     assert industrial.config_dict['task'] == 'anomaly_detection'
