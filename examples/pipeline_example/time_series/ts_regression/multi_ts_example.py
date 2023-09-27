@@ -17,8 +17,22 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
     mean_squared_error, d2_absolute_error_score, \
     median_absolute_error, r2_score
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
+model_dict = {'regression_with_statistical_features': PipelineBuilder().add_node('data_driven_basis_for_forecasting',
+                                                            params={'window_size': 10,
+                                                                    }
+                                                            ),
+              'regression_with_reccurence_features': PipelineBuilder().add_node('recurrence_extractor')}
 
+datasets = {
+    'm4_yearly': f'../data/ts/M4YearlyTest.csv',
+    'm4_weekly': f'../data/ts/M4WeeklyTest.csv',
+    'm4_daily': f'../data/ts/M4DailyTest.csv',
+    'm4_monthly': f'../data/ts/M4MonthlyTest.csv',
+    'm4_quarterly': f'../data/ts/M4QuarterlyTest.csv'}
+
+forecast_length = 13
 def init_input(X, y):
     input_data = InputData(idx=np.arange(len(X)),
                            features=np.array(X.values.tolist()),

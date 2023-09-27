@@ -33,18 +33,19 @@ model_dict = {'ssa_forecasting': PipelineBuilder().add_node('data_driven_basis_f
               'baseline': PipelineBuilder().add_node('ar')}
 
 datasets = {
-    'm4_yearly': f'../data/ts/M4YearlyTest.csv',
-    'm4_weekly': f'../data/ts/M4WeeklyTest.csv',
-    'm4_daily': f'../data/ts/M4DailyTest.csv',
-    'm4_monthly': f'../data/ts/M4MonthlyTest.csv',
-    'm4_quarterly': f'../data/ts/M4QuarterlyTest.csv'}
+    'm4_yearly': f'.../data/ts/M4YearlyTest.csv',
+    'm4_weekly': f'.../data/ts/M4WeeklyTest.csv',
+    'm4_daily': f'.../data/ts/M4DailyTest.csv',
+    'm4_monthly': f'.../data/ts/M4MonthlyTest.csv',
+    'm4_quarterly': f'.../data/ts/M4QuarterlyTest.csv'}
 
 forecast_length = 13
 
 if __name__ == '__main__':
 
-    train_data, test_data, dataset_name = get_ts_data('m4_monthly', forecast_length)
+    train_data, test_data, dataset_name = get_ts_data(datasets, 'm4_monthly', forecast_length)
     baseline = model_dict['baseline'].build()
+    del model_dict['baseline']
     baseline.fit(train_data)
     baseline_prediction = np.ravel(baseline.predict(test_data).predict)
     with IndustrialModels():

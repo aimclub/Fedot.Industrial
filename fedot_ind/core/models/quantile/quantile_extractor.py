@@ -38,11 +38,11 @@ class QuantileExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.window_mode = params.get('window_mode')
-        self.window_size = params.get('window_size')
+        self.window_size = params.get('window_size', 0)
+        self.stride = params.get('stride', 1)
         self.var_threshold = 0.1
         self.logging_params.update({'Wsize': self.window_size,
-                                    'Wmode': self.window_mode,
+                                    'Stride': self.stride,
                                     'VarTh': self.var_threshold})
 
     def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
@@ -88,7 +88,7 @@ class QuantileExtractor(BaseExtractor):
 
     def extract_stats_features(self, ts: np.array) -> InputData:
         global_features = self.get_statistical_features(ts, add_global_features=True)
-        if self.window_mode:
+        if self.window_size != 0:
             window_stat_features = self.apply_window_for_stat_feature(ts_data=ts,
                                                                       feature_generator=self.get_statistical_features,
                                                                       window_size=self.window_size)
@@ -102,7 +102,8 @@ class QuantileExtractor(BaseExtractor):
                                   window_length: int = None) -> InputData:
 
         ts = np.nan_to_num(ts)
-        # ts = ts.flatten()
+        if len(ts.shape) == 2 and ts.shape[1] == 1:
+            ts = ts.flatten()
 
         if len(ts.shape) == 1:
             aggregation_df = self.extract_stats_features(ts)
