@@ -1,57 +1,93 @@
-import unittest
-
 import numpy as np
+import pandas as pd
 import pytest
 
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 
 
-# 1 case: аномалии стоят по краям - проверить корректность новых границ
-# 2 case: аномалии стоят в середине - проверить корректность границ
-# 3 case: аномалии стоят в середине и по краям - проверить корректность границ
-# 4 case: аномалии слишком большие - должна выпасть ошибка, что нет неаномальных сэмплов
-# 5 case:
+def splitter(strategy):
+    return TSTransformer(strategy=strategy)
 
 
-class TestAnomalyDetector(unittest.TestCase):
-    def test_get_anomaly_intervals(self):
-        data = np.random.rand(320)
-        anomaly_dict = {'anomaly1': [[40, 50], [60, 80]],
-                        'anomaly2': [[130, 170], [300, 320]]}
-        splitter = TSTransformer(time_series=data, anomaly_dict=anomaly_dict)
-        classes, anomaly_intervals = splitter._get_anomaly_intervals()
-
-        expected_intervals = [[[40, 50], [60, 80]],
-                              [[130, 170], [300, 320]]]
-
-        self.assertEqual(anomaly_intervals, expected_intervals)
-
-    def test_get_frequent_anomaly_length(self):
-        # Test case with no frequent anomalies
-        data = [0, 0, 0, 0, 0, 0, 0]
-        anomaly_intervals = [(1, 2), (4, 6)]
-        frequent_length = self.detector._get_frequent_anomaly_length(anomaly_intervals, data)
-        self.assertEqual(frequent_length, 0)
-
-        # Test case with one frequent anomaly
-        data = [0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0]
-        anomaly_intervals = [(1, 3), (5, 8), (10, 12)]
-        frequent_length = self.detector._get_frequent_anomaly_length(anomaly_intervals, data)
-        self.assertEqual(frequent_length, 3)
-
-        # Test case with multiple frequent anomalies of same length
-        data = [0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0]
-        anomaly_intervals = [(1, 4), (7, 11)]
-        frequent_length = self.detector._get_frequent_anomaly_length(anomaly_intervals, data)
-        self.assertEqual(frequent_length, 4)
-
-        # Test case with multiple frequent anomalies of different lengths
-        data = [0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0]
-        anomaly_intervals = [(1, 3), (5, 7), (10, 12)]
-        frequent_length = self.detector._get_frequent_anomaly_length(anomaly_intervals, data)
-        self.assertEqual(frequent_length, 2)
+@pytest.fixture
+def frequent_splitter():
+    return splitter(strategy='frequent')
 
 
-@pytest.fixture()
-def splitter():
-    pass
+@pytest.fixture
+def unique_splitter():
+    return splitter(strategy='unique')
+
+
+@pytest.fixture
+def time_series():
+    return np.random.rand(320)
+
+
+@pytest.fixture
+def anomaly_dict():
+    return {'anomaly1': [[40, 50], [60, 80]],
+            'anomaly2': [[130, 170], [300, 320]]}
+
+
+def test_transform_for_fit_frequent_binarize(time_series, anomaly_dict, frequent_splitter):
+    result = frequent_splitter.transform_for_fit(series=time_series,
+                                                 anomaly_dict=anomaly_dict,
+                                                 binarize=True)
+    assert isinstance(result, tuple)
+    assert isinstance(result[0], np.ndarray)
+    assert isinstance(result[1], np.ndarray)
+    assert result[0].shape[0] == result[1].shape[0]
+    assert 0 in result[1] and 1 in result[1]
+    assert np.sum([len(i) for i in result[0]]) <= len(time_series)
+    assert np.mean(result[1]) == 0.5
+
+
+def test_transform_for_fit_frequent_no_binarize(time_series, anomaly_dict, frequent_splitter):
+    result = frequent_splitter.transform_for_fit(series=time_series,
+                                                 anomaly_dict=anomaly_dict,
+                                                 binarize=False)
+    assert isinstance(result, tuple)
+    assert isinstance(result[0], np.ndarray)
+    assert isinstance(result[1], np.ndarray)
+    assert result[0].shape[0] == result[1].shape[0]
+    assert 'no_anomaly' in result[1]
+    assert np.sum([len(i) for i in result[0]]) <= len(time_series)
+    assert np.where(result[1] == 'no_anomaly', 0, 1).mean() == 0.5
+
+
+def test_transform_for_fit_unique_binarize(time_series, anomaly_dict, unique_splitter):
+
+    result = unique_splitter.transform_for_fit(series=time_series,
+                                               anomaly_dict=anomaly_dict,
+                                               binarize=True)
+    dataset1 = result[1][0]
+    dataset2 = result[1][1]
+
+    assert isinstance(result, tuple)
+    assert all([a in anomaly_dict.keys() for a in result[0]])
+    assert len(result[0]) == len(result[1])
+
+    for ds in (dataset1, dataset2):
+        assert isinstance(ds[0], pd.DataFrame)
+        assert isinstance(ds[1], np.ndarray)
+        assert ds[0].shape[0] == ds[1].shape[0]
+        assert np.mean(ds[1]) == 0.5
+
+
+def test_transform_for_fit_unique_no_binarize(time_series, anomaly_dict, unique_splitter):
+    result = unique_splitter.transform_for_fit(series=time_series,
+                                               anomaly_dict=anomaly_dict,
+                                               binarize=False)
+    dataset1 = result[1][0]
+    dataset2 = result[1][1]
+
+    assert isinstance(result, tuple)
+    assert all([a in anomaly_dict.keys() for a in result[0]])
+    assert len(result[0]) == len(result[1])
+
+    for ds in (dataset1, dataset2):
+        assert isinstance(ds[0], pd.DataFrame)
+        assert isinstance(ds[1], np.ndarray)
+        assert ds[0].shape[0] == ds[1].shape[0]
+        assert np.where(ds[1] == 'no_anomaly', 0, 1).mean() == 0.5
