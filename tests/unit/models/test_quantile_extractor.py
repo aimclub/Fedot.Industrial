@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import pandas as pd
 import pytest
 from fedot.core.data.data import OutputData
 
@@ -54,3 +55,11 @@ def test_transform_window(quantile_extractor_window, input_data):
     assert train_features_window is not None
     assert isinstance(train_features_window, OutputData)
     assert expected_n_features == train_features_window.predict.shape[1]
+
+
+def test_extract_features(quantile_extractor):
+    X, y, _, _ = dataset(n_classes=2)
+    train_features = quantile_extractor.extract_features(X, y)
+    assert train_features is not None
+    assert isinstance(train_features, pd.DataFrame)
+    assert len(FEATURES) == train_features.shape[1]

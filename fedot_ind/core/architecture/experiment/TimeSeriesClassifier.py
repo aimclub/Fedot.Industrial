@@ -11,9 +11,9 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
+from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
-from fedot_ind.core.operation.caching import DataCacher
 
 
 class TimeSeriesClassifier:
@@ -33,7 +33,7 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.strategy = params.get('strategy', 'quantile')
+        self.strategy = params.get('strategy')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
         self.dataset_name = params.get('dataset')
@@ -44,7 +44,6 @@ class TimeSeriesClassifier:
                                  output_dir=self.output_folder)
         self.logger = logging.getLogger('TimeSeriesClassifier')
         self.datacheck = DataCheck()
-        self.cacher = DataCacher()
 
         self.prediction_proba = None
         self.test_predict_hash = None
@@ -56,6 +55,29 @@ class TimeSeriesClassifier:
         self.input_test_data = None
 
         self.logger.info('TimeSeriesClassifier initialised')
+
+    def fit(self, features: Union[np.ndarray, pd.DataFrame],
+            target: np.ndarray,
+            **kwargs) -> object:
+
+        baseline_type = kwargs.get('baseline_type', None)
+        self.logger.info(f'Fitting model')
+        self.y_train = target
+        if self.generator_runner is None:
+            raise AttributeError('Feature generator is not defined')
+
+        input_data = init_input_data(features, target)
+        output_data = self.generator_runner.transform(input_data)
+        train_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
+
+        self.train_features = self.datacheck.check_data(input_data=train_features, return_df=True)
+
+        if baseline_type is not None:
+            self.predictor = self._fit_baseline_model(self.train_features, target, baseline_type)
+        else:
+            self.predictor = self._fit_model(self.train_features, target)
+
+        return self.predictor
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -70,6 +92,8 @@ class TimeSeriesClassifier:
         """
         self.predictor = Fedot(**self.model_hyperparams)
         self.predictor.fit(features, target)
+        self.logger.info(
+            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
     def _fit_baseline_model(self, features: pd.DataFrame, target: np.ndarray, baseline_type: str = 'rf') -> Pipeline:
@@ -93,57 +117,32 @@ class TimeSeriesClassifier:
         node_final = SecondaryNode(baseline_type,
                                    nodes_from=[node_scaling])
         baseline_pipeline = Pipeline(node_final)
-        input_data = array_to_input_data(features_array=features,
-                                         target_array=target)
+        input_data = init_input_data(features, target)
         baseline_pipeline.fit(input_data)
         self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
-    def fit(self, features: Union[np.ndarray, pd.DataFrame],
-            target: np.ndarray,
-            **kwargs) -> object:
-
-        baseline_type = kwargs.get('baseline_type', None)
-        self.logger.info(f'Fitting model')
-        self.y_train = target
-        if self.generator_runner is None:
-            raise AttributeError('Feature generator is not defined')
-
-        train_features = self.generator_runner.extract_features(train_features=features,
-                                                                dataset_name=self.dataset_name)
-
-        self.train_features = self.datacheck.check_data(input_data=train_features,
-                                                        return_df=True)
-
-        if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, target, baseline_type)
-        else:
-            self.predictor = self._fit_model(self.train_features, target)
-
-        self.logger.info(
-            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
-        return self.predictor
-
-    def predict(self, features: np.ndarray, **kwargs) -> dict:
-        self.prediction_label = self.__predict_abstraction(test_features=features, mode='labels')
+    def predict(self, features: np.ndarray, **kwargs) -> np.ndarray:
+        self.prediction_label = self.__predict_abstraction(test_features=features, mode='labels', **kwargs)
         return self.prediction_label
 
-    def predict_proba(self, features: np.ndarray, **kwargs) -> dict:
-        self.prediction_proba = self.__predict_abstraction(test_features=features,
-                                                           mode='probs', )
+    def predict_proba(self, features: np.ndarray, **kwargs) -> np.ndarray:
+        self.prediction_proba = self.__predict_abstraction(test_features=features, mode='probs', **kwargs)
         return self.prediction_proba
 
     def __predict_abstraction(self,
                               test_features: Union[np.ndarray, pd.DataFrame],
-                              mode: str = 'labels'):
+                              mode: str = 'labels', **kwargs):
         self.logger.info(f'Predicting with {self.strategy} generator')
 
-        self.test_features = self.generator_runner.extract_features(train_features=test_features,
-                                                                    dataset_name=self.dataset_name)
-        self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
+        if self.test_features is None:
+            input_data = init_input_data(test_features, kwargs.get('target'))
+            output_data = self.generator_runner.transform(input_data)
+            test_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
+            self.test_features = self.datacheck.check_data(input_data=test_features, return_df=True)
 
         if isinstance(self.predictor, Pipeline):
-            self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
+            self.input_test_data = init_input_data(self.test_features, kwargs.get('target'))
             prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
             return prediction_label
         else:

@@ -5,7 +5,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 
-def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
+def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification') -> InputData:
     """Method for initialization of InputData object from pandas DataFrame and numpy array with target values.
 
     Args:
@@ -21,13 +21,15 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
         input_data = InputData(idx=np.arange(len(X)),
                                features=np.array(X.values.tolist()),
                                target=y.reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
+                               # task=Task(TaskTypesEnum.classification),
+                               task=Task(TaskTypesEnum(task)),
                                data_type=DataTypesEnum.image)
     else:
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
                                target=np.ravel(y).reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
+                               # task=Task(TaskTypesEnum.classification),
+                               task=Task(TaskTypesEnum(task)),
                                data_type=DataTypesEnum.table)
 
     return input_data

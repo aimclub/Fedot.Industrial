@@ -80,18 +80,16 @@ class RankEnsemble(BaseEnsemble):
 
         """
         model_rank = {}
-        # for model in self.metric_dict:
-        for model in metric_dict:
+        for model in metric_dict[self.dataset_name].keys():
             self.logger.info(f'BASE RESULT FOR MODEL - {model}'.center(50, '-'))
-            # if len(self.prediction_proba_dict[model].columns) == 3:
-            if prediction_proba_dict[model].shape[1] == 1:
+            if prediction_proba_dict[self.dataset_name][model].shape[1] == 1:
                 self.metric = 'roc_auc'
                 _type = 'binary'
             else:
                 self.metric = 'f1'
                 _type = 'multiclass'
             self.logger.info(f'TYPE OF ML TASK - {_type}. Metric - {self.metric}'.center(50, '-'))
-            current_metrics = metric_dict[model]
+            current_metrics = metric_dict[self.dataset_name][model]
             if isinstance(current_metrics, pd.DataFrame):
                 current_metrics = current_metrics.loc[0].to_dict()
             self.logger.info(current_metrics)
@@ -131,7 +129,7 @@ class RankEnsemble(BaseEnsemble):
         """
         for top_K_models in range(1, self.n_models):
 
-            modelling_results_top = {k: v for k, v in prediction_proba_dict.items() if
+            modelling_results_top = {k: v for k, v in prediction_proba_dict[self.dataset_name].items() if
                                      k in list(self.sorted_dict.keys())[:top_K_models + 1]}
             self.logger.info(f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models + 1} models')
 

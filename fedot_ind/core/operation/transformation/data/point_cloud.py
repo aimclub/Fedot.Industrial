@@ -164,3 +164,10 @@ class TopologicalTransformation:
         df_features.columns = cols
         df_features['Betti_sum'] = df_features.sum(axis=1)
         return df_features
+
+    def rolling_window(self, array, window):
+        if window <= 0:
+            raise ValueError("Window size must be a positive integer.")
+        if window > len(array):
+            raise ValueError("Window size cannot exceed the length of the array.")
+        return np.array([array[i:i + window] for i in range(len(array) - window + 1)])

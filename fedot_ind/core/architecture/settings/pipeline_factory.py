@@ -21,7 +21,7 @@ class BasisTransformations(Enum):
 
 class FeatureGenerator(Enum):
     quantile = QuantileExtractor
-    wavelet = SignalExtractor
+    signal = SignalExtractor
     topological = TopologicalExtractor
     recurrence = RecurrenceExtractor
 
