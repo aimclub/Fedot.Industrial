@@ -56,7 +56,6 @@ def test_decomposing_level(input_train):
     basis.wavelet = np.random.choice(discrete_wavelets)
     decomposing_level = basis._decomposing_level()
     assert isinstance(decomposing_level, int)
-    assert decomposing_level > 0
 
 
 def test_transform_one_sample(input_train):

@@ -2,36 +2,38 @@ name: unit tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main , release ]
   pull_request:
-    branches: [ main ]
+    branches: [ main , release ]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     strategy:
       matrix:
-        python-version: [3.8, 3.9]
-
+        python-version: [3.9]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest
           pip install -r requirements.txt
           pip install pytest-cov
-      - name: Test with pytest
-        run: |
-          pytest --cov=Fedot.Industrial -s tests/unit
 
-      - name: Upload coverage reports to Codecov
+      - name: Test with pytest and report
+        run: |
+          pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit
+
+      - name: Codecov-coverage
         uses: codecov/codecov-action@v3
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          file: ./coverage.xml
+          flags: unittests
