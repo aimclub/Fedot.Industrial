@@ -39,5 +39,6 @@ class MetaFeaturesDetector:
     def run(self):
         self.logger.info(f'Running MetaFeaturesDetector for {self.dataset_name}')
         base_metafeatures = self.get_base_metafeatures()
-        extra_metafeatures = self.get_extra_metafeatures()
-        return {**base_metafeatures, **extra_metafeatures}
+        return {**base_metafeatures}
+        # extra_metafeatures = self.get_extra_metafeatures()
+        # return {**base_metafeatures, **extra_metafeatures}

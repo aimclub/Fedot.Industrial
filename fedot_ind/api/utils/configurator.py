@@ -39,8 +39,8 @@ class IndustrialConfigs(Enum):
                              model_params={'problem': 'classification',
                                            'seed': 42})
 
-    image_classification = NotImplementedError
-    object_detection = NotImplementedError
+    # image_classification = NotImplementedError
+    # object_detection = NotImplementedError
 
 
 class Configurator:
@@ -54,7 +54,7 @@ class Configurator:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.experiment_dict = None
 
-    def _base_config(self, task: str = 'ts_classification') -> Union[None, dict]:
+    def _base_config(self, task: str = 'ts_classification') -> dict:
         return IndustrialConfigs[task].value
 
     def init_experiment_setup(self, **kwargs) -> dict:
