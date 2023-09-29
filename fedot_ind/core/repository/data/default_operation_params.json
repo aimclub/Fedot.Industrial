@@ -2,6 +2,12 @@
   "rf": {
     "n_jobs": 1
   },
+  "mlp":{
+
+    "max_iter":300,
+    "activation":"relu",
+    "solver":"adam"
+  },
   "rfr": {
     "n_jobs": 1
   },
@@ -142,9 +148,9 @@
   "fast_ica": {
     "whiten": "unit-variance"
   },
-  "data_driven_basis": {
-    "n_components": 2,
-    "window_size": 35
+  "eigen_basis": {
+    "window_size": 25,
+    "sv_selector": "median"
   },
   "wavelet_basis": {
     "wavelet": "mexh",
@@ -155,17 +161,27 @@
     "threshold": 20000
   },
   "quantile_extractor": {
-    "window_size": 20,
-    "win_mode": true
+    "window_size": null,
+    "window_mode": false,
+    "var_threshold": 0.01
   },
   "recurrence_extractor": {
     "window_size": 20,
-    "win_mode": true,
+    "window_mode": true,
     "min_signal_ratio": 0.5,
     "max_signal_ratio": 0.75,
     "rec_metric": "euclidean"
   },
   "signal_extractor": {
-    "wavelet": "mexh"
+    "wavelet": "mexh",
+    "n_components": 2
+  },
+  "topological_extractor": {
+    "max_te_dimension": 5,
+    "max_te_time_delay": 2,
+    "stride": 1
+  },
+  "ssa_forecaster": {
+    "window_size_method": "hac"
   }
 }

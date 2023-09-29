@@ -4,9 +4,7 @@ from typing import Union
 
 import pandas as pd
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-
-DS_INFO_PATH = os.path.join(PROJECT_PATH, 'core', 'architecture', 'postprocessing', 'ucr_datasets.json')
+from fedot_ind.api.utils.path_lib import DS_INFO_PATH, PROJECT_PATH
 
 
 class ResultsPicker:
@@ -109,12 +107,6 @@ class ResultsPicker:
         return datasets, metrics_list, proba_list
 
     def read_ds_data(self, path):
-        # if self.launch_type == 'max':
-        #     best_launch = self.find_best_launch(path)
-        # else:
-        #     best_launch = self.launch_type
-        # metrics_path = os.path.join(path, best_launch, 'test_results', 'metrics.csv')
-        # proba_path = os.path.join(path, best_launch, ' 'test_results', 'metrics.csv')
         metrics_path = os.path.join(path, 'metrics.csv')
         proba_path = os.path.join(path, 'predicted_probs.csv')
 

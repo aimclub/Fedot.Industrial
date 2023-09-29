@@ -2,11 +2,12 @@ from enum import Enum
 
 
 class GeneratorParams(Enum):
-    quantile = {'window_mode': True,
-                'use_cache': False,
-                'window_size': 20}
+    # quantile = {'window_mode': True,
+    #             'use_cache': False,
+    #             'window_size': 20}
 
     statistical = {'window_mode': False,
+                   'var_threshold': 0,
                    'use_cache': False}
 
     recurrence = {'use_cache': False,

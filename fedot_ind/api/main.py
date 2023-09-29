@@ -1,17 +1,20 @@
 import logging
 from pathlib import Path
-from typing import List, Union
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
-from fedot_ind.api.utils.reader_collections import Configurator
+from fedot_ind.api.utils.configurator import Configurator
 from fedot_ind.api.utils.reporter import ReporterTSC
-from fedot_ind.core.architecture.settings.task_factory import TaskEnum
-from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
 from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
+from fedot_ind.core.architecture.settings.task_factory import TaskEnum
+from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.core.operation.transformation.splitter import TSTransformer
+from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
+from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
 class FedotIndustrial(Fedot):
@@ -50,7 +53,7 @@ class FedotIndustrial(Fedot):
 
     def __init__(self, **kwargs):
         kwargs.setdefault('output_folder', default_path_to_save_results())
-        Path(kwargs.get('output_folder')).mkdir(parents=True, exist_ok=True)
+        Path(kwargs.get('output_folder', default_path_to_save_results())).mkdir(parents=True, exist_ok=True)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
@@ -63,7 +66,7 @@ class FedotIndustrial(Fedot):
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
-        self.reporter = ReporterTSC()
+        # self.reporter = ReporterTSC()
         self.configurator = Configurator()
 
         self.config_dict = None
@@ -73,7 +76,7 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        self.reporter.path_to_save = kwargs.get('output_folder')
+        # self.reporter.path_to_save = kwargs.get('output_folder')
         if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
             self.config_dict = kwargs
         else:
@@ -85,15 +88,17 @@ class FedotIndustrial(Fedot):
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['strategy'] == 'fedot_preset':
                 solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-            elif self.config_dict['strategy'] is None:
-                self.config_dict['strategy'] = 'InceptionTime'
-                solver = TaskEnum[self.config_dict['task']].value['nn']
+            # elif self.config_dict['strategy'] is None:
+            #     self.config_dict['strategy'] = 'InceptionTime'
+            #     solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
                 solver = TaskEnum[self.config_dict['task']].value['default']
+        elif self.config_dict['task'] == 'ts_forecasting':
+            if self.config_dict['strategy'] == 'decomposition':
+                solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
 
         else:
             solver = TaskEnum[self.config_dict['task']].value[0]
-
         return solver(self.config_dict)
 
     def fit(self, **kwargs) -> Pipeline:
@@ -188,7 +193,7 @@ class FedotIndustrial(Fedot):
             path (str): path to the model
 
         """
-        self.solver.load(path)
+        raise NotImplementedError()
 
     def plot_prediction(self, **kwargs):
         """Plot prediction of the model"""
@@ -196,3 +201,59 @@ class FedotIndustrial(Fedot):
 
     def explain(self, **kwargs):
         raise NotImplementedError()
+
+    def generate_ts(self, ts_config: dict) -> np.array:
+        """
+        Method to generate synthetic time series
+        Args:
+            ts_config: dict with config for synthetic ts_data.
+
+        Returns:
+            synthetic time series data.
+
+        """
+        ts_generator = TimeSeriesGenerator(ts_config)
+        t_series = ts_generator.get_ts()
+        return t_series
+
+    def generate_anomaly_ts(self,
+                            ts_data: Union[dict, np.array],
+                            anomaly_config: dict,
+                            plot: bool = False,
+                            overlap: float = 0.1) -> Tuple[np.array, np.array, dict]:
+        """
+        Method to generate anomaly time series
+        Args:
+            ts_data: either np.ndarray or dict with config for synthetic ts_data.
+            anomaly_config: dict with config for anomaly generation
+            overlap: float, ``default=0.1``. Defines the maximum overlap between anomalies.
+            plot: if True, plot initial and modified time series data with rectangle spans of anomalies.
+
+        Returns:
+            returns initial time series data, modified time series data and dict with anomaly intervals.
+
+        Returns:
+
+        """
+
+        generator = AnomalyGenerator(config=anomaly_config)
+        init_synth_ts, mod_synth_ts, synth_inters = generator.generate(time_series_data=ts_data,
+                                                                       plot=plot,
+                                                                       overlap=overlap)
+
+        return init_synth_ts, mod_synth_ts, synth_inters
+
+    def split_ts(self, time_series: np.array,
+                 anomaly_dict: dict,
+                 binarize: bool = False,
+                 strategy: str = 'frequent',
+                 plot: bool = True) -> Tuple[np.array, np.array]:
+
+        splitter = TSTransformer(time_series=time_series,
+                                 anomaly_dict=anomaly_dict,
+                                 strategy=strategy)
+
+        train_data, test_data = splitter.transform_for_fit(plot=plot,
+                                                           binarize=binarize)
+
+        return train_data, test_data

@@ -7,7 +7,7 @@
 
 |sai| |itmo|
 
-|issues|  |stars|  |python| |license| |docs| |support| |eng| |mirror| |downloads|
+|issues|  |stars| |coverage| |python| |license| |docs| |support| |eng| |mirror| |downloads|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
@@ -24,6 +24,9 @@
 .. |python| image:: https://img.shields.io/badge/python-3.8-44cc12?style=flat-square&logo=python
             :target: https://www.python.org/downloads/release/python-380/
             :alt: Python 3.8
+
+.. |coverage| image:: https://codecov.io/github/ITMO-NSS-team/Fedot.Industrial/graph/badge.svg?token=TPGCQRYL5N
+              :target: https://codecov.io/github/ITMO-NSS-team/Fedot.Industrial
 
 .. |license| image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md
@@ -72,9 +75,14 @@
 
 - **Обнаружение аномалий (для временных рядов или изображений)**
 
-- **Выявление переломных точек (для временных рядов)**
+.. note::
 
-- **Обнаружение объектов на изображениях**
+        В настоящее время мы работаем над этой функцией.
+
+- **Компьютерное зрение**
+
+В данном разделе в настоящий момент решаются два типа задач: классификация изображений и детектирование объектов.
+
 
 
 Применение
@@ -109,15 +117,18 @@ _____________
 
     train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
 
-    model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
-    labels = industrial.predict(test_features=test_data[0])
+    model = industrial.fit(features=train_data[0], target=train_data[1])
+    labels = industrial.predict(features=test_data[0])
     metric = industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc'])
 
-В конфигурации содержатся следующие параметры:
+В конфигурации могут содержаться следующие параметры:
 
 - ``task`` – тип решаемой задачи (``ts_classification``)
 - ``dataset`` – имя набора данных для эксперимента
 - ``strategy`` – способ решения задачи: конкретный генератор или в режиме ``fedot_preset``
+- Для режима ``fedot_preset`` дополнительно можно указать два параметра для пайплайна препроцессинга:
+    - ``branch_nodes`` - список узлов, которые будут участвовать в тюнинге гиперпараметров
+    - ``tuning_iterations`` - количество итераций тюнинга гиперпараметров
 - ``use_cache`` - флаг для использования кеширования извлечённых признаков
 - ``timeout`` - максимальное количество времени для составления пайплайна для классификации
 - ``n_jobs`` - количество процессов для параллельного выполнения

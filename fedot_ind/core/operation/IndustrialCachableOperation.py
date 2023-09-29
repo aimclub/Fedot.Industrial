@@ -8,8 +8,8 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
-from fedot_ind.core.operation.utils.cache import DataCacher
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.operation.caching import DataCacher
 
 
 class IndustrialCachableOperationImplementation(DataOperationImplementation):
@@ -35,24 +35,32 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         predict = self.cacher.load_data_from_cache(hashed_info=hashed_info)
         return predict
 
-    def transform(self, input_data: InputData) -> OutputData:
+    def transform(self, input_data: InputData, use_cache: bool = False) -> OutputData:
+        """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
         """
-            Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
-        """
+        if use_cache:
+            class_params = {k: v for k, v in self.__dict__.items() if k not in ['cacher',
+                                                                                'data_type',
+                                                                                'params',
+                                                                                'n_processes',
+                                                                                'logging_params',
+                                                                                'logger',
+                                                                                'relevant_features']}
 
-        hashed_info = self.cacher.hash_info(data=input_data.features.tobytes(),
-                                            operation_info=self.params.to_dict())
-        try:
-            predict = self.try_load_from_cache(hashed_info)
-        except FileNotFoundError:
+            hashed_info = self.cacher.hash_info(data=input_data.features,
+                                                operation_info=class_params.__repr__())
+            try:
+                predict = self.try_load_from_cache(hashed_info)
+            except FileNotFoundError:
+                predict = self._transform(input_data)
+                self.cacher.cache_data(hashed_info, predict)
+
+            predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+            return predict
+        else:
             predict = self._transform(input_data)
-            self.cacher.cache_data(hashed_info, predict)
+            predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+            return predict
 
-        predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
-        return predict
-
-    def _transform(self, input_data) -> np.array:
-        """
-            Method for feature generation for all series
-        """
+    def _transform(self, input_data):
         pass
