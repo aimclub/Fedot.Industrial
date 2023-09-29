@@ -181,7 +181,7 @@
     "max_te_time_delay": 2,
     "stride": 1
   },
-  "data_driven_basis_for_forecasting": {
-    "window_size": 30
+  "ssa_forecaster": {
+    "window_size_method": "hac"
   }
 }
