@@ -10,7 +10,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 
 
 def test_ssa():
-    time_series = np.random.random(30)
+    time_series = np.random.normal(size=30)
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=1))
     train_input = InputData(idx=np.arange(time_series.shape[0]),
@@ -21,9 +21,7 @@ def test_ssa():
     train_data, test_data = train_test_data_setup(train_input)
 
     with IndustrialModels():
-        pipeline = PipelineBuilder().add_node('ssa_forecaster',
-                                              params={'window_size': int(len(train_data.features) * 0.35)}
-                                              ).build()
+        pipeline = PipelineBuilder().add_node('ssa_forecaster').build()
         pipeline.fit(train_data)
         ssa_predict = np.ravel(pipeline.predict(test_data).predict)
     assert (ssa_predict - test_data.target) < train_data.features.std()
