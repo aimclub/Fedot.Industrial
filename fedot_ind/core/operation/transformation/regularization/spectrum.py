@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 def sv_to_explained_variance_ratio(singular_values, rank):
     """
     Calculate the explained variance ratio of the singular values.
