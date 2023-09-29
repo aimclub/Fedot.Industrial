@@ -3,7 +3,7 @@ from typing import Optional
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.ts_forecasting.data_driven_ts import DataDrivenForForecastingBasisImplementation
+from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 
 
@@ -23,7 +23,7 @@ class IndustrialDecompositionForForecastingStrategy(FedotTsForecastingStrategy):
     """
 
     __operations_by_types = {
-        'data_driven_basis_for_forecasting': DataDrivenForForecastingBasisImplementation,
+        'ssa_forecaster': SSAForecasterImplementation,
     }
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):

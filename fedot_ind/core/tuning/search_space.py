@@ -24,9 +24,9 @@ industrial_search_space = {
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
-    'data_driven_basis_for_forecasting':
-        {'window_size': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [5, 200]}}
-}
+    'ssa_forecaster':
+        {'window_size_method': {'hyperopt-dist': hp.choice, 'window_size_method': [['hac', 'dff', 'mwf', 'sss']]}}
+    }
 
 
 def get_industrial_search_space(self):

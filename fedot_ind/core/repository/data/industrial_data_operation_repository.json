@@ -288,7 +288,7 @@
         "cat_features"
       ]
     },
-    "data_driven_basis_for_forecasting": {
+    "ssa_forecaster": {
       "meta": "industrial_decomposition_for_forecasting",
       "presets": [
         "fast_train"
