@@ -6,6 +6,7 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from examples.example_utils import get_ts_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 
 def plot_metrics_and_prediction(test_data,
@@ -33,11 +34,11 @@ model_dict = {'ssa_forecasting': PipelineBuilder().add_node('data_driven_basis_f
               'baseline': PipelineBuilder().add_node('ar')}
 
 datasets = {
-    'm4_yearly': f'.../data/ts/M4YearlyTest.csv',
-    'm4_weekly': f'.../data/ts/M4WeeklyTest.csv',
-    'm4_daily': f'.../data/ts/M4DailyTest.csv',
-    'm4_monthly': f'.../data/ts/M4MonthlyTest.csv',
-    'm4_quarterly': f'.../data/ts/M4QuarterlyTest.csv'}
+    'm4_yearly': PROJECT_PATH + f'/examples/data/ts/M4YearlyTest.csv',
+    'm4_weekly': PROJECT_PATH + f'/examples/data/ts/M4WeeklyTest.csv',
+    'm4_daily': PROJECT_PATH + f'/examples/data/ts/M4DailyTest.csv',
+    'm4_monthly': PROJECT_PATH + f'/examples/data/ts/M4MonthlyTest.csv',
+    'm4_quarterly': PROJECT_PATH + f'/examples/data/ts/M4QuarterlyTest.csv'}
 
 forecast_length = 13
 
