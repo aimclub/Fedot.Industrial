@@ -25,8 +25,8 @@
             :target: https://www.python.org/downloads/release/python-380/
             :alt: Python 3.8
 
-.. |coverage| image:: https://codecov.io/github/ITMO-NSS-team/Fedot.Industrial/graph/badge.svg?token=TPGCQRYL5N
-              :target: https://codecov.io/github/ITMO-NSS-team/Fedot.Industrial
+.. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
+              :target: https://codecov.io/gh/aimclub/Fedot.Industrial
 
 .. |license| image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md
