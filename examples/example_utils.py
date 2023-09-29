@@ -1,11 +1,21 @@
-from sklearn.metrics import f1_score, roc_auc_score
+import random
+from pathlib import Path
+
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from sklearn.metrics import f1_score, roc_auc_score
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+
+ts_datasets = {
+    'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4YearlyTest.csv'),
+    'm4_weekly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4WeeklyTest.csv'),
+    'm4_daily': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4DailyTest.csv'),
+    'm4_monthly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4MonthlyTest.csv'),
+    'm4_quarterly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4QuarterlyTest.csv')}
 
 
 def check_multivariate_data(data: pd.DataFrame) -> bool:
@@ -43,16 +53,13 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
     return input_data
 
 
-def get_ts_data(datasets,
-                dataset='m4_monthly',
-                horizon: int = 30,
-                m4_id=None):
-    time_series = pd.read_csv(datasets[dataset])
+def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
+    time_series = pd.read_csv(ts_datasets[dataset])
 
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=horizon))
     if not m4_id:
-        label = np.random.choice(np.unique(time_series['label']))
+        label = random.choice(np.unique(time_series['label']))
     else:
         label = m4_id
     print(label)

@@ -21,7 +21,7 @@ def test_ssa():
     train_data, test_data = train_test_data_setup(train_input)
 
     with IndustrialModels():
-        pipeline = PipelineBuilder().add_node('data_driven_basis_for_forecasting',
+        pipeline = PipelineBuilder().add_node('ssa_forecaster',
                                               params={'window_size': int(len(train_data.features) * 0.35)}
                                               ).build()
         pipeline.fit(train_data)
