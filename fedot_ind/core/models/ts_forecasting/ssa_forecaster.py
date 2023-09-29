@@ -91,7 +91,7 @@ class SSAForecasterImplementation(ModelImplementation):
 
     def predict_for_fit(self, input_data: InputData) -> OutputData:
         features = input_data.features[-self.LAST_VALUES_THRESHOLD:]
-        self._window_size = int(WindowSizeSelector(method='hac').get_window_size(features) * len(
+        self._window_size = int(WindowSizeSelector(method=self.window_size_method).get_window_size(features) * len(
             features) / 100)
         trajectory_transformer = HankelMatrix(time_series=features, window_size=self._window_size)
         data = trajectory_transformer.trajectory_matrix
