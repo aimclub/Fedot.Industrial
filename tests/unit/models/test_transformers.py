@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.transformation.DataTransformer import TopologicalTransformation, TSTransformer
-from fedot_ind.core.operation.transformation.WindowSelection import WindowCutter, WindowSizeSelection
+from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
+from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
+from fedot_ind.core.operation.transformation.window_cutter import WindowCutter
 
 
 @pytest.fixture()
@@ -28,19 +29,9 @@ def test_WindowCutting(basic_periodic_data):
     assert list(windows_list[0].keys())[0] == "ts_1"
 
 
-def test_WindowSizeSelection(basic_periodic_data):
-    finder = WindowSizeSelection(
-        time_series=basic_periodic_data)
-    result = finder.get_window_size()
-    assert type(result[0]) is int and type(result[1]) is list
-    assert result[0] != 0
-
-
 def test_TSTransformer(basic_periodic_data):
     transformer = TSTransformer(time_series=basic_periodic_data,
-                                rec_metric="euclidean",
-                                min_signal_ratio=0.1,
-                                max_signal_ratio=0.9)
+                                rec_metric="euclidean")
     result = transformer.get_recurrence_metrics()
     assert result.shape[0] > 0 and result.shape[1] > 0
 

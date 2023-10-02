@@ -1,0 +1,152 @@
+{
+    "total_pipeline_operations": [
+        "data_driven_basis",
+        "quantile_extractor",
+        "fourier_basis",
+        "wavelet_basis",
+        "cat_features"
+    ],
+    "depth": 3,
+    "nodes": [
+        {
+            "operation_id": 2,
+            "operation_type": "data_driven_basis",
+            "operation_name": "DataDrivenBasisImplementation",
+            "custom_params": {
+                "window_size": 45
+            },
+            "params": {
+                "window_size": 45
+            },
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_2.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 1,
+            "operation_type": "quantile_extractor",
+            "operation_name": "StatsExtractor",
+            "custom_params": {
+                "window_mode": true,
+                "window_size": 16
+            },
+            "params": {
+                "window_mode": true,
+                "window_size": 16
+            },
+            "nodes_from": [
+                2
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_1.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 4,
+            "operation_type": "fourier_basis",
+            "operation_name": "FourierBasisImplementation",
+            "custom_params": {
+                "spectrum": "smoothed",
+                "threshold": 27995
+            },
+            "params": {
+                "spectrum": "smoothed",
+                "threshold": 27995
+            },
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_4.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 3,
+            "operation_type": "quantile_extractor",
+            "operation_name": "StatsExtractor",
+            "custom_params": {
+                "window_mode": true,
+                "window_size": 13
+            },
+            "params": {
+                "window_mode": true,
+                "window_size": 13
+            },
+            "nodes_from": [
+                4
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_3.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 6,
+            "operation_type": "wavelet_basis",
+            "operation_name": "WaveletBasisImplementation",
+            "custom_params": {
+                "n_components": 4,
+                "wavelet": "mexh"
+            },
+            "params": {
+                "n_components": 4,
+                "wavelet": "mexh"
+            },
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_6.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 5,
+            "operation_type": "quantile_extractor",
+            "operation_name": "StatsExtractor",
+            "custom_params": {
+                "window_mode": true,
+                "window_size": 4
+            },
+            "params": {
+                "window_mode": true,
+                "window_size": 4
+            },
+            "nodes_from": [
+                6
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_5.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 0,
+            "operation_type": "cat_features",
+            "operation_name": "DummyOperation",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [
+                1,
+                3,
+                5
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_0.pkl"
+            ],
+            "rating": null
+        }
+    ],
+    "preprocessing": [
+        "preprocessing",
+        "data_preprocessor.pkl"
+    ],
+    "descriptive_id": "((/n_data_driven_basis_{'window_size': 45};)/n_quantile_extractor_{'window_mode': True, 'window_size': 16};;(/n_fourier_basis_{'spectrum': 'smoothed', 'threshold': 27995};)/n_quantile_extractor_{'window_mode': True, 'window_size': 13};;(/n_wavelet_basis_{'n_components': 4, 'wavelet': 'mexh'};)/n_quantile_extractor_{'window_mode': True, 'window_size': 4};)/n_cat_features"
+}

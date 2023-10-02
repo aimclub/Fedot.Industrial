@@ -1,11 +1,9 @@
 import logging
-import os
 from typing import List, Union
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-import torch
 from fedot.api.main import Fedot
 from fedot.core.data.data import array_to_input_data
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -13,14 +11,9 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
+from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.api.utils.saver_collections import ResultSaver
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
-from fedot_ind.core.architecture.utils.utils import default_path_to_save_results
-from fedot_ind.core.models.nn.inception import InceptionTimeNetwork
-
-TSCCLF_MODEL = {
-    'inception_time': InceptionTimeNetwork
-}
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
 
 class TimeSeriesClassifier:
@@ -40,7 +33,7 @@ class TimeSeriesClassifier:
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        self.strategy = params.get('strategy', 'statistical')
+        self.strategy = params.get('strategy')
         self.model_hyperparams = params.get('model_params')
         self.generator_runner = params.get('generator_class')
         self.dataset_name = params.get('dataset')
@@ -52,6 +45,8 @@ class TimeSeriesClassifier:
         self.logger = logging.getLogger('TimeSeriesClassifier')
         self.datacheck = DataCheck()
 
+        self.prediction_proba = None
+        self.test_predict_hash = None
         self.prediction_label = None
         self.predictor = None
         self.y_train = None
@@ -60,6 +55,29 @@ class TimeSeriesClassifier:
         self.input_test_data = None
 
         self.logger.info('TimeSeriesClassifier initialised')
+
+    def fit(self, features: Union[np.ndarray, pd.DataFrame],
+            target: np.ndarray,
+            **kwargs) -> object:
+
+        baseline_type = kwargs.get('baseline_type', None)
+        self.logger.info(f'Fitting model')
+        self.y_train = target
+        if self.generator_runner is None:
+            raise AttributeError('Feature generator is not defined')
+
+        input_data = init_input_data(features, target)
+        output_data = self.generator_runner.transform(input_data)
+        train_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
+
+        self.train_features = self.datacheck.check_data(input_data=train_features, return_df=True)
+
+        if baseline_type is not None:
+            self.predictor = self._fit_baseline_model(self.train_features, target, baseline_type)
+        else:
+            self.predictor = self._fit_model(self.train_features, target)
+
+        return self.predictor
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -74,6 +92,8 @@ class TimeSeriesClassifier:
         """
         self.predictor = Fedot(**self.model_hyperparams)
         self.predictor.fit(features, target)
+        self.logger.info(
+            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
         return self.predictor
 
     def _fit_baseline_model(self, features: pd.DataFrame, target: np.ndarray, baseline_type: str = 'rf') -> Pipeline:
@@ -97,24 +117,32 @@ class TimeSeriesClassifier:
         node_final = SecondaryNode(baseline_type,
                                    nodes_from=[node_scaling])
         baseline_pipeline = Pipeline(node_final)
-        input_data = array_to_input_data(features_array=features,
-                                         target_array=target)
+        input_data = init_input_data(features, target)
         baseline_pipeline.fit(input_data)
         self.logger.info(f'Baseline model has been fitted')
         return baseline_pipeline
 
+    def predict(self, features: np.ndarray, **kwargs) -> np.ndarray:
+        self.prediction_label = self.__predict_abstraction(test_features=features, mode='labels', **kwargs)
+        return self.prediction_label
+
+    def predict_proba(self, features: np.ndarray, **kwargs) -> np.ndarray:
+        self.prediction_proba = self.__predict_abstraction(test_features=features, mode='probs', **kwargs)
+        return self.prediction_proba
+
     def __predict_abstraction(self,
                               test_features: Union[np.ndarray, pd.DataFrame],
-                              mode: str = 'labels'):
+                              mode: str = 'labels', **kwargs):
         self.logger.info(f'Predicting with {self.strategy} generator')
 
         if self.test_features is None:
-            self.test_features = self.generator_runner.extract_features(train_features=test_features,
-                                                                        dataset_name=self.dataset_name)
-            self.test_features = self.datacheck.check_data(input_data=self.test_features, return_df=True)
+            input_data = init_input_data(test_features, kwargs.get('target'))
+            output_data = self.generator_runner.transform(input_data)
+            test_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
+            self.test_features = self.datacheck.check_data(input_data=test_features, return_df=True)
 
         if isinstance(self.predictor, Pipeline):
-            self.input_test_data = array_to_input_data(features_array=self.test_features, target_array=None)
+            self.input_test_data = init_input_data(self.test_features, kwargs.get('target'))
             prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
             return prediction_label
         else:
@@ -123,41 +151,6 @@ class TimeSeriesClassifier:
             else:
                 prediction_label = self.predictor.predict_proba(self.test_features)
             return prediction_label
-
-    def fit(self, train_ts_frame: Union[np.ndarray, pd.DataFrame],
-            train_target: np.ndarray,
-            **kwargs) -> object:
-
-        baseline_type = kwargs.get('baseline_type', None)
-        self.logger.info(f'Fitting model')
-        self.y_train = train_target
-        if self.generator_runner is None:
-            raise AttributeError('Feature generator is not defined')
-
-        train_features = self.generator_runner.extract_features(train_features=train_ts_frame,
-                                                                dataset_name=self.dataset_name)
-
-        self.train_features = self.datacheck.check_data(input_data=train_features,
-                                                        return_df=True)
-
-        if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, train_target, baseline_type)
-        else:
-            self.predictor = self._fit_model(self.train_features, train_target)
-
-        self.logger.info(
-            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
-        return self.predictor
-
-    def predict(self, test_features: np.ndarray, **kwargs) -> dict:
-        self.prediction_label = self.__predict_abstraction(test_features=test_features,
-                                                           mode='labels')
-        return self.prediction_label
-
-    def predict_proba(self, test_features: np.ndarray, **kwargs) -> dict:
-        self.prediction_proba = self.__predict_abstraction(test_features=test_features,
-                                                           mode='probs', )
-        return self.prediction_proba
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):
         analyzer = PerformanceAnalyzer()
@@ -171,23 +164,3 @@ class TimeSeriesClassifier:
 
     def save_metrics(self, metrics: dict):
         self.saver.save(metrics, 'metrics')
-
-
-class TimeSeriesClassifierNN(TimeSeriesClassifier):
-    def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
-        self.device = torch.device('cuda' if params.get('gpu', False) else 'cpu')
-        self.model = TSCCLF_MODEL[params.get('model', 'inception_time')].network_architecture
-        self.num_epochs = params.get('num_epochs', 10)
-
-    def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
-        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCNN',
-                                                                    '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCNN',
-                                                              'runs')
-        self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
-
-        if target.min() != 0:
-            target = target - 1
-
-        return self.num_epochs, target

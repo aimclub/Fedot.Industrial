@@ -12,7 +12,7 @@ from fedot_ind.core.architecture.datasets.object_detection_datasets import COCOD
 from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
 from fedot_ind.core.architecture.experiment.nn_experimenter import FitParameters, \
     ClassificationExperimenter, ObjectDetectionExperimenter
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
 

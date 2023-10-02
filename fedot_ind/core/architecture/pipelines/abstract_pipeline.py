@@ -1,9 +1,11 @@
+import json
+
 import pandas as pd
 from pymonad.list import ListMonad
 from sklearn.preprocessing import MinMaxScaler
 
-from fedot_ind.api.utils.hp_generator_collection import GeneratorParams
-from fedot_ind.core.architecture.postprocessing.Analyzer import PerformanceAnalyzer
+from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel
 
 
@@ -21,8 +23,8 @@ class AbstractPipelines:
 
         self.generators_with_matrix_input = ['topological',
                                              'wavelet',
-                                             'reccurence',
-                                             'statistical']
+                                             'recurrence',
+                                             'quantile']
 
     def _evaluate(self, classificator, train_features, test_features):
         fitted_model = classificator.fit(train_features=train_features,
@@ -62,18 +64,23 @@ class AbstractPipelines:
 
     def _init_pipeline_nodes(self, model_type: str = 'tsc', **kwargs):
         if 'feature_generator_type' not in kwargs.keys():
-            generator = self.feature_generator_dict['statistical']
+            generator = self.feature_generator_dict['quantile']
         else:
             generator = self.feature_generator_dict[kwargs['feature_generator_type']]
         try:
             feature_extractor = generator(params=kwargs['feature_hyperparams'])
 
         except AttributeError:
-            params = GeneratorParams[kwargs['feature_generator_type']].value
+            with open(PATH_TO_DEFAULT_PARAMS, 'r') as file:
+                _feature_gen_params = json.load(file)
+                params = _feature_gen_params[f'{generator}_extractor']
             feature_extractor = generator(params)
-        classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'],
-                                                    generator_name=kwargs['feature_generator_type'],
-                                                    generator_runner=feature_extractor)
+        try:
+            classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'],
+                                                        generator_name=kwargs['feature_generator_type'],
+                                                        generator_runner=feature_extractor)
+        except Exception:
+            classificator = None
     # TODO:
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'scale': lambda time_series: pd.DataFrame(MinMaxScaler().fit_transform(

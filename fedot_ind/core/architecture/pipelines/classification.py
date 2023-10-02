@@ -2,7 +2,7 @@ from pymonad.list import ListMonad
 from pymonad.either import Right
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipelines
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.operation.transformation.basis.data_driven import DataDrivenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from functools import partial
 
 
@@ -44,7 +44,7 @@ class ClassificationPipelines(AbstractPipelines):
 
     def __ts_data_driven_pipeline(self, **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = DataDrivenBasisImplementation(kwargs['data_driven_hyperparams'])
+        data_basis = EigenBasisImplementation(kwargs['data_driven_hyperparams'])
         n_components = kwargs['data_driven_hyperparams']['n_components']
         lambda_func_dict['transform_to_basis'] = lambda \
                 x: self.basis if self.basis is not None else data_basis._transform(x)
@@ -66,7 +66,7 @@ class ClassificationPipelines(AbstractPipelines):
 
     def __multits_data_driven_pipeline(self, ensemble: str = 'Multi', **kwargs):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = DataDrivenBasisImplementation(kwargs['data_driven_hyperparams'])
+        data_basis = EigenBasisImplementation(kwargs['data_driven_hyperparams'])
 
         lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
         lambda_func_dict['reduce_basis'] = lambda list_of_components: ListMonad(
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     }
 
     pipeline = ClassificationPipelines(train_data=train_data, test_data=test_data).__call__('DataDrivenMultiTSC')
-    pipeline(feature_generator_type='statistical',
+    pipeline(feature_generator_type='quantile',
              model_hyperparams=model_hyperparams,
              feature_hyperparams=None,
              data_driven_hyperparams={'n_components': 3, 'window_size': 30})

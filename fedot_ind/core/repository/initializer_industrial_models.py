@@ -6,13 +6,12 @@ from fedot.core.composer.gp_composer.specific_operators import parameter_change_
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
-
 from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operations_for_task
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.dag.verification_rules import ERROR_PREFIX
 from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 
@@ -25,7 +24,7 @@ def add_preprocessing(pipeline: Pipeline, **kwargs) -> Pipeline:
     extractor_model = PipelineNode(random.choice(extractors), nodes_from=[basis_model])
 
     try:
-        node_to_mutate = list(filter(lambda x: x.name  in models, pipeline.nodes))[0]
+        node_to_mutate = list(filter(lambda x: x.name in models, pipeline.nodes))[0]
     except:
         pipeline.show()
     if node_to_mutate.nodes_from:
@@ -98,7 +97,7 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
 class IndustrialModels:
     def __init__(self):
-        self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH,
+        self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH, 'fedot_ind',
                                                            'core',
                                                            'repository',
                                                            'data',
@@ -127,4 +126,4 @@ class IndustrialModels:
                                                                       OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
         OperationTypesRepository.assign_repo('data_operation', self.base_data_operation_path)
 
-        #setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)
+        # setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)

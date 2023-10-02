@@ -7,7 +7,7 @@
 
 |sai| |itmo|
 
-|issues|  |stars|  |python| |license| |docs| |support| |rus| |downloads|
+|issues|  |stars| |coverage| |python| |license| |docs| |support| |rus| |downloads|
 
 .. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
@@ -17,14 +17,16 @@
                :target: https://pepy.tech/project/fedot-ind
                :alt: Downloads
 
-
 .. |stars| image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers
             :alt: Stars
 
-.. |python| image:: https://img.shields.io/badge/python-3.8-44cc12?style=flat-square&logo=python
+.. |python| image:: https://img.shields.io/badge/python-3.9-44cc12?style=flat-square&logo=python
             :target: https://www.python.org/downloads/release/python-380/
-            :alt: Python 3.8
+            :alt: Python 3.9
+
+.. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
+              :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
 
 .. |license| image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=flat-square
             :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md

@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
 
 
 def sv_to_explained_variance_ratio(singular_values, rank):
@@ -26,7 +25,7 @@ def sv_to_explained_variance_ratio(singular_values, rank):
     return explained_variance, n_components
 
 
-def singular_value_hard_threshold(singular_values, rank=None, beta=None, threshold=2.858) -> list:
+def singular_value_hard_threshold(singular_values, rank=None, beta=None, threshold=2.58) -> list:
     """
     Calculate the hard threshold for the singular values.
 
@@ -47,21 +46,21 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
     if rank is not None:
         return singular_values[:rank]
     else:
-        # Scale the singular values between 0 and 1.
-        singular_values_scaled = abs(singular_values)
-        singular_values_scaled = MinMaxScaler(feature_range=(0, 1)).fit_transform(
-            singular_values_scaled.reshape(-1, 1))[:, 0]
-        # Find the median of the singular values.
-        median_sv = np.median(singular_values_scaled[:rank])
-        # Find the adjusted rank.
+        # Find the median of the singular values
+        singular_values = [s_val for s_val in singular_values if s_val > 0.01]
+        if len(singular_values) == 1:
+            return singular_values[:1]
+        median_sv = np.median(singular_values[:rank])
+        # Find the adjusted rank
         if threshold is None:
             threshold = 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
         sv_threshold = threshold * median_sv
-        # Find the threshold value.
-        adjusted_rank = np.sum(singular_values_scaled >= sv_threshold)
-        # If the adjusted rank is 0 or 1, set it to 2.
-        if adjusted_rank < 2:
-            adjusted_rank = 2
+        # Find the threshold value
+        adjusted_rank = np.sum(singular_values >= sv_threshold)
+        # If the adjusted rank is 0, recalculate the threshold value
+        if adjusted_rank == 0:
+            sv_threshold = 2.31 * median_sv
+            adjusted_rank = max(np.sum(singular_values >= sv_threshold), 1)
         return singular_values[:adjusted_rank]
 
 

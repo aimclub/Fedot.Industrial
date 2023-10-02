@@ -5,7 +5,7 @@ import pytest
 import torch
 from torchvision.models import resnet18
 
-from fedot_ind.core.architecture.utils.utils import PROJECT_PATH
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.operation.optimization.sfp_tools import _check_nonzero_filters, \
     _prune_filters, _index_union, _indexes_of_tensor_values, _parse_sd, _collect_sd, \
     percentage_filter_zeroing, energy_filter_zeroing, load_sfp_resnet_model
@@ -85,7 +85,7 @@ def test_parse_collect_sd():
 
 
 def test_load_sfp_resnet_model():
-    sfp_state_dict_path = os.path.join(PROJECT_PATH, '../', 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
+    sfp_state_dict_path = os.path.join(PROJECT_PATH, 'tests/data/cv_test_models/ResNet18_sfp.sd.pt')
     sfp_model = load_sfp_resnet_model(state_dict_path=sfp_state_dict_path)
     sfp_state_dict = torch.load(sfp_state_dict_path, map_location='cpu')
     assert sfp_state_dict.keys() == sfp_model.state_dict().keys()
