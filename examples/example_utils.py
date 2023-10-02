@@ -36,19 +36,21 @@ def evaluate_metric(target, prediction):
     return metric
 
 
-def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
+def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification') -> InputData:
     is_multivariate_data = check_multivariate_data(X)
+    task_dict = {'classification': Task(TaskTypesEnum.classification),
+                 'regression': Task(TaskTypesEnum.regression)}
     if is_multivariate_data:
         input_data = InputData(idx=np.arange(len(X)),
                                features=np.array(X.values.tolist()),
                                target=y.reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
+                               task=task_dict[task],
                                data_type=DataTypesEnum.image)
     else:
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
                                target=np.ravel(y).reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
+                               task=task_dict[task],
                                data_type=DataTypesEnum.table)
     return input_data
 
