@@ -1,13 +1,15 @@
 import os
+from pathlib import Path
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from examples.example_utils import evaluate_metric
 from examples.example_utils import init_input_data
 from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 metric_dict = {}
 
-group = os.listdir('D:\WORK\Repo\Industiral\IndustrialTS\data')
+group = Path(PROJECT_PATH, 'data')
 
 model_dict = {
     'eigen_basis_basic': PipelineBuilder().add_node(
