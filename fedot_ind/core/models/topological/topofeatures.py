@@ -90,6 +90,9 @@ class TopologicalFeaturesExtractor:
                 for dim in range(len(x_features)):
                     column_list.append('{}_{}'.format(feature_name, dim))
             except Exception:
+                feature_list.append(np.array([0 for i in range(len(x_features))]))
+                for dim in range(len(x_features)):
+                    column_list.append('{}_{}'.format(feature_name, dim))
                 continue
         x_transformed = pd.DataFrame(data=np.hstack(feature_list)).T
         x_transformed.columns = column_list
