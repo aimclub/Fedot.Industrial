@@ -3,8 +3,14 @@
 How to install
 ================
 
-At the moment the only way to install is to clone the repository.
-Later the framework will be available to install via pip.
+There are two ways to install Fedot.Industrial:
+
+from PyPI
+---------
+.. code-block:: console
+
+    pip install fedot_ind
+
 
 from GitHub
 ------------------------
