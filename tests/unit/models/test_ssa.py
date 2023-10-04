@@ -1,10 +1,9 @@
 import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
-
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import TaskTypesEnum, Task, TsForecastingParams
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
