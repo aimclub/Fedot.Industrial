@@ -1,4 +1,3 @@
-import gc
 import sys
 from functools import partial
 from typing import Optional
@@ -8,7 +7,6 @@ import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
@@ -47,6 +45,7 @@ class TopologicalExtractor(BaseExtractor):
 
     Example:
         To use this operation you can create pipeline as follows::
+
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from fedot_ind.api.utils.input_data import init_input_data
             from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
@@ -60,6 +59,7 @@ class TopologicalExtractor(BaseExtractor):
                 pipeline.fit(input_data)
                 features = pipeline.predict(input_data)
                 print(features)
+
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):

@@ -10,7 +10,7 @@ TimeSeriesClassifier
 TimeSeriesClassifier
 =====================
 
-.. autoclass:: fedot_ind.core.architecture.experiment.TimeSeriesClassifier.TimeSeriesClassifierNN
+.. autoclass:: fedot_ind.core.architecture.experiment.TimeSeriesClassifierNN.TimeSeriesClassifierNN
    :members:
    :show-inheritance:
    :no-undoc-members:
