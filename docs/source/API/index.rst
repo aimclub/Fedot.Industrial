@@ -23,11 +23,11 @@ Time series classification
     ts_classification/models_tsc/base_extractor_api
     ts_classification/models_tsc/stats_extractor_api.rst
     ts_classification/models_tsc/topological_extractor_api
-    ts_classification/models_tsc/ensemble_extractor_api
+
+    ts_classification/model_ensemblers
 
     ts_classification/data_loader_api
     ts_classification/results_picker_api
-    ts_classification/rank_ensemble_api
 
 
 Anomaly detection
@@ -43,6 +43,7 @@ Object detection and image classification
 .. toctree::
     :maxdepth: 1
 
+    cv/nn_experimenter_api
     cv/computer_vision_api
     cv/fit_parameters_api
     cv/classification_experimenter_api
