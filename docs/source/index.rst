@@ -6,7 +6,7 @@ Here you can find comprehensive documentation for the AutoML framework
 
 It provides a set of tools for industrial type of tasks, such as time
 series forecasting, anomaly detection, classification, and object detection.
-The project is based on the `FEDOT AutoML framework <https://fedot.readthedocs.io/>`__ using its algorithmic
+The framework is based on the FEDOT_ using its algorithmic
 kernel in terms of evolutionary optimization and obtaining graph-like
 pipelines.
 
@@ -16,16 +16,17 @@ Content:
 .. toctree::
    :maxdepth: 1
 
-   installation
-   quickstart
-   architecture
-   modules/index
+   introduction/index
+   API/index
+   Basics/index
    examples/index
    contribution
+   faq
    about
    citation
-   license
 
+
+.. _FEDOT: https://fedot.readthedocs.io/
 
 
 * :ref:`genindex`
