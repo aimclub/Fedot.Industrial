@@ -37,7 +37,7 @@ class TimeSeriesAnomalyDetectionPreset:
         tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
-        output_dir: path to the directory where results will be saved
+        output_folder: path to the directory where results will be saved
         saver: object of ``ResultSaver`` class
 
     Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
@@ -65,8 +65,7 @@ class TimeSeriesAnomalyDetectionPreset:
         self.train_features = None
         self.test_features = None
         self.input_test_data = None
-        self.generator = self._build_pipeline()
-        self.predictor = None
+        self.predictor = self._build_pipeline()
 
         self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
                          f'[{self.tuning_iters}] tuning iterations and [{self.tuning_timeout}] timeout')
@@ -186,9 +185,11 @@ class TimeSeriesAnomalyDetectionPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, anomaly_dict)
-            self.generator = self._tune_pipeline(self.generator,
+            self.predictor = self._tune_pipeline(self.predictor,
                                                  self.train_data)
-            self.generator.fit(self.train_data)
+
+            self.predictor
+            self.predictor.fit(self.train_data)
             train_data_preprocessed = self.generator.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
