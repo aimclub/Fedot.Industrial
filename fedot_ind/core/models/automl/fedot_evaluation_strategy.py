@@ -31,21 +31,7 @@ class FedotAutoMLClassificationStrategy(EvaluationStrategy):
         return model
 
     def predict(self, trained_operation, predict_data: InputData) -> OutputData:
-        n_classes = trained_operation.model.train_data.num_classes
-        if self.output_mode == 'labels':
-            prediction = trained_operation.model.predict(predict_data)
-        elif self.output_mode in ['probs', 'full_probs', 'default']:
-            prediction = trained_operation.model.predict_proba(predict_data)
-            if n_classes < 2:
-                raise ValueError('Data set contain only 1 target class. Please reformat your data.')
-            elif n_classes == 2 and self.output_mode != 'full_probs' and prediction.shape[1] > 1:
-                prediction = prediction[:, 1]
-        else:
-            raise ValueError(f'Output model {self.output_mode} is not supported')
-
-        # Convert prediction to output (if it is required)
-        converted = self._convert_to_output(prediction, predict_data)
-        return converted
+        return trained_operation.predict(predict_data, self.output_mode)
 
 
 class FedotAutoMLRegressionStrategy(EvaluationStrategy):
@@ -70,6 +56,6 @@ class FedotAutoMLRegressionStrategy(EvaluationStrategy):
         return model
 
     def predict(self, trained_operation, predict_data: InputData) -> OutputData:
-        return trained_operation.model.predict(predict_data)
+        return trained_operation.predict(predict_data)
 
 

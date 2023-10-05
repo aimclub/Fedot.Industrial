@@ -29,8 +29,8 @@ class FedotClassificationImplementation(ModelImplementation):
         self.model.fit(input_data)
         return self
 
-    def predict(self, input_data: InputData) -> OutputData:
-        return self.model.current_pipeline.predict(input_data)
+    def predict(self, input_data: InputData, output_mode='default') -> OutputData:
+        return self.model.current_pipeline.predict(input_data, output_mode=output_mode)
 
 
 class FedotRegressionImplementation(ModelImplementation):
