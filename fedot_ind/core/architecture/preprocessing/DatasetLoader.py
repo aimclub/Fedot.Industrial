@@ -277,9 +277,10 @@ class DataLoader:
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
                                                           not has_univariate_tag or not has_target_labels_tag or \
                                                           not has_data_tag
-                        incomplete_classification_meta_data = not has_problem_name_tag or not has_timestamps_tag \
-                                                              or not has_univariate_tag or not has_class_labels_tag \
-                                                              or not has_data_tag
+                        incomplete_classification_meta_data = \
+                            not has_problem_name_tag or not has_timestamps_tag \
+                            or not has_univariate_tag or not has_class_labels_tag \
+                            or not has_data_tag
                         if incomplete_regression_meta_data and incomplete_classification_meta_data:
                             raise TsFileParseException("a full set of metadata has not been provided before the data")
 
@@ -450,7 +451,7 @@ class DataLoader:
                                                     " contains a tuple that has an invalid timestamp '"
                                                     + timestamp + "'")
 
-                                            if previous_timestamp_was_float is not None\
+                                            if previous_timestamp_was_float is not None \
                                                     and previous_timestamp_was_float and not timestamp_is_float:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
@@ -466,7 +467,7 @@ class DataLoader:
                                                         line_num + 1) +
                                                     " contains tuples where the timestamp format is inconsistent")
 
-                                            if previous_timestamp_was_timestamp is not None\
+                                            if previous_timestamp_was_timestamp is not None \
                                                     and previous_timestamp_was_timestamp and not timestamp_is_timestamp:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
@@ -541,7 +542,7 @@ class DataLoader:
                                     if num_dimensions != this_line_num_dimensions:
                                         raise TsFileParseException("line " + str(
                                             line_num + 1) +
-                                            " does not have the same number of dimensions as the previous line of data")
+                                                                   " does not have the same number of dimensions as the previous line of data")
 
                             # Check that we are not expecting some more data, and if not, store that processed above
 
@@ -568,7 +569,7 @@ class DataLoader:
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
                                 raise TsFileParseException("line " + str(
                                     line_num + 1) +
-                                    " does not have the same number of dimensions as the previous line of data")
+                                                           " does not have the same number of dimensions as the previous line of data")
 
                             # Check if we should have class values, and if so that they are contained
                             # in those listed in the metadata
@@ -618,10 +619,11 @@ class DataLoader:
         # Check that the file was not empty
         if line_num:
             # Check that the file contained both metadata and data
-            complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag\
+            complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
                                             and has_target_labels_tag and has_data_tag
-            complete_classification_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag\
-                                                and has_class_labels_tag and has_data_tag
+            complete_classification_meta_data = \
+                has_problem_name_tag and has_timestamps_tag \
+                and has_univariate_tag and has_class_labels_tag and has_data_tag
 
             if metadata_started and not complete_regression_meta_data and not complete_classification_meta_data:
                 raise TsFileParseException("metadata incomplete")

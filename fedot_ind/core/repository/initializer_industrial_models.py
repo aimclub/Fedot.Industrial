@@ -22,11 +22,7 @@ def add_preprocessing(pipeline: Pipeline, **kwargs) -> Pipeline:
     models = get_operations_for_task(task=task, mode='model')
     basis_model = PipelineNode(random.choice(basis_models))
     extractor_model = PipelineNode(random.choice(extractors), nodes_from=[basis_model])
-
-    try:
-        node_to_mutate = list(filter(lambda x: x.name in models, pipeline.nodes))[0]
-    except:
-        pipeline.show()
+    node_to_mutate = list(filter(lambda x: x.name in models, pipeline.nodes))[0]
     if node_to_mutate.nodes_from:
         node_to_mutate.nodes_from.append(extractor_model)
     else:
@@ -123,10 +119,9 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
 
         OperationTypesRepository.__repository_dict__.update(
-            {'model':
-                 {'file': self.industrial_model_path,
-                  'initialized_repo': None,
-                  'default_tags': []}})
+            {'model': {'file': self.industrial_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
         OperationTypesRepository.assign_repo('model', self.industrial_model_path)
 
         setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
@@ -143,10 +138,9 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('data_operation', self.base_data_operation_path)
 
         OperationTypesRepository.__repository_dict__.update(
-            {'model':
-                 {'file': self.base_model_path,
-                  'initialized_repo': None,
-                  'default_tags': []}})
+            {'model': {'file': self.base_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
         OperationTypesRepository.assign_repo('model', self.base_model_path)
 
         # setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)
