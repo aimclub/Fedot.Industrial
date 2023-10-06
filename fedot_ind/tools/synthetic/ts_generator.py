@@ -8,6 +8,20 @@ from matplotlib import pyplot as plt
 
 
 class TimeSeriesGenerator:
+    """
+    A class for generating various types of time series data.
+
+    Args:
+        params (dict): A dictionary containing parameters for generating time series data.
+
+    Attributes:
+        ts_type (str): The type of time series to generate.
+        ts_length (int): The length of the time series.
+        seed (int): The random seed used for data generation.
+        ts_types (dict): A dictionary mapping time series types to their corresponding classes.
+        params (dict): The input parameters for time series generation.
+
+    """
 
     def __init__(self, params: dict):
         self.ts_type = params.get('ts_type', 'smooth_normal')
@@ -22,12 +36,33 @@ class TimeSeriesGenerator:
         self.params = params
 
     def __define_seed(self):
+        """
+        Define a random seed based on the current second of the system's clock.
+
+        Returns:
+            int: The generated random seed.
+
+        """
         self.seed = dt.now().second
 
     def __define_randomness(self):
+        """
+        Define randomness by setting the random seed using NumPy.
+
+        """
         np.random.seed(self.seed)
 
     def get_ts(self):
+        """
+        Generate and return the time series data.
+
+        Returns:
+            np.array: The generated time series data.
+
+        Raises:
+            ValueError: If the specified 'ts_type' is not valid.
+
+        """
         if self.ts_type not in self.ts_types.keys():
             raise ValueError('ts_type must be one of the following: "sin", "smooth_normal", "random_walk", '
                              '"auto_regression"')

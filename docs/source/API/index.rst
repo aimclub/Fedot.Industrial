@@ -19,23 +19,34 @@ Time series classification
     :maxdepth: 1
 
     ts_classification/timeseriesclassifier_api
+
     ts_classification/timeseriesclassifier_fedot_preset_api
     ts_classification/models_tsc/base_extractor_api
-    ts_classification/models_tsc/stats_extractor_api.rst
+    ts_classification/models_tsc/signal_extractor_api
+    ts_classification/models_tsc/stats_extractor_api
     ts_classification/models_tsc/topological_extractor_api
 
     ts_classification/model_ensemblers
 
-    ts_classification/data_loader_api
-    ts_classification/results_picker_api
 
 
 Anomaly detection
 -----------------
 
-.. note::
-    The anomaly detection models are currently not available in the
-    public release.
+.. toctree::
+    :maxdepth: 1
+
+    anomaly_detection/anomaly_detector_api
+
+
+
+Forecasting
+-----------
+
+.. toctree::
+    :maxdepth: 1
+
+    forecasting/ssa_forecasting_api
 
 Object detection and image classification
 ------------------------------------------
@@ -51,6 +62,15 @@ Object detection and image classification
     cv/svd_optimization_api
     cv/sfp_optimization_api
 
+Useful tools
+------------
 
+.. toctree::
+    :maxdepth: 1
+
+    tools/data_loader_api
+    tools/results_picker_api
+    tools/tsc_ds_generator
+    tools/ts_generator
 
 
