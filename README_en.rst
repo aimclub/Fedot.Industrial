@@ -5,66 +5,47 @@
 
 ================================================================================
 
+|sai| |itmo|
 
-.. start-badges
-.. list-table::
-   :stub-columns: 1
+|issues|  |stars| |coverage| |version| |python| |license| |docs| |support| |rus| |downloads|
 
-   * - Code
-     - | |version| |python|
-   * - CI/CD
-     - | |build| integration_ERROR |coverage| |mirror|
-   * - Docs
-     - |docs|
-   * - Downloads
-     - | |downloads|
-   * - Support
-     - | |support|
-   * - Languages
-     - | |eng| |rus|
-   * - Funding
-     - | |itmo| |sai|
-.. end-badges
+.. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
+            :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
+            :alt: Issues
 
-.. |version| image:: https://badge.fury.io/py/fedot-ind.svg
-    :target: https://badge.fury.io/py/fedot-ind
-    :alt: PyPi version
+.. |version| image:: https://img.shields.io/pypi/v/fedot_ind?color=green
+             :target: https://pypi.org/project/fedot-ind/
+             :alt: Version
 
-.. |python| image:: https://img.shields.io/badge/python-3.9-44cc12&logo=python
-    :target: https://www.python.org/downloads/release/python-380/
-    :alt: Python 3.9
+.. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=green&left_text=Downloads
+               :target: https://pepy.tech/project/fedot-ind
+               :alt: Downloads
 
-.. |build| image:: https://badgen.net/#badge/build/error/red?icon=pypi
-   :alt: Build Status
+.. |stars| image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=flat-square
+            :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers
+            :alt: Stars
 
-.. |integration| image:: https://github.com/aimclub/Fedot.Industrial/workflows/Integration/badge.svg?branch=main
-   :alt: Integration Tests Status
-   :target: https://github.com/aimclub/Fedot.Industrial/actions/workflows/integration-build.yml
+.. |python| image:: https://img.shields.io/badge/python-3.9-44cc12?style=flat-square&logo=python
+            :target: https://www.python.org/downloads/release/python-380/
+            :alt: Python 3.9
 
 .. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
-    :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
+              :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
 
-.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
-   :alt: GitLab mirror for this repository
-   :target: https://gitlab.actcognitive.org/itmo-nss-team/Fedot.Industrial
+.. |license| image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=flat-square
+            :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md
+            :alt: License
 
-.. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
-    :target: https://fedotindustrial.readthedocs.io/en/latest/
-    :alt: Documentation Status
-
-.. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
-    :target: https://pepy.tech/project/fedot-ind
-    :alt: Downloads
+.. |docs| image:: https://readthedocs.org/projects/ebonite/badge/?style=flat-square
+            :target: https://fedotindustrial.readthedocs.io/en/latest/
+            :alt: Documentation Status
 
 .. |support| image:: https://img.shields.io/badge/Telegram-Group-blue.svg
-    :target: https://t.me/fedotindustrial_support
-    :alt: Support
+            :target: https://t.me/fedotindustrial_support
+            :alt: Support
 
 .. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
-    :target: /README.rst
-
-.. |eng| image:: https://img.shields.io/badge/lang-eng-green.svg
-    :target: /README_en.rst
+            :target: /README.rst
 
 .. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
    :alt: Acknowledgement to ITMO
@@ -74,106 +55,156 @@
    :alt: Acknowledgement to SAI
    :target: https://sai.itmo.ru/
 
+.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
+   :alt: GitLab mirror for this repository
+   :target: https://gitlab.actcognitive.org/itmo-nss-team/GOLEM
 
 
-Fedot.Ind is a automated machine learning framework designed to solve industrial problems related
-to time series forecasting, classification, regression, and anomaly detection. It is based on
-the `AutoML framework FEDOT`_ and utilizes its functionality to build and tune pipelines.
+Instead of using complex and resource-demanding deep learning techniques, which could be considered state-of-the-art
+solutions, we propose using a combination of feature extractors with an ensemble of lightweight models obtained by the
+algorithmic kernel of the `AutoML framework FEDOT`_.
+
+The application fields of the framework are the following:
+
+- **Classification (time series or image)**
+
+For this purpose we introduce four feature
+generators:
+
+.. image:: /docs/img/all-generators.png
+    :width: 700px
+    :align: center
+    :alt: All generators
+
+Once the feature generation process is complete, you can apply FEDOT's evolutionary
+algorithm to find the best model for the classification task.
+
+- **Anomaly detection (time series or image)**
+
+- **Change point detection (only time series)**
+
+- **Object detection (only image)**
 
 
-Installation
-============
+Usage
+-----
 
-Fedot.Ind is available on PyPI and can be installed via pip:
+FEDOT.Industrial provides a high-level API that allows you
+to use its capabilities in a simple way.
 
-.. code-block:: bash
+Classification
+______________
 
-    pip install fedot_ind
-
-To install the latest version from the `main branch`_:
-
-.. code-block:: bash
-
-    git clone https://github.com/aimclub/Fedot.Industrial.git
-    cd FEDOT.Industrial
-    pip install -r requirements.txt
-    pytest -s test/
-
-How to Use
-==========
-
-Fedot.Ind provides a high-level API that allows you to use its capabilities in a simple way.
-The API can be used for classification, regression, and time series forecasting problems, as well as
-for anomaly detection.
-
-To use the API, follow these steps:
-
-1. Import ``FedotIndustrial`` class
-
-.. code-block:: python
-
- from fedot_ind.api.main import FedotIndustrial
-
-2. Initialize the FedotIndustrial object and define the type of modeling task.
-It provides a fit/predict interface:
-
-- ``FedotIndustrial.fit()`` begins the feature extraction, optimization and returns the resulting composite pipeline;
-- ``FedotIndustrial.predict()`` predicts target values for the given input data using an already fitted pipeline;
-- ``FedotIndustrial.get_metrics()`` estimates the quality of predictions using selected metrics.
-
-NumPy arrays or Pandas DataFrames can be used as sources of input data.
-In the case below, ``x_train``, ``y_train`` and ``x_test`` are ``numpy.ndarray()``:
+To conduct time series classification you need to set the experiment configuration via a dictionary,
+then create an instance of the ``Industrial`` class, and call its ``run_experiment`` method:
 
 .. code-block:: python
 
-    model = Fedot(task='ts_classification', timeout=5, strategy='quantile', n_jobs=-1, window_mode=True, window_size=20)
-    model.fit(features=x_train, target=y_train)
-    prediction = model.predict(features=x_test)
-    metrics = model.get_metrics(target=y_test)
+    from core.api.main import FedotIndustrial
 
-More information about the API is available in the `documentation <https://fedotindustrial.readthedocs.io/en/latest/API/index.html>`__ section.
+    industrial = FedotIndustrial(task='ts_classification',
+                                 dataset=dataset_name,
+                                 strategy='statistical',
+                                 use_cache=True,
+                                 timeout=1,
+                                 n_jobs=2,
+                                 window_sizes='auto',
+                                 logging_level=20,
+                                 output_folder=None)
 
+You can then load the data and run the experiment:
 
-Documentation and examples
-==========================
+.. code-block:: python
 
-The comprehensive documentation is available on `readthedocs`_.
+    train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
 
-Useful tutorials and examples can be found in the `examples`_ folder.
-
-
-.. list-table::
-   :widths: 100 70
-   :header-rows: 1
-
-   * - Topic
-     - Example
-   * - Time series classification
-     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
-   * - Time series regression
-     - `Example <google.com>`_
-   * - Forecasting
-     - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
-   * - Anomaly detection
-     - soon will be available
-   * - Computer vision
-     - `Classification <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_classification_example.ipynb>`_, `Object detection <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/object_detection_example.ipynb>`_
-   * - Model ensemble
-     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/ensembling/rank_ensemle.ipynb>`_
+    model = industrial.fit(train_features=train_data[0], train_target=train_data[1])
+    labels = industrial.predict(test_features=test_data[0])
+    metric = industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc'])
 
 
-R&D plans
-=========
+The config contains the following parameters:
 
-– Expansion of anomaly detection model list.
+- ``task`` - type of task to be solved (``ts_classification``)
+- ``dataset`` - name of the data set for the experiment
+- ``strategy`` - the way to solve the problem: a specific generator or in ``fedot_preset`` mode
+- ``use_cache`` - a flag to use caching of extracted features
+- ``timeout`` - maximum amount of time to compile a pipeline for the classification
+- ``n_jobs`` - number of processes for parallel execution
+- ``window_sizes`` - window sizes for window generators
+- ``logging_level`` - logging level
+- ``output_folder`` - path to folder to save results
 
-– Development of new time series forecasting models.
 
-– Implementation of explainability module (`Issue <https://github.com/aimclub/Fedot.Industrial/issues/93>`_)
+Datasets for classification should be stored in the ``data`` directory and
+divided into ``train`` and ``test`` sets with ``.tsv`` extension. So the folder name
+in the ``data`` directory should be set to the name of the dataset that you want
+to use in the experiment. In case there is no data in the local folder, the ``DataLoader``
+class will try to load data from the `UCR archive`_.
 
+Possible feature generators which could be specified in the configuration are
+``quantile``, ``wavelet``, ``recurrence`` и ``topological``.
+
+It is also possible to ensemble several feature generators.
+It could be done by setting the ``strategy`` field of the config, where
+you need to specify the list of feature generators, to the following value:
+
+.. code-block:: python
+
+    'ensemble: topological wavelet quantile'
+
+
+Feature caching
++++++++++++++++
+
+To speed up the experiment, you can cache the features produced by the feature generators.
+If ``use_cache`` bool flag in config is ``True``, then every feature space generated during the experiment is
+cached into the corresponding folder.
+
+The next time when the same feature space is requested, the hash is calculated again and the corresponding
+feature space is loaded from the cache which is much faster than generating it from scratch.
+
+
+Stay tuned!
+
+Project structure
+-----------------
+
+The latest stable release of FEDOT.Industrial is in the `main
+branch`_.
+
+The repository includes the following directories:
+
+- The ``api`` folder contains the main interface classes and scripts
+- Package ``core`` contains the main classes and scripts
+- Package ``examples`` includes several how-to-use-cases where you can start to discover how the framework works
+- All unit and integration tests are in the ``test`` directory
+- The sources of the documentation are in ``docs``
+
+Current R&D and future plans
+----------------------------
+
+– Implement feature space caching for feature generators (DONE)
+
+– Development of model containerization module
+
+– Development of meta-knowledge storage for data obtained from the experiments
+
+– Research on time series clusterization
+
+Documentation
+-------------
+
+A comprehensive documentation is available at readthedocs_.
+
+Supported by
+------------
+
+The study is supported by the Research Center Strong Artificial Intelligence in Industry of ITMO University
+as part of the plan of the center's program: Development of AutoML framework for industrial tasks.
 
 Citation
-========
+--------
 
 Here we will provide a list of citations for the project as soon as the articles
 are published.
@@ -191,10 +222,7 @@ are published.
     author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
     }
 
-
-
 .. _AutoML framework FEDOT: https://github.com/aimclub/FEDOT
 .. _UCR archive: https://www.cs.ucr.edu/~eamonn/time_series_data/
 .. _main branch: https://github.com/aimclub/Fedot.Industrial
 .. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/
-.. _examples: https://github.com/aimclub/Fedot.Industrial/tree/main/examples
