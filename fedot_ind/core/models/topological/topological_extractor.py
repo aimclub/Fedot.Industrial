@@ -120,11 +120,14 @@ class TopologicalExtractor(BaseExtractor):
 
     def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
         """Method for getting optimal Takens embedding parameters.
+
         Args:
             ts_data: dataframe with time series data
             method: method for getting optimal parameters
+
         Returns:
             Optimal Takens embedding parameters
+
         """
         methods = {'mode': self._mode,
                    'mean': np.mean,

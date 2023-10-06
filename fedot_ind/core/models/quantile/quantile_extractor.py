@@ -45,7 +45,7 @@ class QuantileExtractor(BaseExtractor):
                                     'Stride': self.stride,
                                     'VarTh': self.var_threshold})
 
-    def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
+    def _drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
         """
         Method for dropping features with low variance
         """
@@ -54,12 +54,12 @@ class QuantileExtractor(BaseExtractor):
                                columns=[f'{col}{str(i)}' for i in range(1, n_components + 1) for col in columns])
 
         if self.relevant_features is None:
-            reduced_df, self.relevant_features = self.filter_by_var(predict, threshold=self.var_threshold)
+            reduced_df, self.relevant_features = self._filter_by_var(predict, threshold=self.var_threshold)
             return reduced_df
         else:
             return predict[self.relevant_features]
 
-    def filter_by_var(self, data: pd.DataFrame, threshold: float):
+    def _filter_by_var(self, data: pd.DataFrame, threshold: float):
         cols = data.columns
         filtrat = {}
 
