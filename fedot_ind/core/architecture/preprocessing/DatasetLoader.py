@@ -542,7 +542,7 @@ class DataLoader:
                                     if num_dimensions != this_line_num_dimensions:
                                         raise TsFileParseException("line " + str(
                                             line_num + 1) +
-                                                                   " does not have the same number of dimensions as the previous line of data")
+                                            " does not have the same number of dimensions as the previous line of data")
 
                             # Check that we are not expecting some more data, and if not, store that processed above
 
@@ -569,7 +569,7 @@ class DataLoader:
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
                                 raise TsFileParseException("line " + str(
                                     line_num + 1) +
-                                                           " does not have the same number of dimensions as the previous line of data")
+                                    " does not have the same number of dimensions as the previous line of data")
 
                             # Check if we should have class values, and if so that they are contained
                             # in those listed in the metadata
