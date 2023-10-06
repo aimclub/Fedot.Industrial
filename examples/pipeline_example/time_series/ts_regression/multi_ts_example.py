@@ -1,28 +1,27 @@
 import os
-import sys
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import InputData
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
-from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
-from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 from sklearn.decomposition import PCA
 from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
     mean_squared_error, d2_absolute_error_score, \
     median_absolute_error, r2_score
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+
+from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
+from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 
 model_dict = {'regression_with_statistical_features': PipelineBuilder().add_node('data_driven_basis_for_forecasting',
-                                                            params={'window_size': 10,
-                                                                    }
-                                                            ),
+                                                                                 params={'window_size': 10,
+                                                                                         }
+                                                                                 ),
               'regression_with_reccurence_features': PipelineBuilder().add_node('recurrence_extractor')}
 
 datasets = {
@@ -33,6 +32,8 @@ datasets = {
     'm4_quarterly': f'../data/ts/M4QuarterlyTest.csv'}
 
 forecast_length = 13
+
+
 def init_input(X, y):
     input_data = InputData(idx=np.arange(len(X)),
                            features=np.array(X.values.tolist()),
@@ -127,13 +128,13 @@ if __name__ == "__main__":
         # 'Gazprom',
         # 'AppliancesEnergy',
         # 'AustraliaRainfall',
-       # 'BeijingPM10Quality',
-        #'BeijingPM25Quality',
-        #'BenzeneConcentration',
+        # 'BeijingPM10Quality',
+        # 'BeijingPM25Quality',
+        # 'BenzeneConcentration',
         # 'HouseholdPowerConsumption1',
-        #'HouseholdPowerConsumption2',
-        #'IEEEPPG',
-        #'FloodModeling1',
+        # 'HouseholdPowerConsumption2',
+        # 'IEEEPPG',
+        # 'FloodModeling1',
         'FloodModeling2',
         'FloodModeling3'
         'LiveFuelMoistureContent',

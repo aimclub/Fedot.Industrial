@@ -22,11 +22,7 @@ def add_preprocessing(pipeline: Pipeline, **kwargs) -> Pipeline:
     models = get_operations_for_task(task=task, mode='model')
     basis_model = PipelineNode(random.choice(basis_models))
     extractor_model = PipelineNode(random.choice(extractors), nodes_from=[basis_model])
-
-    try:
-        node_to_mutate = list(filter(lambda x: x.name in models, pipeline.nodes))[0]
-    except:
-        pipeline.show()
+    node_to_mutate = list(filter(lambda x: x.name in models, pipeline.nodes))[0]
     if node_to_mutate.nodes_from:
         node_to_mutate.nodes_from.append(extractor_model)
     else:
@@ -104,26 +100,47 @@ class IndustrialModels:
                                                            'industrial_data_operation_repository.json')
         self.base_data_operation_path = pathlib.Path('data_operation_repository.json')
 
+        self.industrial_model_path = pathlib.Path(PROJECT_PATH, 'fedot_ind',
+                                                  'core',
+                                                  'repository',
+                                                  'data',
+                                                  'industrial_model_repository.json')
+        self.base_model_path = pathlib.Path('model_repository.json')
+
     def __enter__(self):
         """
         Switching to industrial models
         """
-        OperationTypesRepository.__repository_dict__.update({'data_operation':
-                                                                 {'file': self.industrial_data_operation_path,
-                                                                  'initialized_repo': None,
-                                                                  'default_tags': []}})
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.industrial_data_operation_path,
+                                'initialized_repo': None,
+                                'default_tags': []}})
+
         OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.industrial_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
+        OperationTypesRepository.assign_repo('model', self.industrial_model_path)
+
         setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Switching to fedot models.
         """
-        OperationTypesRepository.__repository_dict__.update({'data_operation':
-                                                                 {'file': self.base_data_operation_path,
-                                                                  'initialized_repo': None,
-                                                                  'default_tags': [
-                                                                      OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.base_data_operation_path,
+                                'initialized_repo': None,
+                                'default_tags': [
+                                    OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
         OperationTypesRepository.assign_repo('data_operation', self.base_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.base_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
+        OperationTypesRepository.assign_repo('model', self.base_model_path)
 
         # setattr(ApiComposer, "_get_default_mutations", _get_default_mutations)

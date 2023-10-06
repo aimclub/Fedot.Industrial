@@ -5,7 +5,7 @@ if __name__ == "__main__":
     dataset_name = 'AppliancesEnergy'
     industrial = FedotIndustrial(task='ts_regression',
                                  dataset=dataset_name,
-                                 strategy='statistical',
+                                 strategy='quantile',
                                  explained_variance=0.9,
                                  metric='rmse',
                                  use_cache=True,
@@ -22,4 +22,3 @@ if __name__ == "__main__":
     metric = industrial.get_metrics(target=test_data[1], metric_names=['rmse'])
 
     print(metric)
-

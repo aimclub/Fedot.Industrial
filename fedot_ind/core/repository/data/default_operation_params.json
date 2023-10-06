@@ -183,5 +183,13 @@
   },
   "ssa_forecaster": {
     "window_size_method": "hac"
+  },
+  "fedot_cls": {
+    "timeout": 2,
+    "with_tuning": true
+  },
+  "fedot_regr": {
+    "timeout": 2,
+    "with_tuning": true
   }
 }

@@ -158,13 +158,14 @@ class DataLoader:
                 # Empty lines are valid at any point in a file
                 if line:
                     # Check if this line contains metadata
-                    # Please note that even though metadata is stored in this function it is not currently published externally
+                    # Please note that even though metadata is stored in this function it is not currently
+                    # published externally
                     if line.startswith("@problemname"):
                         # Check that the data has not started
                         if data_started:
                             raise TsFileParseException("metadata must come before data")
                         # Check that the associated value is valid
-                        tokens = line.transform_for_fit(' ')
+                        tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
@@ -179,7 +180,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.transform_for_fit(' ')
+                        tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len != 2:
@@ -198,7 +199,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.transform_for_fit(' ')
+                        tokens = line.split(' ')
                         token_len = len(tokens)
                         if token_len != 2:
                             raise TsFileParseException("univariate tag requires an associated Boolean value")
@@ -217,7 +218,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.transform_for_fit(' ')
+                        tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
@@ -244,7 +245,7 @@ class DataLoader:
                             raise TsFileParseException("metadata must come before data")
 
                         # Check that the associated value is valid
-                        tokens = line.transform_for_fit(' ')
+                        tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
@@ -273,8 +274,13 @@ class DataLoader:
                     # If the 'data tag has been found then metadata has been parsed and data can be loaded
                     elif data_started:
                         # Check that a full set of metadata has been provided
-                        incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or not has_univariate_tag or not has_target_labels_tag or not has_data_tag
-                        incomplete_classification_meta_data = not has_problem_name_tag or not has_timestamps_tag or not has_univariate_tag or not has_class_labels_tag or not has_data_tag
+                        incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
+                                                          not has_univariate_tag or not has_target_labels_tag or \
+                                                          not has_data_tag
+                        incomplete_classification_meta_data = \
+                            not has_problem_name_tag or not has_timestamps_tag \
+                            or not has_univariate_tag or not has_class_labels_tag \
+                            or not has_data_tag
                         if incomplete_regression_meta_data and incomplete_classification_meta_data:
                             raise TsFileParseException("a full set of metadata has not been provided before the data")
 
@@ -283,7 +289,8 @@ class DataLoader:
 
                         # Check if we dealing with data that has timestamps
                         if timestamps:
-                            # We're dealing with timestamps so cannot just split line on ':' as timestamps may contain one
+                            # We're dealing with timestamps so cannot just split line on ':'
+                            # as timestamps may contain one
                             has_another_value = False
                             has_another_dimension = False
 
@@ -383,7 +390,8 @@ class DataLoader:
 
                                             char_num += 1
 
-                                            # Get the numeric value for the tuple by reading from the end of the tuple data backwards to the last comma
+                                            # Get the numeric value for the tuple by reading from the end
+                                            # of the tuple data backwards to the last comma
 
                                             last_comma_index = tuple_data.rfind(',')
 
@@ -391,7 +399,8 @@ class DataLoader:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
                                                         this_line_num_dimensions + 1) + " on line " + str(
-                                                        line_num + 1) + " contains a tuple that has no comma inside of it")
+                                                        line_num + 1)
+                                                    + " contains a tuple that has no comma inside of it")
 
                                             try:
                                                 value = tuple_data[last_comma_index + 1:]
@@ -401,7 +410,8 @@ class DataLoader:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
                                                         this_line_num_dimensions + 1) + " on line " + str(
-                                                        line_num + 1) + " contains a tuple that does not have a valid numeric value")
+                                                        line_num + 1)
+                                                    + " contains a tuple that does not have a valid numeric value")
 
                                             # Check the type of timestamp that we have
 
@@ -429,31 +439,41 @@ class DataLoader:
                                                 except ValueError:
                                                     timestamp_is_timestamp = False
 
-                                            # Make sure that the timestamps in the file (not just this dimension or case) are consistent
+                                            # Make sure that the timestamps in the file
+                                            # (not just this dimension or case) are consistent
 
-                                            if not timestamp_is_timestamp and not timestamp_is_int and not timestamp_is_float:
+                                            if not timestamp_is_timestamp and not timestamp_is_int \
+                                                    and not timestamp_is_float:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
                                                         this_line_num_dimensions + 1) + " on line " + str(
-                                                        line_num + 1) + " contains a tuple that has an invalid timestamp '" + timestamp + "'")
+                                                        line_num + 1) +
+                                                    " contains a tuple that has an invalid timestamp '"
+                                                    + timestamp + "'")
 
-                                            if previous_timestamp_was_float is not None and previous_timestamp_was_float and not timestamp_is_float:
+                                            if previous_timestamp_was_float is not None \
+                                                    and previous_timestamp_was_float and not timestamp_is_float:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
                                                         this_line_num_dimensions + 1) + " on line " + str(
-                                                        line_num + 1) + " contains tuples where the timestamp format is inconsistent")
+                                                        line_num + 1) +
+                                                    " contains tuples where the timestamp format is inconsistent")
 
-                                            if previous_timestamp_was_int is not None and previous_timestamp_was_int and not timestamp_is_int:
+                                            if previous_timestamp_was_int is not \
+                                                    None and previous_timestamp_was_int and not timestamp_is_int:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
                                                         this_line_num_dimensions + 1) + " on line " + str(
-                                                        line_num + 1) + " contains tuples where the timestamp format is inconsistent")
+                                                        line_num + 1) +
+                                                    " contains tuples where the timestamp format is inconsistent")
 
-                                            if previous_timestamp_was_timestamp is not None and previous_timestamp_was_timestamp and not timestamp_is_timestamp:
+                                            if previous_timestamp_was_timestamp is not None \
+                                                    and previous_timestamp_was_timestamp and not timestamp_is_timestamp:
                                                 raise TsFileParseException(
                                                     "dimension " + str(
                                                         this_line_num_dimensions + 1) + " on line " + str(
-                                                        line_num + 1) + " contains tuples where the timestamp format is inconsistent")
+                                                        line_num + 1) +
+                                                    " contains tuples where the timestamp format is inconsistent")
 
                                             # Store the values
 
@@ -521,7 +541,8 @@ class DataLoader:
 
                                     if num_dimensions != this_line_num_dimensions:
                                         raise TsFileParseException("line " + str(
-                                            line_num + 1) + " does not have the same number of dimensions as the previous line of data")
+                                            line_num + 1) +
+                                            " does not have the same number of dimensions as the previous line of data")
 
                             # Check that we are not expecting some more data, and if not, store that processed above
 
@@ -547,14 +568,16 @@ class DataLoader:
 
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
                                 raise TsFileParseException("line " + str(
-                                    line_num + 1) + " does not have the same number of dimensions as the previous line of data")
+                                    line_num + 1) +
+                                    " does not have the same number of dimensions as the previous line of data")
 
-                            # Check if we should have class values, and if so that they are contained in those listed in the metadata
+                            # Check if we should have class values, and if so that they are contained
+                            # in those listed in the metadata
 
                             if target_labels and len(class_val_list) == 0:
                                 raise TsFileParseException("the cases have no associated class values")
                         else:
-                            dimensions = line.transform_for_fit(":")
+                            dimensions = line.split(":")
                             # If first row then note the number of dimensions (that must be the same for all cases)
                             if is_first_case:
                                 num_dimensions = len(dimensions)
@@ -582,7 +605,7 @@ class DataLoader:
                                 dimension = dimensions[dim].strip()
 
                                 if dimension:
-                                    data_series = dimension.transform_for_fit(",")
+                                    data_series = dimension.split(",")
                                     data_series = [float(i) for i in data_series]
                                     instance_list[dim].append(pd.Series(data_series))
                                 else:
@@ -596,8 +619,11 @@ class DataLoader:
         # Check that the file was not empty
         if line_num:
             # Check that the file contained both metadata and data
-            complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag and has_target_labels_tag and has_data_tag
-            complete_classification_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag and has_class_labels_tag and has_data_tag
+            complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
+                                            and has_target_labels_tag and has_data_tag
+            complete_classification_meta_data = \
+                has_problem_name_tag and has_timestamps_tag \
+                and has_univariate_tag and has_class_labels_tag and has_data_tag
 
             if metadata_started and not complete_regression_meta_data and not complete_classification_meta_data:
                 raise TsFileParseException("metadata incomplete")
@@ -734,7 +760,7 @@ class DataLoader:
             y_test = y_test.astype(str)
 
         # Save data to tsv files
-        new_path = os.path.join(PROJECT_PATH, 'fedot_ind','data', dataset_name)
+        new_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data', dataset_name)
         os.makedirs(new_path, exist_ok=True)
 
         self.logger.info(f'Saving {dataset_name} data files')
@@ -756,5 +782,5 @@ class DataLoader:
 
 
 if __name__ == '__main__':
-    data_loader = DataLoader('Car')
+    data_loader = DataLoader('AppliancesEnergy')
     _train_data, _test_data = data_loader.load_data()
