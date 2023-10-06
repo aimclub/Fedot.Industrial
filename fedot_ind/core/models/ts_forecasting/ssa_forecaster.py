@@ -25,17 +25,18 @@ rcParams['figure.figsize'] = 11, 4
 
 
 class SSAForecasterImplementation(ModelImplementation):
-    """
-    Model for forecasting uni-variate timeseries with Singular Spectrum Decomposition.
-    For given time series T we construct trajectory matrix (hankel matrix) X.
-    X = U x S x V_t. After decomposition, we forecast V_t rows separately and after it reconstruct basis. Note that we
-    use only few components to reconstruct basis. Other components considered as error (we just sample them).
+    """Model for forecasting univariate timeseries with Singular Spectrum Decomposition.
+    For given time series ``T`` we construct trajectory matrix (hankel matrix) ``X``, where
+    ``X = U x S x V_t``. After decomposition, we forecast ``V_t`` rows separately, and after
+    that reconstruct basis. Note that we use only few components to reconstruct basis. Other
+    components considered as error (we just sample them).
 
     Attributes:
-        self.window_size_method: str, method for estimating window size for SSA forecaster
+        window_size_method: str, method for estimating window size for SSA forecaster
 
     Example:
         To use this operation you can create pipeline as follows::
+
             import numpy as np
             from fedot.core.data.data import InputData
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
@@ -49,6 +50,7 @@ class SSAForecasterImplementation(ModelImplementation):
                 pipeline.fit(train_data)
                 prediction = pipeline.predict(test_data)
                 print(prediction)
+
     """
     LAST_VALUES_THRESHOLD = 100
 

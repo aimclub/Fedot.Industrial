@@ -55,9 +55,39 @@ the variability of features over time.
 As a feature, we use the following statistical values:
 
 - mean and median values
-- standard deviation and dispersion values
+- standard deviation and dispersion values,
 - minimum and maximum values
-- number of non-zero values, :math:`5%`, :math:`25%`, :math:`75%`, and :math:`95%` quantiles.
+- :math:`5%`, :math:`25%`, :math:`75%`, and :math:`95%` quantiles
+- and also the following:
+
+
+``lambda_less_zero`` – the count of elements in the input NumPy array that are less than 0.01.
+
+.. math::
+    \text{Count} = \sum_{i=1}^{N} \text{IsLessThan0.01}(x_i)
+
+
+``skewness`` – the skewness of the input NumPy array, which measures the asymmetry of the distribution.
+
+.. math::
+    \text{Skewness} = \frac{\sum_{i=1}^{N} (x_i - \text{Mean}(array))^3}{N \times \text{StdDev}(array)^3}
+
+
+``kurtosis`` – the kurtosis of the input NumPy array, which measures the "tailedness" of the distribution.
+
+.. math::
+    \text{Kurtosis} = \frac{\sum_{i=1}^{N} (x_i - \text{Mean}(array))^4}{N \times \text{StdDev}(array)^4}
+
+
+``mean_ptp_distance`` – mean peak-to-peak distance of the peaks identified in the input NumPy array..
+
+.. math::
+    \text{Mean Peak-to-Peak Distance} = \frac{\sum_{i=1}^{N-1} (\text{Peak}i - \text{Peak}{i-1})}{N-1}
+
+``slope`` of a linear regression line fitted to the input NumPy array.
+
+.. math::
+    \text{Slope} = \frac{N \sum_{i=1}^{N} x_i y_i - \sum_{i=1}^{N} x_i \sum_{i=1}^{N} y_i}{N \sum_{i=1}^{N} x_i^2 - (\sum_{i=1}^{N} x_i)^2}
 
 
 **2. Topological feature generator**
@@ -86,7 +116,7 @@ considers data as a point cloud and tries to detect the presence of holes using
 discretization and triangulation of the initial data space with
 simplicial complexes.
 
-Several features can be obtained in FEDOT-TSC using a TDA-based generator:
+Several features can be obtained in Fedot.Ind using a TDA-based generator:
 
 - Number of Holes
 - Maximum Hole Lifetime
