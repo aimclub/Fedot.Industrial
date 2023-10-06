@@ -5,12 +5,3 @@ TimeSeriesClassifier
    :members:
    :show-inheritance:
    :no-undoc-members:
-
-
-TimeSeriesClassifier
-=====================
-
-.. autoclass:: fedot_ind.core.architecture.experiment.TimeSeriesClassifierNN.TimeSeriesClassifierNN
-   :members:
-   :show-inheritance:
-   :no-undoc-members:
