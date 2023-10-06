@@ -1,16 +1,14 @@
 from typing import Optional
 
-from fedot.api.main import Fedot
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.automl.fedot_implementation import FedotClassificationImplementation, FedotRegressionImplementation
+from fedot_ind.core.models.automl.fedot_implementation import FedotClassificationImplementation, \
+    FedotRegressionImplementation
 
 
 class FedotAutoMLClassificationStrategy(EvaluationStrategy):
-
     __operations_by_types = {
         'fedot_cls': FedotClassificationImplementation
     }
@@ -35,7 +33,6 @@ class FedotAutoMLClassificationStrategy(EvaluationStrategy):
 
 
 class FedotAutoMLRegressionStrategy(EvaluationStrategy):
-
     __operations_by_types = {
         'fedot_regr': FedotRegressionImplementation
     }
@@ -57,5 +54,3 @@ class FedotAutoMLRegressionStrategy(EvaluationStrategy):
 
     def predict(self, trained_operation, predict_data: InputData) -> OutputData:
         return trained_operation.predict(predict_data)
-
-

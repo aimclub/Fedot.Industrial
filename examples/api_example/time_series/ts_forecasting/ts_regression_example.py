@@ -22,4 +22,3 @@ if __name__ == "__main__":
     metric = industrial.get_metrics(target=test_data[1], metric_names=['rmse'])
 
     print(metric)
-
