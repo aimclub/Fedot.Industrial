@@ -65,7 +65,7 @@ class RecurrenceExtractor(BaseExtractor):
         if not self.image_mode:
             feature_df = self.extractor(recurrence_matrix=feature_df).quantification_analysis()
 
-        features = np.nan_to_num(np.array(list(feature_df.values())))
+        features = np.nan_to_num(np.array(list(feature_df.values())), posinf=0, neginf=0)
         recurrence_features = InputData(idx=np.arange(len(features)),
                                         features=features,
                                         target='no_target',

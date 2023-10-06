@@ -65,7 +65,7 @@ class TopologicalExtractor(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size', 10)
-        self.stride = params.get('window_size', 1)
+        self.stride = params.get('stride', 1)
         self.feature_extractor = TopologicalFeaturesExtractor(
             persistence_diagram_extractor=PERSISTENCE_DIAGRAM_EXTRACTOR,
             persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)

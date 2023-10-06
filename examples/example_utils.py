@@ -45,8 +45,8 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification'
                  'regression': Task(TaskTypesEnum.regression)}
     if is_multivariate_data:
         input_data = InputData(idx=np.arange(len(X)),
-                               features=np.array(X.values.tolist()),
-                               target=y.reshape(-1, 1),
+                               features=np.array(X.values.tolist()).astype(np.float),
+                               target=y.astype(np.float).reshape(-1, 1),
                                task=task_dict[task],
                                data_type=DataTypesEnum.image)
     else:
