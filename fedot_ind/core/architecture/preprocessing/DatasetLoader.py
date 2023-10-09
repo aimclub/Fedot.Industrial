@@ -597,7 +597,7 @@ class DataLoader:
 
                             # All dimensions should be included for all series, even if they are empty
                             if this_line_num_dimensions != num_dimensions:
-                                raise TsFileParseException("inconsistent number of dimensions. Expecting " + str(
+                                print("inconsistent number of dimensions. Expecting " + str(
                                     num_dimensions) + " but have read " + str(this_line_num_dimensions))
 
                             # Process the data for each dimension
