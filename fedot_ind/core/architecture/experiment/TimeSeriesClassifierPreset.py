@@ -30,7 +30,7 @@ class TimeSeriesClassifierPreset:
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
-        tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
+        tuning_iterations: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
         saver: object of ``ResultSaver`` class
@@ -45,7 +45,7 @@ class TimeSeriesClassifierPreset:
 
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
-        self.tuning_iters = params.get('tuning_iterations', 30)
+        self.tuning_iterations = params.get('tuning_iterations', 30)
         self.tuning_timeout = params.get('tuning_timeout', 15.0)
         self.output_folder = params.get('output_folder', default_path_to_save_results())
 
@@ -65,7 +65,7 @@ class TimeSeriesClassifierPreset:
         self.preprocessing_pipeline = self._build_pipeline()
 
         self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
-                         f'[{self.tuning_iters}] tuning iterations and [{self.tuning_timeout}] timeout')
+                         f'[{self.tuning_iterations}] tuning iterations and [{self.tuning_timeout}] timeout')
 
     def _init_input_data(self, X: pd.DataFrame, y: np.ndarray) -> InputData:
         return init_input_data(X, y)
@@ -113,7 +113,7 @@ class TimeSeriesClassifierPreset:
             .with_tuner(SequentialTuner) \
             .with_metric(metric) \
             .with_timeout(self.tuning_timeout) \
-            .with_iterations(self.tuning_iters) \
+            .with_iterations(self.tuning_iterations) \
             .build(train_data)
 
         pipeline = pipeline_tuner.tune(pipeline)
