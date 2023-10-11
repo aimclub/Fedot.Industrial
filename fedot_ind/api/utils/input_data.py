@@ -33,3 +33,14 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification'
                                data_type=DataTypesEnum.table)
 
     return input_data
+
+
+if __name__ == '__main__':
+    rows, cols = 100, 50
+
+    X = pd.DataFrame(np.random.random((rows, cols)))
+    y = np.random.randint(0, 2, rows)
+
+    input_data = init_input_data(X, y)
+
+    _ = 1

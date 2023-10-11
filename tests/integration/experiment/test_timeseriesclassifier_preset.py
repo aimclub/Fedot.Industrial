@@ -17,7 +17,7 @@ def dataset():
 def classifier_for_fit():
     params = dict(branch_nodes=['eigen_basis'],
                   dataset='dataset',
-                  tuning_iters=2,
+                  tuning_iterations=2,
                   tuning_timeout=2,
                   model_params={'problem': 'classification',
                                 'n_jobs': -1,
