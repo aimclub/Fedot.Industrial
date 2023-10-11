@@ -5,7 +5,7 @@ from torchvision.transforms import Compose, Resize, ToTensor
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
-DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
+DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/tests/data/datasets')
 
 
 def test_image_classification(tmp_path):
