@@ -40,8 +40,9 @@ class TimeSeriesAnomalyDetectionPreset:
         output_dir: path to the directory where results will be saved
         saver: object of ``ResultSaver`` class
 
-    Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
-           ``'wavelet_basis'``.
+    Notes:
+        ``branch_nodes`` can be one or combination of the following: ``data_driven_basis``,
+        ``fourier_basis``, ``wavelet_basis``.
 
     """
 

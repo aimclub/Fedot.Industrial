@@ -1,5 +1,4 @@
-fedot==0.7.2
-thegolem==0.3.2
+fedot
 
 giotto_tda==0.6.0
 hyperopt==0.2.7

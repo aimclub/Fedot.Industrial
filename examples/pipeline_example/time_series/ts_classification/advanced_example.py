@@ -2,7 +2,7 @@ import os
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from examples.example_utils import evaluate_metric
 from examples.example_utils import init_input_data
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 metric_dict = {}

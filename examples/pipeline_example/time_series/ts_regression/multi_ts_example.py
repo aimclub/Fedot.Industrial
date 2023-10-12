@@ -10,7 +10,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from sklearn.decomposition import PCA

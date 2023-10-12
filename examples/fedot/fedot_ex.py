@@ -12,7 +12,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from examples.example_utils import init_input_data
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.optimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
