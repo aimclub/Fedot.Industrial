@@ -14,7 +14,7 @@ from sklearn.metrics import explained_variance_score, max_error, mean_absolute_e
     mean_squared_error, d2_absolute_error_score, \
     median_absolute_error, r2_score
 
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 
