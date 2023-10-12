@@ -10,7 +10,7 @@ from fedot.core.repository.quality_metrics_repository import ClassificationMetri
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 

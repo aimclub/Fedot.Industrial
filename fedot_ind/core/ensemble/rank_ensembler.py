@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.ensemble.base_ensembler import BaseEnsemble
 
 
