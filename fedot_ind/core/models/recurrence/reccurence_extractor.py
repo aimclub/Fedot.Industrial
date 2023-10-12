@@ -27,7 +27,7 @@ class RecurrenceExtractor(BaseExtractor):
         To use this operation you can create pipeline as follows::
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from examples.fedot.fedot_ex import init_input_data
-            from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+            from fedot_ind.tools.loader import DataLoader
             from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()

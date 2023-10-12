@@ -1,6 +1,5 @@
 import numpy as np
 
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 from sklearn.metrics.pairwise import euclidean_distances
 
 
@@ -114,6 +113,7 @@ class SoftDTWLoss:
 
 
 if __name__ == "__main__":
+    from fedot_ind.tools.loader import DataLoader
     # Two 3-dimensional time series of lengths 5 and 4, respectively.
     X = np.random.randn(5, 3)
     Y = np.random.randn(5, 3)
