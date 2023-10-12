@@ -57,8 +57,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         except Exception:
             input_data_squeezed = np.squeeze(features)
 
+        if len(input_data_squeezed.shape) == 1:
+            input_data_squeezed = [input_data_squeezed]
+
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
+
         predict = self._clean_predict(np.array([ts.features for ts in feature_matrix]))
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
         return predict
