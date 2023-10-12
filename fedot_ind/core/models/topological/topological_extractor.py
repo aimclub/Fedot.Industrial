@@ -48,7 +48,7 @@ class TopologicalExtractor(BaseExtractor):
 
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from fedot_ind.api.utils.input_data import init_input_data
-            from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+            from fedot_ind.tools.loader import DataLoader
             from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()

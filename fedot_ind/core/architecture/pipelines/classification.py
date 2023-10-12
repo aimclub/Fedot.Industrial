@@ -1,7 +1,7 @@
 from pymonad.list import ListMonad
 from pymonad.either import Right
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipelines
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from functools import partial
 

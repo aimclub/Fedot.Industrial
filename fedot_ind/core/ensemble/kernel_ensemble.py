@@ -11,7 +11,7 @@ from MKLpy.scheduler import ReduceOnWorsening
 from scipy.spatial.distance import pdist, squareform
 
 from fedot_ind.core.architecture.pipelines.classification import ClassificationPipelines
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.ensemble.rank_ensembler import RankEnsemble
 
 

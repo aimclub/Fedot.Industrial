@@ -111,7 +111,7 @@ def get_random_sparse_matrix(size: tuple):
 
 
 if __name__ == '__main__':
-    from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+    from fedot_ind.tools.loader import DataLoader
     from tqdm import tqdm
 
     arr = np.array([[1, 1, 1, 0, 0],
