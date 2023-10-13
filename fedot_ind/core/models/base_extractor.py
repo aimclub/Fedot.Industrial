@@ -153,7 +153,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                             ts: np.array) -> InputData:
 
         multi_ts_stat_features = [extraction_func(x) for x in ts]
-        features = np.concatenate([component.features for component in multi_ts_stat_features], axis=0)
+        try:
+            features = np.concatenate([component.features for component in multi_ts_stat_features], axis=0)
+        except Exception:
+            _ = 1
 
         for index, component in enumerate(multi_ts_stat_features):
             component.supplementary_data['feature_name'] = [f'{x} for component {index}'

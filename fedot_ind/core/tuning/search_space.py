@@ -14,13 +14,17 @@ industrial_search_space = {
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
     'fourier_basis':
         {'threshold': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [10000, 50000]}},
+    'topological_extractor':
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
     'quantile_extractor':
         {'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(0, 50, 3)]]}},
     'recurrence_extractor':
-        {'window_size': (hp.uniformint, [1, 50]),
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])},
+         #'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
+         },
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},

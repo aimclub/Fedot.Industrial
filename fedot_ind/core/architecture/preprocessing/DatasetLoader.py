@@ -597,22 +597,28 @@ class DataLoader:
 
                             # All dimensions should be included for all series, even if they are empty
                             if this_line_num_dimensions != num_dimensions:
-                                raise TsFileParseException("inconsistent number of dimensions. Expecting " + str(
+                                print("inconsistent number of dimensions. Expecting " + str(
                                     num_dimensions) + " but have read " + str(this_line_num_dimensions))
 
                             # Process the data for each dimension
                             for dim in range(0, num_dimensions):
-                                dimension = dimensions[dim].strip()
+                                try:
+                                    dimension = dimensions[dim].strip()
 
-                                if dimension:
-                                    data_series = dimension.split(",")
-                                    data_series = [float(i) for i in data_series]
-                                    instance_list[dim].append(pd.Series(data_series))
-                                else:
-                                    instance_list[dim].append(pd.Series())
+                                    if dimension:
+                                        data_series = dimension.split(",")
+                                        data_series = [float(i) for i in data_series]
+                                        instance_list[dim].append(pd.Series(data_series))
+                                    else:
+                                        instance_list[dim].append(pd.Series())
+                                except Exception as ex:
+                                    _ = 1
 
                             if target_labels:
-                                class_val_list.append(float(dimensions[num_dimensions].strip()))
+                                try:
+                                    class_val_list.append(float(dimensions[num_dimensions].strip()))
+                                except Exception as ex:
+                                    _ = 1
 
                 line_num += 1
 

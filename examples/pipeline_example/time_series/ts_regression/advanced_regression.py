@@ -1,4 +1,3 @@
-from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from fedot_ind.api.utils.input_data import init_input_data

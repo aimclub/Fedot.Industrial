@@ -9,6 +9,9 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from sklearn.metrics import f1_score, roc_auc_score
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
+    mean_squared_error, d2_absolute_error_score, \
+    median_absolute_error, r2_score, mean_squared_log_error
 
 ts_datasets = {
     'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4YearlyTest.csv'),
@@ -36,19 +39,21 @@ def evaluate_metric(target, prediction):
     return metric
 
 
-def init_input_data(X: pd.DataFrame, y: np.ndarray) -> InputData:
+def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification') -> InputData:
     is_multivariate_data = check_multivariate_data(X)
+    task_dict = {'classification': Task(TaskTypesEnum.classification),
+                 'regression': Task(TaskTypesEnum.regression)}
     if is_multivariate_data:
         input_data = InputData(idx=np.arange(len(X)),
-                               features=np.array(X.values.tolist()),
-                               target=y.reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
+                               features=np.array(X.values.tolist()).astype(np.float),
+                               target=y.astype(np.float).reshape(-1, 1),
+                               task=task_dict[task],
                                data_type=DataTypesEnum.image)
     else:
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
                                target=np.ravel(y).reshape(-1, 1),
-                               task=Task(TaskTypesEnum.classification),
+                               task=task_dict[task],
                                data_type=DataTypesEnum.table)
     return input_data
 
@@ -79,6 +84,22 @@ def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
                             data_type=DataTypesEnum.ts)
     train_data, test_data = train_test_data_setup(train_input)
     return train_data, test_data, label
+
+
+def calculate_regression_metric(test_target, labels):
+    test_target = test_target.astype(np.float)
+    metric_dict = {'r2_score:': r2_score(test_target, labels),
+                   'mean_squared_error:': mean_squared_error(test_target, labels),
+                   'root_mean_squared_error:': np.sqrt(mean_squared_error(test_target, labels)),
+                   'mean_absolute_error': mean_absolute_error(test_target, labels),
+                   'median_absolute_error': median_absolute_error(test_target, labels),
+                   'explained_variance_score': explained_variance_score(test_target, labels),
+                   'max_error': max_error(test_target, labels),
+                   'd2_absolute_error_score': d2_absolute_error_score(test_target, labels)
+                   #'root_mean_squared_log_error': mean_squared_log_error(test_target, labels, squared=False)
+                   }
+    df = pd.DataFrame.from_dict(metric_dict, orient='index')
+    return df
 
 # def visualise_and_save():
 #     for class_number in np.unique(train_data[1]):
