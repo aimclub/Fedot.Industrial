@@ -1,18 +1,15 @@
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from sklearn.metrics import f1_score, roc_auc_score
-
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.settings.pipeline_factory import KernelFeatureGenerator
-from MKLpy.algorithms import CKA, MEMO, GRAM, RMKL, FHeuristic, EasyMKL
+from MKLpy.algorithms import FHeuristic, RMKL
 from MKLpy.callbacks import EarlyStopping
 from MKLpy.scheduler import ReduceOnWorsening
 from scipy.spatial.distance import pdist, squareform
 
 from fedot_ind.core.architecture.pipelines.classification import ClassificationPipelines
-from fedot_ind.tools.loader import DataLoader
+from fedot_ind.core.architecture.settings.pipeline_factory import KernelFeatureGenerator
 from fedot_ind.core.ensemble.rank_ensembler import RankEnsemble
+from fedot_ind.tools.loader import DataLoader
 
 
 class KernelEnsembler(ClassificationPipelines):
@@ -173,4 +170,3 @@ if __name__ == '__main__':
                                   metric_dict=metric_dict)
     ensemble_result = rank_ensembler.ensemble()
     _ = 1
-

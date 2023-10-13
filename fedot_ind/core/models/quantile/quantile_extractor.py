@@ -29,7 +29,9 @@ class QuantileExtractor(BaseExtractor):
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
             with IndustrialModels():
                 pipeline = PipelineBuilder().add_node('quantile_extractor',
-                                                       params={'window_size': 20, 'window_mode': True}).add_node('rf').build()
+                                                       params={'window_size': 20, 'window_mode': True})
+                                            .add_node('rf')
+                                            .build()
                 input_data = init_input_data(train_data[0], train_data[1])
                 pipeline.fit(input_data)
                 features = pipeline.predict(input_data)
