@@ -69,7 +69,6 @@ Useful tools
     :maxdepth: 1
 
     tools/data_loader_api
-    tools/results_picker_api
     tools/tsc_ds_generator
     tools/ts_generator
 
