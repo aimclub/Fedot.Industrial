@@ -1,5 +1,4 @@
-fedot==0.7.2
-thegolem==0.3.2
+fedot
 
 giotto_tda==0.6.0
 hyperopt==0.2.7
@@ -14,7 +13,7 @@ PyMonad==2.4.0
 PyWavelets==1.4.1
 PyYAML==6.0.1
 
-ripser==0.6.4; python_version == '3.9'
+ripser==0.6.4; python_version >= '3.9'
 ripser==0.5.4; python_version == '3.8'
 
 scikit_learn>=1.0.0; python_version >= '3.8'

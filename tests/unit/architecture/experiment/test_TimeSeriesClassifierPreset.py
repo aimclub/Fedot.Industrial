@@ -31,7 +31,7 @@ def classifier(params):
 
 def test_init(classifier):
     assert classifier.branch_nodes == ['eigen_basis']
-    assert classifier.tuning_iters == 30
+    assert classifier.tuning_iterations == 30
     assert classifier.tuning_timeout == 15.0
     assert isinstance(classifier.preprocessing_pipeline, Pipeline)
     assert classifier.output_folder == '.'

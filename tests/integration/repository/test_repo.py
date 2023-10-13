@@ -18,7 +18,7 @@ from fedot_ind.core.tuning.search_space import get_industrial_search_space
 def test_fedot_multi_series():
     with IndustrialModels():
         train_data, test_data = initialize_multi_data()
-        pipeline = PipelineBuilder().add_node('data_driven_basis', params={'window_length': None}).add_node(
+        pipeline = PipelineBuilder().add_node('eigen_basis', params={'window_length': None}).add_node(
             'quantile_extractor').add_node(
             'rf').build()
         pipeline.fit(train_data)
