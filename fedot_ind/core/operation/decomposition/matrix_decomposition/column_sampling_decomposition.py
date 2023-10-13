@@ -11,22 +11,22 @@ class CURDecomposition:
         self.rank = rank
         self.column_indices = None
         self.row_indices = None
-        
+
     def _get_selection_rank(self, rank, matrix):
         """
         Compute the selection rank for the CUR decomposition. It must be at least 4 times the rank of the matrix but not
         greater than the number of rows or columns of the matrix.
-        
+
         Args:
             rank: the rank of the matrix.
             matrix: the matrix to decompose.
-            
+
         Returns:
             the selection rank
         """
-        
+
         return min(4 * rank, min(matrix.shape))
-    
+
     def fit_transform(self, matrix: np.ndarray) -> tuple:
         self.selection_rank = self._get_selection_rank(self.rank, matrix)
 
@@ -54,7 +54,7 @@ class CURDecomposition:
         return TS_comps
 
     def select_rows_cols(self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        
+
         col_norms = np.sum(matrix ** 2, axis=0)
         row_norms = np.sum(matrix ** 2, axis=1)
 
@@ -98,6 +98,7 @@ class CURDecomposition:
         for i in range(matrix.shape[0]):
             ts[i:i + matrix.shape[1]] += matrix[i]
         return ts
+
 
 def get_random_sparse_matrix(size: tuple):
     """Generate random sparse matrix with size = size"""
@@ -151,7 +152,6 @@ if __name__ == '__main__':
     #         C, U, R = cur.fit_transform(M)
     #         cur_errors.append(np.linalg.norm(M - C @ U @ R))
     #         pbar.update(1)
-
 
     # f,a = plt.subplots(2, 1, figsize=(10, 10))
     # # a[0].plot(ranks, svd_errors, label='svd')
