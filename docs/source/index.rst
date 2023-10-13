@@ -11,7 +11,7 @@ kernel in terms of evolutionary optimization and obtaining graph-like
 pipelines.
 
 
-Content:
+Content
 ========
 .. toctree::
    :maxdepth: 1
@@ -25,9 +25,3 @@ Content:
    about
    citation
    license
-
-
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
