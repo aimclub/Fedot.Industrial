@@ -43,7 +43,7 @@ from `UCR/UEA archive <https://www.timeseriesclassification.com>`_:
     train_data, test_data = loader.load_data()
 
 
-You can also specify the folder to search for data if your own data is in `.ts`, `.tsv` or `arff` format:
+You can also specify the folder to search if your own data is in `.ts`, `.tsv` or `arff` format:
 
 .. code-block:: python
 
