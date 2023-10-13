@@ -13,7 +13,7 @@
    * - Код
      - | |version| |python|
    * - CI/CD
-     - | |build| integration_ERROR |coverage| |mirror|
+     - |  |coverage| |mirror|
    * - Документация
      - |docs|
    * - Статистика загрузок
