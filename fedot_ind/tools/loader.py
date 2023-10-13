@@ -114,15 +114,17 @@ class DataLoader:
         """Loads data from a .ts file into a Pandas DataFrame.
         Taken from https://github.com/ChangWeiTan/TS-Extrinsic-Regression/blob/master/utils/data_loader.py
 
-        Args: full_file_path_and_name: The full pathname of the .ts file to read. return_separate_X_and_y: true if X
-              and Y values should be returned as separate Data Frames (X) and a numpy array (y), false otherwise.
-              replace_missing_vals_with: The value that missing values in the text file should be replaced with prior to
-              parsing.
+        Args:
+            full_file_path_and_name: The full pathname of the .ts file to read. return_separate_X_and_y: true if X
+                                     and Y values should be returned as separate Data Frames (X) and a numpy array (y),
+                                     false otherwise.
+            replace_missing_vals_with: The value that missing values in the text file should be replaced with prior to
+                                       parsing.
 
-        Returns: DataFrame, ndarray: If return_separate_X_and_y then a tuple containing a DataFrame and a numpy array
-                 containing the relevant time-series and corresponding class values.
-                 DataFrame: If not return_separate_X_and_y then a single DataFrame containing all time-series and
-                 (if relevant) a column "class_vals" the associated class values.
+        Returns:
+            If ``return_separate_X_and_y`` then a tuple containing a DataFrame and a numpy array containing the
+            relevant time-series and corresponding class values. If not ``return_separate_X_and_y`` then a single
+            DataFrame containing all time-series and (if relevant) a column ``class_vals`` the associated class values.
 
         """
 
