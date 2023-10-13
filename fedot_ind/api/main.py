@@ -26,6 +26,7 @@ class FedotIndustrial(Fedot):
 
     Example:
         First, configure experiment and instantiate FedotIndustrial class::
+
             from fedot_ind.api.main import FedotIndustrial
             from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 

@@ -1,10 +1,10 @@
-Examples and Framework Applications
-===================================
+Examples
+=================
 
 
 This directory contains examples and applications of the Fedot.Industrial framework.
 
-Time series tasks
+Time series related tasks
 --------------------------
 
 .. toctree::
@@ -14,8 +14,8 @@ Time series tasks
    forecasting_example
    anomaly_detection_example
 
-Computer vision
---------------------
+Computer vision tasks
+-----------------------
 
 .. toctree::
    :maxdepth: 1
