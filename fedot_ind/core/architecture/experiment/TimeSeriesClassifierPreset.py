@@ -35,8 +35,9 @@ class TimeSeriesClassifierPreset:
         dataset_name: name of the dataset to be used
         saver: object of ``ResultSaver`` class
 
-    Notes: ``branch_nodes`` can be one or combination of the following: ``'data_driven_basis'``, ``'fourier_basis'``,
-           ``'wavelet_basis'``.
+    Notes:
+        ``branch_nodes`` can be one or combination of the following: ``data_driven_basis``, ``fourier_basis``,
+        ``wavelet_basis``.
 
     """
 

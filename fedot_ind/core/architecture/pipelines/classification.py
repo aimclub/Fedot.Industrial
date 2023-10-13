@@ -1,7 +1,7 @@
 from pymonad.list import ListMonad
 from pymonad.either import Right
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipelines
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from functools import partial
 
@@ -29,9 +29,9 @@ class ClassificationPipelines(AbstractPipelines):
                 self._get_feature_matrix(list_of_features=list_of_features, mode='1D'))
 
         elif kwargs['pipeline_type'] == 'SpecifiedFeatureGeneratorTSC':
-            pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']).\
-                map(lambda_func_dict['extract_features']).\
-                then(lambda_func_dict['concatenate_features']).\
+            pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']). \
+                map(lambda_func_dict['extract_features']). \
+                then(lambda_func_dict['concatenate_features']). \
                 insert(self._get_feature_matrix(list_of_features=list_of_features, mode='1D'))
 
         elif kwargs['pipeline_type'] == 'DataDrivenMultiTSC':
@@ -46,8 +46,8 @@ class ClassificationPipelines(AbstractPipelines):
         feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
         data_basis = EigenBasisImplementation(kwargs['data_driven_hyperparams'])
         n_components = kwargs['data_driven_hyperparams']['n_components']
-        lambda_func_dict['transform_to_basis'] = lambda \
-                x: self.basis if self.basis is not None else data_basis._transform(x)
+        lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None \
+            else data_basis._transform(x)
         lambda_func_dict['reduce_basis'] = lambda x: x[:data_basis.min_rank, :] if n_components \
                                                                                    is None else x[:n_components, :]
         train_feature_generator_module = self.get_feature_generator(input_data=self.train_features,

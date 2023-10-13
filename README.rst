@@ -5,45 +5,68 @@
 
 ================================================================================
 
-|sai| |itmo|
 
-|issues|  |stars| |coverage| |python| |license| |docs| |support| |eng| |mirror| |downloads|
+.. start-badges
+.. list-table::
+   :stub-columns: 1
 
-.. |issues| image:: https://img.shields.io/github/issues/ITMO-NSS-team/Fedot.Industrial?style=flat-square
-            :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/issues
-            :alt: Issues
+   * - Код
+     - | |version| |python|
+   * - CI/CD
+     - | |build| integration_ERROR |coverage| |mirror|
+   * - Документация
+     - |docs|
+   * - Статистика загрузок
+     - | |downloads|
+   * - Подержка
+     - | |support|
+   * - Язфка
+     - | |eng| |rus|
+   * - Аккредитация
+     - | |itmo| |sai|
+.. end-badges
 
-.. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=green&left_text=Downloads
-               :target: https://pepy.tech/project/fedot-ind
-               :alt: Downloads
+.. |version| image:: https://badge.fury.io/py/fedot-ind.svg
+    :target: https://badge.fury.io/py/fedot-ind
+    :alt: PyPi version
 
-.. |stars| image:: https://img.shields.io/github/stars/ITMO-NSS-team/Fedot.Industrial?style=flat-square
-            :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/stargazers
-            :alt: Stars
+.. |python| image:: https://img.shields.io/badge/python-3.9-44cc12&logo=python
+    :target: https://www.python.org/downloads/release/python-380/
+    :alt: Python 3.9
 
-.. |python| image:: https://img.shields.io/badge/python-3.8-44cc12?style=flat-square&logo=python
-            :target: https://www.python.org/downloads/release/python-380/
-            :alt: Python 3.8
+.. |build| image:: https://badgen.net/#badge/build/error/red?icon=pypi
+   :alt: Build Status
+
+.. |integration| image:: https://github.com/aimclub/Fedot.Industrial/workflows/Integration/badge.svg?branch=main
+   :alt: Integration Tests Status
+   :target: https://github.com/aimclub/Fedot.Industrial/actions/workflows/integration-build.yml
 
 .. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
-              :target: https://codecov.io/gh/aimclub/Fedot.Industrial
+    :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
 
-.. |license| image:: https://img.shields.io/github/license/ITMO-NSS-team/Fedot.Industrial?style=flat-square
-            :target: https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/main/LICENSE.md
-            :alt: License
+.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
+   :alt: GitLab mirror for this repository
+   :target: https://gitlab.actcognitive.org/itmo-nss-team/Fedot.Industrial
 
-.. |docs| image:: https://readthedocs.org/projects/ebonite/badge/?style=flat-square
-            :target: https://fedotindustrial.readthedocs.io/en/latest/
-            :alt: Documentation Status
+.. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
+    :target: https://fedotindustrial.readthedocs.io/en/latest/
+    :alt: Documentation Status
+
+.. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
+    :target: https://pepy.tech/project/fedot-ind
+    :alt: Downloads
 
 .. |support| image:: https://img.shields.io/badge/Telegram-Group-blue.svg
-            :target: https://t.me/fedotindustrial_support
-            :alt: Support
+    :target: https://t.me/fedotindustrial_support
+    :alt: Support
 
-.. |eng| image:: https://img.shields.io/badge/lang-en-red.svg
-            :target: /README_en.rst
+.. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
+    :target: /README.rst
 
-.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat.svg
+.. |eng| image:: https://img.shields.io/badge/lang-eng-green.svg
+    :target: /README_en.rst
+
+.. |itmo| image:: https://github.com/ITMO-NSS-team/open-source-ops/blob/master/badges/ITMO_badge_flat_rus.svg
    :alt: Acknowledgement to ITMO
    :target: https://en.itmo.ru/en/
 
@@ -51,163 +74,111 @@
    :alt: Acknowledgement to SAI
    :target: https://sai.itmo.ru/
 
-.. |mirror| image:: https://camo.githubusercontent.com/9bd7b8c5b418f1364e72110a83629772729b29e8f3393b6c86bff237a6b784f6/68747470733a2f2f62616467656e2e6e65742f62616467652f6769746c61622f6d6972726f722f6f72616e67653f69636f6e3d6769746c6162
-   :alt: GitLab mirror for this repository
-   :target: https://gitlab.actcognitive.org/itmo-nss-team/Fedot-Industrial
 
 
-Вместо сложных и ресурсоёмких методов глубокого обучения мы предлагаем использовать методы для
-выделения признаков с комплексом небольших моделей, полученных алгоритмическим ядром `AutoML фреймворка FEDOT`_.
+Fedot.Ind - это автоматизированный фреймворк машинного обучения,
+разработанный для решения промышленных задач, связанных с прогнозированием
+временных рядов, классификацией, регрессией и обнаружением аномалий.
+Он основан на `AutoML фреймворке FEDOT`_ и использует его функциональность
+для композирования и тюнинга пайплайнов.
 
-Области применения фреймворка:
+Установка
+============
 
-- **Классификация (для временных рядов или изображений)**
+Fedot.Ind доступен на PyPI и может быть установлен с помощью pip:
 
-Для этой цели мы предоставляем четыре генератора признаков:
+.. code-block:: bash
 
-.. image:: /docs/img/all-generators.png
-    :width: 700px
-    :align: center
-    :alt: All generators RUS
+    pip install fedot_ind
 
-После завершения выделения признаков, можно применить эволюционный
-алгоритм FEDOT, чтобы найти лучшую модель для заданной задачи классификации.
+Для установки последней версии из `main branch`_:
 
-- **Обнаружение аномалий (для временных рядов или изображений)**
+.. code-block:: bash
 
-.. note::
+    git clone https://github.com/aimclub/Fedot.Industrial.git
+    cd FEDOT.Industrial
+    pip install -r requirements.txt
+    pytest -s test/
 
-        В настоящее время мы работаем над этой функцией.
+Как пользоваться
+================
 
-- **Компьютерное зрение**
+Fedot.Ind предоставляет высокоуровневый API, который позволяет использовать
+его возможности в простом и удобном виде. Этот API может быть использован
+для решения задач классификации, регрессии, прогнозирования временных рядов,
+а также для обнаружения аномалий.
 
-В данном разделе в настоящий момент решаются два типа задач: классификация изображений и детектирование объектов.
+Для использования API необходимо:
 
-
-
-Применение
-----------
-
-FEDOT.Industrial предоставляет высокоуровневый API, который позволяет
-просто использовать его возможности.
-
-Классификация
-_____________
-
-Чтобы выполнить эксперимент по классификации временных рядов, необходимо инициализировать экземпляр класса ``FedotIndustrial``,
-и передать ему ряд именованных аргументов:
+1. Импортировать класс ``FedotIndustrial``
 
 .. code-block:: python
 
-    from core.api.main import FedotIndustrial
+ from fedot_ind.api.main import FedotIndustrial
 
-    industrial = FedotIndustrial(task='ts_classification',
-                                 dataset='ItalyPowerDemand,
-                                 strategy='statistical',
-                                 use_cache=True,
-                                 timeout=15,
-                                 n_jobs=4,
-                                 window_sizes='auto',
-                                 logging_level=20,
-                                 output_folder=None)
+2. Инициализировать объект FedotIndustrial и определить тип задачи.
+Данный объект предоставляет интерфейс для методов fit/predict.:
 
-Затем можно загрузить данные и запустить эксперимент:
+- ``FedotIndustrial.fit()`` – запуск извлечения признаков, оптимизации; возвращает получившийся композитный пайплайн;
+- ``FedotIndustrial.predict()`` прогнозирует значения целевой переменной для заданных входных данных, используя полученный ранее пайплайн;
+- Метод ``FedotIndustrial.get_metrics()`` оценивает качество прогнозов с использованием выбранных метрик.
 
-.. code-block:: python
-
-    train_data, test_data, _ = industrial.reader.read(dataset_name='ItalyPowerDemand')
-
-    model = industrial.fit(features=train_data[0], target=train_data[1])
-    labels = industrial.predict(features=test_data[0])
-    metric = industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc'])
-
-В конфигурации могут содержаться следующие параметры:
-
-- ``task`` – тип решаемой задачи (``ts_classification``)
-- ``dataset`` – имя набора данных для эксперимента
-- ``strategy`` – способ решения задачи: конкретный генератор или в режиме ``fedot_preset``
-- Для режима ``fedot_preset`` дополнительно можно указать два параметра для пайплайна препроцессинга:
-    - ``branch_nodes`` - список узлов, которые будут участвовать в тюнинге гиперпараметров
-    - ``tuning_iterations`` - количество итераций тюнинга гиперпараметров
-- ``use_cache`` - флаг для использования кеширования извлечённых признаков
-- ``timeout`` - максимальное количество времени для составления пайплайна для классификации
-- ``n_jobs`` - количество процессов для параллельного выполнения
-- ``window_sizes`` - размеры окон для оконных генераторов
-- ``logging_level`` - уровень логирования
-- ``output_folder`` - путь к папке для сохранения результатов
-
-Наборы данных для классификации должны храниться в каталоге ``data`` и
-разделяться на наборы ``train`` и ``test``  с расширением ``.tsv``. Таким образом, имя папки
-в каталоге ``data``  должно соответствовать названию набора данных, который будет
-использоваться в эксперименте. В случае, если в локальной папке нет данных,
-класс ``Data Loader`` попытается загрузить данные из `архива UCR`_.
-
-Генераторы признаков, которые могут быть указаны в конфигурации:
-``quantile``, ``wavelet``, ``recurrence`` и ``topological``.
-
-Также можно объединить несколько генераторов признаков.
-Для этого в конфигурации, где задаётся их список,
-необходимо присвоить полю ``strategy`` следующее значение:
+В качестве источников входных данных можно использовать массивы NumPy или
+объекты DataFrame из библиотеки Pandas. В данном случае, `x_train`,
+`y_train` и `x_test` представлены в виде объектов `numpy.ndarray()`:
 
 .. code-block:: python
 
-    'ensemble: topological wavelet quantile'
+    model = Fedot(task='ts_classification', timeout=5, strategy='quantile', n_jobs=-1, window_mode=True, window_size=20)
+    model.fit(features=x_train, target=y_train)
+    prediction = model.predict(features=x_test)
+    metrics = model.get_metrics(target=y_test)
 
-Кеширование признаков
-+++++++++++++++++++++
+Больше информации об использовании API доступно в `соответствующей секции <https://fedotindustrial.readthedocs.io/en/latest/API/index.html>`__ документации.
 
-Чтобы ускорить эксперимент, можно кэшировать признаки, созданные генераторами.
-Если у флага ``use_cache`` в конфигурации установлено значение ``True``,
-то каждое пространство признаков, сгенерированное во время эксперимента,
-кэшируется в соответствующую папку. Для этого вычисляется хэш на основе аргументов
-функции извлечения признаков и атрибутов генератора. Затем полученное пространство признаков
-записывается на диск с помощью библиотеки ``pickle``.
 
-В следующий раз, когда будет запрашиваеться то же пространство объектов, хэш вычисляется снова и
-соответствующее пространство объектов загружается из кэша, что намного быстрее, чем генерировать
-его с нуля.
+Документация и примеры
+==========================
 
-Структура проекта
------------------
+Наиболее оплная документация собрана в `readthedocs`_.
 
-Последняя стабильная версия FEDOT.Industrial находится в ветке `main`_.
+Полезные материалы и примеры использования находятся в папке `examples`_ репозитория.
 
-В репозиторий включены следующие каталоги:
 
-- В папке ``api`` содержатся основные классы и скрипты интерфейса
-- В папке ``core`` содержатся основные алгоритмы и модели
-- В папке ``examples`` содержится несколько примеров использования, которые помогают разобраться, как начать работать с фреймворком
-- Все интеграционные и юнит-тесты находятся в папке ``test``
-- Исходники документации находятся в папке ``docs``
+.. list-table::
+   :widths: 100 70
+   :header-rows: 1
 
-Текущие исследования/разработки и планы на будущее
---------------------------------------------------
+   * - Тема
+     - Пример
+   * - Классификация временных рядов
+     - `Базовый <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ и `Расширенный <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
+   * - Регрессия временных рядов
+     - `Пример <google.com>`_
+   * - Прогнозирование
+     - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
+   * - Детектирование аномалий
+     - скоро будет в доступе
+   * - Компьютерное зрение
+     - `Классификация <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_classification_example.ipynb>`_, `Детектирование объектов <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/object_detection_example.ipynb>`_
+   * - Ансамблирование моделей
+     - `Ноутбук <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/ensembling/rank_ensemle.ipynb>`_
 
-– Реализовать кэширование пространства признаков для генераторов признаков (ГОТОВО)
 
-– Разработка модуля для контейнеризации модели
+Дальнейшие R&D планы
+=====================
 
-– Разработка хранилища метазнаний для данных, полученных в результате экспериментов
+– Расширение списка моделей обнаружения аномалий.
 
-– Исследование кластеризации временных рядов
+– Разработка новых моделей прогнозирования временных рядов.
 
-Документация
-------------
-
-Подробная документация доступна в разделе readthedocs_.
-
-Разработка ведётся при поддержке
---------------------------------
-
-Исследование проводится при поддержке Исследовательского центра сильного искусственного интеллекта в
-промышленности Университета ИТМО в рамках мероприятия программы центра:
-Разработка фреймворка автоматического машинного обучения для промышленных задач.
+– Внедрение модуля объяснимости (Задача <https://github.com/aimclub/Fedot.Industrial/issues/93>_)
 
 
 Цитирование
------------
+===========
 
-Список цитирований для проекта:
+Здесь мы предоставим список цитирования проекта, как только статьи будут опубликованы.
 
 .. code-block:: bibtex
 
@@ -222,7 +193,10 @@ _____________
     author = {Ilia Revin and Vadim A. Potemkin and Nikita R. Balabanov and Nikolay O. Nikitin
     }
 
-.. _AutoML фреймворка FEDOT: https://gitlab.actcognitive.org/aimclub/FEDOT
-.. _архива UCR: https://www.cs.ucr.edu/~eamonn/time_series_data/
-.. _main: https://gitlab.actcognitive.org/aimclub/FEDOT-Industrial
+
+
+.. _AutoML framework FEDOT: https://github.com/aimclub/FEDOT
+.. _UCR archive: https://www.cs.ucr.edu/~eamonn/time_series_data/
+.. _main branch: https://github.com/aimclub/Fedot.Industrial
 .. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/
+.. _examples: https://github.com/aimclub/Fedot.Industrial/tree/main/examples

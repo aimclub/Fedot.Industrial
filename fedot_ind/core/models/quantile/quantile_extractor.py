@@ -14,26 +14,28 @@ class QuantileExtractor(BaseExtractor):
     """Class responsible for quantile feature generator experiment.
 
     Attributes:
-        window_mode (bool): flag to use window or not
         window_size (int): size of window
+        stride (int): stride for window
         var_threshold (float): threshold for variance
 
     Example:
         To use this class you need to import it and call needed methods::
+
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from examples.fedot.fedot_ex import init_input_data
-            from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+            from fedot_ind.tools.loader import DataLoader
             from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
             with IndustrialModels():
                 pipeline = PipelineBuilder().add_node('quantile_extractor',
-                                                      params={'window_size': 20,
-                                                              'window_mode': True}).add_node(
-                    'rf').build()
+                                                       params={'window_size': 20, 'window_mode': True})
+                                            .add_node('rf')
+                                            .build()
                 input_data = init_input_data(train_data[0], train_data[1])
                 pipeline.fit(input_data)
                 features = pipeline.predict(input_data)
+
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -45,7 +47,7 @@ class QuantileExtractor(BaseExtractor):
                                     'Stride': self.stride,
                                     'VarTh': self.var_threshold})
 
-    def drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
+    def _drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
         """
         Method for dropping features with low variance
         """
@@ -54,12 +56,12 @@ class QuantileExtractor(BaseExtractor):
                                columns=[f'{col}{str(i)}' for i in range(1, n_components + 1) for col in columns])
 
         if self.relevant_features is None:
-            reduced_df, self.relevant_features = self.filter_by_var(predict, threshold=self.var_threshold)
+            reduced_df, self.relevant_features = self._filter_by_var(predict, threshold=self.var_threshold)
             return reduced_df
         else:
             return predict[self.relevant_features]
 
-    def filter_by_var(self, data: pd.DataFrame, threshold: float):
+    def _filter_by_var(self, data: pd.DataFrame, threshold: float):
         cols = data.columns
         filtrat = {}
 

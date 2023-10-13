@@ -6,20 +6,18 @@ from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
 
 
 @pytest.mark.parametrize('branch_nodes', [['eigen_basis'],
-                                          # ['wavelet_basis'],
+                                          ['wavelet_basis'],
                                           ['fourier_basis'],
                                           ['eigen_basis', 'wavelet_basis'],
                                           ['eigen_basis', 'fourier_basis'],
-                                          ['fourier_basis', 'wavelet_basis'],
-                                          # ['eigen_basis', 'wavelet_basis', 'fourier_basis']
-                                          ]
+                                          ['wavelet_basis', 'fourier_basis'],
+                                          ['eigen_basis', 'wavelet_basis', 'fourier_basis']]
                          )
 def test_api_code_scenario(branch_nodes):
     train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
 
     industrial = FedotIndustrial(task='ts_classification',
                                  strategy='fedot_preset',
-                                 dataset='Lightning7',
                                  branch_nodes=branch_nodes,
                                  tuning_iterations=5,
                                  tuning_timeout=2,

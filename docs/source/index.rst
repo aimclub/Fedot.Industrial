@@ -1,16 +1,14 @@
 Welcome to FEDOT Industrial's documentation!
 ============================================
 
-Here you can find comprehensive documentation for the
-`FEDOT.Industrial framework <https://github.com/ITMO-NSS-team/Fedot.Industrial>`__ for automated
-machine learning.
+Here you can find comprehensive documentation for the AutoML framework
+`FEDOT.Industrial <https://github.com/ITMO-NSS-team/Fedot.Industrial>`__
 
-It provides a set of tools for solving several problems related to time series and computer vision:
-anomaly detection, classification, and object detection and classification.
-
-The framework is based on the FEDOT_ framework using its algorithmic
+It provides a set of tools for industrial type of tasks, such as time
+series forecasting, anomaly detection, classification, and object detection.
+The project is based on the `FEDOT AutoML framework <https://fedot.readthedocs.io/>`__ using its algorithmic
 kernel in terms of evolutionary optimization and obtaining graph-like
-pipelines for classification.
+pipelines.
 
 
 Content:
@@ -18,17 +16,16 @@ Content:
 .. toctree::
    :maxdepth: 1
 
-   introduction/index
-   API/index
-   Basics/index
+   installation
+   quickstart
+   architecture
+   modules/index
    examples/index
    contribution
-   faq
    about
    citation
+   license
 
-
-.. _FEDOT: https://fedot.readthedocs.io/
 
 
 * :ref:`genindex`
