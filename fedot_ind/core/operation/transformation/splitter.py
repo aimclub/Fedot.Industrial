@@ -1,6 +1,6 @@
 import math
 import random
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,8 +12,6 @@ class TSTransformer:
     Class for transformation single time series based on anomaly dictionary.
 
     Args:
-        time_series: time series to split
-        anomaly_dict: dictionary where keys are anomaly labels and values are anomaly index ranges.
         strategy: strategy for splitting time series. Available strategies: 'frequent' and `unique`.
 
 
@@ -35,8 +33,8 @@ class TSTransformer:
 
         Split time series into train and test parts::
             from fedot_ind.core.operation.transformation.splitter import TSSplitter
-            splitter = TSSplitter(ts, anomaly_d)
-            train, test = splitter.split(plot=True, binarize=False)
+            splitter = TSSplitter(strategy='frequent')
+            train, test = splitter.transform_for_fit(series=ts, anomaly_dict=anomaly_d_uni, plot=False, binarize=True)
 
         In case of `unique` strategy, the splitting will be based on unique anomalies and hence
         the output of `split` method will be tuple of lists `unique_classes`, `unique_train`, `unique_test`

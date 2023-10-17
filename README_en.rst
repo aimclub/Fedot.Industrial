@@ -30,9 +30,9 @@
     :target: https://badge.fury.io/py/fedot-ind
     :alt: PyPi version
 
-.. |python| image:: https://img.shields.io/badge/python-3.9-44cc12&logo=python
-    :target: https://www.python.org/downloads/release/python-380/
-    :alt: Python 3.9
+.. |python| image:: https://img.shields.io/pypi/pyversions/fedot_ind.svg
+   :alt: Supported Python Versions
+   :target: https://img.shields.io/pypi/pyversions/fedot_ind
 
 .. |build| image:: https://badgen.net/#badge/build/error/red?icon=pypi
    :alt: Build Status
