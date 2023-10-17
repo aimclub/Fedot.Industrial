@@ -13,7 +13,7 @@
    * - Code
      - | |version| |python|
    * - CI/CD
-     - | |unit| |coverage| |mirror|
+     - | |coverage| |mirror|
    * - Docs
      - |docs|
    * - Downloads
@@ -36,10 +36,6 @@
 
 .. |build| image:: https://badgen.net/#badge/build/error/red?icon=pypi
    :alt: Build Status
-
-.. |unit| image:: https://github.com/aimclub/Fedot.Industrial/actions/workflows/unit_tests.yml/badge.svg?branch=main
-   :alt: Unit Tests Status
-   :target:
 
 .. |integration| image:: https://github.com/aimclub/Fedot.Industrial/workflows/Integration/badge.svg?branch=main
    :alt: Integration Tests Status
