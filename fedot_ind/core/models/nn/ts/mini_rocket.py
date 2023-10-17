@@ -1,0 +1,261 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from collections import OrderedDict
+
+from examples.example_utils import init_input_data
+from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.tools.loader import DataLoader
+
+
+class MiniRocketFeatures(nn.Module):
+    """This is a Pytorch implementation of MiniRocket developed by Malcolm McLean and Ignacio Oguiza
+
+    MiniRocket paper citation:
+    @article{dempster_etal_2020,
+      author  = {Dempster, Angus and Schmidt, Daniel F and Webb, Geoffrey I},
+      title   = {{MINIROCKET}: A Very Fast (Almost) Deterministic Transform for Time Series Classification},
+      year    = {2020},
+      journal = {arXiv:2012.08791}
+    }
+    Original paper: https://arxiv.org/abs/2012.08791
+    Original code:  https://github.com/angus924/minirocket"""
+
+    kernel_size, num_kernels, fitting = 9, 84, False
+
+    def __init__(self,
+                 input_dim,
+                 seq_len,
+                 num_features=10_000,
+                 max_dilations_per_kernel=32,
+                 random_state=None):
+        super(MiniRocketFeatures, self).__init__()
+        self.c_in, self.seq_len = input_dim, seq_len
+        self.num_features = num_features // self.num_kernels * self.num_kernels
+        self.max_dilations_per_kernel = max_dilations_per_kernel
+        self.random_state = random_state
+
+        # Convolution
+        indices = torch.combinations(torch.arange(self.kernel_size), 3).unsqueeze(1)
+        kernels = (-torch.ones(self.num_kernels, 1, self.kernel_size)).scatter_(2, indices, 2)
+        self.kernels = nn.Parameter(kernels.repeat(input_dim, 1, 1), requires_grad=False)
+
+        # Dilations & padding
+        self._set_dilations(seq_len)
+
+        # Channel combinations (multivariate)
+        if input_dim > 1:
+            self._set_channel_combinations(input_dim)
+
+        # Bias
+        for i in range(self.num_dilations):
+            self.register_buffer(f'biases_{i}', torch.empty((self.num_kernels, self.num_features_per_dilation[i])))
+        self.register_buffer('prefit', torch.BoolTensor([False]))
+
+    def fit(self, X, chunksize=None):
+        num_samples = X.shape[0]
+        if chunksize is None:
+            chunksize = min(num_samples, self.num_dilations * self.num_kernels)
+        else:
+            chunksize = min(num_samples, chunksize)
+        np.random.seed(self.random_state)
+        idxs = np.random.choice(num_samples, chunksize, False)
+        self.fitting = True
+        if isinstance(X, np.ndarray):
+            self(torch.from_numpy(X[idxs]).to(self.kernels.device))
+        else:
+            self(X[idxs].to(self.kernels.device))
+        self.fitting = False
+
+    def forward(self, x):
+        _features = []
+        for i, (dilation, padding) in enumerate(zip(self.dilations, self.padding)):
+            _padding1 = i % 2
+
+            # Convolution
+            C = F.conv1d(x.float(), self.kernels, padding=padding, dilation=dilation, groups=self.c_in)
+            if self.c_in > 1:  # multivariate
+                C = C.reshape(x.shape[0], self.c_in, self.num_kernels, -1)
+                channel_combination = getattr(self, f'channel_combinations_{i}')
+                C = torch.mul(C, channel_combination)
+                C = C.sum(1)
+
+            # Bias
+            if not self.prefit or self.fitting:
+                num_features_this_dilation = self.num_features_per_dilation[i]
+                bias_this_dilation = self._get_bias(C, num_features_this_dilation)
+                setattr(self, f'biases_{i}', bias_this_dilation)
+                if self.fitting:
+                    if i < self.num_dilations - 1:
+                        continue
+                    else:
+                        self.prefit = torch.BoolTensor([True])
+                        return
+                elif i == self.num_dilations - 1:
+                    self.prefit = torch.BoolTensor([True])
+            else:
+                bias_this_dilation = getattr(self, f'biases_{i}')
+
+            # Features
+            _features.append(self._get_PPVs(C[:, _padding1::2], bias_this_dilation[_padding1::2]))
+            _features.append(
+                self._get_PPVs(C[:, 1 - _padding1::2, padding:-padding], bias_this_dilation[1 - _padding1::2]))
+        return torch.cat(_features, dim=1)
+
+    def _get_PPVs(self, C, bias):
+        C = C.unsqueeze(-1)
+        bias = bias.view(1, bias.shape[0], 1, bias.shape[1])
+        return (C > bias).float().mean(2).flatten(1)
+
+    def _set_dilations(self, input_length):
+        num_features_per_kernel = self.num_features // self.num_kernels
+        true_max_dilations_per_kernel = min(num_features_per_kernel, self.max_dilations_per_kernel)
+        multiplier = num_features_per_kernel / true_max_dilations_per_kernel
+        max_exponent = np.log2((input_length - 1) / (9 - 1))
+        dilations, num_features_per_dilation = \
+            np.unique(np.logspace(0, max_exponent, true_max_dilations_per_kernel, base=2).astype(np.int32),
+                      return_counts=True)
+        num_features_per_dilation = (num_features_per_dilation * multiplier).astype(np.int32)
+        remainder = num_features_per_kernel - num_features_per_dilation.sum()
+        i = 0
+        while remainder > 0:
+            num_features_per_dilation[i] += 1
+            remainder -= 1
+            i = (i + 1) % len(num_features_per_dilation)
+        self.num_features_per_dilation = num_features_per_dilation
+        self.num_dilations = len(dilations)
+        self.dilations = dilations
+        self.padding = []
+        for i, dilation in enumerate(dilations):
+            self.padding.append((((self.kernel_size - 1) * dilation) // 2))
+
+    def _set_channel_combinations(self, num_channels):
+        num_combinations = self.num_kernels * self.num_dilations
+        max_num_channels = min(num_channels, 9)
+        max_exponent_channels = np.log2(max_num_channels + 1)
+        np.random.seed(self.random_state)
+        num_channels_per_combination = (2 ** np.random.uniform(0, max_exponent_channels, num_combinations)).astype(
+            np.int32)
+        channel_combinations = torch.zeros((1, num_channels, num_combinations, 1))
+        for i in range(num_combinations):
+            channel_combinations[:, np.random.choice(num_channels, num_channels_per_combination[i], False), i] = 1
+        channel_combinations = torch.split(channel_combinations, self.num_kernels, 2)  # split by dilation
+        for i, channel_combination in enumerate(channel_combinations):
+            self.register_buffer(f'channel_combinations_{i}', channel_combination)  # per dilation
+
+    def _get_quantiles(self, n):
+        return torch.tensor([(_ * ((np.sqrt(5) + 1) / 2)) % 1 for _ in range(1, n + 1)]).float()
+
+    def _get_bias(self, C, num_features_this_dilation):
+        np.random.seed(self.random_state)
+        idxs = np.random.choice(C.shape[0], self.num_kernels)
+        samples = C[idxs].diagonal().T
+        biases = torch.quantile(samples, self._get_quantiles(num_features_this_dilation).to(C.device), dim=1).T
+        return biases
+
+
+MRF = MiniRocketFeatures
+
+def get_minirocket_features(data,
+                            model,
+                            chunksize=1024,
+                            use_cuda=None,
+                            convert_to_numpy=True):
+    """Function used to split a large dataset into chunks, avoiding OOM error."""
+    use = torch.cuda.is_available() if use_cuda is None else use_cuda
+    device = torch.device(torch.cuda.current_device()) if use else torch.device('cpu')
+    model = model.to(device)
+    if isinstance(data, np.ndarray):
+        data = torch.from_numpy(data).to(device)
+    _features = []
+    for oi in torch.split(data, chunksize):
+        _features.append(model(oi))
+    features = torch.cat(_features).unsqueeze(-1)
+    if convert_to_numpy:
+        return features.cpu().numpy()
+    else:
+        return features
+
+
+class MiniRocketHead(nn.Sequential):
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 seq_len=1,
+                 batch_norm=True,
+                 dropout=0.):
+        layers = [nn.Flatten()]
+        if batch_norm:
+            layers += [nn.BatchNorm1d(input_dim)]
+        if dropout:
+            layers += [nn.Dropout(dropout)]
+        linear = nn.Linear(input_dim, output_dim)
+        nn.init.constant_(linear.weight.data, 0)
+        nn.init.constant_(linear.bias.data, 0)
+        layers += [linear]
+        head = nn.Sequential(*layers)
+        super().__init__(OrderedDict(
+            [('backbone', nn.Sequential()), ('head', head)]))
+
+
+# %% ../../nbs/056_models.MINIROCKET_Pytorch.ipynb 7
+class MiniRocket(nn.Sequential):
+    def __init__(self,
+                 input_dim,
+                 output_dim,
+                 seq_len,
+                 num_features=10_000,
+                 max_dilations_per_kernel=32,
+                 random_state=None,
+                 batch_norm=True,
+                 dropout=0.):
+
+        # Backbone
+        backbone = MiniRocketFeatures(input_dim,
+                                      seq_len,
+                                      num_features=num_features,
+                                      max_dilations_per_kernel=max_dilations_per_kernel,
+                                      random_state=random_state)
+        num_features = backbone.num_features
+
+        # Head
+        self.head_nf = num_features
+        layers = [nn.Flatten()]
+
+        if batch_norm:
+            layers += [nn.BatchNorm1d(num_features)]
+        if dropout:
+            layers += [nn.Dropout(dropout)]
+
+        linear = nn.Linear(num_features, output_dim)
+        nn.init.constant_(linear.weight.data, 0)
+        nn.init.constant_(linear.bias.data, 0)
+        layers += [linear]
+        head = nn.Sequential(*layers)
+
+        super().__init__(OrderedDict([('backbone', backbone), ('head', head)]))
+
+    def fit(self, X, chunksize=None):
+        self.backbone.fit(X, chunksize=chunksize)
+
+
+if __name__ == "__main__":
+    # # Offline feature calculation
+    train_data, test_data = DataLoader(dataset_name='ECGFiveDays').load_data()
+    input_data = init_input_data(train_data[0], train_data[1])
+    val_data = init_input_data(test_data[0], test_data[1])
+    input_data.features = input_data.features.reshape(input_data.features.shape[0],
+                                                      1,
+                                                      input_data.features.shape[1])
+    mrf = MiniRocketFeatures(input_dim=input_data.features.shape[1],
+                             seq_len=input_data.features.shape[2]).to(default_device())
+
+    mrf.fit(input_data.features)
+    X_tfm = get_minirocket_features(input_data.features, mrf)
+    _ = 1
+    # tfms = [None, TSClassification()]
+    # batch_tfms = TSStandardize(by_var=True)
+    # dls = get_ts_dls(X_tfm, y, splits=splits, tfms=tfms, batch_tfms=batch_tfms, bs=256)
+    # learn = ts_learner(dls, MiniRocketHead, metrics=accuracy)
+    # learn.fit(1, 1e-4, cbs=ReduceLROnPlateau(factor=0.5, min_lr=1e-8, patience=10))
