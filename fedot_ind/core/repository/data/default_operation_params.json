@@ -190,5 +190,8 @@
   "fedot_regr": {
     "timeout": 2,
     "with_tuning": true
+  },
+  "minirocket_extractor": {
+    "num_features": 10000
   }
 }

@@ -4,6 +4,48 @@ import pandas as pd
 
 import torch
 import torch.nn as nn
+from fedot.core.data.data import InputData
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import TaskTypesEnum, Task
+
+from examples.example_utils import check_multivariate_data
+
+
+class FedotConverter:
+    def __init__(self, data):
+        self.input_data = self.convert_to_input_data(data)
+
+    def convert_to_input_data(self, data):
+        if isinstance(data, InputData):
+            return data
+        elif isinstance(data[0], (np.ndarray, pd.self.dataFrame)):
+            return self.__init_input_data(features=data[0],
+                                          target=data[1], )
+        else:
+            try:
+                return torch.tensor(data)
+            except:
+                print(f"Can't convert {type(data)} to InputData", Warning)
+
+    def __init_input_data(self, features: pd.DataFrame,
+                          target: np.ndarray,
+                          task: str = 'classification') -> InputData:
+        is_multivariate_data = check_multivariate_data(features)
+        task_dict = {'classification': Task(TaskTypesEnum.classification),
+                     'regression': Task(TaskTypesEnum.regression)}
+        if is_multivariate_data:
+            input_data = InputData(idx=np.arange(len(features)),
+                                   features=np.array(features.values.tolist()).astype(np.float),
+                                   target=target.astype(np.float).reshape(-1, 1),
+                                   task=task_dict[task],
+                                   data_type=DataTypesEnum.image)
+        else:
+            input_data = InputData(idx=np.arange(len(features)),
+                                   features=features.values,
+                                   target=np.ravel(target).reshape(-1, 1),
+                                   task=task_dict[task],
+                                   data_type=DataTypesEnum.table)
+        return input_data
 
 
 class TensorConverter:
@@ -15,7 +57,7 @@ class TensorConverter:
             return data
         elif isinstance(data, np.ndarray):
             return torch.from_numpy(data)
-        elif isinstance(data, pd.self.dataFrame):
+        elif isinstance(data, pd.dataFrame):
             return torch.from_numpy(data.values)
         else:
             try:
@@ -59,7 +101,7 @@ class NumpyConverter:
             return data
         elif isinstance(data, torch.Tensor):
             return data.cpu().numpy()
-        elif isinstance(data, pd.self.dataFrame):
+        elif isinstance(data, pd.dataFrame):
             return data.values
         else:
             try:
@@ -92,6 +134,17 @@ class NumpyConverter:
             return self.numpy_data[None, None]
         elif self.numpy_data.ndim == 2:
             return self.numpy_data[:, None]
+        assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
+
+    def convert_to_torch_format(self):
+        if self.numpy_data.ndim == 3:
+            return self.numpy_data
+        elif self.numpy_data.ndim == 1:
+            return self.numpy_data[None, None]
+        elif self.numpy_data.ndim == 2:
+            return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                           1,
+                                           self.numpy_data.shape[1])
         assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
 
 

@@ -210,6 +210,15 @@
         "extractor"
       ]
     },
+    "minirocket_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
     "cat_features": {
       "meta": "industrial_preprocessing",
       "presets": [

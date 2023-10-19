@@ -3,9 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from collections import OrderedDict
+from typing import Optional
 
-from examples.example_utils import init_input_data
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.data.data import InputData
+from fedot.core.operations.operation_parameters import OperationParameters
+from examples.example_utils import init_input_data, evaluate_metric
+from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.models.base_extractor import BaseExtractor
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.tools.loader import DataLoader
 
 
@@ -157,6 +165,7 @@ class MiniRocketFeatures(nn.Module):
 
 MRF = MiniRocketFeatures
 
+
 def get_minirocket_features(data,
                             model,
                             chunksize=1024,
@@ -240,22 +249,85 @@ class MiniRocket(nn.Sequential):
         self.backbone.fit(X, chunksize=chunksize)
 
 
+class MiniRocketExtractor(BaseExtractor):
+    """Class responsible for MiniRocketmodel feature generator .
+
+    Attributes:
+        self.num_features: int, the number of features.
+
+    Example:
+        To use this operation you can create pipeline as follows::
+            from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+            from examples.fedot.fedot_ex import init_input_data
+            from fedot_ind.tools.loader import DataLoader
+            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
+            train_data, test_data = DataLoader(dataset_name='Ham').load_data()
+            with IndustrialModels():
+                pipeline = PipelineBuilder().add_node('minirocket_features').add_node(
+                    'rf').build()
+                input_data = init_input_data(train_data[0], train_data[1])
+                pipeline.fit(input_data)
+                features = pipeline.predict(input_data)
+                print(features)
+    """
+
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.num_features = params.get('num_features', 10000)
+
+    def _generate_features_from_ts(self, ts: np.array):
+        mrf = MiniRocketFeatures(input_dim=ts.shape[1],
+                                 seq_len=ts.shape[2],
+                                 num_features=self.num_features).to(default_device())
+
+        mrf.fit(ts)
+        features = get_minirocket_features(ts, mrf)
+        features = features.squeeze()
+        minirocket_features = InputData(idx=np.arange(len(features)),
+                                        features=features,
+                                        target='no_target',
+                                        task='no_task',
+                                        data_type=DataTypesEnum.table,
+                                        supplementary_data={'feature_name': 'MiniRocket_features'})
+        return minirocket_features
+
+    def generate_minirocket_features(self, ts: np.array) -> InputData:
+
+        if ts.shape[1] == 1:
+            aggregation_df = self._generate_features_from_ts(ts)
+        else:
+            aggregation_df = self._get_feature_matrix(self._generate_features_from_ts, ts)
+
+        return aggregation_df
+
+    @convert_to_3d_torch_array
+    def generate_features_from_ts(self, ts_data: np.array,
+                                  dataset_name: str = None):
+        return self.generate_minirocket_features(ts=ts_data)
+
+    @fedot_data_type
+    def _transform(self,
+                   input_data: InputData) -> np.array:
+        """
+        Method for feature generation for all series
+        """
+        feature_matrix = self.generate_features_from_ts(input_data)
+        predict = self._clean_predict(feature_matrix.features)
+        self.relevant_features = feature_matrix.supplementary_data['feature_name']
+        return predict
+
+
 if __name__ == "__main__":
     # # Offline feature calculation
-    train_data, test_data = DataLoader(dataset_name='ECGFiveDays').load_data()
+    train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
     input_data = init_input_data(train_data[0], train_data[1])
     val_data = init_input_data(test_data[0], test_data[1])
-    input_data.features = input_data.features.reshape(input_data.features.shape[0],
-                                                      1,
-                                                      input_data.features.shape[1])
-    mrf = MiniRocketFeatures(input_dim=input_data.features.shape[1],
-                             seq_len=input_data.features.shape[2]).to(default_device())
 
-    mrf.fit(input_data.features)
-    X_tfm = get_minirocket_features(input_data.features, mrf)
+    with IndustrialModels():
+        pipeline = PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 500}).add_node(
+            'fedot_cls', params={'timeout': 10}).build()
+        pipeline.fit(input_data)
+        features = pipeline.predict(val_data).predict
+        metric = evaluate_metric(target=test_data[1], prediction=features)
     _ = 1
-    # tfms = [None, TSClassification()]
-    # batch_tfms = TSStandardize(by_var=True)
-    # dls = get_ts_dls(X_tfm, y, splits=splits, tfms=tfms, batch_tfms=batch_tfms, bs=256)
-    # learn = ts_learner(dls, MiniRocketHead, metrics=accuracy)
-    # learn.fit(1, 1e-4, cbs=ReduceLROnPlateau(factor=0.5, min_lr=1e-8, patience=10))

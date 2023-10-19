@@ -29,6 +29,8 @@ industrial_search_space = {
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
+    'minirocket_extractor':
+        {'num_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(500, 10000, 500)]]}},
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice,
                                 'window_size_method': [['hac', 'dff', 'mwf', 'sss']]}}

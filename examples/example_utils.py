@@ -35,7 +35,7 @@ def evaluate_metric(target, prediction):
         else:
             metric = roc_auc_score(target, prediction, average='weighted')
     except Exception:
-        metric = 0
+        metric = f1_score(target, np.argmax(prediction, axis=1), average='weighted')
     return metric
 
 
@@ -96,7 +96,7 @@ def calculate_regression_metric(test_target, labels):
                    'explained_variance_score': explained_variance_score(test_target, labels),
                    'max_error': max_error(test_target, labels),
                    'd2_absolute_error_score': d2_absolute_error_score(test_target, labels)
-                   #'root_mean_squared_log_error': mean_squared_log_error(test_target, labels, squared=False)
+                   # 'root_mean_squared_log_error': mean_squared_log_error(test_target, labels, squared=False)
                    }
     df = pd.DataFrame.from_dict(metric_dict, orient='index')
     return df
