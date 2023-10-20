@@ -1,5 +1,5 @@
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 
 if __name__ == "__main__":
 

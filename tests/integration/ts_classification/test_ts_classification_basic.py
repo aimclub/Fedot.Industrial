@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 
 # TODO: add tests for topological extractor
 # def test_topological_extractor():

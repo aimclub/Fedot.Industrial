@@ -1,6 +1,6 @@
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from examples.example_utils import init_input_data, calculate_regression_metric
 

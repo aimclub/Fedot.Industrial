@@ -1,4 +1,4 @@
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 
 
 def test_load_multivariate_data():
