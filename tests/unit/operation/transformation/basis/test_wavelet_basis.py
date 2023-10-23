@@ -7,9 +7,13 @@ from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
-
 WAVELETS = ['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']
 N_COMPONENTS = list(range(2, 12, 2))
+
+
+def wavelet_components_combination():
+    return [(w, c) for w in WAVELETS for c in N_COMPONENTS]
+
 
 @pytest.fixture
 def dataset():
@@ -27,29 +31,29 @@ def input_train(dataset):
     return input_train_data
 
 
-def test_transform(input_train):
-    wavelet = np.random.choice(WAVELETS)
-    n_comps = np.random.choice(N_COMPONENTS)
-    basis = WaveletBasisImplementation({"wavelet": wavelet, "n_components": n_comps})
+@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+def test_transform(input_train, wavelet, n_components):
+    basis = WaveletBasisImplementation({"wavelet": wavelet,
+                                        "n_components": n_components})
     train_features = basis.transform(input_data=input_train)
     assert isinstance(train_features, OutputData)
     assert train_features.features.shape[0] == input_train.features.shape[0]
 
 
-def test_decompose_signal(input_train):
-    wavelet = np.random.choice(WAVELETS)
-    n_comps = np.random.choice(N_COMPONENTS)
-    basis = WaveletBasisImplementation({"wavelet": wavelet, "n_components": n_comps})
+@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+def test_decompose_signal(input_train, wavelet, n_components):
+    basis = WaveletBasisImplementation({"wavelet": wavelet,
+                                        "n_components": n_components})
     sample = input_train.features[0]
     transformed_sample = basis._decompose_signal(sample)
     assert isinstance(transformed_sample, tuple)
     assert len(transformed_sample) == 2
 
 
-def test_decomposing_level(input_train):
-    wavelet = np.random.choice(WAVELETS)
-    n_comps = np.random.choice(N_COMPONENTS)
-    basis = WaveletBasisImplementation({"wavelet": wavelet, "n_components": n_comps})
+@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+def test_decomposing_level(input_train, wavelet, n_components):
+    basis = WaveletBasisImplementation({"wavelet": wavelet,
+                                        "n_components": n_components})
     sample = input_train.features[0]
     discrete_wavelets = pywt.wavelist(kind='discrete')
     basis.time_series = sample
@@ -58,19 +62,19 @@ def test_decomposing_level(input_train):
     assert isinstance(decomposing_level, int)
 
 
-def test_transform_one_sample(input_train):
-    wavelet = np.random.choice(WAVELETS)
-    n_comps = np.random.choice(N_COMPONENTS)
-    basis = WaveletBasisImplementation({"wavelet": wavelet, "n_components": n_comps})
+@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+def test_transform_one_sample(input_train, wavelet, n_components):
+    basis = WaveletBasisImplementation({"wavelet": wavelet,
+                                        "n_components": n_components})
     sample = input_train.features[0]
     transformed_sample = basis._transform_one_sample(sample)
     assert isinstance(transformed_sample, np.ndarray)
 
 
-def test_get_1d_bassis(input_train):
-    wavelet = np.random.choice(WAVELETS)
-    n_comps = np.random.choice(N_COMPONENTS)
-    basis = WaveletBasisImplementation({"wavelet": wavelet, "n_components": n_comps})
+@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+def test_get_1d_bassis(input_train, wavelet, n_components):
+    basis = WaveletBasisImplementation({"wavelet": wavelet,
+                                        "n_components": n_components})
     sample = input_train.features[0]
     extracted_basis = basis._get_1d_basis(sample)
     assert isinstance(extracted_basis, np.ndarray)

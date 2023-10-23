@@ -11,7 +11,11 @@ industrial_search_space = {
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
-                     'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
+                     'sampling-scope': [[
+                         'mexh', 'db5', 'sym5', 'morl', 'gaus1'
+                                            # good w: gaus from 1 to 8
+                                            # 'shan', 'cmor', 'fbsp',
+                                         ]]}},
     'fourier_basis':
         {'threshold': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [10000, 50000]}},
     'topological_extractor':
@@ -23,14 +27,14 @@ industrial_search_space = {
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         #'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
+         # 'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
          },
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice, 'window_size_method': [['hac', 'dff', 'mwf', 'sss']]}}
-    }
+}
 
 
 def get_industrial_search_space(self):
