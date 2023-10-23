@@ -214,9 +214,9 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         univariate_tss = all_datasets_table[all_datasets_table['multivariate_flag'] == 0]
 
         if self.use_small_datasets:
-            univariate_tss = univariate_tss[
-                (univariate_tss['train_size'] < 1000) & (univariate_tss['length'] < 1000) & (
-                            univariate_tss['test_size'] < 1000)]
+            univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000)
+                                            & (univariate_tss['length'] < 1000)
+                                            & (univariate_tss['test_size'] < 1000)]
 
         filtered_by_type_quantity = univariate_tss.groupby('type')['type'].count() >= n_samples
         filtered_types = filtered_by_type_quantity[filtered_by_type_quantity].index.tolist()
