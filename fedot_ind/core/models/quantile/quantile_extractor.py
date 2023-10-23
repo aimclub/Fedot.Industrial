@@ -7,6 +7,8 @@ from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pandas import Index
 
+from fedot_ind.core.architecture.abstraction.decorators import convert_from_2d_to_row_array
+from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
@@ -79,11 +81,6 @@ class QuantileExtractor(BaseExtractor):
     def generate_features_from_ts(self,
                                   ts: np.array,
                                   window_length: int = None) -> InputData:
-
-        ts = np.nan_to_num(ts)
-        if len(ts.shape) == 2 and ts.shape[1] == 1:
-            ts = ts.flatten()
-
         if len(ts.shape) == 1:
             aggregation_df = self.extract_stats_features(ts)
         else:

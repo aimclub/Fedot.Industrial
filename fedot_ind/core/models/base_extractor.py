@@ -10,7 +10,8 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 
 from fedot_ind.api.utils.input_data import init_input_data
-from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type
+from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, remove_1_dim_axis, \
+    convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
@@ -31,7 +32,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.use_cache = params.get('use_cache', False)
         self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
-
         self.logging_params = {'jobs': self.n_processes}
 
     def fit(self, input_data: InputData):
@@ -48,18 +48,20 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             return pd.DataFrame(transformed_features.predict)
 
     @fedot_data_type
+    @remove_1_dim_axis
     def _transform(self, input_data: InputData) -> np.array:
         """
         Method for feature generation for all series
         """
+
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)
+        feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data)
         predict = self._clean_predict(np.array([ts.features for ts in feature_matrix]))
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
         return predict
 
-    @staticmethod
-    def _clean_predict(predict: np.array):
+
+    def _clean_predict(self, predict: np.array):
         """Clean predict from nan, inf and reshape data for Fedot appropriate form
         """
         predict = np.where(np.isnan(predict), 0, predict)
@@ -72,8 +74,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         pass
 
-    @staticmethod
-    def get_statistical_features(time_series: np.ndarray,
+    @convert_to_input_data
+    def get_statistical_features(self,
+                                 time_series: np.ndarray,
                                  add_global_features: bool = False) -> InputData:
         """
         Method for creating baseline quantile features for a given time series.
@@ -86,7 +89,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         """
         names = []
-        vals = []
+        features = []
         time_series = time_series.flatten()
 
         if add_global_features:
@@ -96,19 +99,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         for method in list_of_methods:
             try:
-                vals.append(method[1](time_series))
+                features.append(method[1](time_series))
                 names.append(method[0])
             except ValueError:
                 continue
+        return features, names
 
-        stat_features = InputData(idx=np.arange(len(vals)),
-                                  features=np.array(vals),
-                                  target='no_target',
-                                  task='no_task',
-                                  data_type=DataTypesEnum.table,
-                                  supplementary_data={'feature_name': names})
-        return stat_features
-
+    @convert_to_input_data
     def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> InputData:
@@ -135,16 +132,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             features.append(stat_feature.features)
             names.append([x + f'_on_interval: {i + 1} - {i + 1 + window_size}'
                           for x in stat_feature.supplementary_data['feature_name']])
-        window_stat_features = InputData(idx=np.arange(len(features)),
-                                         features=features,
-                                         target='no_target',
-                                         task='no_task',
-                                         data_type=DataTypesEnum.table,
-                                         supplementary_data={'feature_name': names})
-        return window_stat_features
+        return features, names
 
-    @staticmethod
-    def _get_feature_matrix(extraction_func: callable,
+    @convert_to_input_data
+    def _get_feature_matrix(self,
+                            extraction_func: callable,
                             ts: np.array) -> InputData:
 
         multi_ts_stat_features = [extraction_func(x) for x in ts]
@@ -159,11 +151,4 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         names = list(
             chain(*[x.supplementary_data['feature_name'] for x in multi_ts_stat_features]))
 
-        multi_ts_stat_features = InputData(idx=np.arange(len(features)),
-                                           features=features,
-                                           target='no_target',
-                                           task='no_task',
-                                           data_type=DataTypesEnum.table,
-                                           supplementary_data={'feature_name': names})
-
-        return multi_ts_stat_features
+        return features, names
