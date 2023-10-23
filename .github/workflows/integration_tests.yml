@@ -25,4 +25,4 @@ jobs:
           pip install pytest-cov
       - name: Test with pytest
         run: |
-          pytest --cov=fedot -s test/integration
+          pytest --cov=fedot -s tests/integration

@@ -86,7 +86,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             for signal in data:
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
-        return stats.mode(svd_numbers).mode[0]
+        return stats.mode(svd_numbers).mode
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)

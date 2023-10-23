@@ -13,6 +13,7 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
+from fedot_ind.api.utils.input_data import init_input_data
 
 
 def test_fedot_multi_series():
@@ -26,33 +27,18 @@ def test_fedot_multi_series():
         print(F1.metric(test_data, predict))
 
 
-def initialize_uni_data(dataset_name: str = 'Lightning7'):
-    train_data, test_data = DataLoader(dataset_name).load_data()
-    train_data = InputData(idx=np.arange(len(train_data[0])),
-                           features=train_data[0].values,
-                           target=train_data[1].reshape(-1, 1),
-                           task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.table)
-    test_data = InputData(idx=np.arange(len(test_data[0])),
-                          features=test_data[0].values,
-                          target=test_data[1].reshape(-1, 1),
-                          task=Task(TaskTypesEnum.classification),
-                          data_type=DataTypesEnum.table)
-
-    return train_data, test_data
+def initialize_uni_data():
+    train_data, test_data = DataLoader('Lightning7').load_data()
+    train_input_data = init_input_data(train_data[0], train_data[1])
+    test_input_data = init_input_data(test_data[0], test_data[1])
+    return train_input_data, test_input_data
 
 
-def initialize_multi_data(dataset_name: str = 'Epilepsy'):
-    train_data, test_data = DataLoader(dataset_name).load_data()
-    train_data = InputData(idx=np.arange(len(train_data[0])),
-                           features=np.array(train_data[0].values.tolist()),
-                           target=train_data[1].reshape(-1, 1),
-                           task=Task(TaskTypesEnum.classification), data_type=DataTypesEnum.image)
-    test_data = InputData(idx=np.arange(len(test_data[0])),
-                          features=np.array(test_data[0].values.tolist()),
-                          target=test_data[1].reshape(-1, 1),
-                          task=Task(TaskTypesEnum.classification),
-                          data_type=DataTypesEnum.image)
-    return train_data, test_data
+def initialize_multi_data():
+    train_data, test_data = DataLoader('Epilepsy').load_data()
+    train_input_data = init_input_data(train_data[0], train_data[1])
+    test_input_data = init_input_data(test_data[0], test_data[1])
+    return train_input_data, test_input_data
 
 
 def test_fedot_uni_series():
