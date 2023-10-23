@@ -4,7 +4,7 @@ from scipy.spatial.distance import pdist, squareform
 
 class TSTransformer:
     def __init__(self, time_series, rec_metric):
-        self.time_series = time_series.reshape(-1, 1) if len(time_series.shape) == 1 else time_series
+        self.time_series = time_series.reshape(1, -1) if len(time_series.shape) == 1 else time_series
         self.recurrence_matrix = None
         self.threshold_baseline = [0.95, 0.7]  # TODO add threshold for other metrics
         self.min_signal_ratio = 0.6
