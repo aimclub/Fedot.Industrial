@@ -12,7 +12,7 @@ from benchmark.abstract_bench import AbstractBenchmark
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.metafeatures import MetaFeaturesDetector
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
@@ -64,7 +64,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
                 indus = FedotIndustrial(input_config=config, output_folder=self.output_dir)
                 train_data, test_data, _ = indus.reader.read(dataset_name=dataset_name)
-                model = indus.fit(train_features=train_data[0], train_target=train_data[1])
+                indus.fit(train_features=train_data[0], train_target=train_data[1])
 
                 labels = indus.predict(test_features=test_data[0])
                 probs = indus.predict_proba(test_features=test_data[0])
@@ -214,7 +214,9 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         univariate_tss = all_datasets_table[all_datasets_table['multivariate_flag'] == 0]
 
         if self.use_small_datasets:
-            univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000) & (univariate_tss['length'] < 1000) & (univariate_tss['test_size'] < 1000)]
+            univariate_tss = univariate_tss[(univariate_tss['train_size'] < 1000) &
+                                            (univariate_tss['length'] < 1000) &
+                                            (univariate_tss['test_size'] < 1000)]
 
         filtered_by_type_quantity = univariate_tss.groupby('type')['type'].count() >= n_samples
         filtered_types = filtered_by_type_quantity[filtered_by_type_quantity].index.tolist()

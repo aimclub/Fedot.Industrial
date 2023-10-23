@@ -4,13 +4,14 @@ from itertools import chain
 from multiprocessing import cpu_count
 from typing import Optional
 
+import numpy as np
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 
 from fedot_ind.api.utils.input_data import init_input_data
-from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -56,6 +57,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             input_data_squeezed = np.squeeze(features, 3)
         except Exception:
             input_data_squeezed = np.squeeze(features)
+
+        if len(input_data_squeezed.shape) == 1:
+            input_data_squeezed = input_data_squeezed.reshape(1, -1)
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data_squeezed)

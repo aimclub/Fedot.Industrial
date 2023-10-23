@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.preprocessing.DatasetLoader import DataLoader
+from fedot_ind.tools.loader import DataLoader
 
 
 @pytest.mark.parametrize('branch_nodes', [['eigen_basis'],
