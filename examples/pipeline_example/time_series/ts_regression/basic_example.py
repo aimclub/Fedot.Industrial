@@ -9,19 +9,23 @@ model_dict = {
     'regression_with_statistical_features': PipelineBuilder().add_node('quantile_extractor',
                                                                        params={'window_size': 5}).add_node('ridge'),
     'regression_pca_with_statistical_features': PipelineBuilder().add_node('quantile_extractor',
-                                                                           params={'window_size': 5}).
-        add_node('pca', params={'n_components': 0.9}).add_node('ridge'),
+                                                                           params={'window_size': 5})
+                                                                 .add_node('pca', params={'n_components': 0.9})
+                                                                 .add_node('ridge'),
     'regression_with_reccurence_features': PipelineBuilder().add_node('recurrence_extractor',
                                                                       params={'window_size': 20}).add_node('ridge'),
     'regression_pca_with_reccurence_features': PipelineBuilder().add_node('recurrence_extractor',
-                                                                          params={'window_size': 20}).
-        add_node('pca', params={'n_components': 0.9}).add_node('ridge'),
+                                                                          params={'window_size': 20})
+                                                                .add_node('pca', params={'n_components': 0.9})
+                                                                .add_node('ridge'),
     'regression_with_topological_features': PipelineBuilder().add_node('topological_extractor',
-                                                                       params={'window_size': 20}).
-        add_node('pca', params={'n_components': 0.9}).add_node('ridge'),
+                                                                       params={'window_size': 20})
+                                                             .add_node('pca', params={'n_components': 0.9})
+                                                             .add_node('ridge'),
     'regression_pca_with_topological_features': PipelineBuilder().add_node('topological_extractor',
-                                                                           params={'window_size': 20}).
-        add_node('pca', params={'n_components': 0.9}).add_node('ridge')
+                                                                           params={'window_size': 20})
+                                                                 .add_node('pca', params={'n_components': 0.9})
+                                                                 .add_node('ridge')
 }
 metric_dict = {}
 
