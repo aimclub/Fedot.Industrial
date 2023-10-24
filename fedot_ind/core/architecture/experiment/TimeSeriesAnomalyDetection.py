@@ -34,7 +34,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
     Attributes:
         branch_nodes: list of nodes to be used in the pipeline
-        tuning_iters: number of iterations for tuning hyperparameters of preprocessing pipeline
+        tuning_iterations: number of iterations for tuning hyperparameters of preprocessing pipeline
         model_params: parameters of the FEDOT classification model
         dataset_name: name of the dataset to be used
         output_folder: path to the directory where results will be saved
@@ -51,7 +51,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
         self.model_params = params.get('model_params')
         self.dataset_name = params.get('dataset')
-        self.tuning_iters = params.get('tuning_iterations', 30)
+        self.tuning_iterations = params.get('tuning_iterations', 30)
         self.tuning_timeout = params.get('tuning_timeout', 15.0)
         self.output_folder = params.get('output_folder', default_path_to_save_results())
 
@@ -69,7 +69,7 @@ class TimeSeriesAnomalyDetectionPreset:
         self.predictor = self._build_pipeline()
 
         self.logger.info(f'TimeSeriesClassifierPreset initialised with [{self.branch_nodes}] nodes and '
-                         f'[{self.tuning_iters}] tuning iterations and [{self.tuning_timeout}] timeout')
+                         f'[{self.tuning_iterations}] tuning iterations and [{self.tuning_timeout}] timeout')
 
     def __check_multivariate_data(self, series: [np.array, List]) -> bool:
         """Method for checking if the data is multivariate.
@@ -164,7 +164,7 @@ class TimeSeriesAnomalyDetectionPreset:
             .with_tuner(SimultaneousTuner) \
             .with_metric(metric) \
             .with_timeout(self.tuning_timeout) \
-            .with_iterations(self.tuning_iters) \
+            .with_iterations(self.tuning_iterations) \
             .build(train_data)
 
         pipeline = pipeline_tuner.tune(pipeline)
@@ -186,12 +186,12 @@ class TimeSeriesAnomalyDetectionPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, anomaly_dict)
-            self.predictor = self._tune_pipeline(self.predictor,
-                                                 self.train_data)
+            self.pre_pipeline = self._tune_pipeline(self.predictor,
+                                                    self.train_data)
 
-            self.predictor
-            self.predictor.fit(self.train_data)
-            train_data_preprocessed = self.generator.root_node.predict(self.train_data)
+            self.pre_pipeline.fit(self.train_data)
+            # train_data_preprocessed = self.generator.root_node.predict(self.train_data)
+            train_data_preprocessed = self.pre_pipeline.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
@@ -229,7 +229,7 @@ class TimeSeriesAnomalyDetectionPreset:
         """
 
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.generator.root_node.predict(test_data)
+        test_data_preprocessed = self.pre_pipeline.root_node.predict(test_data)
 
         if test_data.features.shape[0] == 1:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
@@ -247,7 +247,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
     def predict_proba(self, features) -> np.array:
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.generator.predict(test_data)
+        test_data_preprocessed = self.pre_pipeline.predict(test_data)
         test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,
