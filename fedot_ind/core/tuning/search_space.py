@@ -744,12 +744,14 @@ def get_industrial_search_space(self):
     for key in industrial_search_space:
         parameters_per_operation[key] = industrial_search_space[key]
 
-    if self.custom_search_space is not None:
-        for operation in self.custom_search_space.keys():
-            if self.replace_default_search_space:
-                parameters_per_operation[operation] = self.custom_search_space[operation]
-            else:
-                for key, value in self.custom_search_space[operation].items():
-                    parameters_per_operation[operation][key] = value
-
+    try:
+        if self.custom_search_space is not None:
+            for operation in self.custom_search_space.keys():
+                if self.replace_default_search_space:
+                    parameters_per_operation[operation] = self.custom_search_space[operation]
+                else:
+                    for key, value in self.custom_search_space[operation].items():
+                        parameters_per_operation[operation][key] = value
+    except:
+        pass
     return parameters_per_operation

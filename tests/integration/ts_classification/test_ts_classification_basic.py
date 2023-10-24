@@ -8,13 +8,16 @@ from fedot_ind.tools.loader import DataLoader
 # def test_topological_extractor():
 #     pass
 
-ZERO_WINDOW = 0
-NON_ZERO_WINDOW = 10
+
+GENERATORS = ['signal', 'quantile', 'recurrence']
+WINDOWS = [0, 10]
 
 
-@pytest.mark.parametrize('strategy, window_size',
-                         [('recurrence', ZERO_WINDOW), ('signal', ZERO_WINDOW), ('quantile', ZERO_WINDOW),
-                          ('recurrence', NON_ZERO_WINDOW), ('signal', NON_ZERO_WINDOW), ('quantile', NON_ZERO_WINDOW)])
+def generator_window_combinations():
+    return [(gen, win) for gen in GENERATORS for win in WINDOWS]
+
+
+@pytest.mark.parametrize('strategy, window_size', generator_window_combinations())
 def test_ts_classification(strategy, window_size):
     train_data, test_data = DataLoader('Ham').load_data()
     industrial = FedotIndustrial(task='ts_classification',
