@@ -26,16 +26,6 @@ def test_api_code_scenario(branch_nodes):
                                  timeout=1,
                                  n_jobs=-1)
 
-    industrial.solver.model_params['available_operations'] = ['scaling',
-                                                              'normalization',
-                                                              'xgboost',
-                                                              'rfr',
-                                                              'rf',
-                                                              'logit',
-                                                              'mlp',
-                                                              'knn',
-                                                              'pca']
-
     model = industrial.fit(features=train_data[0], target=train_data[1])
     labels = industrial.predict(features=test_data[0], target=test_data[1])
     probs = industrial.predict_proba(features=test_data[0], target=test_data[1])
