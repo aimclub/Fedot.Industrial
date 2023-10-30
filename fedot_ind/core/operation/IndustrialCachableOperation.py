@@ -60,6 +60,9 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         else:
             predict = self._transform(input_data)
             predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+
+            predict.supplementary_data = self.relevant_features
+
             return predict
 
     def _transform(self, input_data):
