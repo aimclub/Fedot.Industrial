@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, TypeVar
+from typing import Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,8 @@ from scipy import stats
 from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
+import scipy
+from collections import Counter
 
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
@@ -86,7 +88,12 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             for signal in data:
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
-        return stats.mode(svd_numbers).mode
+        return self.get_mode(svd_numbers)
+        # return stats.mode(svd_numbers).mode if scipy.__version__ > '1.7.3' else stats.mode(svd_numbers).mode[0]
+
+    def get_mode(self, array: Union[np.ndarray, list]) -> int:
+        counter = Counter(array)
+        return counter.most_common(1)[0][0]
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
