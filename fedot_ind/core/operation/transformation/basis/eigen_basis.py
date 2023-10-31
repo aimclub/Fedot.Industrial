@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import Optional, Tuple, TypeVar, Union
 
 import numpy as np
@@ -8,12 +9,9 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from scipy import stats
 from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
-import scipy
-from collections import Counter
 
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
@@ -135,15 +133,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         threshold = lambda Monoid: ListMonad([Monoid[1],
                                               list(map(multi_threshold, Monoid[0])),
-                                              Monoid[2].T]) if self.n_components is None else ListMonad([Monoid[1][
-                                                                                                         :,
-                                                                                                         :self.n_components],
-                                                                                                         Monoid[0][
-                                                                                                         :,
-                                                                                                         :self.n_components],
-                                                                                                         Monoid[2][
-                                                                                                         :,
-                                                                                                         :self.n_components].T])
+                                              Monoid[2].T]) if self.n_components is None \
+                                                else ListMonad([Monoid[1][:, :self.n_components],
+                                                                Monoid[0][:, :self.n_components],
+                                                                Monoid[2][:, :self.n_components].T])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],

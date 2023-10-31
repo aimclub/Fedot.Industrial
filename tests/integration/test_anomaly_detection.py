@@ -1,5 +1,5 @@
-import shutil
 from typing import Dict
+
 import numpy as np
 import pytest
 
@@ -32,7 +32,6 @@ def split_series(series, anomaly_dict, test_part: int = 200):
         anomaly_intervals_train[anomaly_class] = single_class_anomalies_train
         anomaly_intervals_test[anomaly_class] = single_class_anomalies_test
     return time_series_train, anomaly_intervals_train, time_series_test, anomaly_intervals_test
-
 
 
 def generate_time_series(ts_length: int = 500,
@@ -74,6 +73,7 @@ def generate_time_series(ts_length: int = 500,
             anomaly_intervals[anomaly_class] = [[start_idx, end_idx]]
 
     return time_series, anomaly_intervals
+
 
 @pytest.mark.parametrize('dimension', [1, 3])
 def test_anomaly_detection(dimension):

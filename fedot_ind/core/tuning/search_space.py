@@ -11,11 +11,7 @@ industrial_search_space = {
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
-                     'sampling-scope': [[
-                         'mexh', 'db5', 'sym5', 'morl', 'gaus1'
-                                            # good w: gaus from 1 to 8
-                                            # 'shan', 'cmor', 'fbsp',
-                                         ]]}},
+                     'sampling-scope': [['mexh', 'db5', 'sym5', 'morl', 'gaus1']]}},
     'fourier_basis':
         {'threshold': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [10000, 50000]}},
     'topological_extractor':
@@ -752,6 +748,6 @@ def get_industrial_search_space(self):
                 else:
                     for key, value in self.custom_search_space[operation].items():
                         parameters_per_operation[operation][key] = value
-    except:
+    except Exception:
         pass
     return parameters_per_operation

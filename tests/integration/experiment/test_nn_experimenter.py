@@ -1,5 +1,6 @@
 import os
 from functools import partial
+
 import pytest
 import torch.optim
 from torch.utils.data import DataLoader
@@ -8,11 +9,10 @@ from torchvision.models import resnet18
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 from torchvision.transforms import Compose, Resize, ToTensor
 
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.datasets.object_detection_datasets import COCODataset
 from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
-from fedot_ind.core.architecture.experiment.nn_experimenter import FitParameters, \
-    ClassificationExperimenter, ObjectDetectionExperimenter
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, FitParameters
 
 DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/tests/data/datasets')
 
