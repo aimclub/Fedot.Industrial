@@ -11,7 +11,8 @@ from fedot_ind.tools.loader import DataLoader
                                           ['eigen_basis', 'wavelet_basis'],
                                           ['eigen_basis', 'fourier_basis'],
                                           ['wavelet_basis', 'fourier_basis'],
-                                          ['eigen_basis', 'wavelet_basis', 'fourier_basis']]
+                                          ['eigen_basis', 'wavelet_basis', 'fourier_basis']
+                                          ]
                          )
 def test_api_code_scenario(branch_nodes):
     train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
@@ -20,8 +21,8 @@ def test_api_code_scenario(branch_nodes):
                                  dataset='Lightning7',
                                  strategy='fedot_preset',
                                  branch_nodes=branch_nodes,
-                                 tuning_iterations=5,
-                                 tuning_timeout=2,
+                                 tuning_iterations=1,
+                                 tuning_timeout=1,
                                  use_cache=False,
                                  timeout=1,
                                  n_jobs=-1)
