@@ -89,18 +89,7 @@ class TimeSeriesClassifier:
             Fitted Fedot model
 
         """
-        self.predictor = Fedot(available_operations=['scaling',
-                                                     'normalization',
-                                                     'xgboost',
-                                                     'rfr',
-                                                     'rf',
-                                                     'logit',
-                                                     'mlp',
-                                                     'knn',
-                                                     'lgbm',
-                                                     'pca'
-                                                     ],
-                               **self.model_hyperparams)
+        self.predictor = Fedot(**self.model_hyperparams)
         self.predictor.fit(features, target)
         self.logger.info(
             f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')

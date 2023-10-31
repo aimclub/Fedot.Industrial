@@ -2,6 +2,7 @@ from typing import Dict
 
 import numpy as np
 import pytest
+from fedot.api.main import Fedot
 
 from fedot_ind.api.main import FedotIndustrial
 
@@ -126,3 +127,6 @@ def test_anomaly_detection(dimension):
 
     assert metrics['f1'] > 0.5
     assert metrics['roc_auc'] > 0.5
+    assert isinstance(model, Fedot)
+    assert isinstance(labels_before, list)
+    assert isinstance(probs_before, list)

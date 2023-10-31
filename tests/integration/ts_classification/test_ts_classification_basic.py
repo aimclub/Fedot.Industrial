@@ -22,7 +22,11 @@ def test_ts_classification(strategy, window_size):
                                  use_cache=False,
                                  timeout=1,
                                  n_jobs=-1,
-                                 window_size=window_size)
+                                 window_size=window_size,
+                                 available_operations=['scaling', 'normalization', 'xgboost',
+                                                       'rfr', 'rf', 'logit', 'mlp', 'knn',
+                                                       'lgbm', 'pca']
+                                 )
 
     model = industrial.fit(features=train_data[0], target=train_data[1])
     labels = industrial.predict(features=test_data[0],

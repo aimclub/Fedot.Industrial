@@ -1,17 +1,11 @@
 from fedot.api.main import Fedot
 from fedot.core.composer.metrics import F1
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
-
-from fedot.core.pipelines.tuning.search_space import SearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.sequential import SequentialTuner
-from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.core.tuning.search_space import get_industrial_search_space
 from fedot_ind.tools.loader import DataLoader
 
 
