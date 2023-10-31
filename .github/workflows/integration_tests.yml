@@ -30,4 +30,4 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest --cov=fedot -s tests/integration/test_ts_classification_basic.py
+          pytest --cov=fedot -s tests/integration
