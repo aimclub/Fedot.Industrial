@@ -45,7 +45,8 @@ def generate_time_series(ts_length: int = 500,
     if dimension == 1:
         time_series = np.random.normal(0, 1, ts_length)
     else:
-        time_series = np.vstack([np.random.normal(0, 1, ts_length) for _ in range(dimension)]).swapaxes(1, 0)
+        time_series = np.vstack([np.random.normal(0, 1, ts_length)
+                                 for _ in range(dimension)]).swapaxes(1, 0)
     anomaly_classes = [f'anomaly{i + 1}' for i in range(num_anomaly_classes)]
 
     anomaly_intervals = {}
@@ -59,7 +60,8 @@ def generate_time_series(ts_length: int = 500,
         end_idx = start_idx + np.random.randint(min_anomaly_length,
                                                 max_anomaly_length + 1)
 
-        anomaly = np.random.normal(int(anomaly_class[-1]), 1, end_idx - start_idx)
+        anomaly = np.random.normal(
+            int(anomaly_class[-1]), 1, end_idx - start_idx)
 
         if dimension == 1:
             time_series[start_idx:end_idx] += anomaly
@@ -84,7 +86,8 @@ def test_anomaly_detection(dimension):
         num_anomaly_classes=2,
         num_of_anomalies=50)
 
-    series_train, anomaly_train, series_test, anomaly_test = split_series(time_series, anomaly_intervals, test_part=300)
+    series_train, anomaly_train, series_test, anomaly_test = split_series(
+        time_series, anomaly_intervals, test_part=300)
 
     point_test = convert_anomalies_dict_to_points(series_test, anomaly_test)
 

@@ -53,7 +53,8 @@ def test_industrial_uni_series():
                 .add_node('eigen_basis') \
                 .add_node(extractor_name) \
                 .add_node('rf').build()
-            model = Fedot(problem='classification', timeout=1, initial_assumption=pipeline, n_jobs=1)
+            model = Fedot(problem='classification', timeout=1,
+                          initial_assumption=pipeline, n_jobs=1)
             model.fit(train_data)
             model.predict(test_data)
             model.get_metrics()

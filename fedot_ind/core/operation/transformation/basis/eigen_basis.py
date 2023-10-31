@@ -134,9 +134,9 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         threshold = lambda Monoid: ListMonad([Monoid[1],
                                               list(map(multi_threshold, Monoid[0])),
                                               Monoid[2].T]) if self.n_components is None \
-                                                else ListMonad([Monoid[1][:, :self.n_components],
-                                                                Monoid[0][:, :self.n_components],
-                                                                Monoid[2][:, :self.n_components].T])
+            else ListMonad([Monoid[1][:, :self.n_components],
+                            Monoid[0][:, :self.n_components],
+                            Monoid[2][:, :self.n_components].T])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
