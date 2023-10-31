@@ -88,10 +88,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             for signal in data:
                 svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
                 pbar.update(1)
-        return self.get_mode(svd_numbers)
+        return self._mode(svd_numbers)
         # return stats.mode(svd_numbers).mode if scipy.__version__ > '1.7.3' else stats.mode(svd_numbers).mode[0]
 
-    def get_mode(self, array: Union[np.ndarray, list]) -> int:
+    def _mode(self, array: Union[np.ndarray, list]) -> int:
         counter = Counter(array)
         return counter.most_common(1)[0][0]
 
