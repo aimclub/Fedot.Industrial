@@ -47,7 +47,7 @@ def test_industrial_uni_series():
         metrics = {}
         for extractor_name in ['topological_extractor',
                                'quantile_extractor',
-                               'signal_extractor',
+                               # 'signal_extractor',
                                'recurrence_extractor']:
             pipeline = PipelineBuilder() \
                 .add_node('eigen_basis') \

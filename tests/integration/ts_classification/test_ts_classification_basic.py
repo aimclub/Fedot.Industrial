@@ -4,12 +4,8 @@ import pytest
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
 
-# TODO: add tests for topological extractor
-# def test_topological_extractor():
-#     pass
 
-
-GENERATORS = ['signal', 'quantile', 'recurrence']
+GENERATORS = ['signal', 'quantile', 'recurrence', 'topological']
 WINDOWS = [0, 10]
 
 

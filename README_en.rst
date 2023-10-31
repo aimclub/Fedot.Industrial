@@ -13,7 +13,7 @@
    * - Code
      - | |version| |python|
    * - CI/CD
-     - | |coverage| |mirror|
+     - | |coverage| |mirror| |integration|
    * - Docs
      - |docs|
    * - Downloads
@@ -37,9 +37,9 @@
 .. |build| image:: https://badgen.net/#badge/build/error/red?icon=pypi
    :alt: Build Status
 
-.. |integration| image:: https://github.com/aimclub/Fedot.Industrial/workflows/Integration/badge.svg?branch=main
+.. |integration| image:: https://github.com/aimclub/Fedot.Industrial/actions/workflows/integration_tests.yml/badge.svg?branch=main
    :alt: Integration Tests Status
-   :target: https://github.com/aimclub/Fedot.Industrial/actions/workflows/integration-build.yml
+   :target: https://github.com/aimclub/Fedot.Industrial/actions/workflows/integration_tests.yml
 
 .. |coverage| image:: https://codecov.io/gh/aimclub/Fedot.Industrial/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/aimclub/Fedot.Industrial/
