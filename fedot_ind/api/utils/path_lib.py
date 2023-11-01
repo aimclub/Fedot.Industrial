@@ -9,8 +9,4 @@ PATH_TO_DEFAULT_PARAMS = os.path.join(PROJECT_PATH, 'fedot_ind/core/repository/d
 # For results collection
 DS_INFO_PATH = os.path.join(PROJECT_PATH, 'core', 'architecture', 'postprocessing', 'ucr_datasets.json')
 
-
-def default_path_to_save_results() -> str:
-    path = PROJECT_PATH
-    save_path = os.path.join(path, 'results_of_experiments')
-    return save_path
+DEFAULT_PATH_RESULTS = os.path.join(PROJECT_PATH, 'results_of_experiments')

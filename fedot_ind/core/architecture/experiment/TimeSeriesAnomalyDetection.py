@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import Dict, List, Union
 from typing import Optional
 
 import matplotlib.patches as mpatches
@@ -18,7 +18,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from matplotlib import pyplot as plt
 
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -53,7 +53,7 @@ class TimeSeriesAnomalyDetectionPreset:
         self.dataset_name = params.get('dataset')
         self.tuning_iterations = params.get('tuning_iterations', 30)
         self.tuning_timeout = params.get('tuning_timeout', 15.0)
-        self.output_folder = params.get('output_folder', default_path_to_save_results())
+        self.output_folder = params.get('output_folder', DEFAULT_PATH_RESULTS)
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
                                  generator_name='fedot_preset',

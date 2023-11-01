@@ -55,9 +55,9 @@ class TimeSeriesClassifier:
 
         self.logger.info('TimeSeriesClassifier initialised')
 
-    def fit(self, features: Union[np.ndarray, pd.DataFrame],
+    def fit(self, features: pd.DataFrame,
             target: np.ndarray,
-            **kwargs) -> object:
+            **kwargs) -> Fedot:
 
         baseline_type = kwargs.get('baseline_type', None)
         self.logger.info('Fitting model')
@@ -122,16 +122,16 @@ class TimeSeriesClassifier:
         return baseline_pipeline
 
     def predict(self, features: np.ndarray, **kwargs) -> np.ndarray:
-        self.prediction_label = self.__predict_abstraction(test_features=features, mode='labels', **kwargs)
+        self.prediction_label = self._predict_abstraction(test_features=features, mode='labels', **kwargs)
         return self.prediction_label
 
     def predict_proba(self, features: np.ndarray, **kwargs) -> np.ndarray:
-        self.prediction_proba = self.__predict_abstraction(test_features=features, mode='probs', **kwargs)
+        self.prediction_proba = self._predict_abstraction(test_features=features, mode='probs', **kwargs)
         return self.prediction_proba
 
-    def __predict_abstraction(self,
-                              test_features: Union[np.ndarray, pd.DataFrame],
-                              mode: str = 'labels', **kwargs):
+    def _predict_abstraction(self,
+                             test_features: Union[np.ndarray, pd.DataFrame],
+                             mode: str = 'labels', **kwargs):
         self.logger.info(f'Predicting with {self.strategy} generator')
 
         if self.test_features is None:
