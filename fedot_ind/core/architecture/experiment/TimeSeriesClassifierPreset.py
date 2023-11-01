@@ -161,18 +161,12 @@ class TimeSeriesClassifierPreset:
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
-        self.predictor = Fedot(available_operations=['scaling',
-                                                     'normalization',
-                                                     'xgboost',
-                                                     'rfr',
-                                                     'rf',
-                                                     'logit',
-                                                     'mlp',
-                                                     'knn',
-                                                     'lgbm',
-                                                     'pca'
-                                                     ],
-                               **self.model_params)
+        if self.model_params.get('available_operations') is None:
+            self.predictor = Fedot(available_operations=['scaling', 'normalization', 'xgboost', 'rfr',
+                                                         'rf', 'logit', 'mlp', 'knn', 'lgbm', 'pca'],
+                                   **self.model_params)
+        else:
+            self.predictor = Fedot(**self.model_params)
 
         self.predictor.fit(train_data_preprocessed)
 

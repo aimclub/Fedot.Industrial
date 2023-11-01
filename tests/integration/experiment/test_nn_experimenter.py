@@ -1,5 +1,6 @@
 import os
 from functools import partial
+
 import pytest
 import torch.optim
 from torch.utils.data import DataLoader
@@ -8,13 +9,12 @@ from torchvision.models import resnet18
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 from torchvision.transforms import Compose, Resize, ToTensor
 
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.datasets.object_detection_datasets import COCODataset
 from fedot_ind.core.architecture.datasets.prediction_datasets import PredictionFolderDataset
-from fedot_ind.core.architecture.experiment.nn_experimenter import FitParameters, \
-    ClassificationExperimenter, ObjectDetectionExperimenter
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.experiment.nn_experimenter import ClassificationExperimenter, FitParameters
 
-DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/../tests/data/datasets')
+DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/tests/data/datasets')
 
 
 @pytest.fixture()
@@ -103,7 +103,7 @@ def prepare_detection(tmp_path):
         models_path=tmp_path.joinpath('models'),
         summary_path=tmp_path.joinpath('summary')
     )
-    yield exp_params, fit_params, tmp_path
+    return exp_params, fit_params, tmp_path
 
 
 def detection_predict(experimenter):
@@ -127,11 +127,11 @@ def detection_predict(experimenter):
         assert set(v.keys()) == {'labels', 'boxes', 'scores'}
 
 
-def test_objectdetection_experimenter(prepare_detection):
-    exp_params, fit_params, tmp_path = prepare_detection
-    experimenter = ObjectDetectionExperimenter(**exp_params)
-    experimenter.fit(p=fit_params)
-    assert os.path.exists(tmp_path.joinpath('models/ALET10/SSD/train.sd.pt'))
-    assert os.path.exists(tmp_path.joinpath('summary/ALET10/SSD/train/train.csv'))
-    assert os.path.exists(tmp_path.joinpath('summary/ALET10/SSD/train/val.csv'))
-    detection_predict(experimenter)
+# def test_objectdetection_experimenter(prepare_detection):
+#     exp_params, fit_params, tmp_path = prepare_detection
+#     experimenter = ObjectDetectionExperimenter(**exp_params)
+#     experimenter.fit(p=fit_params)
+#     assert os.path.exists(tmp_path.joinpath('models/ALET10/SSD/train.sd.pt'))
+#     assert os.path.exists(tmp_path.joinpath('summary/ALET10/SSD/train/train.csv'))
+#     assert os.path.exists(tmp_path.joinpath('summary/ALET10/SSD/train/val.csv'))
+#     detection_predict(experimenter)

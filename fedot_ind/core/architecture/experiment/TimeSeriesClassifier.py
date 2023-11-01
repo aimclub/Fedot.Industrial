@@ -5,7 +5,6 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.data.data import array_to_input_data
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -61,7 +60,7 @@ class TimeSeriesClassifier:
             **kwargs) -> object:
 
         baseline_type = kwargs.get('baseline_type', None)
-        self.logger.info(f'Fitting model')
+        self.logger.info('Fitting model')
         self.y_train = target
         if self.generator_runner is None:
             raise AttributeError('Feature generator is not defined')
@@ -119,7 +118,7 @@ class TimeSeriesClassifier:
         baseline_pipeline = Pipeline(node_final)
         input_data = init_input_data(features, target)
         baseline_pipeline.fit(input_data)
-        self.logger.info(f'Baseline model has been fitted')
+        self.logger.info('Baseline model has been fitted')
         return baseline_pipeline
 
     def predict(self, features: np.ndarray, **kwargs) -> np.ndarray:

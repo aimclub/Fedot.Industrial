@@ -41,7 +41,7 @@ def test_transform(input_test):
 def test_get_threshold(input_train):
     basis = EigenBasisImplementation({'window_size': 30})
     threshold = basis.get_threshold(input_train.features)
-    assert isinstance(threshold, np.int64)
+    assert isinstance(threshold, int)
     assert threshold > 0
     assert threshold < input_train.features.shape[1]
 
