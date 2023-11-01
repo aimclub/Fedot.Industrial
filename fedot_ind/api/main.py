@@ -8,7 +8,7 @@ from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.configurator import Configurator
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -52,8 +52,8 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
-        kwargs.setdefault('output_folder', default_path_to_save_results())
-        Path(kwargs.get('output_folder', default_path_to_save_results())).mkdir(parents=True, exist_ok=True)
+        kwargs.setdefault('output_folder', DEFAULT_PATH_RESULTS)
+        Path(kwargs.get('output_folder', DEFAULT_PATH_RESULTS)).mkdir(parents=True, exist_ok=True)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
@@ -63,12 +63,8 @@ class FedotIndustrial(Fedot):
             ]
         )
         super(Fedot, self).__init__()
-
         self.logger = logging.getLogger('FedotIndustrialAPI')
-
-        # self.reporter = ReporterTSC()
         self.configurator = Configurator()
-
         self.config_dict = None
 
         self.__init_experiment_setup(**kwargs)
@@ -76,7 +72,6 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        # self.reporter.path_to_save = kwargs.get('output_folder')
         if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
             self.config_dict = kwargs
         else:
@@ -88,9 +83,6 @@ class FedotIndustrial(Fedot):
         if self.config_dict['task'] == 'ts_classification':
             if self.config_dict['strategy'] == 'fedot_preset':
                 solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-            # elif self.config_dict['strategy'] is None:
-            #     self.config_dict['strategy'] = 'InceptionTime'
-            #     solver = TaskEnum[self.config_dict['task']].value['nn']
             else:
                 solver = TaskEnum[self.config_dict['task']].value['default']
         elif self.config_dict['task'] == 'ts_forecasting':
