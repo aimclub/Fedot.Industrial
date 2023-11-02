@@ -151,7 +151,7 @@ Useful tutorials and examples can be found in the `examples`_ folder.
    * - Time series classification
      - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
    * - Time series regression
-     - `Example <google.com>`_
+     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/basic_example.py>`_, `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/advanced_regression.py>`_, `Multi-TS <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/multi_ts_example.py>`_
    * - Forecasting
      - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
    * - Anomaly detection
@@ -159,7 +159,7 @@ Useful tutorials and examples can be found in the `examples`_ folder.
    * - Computer vision
      - `Classification <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_classification_example.ipynb>`_, `Object detection <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/object_detection_example.ipynb>`_
    * - Model ensemble
-     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/ensembling/rank_ensemle.ipynb>`_
+     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
 
 
 R&D plans
