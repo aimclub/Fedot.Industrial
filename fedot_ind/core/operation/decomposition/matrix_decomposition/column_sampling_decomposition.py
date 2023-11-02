@@ -1,8 +1,6 @@
 from typing import Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
 
 
 class CURDecomposition:
@@ -40,10 +38,6 @@ class CURDecomposition:
         return c, u, r
 
     def reconstruct_basis(self, C, U, R, ts_length):
-        # if len(U.shape) > 1:
-        #     multi_reconstruction = lambda x: self.reconstruct_basis(C=C, U=U, R=x, ts_length=ts_length)
-        #     TS_comps = list(map(multi_reconstruction, R))
-        # else:
         rank = U.shape[1]
         TS_comps = np.zeros((ts_length, rank))
         for i in range(rank):
@@ -113,7 +107,6 @@ def get_random_sparse_matrix(size: tuple):
 
 if __name__ == '__main__':
     from fedot_ind.tools.loader import DataLoader
-    from tqdm import tqdm
 
     arr = np.array([[1, 1, 1, 0, 0],
                     [3, 3, 3, 0, 0],

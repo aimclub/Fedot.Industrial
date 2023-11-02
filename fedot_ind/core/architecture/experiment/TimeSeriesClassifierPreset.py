@@ -137,11 +137,9 @@ class TimeSeriesClassifierPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, target)
-
             self.preprocessing_pipeline = self._tune_pipeline(self.preprocessing_pipeline,
                                                               self.train_data)
             self.preprocessing_pipeline.fit(self.train_data)
-
             self.baseline_model = self.preprocessing_pipeline.nodes[0]
             self.preprocessing_pipeline.update_node(self.baseline_model, PipelineNode('cat_features'))
             self.baseline_model.nodes_from = []

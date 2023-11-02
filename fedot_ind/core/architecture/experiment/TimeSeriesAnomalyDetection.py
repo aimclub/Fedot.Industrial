@@ -186,12 +186,10 @@ class TimeSeriesAnomalyDetectionPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, anomaly_dict)
-            self.pre_pipeline = self._tune_pipeline(self.predictor,
-                                                    self.train_data)
-
-            self.pre_pipeline.fit(self.train_data)
-            # train_data_preprocessed = self.generator.root_node.predict(self.train_data)
-            train_data_preprocessed = self.pre_pipeline.root_node.predict(self.train_data)
+            self.preprocessing_pipeline = self._tune_pipeline(self.predictor,
+                                                              self.train_data)
+            self.preprocessing_pipeline.fit(self.train_data)
+            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
@@ -202,18 +200,12 @@ class TimeSeriesAnomalyDetectionPreset:
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
-        self.auto_model = Fedot(available_operations=['scaling',
-                                                      'normalization',
-                                                      'fast_ica',
-                                                      'xgboost',
-                                                      'rfr',
-                                                      'rf',
-                                                      'logit',
-                                                      'mlp',
-                                                      'knn',
-                                                      'lgbm',
-                                                      'pca'],
-                                **self.model_params)
+        if self.model_params.get('available_operations') is None:
+            self.auto_model = Fedot(available_operations=['scaling', 'normalization', 'fast_ica', 'xgboost',
+                                                          'rfr', 'rf', 'logit', 'mlp', 'knn', 'lgbm', 'pca'],
+                                    **self.model_params)
+        else:
+            self.auto_model = Fedot(**self.model_params)
 
         self.auto_model.fit(train_data_preprocessed)
         self.predictor = self.auto_model.current_pipeline
@@ -229,7 +221,7 @@ class TimeSeriesAnomalyDetectionPreset:
         """
 
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.pre_pipeline.root_node.predict(test_data)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
 
         if test_data.features.shape[0] == 1:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
@@ -247,7 +239,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
     def predict_proba(self, features) -> np.array:
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.pre_pipeline.predict(test_data)
+        test_data_preprocessed = self.preprocessing_pipeline.predict(test_data)
         test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,
