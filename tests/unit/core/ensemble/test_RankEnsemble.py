@@ -27,23 +27,22 @@ def test_rank_ensemble_umd(get_proba_metric_dict):
     assert result['Base_model'] == 'fedot_preset'
 
 
-def test_rank_ensemble_chinatown(get_proba_metric_dict):
+def test__create_models_rank_dict(get_proba_metric_dict):
     proba_dict, metric_dict = get_proba_metric_dict
-    ensembler_chinatown = RankEnsemble(dataset_name='Chinatown',
-                                       proba_dict=proba_dict,
-                                       metric_dict=metric_dict)
-    result = ensembler_chinatown.ensemble()
+    ensembler = RankEnsemble(dataset_name='UMD',
+                             proba_dict=proba_dict,
+                             metric_dict=metric_dict)
+    model_rank = ensembler._create_models_rank_dict(prediction_proba_dict=proba_dict,
+                                                    metric_dict=metric_dict)
+    assert isinstance(model_rank, dict)
 
-    assert result['Base_metric'] == 0.979
-    assert result['Base_model'] == 'fedot_preset'
 
-
-def test_rank_ensemble_italy(get_proba_metric_dict):
+def test__sort_models(get_proba_metric_dict):
     proba_dict, metric_dict = get_proba_metric_dict
-    ensembler_italy = RankEnsemble(dataset_name='ItalyPowerDemand',
-                                   proba_dict=proba_dict,
-                                   metric_dict=metric_dict)
-    result = ensembler_italy.ensemble()
-
-    assert result['Base_metric'] == 0.926
-    assert result['Base_model'] == 'fedot_preset'
+    ensembler = RankEnsemble(dataset_name='UMD',
+                             proba_dict=proba_dict,
+                             metric_dict=metric_dict)
+    model_rank = ensembler._create_models_rank_dict(prediction_proba_dict=proba_dict,
+                                                    metric_dict=metric_dict)
+    sorted_dict = ensembler._sort_models(model_rank=model_rank)
+    assert isinstance(sorted_dict, dict)

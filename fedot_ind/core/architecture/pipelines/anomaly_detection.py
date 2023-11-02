@@ -3,6 +3,7 @@ import pandas as pd
 from pymonad.list import ListMonad
 from pymonad.either import Right
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipelines
+from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 
 
 class AnomalyDetectionPipelines(AbstractPipelines):
@@ -66,7 +67,7 @@ class AnomalyDetectionPipelines(AbstractPipelines):
     def __functional_pca_pipeline(self, decomposition: str = 'svd', **kwargs):
         feature_extractor, detector, lambda_func_dict = self._init_pipeline_nodes(model_type='functional_pca',
                                                                                   **kwargs)
-        data_basis = DataDrivenBasis()
+        data_basis = EigenBasisImplementation()
         if kwargs['component'] is None:
             kwargs['component'] = [0 for i in range(self.train_features.shape[1])]
         if decomposition == 'tensor':
