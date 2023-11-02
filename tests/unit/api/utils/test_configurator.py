@@ -1,5 +1,4 @@
-import pytest
-from fedot_ind.api.utils.configurator import Configurator, IndustrialConfigs
+from fedot_ind.api.utils.configurator import Configurator
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 
 TASKS = ['ts_classification', 'ts_regression', 'anomaly_detection']
@@ -58,7 +57,3 @@ def test_init_experiment_setup_preset():
     assert setup['tuning_iters'] == 5
     assert setup['tuning_timeout'] == 15
     assert setup['output_folder'] == 'output_folder'
-
-
-def test_get_generator_class():
-    pass

@@ -22,7 +22,7 @@ def sample_results():
     baseline_metrics = {'roc_auc': np.random.rand(1),
                         'f1': np.random.rand(1),
                         'accuracy': np.random.rand(1)}
-    return {'labels': labels, 'probs': probs, 'metrics': metrics, 'baseline_metrics':baseline_metrics}
+    return {'labels': labels, 'probs': probs, 'metrics': metrics, 'baseline_metrics': baseline_metrics}
 
 
 @pytest.mark.parametrize('path', [CUSTOM_PATH, DEFAULT_PATH_RESULTS])
@@ -59,7 +59,7 @@ def test_save(prediction_type, sample_results):
 
     if prediction_type in ('metrics', 'baseline_metrics'):
         for m in ['roc_auc', 'f1', 'accuracy']:
-            assert saved_data[m][0] , results[prediction_type][m][0]
+            assert saved_data[m][0], results[prediction_type][m][0]
     elif prediction_type in ('labels', 'probs'):
         arr = saved_data.values
         assert np.allclose(arr, results[prediction_type], rtol=1.e-3)
