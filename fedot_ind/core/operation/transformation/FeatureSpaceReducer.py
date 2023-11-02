@@ -28,9 +28,6 @@ class FeatureSpaceReducer:
 
         final_feature_space_size = features_new.shape[1]
 
-        if init_feature_space_size != final_feature_space_size:
-            self.logger.info(f'Feature space reduced from {init_feature_space_size} to {final_feature_space_size}')
-
         return features_new
 
     def _drop_correlated_features(self, corr_threshold, features):
@@ -47,7 +44,6 @@ class FeatureSpaceReducer:
             drops = np.union1d(drops, index_of_corr_feature)
 
         if len(drops) == 0:
-            self.logger.info('No correlated features found')
             return features
 
         features_new = features.copy()
@@ -63,9 +59,3 @@ class FeatureSpaceReducer:
         except ValueError:
             self.logger.info('Variance reducer has not found any features with low variance')
         return features
-
-    def validate_window_size(self, ts: np.ndarray):
-        if self.window_size is None or self.window_size > ts.shape[0] / 2:
-            self.logger.info('Window size is not defined or too big (> ts_length/2)')
-            self.window_size, _ = WindowSizeSelector(time_series=ts).get_window_size()
-            self.logger.info(f'Window size was set to {self.window_size}')
