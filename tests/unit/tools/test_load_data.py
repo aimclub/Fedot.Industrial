@@ -1,6 +1,14 @@
 from fedot_ind.tools.loader import DataLoader
 
 
+def test_init_loader():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    assert loader.dataset_name == ds_name
+    assert loader.folder == path
+
+
 def test_load_multivariate_data():
     train_data, test_data = DataLoader('Epilepsy').load_data()
     x_train, y_train = train_data
