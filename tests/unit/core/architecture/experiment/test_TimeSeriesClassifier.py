@@ -59,8 +59,8 @@ def test_init(classifier):
     assert classifier.dataset_name == 'Ham'
     assert classifier.logger.name == 'TimeSeriesClassifier'
 
-    none_cls_attrs = [_ for _ in classifier.__dict__.keys() if _ not in ['strategy', 'dataset_name',
-                                                                         'logger', 'saver', 'datacheck','output_folder']]
+    none_cls_attrs = [_ for _ in classifier.__dict__.keys() if _ not in ['strategy', 'dataset_name', 'logger', 'saver',
+                                                                         'datacheck', 'output_folder']]
     cls_attrs = ['strategy', 'dataset_name', 'logger',
                  'saver', 'datacheck', 'output_folder']
 
@@ -164,5 +164,3 @@ def test_save_metrics(classifier):
     classifier.save_metrics(metrics=dict(f1=0.5, roc_auc=0.4))
     expected_file_path = os.path.join(classifier.saver.path, 'metrics.csv')
     assert os.path.isfile(expected_file_path)
-
-
