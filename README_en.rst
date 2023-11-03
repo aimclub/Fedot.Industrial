@@ -169,8 +169,15 @@ Real world cases
 
 Building energy consumption
 ----------------------------
-Link to the dataset on `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
-Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
+
+.. list-table::
+   :widths: 100 60
+   :header-rows: 1
+
+   * - Link to dataset
+     - Solution
+   * - `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
+     - `Notebook <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
 
 Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
 
@@ -181,10 +188,6 @@ Dimensions correspond to the air temperature, dew temperature, wind direction an
 The goal is to estimate the **energy consumption in kWh**
 
 Results:
-
-.. role:: green
-   :class: green-highlight
-
 
 .. list-table::
    :widths: 100 60
