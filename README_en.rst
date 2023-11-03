@@ -180,6 +180,8 @@ Features:
 
 The target value is the **weekly averaged PM10**
 
+================================================================================
+
 R&D plans
 =========
 
