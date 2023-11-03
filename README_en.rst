@@ -181,7 +181,7 @@ Building energy consumption
 
 Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
 
-.. image:: /docs/img/building_energy_consumption.svg
+.. image:: /docs/img/building_energy.svg
     :align: center
     :alt: madrid results
 
