@@ -178,6 +178,7 @@ Features:
     :align: left
     :alt: madrid results
 
+The target value is the **weekly averaged PM10**
 
 R&D plans
 =========
