@@ -174,8 +174,7 @@ Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/decide-solucione
 Features:
 
 .. image:: /docs/img/madrid.svg
-    :width: 600px
-    :align: left
+    :align: center
     :alt: madrid results
 
 The target value is the **weekly averaged PM10**
