@@ -170,14 +170,9 @@ Real world cases
 Building energy consumption
 ----------------------------
 
-.. list-table::
-   :widths: 100 60
-   :header-rows: 1
+Link to the dataset on `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
 
-   * - Link to dataset
-     - Solution
-   * - `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
-     - `Notebook <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
+Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
 
 Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
 
@@ -215,6 +210,7 @@ Results:
 Permanent magnet synchronous motor (PMSM) rotor temperature
 -----------------------------------------------------------
 Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/wkirgsn/electric-motor-temperature>`_
+
 Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/d3d5a4ddc2f4861622b6329261fc7b87396e0a6d/cases/industrial_examples/equipment_monitoring/motor_temperature.ipynb>`_
 
 Sample features:
