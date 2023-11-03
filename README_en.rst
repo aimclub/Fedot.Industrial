@@ -178,6 +178,7 @@ Features:
     :align: left
     :alt: madrid results
 
+
 R&D plans
 =========
 
