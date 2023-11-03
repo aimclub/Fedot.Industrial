@@ -167,17 +167,66 @@ Useful tutorials and examples can be found in the `examples`_ folder.
 Real world cases
 ================
 
-Air quality in Madrid
----------------------
-Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/decide-soluciones/air-quality-madrid>`_
+Building energy consumption
+----------------------------
+Link to the dataset on `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
+Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
 
-Features:
 
-.. image:: /docs/img/madrid.svg
+Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
+
+.. image:: /docs/img/building_energy_consumption.svg
     :align: center
     :alt: madrid results
 
-The target value is the **weekly averaged PM10**
+The goal is to estimate the **energy consumption in kWh**
+
+Results:
+
+.. role:: green
+   :class: green-highlight
+
+
+.. list-table::
+   :widths: 100 60 60 60
+   :header-rows: 1
+
+   * - Algorithm
+     - RMSE_min
+     - RMSE_max
+     - RMSE_average
+   * - FPCR_RMSE
+     - 399.460
+     - 522.998
+     - 455.941
+   * - Grid-SVR_RMSE
+     - 390.641
+     - 553.667
+     - 464.389
+   * - FPCR-Bs_RMSE
+     - 408.200
+     - 537.382
+     - 465.844
+   * - 5NN-DTW_RMSE
+     - 407.791
+     - 546.982
+     - 469.378
+   * - CNN_RMSE
+     - 387.617
+     - 561.795
+     - 484.637
+   * - |green| Fedot_Industrial_AutoML
+     - |green| 484.020
+     - |green| 488.938
+     - |green| 486.398
+   * - Fedot_Industrial_tuned
+     - 491.323
+     - 491.323
+     - 491.323
+   * - Fedot_Industrial_baseline
+     - 492.793
+     - 492.793
+     - 492.793
 
 ================================================================================
 
