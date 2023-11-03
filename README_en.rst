@@ -172,7 +172,6 @@ Building energy consumption
 Link to the dataset on `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
 Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
 
-
 Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
 
 .. image:: /docs/img/building_energy_consumption.svg
@@ -188,45 +187,61 @@ Results:
 
 
 .. list-table::
-   :widths: 100 60 60 60
+   :widths: 100 60
    :header-rows: 1
 
    * - Algorithm
-     - RMSE_min
-     - RMSE_max
      - RMSE_average
    * - FPCR_RMSE
-     - 399.460
-     - 522.998
      - 455.941
    * - Grid-SVR_RMSE
-     - 390.641
-     - 553.667
      - 464.389
    * - FPCR-Bs_RMSE
-     - 408.200
-     - 537.382
      - 465.844
    * - 5NN-DTW_RMSE
-     - 407.791
-     - 546.982
      - 469.378
    * - CNN_RMSE
-     - 387.617
-     - 561.795
      - 484.637
-   * - |green| Fedot_Industrial_AutoML
-     - |green| 484.020
-     - |green| 488.938
-     - |green| 486.398
-   * - Fedot_Industrial_tuned
-     - 491.323
-     - 491.323
-     - 491.323
+   * - **Fedot_Industrial**
+     - **486.398**
+   * - RDST_RMSE
+     - 527.927
+   * - RandF_RMSE
+     - 527.343
+
+Permanent magnet synchronous motor (PMSM) rotor temperature
+-----------------------------------------------------------
+Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/wkirgsn/electric-motor-temperature>`_
+Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/d3d5a4ddc2f4861622b6329261fc7b87396e0a6d/cases/industrial_examples/equipment_monitoring/motor_temperature.ipynb>`_
+
+Sample features:
+
+.. image:: docs/img/motor_temp.svg
+    :align: center
+    :alt: madrid results
+
+Results:
+
+.. list-table::
+   :widths: 100 70
+   :header-rows: 1
+
+   * - Algorithm
+     - RMSE_average
+   * - **Fedot_Industrial_AutoML**
+     - **1.158612**
+   * - FreshPRINCE_RMSE
+     - 1.490442
+   * - RIST_RMSE
+     - 1.501047
    * - Fedot_Industrial_baseline
-     - 492.793
-     - 492.793
-     - 492.793
+     - 1.538009
+   * - RotF_RMSE
+     - 1.559385
+   * - DrCIF_RMSE
+     - 1.594442
+   * - TSF_RMSE
+     - 1.684828
 
 ================================================================================
 
