@@ -216,9 +216,9 @@ Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Ind
 
 Sample features:
 
-.. image:: docs/img/motor_temp.svg
+.. image:: /docs/img/motor_temp.svg
     :align: center
-    :alt: madrid results
+    :alt: motor results
 
 Results:
 
