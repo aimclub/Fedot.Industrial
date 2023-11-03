@@ -1,6 +1,6 @@
 .. image:: /docs/img/fedot-industrial.png
     :width: 600px
-    :align: left
+    :align: center
     :alt: Fedot Industrial logo
 
 ================================================================================
@@ -14,8 +14,8 @@
      - | |version| |python|
    * - CI/CD
      - | |coverage| |mirror| |integration|
-   * - Docs
-     - |docs|
+   * - Docs & Examples
+     - |docs| |binder|
    * - Downloads
      - | |downloads|
    * - Support
@@ -51,6 +51,9 @@
 .. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
     :target: https://fedotindustrial.readthedocs.io/en/latest/
     :alt: Documentation Status
+
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+    :target: https://mybinder.org/v2/gh/aimclub/Fedot.Industrial/HEAD
 
 .. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
     :target: https://pepy.tech/project/fedot-ind
@@ -161,6 +164,18 @@ Useful tutorials and examples can be found in the `examples`_ folder.
    * - Model ensemble
      - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
 
+Real world cases
+================
+
+Air quality in Madrid
+---------------------
+Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/decide-soluciones/air-quality-madrid>`_
+
+Features:
+.. image:: /docs/img/madrid.svg
+    :width: 600px
+    :align: left
+    :alt: madrid results
 
 R&D plans
 =========

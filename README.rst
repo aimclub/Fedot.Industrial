@@ -14,8 +14,8 @@
      - | |version| |python|
    * - CI/CD
      - |  |coverage| |mirror| |integration|
-   * - Документация
-     - |docs|
+   * - Документация и примеры
+     - |docs| |binder|
    * - Статистика загрузок
      - | |downloads|
    * - Подержка
@@ -51,6 +51,9 @@
 .. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
     :target: https://fedotindustrial.readthedocs.io/en/latest/
     :alt: Documentation Status
+
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+    :target: https://mybinder.org/v2/gh/aimclub/Fedot.Industrial/HEAD
 
 .. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
     :target: https://pepy.tech/project/fedot-ind
