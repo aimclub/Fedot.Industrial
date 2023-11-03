@@ -172,6 +172,7 @@ Air quality in Madrid
 Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/decide-soluciones/air-quality-madrid>`_
 
 Features:
+
 .. image:: /docs/img/madrid.svg
     :width: 600px
     :align: left
