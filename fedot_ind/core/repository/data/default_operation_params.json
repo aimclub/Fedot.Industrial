@@ -193,5 +193,9 @@
   },
   "minirocket_extractor": {
     "num_features": 10000
+  },
+  "inception_model": {
+    "epochs": 100,
+    "batch_size": 10
   }
 }

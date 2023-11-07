@@ -147,8 +147,10 @@ class TensorConverter:
             return data
         elif isinstance(data, np.ndarray):
             return torch.from_numpy(data)
-        elif isinstance(data, pd.dataFrame):
+        elif isinstance(data, pd.DataFrame):
             return torch.from_numpy(data.values)
+        elif isinstance(data, InputData):
+            return torch.from_numpy(data.features)
         else:
             try:
                 return torch.tensor(data)
@@ -190,9 +192,11 @@ class NumpyConverter:
         if isinstance(data, np.ndarray):
             return data
         elif isinstance(data, torch.Tensor):
-            return data.cpu().numpy()
-        elif isinstance(data, pd.dataFrame):
+            return data.detach().numpy()
+        elif isinstance(data, pd.DataFrame):
             return data.values
+        elif isinstance(data, InputData):
+            return data.features
         else:
             try:
                 return np.asarray(data)

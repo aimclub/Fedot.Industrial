@@ -208,7 +208,6 @@ class MiniRocketHead(nn.Sequential):
             [('backbone', nn.Sequential()), ('head', head)]))
 
 
-# %% ../../nbs/056_models.MINIROCKET_Pytorch.ipynb 7
 class MiniRocket(nn.Sequential):
     def __init__(self,
                  input_dim,
@@ -320,13 +319,17 @@ class MiniRocketExtractor(BaseExtractor):
 
 if __name__ == "__main__":
     # # Offline feature calculation
-    train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
+    train_data, test_data = DataLoader(dataset_name='Earthquakes').load_data()
     input_data = init_input_data(train_data[0], train_data[1])
     val_data = init_input_data(test_data[0], test_data[1])
 
     with IndustrialModels():
-        pipeline = PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 500}).add_node(
-            'fedot_cls', params={'timeout': 10}).build()
+        pipeline = PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 10000}). \
+            add_node('fedot_cls', params={'timeout': 10,
+                                          'logging_level': 20,
+                                          'n_jobs':4}).build()
+        # pipeline = PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 10000}). \
+        #     add_node('logit').build()
         pipeline.fit(input_data)
         features = pipeline.predict(val_data).predict
         metric = evaluate_metric(target=test_data[1], prediction=features)

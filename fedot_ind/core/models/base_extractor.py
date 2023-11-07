@@ -29,7 +29,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.stride = None
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
-        self.use_cache = params.get('use_cache', False)
+        self.use_cache = params.get('use_cache', False) if params is not None else False
         self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
@@ -59,7 +59,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         predict = self._clean_predict(np.array([ts.features for ts in feature_matrix]))
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
         return predict
-
 
     def _clean_predict(self, predict: np.array):
         """Clean predict from nan, inf and reshape data for Fedot appropriate form

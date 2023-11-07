@@ -149,6 +149,22 @@
       ],
       "description": "Implementations of fedot automl classification strategy"
     },
+    "fedot_NN_classification": {
+      "tasks": "[TaskTypesEnum.classification]",
+      "input_type": "[DataTypesEnum.image]",
+      "output_type": "[DataTypesEnum.table]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.models.nn.fedot_evaluation_strategy",
+        "FedotNNClassificationStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of fedot NN classification strategy"
+    },
     "fedot_automl_regression": {
       "tasks": "[TaskTypesEnum.regression]",
       "input_type": "[DataTypesEnum.table]",
@@ -188,6 +204,15 @@
     },
     "fedot_regr": {
       "meta": "fedot_automl_regression",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+        "automl"
+      ]
+    },
+    "inception_model": {
+      "meta": "fedot_NN_classification",
       "presets": [
         "best_quality"
       ],

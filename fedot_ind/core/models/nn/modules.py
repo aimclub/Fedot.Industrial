@@ -1,15 +1,23 @@
+from functools import partial
+from numbers import Integral
+from typing import Optional
+
+import numpy as np
 import torch
+from torch import Tensor
 import torch.nn as nn
 from torch.nn.utils import weight_norm, spectral_norm
 from torch.nn.init import normal_
+import torch.nn.functional as F
+
 from fastai.layers import *
 from fastai.losses import *
-from torch import Tensor
-# from fastcore.basics import snake2camel
-# from fastcore.test import test_eq
+from fastai.torch_core import Module
 
-# from ..imports import *
-# from ..utils import *
+from fastcore.meta import delegates
+from fastcore.basics import snake2camel
+from fastcore.test import test_eq
+
 
 
 def correct_sizes(sizes):
@@ -119,7 +127,6 @@ def init_lin_zero(m):
 lin_zero_init = init_lin_zero
 
 
-# %% ../../nbs/029_models.layers.ipynb 7
 class SwishBeta(Module):
     def __multiinit__(self, beta=1.):
         self.sigmoid = torch.sigmoid
@@ -218,7 +225,7 @@ class Conv2dSame(Module):
         return self.conv2d_same(self.pad(self.padding)(x))
 
 
-# @delegates(nn.Conv2d.__init__)
+@delegates(nn.Conv2d.__init__)
 def Conv2d(ni, nf, kernel_size=None, ks=None, stride=1, padding='same', dilation=1, init='auto', bias_std=0.01,
            **kwargs):
     "conv1d layer with padding='same', 'valid', or any integer (defaults to 'same')"
@@ -235,7 +242,6 @@ def Conv2d(ni, nf, kernel_size=None, ks=None, stride=1, padding='same', dilation
     return conv
 
 
-# %% ../../nbs/029_models.layers.ipynb 13
 class CausalConv1d(torch.nn.Conv1d):
     def __init__(self, ni, nf, ks, stride=1, dilation=1, groups=1, bias=True):
         super(CausalConv1d, self).__init__(ni, nf, kernel_size=ks, stride=stride, padding=0, dilation=dilation,
@@ -246,8 +252,7 @@ class CausalConv1d(torch.nn.Conv1d):
         return super(CausalConv1d, self).forward(F.pad(input, (self.__padding, 0)))
 
 
-# %% ../../nbs/029_models.layers.ipynb 14
-# @delegates(nn.Conv1d.__init__)
+@delegates(nn.Conv1d.__init__)
 def Conv1d(ni, nf, kernel_size=None, ks=None, stride=1, padding='same', dilation=1, init='auto', bias_std=0.01,
            **kwargs):
     "conv1d layer with padding='same', 'causal', 'valid', or any integer (defaults to 'same')"
@@ -270,7 +275,6 @@ def Conv1d(ni, nf, kernel_size=None, ks=None, stride=1, padding='same', dilation
     return conv
 
 
-# %% ../../nbs/029_models.layers.ipynb 21
 class SeparableConv1d(Module):
     def __init__(self, ni, nf, ks, stride=1, padding='same', dilation=1, bias=True, bias_std=0.01):
         self.depthwise_conv = Conv1d(ni, ni, ks, stride=stride, padding=padding, dilation=dilation, groups=ni,
@@ -290,7 +294,6 @@ class SeparableConv1d(Module):
         return x
 
 
-# %% ../../nbs/029_models.layers.ipynb 23
 class AddCoords1d(Module):
     """Add coordinates to ease position identification without modifying mean and std"""
 
@@ -302,7 +305,6 @@ class AddCoords1d(Module):
         return x
 
 
-# %% ../../nbs/029_models.layers.ipynb 25
 class ConvBlock(nn.Sequential):
     "Create a sequence of conv1d (`ni` to `nf`), activation (if `act_cls`) and `norm_type` layers."
 
@@ -339,43 +341,42 @@ class ConvBlock(nn.Sequential):
         super().__init__(*layers)
 
 
-Conv = named_partial('Conv', ConvBlock, norm=None, act=None)
-ConvBN = named_partial('ConvBN', ConvBlock, norm='Batch', act=None)
-CoordConv = named_partial('CoordConv', ConvBlock, norm=None, act=None, coord=True)
-SepConv = named_partial('SepConv', ConvBlock, norm=None, act=None, separable=True)
+# Conv = named_partial('Conv', ConvBlock, norm=None, act=None)
+# ConvBN = named_partial('ConvBN', ConvBlock, norm='Batch', act=None)
+# CoordConv = named_partial('CoordConv', ConvBlock, norm=None, act=None, coord=True)
+# SepConv = named_partial('SepConv', ConvBlock, norm=None, act=None, separable=True)
 
 
-# %% ../../nbs/029_models.layers.ipynb 26
-class ResBlock1dPlus(Module):
-    "Resnet block from `ni` to `nh` with `stride`"
-
-    #     @delegates(ConvLayer.__init__)
-    def __init__(self, expansion, ni, nf, coord=False, stride=1, groups=1, reduction=None, nh1=None, nh2=None, dw=False,
-                 g2=1,
-                 sa=False, sym=False, norm='Batch', zero_norm=True, act_cls=defaults.activation, ks=3,
-                 pool=AvgPool, pool_first=True, **kwargs):
-        if nh2 is None: nh2 = nf
-        if nh1 is None: nh1 = nh2
-        nf, ni = nf * expansion, ni * expansion
-        k0 = dict(norm=norm, zero_norm=False, act=act_cls, **kwargs)
-        k1 = dict(norm=norm, zero_norm=zero_norm, act=None, **kwargs)
-        convpath = [ConvBlock(ni, nh2, ks, coord=coord, stride=stride, groups=ni if dw else groups, **k0),
-                    ConvBlock(nh2, nf, ks, coord=coord, groups=g2, **k1)
-                    ] if expansion == 1 else [
-            ConvBlock(ni, nh1, 1, coord=coord, **k0),
-            ConvBlock(nh1, nh2, ks, coord=coord, stride=stride, groups=nh1 if dw else groups, **k0),
-            ConvBlock(nh2, nf, 1, coord=coord, groups=g2, **k1)]
-        if reduction: convpath.append(SEModule(nf, reduction=reduction, act_cls=act_cls))
-        if sa: convpath.append(SimpleSelfAttention(nf, ks=1, sym=sym))
-        self.convpath = nn.Sequential(*convpath)
-        idpath = []
-        if ni != nf: idpath.append(ConvBlock(ni, nf, 1, coord=coord, act=None, **kwargs))
-        if stride != 1: idpath.insert((1, 0)[pool_first], pool(stride, ndim=1, ceil_mode=True))
-        self.idpath = nn.Sequential(*idpath)
-        self.act = defaults.activation(inplace=True) if act_cls is defaults.activation else act_cls()
-
-    def forward(self, x):
-        return self.act(self.convpath(x) + self.idpath(x))
+# class ResBlock1dPlus(Module):
+#     "Resnet block from `ni` to `nh` with `stride`"
+#
+#     @delegates(ConvLayer.__init__)
+#     def __init__(self, expansion, ni, nf, coord=False, stride=1, groups=1, reduction=None, nh1=None, nh2=None, dw=False,
+#                  g2=1,
+#                  sa=False, sym=False, norm='Batch', zero_norm=True, act_cls=defaults.activation, ks=3,
+#                  pool=AvgPool, pool_first=True, **kwargs):
+#         if nh2 is None: nh2 = nf
+#         if nh1 is None: nh1 = nh2
+#         nf, ni = nf * expansion, ni * expansion
+#         k0 = dict(norm=norm, zero_norm=False, act=act_cls, **kwargs)
+#         k1 = dict(norm=norm, zero_norm=zero_norm, act=None, **kwargs)
+#         convpath = [ConvBlock(ni, nh2, ks, coord=coord, stride=stride, groups=ni if dw else groups, **k0),
+#                     ConvBlock(nh2, nf, ks, coord=coord, groups=g2, **k1)
+#                     ] if expansion == 1 else [
+#             ConvBlock(ni, nh1, 1, coord=coord, **k0),
+#             ConvBlock(nh1, nh2, ks, coord=coord, stride=stride, groups=nh1 if dw else groups, **k0),
+#             ConvBlock(nh2, nf, 1, coord=coord, groups=g2, **k1)]
+#         if reduction: convpath.append(SEModule(nf, reduction=reduction, act_cls=act_cls))
+#         if sa: convpath.append(SimpleSelfAttention(nf, ks=1, sym=sym))
+#         self.convpath = nn.Sequential(*convpath)
+#         idpath = []
+#         if ni != nf: idpath.append(ConvBlock(ni, nf, 1, coord=coord, act=None, **kwargs))
+#         if stride != 1: idpath.insert((1, 0)[pool_first], pool(stride, ndim=1, ceil_mode=True))
+#         self.idpath = nn.Sequential(*idpath)
+#         self.act = defaults.activation(inplace=True) if act_cls is defaults.activation else act_cls()
+#
+#     def forward(self, x):
+#         return self.act(self.convpath(x) + self.idpath(x))
 
 
 # %% ../../nbs/029_models.layers.ipynb 27
@@ -594,7 +595,6 @@ class DropPath(nn.Module):
         return output
 
 
-# %% ../../nbs/029_models.layers.ipynb 40
 class Sharpen(Module):
     "This is used to increase confidence in predictions - MixMatch paper"
 
@@ -605,7 +605,6 @@ class Sharpen(Module):
         return x / x.sum(dim=1, keepdims=True)
 
 
-# %% ../../nbs/029_models.layers.ipynb 42
 class Sequential(nn.Sequential):
     """Class that allows you to pass one or multiple inputs"""
 
@@ -615,7 +614,6 @@ class Sequential(nn.Sequential):
         return x
 
 
-# %% ../../nbs/029_models.layers.ipynb 43
 class TimeDistributed(nn.Module):
     def __init__(self, module, batch_first=False):
         super(TimeDistributed, self).__init__()
@@ -641,12 +639,11 @@ class TimeDistributed(nn.Module):
         return y
 
 
-# %% ../../nbs/029_models.layers.ipynb 44
 class Temp_Scale(Module):
     "Used to perform Temperature Scaling (dirichlet=False) or Single-parameter Dirichlet calibration (dirichlet=True)"
 
     def __init__(self, temp=1., dirichlet=False):
-        self.weight = nn.Parameter(tensor(temp))
+        self.weight = nn.Parameter(Tensor(temp))
         self.bias = None
         self.log_softmax = dirichlet
 
@@ -686,7 +683,7 @@ class Matrix_Scale(Module):
 
 def get_calibrator(calibrator=None, n_classes=1, **kwargs):
     if calibrator is None or not calibrator:
-        return noop
+        return Noop
     elif calibrator.lower() == 'temp':
         return Temp_Scale(dirichlet=False, **kwargs)
     elif calibrator.lower() == 'vector':
@@ -703,7 +700,6 @@ def get_calibrator(calibrator=None, n_classes=1, **kwargs):
         assert False, f'please, select a correct calibrator instead of {calibrator}'
 
 
-# %% ../../nbs/029_models.layers.ipynb 49
 class LogitAdjustmentLayer(Module):
     "Logit Adjustment for imbalanced datasets"
 
@@ -717,7 +713,6 @@ class LogitAdjustmentLayer(Module):
 LogitAdjLayer = LogitAdjustmentLayer
 
 
-# %% ../../nbs/029_models.layers.ipynb 51
 class PPV(Module):
     def __init__(self, dim=-1):
         self.dim = dim
@@ -755,7 +750,14 @@ class AdaptiveWeightedAvgPool1d(Module):
     It can be considered as a channel-wise form of local temporal attention. Inspired by the paper:
     Hyun, J., Seong, H., & Kim, E. (2019). Universal Pooling--A New Pooling Method for Convolutional Neural Networks. arXiv preprint arXiv:1907.11440.'''
 
-    def __init__(self, n_in, seq_len, mult=2, n_layers=2, ln=False, dropout=0.5, act=nn.ReLU(), zero_init=True):
+    def __init__(self, n_in,
+                 seq_len,
+                 mult=2,
+                 n_layers=2,
+                 ln=False,
+                 dropout=0.5,
+                 act=nn.ReLU(),
+                 zero_init=True):
         layers = nn.ModuleList()
         for i in range(n_layers):
             inp_mult = mult if i > 0 else 1
@@ -774,7 +776,7 @@ class AdaptiveWeightedAvgPool1d(Module):
         return torch.mul(x, wap).sum(-1)
 
 
-# %% ../../nbs/029_models.layers.ipynb 54
+
 class GAP1d(Module):
     "Global Adaptive Pooling + Flatten"
 
@@ -800,8 +802,19 @@ class GACP1d(Module):
 class GAWP1d(Module):
     "Global AdaptiveWeightedAvgPool1d + Flatten"
 
-    def __init__(self, n_in, seq_len, n_layers=2, ln=False, dropout=0.5, act=nn.ReLU(), zero_init=False):
-        self.gacp = AdaptiveWeightedAvgPool1d(n_in, seq_len, n_layers=n_layers, ln=ln, dropout=dropout, act=act,
+    def __init__(self, n_in,
+                 seq_len,
+                 n_layers=2,
+                 ln=False,
+                 dropout=0.5,
+                 act=nn.ReLU(),
+                 zero_init=False):
+        self.gacp = AdaptiveWeightedAvgPool1d(n_in,
+                                              seq_len,
+                                              n_layers=n_layers,
+                                              ln=ln,
+                                              dropout=dropout,
+                                              act=act,
                                               zero_init=zero_init)
         self.flatten = Reshape()
 
@@ -809,7 +822,6 @@ class GAWP1d(Module):
         return self.flatten(self.gacp(x))
 
 
-# %% ../../nbs/029_models.layers.ipynb 55
 class GlobalWeightedAveragePool1d(Module):
     """ Global Weighted Average Pooling layer
 
@@ -834,7 +846,7 @@ def gwa_pool_head(n_in, c_out, seq_len, bn=True, fc_dropout=0.):
                          LinBnDrop(n_in, c_out, p=fc_dropout, bn=bn))
 
 
-# %% ../../nbs/029_models.layers.ipynb 57
+
 class AttentionalPool1d(Module):
     """Global Adaptive Pooling layer inspired by Attentional Pooling for Action Recognition https://arxiv.org/abs/1711.01467"""
 
@@ -858,7 +870,6 @@ def attentional_pool_head(n_in, c_out, seq_len=None, bn=True, **kwargs):
     return nn.Sequential(AttentionalPool1d(n_in, c_out, bn=bn, **kwargs), Reshape())
 
 
-# %% ../../nbs/029_models.layers.ipynb 60
 class PoolingLayer(Module):
     def __init__(self, method='cls', seq_len=None, token=True, seq_last=True):
         method = method.lower()
@@ -891,7 +902,6 @@ class PoolingLayer(Module):
         return f"{self.__class__.__name__}(method={self.method}, token={self.token}, seq_last={self.seq_last})"
 
 
-# %% ../../nbs/029_models.layers.ipynb 63
 class GEGLU(Module):
     def forward(self, x):
         x, gates = x.chunk(2, dim=-1)
@@ -904,10 +914,22 @@ class ReGLU(Module):
         return x * F.relu(gates)
 
 
-# %% ../../nbs/029_models.layers.ipynb 64
-pytorch_acts = [nn.ELU, nn.LeakyReLU, nn.PReLU, nn.ReLU, nn.ReLU6, nn.SELU, nn.CELU, nn.GELU, nn.Sigmoid, Mish,
+pytorch_acts = [nn.ELU,
+                nn.LeakyReLU,
+                nn.PReLU,
+                nn.ReLU,
+                nn.ReLU6,
+                nn.SELU,
+                nn.CELU,
+                nn.GELU,
+                nn.Sigmoid,
+                Mish,
                 nn.Softplus,
-                nn.Tanh, nn.Softmax, GEGLU, ReGLU, SmeLU]
+                nn.Tanh,
+                nn.Softmax,
+                GEGLU,
+                ReGLU,
+                SmeLU]
 pytorch_act_names = [a.__name__.lower() for a in pytorch_acts]
 
 
@@ -989,67 +1011,6 @@ class RevIN(nn.Module):
             x = x.add(self.sub)
             return x
 
-
-# %% ../../nbs/029_models.layers.ipynb 67
-class RevIN(nn.Module):
-    """ Reversible Instance Normalization layer adapted from
-
-        Kim, T., Kim, J., Tae, Y., Park, C., Choi, J. H., & Choo, J. (2021, September).
-        Reversible instance normalization for accurate time-series forecasting against distribution shift.
-        In International Conference on Learning Representations.
-        Original code: https://github.com/ts-kim/RevIN
-    """
-
-    def __init__(self,
-                 c_in: int,  # #features (aka variables or channels)
-                 affine: bool = True,  # flag to incidate if RevIN has learnable weight and bias
-                 subtract_last: bool = False,
-                 dim: int = 2,  # int or tuple of dimensions used to calculate mean and std
-                 eps: float = 1e-5  # epsilon - parameter added for numerical stability
-                 ):
-        super().__init__()
-        self.c_in, self.affine, self.subtract_last, self.dim, self.eps = c_in, affine, subtract_last, dim, eps
-        self.weight = nn.Parameter(torch.ones(1, c_in, 1))
-        self.bias = nn.Parameter(torch.zeros(1, c_in, 1))
-        self.sub, self.std, self.mul, self.add = torch.zeros(1), torch.ones(1), torch.ones(1), torch.zeros(1)
-
-    def forward(self, x: Tensor, mode: Tensor):
-        """Args:
-
-            x: rank 3 tensor with shape [batch size x c_in x sequence length]
-            mode: torch.tensor(True) to normalize data and torch.tensor(False) to reverse normalization
-        """
-
-        # Normalize
-        if mode:
-            if self.subtract_last:
-                self.sub = x[..., -1].unsqueeze(-1).detach()
-            else:
-                self.sub = torch.mean(x, dim=-1, keepdim=True).detach()
-            self.std = torch.std(x, dim=-1, keepdim=True, unbiased=False).detach() + self.eps
-            if self.affine:
-                x = x.sub(self.sub)
-                x = x.div(self.std)
-                x = x.mul(self.weight)
-                x = x.add(self.bias)
-                return x
-            else:
-                x = x.sub(self.sub)
-                x = x.div(self.std)
-                return x
-
-        # Denormalize
-        else:
-            if self.affine:
-                x = x.sub(self.bias)
-                x = x.div(self.weight)
-                x = x.mul(self.std)
-                x = x.add(self.sub)
-                return x
-            else:
-                x = x.mul(self.std)
-                x = x.add(self.sub)
-                return x
 
 
 # %% ../../nbs/029_models.layers.ipynb 70
