@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from torch import nn, optim
@@ -67,8 +68,8 @@ class InceptionTimeModel(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 20)
+        self.epochs = params.get('epochs', 100)
+        self.batch_size = params.get('batch_size', 32)
 
     def _init_model(self, ts):
         self.model = InceptionTime(input_dim=ts.features.shape[1],
@@ -83,28 +84,29 @@ class InceptionTimeModel(BaseNeuralModel):
 
 if __name__ == "__main__":
     dataset_list = [
-        # 'DistalPhalanxOutlineCorrect',
-        #             'Lightning2',
-        #             'MiddlePhalanxOutlineCorrect',
-        #             'MoteStrain',
-        #             'SonyAIBORobotSurface1',
-        #             'WormsTwoClass',
-        #             'Adiac',
-        #             'Ham',
+        'DistalPhalanxOutlineCorrect',
+                    'Lightning2',
+                    'MiddlePhalanxOutlineCorrect',
+                    'MoteStrain',
+                    'SonyAIBORobotSurface1',
+                    'WormsTwoClass',
+                    'Adiac',
+                    'Ham',
                     #'DistalPhalanxTW',
-                    'EOGVerticalSignal',
-                    'Haptics',
-                    'Phoneme']
+                    # 'EOGVerticalSignal',
+                    # 'Haptics',
+                    #'Phoneme'
+    ]
     result_dict = {}
-    pipeline_dict = {'inception_model': PipelineBuilder().add_node('inception_model', params={'epochs': 100,
-                                                                                              'batch_size': 10}),
+    pipeline_dict = {'inception_model': PipelineBuilder().add_node('inception_model', params={'epochs': 500,
+                                                                                              'batch_size': 32}),
 
                      'quantile_rf_model': PipelineBuilder() \
                          .add_node('quantile_extractor') \
                          .add_node('rf'),
                      'composed_model': PipelineBuilder() \
-                         .add_node('inception_model', params={'epochs': 100,
-                                                              'batch_size': 10}) \
+                         .add_node('inception_model', params={'epochs': 500,
+                                                              'batch_size': 32}) \
                          .add_node('quantile_extractor', branch_idx=1) \
                          .add_node('rf', branch_idx=1) \
                          .join_branches('logit')}
@@ -125,4 +127,5 @@ if __name__ == "__main__":
             result_dict.update({dataset: metric_dict})
         except Exception:
             print('ERROR')
+    result_df = pd.DataFrame(result_dict)
     _ = 1

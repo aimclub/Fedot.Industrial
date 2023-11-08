@@ -68,10 +68,7 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                if self.num_classes > 2:
-                    loss = loss_fn(output, targets.float())
-                else:
-                    loss = loss_fn(output, targets)
+                loss = loss_fn(output, targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
@@ -83,17 +80,11 @@ class BaseNeuralModel:
             for batch in val_loader:
                 inputs, targets = batch
                 output = self.model(inputs)
-                if self.num_classes > 2:
-                    loss = loss_fn(output, targets.float())
-                else:
-                    loss = loss_fn(output, targets)
+                loss = loss_fn(output, targets.float())
                 valid_loss += loss.data.item() * inputs.size(0)
-                if self.num_classes > 2:
-                    correct = torch.eq(torch.max(F.softmax(output, dim=1), dim=1)[1],
-                                       torch.max(targets,dim=1)[1])
-                else:
-                    correct = torch.eq(torch.max(F.softmax(output, dim=1), dim=1)[1],
-                                       targets)
+                correct = torch.eq(torch.max(F.softmax(output, dim=1), dim=1)[1],
+                                   torch.max(targets, dim=1)[1])
+
                 num_correct += torch.sum(correct).item()
                 num_examples += correct.shape[0]
             valid_loss /= len(val_loader.dataset)

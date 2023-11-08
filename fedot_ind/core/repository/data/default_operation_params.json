@@ -197,5 +197,9 @@
   "inception_model": {
     "epochs": 100,
     "batch_size": 10
+  },
+  "omniscale_model": {
+    "epochs": 100,
+    "batch_size": 10
   }
 }

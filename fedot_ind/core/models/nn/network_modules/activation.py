@@ -5,7 +5,13 @@ from fastai.layers import Mish
 
 from fastai.torch_core import Module
 
-
+def get_activation_fn(activation):
+    if activation == "relu":
+        return nn.ReLU()
+    elif activation == "gelu":
+        return nn.GELU()
+    else:
+        return activation()
 class GEGLU(Module):
     def forward(self, x):
         x, gates = x.chunk(2, dim=-1)

@@ -5,11 +5,13 @@ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStr
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
     __operations_by_types = {
-        'inception_model': InceptionTimeModel
+        'inception_model': InceptionTimeModel,
+        'omniscale_model': OmniScaleModel
     }
 
     def _convert_to_operation(self, operation_type: str):

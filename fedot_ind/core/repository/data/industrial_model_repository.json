@@ -220,6 +220,15 @@
         "automl"
       ]
     },
+    "omniscale_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+        "automl"
+      ]
+    },
     "adareg": {
       "meta": "sklearn_regr",
       "presets": ["fast_train", "ts", "*tree"],

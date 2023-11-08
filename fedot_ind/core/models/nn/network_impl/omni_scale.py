@@ -2,15 +2,22 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.models.nn.network_modules.layers import ParameterizedLayer
+from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
+from fedot_ind.core.models.nn.network_modules.layers.special import ParameterizedLayer
 from fedot_ind.core.models.nn.network_modules.other import *
 import torch
 import torch.nn as nn
 
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 
+import pandas as pd
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from examples.example_utils import evaluate_metric, init_input_data
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.tools.loader import DataLoader
 
-class OmniScaleCNN(nn.Module):
+
+class OmniScaleCNN(Module):
 
     def __init__(self,
                  input_dim,
@@ -70,14 +77,14 @@ class OmniScaleCNN(nn.Module):
             tuples_in_layer = []
             for prime in prime_list:
                 tuples_in_layer.append((input_dim, out_channel, prime))
-            in_channel = len(prime_list) * out_channel
+            input_dim = len(prime_list) * out_channel
 
             layer_parameter_list.append(tuples_in_layer)
 
         tuples_in_layer_last = []
         first_out_channel = len(prime_list) * self.get_out_channel_number(layers[0], 1, prime_list)
-        tuples_in_layer_last.append((in_channel, first_out_channel, 1))
-        tuples_in_layer_last.append((in_channel, first_out_channel, 2))
+        tuples_in_layer_last.append((input_dim, first_out_channel, 1))
+        tuples_in_layer_last.append((input_dim, first_out_channel, 2))
         layer_parameter_list.append(tuples_in_layer_last)
         return layer_parameter_list
 
@@ -114,23 +121,57 @@ class OmniScaleModel(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 20)
+        self.epochs = params.get('epochs', 100)
+        self.batch_size = params.get('batch_size', 32)
 
     def _init_model(self, ts):
         self.model = OmniScaleCNN(input_dim=ts.features.shape[1],
                                   output_dim=self.num_classes,
-                                  seq_len=ts.shape[2]).to(default_device())
+                                  seq_len=ts.features.shape[2]).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         loss_fn = nn.CrossEntropyLoss()
         return loss_fn, optimizer
 
 
 if __name__ == "__main__":
-    bs = 16
-    c_in = 3
-    seq_len = 12
-    c_out = 2
-    xb = torch.rand(bs, c_in, seq_len)
-    # m = create_model(OmniScaleCNN, c_in, c_out, seq_len)
-    # test_eq(OmniScaleCNN(c_in, c_out, seq_len)(xb).shape, [bs, c_out])
+    dataset_list = [
+        'DistalPhalanxOutlineCorrect',
+        'Lightning2',
+        'MiddlePhalanxOutlineCorrect',
+        'MoteStrain',
+        'SonyAIBORobotSurface1',
+        'WormsTwoClass',
+        'Adiac',
+        'Ham']
+    result_dict = {}
+    pipeline_dict = {'omniscale_model': PipelineBuilder().add_node('omniscale_model', params={'epochs': 50,
+                                                                                              'batch_size': 32}),
+
+                     'quantile_rf_model': PipelineBuilder() \
+                         .add_node('quantile_extractor') \
+                         .add_node('rf'),
+                     'composed_model': PipelineBuilder() \
+                         .add_node('omniscale_model', params={'epochs': 50,
+                                                              'batch_size': 32}) \
+                         .add_node('quantile_extractor', branch_idx=1) \
+                         .add_node('rf', branch_idx=1) \
+                         .join_branches('logit')}
+
+    for dataset in dataset_list:
+        try:
+            train_data, test_data = DataLoader(dataset_name=dataset).load_data()
+            input_data = init_input_data(train_data[0], train_data[1])
+            val_data = init_input_data(test_data[0], test_data[1])
+            metric_dict = {}
+            for model in pipeline_dict:
+                with IndustrialModels():
+                    pipeline = pipeline_dict[model].build()
+                    pipeline.fit(input_data)
+                    target = pipeline.predict(val_data).predict
+                    metric = evaluate_metric(target=test_data[1], prediction=target)
+                metric_dict.update({model: metric})
+            result_dict.update({dataset: metric_dict})
+        except Exception:
+            print('ERROR')
+    result_df = pd.DataFrame(result_dict)
+    print(result_df)
