@@ -215,7 +215,7 @@ Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Ind
 
 Sample features:
 
-.. image:: /docs/img/motor_temp.svg
+.. image:: /docs/img/motor-temperature.png
     :align: center
     :alt: motor results
 
