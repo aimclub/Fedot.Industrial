@@ -55,6 +55,7 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification'
                                target=np.ravel(y).reshape(-1, 1),
                                task=task_dict[task],
                                data_type=DataTypesEnum.table)
+    input_data.target[input_data.target == -1] = 0
     return input_data
 
 

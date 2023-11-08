@@ -42,6 +42,17 @@ def convert_inputdata_to_torch_dataset(func):
         class CustomDataset:
             def __init__(self, ts):
                 self.x = torch.from_numpy(ts.features).float()
+                if ts.num_classes == 2 and max(ts.class_labels) != 1:
+                    label_1 = max(ts.class_labels)
+                    label_0 = min(ts.class_labels)
+                    ts.target[ts.target == label_0] = 0
+                    ts.target[ts.target == label_1] = 1
+                elif ts.num_classes == 2 and min(ts.class_labels) != 0:
+                    label_1 = max(ts.class_labels)
+                    label_0 = min(ts.class_labels)
+                    ts.target[ts.target == label_0] = 0
+                    ts.target[ts.target == label_1] = 1
+
                 self.y = torch.from_numpy(ts.target).flatten().long()
                 self.n_samples = ts.features.shape[0]
 

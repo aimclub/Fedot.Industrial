@@ -5,16 +5,12 @@ import numpy as np
 from collections import OrderedDict
 from typing import Optional
 
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from examples.example_utils import init_input_data, evaluate_metric
 from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
 
 
 class MiniRocketFeatures(nn.Module):
@@ -315,22 +311,3 @@ class MiniRocketExtractor(BaseExtractor):
         predict = self._clean_predict(feature_matrix.features)
         self.relevant_features = feature_matrix.supplementary_data['feature_name']
         return predict
-
-
-if __name__ == "__main__":
-    # # Offline feature calculation
-    train_data, test_data = DataLoader(dataset_name='Earthquakes').load_data()
-    input_data = init_input_data(train_data[0], train_data[1])
-    val_data = init_input_data(test_data[0], test_data[1])
-
-    with IndustrialModels():
-        pipeline = PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 10000}). \
-            add_node('fedot_cls', params={'timeout': 10,
-                                          'logging_level': 20,
-                                          'n_jobs':4}).build()
-        # pipeline = PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 10000}). \
-        #     add_node('logit').build()
-        pipeline.fit(input_data)
-        features = pipeline.predict(val_data).predict
-        metric = evaluate_metric(target=test_data[1], prediction=features)
-    _ = 1

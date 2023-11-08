@@ -3,7 +3,7 @@ from typing import Optional
 from fedot.core.operations.evaluation.common_preprocessing import FedotPreprocessingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.nn.ts.mini_rocket import MiniRocketExtractor
+from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.signal.signal_extractor import SignalExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor

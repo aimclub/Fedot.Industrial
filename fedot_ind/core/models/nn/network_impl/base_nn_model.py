@@ -107,11 +107,11 @@ class BaseNeuralModel:
             pred = torch.argmax(pred, dim=1)
         y_pred = pred.cpu().detach().numpy()
         predict = OutputData(
-            idx=None,
-            task=None,
+            idx=np.arange(len(y_pred)),
+            task=self.task_type,
             predict=y_pred,
             target=None,
-            data_type=DataTypesEnum.image)
+            data_type=DataTypesEnum.table)
         return predict
 
     def fit(self,
@@ -120,6 +120,7 @@ class BaseNeuralModel:
         Method for feature generation for all series
         """
         self.num_classes = input_data.num_classes
+        self.task_type = input_data.task
         self._fit_model(input_data)
 
     @fedot_data_type
