@@ -74,7 +74,10 @@ class InceptionTimeModel(BaseNeuralModel):
         self.model = InceptionTime(input_dim=ts.features.shape[1],
                                    output_dim=self.num_classes).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        loss_fn = nn.CrossEntropyLoss()
+        if ts.num_classes == 2:
+            loss_fn = nn.CrossEntropyLoss()
+        else:
+            loss_fn = nn.BCEWithLogitsLoss()
         return loss_fn, optimizer
 
 
@@ -83,12 +86,12 @@ if __name__ == "__main__":
         # 'DistalPhalanxOutlineCorrect',
         #             'Lightning2',
         #             'MiddlePhalanxOutlineCorrect',
-                    'MoteStrain',
-                    'SonyAIBORobotSurface1',
-                    'WormsTwoClass',
-                    'Adiac',
-                    'Ham',
-                    'DistalPhalanxTW',
+        #             'MoteStrain',
+        #             'SonyAIBORobotSurface1',
+        #             'WormsTwoClass',
+        #             'Adiac',
+        #             'Ham',
+                    #'DistalPhalanxTW',
                     'EOGVerticalSignal',
                     'Haptics',
                     'Phoneme']

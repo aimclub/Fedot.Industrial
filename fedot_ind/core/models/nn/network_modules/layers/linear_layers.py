@@ -11,7 +11,6 @@ from fastai.torch_core import Module
 
 from fastcore.basics import snake2camel
 
-from fedot_ind.core.models.nn.network_modules.layers.conv_layers import ConvBlock
 
 
 def init_lin_zero(m):
@@ -41,14 +40,6 @@ class Reshape(nn.Module):
     def forward(self, x):
         return x.view(-1, *self.out_shape)
 
-
-def SEModule1d(ni, reduction=16, act=nn.ReLU, act_kwargs={}):
-    "Squeeze and excitation module for 1d"
-    nf = math.ceil(ni // reduction / 8) * 8
-    assert nf != 0, 'nf cannot be 0'
-    return SequentialEx(nn.AdaptiveAvgPool1d(1),
-                        ConvBlock(ni, nf, ks=1, norm=None, act=act, act_kwargs=act_kwargs),
-                        ConvBlock(nf, ni, ks=1, norm=None, act=nn.Sigmoid), ProdLayer())
 
 
 # %% ../../nbs/029_models.layers.ipynb 29

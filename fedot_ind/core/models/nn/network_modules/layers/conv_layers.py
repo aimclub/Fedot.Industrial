@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import torch
 from torch.nn.utils import weight_norm, spectral_norm
@@ -11,7 +13,6 @@ from fastcore.basics import snake2camel
 
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import AddCoords1d
 from fedot_ind.core.models.nn.network_modules.layers.padding_layers import *
-
 
 
 class Conv2dSame(Module):
@@ -100,6 +101,16 @@ class SeparableConv1d(Module):
         x = self.depthwise_conv(x)
         x = self.pointwise_conv(x)
         return x
+
+
+def SEModule1d(ni, reduction=16, act=nn.ReLU, act_kwargs={}):
+    "Squeeze and excitation module for 1d"
+    nf = math.ceil(ni // reduction / 8) * 8
+    assert nf != 0, 'nf cannot be 0'
+    return SequentialEx(nn.AdaptiveAvgPool1d(1),
+                        ConvBlock(ni, nf, ks=1, norm=None, act=act, act_kwargs=act_kwargs),
+                        ConvBlock(nf, ni, ks=1, norm=None, act=nn.Sigmoid), ProdLayer())
+
 
 class ConvBlock(nn.Sequential):
     "Create a sequence of conv1d (`ni` to `nf`), activation (if `act_cls`) and `norm_type` layers."

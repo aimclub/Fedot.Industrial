@@ -3,8 +3,8 @@ import torch.nn.functional as F
 from torch import nn, optim
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_torch_tensor
-from fedot_ind.core.models.nn.network_modules.layers.conv_layers import  Conv1d
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import BN1d, Concat, ConvBlock, Add, Noop
+from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, ConvBlock
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import BN1d, Concat, Add, Noop
 from fastcore.meta import delegates
 
 from fastai.torch_core import Module
