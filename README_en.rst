@@ -176,6 +176,10 @@ Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Ind
 
 Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
 
+.. image:: /docs/img/building-target.png
+    :align: center
+    :alt: madrid results
+
 .. image:: /docs/img/building_energy.png
     :align: center
     :alt: madrid results
