@@ -170,21 +170,24 @@ Real world cases
 Building energy consumption
 ----------------------------
 
-Link to the dataset on `Kaggle <https://www.kaggle.com/code/fatmanuranl/ashrae-energy-prediction2>`_
+Link to the dataset on `Kaggle <https://www.kaggle.com/competitions/ashrae-energy-prediction>`_
 
 Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
 
-Dimensions correspond to the air temperature, dew temperature, wind direction and wind speed:
+The challenge is to develop accurate counterfactual models that estimate energy consumption savings
+post-retrofit. Leveraging a dataset comprising three years of hourly meter readings from over a
+thousand buildings, the goal is to predict energy consumption (in kWh). Key predictors include **air temperature**,
+**dew temperature**, **wind direction**, and **wind speed**.
+
 
 .. image:: /docs/img/building-target.png
     :align: center
-    :alt: madrid results
+    :alt: building target
 
 .. image:: /docs/img/building_energy.png
     :align: center
-    :alt: madrid results
+    :alt: building results
 
-The goal is to estimate the **energy consumption in kWh**
 
 Results:
 
@@ -218,7 +221,13 @@ Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/wkirgsn/electric
 
 Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/d3d5a4ddc2f4861622b6329261fc7b87396e0a6d/cases/industrial_examples/equipment_monitoring/motor_temperature.ipynb>`_
 
-Sample features:
+This dataset focuses on predicting the maximum recorded rotor temperature of a permanent magnet synchronous
+motor (PMSM) during 30-second intervals. The data, sampled at 2 Hz, includes sensor readings such as
+**ambient temperature**, **coolant temperatures**, **d and q components** of voltage, and **current**.
+These readings are aggregated into 6-dimensional time series of length 60, representing 30 seconds.
+
+The challenge is to develop a predictive model using the provided predictors to accurately estimate the
+maximum rotor temperature, crucial for monitoring the motor's performance and ensuring optimal operating conditions.
 
 .. image:: /docs/img/rotor-temp.png
     :align: center
