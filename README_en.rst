@@ -190,22 +190,23 @@ Results:
 
    * - Algorithm
      - RMSE_average
-   * - FPCR_RMSE
+   * - `FPCR <https://onlinelibrary.wiley.com/doi/10.1111/insr.12116>`_
      - 455.941
-   * - Grid-SVR_RMSE
+   * - `Grid-SVR <https://proceedings.neurips.cc/paper/1996/file/d38901788c533e8286cb6400b40b386d-Paper.pdf>`_
      - 464.389
-   * - FPCR-Bs_RMSE
+   * - `FPCR-Bs <https://www.sciencedirect.com/science/article/abs/pii/S0167947313003629>`_
      - 465.844
-   * - 5NN-DTW_RMSE
+   * - `5NN-DTW <https://link.springer.com/article/10.1007/s10618-016-0455-0>`_
      - 469.378
-   * - CNN_RMSE
+   * - `CNN <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7870510>`_
      - 484.637
-   * - **Fedot_Industrial**
+   * - **Fedot.Industrial**
      - **486.398**
-   * - RDST_RMSE
+   * - `RDST <https://arxiv.org/abs/2109.13514>`_
      - 527.927
-   * - RandF_RMSE
+   * - `RandF <https://link.springer.com/article/10.1023/A:1010933404324>`_
      - 527.343
+
 
 Permanent magnet synchronous motor (PMSM) rotor temperature
 -----------------------------------------------------------
@@ -217,7 +218,11 @@ Sample features:
 
 .. image:: /docs/img/motor-temperature.png
     :align: center
-    :alt: motor results
+    :alt: solution
+
+.. image:: /docs/img/rotor-temp.png
+    :align: center
+    :alt: rotor temp
 
 Results:
 
@@ -227,20 +232,19 @@ Results:
 
    * - Algorithm
      - RMSE_average
-   * - **Fedot_Industrial_AutoML**
+   * - **Fedot.Industrial**
      - **1.158612**
-   * - FreshPRINCE_RMSE
+   * - `FreshPRINCE <https://arxiv.org/abs/2305.01429>`_
      - 1.490442
-   * - RIST_RMSE
+   * - `RIST <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3486435/>`_
      - 1.501047
-   * - Fedot_Industrial_baseline
-     - 1.538009
-   * - RotF_RMSE
+   * - `RotF <https://ieeexplore.ieee.org/document/1677518>`_
      - 1.559385
-   * - DrCIF_RMSE
+   * - `DrCIF <https://arxiv.org/abs/2305.01429>`_
      - 1.594442
-   * - TSF_RMSE
+   * - `TSF <https://arxiv.org/abs/1302.2277>`_
      - 1.684828
+
 
 ================================================================================
 
