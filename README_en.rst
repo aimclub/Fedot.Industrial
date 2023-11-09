@@ -216,13 +216,14 @@ Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Ind
 
 Sample features:
 
+.. image:: /docs/img/rotor-temp.png
+    :align: center
+    :alt: rotor temp
+
 .. image:: /docs/img/motor-temperature.png
     :align: center
     :alt: solution
 
-.. image:: /docs/img/rotor-temp.png
-    :align: center
-    :alt: rotor temp
 
 Results:
 
