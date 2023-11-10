@@ -56,7 +56,15 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in input_data)
-        predict = self._clean_predict(np.array([ts.features for ts in feature_matrix]))
+
+        if len(feature_matrix[0].features.shape) > 1:
+            stacked_data = np.stack([ts.features for ts in feature_matrix])
+            predict = self._clean_predict(stacked_data)
+        else:
+            stacked_data = np.array([ts.features for ts in feature_matrix])
+            predict = self._clean_predict(stacked_data)
+            predict = predict.reshape(predict.shape[0], -1)
+
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
         return predict
 
@@ -65,7 +73,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         predict = np.where(np.isnan(predict), 0, predict)
         predict = np.where(np.isinf(predict), 0, predict)
-        predict = predict.reshape(predict.shape[0], -1)
         return predict
 
     def generate_features_from_ts(self, ts_frame: np.array, window_length: int = None) -> np.array:

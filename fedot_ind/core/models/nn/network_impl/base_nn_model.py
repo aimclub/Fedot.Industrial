@@ -50,6 +50,19 @@ class BaseNeuralModel:
         self.model = None
         return
 
+    def _convert_predict(self,pred):
+        pred = F.softmax(pred, dim=1)
+        if self.num_classes == 2:
+            pred = torch.argmax(pred, dim=1)
+        y_pred = pred.cpu().detach().numpy()
+        predict = OutputData(
+            idx=np.arange(len(y_pred)),
+            task=self.task_type,
+            predict=y_pred,
+            target=self.target,
+            data_type=DataTypesEnum.table)
+        return predict
+
     def _prepare_data(self, ts, split_data: bool = True):
         if split_data:
             train_data, val_data = train_test_data_setup(ts, shuffle_flag=True, split_ratio=0.7)
@@ -103,17 +116,7 @@ class BaseNeuralModel:
         self.model.eval()
         x_test = Tensor(x_test).to(default_device())
         pred = self.model(x_test)
-        pred = F.softmax(pred, dim=1)
-        if self.num_classes == 2:
-            pred = torch.argmax(pred, dim=1)
-        y_pred = pred.cpu().detach().numpy()
-        predict = OutputData(
-            idx=np.arange(len(y_pred)),
-            task=self.task_type,
-            predict=y_pred,
-            target=None,
-            data_type=DataTypesEnum.table)
-        return predict
+        return self._convert_predict(pred)
 
     def fit(self,
             input_data: InputData):
@@ -121,6 +124,7 @@ class BaseNeuralModel:
         Method for feature generation for all series
         """
         self.num_classes = input_data.num_classes
+        self.target = input_data.target
         self.task_type = input_data.task
         self._fit_model(input_data)
 

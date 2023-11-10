@@ -42,10 +42,10 @@ class RecurrenceExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.image_mode = False
         self.window_size = params.get('window_size', 0)
         self.stride = params.get('stride', 1)
         self.rec_metric = params.get('rec_metric', 'cosine')
+        self.image_mode = params.get('image_mode', False)
         self.rec_metric = 'cosine'  # TODO add threshold for other metrics
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor
@@ -64,14 +64,19 @@ class RecurrenceExtractor(BaseExtractor):
 
         if not self.image_mode:
             feature_df = self.extractor(recurrence_matrix=feature_df).quantification_analysis()
+            features = np.nan_to_num(np.array(list(feature_df.values())), posinf=0, neginf=0)
+            col_names = {'feature_name': list(feature_df.keys())}
+        else:
+            features = feature_df
+            features = np.dstack([np.array(features, dtype=np.uint8)] * 3)
+            col_names = {'feature_name': None}
 
-        features = np.nan_to_num(np.array(list(feature_df.values())), posinf=0, neginf=0)
         recurrence_features = InputData(idx=np.arange(len(features)),
                                         features=features,
                                         target='no_target',
                                         task='no_task',
                                         data_type=DataTypesEnum.table,
-                                        supplementary_data={'feature_name': list(feature_df.keys())})
+                                        supplementary_data=col_names)
         return recurrence_features
 
     def generate_recurrence_features(self, ts: np.array) -> InputData:

@@ -196,10 +196,18 @@
   },
   "inception_model": {
     "epochs": 100,
-    "batch_size": 10
+    "batch_size": 32
   },
   "omniscale_model": {
     "epochs": 100,
-    "batch_size": 10
+    "batch_size": 32
+  },
+  "tst_model": {
+    "epochs": 100,
+    "batch_size": 32
+  },
+  "resnet_model": {
+    "epochs": 100,
+    "batch_size": 32
   }
 }

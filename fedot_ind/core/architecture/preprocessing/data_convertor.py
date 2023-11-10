@@ -231,7 +231,7 @@ class NumpyConverter:
         assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
 
     def convert_to_torch_format(self):
-        if self.numpy_data.ndim == 3:
+        if self.numpy_data.ndim >= 3:
             return self.numpy_data
         elif self.numpy_data.ndim == 1:
             return self.numpy_data[None, None]

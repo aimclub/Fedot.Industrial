@@ -6,12 +6,16 @@ from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
+from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
+from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
     __operations_by_types = {
         'inception_model': InceptionTimeModel,
-        'omniscale_model': OmniScaleModel
+        'omniscale_model': OmniScaleModel,
+        'tst_model':TSTModel,
+        'resnet_model':ResNetModel
     }
 
     def _convert_to_operation(self, operation_type: str):

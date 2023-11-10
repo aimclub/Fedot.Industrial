@@ -18,8 +18,6 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 from fedot_ind.tools.loader import DataLoader
 
 
-
-
 @delegates(InceptionModule.__init__)
 class InceptionTime(Module):
     def __init__(self,
@@ -85,17 +83,17 @@ class InceptionTimeModel(BaseNeuralModel):
 if __name__ == "__main__":
     dataset_list = [
         'DistalPhalanxOutlineCorrect',
-                    'Lightning2',
-                    'MiddlePhalanxOutlineCorrect',
-                    'MoteStrain',
-                    'SonyAIBORobotSurface1',
-                    'WormsTwoClass',
-                    'Adiac',
-                    'Ham',
-                    #'DistalPhalanxTW',
-                    # 'EOGVerticalSignal',
-                    # 'Haptics',
-                    #'Phoneme'
+        'Lightning2',
+        'MiddlePhalanxOutlineCorrect',
+        'MoteStrain',
+        'SonyAIBORobotSurface1',
+        'WormsTwoClass',
+        'Adiac',
+        'Ham'
+        # 'DistalPhalanxTW',
+        # 'EOGVerticalSignal',
+        # 'Haptics',
+        # 'Phoneme'
     ]
     result_dict = {}
     pipeline_dict = {'inception_model': PipelineBuilder().add_node('inception_model', params={'epochs': 500,
@@ -128,4 +126,5 @@ if __name__ == "__main__":
         except Exception:
             print('ERROR')
     result_df = pd.DataFrame(result_dict)
+    result_df.to_csv('./500_epoch.csv')
     _ = 1

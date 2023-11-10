@@ -35,7 +35,7 @@ class MiniRocketFeatures(nn.Module):
                  max_dilations_per_kernel=32,
                  random_state=None):
         super(MiniRocketFeatures, self).__init__()
-        self.c_in, self.seq_len = input_dim, seq_len
+        self.input_dim, self.seq_len = input_dim, seq_len
         self.num_features = num_features // self.num_kernels * self.num_kernels
         self.max_dilations_per_kernel = max_dilations_per_kernel
         self.random_state = random_state
@@ -78,9 +78,9 @@ class MiniRocketFeatures(nn.Module):
             _padding1 = i % 2
 
             # Convolution
-            C = F.conv1d(x.float(), self.kernels, padding=padding, dilation=dilation, groups=self.c_in)
-            if self.c_in > 1:  # multivariate
-                C = C.reshape(x.shape[0], self.c_in, self.num_kernels, -1)
+            C = F.conv1d(x.float(), self.kernels, padding=padding, dilation=dilation, groups=self.input_dim)
+            if self.input_dim > 1:  # multivariate
+                C = C.reshape(x.shape[0], self.input_dim, self.num_kernels, -1)
                 channel_combination = getattr(self, f'channel_combinations_{i}')
                 C = torch.mul(C, channel_combination)
                 C = C.sum(1)
