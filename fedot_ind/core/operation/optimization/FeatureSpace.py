@@ -6,7 +6,7 @@ from sklearn.decomposition import PCA
 class VarianceSelector:
     """
     Class that accepts a dictionary as input, the keys of which are the names of models and the values are arrays
-    of data in the np.array format.The class implements an algorithm to determine the "best" set of features and the
+    of data in the np.ndarray format.The class implements an algorithm to determine the "best" set of features and the
     best model in the dictionary.
     """
 
