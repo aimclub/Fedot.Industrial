@@ -12,7 +12,7 @@ class TSTransformer:
     Class for transformation single time series based on anomaly dictionary.
 
     Args:
-        strategy: strategy for splitting time series. Available strategies: 'frequent' and `unique`.
+        strategy: strategy for splitting time series. Available strategies: 'frequent'.
 
 
     Attributes:
@@ -35,12 +35,6 @@ class TSTransformer:
             from fedot_ind.core.operation.transformation.splitter import TSSplitter
             splitter = TSSplitter(strategy='frequent')
             train, test = splitter.transform_for_fit(series=ts, anomaly_dict=anomaly_d_uni, plot=False, binarize=True)
-
-        In case of `unique` strategy, the splitting will be based on unique anomalies and hence
-        the output of `split` method will be tuple of lists `unique_classes`, `unique_train`, `unique_test`
-        where every element of every list is corresponding to unique anomaly. Important fact is that plotting
-        function is now available for this case yet::
-            unique_cls, unique_train, unique_test = splitter.split(strategy='unique', binarize=False)
 
     """
 
@@ -69,27 +63,7 @@ class TSTransformer:
 
     def _unique_strategy(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
                          binarize: bool = False) -> tuple:
-        """
-        Split time series into train and test parts based on unique anomalies.
-
-        Args:
-            plot: if True, plot time series with anomaly intervals. Available only for univariate time series.
-            binarize: if True, target will be binarized. Recommended for classification task if classes are imbalanced.
-
-        Returns:
-            tuple with train and test parts of time series ready for classification task with FedotIndustrial.
-
-        """
-        unique_classes, unique_trains = [], []
-        for cls, list_of_inters in anomaly_dict.items():
-            features, target = self.get_features_and_target(series=series,
-                                                            classes=[cls],
-                                                            transformed_intervals=[list_of_inters],
-                                                            binarize=binarize)
-            unique_trains.append((pd.DataFrame(features), np.array(target)))
-            unique_classes.append(cls)
-
-        return unique_classes, unique_trains
+        raise NotImplementedError
 
     def _frequent_strategy(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
                            binarize: bool = False) -> tuple:
