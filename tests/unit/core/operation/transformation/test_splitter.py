@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from matplotlib import pyplot as plt
 
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 
@@ -64,13 +65,14 @@ def test_unique_strategy(frequent_splitter):
                                            anomaly_dict=dict())
 
 
-@pytest.mark.parametrize('binarize', (True, False))
-def test_frequent_strategy(frequent_splitter, time_series, anomaly_dict, binarize):
+@pytest.mark.parametrize('binarize, plot', ([True, False], [False, False],
+                                            [True, True], [False, True]))
+def test_frequent_strategy(frequent_splitter, time_series, anomaly_dict, binarize, plot):
     features, target = frequent_splitter._frequent_strategy(series=time_series,
                                                             anomaly_dict=anomaly_dict,
-                                                            plot=False,
+                                                            plot=plot,
                                                             binarize=binarize)
-
+    plt.close("all")
     assert isinstance(features, np.ndarray)
     assert isinstance(target, np.ndarray)
     if binarize:
