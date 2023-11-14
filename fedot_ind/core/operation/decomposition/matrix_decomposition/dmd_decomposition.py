@@ -78,7 +78,7 @@ def symmetric_decompose(X, Y, rank):
     Yf = np.zeros((rank, rank))
     for i in range(r):
         Yf[i, i] = np.real(C1[i, i]) / S[i, i]
-        for j in range(i + 1, r):
+        for j in range(i + 1, rank):
             Yf[i, j] = (S[i, i] * np.conj(C1[j, i]) + S[j, j] * C1[i, j]) / (S[i, i] ** 2 + S[j, j] ** 2)
     Yf = Yf + Yf.T - np.diag(np.diag(np.real(Yf)))
     # elif method == 'skewsymmetric':
