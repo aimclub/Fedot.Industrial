@@ -43,7 +43,7 @@ def none_tsc_config():
 
 @pytest.fixture()
 def anomaly_detection_fedot_preset_config():
-    return dict(task='ts_forecasting',
+    return dict(task='anomaly_detection',
                 dataset='custom_dataset',
                 strategy='fedot_preset',
                 use_cache=False,
