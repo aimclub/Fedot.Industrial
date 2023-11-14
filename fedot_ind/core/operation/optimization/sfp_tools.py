@@ -8,14 +8,7 @@ from torch.nn import Conv2d
 from torchvision.models import ResNet
 
 from fedot_ind.core.models.cnn.pruned_resnet import PRUNED_MODELS, PrunedResNet
-
-MODELS_FROM_LENGHT = {
-    122: 'ResNet18',
-    218: 'ResNet34',
-    320: 'ResNet50',
-    626: 'ResNet101',
-    932: 'ResNet152',
-}
+from fedot_ind.core.architecture.settings.constanst_repository import MODELS_FROM_LENGHT
 
 
 def percentage_filter_zeroing(conv: Conv2d, pruning_ratio: float) -> None:

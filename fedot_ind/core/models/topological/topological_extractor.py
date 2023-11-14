@@ -11,30 +11,13 @@ from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
+from fedot_ind.core.architecture.settings.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, \
+    PERSISTENCE_DIAGRAM_FEATURES
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
-    AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
-    PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
-    SimultaneousAliveHolesFeature, SumHoleLifetimeFeature, TopologicalFeaturesExtractor
+from fedot_ind.core.models.topological.topofeatures import PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
 from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
 
 sys.setrecursionlimit(1000000000)
-
-PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
-                                'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
-                                'RelevantHolesNumber': RelevantHolesNumber(),
-                                'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
-                                'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
-                                'PersistenceEntropyFeature': PersistenceEntropyFeature(),
-                                'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
-                                'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
-                                'BettiNumbersSumFeature': BettiNumbersSumFeature(),
-                                'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
-
-PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
-                                                             takens_embedding_delay=2,
-                                                             homology_dimensions=(0, 1),
-                                                             parallel=False)
 
 
 class TopologicalExtractor(BaseExtractor):

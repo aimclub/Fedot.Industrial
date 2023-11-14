@@ -1,5 +1,7 @@
 import numpy as np
 
+from fedot_ind.core.architecture.settings.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
+
 
 def sv_to_explained_variance_ratio(singular_values, rank):
     """
@@ -25,7 +27,10 @@ def sv_to_explained_variance_ratio(singular_values, rank):
     return explained_variance, n_components
 
 
-def singular_value_hard_threshold(singular_values, rank=None, beta=None, threshold=2.58) -> list:
+def singular_value_hard_threshold(singular_values,
+                                  rank=None,
+                                  beta=None,
+                                  threshold=SINGULAR_VALUE_MEDIAN_THR ) -> list:
     """
     Calculate the hard threshold for the singular values.
 
@@ -53,7 +58,7 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
         median_sv = np.median(singular_values[:rank])
         # Find the adjusted rank
         if threshold is None:
-            threshold = 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
+            threshold = SINGULAR_VALUE_BETA_THR(beta)
         sv_threshold = threshold * median_sv
         # Find the threshold value
         adjusted_rank = np.sum(singular_values >= sv_threshold)

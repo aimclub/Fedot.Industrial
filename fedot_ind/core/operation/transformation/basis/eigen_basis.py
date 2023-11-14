@@ -77,8 +77,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
-        predict = np.array(v)
-        return predict
+        self.predict = np.array(v)
+        return self.predict
 
     def get_threshold(self, data) -> int:
         svd_numbers = []

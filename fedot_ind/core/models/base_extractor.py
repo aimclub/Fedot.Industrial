@@ -13,7 +13,7 @@ from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, remove_1_dim_axis, \
     convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
+from fedot_ind.core.architecture.settings.constanst_repository import STAT_METHODS_GLOBAL, STAT_METHODS
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
@@ -99,9 +99,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         time_series = time_series.flatten()
 
         if add_global_features:
-            list_of_methods = [*stat_methods_global.items()]
+            list_of_methods = [*STAT_METHODS_GLOBAL.items()]
         else:
-            list_of_methods = [*stat_methods.items()]
+            list_of_methods = [*STAT_METHODS.items()]
 
         for method in list_of_methods:
             try:

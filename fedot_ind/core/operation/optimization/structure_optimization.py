@@ -13,6 +13,7 @@ from torchvision.models import ResNet
 
 from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, Writer
 from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
+from fedot_ind.core.architecture.settings.constanst_repository import *
 from fedot_ind.core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from fedot_ind.core.operation.optimization.sfp_tools import percentage_filter_zeroing, energy_filter_zeroing, prune_resnet, load_sfp_resnet_model
@@ -71,11 +72,11 @@ class SVDOptimization(StructureOptimization):
 
     def __init__(
             self,
-            energy_thresholds: List[float] = [0.9, 0.95, 0.99, 0.999],
-            decomposing_mode: str = 'channel',
-            forward_mode: str = 'one_layer',
-            hoer_loss_factor: float = 0.1,
-            orthogonal_loss_factor: float = 10,
+            energy_thresholds: List[float] = ENERGY_THR,
+            decomposing_mode: str = DECOMPOSE_MODE,
+            forward_mode: str = FORWARD_MODE,
+            hoer_loss_factor: float = HOER_LOSS,
+            orthogonal_loss_factor: float = ORTOGONAL_LOSS,
     ) -> None:
         super().__init__(
             description=(

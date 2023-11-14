@@ -10,6 +10,7 @@ from joblib import cpu_count, delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 
+from fedot_ind.core.architecture.settings.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
 
@@ -20,10 +21,10 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        self.n_processes = CPU_NUMBERS
         self.n_components = params.get('n_components', 2)
         self.basis = None
-        self.data_type = DataTypesEnum.image
+        self.data_type = MULTI_ARRAY
         self.min_rank = 1
 
         self.logging_params = {'jobs': self.n_processes}

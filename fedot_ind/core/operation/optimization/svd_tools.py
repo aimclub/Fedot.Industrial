@@ -9,7 +9,7 @@ from torch.nn.modules import Module
 from torch.nn.modules.conv import Conv2d
 
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
-
+from fedot_ind.core.architecture.settings.constanst_repository import FORWARD_MODE
 
 def energy_svd_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
     """Prune the weight matrices to the energy_threshold (in-place).
@@ -39,7 +39,7 @@ def energy_svd_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
 def decompose_module(
         model: Module,
         decomposing_mode: Optional[str] = None,
-        forward_mode: str = 'one_layer',
+        forward_mode: str = FORWARD_MODE,
 ) -> None:
     """Replace Conv2d layers with DecomposedConv2d layers in module (in-place).
 
@@ -80,7 +80,7 @@ def load_svd_state_dict(
         model: Module,
         decomposing_mode: str,
         state_dict_path: str,
-        forward_mode: str = 'one_layer',
+        forward_mode: str = FORWARD_MODE,
 ) -> None:
     """Loads SVD state_dict to model.
 
