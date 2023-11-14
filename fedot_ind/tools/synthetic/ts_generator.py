@@ -32,7 +32,7 @@ class TimeSeriesGenerator:
         self.ts_types = {'sin': SinWave,
                          'random_walk': RandomWalk,
                          'auto_regression': AutoRegression,
-                         'smooth_normal': SmoothNormal}
+                                             'smooth_normal': SmoothNormal}
         self.params = params
 
     def __define_seed(self):

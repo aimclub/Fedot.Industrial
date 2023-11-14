@@ -1,6 +1,8 @@
+import warnings
+
 import numpy as np
 import pytest
-from matplotlib import pyplot as plt
+from matplotlib import get_backend, pyplot as plt
 
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 
@@ -68,11 +70,15 @@ def test_unique_strategy(frequent_splitter):
 @pytest.mark.parametrize('binarize, plot', ([True, False], [False, False],
                                             [True, True], [False, True]))
 def test_frequent_strategy(frequent_splitter, time_series, anomaly_dict, binarize, plot):
+    # switch to non-Gui, preventing plots being displayed
+    # suppress UserWarning that agg cannot show plots
+    curr_backend = get_backend()
+    plt.switch_backend("Agg")
+    warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     features, target = frequent_splitter._frequent_strategy(series=time_series,
                                                             anomaly_dict=anomaly_dict,
                                                             plot=plot,
                                                             binarize=binarize)
-    plt.close("all")
     assert isinstance(features, np.ndarray)
     assert isinstance(target, np.ndarray)
     if binarize:
