@@ -241,11 +241,11 @@ class FedotIndustrial(Fedot):
                  strategy: str = 'frequent',
                  plot: bool = True) -> Tuple[np.array, np.array]:
 
-        splitter = TSTransformer(time_series=time_series,
-                                 anomaly_dict=anomaly_dict,
-                                 strategy=strategy)
+        splitter = TSTransformer(strategy=strategy)
 
-        train_data, test_data = splitter.transform_for_fit(plot=plot,
+        train_data, test_data = splitter.transform_for_fit(series=time_series,
+                                                           anomaly_dict=anomaly_dict,
+                                                           plot=plot,
                                                            binarize=binarize)
 
         return train_data, test_data

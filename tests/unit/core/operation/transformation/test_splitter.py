@@ -17,7 +17,6 @@ def time_series():
     return np.random.rand(320)
 
 
-@pytest.fixture
 def anomaly_dict():
     return {'anomaly1': [[40, 50], [60, 80]],
             'anomaly2': [[130, 170], [300, 320]]}
