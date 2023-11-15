@@ -729,8 +729,8 @@ class DataLoader:
         """Reads data from ``.arff`` file.
 
         """
-        train = loadarff(temp_data_path + dataset_name + f'/{dataset_name}_TRAIN.arff')
-        test = loadarff(temp_data_path + dataset_name + f'/{dataset_name}_TEST.arff')
+        train = loadarff(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff')
+        test = loadarff(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.arff')
 
         data_train = np.asarray([train[0][name] for name in train[1].names()])
         x_train = data_train[:-1].T.astype('float64')
