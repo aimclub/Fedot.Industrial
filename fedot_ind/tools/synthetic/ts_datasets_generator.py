@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
 class TimeSeriesDatasetsGenerator:
@@ -13,6 +12,7 @@ class TimeSeriesDatasetsGenerator:
         max_ts_len: The maximum length of the time series.
         n_classes: The number of classes.
         test_size (float): The proportion of the dataset to include in the test split.
+        multivariate (bool): Whether to generate multivariate time series.
 
     Example:
         Easy::
@@ -23,25 +23,38 @@ class TimeSeriesDatasetsGenerator:
             train_data, test_data = generator.generate_data()
 
     """
-    def __init__(self, num_samples: int = 80, max_ts_len: int = 50, n_classes: int = 3, test_size: float = 0.5):
+    def __init__(self, num_samples: int = 80,
+                 max_ts_len: int = 50,
+                 n_classes: int = 3,
+                 test_size: float = 0.5,
+                 multivariate: bool = False):
 
         self.num_samples = num_samples
         self.max_ts_len = max_ts_len
         self.n_classes = n_classes
         self.test_size = test_size
+        self.multivariate = multivariate
         self.ts_types = None
 
     def generate_data(self):
-        """
-        Generates the dataset and returns it as a tuple of train and test data.
+        """Generates the dataset and returns it as a tuple of train and test data.
 
         Returns:
             Tuple of train and test data, each containing tuples of features and targets.
 
         """
 
-        ts_frame = pd.DataFrame(np.random.rand(self.num_samples, self.max_ts_len))
+        ts_frame = self.create_features(n_samples=self.num_samples,
+                                        ts_length=self.max_ts_len,
+                                        multivariate=self.multivariate)
         labels = np.random.randint(self.n_classes, size=self.num_samples)
 
         X_train, X_test, y_train, y_test = train_test_split(ts_frame, labels, test_size=self.test_size, random_state=42)
         return (X_train, y_train), (X_test, y_test)
+
+    def create_features(self, n_samples, ts_length, multivariate):
+        features = pd.DataFrame(np.random.random((n_samples, ts_length)))
+        # TODO: add option to select dimentions
+        if multivariate:
+            features = features.apply(lambda x: pd.Series([x, x, x]), axis=1)
+        return features
