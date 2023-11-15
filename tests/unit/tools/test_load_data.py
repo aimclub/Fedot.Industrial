@@ -1,4 +1,12 @@
+import os
+
+import numpy as np
+import pandas as pd
+
 from fedot_ind.tools.loader import DataLoader
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+
+ds_path = os.path.join(PROJECT_PATH, 'examples', 'data', 'ItalyPowerDemand_fake')
 
 
 def test_init_loader():
@@ -33,3 +41,72 @@ def test_load_fake_data():
     train_data, test_data = DataLoader('Fake').load_data()
     assert train_data is None
     assert test_data is None
+
+
+def test__load_from_tsfile_to_dataframe():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    full_path = os.path.join(PROJECT_PATH, 'examples/data/BitcoinSentiment/BitcoinSentiment_TEST.ts')
+    x, y = loader._load_from_tsfile_to_dataframe(full_file_path_and_name=full_path, return_separate_X_and_y=True)
+
+    assert isinstance(x, pd.DataFrame)
+    assert isinstance(y, np.ndarray)
+    assert x.shape[0] == y.shape[0]
+
+
+def test_predict_encoding():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    full_path = os.path.join(ds_path, 'ItalyPowerDemand_fake_TEST.ts')
+    encoding = loader.predict_encoding(file_path=full_path)
+    assert encoding is not None
+
+
+def test_read_txt_files():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    path = os.path.join(PROJECT_PATH, 'examples', 'data')
+    x_train, y_train, x_test, y_test = loader.read_txt_files(dataset_name='ItalyPowerDemand_fake',
+                                                             temp_data_path=path)
+
+    for i in [x_train, y_train, x_test, y_test]:
+        assert i is not None
+
+
+def test_read_ts_files():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    path = os.path.join(PROJECT_PATH, 'examples', 'data')
+    x_train, y_train, x_test, y_test = loader.read_ts_files(dataset_name='ItalyPowerDemand_fake',
+                                                            data_path=path)
+
+    for i in [x_train, y_train, x_test, y_test]:
+        assert i is not None
+
+
+def test_read_arff_files():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    path = os.path.join(PROJECT_PATH, 'examples', 'data')
+    x_train, y_train, x_test, y_test = loader.read_arff_files(dataset_name='ItalyPowerDemand_fake',
+                                                              temp_data_path=path)
+
+    for i in [x_train, y_train, x_test, y_test]:
+        assert i is not None
+
+
+def test_read_train_test_files():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    path = os.path.join(PROJECT_PATH, 'examples', 'data')
+    is_multi, (x_train, y_train), (x_test, y_test) = loader.read_train_test_files(dataset_name='ItalyPowerDemand_fake',
+                                                                                  data_path=path)
+
+    for i in [x_train, y_train, x_test, y_test, is_multi]:
+        assert i is not None
