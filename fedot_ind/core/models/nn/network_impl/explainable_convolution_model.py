@@ -1,23 +1,23 @@
 from typing import Optional
 
-import pandas as pd
+import numpy as np
 import torch
 from fastai.layers import BatchNorm, LinBnDrop, SigmoidRange
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
 
-import matplotlib as plt
 from fastai.torch_core import Module
 from fastai.callback.hook import *
 
-from examples.example_utils import init_input_data, evaluate_metric
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_torch_tensor, \
+    convert_inputdata_to_torch_dataset
+from fedot_ind.core.architecture.postprocessing.visualisation.gradcam_vis import visualise_gradcam
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv2d, Conv1d
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Unsqueeze, Squeeze, Concat, Reshape
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GACP1d, GAP1d
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
+from fedot_ind.core.architecture.preprocessing.data_convertor import TensorConverter, FedotConverter
 
 
 def torch_slice_by_dim(t,
@@ -30,60 +30,86 @@ def torch_slice_by_dim(t,
     return torch.gather(t, dim, index, **kwargs)
 
 
+def create_head(
+        nf,
+        output_dim,
+        seq_len=None,
+        flatten=False,
+        concat_pool=False,
+        fc_dropout=0.,
+        batch_norm=False,
+        y_range=None):
+    if flatten:
+        nf *= seq_len
+        layers = [Reshape()]
+    else:
+        if concat_pool:
+            nf *= 2
+        layers = [GACP1d(1) if concat_pool else GAP1d(1)]
+    layers += [LinBnDrop(nf,
+                         output_dim,
+                         bn=batch_norm,
+                         p=fc_dropout)]
+    if y_range:
+        layers += [SigmoidRange(*y_range)]
+    return nn.Sequential(*layers)
+
+
 class XCM(Module):
     def __init__(self,
                  input_dim: int,
                  output_dim: int,
                  seq_len: Optional[int] = None,
-                 nf: int = 128,
+                 number_filters: int = 128,
                  window_perc: float = 1.,
                  flatten: bool = False,
                  custom_head: callable = None,
                  concat_pool: bool = False,
                  fc_dropout: float = 0.,
-                 bn: bool = False,
+                 batch_norm: bool = False,
                  y_range: tuple = None,
                  **kwargs):
 
         window_size = int(round(seq_len * window_perc, 0))
         self.conv2dblock = nn.Sequential(
             *[Unsqueeze(1),
-              Conv2d(1, nf, kernel_size=(1, window_size),
+              Conv2d(1, number_filters, kernel_size=(1, window_size),
                      padding='same'),
-              BatchNorm(nf),
+              BatchNorm(number_filters),
               nn.ReLU()])
-        self.conv2d1x1block = nn.Sequential(*[nn.Conv2d(nf, 1, kernel_size=1),
+        self.conv2d1x1block = nn.Sequential(*[nn.Conv2d(number_filters, 1, kernel_size=1),
                                               nn.ReLU(),
                                               Squeeze(1)])
         self.conv1dblock = nn.Sequential(
             *[Conv1d(
                 input_dim,
-                nf,
+                number_filters,
                 kernel_size=window_size,
                 padding='same'),
-                BatchNorm(nf, ndim=1),
+                BatchNorm(number_filters, ndim=1),
                 nn.ReLU()])
         self.conv1d1x1block = nn.Sequential(*[nn.Conv1d(
-            nf,
+            number_filters,
             1,
             kernel_size=1),
             nn.ReLU()])
         self.concat = Concat()
         self.conv1d = nn.Sequential(
             *[Conv1d(input_dim + 1,
-                     nf,
+                     number_filters,
                      kernel_size=window_size,
                      padding='same'),
-              BatchNorm(nf, ndim=1), nn.ReLU()])
+              BatchNorm(number_filters, ndim=1), nn.ReLU()])
 
-        self.head_nf = nf
+        self.head_number_filters = number_filters
         self.output_dim = output_dim
         self.seq_len = seq_len
         if custom_head:
-            self.head = custom_head(self.head_nf, output_dim, seq_len, **kwargs)
+            self.head = custom_head(self.head_number_filters, output_dim, seq_len, **kwargs)
         else:
-            self.head = self.create_head(self.head_nf, output_dim, seq_len, flatten=flatten, concat_pool=concat_pool,
-                                         fc_dropout=fc_dropout, bn=bn, y_range=y_range)
+            self.head = create_head(self.head_number_filters, output_dim, seq_len, flatten=flatten,
+                                    concat_pool=concat_pool,
+                                    fc_dropout=fc_dropout, batch_norm=batch_norm, y_range=y_range)
 
     def _get_acts_and_grads(self,
                             model,
@@ -100,6 +126,7 @@ class XCM(Module):
         if cpu:
             model = model.cpu()
             x = x.cpu()
+            x = x.permute(1, 0, 2)
         with hook_outputs(modules, detach=detach, cpu=cpu) as h_act:
             with hook_outputs(modules, grad=True, detach=detach, cpu=cpu) as h_grad:
                 preds = model.eval()(x)
@@ -117,7 +144,14 @@ class XCM(Module):
         else:
             return [h.data for h in h_act.stored], [h[0].data for h in h_grad.stored]
 
-    def get_attribution_map(self, model, modules, x, y=None, detach=True, cpu=False, apply_relu=True):
+    def get_attribution_map(self,
+                            model,
+                            modules,
+                            features,
+                            target=None,
+                            detach=True,
+                            cpu=False,
+                            apply_relu=True):
         def _get_attribution_map(A_k, w_ck):
             dim = (0, 2, 3) if A_k.ndim == 4 else (0, 2)
             w_ck = w_ck.mean(dim, keepdim=True)
@@ -126,13 +160,15 @@ class XCM(Module):
             if L_c.ndim == 3:
                 return L_c.squeeze(0) if L_c.shape[0] == 1 else L_c
             else:
-                return L_c.repeat(x.shape[1], 1) if L_c.shape[0] == 1 else L_c.unsqueeze(1).repeat(1, x.shape[1], 1)
+                return L_c.repeat(features.shape[1], 1) if L_c.shape[0] == 1 else L_c.unsqueeze(1).repeat(1,
+                                                                                                          features.shape[
+                                                                                                              1], 1)
 
-        if x.ndim == 1:
-            x = x[None, None]
-        elif x.ndim == 2:
-            x = x[None]
-        A_k, w_ck = self._get_acts_and_grads(model, modules, x, y, detach=detach, cpu=cpu)
+        if features.ndim == 1:
+            features = features[None, None]
+        elif features.ndim == 2:
+            features = features[None]
+        A_k, w_ck = self._get_acts_and_grads(model, modules, features, target, detach=detach, cpu=cpu)
         if type(A_k) is list:
             return [_get_attribution_map(A_k[i], w_ck[i]) for i in range(len(A_k))]
         else:
@@ -148,71 +184,37 @@ class XCM(Module):
         out = self.head(out)
         return out
 
-    def create_head(self,
-                    nf,
-                    output_dim,
-                    seq_len=None,
-                    flatten=False,
-                    concat_pool=False,
-                    fc_dropout=0.,
-                    bn=False,
-                    y_range=None):
-        if flatten:
-            nf *= seq_len
-            layers = [Reshape()]
-        else:
-            if concat_pool:
-                nf *= 2
-            layers = [GACP1d(1) if concat_pool else GAP1d(1)]
-        layers += [LinBnDrop(nf,
-                             output_dim,
-                             bn=bn,
-                             p=fc_dropout)]
-        if y_range:
-            layers += [SigmoidRange(*y_range)]
-        return nn.Sequential(*layers)
+    def explain(self, input_data):
+        target = input_data.target
+        features = input_data.features
+        median_dict = {}
+        for class_number in input_data.class_labels:
+            class_target_idx = np.where(target == class_number)[0]
+            median_sample = np.median(features[class_target_idx], axis=0)
+            median_dict.update({f'class_{class_number}': median_sample})
+        input_data.supplementary_data = median_dict
+        self._explain_by_gradcam(input_data)
 
-    def show_gradcam(self,
-                     x,
-                     y=None,
-                     detach=True,
-                     cpu=True,
-                     apply_relu=True,
-                     cmap='inferno',
-                     figsize=None,
-                     **kwargs):
+    @convert_inputdata_to_torch_dataset
+    def _explain_by_gradcam(self,
+                            input_data,
+                            detach=True,
+                            cpu=True,
+                            apply_relu=True,
+                            cmap='inferno',
+                            figsize=None,
+                            **kwargs):
 
-        att_maps = self.get_attribution_map([self.conv2dblock, self.conv1dblock],
-                                            x,
-                                            y=y,
+        att_maps = self.get_attribution_map(model=self,
+                                            modules=[self.conv2dblock, self.conv1dblock],
+                                            features=input_data.x,
+                                            target=input_data.y,
                                             detach=detach,
                                             cpu=cpu,
                                             apply_relu=apply_relu)
         att_maps[0] = (att_maps[0] - att_maps[0].min()) / (att_maps[0].max() - att_maps[0].min())
         att_maps[1] = (att_maps[1] - att_maps[1].min()) / (att_maps[1].max() - att_maps[1].min())
-
-        if figsize is None:
-            figsize = (10, 10)
-
-        fig = plt.figure(figsize=figsize, **kwargs)
-        ax = plt.axes()
-        plt.title('Observed variables')
-        if att_maps[0].ndim == 3:
-            att_maps[0] = att_maps[0].mean(0)
-        im = ax.imshow(att_maps[0], cmap=cmap)
-        cax = fig.add_axes([ax.get_position().x1 + 0.01, ax.get_position().y0, 0.02, ax.get_position().height])
-        plt.colorbar(im, cax=cax)
-        plt.show()
-
-        fig = plt.figure(figsize=figsize, **kwargs)
-        ax = plt.axes()
-        plt.title('Time')
-        if att_maps[1].ndim == 3:
-            att_maps[1] = att_maps[1].mean(0)
-        im = ax.imshow(att_maps[1], cmap=cmap)
-        cax = fig.add_axes([ax.get_position().x1 + 0.01, ax.get_position().y0, 0.02, ax.get_position().height])
-        plt.colorbar(im, cax=cax)
-        plt.show()
+        visualise_gradcam(att_maps, input_data.supplementary_data, figsize, cmap, **kwargs)
 
 
 class XCModel(BaseNeuralModel):
@@ -254,39 +256,3 @@ class XCModel(BaseNeuralModel):
         else:
             loss_fn = nn.BCEWithLogitsLoss()
         return loss_fn, optimizer
-
-if __name__ == "__main__":
-    dataset_list = [
-        'Lightning2']
-    result_dict = {}
-    pipeline_dict = {'omniscale_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50,
-                                                                                        'batch_size': 32}),
-
-                     'quantile_rf_model': PipelineBuilder() \
-                         .add_node('quantile_extractor') \
-                         .add_node('rf'),
-                     'composed_model': PipelineBuilder() \
-                         .add_node('tst_model', params={'epochs': 50,
-                                                        'batch_size': 32}) \
-                         .add_node('quantile_extractor', branch_idx=1) \
-                         .add_node('rf', branch_idx=1) \
-                         .join_branches('logit')}
-
-    for dataset in dataset_list:
-        try:
-            train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-            input_data = init_input_data(train_data[0], train_data[1])
-            val_data = init_input_data(test_data[0], test_data[1])
-            metric_dict = {}
-            for model in pipeline_dict:
-                with IndustrialModels():
-                    pipeline = pipeline_dict[model].build()
-                    pipeline.fit(input_data)
-                    target = pipeline.predict(val_data).predict
-                    metric = evaluate_metric(target=test_data[1], prediction=target)
-                metric_dict.update({model: metric})
-            result_dict.update({dataset: metric_dict})
-        except Exception:
-            print('ERROR')
-    result_df = pd.DataFrame(result_dict)
-    print(result_df)

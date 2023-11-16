@@ -1,26 +1,13 @@
 from typing import Optional
 
-import numpy as np
-import pandas as pd
 import torch
-from fastai.torch_core import Module
-from fedot.core.data.data import OutputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import nn, optim, Tensor
-import torch.nn.functional as F
-from examples.example_utils import evaluate_metric
-from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.models.cnn.classification_models import CLF_MODELS
+from fedot_ind.core.models.cnn.classification_models import CLF_MODELS,CLF_MODELS_ONE_CHANNEL
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from fedot_ind.core.models.nn.network_modules.layers.conv_layers import ConvBlock
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Squeeze, BN1d, Add
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
 
 
 class ResNet:
@@ -28,15 +15,8 @@ class ResNet:
                  input_dim,
                  output_dim,
                  model_name):
-        nf = 64
-        kss = [7, 5, 3]
-        self.model = CLF_MODELS[model_name](num_classes=output_dim)
-        # self.resblock1 = ResBlock(input_dim, nf, kss=kss)
-        # self.resblock2 = ResBlock(nf, nf * 2, kss=kss)
-        # self.resblock3 = ResBlock(nf * 2, nf * 2, kss=kss)
-        # self.gap = nn.AdaptiveAvgPool1d(1)
-        # self.squeeze = Squeeze(-1)
-        # self.fc = nn.Linear(nf * 2, output_dim)
+        model_list = {**CLF_MODELS,**CLF_MODELS_ONE_CHANNEL}
+        self.model = model_list[model_name](num_classes=output_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Implements the forward method of the model and returns predictions."""

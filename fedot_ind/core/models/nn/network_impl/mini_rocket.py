@@ -224,7 +224,7 @@ class MiniRocket(nn.Sequential):
         num_features = backbone.num_features
 
         # Head
-        self.head_nf = num_features
+        self.head_number_filters = num_features
         layers = [nn.Flatten()]
 
         if batch_norm:

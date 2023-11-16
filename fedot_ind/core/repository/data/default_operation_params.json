@@ -184,11 +184,11 @@
     "window_size_method": "hac"
   },
   "fedot_cls": {
-    "timeout": 2,
+    "timeout": 10,
     "with_tuning": true
   },
   "fedot_regr": {
-    "timeout": 2,
+    "timeout": 10,
     "with_tuning": true
   },
   "minirocket_extractor": {
@@ -207,6 +207,10 @@
     "batch_size": 32
   },
   "resnet_model": {
+    "epochs": 100,
+    "batch_size": 32
+  },
+  "xcm_model": {
     "epochs": 100,
     "batch_size": 32
   }

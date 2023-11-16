@@ -12,10 +12,13 @@ def fedot_data_type(func):
             args[0] = DataConverter(data=args[0])
         features = args[0].features
 
-        try:
-            input_data_squeezed = np.squeeze(features, 3)
-        except Exception:
-            input_data_squeezed = np.squeeze(features)
+        if len(features.shape) < 4:
+            try:
+                input_data_squeezed = np.squeeze(features, 3)
+            except Exception:
+                input_data_squeezed = np.squeeze(features)
+        else:
+            input_data_squeezed = features
 
         return func(self, input_data_squeezed)
 
@@ -57,6 +60,7 @@ def convert_inputdata_to_torch_dataset(func):
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
                                                      num_classes=classes).squeeze(1)
                 self.n_samples = ts.features.shape[0]
+                self.supplementary_data = ts.supplementary_data
 
             def __getitem__(self, index):
                 return self.x[index], self.y[index]

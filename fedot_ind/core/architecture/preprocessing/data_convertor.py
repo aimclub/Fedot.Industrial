@@ -101,6 +101,9 @@ from examples.example_utils import check_multivariate_data
 #     else:
 #         if return_names: return split_xy(X, y, splits), data_cols
 #         return split_xy(X, y, splits)
+from fedot_ind.core.architecture.settings.constanst_repository import MULTI_ARRAY, MATRIX
+
+
 class FedotConverter:
     def __init__(self, data):
         self.input_data = self.convert_to_input_data(data)
@@ -108,7 +111,7 @@ class FedotConverter:
     def convert_to_input_data(self, data):
         if isinstance(data, InputData):
             return data
-        elif isinstance(data[0], (np.ndarray, pd.self.dataFrame)):
+        elif isinstance(data[0], (np.ndarray, pd.DataFrame)):
             return self.__init_input_data(features=data[0],
                                           target=data[1], )
         else:
@@ -120,6 +123,8 @@ class FedotConverter:
     def __init_input_data(self, features: pd.DataFrame,
                           target: np.ndarray,
                           task: str = 'classification') -> InputData:
+        if type(features) is np.ndarray:
+            features = pd.DataFrame(features)
         is_multivariate_data = check_multivariate_data(features)
         task_dict = {'classification': Task(TaskTypesEnum.classification),
                      'regression': Task(TaskTypesEnum.regression)}
@@ -128,13 +133,13 @@ class FedotConverter:
                                    features=np.array(features.values.tolist()).astype(np.float),
                                    target=target.astype(np.float).reshape(-1, 1),
                                    task=task_dict[task],
-                                   data_type=DataTypesEnum.image)
+                                   data_type=MULTI_ARRAY)
         else:
             input_data = InputData(idx=np.arange(len(features)),
                                    features=features.values,
                                    target=np.ravel(target).reshape(-1, 1),
                                    task=task_dict[task],
-                                   data_type=DataTypesEnum.table)
+                                   data_type=MATRIX)
         return input_data
 
 

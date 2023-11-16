@@ -33,7 +33,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
-
+        self.predict = None
     def fit(self, input_data: InputData):
         pass
 
@@ -59,14 +59,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         if len(feature_matrix[0].features.shape) > 1:
             stacked_data = np.stack([ts.features for ts in feature_matrix])
-            predict = self._clean_predict(stacked_data)
+            self.predict = self._clean_predict(stacked_data)
         else:
             stacked_data = np.array([ts.features for ts in feature_matrix])
-            predict = self._clean_predict(stacked_data)
-            predict = predict.reshape(predict.shape[0], -1)
+            self.predict = self._clean_predict(stacked_data)
+            self.predict = self.predict.reshape(self.predict.shape[0], -1)
 
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
-        return predict
+        return self.predict
 
     def _clean_predict(self, predict: np.array):
         """Clean predict from nan, inf and reshape data for Fedot appropriate form

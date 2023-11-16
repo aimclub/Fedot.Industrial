@@ -4,6 +4,7 @@ from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
+from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
@@ -14,8 +15,9 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
     __operations_by_types = {
         'inception_model': InceptionTimeModel,
         'omniscale_model': OmniScaleModel,
-        'tst_model':TSTModel,
-        'resnet_model':ResNetModel
+        'tst_model': TSTModel,
+        'resnet_model': ResNetModel,
+        'xcm_model': XCModel
     }
 
     def _convert_to_operation(self, operation_type: str):
@@ -35,4 +37,3 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
 
     def predict(self, trained_operation, predict_data: InputData) -> OutputData:
         return trained_operation.predict(predict_data, self.output_mode)
-

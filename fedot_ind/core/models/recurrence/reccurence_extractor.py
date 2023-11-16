@@ -1,5 +1,6 @@
 from typing import Optional
 
+from PIL import Image
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -68,16 +69,16 @@ class RecurrenceExtractor(BaseExtractor):
             col_names = {'feature_name': list(feature_df.keys())}
         else:
             features = feature_df
-            features = np.dstack([np.array(features, dtype=np.uint8)] * 3)
+            features = np.asarray(Image.fromarray(features, mode='L'))[:, :, None]
             col_names = {'feature_name': None}
 
-        recurrence_features = InputData(idx=np.arange(len(features)),
-                                        features=features,
-                                        target='no_target',
-                                        task='no_task',
-                                        data_type=DataTypesEnum.table,
-                                        supplementary_data=col_names)
-        return recurrence_features
+        predict = InputData(idx=np.arange(len(features)),
+                            features=features,
+                            target='no_target',
+                            task='no_task',
+                            data_type=DataTypesEnum.table,
+                            supplementary_data=col_names)
+        return predict
 
     def generate_recurrence_features(self, ts: np.array) -> InputData:
 
@@ -91,3 +92,11 @@ class RecurrenceExtractor(BaseExtractor):
     def generate_features_from_ts(self, ts_data: np.array,
                                   dataset_name: str = None):
         return self.generate_recurrence_features(ts=ts_data)
+
+    def explain(self, input_data: InputData = None):
+        if input_data is None:
+            input_data = self.predict
+        for reccurence_matrix in input_data:
+            img = Image.fromarray(np.squeeze(reccurence_matrix), mode='L')
+            img.show()
+
