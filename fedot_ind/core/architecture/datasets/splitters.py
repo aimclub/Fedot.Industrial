@@ -1,7 +1,7 @@
 """
 This module contains functions for splitting a torch dataset into parts.
 """
-from typing import List, Tuple, Generator, Optional, Dict
+from typing import Dict, Generator, List, Optional, Tuple
 
 import numpy as np
 from torch.utils.data import Dataset, Subset
@@ -43,6 +43,7 @@ def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset, Subset], None, N
         train_indices = np.concatenate([fold_indices[j] for j in range(n) if j != i])
         train_ds = Subset(dataset, train_indices)
         yield train_ds, test_ds
+
 
 def split_data(dataset: Dataset, n: int, verbose: bool = False) -> List[np.ndarray]:
     """

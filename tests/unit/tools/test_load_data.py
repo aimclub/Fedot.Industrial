@@ -50,6 +50,14 @@ def test__load_from_tsfile_to_dataframe():
     full_path = os.path.join(PROJECT_PATH, 'examples/data/BitcoinSentiment/BitcoinSentiment_TEST.ts')
     x, y = loader._load_from_tsfile_to_dataframe(full_file_path_and_name=full_path, return_separate_X_and_y=True)
 
+
+def test__load_from_tsfile_to_dataframe_with_timestamps():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    full_path = os.path.join(PROJECT_PATH, 'examples/data/AppliancesEnergy/AppliancesEnergy_TEST.ts')
+    x, y = loader._load_from_tsfile_to_dataframe(full_file_path_and_name=full_path, return_separate_X_and_y=True)
+
     assert isinstance(x, pd.DataFrame)
     assert isinstance(y, np.ndarray)
     assert x.shape[0] == y.shape[0]
@@ -95,6 +103,18 @@ def test_read_arff_files():
     path = os.path.join(PROJECT_PATH, 'examples', 'data')
     x_train, y_train, x_test, y_test = loader.read_arff_files(dataset_name='ItalyPowerDemand_fake',
                                                               temp_data_path=path)
+
+    for i in [x_train, y_train, x_test, y_test]:
+        assert i is not None
+
+
+def test_read_tsv():
+    ds_name = 'name'
+    path = '.'
+    loader = DataLoader(dataset_name=ds_name, folder=path)
+    path = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets')
+    x_train, y_train, x_test, y_test = loader.read_tsv(dataset_name='ItalyPowerDemand_tsv',
+                                                       data_path=path)
 
     for i in [x_train, y_train, x_test, y_test]:
         assert i is not None

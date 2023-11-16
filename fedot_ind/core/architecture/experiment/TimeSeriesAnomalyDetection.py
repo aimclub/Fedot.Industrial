@@ -137,10 +137,12 @@ class TimeSeriesAnomalyDetectionPreset:
         for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
-        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
-                                                      'max_iter': 300,
-                                                      'activation': 'relu',
-                                                      'solver': 'adam', })
+        pipeline_builder.join_branches('rf')
+
+        # pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
+        #                                               'max_iter': 300,
+        #                                               'activation': 'relu',
+        #                                               'solver': 'adam', })
 
         return pipeline_builder.build()
 
