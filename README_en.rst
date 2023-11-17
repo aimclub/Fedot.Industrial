@@ -1,6 +1,6 @@
 .. image:: /docs/img/fedot-industrial.png
     :width: 600px
-    :align: left
+    :align: center
     :alt: Fedot Industrial logo
 
 ================================================================================
@@ -14,8 +14,8 @@
      - | |version| |python|
    * - CI/CD
      - | |coverage| |mirror| |integration|
-   * - Docs
-     - |docs|
+   * - Docs & Examples
+     - |docs| |binder|
    * - Downloads
      - | |downloads|
    * - Support
@@ -51,6 +51,9 @@
 .. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
     :target: https://fedotindustrial.readthedocs.io/en/latest/
     :alt: Documentation Status
+
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+    :target: https://mybinder.org/v2/gh/aimclub/Fedot.Industrial/HEAD
 
 .. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
     :target: https://pepy.tech/project/fedot-ind
@@ -151,16 +154,113 @@ Useful tutorials and examples can be found in the `examples`_ folder.
    * - Time series classification
      - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
    * - Time series regression
-     - `Example <google.com>`_
+     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/basic_example.py>`_, `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/advanced_regression.py>`_, `Multi-TS <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/multi_ts_example.py>`_
    * - Forecasting
      - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
    * - Anomaly detection
      - soon will be available
    * - Computer vision
-     - `Classification <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_classification_example.ipynb>`_, `Object detection <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/object_detection_example.ipynb>`_
+     - `Classification <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_clf_example.py>`_, `Object detection <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/obj_rec_example.py>`_
    * - Model ensemble
-     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/ensembling/rank_ensemle.ipynb>`_
+     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
 
+Real world cases
+================
+
+Building energy consumption
+----------------------------
+
+Link to the dataset on `Kaggle <https://www.kaggle.com/competitions/ashrae-energy-prediction>`_
+
+Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
+
+The challenge is to develop accurate counterfactual models that estimate energy consumption savings
+post-retrofit. Leveraging a dataset comprising three years of hourly meter readings from over a
+thousand buildings, the goal is to predict energy consumption (in kWh). Key predictors include **air temperature**,
+**dew temperature**, **wind direction**, and **wind speed**.
+
+
+.. image:: /docs/img/building-target.png
+    :align: center
+    :alt: building target
+
+.. image:: /docs/img/building_energy.png
+    :align: center
+    :alt: building results
+
+
+Results:
+
+.. list-table::
+   :widths: 100 60
+   :header-rows: 1
+
+   * - Algorithm
+     - RMSE_average
+   * - `FPCR <https://onlinelibrary.wiley.com/doi/10.1111/insr.12116>`_
+     - 455.941
+   * - `Grid-SVR <https://proceedings.neurips.cc/paper/1996/file/d38901788c533e8286cb6400b40b386d-Paper.pdf>`_
+     - 464.389
+   * - `FPCR-Bs <https://www.sciencedirect.com/science/article/abs/pii/S0167947313003629>`_
+     - 465.844
+   * - `5NN-DTW <https://link.springer.com/article/10.1007/s10618-016-0455-0>`_
+     - 469.378
+   * - `CNN <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7870510>`_
+     - 484.637
+   * - **Fedot.Industrial**
+     - **486.398**
+   * - `RDST <https://arxiv.org/abs/2109.13514>`_
+     - 527.927
+   * - `RandF <https://link.springer.com/article/10.1023/A:1010933404324>`_
+     - 527.343
+
+
+Permanent magnet synchronous motor (PMSM) rotor temperature
+-----------------------------------------------------------
+Link to the dataset on `Kaggle <https://www.kaggle.com/datasets/wkirgsn/electric-motor-temperature>`_
+
+Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/d3d5a4ddc2f4861622b6329261fc7b87396e0a6d/cases/industrial_examples/equipment_monitoring/motor_temperature.ipynb>`_
+
+This dataset focuses on predicting the maximum recorded rotor temperature of a permanent magnet synchronous
+motor (PMSM) during 30-second intervals. The data, sampled at 2 Hz, includes sensor readings such as
+**ambient temperature**, **coolant temperatures**, **d and q components** of voltage, and **current**.
+These readings are aggregated into 6-dimensional time series of length 60, representing 30 seconds.
+
+The challenge is to develop a predictive model using the provided predictors to accurately estimate the
+maximum rotor temperature, crucial for monitoring the motor's performance and ensuring optimal operating conditions.
+
+.. image:: /docs/img/rotor-temp.png
+    :align: center
+    :alt: rotor temp
+
+.. image:: /docs/img/motor-temperature.png
+    :align: center
+    :alt: solution
+
+
+Results:
+
+.. list-table::
+   :widths: 100 70
+   :header-rows: 1
+
+   * - Algorithm
+     - RMSE_average
+   * - **Fedot.Industrial**
+     - **1.158612**
+   * - `FreshPRINCE <https://arxiv.org/abs/2305.01429>`_
+     - 1.490442
+   * - `RIST <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3486435/>`_
+     - 1.501047
+   * - `RotF <https://ieeexplore.ieee.org/document/1677518>`_
+     - 1.559385
+   * - `DrCIF <https://arxiv.org/abs/2305.01429>`_
+     - 1.594442
+   * - `TSF <https://arxiv.org/abs/1302.2277>`_
+     - 1.684828
+
+
+================================================================================
 
 R&D plans
 =========

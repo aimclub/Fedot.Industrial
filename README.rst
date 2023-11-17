@@ -14,8 +14,8 @@
      - | |version| |python|
    * - CI/CD
      - |  |coverage| |mirror| |integration|
-   * - Документация
-     - |docs|
+   * - Документация и примеры
+     - |docs| |binder|
    * - Статистика загрузок
      - | |downloads|
    * - Подержка
@@ -51,6 +51,9 @@
 .. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
     :target: https://fedotindustrial.readthedocs.io/en/latest/
     :alt: Documentation Status
+
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+    :target: https://mybinder.org/v2/gh/aimclub/Fedot.Industrial/HEAD
 
 .. |downloads| image:: https://static.pepy.tech/personalized-badge/fedot-ind?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads
     :target: https://pepy.tech/project/fedot-ind
@@ -152,17 +155,119 @@ Fedot.Ind предоставляет высокоуровневый API, кот�
    * - Тема
      - Пример
    * - Классификация временных рядов
-     - `Базовый <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ и `Расширенный <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
-   * - Регрессия временных рядов
-     - `Пример <google.com>`_
+     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
+   * - Регрессия
+     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/basic_example.py>`_, `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/advanced_regression.py>`_, `Multi-TS <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/multi_ts_example.py>`_
    * - Прогнозирование
      - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
    * - Детектирование аномалий
      - скоро будет в доступе
    * - Компьютерное зрение
-     - `Классификация <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_classification_example.ipynb>`_, `Детектирование объектов <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/object_detection_example.ipynb>`_
-   * - Ансамблирование моделей
-     - `Ноутбук <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/ensembling/rank_ensemle.ipynb>`_
+     - `Классификация <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_clf_example.py>`_, `Детектирование <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/obj_rec_example.py>`_
+   * - Ансамблирование
+     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
+
+
+Применение на реальных данных
+==============================
+
+Энергопотребление здания
+----------------------------
+
+Ссылка на данные `Kaggle <https://www.kaggle.com/competitions/ashrae-energy-prediction>`_
+
+Ноутбук с решением `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
+
+Задача состоит в разработке точных контрфактических моделей, позволяющих оценить экономию энергопотребления
+после модернизации. Используя набор данных, состоящий из трехлетних почасовых показаний счетчиков более чем
+тысячи зданий, ставится задача прогнозирования энергопотребления (в кВт-ч). Ключевыми предикторами
+являются **температура воздуха**, **температура росы**, **направление ветра** и **скорость ветра**.
+
+
+.. image:: /docs/img/building-target.png
+    :align: center
+    :alt: building target
+
+.. image:: /docs/img/building_energy.png
+    :align: center
+    :alt: building results
+
+
+Результаты сравнения с SOTA-алгоритмами:
+
+.. list-table::
+   :widths: 100 60
+   :header-rows: 1
+
+   * - Алгоритм
+     - RMSE_average
+   * - `FPCR <https://onlinelibrary.wiley.com/doi/10.1111/insr.12116>`_
+     - 455.941
+   * - `Grid-SVR <https://proceedings.neurips.cc/paper/1996/file/d38901788c533e8286cb6400b40b386d-Paper.pdf>`_
+     - 464.389
+   * - `FPCR-Bs <https://www.sciencedirect.com/science/article/abs/pii/S0167947313003629>`_
+     - 465.844
+   * - `5NN-DTW <https://link.springer.com/article/10.1007/s10618-016-0455-0>`_
+     - 469.378
+   * - `CNN <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7870510>`_
+     - 484.637
+   * - **Fedot.Industrial**
+     - **486.398**
+   * - `RDST <https://arxiv.org/abs/2109.13514>`_
+     - 527.927
+   * - `RandF <https://link.springer.com/article/10.1023/A:1010933404324>`_
+     - 527.343
+
+
+Температура ротора синхронного двигателя с постоянными магнитами (СДПМ)
+-----------------------------------------------------------------------
+Ссылка на данные `Kaggle <https://www.kaggle.com/datasets/wkirgsn/electric-motor-temperature>`_
+
+Ноутбук с решением `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/d3d5a4ddc2f4861622b6329261fc7b87396e0a6d/cases/industrial_examples/equipment_monitoring/motor_temperature.ipynb>`_
+
+Данный набор данных предназначен для прогнозирования максимальной зарегистрированной температуры
+ротора синхронного двигателя с постоянными магнитами (СДПМ) в течение 30-секундных интервалов.
+Данные, дискретизированные с частотой 2 Гц, включают показания датчиков, такие как
+**температура окружающей среды**, **температура охлаждающей жидкости**, **d и q компоненты** напряжения
+и **тока**.
+
+Эти показания агрегируются в 6-мерный временной ряд длиной 60, что соответствует 30 секундам.
+
+Задача заключается в разработке прогнозирующей модели с использованием предоставленных предикторов для
+точной оценки максимальной температуры ротора, что крайне важно для мониторинга работы двигателя и
+обеспечения оптимальных условий эксплуатации.
+
+
+.. image:: /docs/img/rotor-temp.png
+    :align: center
+    :alt: rotor temp
+
+.. image:: /docs/img/motor-temperature.png
+    :align: center
+    :alt: solution
+
+
+Результаты сравнения с SOTA-алгоритмами:
+
+.. list-table::
+   :widths: 100 70
+   :header-rows: 1
+
+   * - Алгоритм
+     - RMSE_average
+   * - **Fedot.Industrial**
+     - **1.158612**
+   * - `FreshPRINCE <https://arxiv.org/abs/2305.01429>`_
+     - 1.490442
+   * - `RIST <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3486435/>`_
+     - 1.501047
+   * - `RotF <https://ieeexplore.ieee.org/document/1677518>`_
+     - 1.559385
+   * - `DrCIF <https://arxiv.org/abs/2305.01429>`_
+     - 1.594442
+   * - `TSF <https://arxiv.org/abs/1302.2277>`_
+     - 1.684828
+
 
 
 Дальнейшие R&D планы
