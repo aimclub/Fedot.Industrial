@@ -3,7 +3,7 @@ from numpy.linalg import svd
 
 
 def rq(A):
-    n, m = A.shape()
+    n, m = A.shape
     Q, R = np.linalg.qr(np.flipud(A).T, mode='complete')
     R = np.rot90(R.T, 2)
     Q = np.flipud(Q.T)
@@ -19,16 +19,12 @@ def tls(A, B):
         raise ValueError('Matrices are not conformant.')
     R1 = np.hstack((A, B))
     U, S, V = np.linalg.svd(R1)
-    r = A.shape[1]
-    R = rq(V[:, r:])
+    r = B.shape[1]
+    R, Q = rq(V[:, r:])
     Gamma = R[n:, n - r:]
     Z = R[:n, n - r:]
     Xhat = -np.dot(Z, np.linalg.inv(Gamma))
     return Xhat
-
-
-def dmd_decompose():
-    pass
 
 
 def exact_dmd_decompose(X, Y, rank):
@@ -76,10 +72,10 @@ def symmetric_decompose(X, Y, rank):
         r = np.linalg.matrix_rank(X)
     Ux = Ux[:, :rank]
     Yf = np.zeros((rank, rank))
-    for i in range(r):
-        Yf[i, i] = np.real(C1[i, i]) / S[i, i]
+    for i in range(rank):
+        Yf[i, i] = np.real(C1[i, i]) / S[i]
         for j in range(i + 1, rank):
-            Yf[i, j] = (S[i, i] * np.conj(C1[j, i]) + S[j, j] * C1[i, j]) / (S[i, i] ** 2 + S[j, j] ** 2)
+            Yf[i, j] = (S[i] * np.conj(C1[j, i]) + S[j] * C1[i, j]) / (S[i] ** 2 + S[j] ** 2)
     Yf = Yf + Yf.T - np.diag(np.diag(np.real(Yf)))
     # elif method == 'skewsymmetric':
     #     for i in range(r):
@@ -92,7 +88,7 @@ def symmetric_decompose(X, Y, rank):
 
 
 def hankel_decompose(X, Y, rank):
-    nx, nt = X.shape()
+    nx, nt = X.shape
     # J = np.eye(nx)
     J = np.fliplr(np.eye(nx))
     # Define the left matrix

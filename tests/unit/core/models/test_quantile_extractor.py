@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -7,9 +5,8 @@ from fedot.core.data.data import OutputData
 
 from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
-
+from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 FEATURES = list(stat_methods.keys()) + list(stat_methods_global.keys())
 
@@ -51,10 +48,8 @@ def test_transform_window(quantile_extractor_window, input_data):
     train_features_window = quantile_extractor_window.transform(input_data=input_data)
     window = quantile_extractor_window.window_size
     len_ts = input_data.features.shape[1]
-    #expected_n_features = len(stat_methods_global.keys()) + math.ceil(len_ts / (len_ts*window/100)) * len(stat_methods.keys())
     assert train_features_window is not None
     assert isinstance(train_features_window, OutputData)
-    #assert expected_n_features == train_features_window.predict.shape[1]
 
 
 def test_extract_features(quantile_extractor):

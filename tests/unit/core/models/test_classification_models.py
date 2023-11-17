@@ -24,3 +24,13 @@ def test_resnet101_one_channel():
 def test_resnet152_one_channel():
     model = resnet152_one_channel()
     assert isinstance(model, ResNet)
+
+
+def test_CLF_MODELS():
+    models = CLF_MODELS
+    assert isinstance(models, dict)
+
+
+def test_CLF_MODELS_ONE_CHANNEL():
+    models = CLF_MODELS_ONE_CHANNEL
+    assert isinstance(models, dict)

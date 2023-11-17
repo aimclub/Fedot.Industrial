@@ -17,10 +17,19 @@ def synthetic_coco_dataset():
     return COCODataset(coco_img_path, coco_path, transform=transforms.ToTensor())
 
 
-def test_draw_sample_with_bboxes(synthetic_coco_dataset):
+@pytest.fixture
+def sample_prediction():
+    return {
+        'boxes': [[0.0, 0.0, 1.0, 1.0]],
+        'labels': [1],
+        'scores': [0.9]
+    }
+
+
+def test_draw_sample_with_bboxes(synthetic_coco_dataset, sample_prediction):
     sample = synthetic_coco_dataset[0]
     image, label = sample
-    figure = draw_sample_with_bboxes(image=image, target=label)
+    figure = draw_sample_with_bboxes(image=image, target=label, prediction=sample_prediction)
 
     assert isinstance(figure, plt.Figure)
 

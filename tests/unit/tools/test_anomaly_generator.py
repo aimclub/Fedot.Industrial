@@ -1,10 +1,10 @@
 import warnings
 
+import matplotlib.pyplot as plt
+import pytest
 from matplotlib import get_backend
 
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
-import pytest
-import matplotlib.pyplot as plt
 
 
 @pytest.fixture

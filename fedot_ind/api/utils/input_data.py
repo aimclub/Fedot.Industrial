@@ -11,9 +11,18 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification'
     Args:
         X: pandas DataFrame with features
         y: numpy array with target values
+        task: str, task type, 'classification' or 'regression'
 
     Returns:
         InputData object convenient for FEDOT framework
+
+    Example:
+        To produce input data object::
+            rows, cols = 100, 50
+            X = pd.DataFrame(np.random.random((rows, cols)))
+            y = np.random.randint(0, 2, rows)
+
+    input_data = init_input_data(X, y)
 
     """
     is_multivariate_data = True if isinstance(X.iloc[0, 0], pd.Series) else False
@@ -21,26 +30,13 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification'
         input_data = InputData(idx=np.arange(len(X)),
                                features=np.array(X.values.tolist()),
                                target=y.reshape(-1, 1),
-                               # task=Task(TaskTypesEnum.classification),
                                task=Task(TaskTypesEnum(task)),
                                data_type=DataTypesEnum.image)
     else:
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
                                target=np.ravel(y).reshape(-1, 1),
-                               # task=Task(TaskTypesEnum.classification),
                                task=Task(TaskTypesEnum(task)),
                                data_type=DataTypesEnum.table)
 
     return input_data
-
-
-if __name__ == '__main__':
-    rows, cols = 100, 50
-
-    X = pd.DataFrame(np.random.random((rows, cols)))
-    y = np.random.randint(0, 2, rows)
-
-    input_data = init_input_data(X, y)
-
-    _ = 1

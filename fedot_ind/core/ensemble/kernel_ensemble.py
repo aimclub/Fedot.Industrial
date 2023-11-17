@@ -52,8 +52,8 @@ class KernelEnsembler(ClassificationPipelines):
             for specified_params in kernel_params:
                 feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**specified_params)
 
-                self.feature_matrix_train.append(feature_extractor.extract_features(self.train_features))
-                self.feature_matrix_test.append(feature_extractor.extract_features(self.test_features))
+                self.feature_matrix_train.append(feature_extractor.extract_features(self.train_features, self.train_target))
+                self.feature_matrix_test.append(feature_extractor.extract_features(self.test_features, self.test_target))
         return
 
     def __one_stage_kernel(self, kernel_params_dict: dict = None, feature_generator: str = None):
@@ -109,12 +109,12 @@ if __name__ == '__main__':
     metric_dict = {}
     dataset_name = 'Lightning2'
     kernel_list = {'wavelet': [
-        {'feature_generator_type': 'wavelet',
+        {'feature_generator_type': 'signal',
          'feature_hyperparams': {
              'wavelet': "mexh",
              'n_components': 2
          }},
-        {'feature_generator_type': 'wavelet',
+        {'feature_generator_type': 'signal',
          'feature_hyperparams': {
              'wavelet': "morl",
              'n_components': 2
@@ -151,22 +151,15 @@ if __name__ == '__main__':
         feature_dict.update({fg_names[rank]: (test_best, test_best)})
 
     for model_name, feature in feature_dict.items():
-        industrial = Fedot(
-            # available_operations=['fast_ica', 'scaling','normalization',
-            #                               'xgboost',
-            #                               'rf',
-            #                               'logit',
-            #                               'mlp',
-            #                               'knn',
-            #                               'pca'],
-            metric='roc_auc', timeout=5, problem='classification', n_jobs=6)
+        industrial = Fedot(metric='roc_auc', timeout=5, problem='classification', n_jobs=6)
 
         model = industrial.fit(feature[0], train_target)
         labels = industrial.predict(feature[1])
         proba_dict.update({model_name: industrial.predict_proba(feature[1])})
-        metric_dict.update({model_name: industrial.get_metrics(test_target, metric_names=['roc_auc', 'f1', 'acc'])})
+        metric_dict.update({model_name: industrial.get_metrics(test_target, metric_names=['roc_auc', 'f1', 'accuracy'])})
     rank_ensembler = RankEnsemble(dataset_name=dataset_name,
-                                  proba_dict=proba_dict,
-                                  metric_dict=metric_dict)
+                                  proba_dict={dataset_name: proba_dict},
+                                  metric_dict={dataset_name: metric_dict})
+
     ensemble_result = rank_ensembler.ensemble()
     _ = 1
