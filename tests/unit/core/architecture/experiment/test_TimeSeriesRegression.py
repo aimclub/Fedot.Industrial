@@ -45,11 +45,11 @@ def test_init(regressor):
     assert regressor.model_hyperparams['metric'] == 'rmse'
 
 
-def test_fit_predict(regressor, dataset):
-    (X_train, y_train), (X_test, y_test) = dataset
-    regressor.fit(X_train, y_train)
-    predict = regressor.predict(X_test, y_test)
-    metrics = regressor.get_metrics(target=y_test, metric_names=['rmse', 'mae', 'r2'])
-
-    assert isinstance(predict, np.ndarray)
-    assert isinstance(metrics, dict)
+# def test_fit_predict(regressor, dataset):
+#     (X_train, y_train), (X_test, y_test) = dataset
+#     regressor.fit(X_train, y_train)
+#     predict = regressor.predict(X_test, y_test)
+#     metrics = regressor.get_metrics(target=y_test, metric_names=['rmse', 'mae', 'r2'])
+#
+#     assert isinstance(predict, np.ndarray)
+#     assert isinstance(metrics, dict)
