@@ -137,33 +137,33 @@ class GlobalWeightedAveragePool1d(Module):
 GWAP1d = GlobalWeightedAveragePool1d
 
 
-def gwa_pool_head(n_in, c_out, seq_len, bn=True, fc_dropout=0.):
+def gwa_pool_head(n_in, output_dim, seq_len, batch_norm=True, fc_dropout=0.):
     return nn.Sequential(GlobalWeightedAveragePool1d(n_in, seq_len), Reshape(),
-                         LinBnDrop(n_in, c_out, p=fc_dropout, bn=bn))
+                         LinBnDrop(n_in, output_dim, p=fc_dropout, batch_norm=batch_norm))
 
 
 
 class AttentionalPool1d(Module):
     """Global Adaptive Pooling layer inspired by Attentional Pooling for Action Recognition https://arxiv.org/abs/1711.01467"""
 
-    def __init__(self, n_in, c_out, bn=False):
+    def __init__(self, n_in, output_dim, batch_norm=False):
         store_attr()
-        self.bn = nn.BatchNorm1d(n_in) if bn else None
+        self.batch_norm = nn.BatchNorm1d(n_in) if batch_norm else None
         self.conv1 = Conv1d(n_in, 1, 1)
-        self.conv2 = Conv1d(n_in, c_out, 1)
+        self.conv2 = Conv1d(n_in, output_dim, 1)
 
     def forward(self, x):
-        if self.bn is not None: x = self.bn(x)
+        if self.batch_norm is not None: x = self.batch_norm(x)
         return (self.conv1(x) @ self.conv2(x).transpose(1, 2)).transpose(1, 2)
 
 
 class GAttP1d(nn.Sequential):
-    def __init__(self, n_in, c_out, bn=False):
-        super().__init__(AttentionalPool1d(n_in, c_out, bn=bn), Reshape())
+    def __init__(self, n_in, output_dim, batch_norm=False):
+        super().__init__(AttentionalPool1d(n_in, output_dim, batch_norm=batch_norm), Reshape())
 
 
-def attentional_pool_head(n_in, c_out, seq_len=None, bn=True, **kwargs):
-    return nn.Sequential(AttentionalPool1d(n_in, c_out, bn=bn, **kwargs), Reshape())
+def attentional_pool_head(n_in, output_dim, seq_len=None, batch_norm=True, **kwargs):
+    return nn.Sequential(AttentionalPool1d(n_in, output_dim, batch_norm=batch_norm, **kwargs), Reshape())
 
 
 class PoolingLayer(Module):

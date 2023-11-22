@@ -1,21 +1,17 @@
 from typing import Optional
 
-import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from torch import nn, optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.architecture.settings.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
 from fedot_ind.core.models.nn.network_modules.layers.special import InceptionModule, InceptionBlock
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 
-from examples.example_utils import evaluate_metric, init_input_data
 from fastai.torch_core import Module
 from fastcore.meta import delegates
 
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
 
 
 @delegates(InceptionModule.__init__)
@@ -74,8 +70,7 @@ class InceptionTimeModel(BaseNeuralModel):
                                    output_dim=self.num_classes).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         if ts.num_classes == 2:
-            loss_fn = nn.CrossEntropyLoss()
+            loss_fn = CROSS_ENTROPY
         else:
-            loss_fn = nn.BCEWithLogitsLoss()
+            loss_fn = MULTI_CLASS_CROSS_ENTROPY
         return loss_fn, optimizer
-

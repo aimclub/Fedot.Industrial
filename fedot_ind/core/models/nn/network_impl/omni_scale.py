@@ -2,6 +2,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.architecture.settings.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 from fedot_ind.core.models.nn.network_modules.layers.special import ParameterizedLayer
 from fedot_ind.core.models.nn.network_modules.other import *
@@ -129,5 +130,8 @@ class OmniScaleModel(BaseNeuralModel):
                                   output_dim=self.num_classes,
                                   seq_len=ts.features.shape[2]).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        loss_fn = nn.CrossEntropyLoss()
+        if ts.num_classes == 2:
+            loss_fn = CROSS_ENTROPY
+        else:
+            loss_fn = MULTI_CLASS_CROSS_ENTROPY
         return loss_fn, optimizer

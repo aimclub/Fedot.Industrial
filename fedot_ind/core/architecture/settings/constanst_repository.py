@@ -4,7 +4,7 @@ from multiprocessing import cpu_count
 
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
-
+from torch import nn
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -130,6 +130,12 @@ class ModelCompressionConstant(Enum):
     }
 
 
+class TorchLossesConstant(Enum):
+    CROSS_ENTROPY = nn.CrossEntropyLoss
+    MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
+    MSE = nn.MSELoss
+
+
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
 STAT_METHODS_GLOBAL = FeatureConstant.STAT_METHODS_GLOBAL.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
@@ -156,3 +162,7 @@ FORWARD_MODE = ModelCompressionConstant.FORWARD_MODE.value
 HOER_LOSS = ModelCompressionConstant.HOER_LOSS.value
 ORTOGONAL_LOSS = ModelCompressionConstant.ORTOGONAL_LOSS.value
 MODELS_FROM_LENGHT = ModelCompressionConstant.MODELS_FROM_LENGHT.value
+
+CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
+MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value
+MSE = TorchLossesConstant.MSE.value

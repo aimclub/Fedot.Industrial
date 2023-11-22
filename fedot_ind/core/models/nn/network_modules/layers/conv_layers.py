@@ -116,16 +116,16 @@ class ConvBlock(nn.Sequential):
     "Create a sequence of conv1d (`ni` to `nf`), activation (if `act_cls`) and `norm_type` layers."
 
     def __init__(self, ni, nf, kernel_size=None, ks=3, stride=1, padding='same', bias=None, bias_std=0.01, norm='Batch',
-                 zero_norm=False, bn_1st=True,
+                 zero_norm=False, batch_norm_1st=True,
                  act=nn.ReLU, act_kwargs={}, init='auto', dropout=0., xtra=None, coord=False, separable=False,
                  **kwargs):
         kernel_size = kernel_size or ks
         ndim = 1
         layers = [AddCoords1d()] if coord else []
         norm_type = getattr(NormType, f"{snake2camel(norm)}{'Zero' if zero_norm else ''}") if norm is not None else None
-        bn = norm_type in (NormType.Batch, NormType.BatchZero)
+        batch_norm = norm_type in (NormType.Batch, NormType.BatchZero)
         inn = norm_type in (NormType.Instance, NormType.InstanceZero)
-        if bias is None: bias = not (bn or inn)
+        if bias is None: bias = not (batch_norm or inn)
         if separable:
             conv = SeparableConv1d(ni + coord, nf, ks=kernel_size, bias=bias, stride=stride, padding=padding, **kwargs)
         else:
@@ -137,13 +137,13 @@ class ConvBlock(nn.Sequential):
         elif norm_type == NormType.Spectral:
             conv = spectral_norm(conv)
         layers += [conv]
-        act_bn = []
-        if act is not None: act_bn.append(act)
-        if bn: act_bn.append(BatchNorm(nf, norm_type=norm_type, ndim=ndim))
-        if inn: act_bn.append(InstanceNorm(nf, norm_type=norm_type, ndim=ndim))
-        if bn_1st: act_bn.reverse()
+        act_batch_norm = []
+        if act is not None: act_batch_norm.append(act)
+        if batch_norm: act_batch_norm.append(BatchNorm(nf, norm_type=norm_type, ndim=ndim))
+        if inn: act_batch_norm.append(InstanceNorm(nf, norm_type=norm_type, ndim=ndim))
+        if batch_norm_1st: act_batch_norm.reverse()
         if dropout: layers += [nn.Dropout(dropout)]
-        layers += act_bn
+        layers += act_batch_norm
         if xtra: layers.append(xtra)
         super().__init__(*layers)
 

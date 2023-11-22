@@ -16,7 +16,7 @@ class HankelMatrix:
                  strides: int = 1):
         self.__time_series = time_series
         self.__convert_ts_to_array()
-        self.__window_length = window_size
+        self.__window_length = window_size - 1
         self.__strides = strides
         if len(self.__time_series.shape) > 1:
             self.__ts_length = self.__time_series[0].size

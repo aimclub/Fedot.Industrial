@@ -9,6 +9,7 @@ from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
+from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -17,7 +18,8 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
         'omniscale_model': OmniScaleModel,
         'tst_model': TSTModel,
         'resnet_model': ResNetModel,
-        'xcm_model': XCModel
+        'xcm_model': XCModel,
+        'patch_tst_model': PatchTSTModel
     }
 
     def _convert_to_operation(self, operation_type: str):

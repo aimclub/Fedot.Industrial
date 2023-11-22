@@ -2,8 +2,10 @@ import numpy as np
 import torch
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
+from torch.utils.data import DataLoader
 
-from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter, \
+    CustomDatasetCLF, CustomDatasetTS
 
 
 def fedot_data_type(func):
@@ -41,34 +43,15 @@ def convert_to_3d_torch_array(func):
 def convert_inputdata_to_torch_dataset(func):
     def decorated_func(self, *args):
         ts = args[0]
+        return func(self, CustomDatasetCLF(ts))
 
-        class CustomDataset:
-            def __init__(self, ts):
-                self.x = torch.from_numpy(ts.features).float()
-                label_1 = max(ts.class_labels)
-                label_0 = min(ts.class_labels)
-                classes = ts.num_classes
-                if classes == 2 and label_1 != 1:
-                    ts.target[ts.target == label_0] = 0
-                    ts.target[ts.target == label_1] = 1
-                elif classes == 2 and label_0 != 0:
-                    ts.target[ts.target == label_0] = 0
-                    ts.target[ts.target == label_1] = 1
-                elif classes > 2 and label_0 == 1:
-                    ts.target = ts.target - 1
+    return decorated_func
 
-                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
-                                                     num_classes=classes).squeeze(1)
-                self.n_samples = ts.features.shape[0]
-                self.supplementary_data = ts.supplementary_data
 
-            def __getitem__(self, index):
-                return self.x[index], self.y[index]
-
-            def __len__(self):
-                return self.n_samples
-
-        return func(self, CustomDataset(ts))
+def convert_inputdata_to_torch_time_series_dataset(func):
+    def decorated_func(self, *args):
+        ts = args[0]
+        return func(self, CustomDatasetTS(ts))
 
     return decorated_func
 

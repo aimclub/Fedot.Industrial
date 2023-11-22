@@ -10,7 +10,6 @@ from fedot.core.repository.tasks import TaskTypesEnum, Task
 
 from examples.example_utils import check_multivariate_data
 
-
 # def df2Xy(df,
 #           sample_col=None,
 #           feat_col=None,
@@ -104,6 +103,45 @@ from examples.example_utils import check_multivariate_data
 from fedot_ind.core.architecture.settings.constanst_repository import MULTI_ARRAY, MATRIX
 
 
+class CustomDatasetTS:
+    def __init__(self, ts):
+        self.x = torch.from_numpy(DataConverter(data=ts.features).convert_to_torch_format()).float()
+        self.y = torch.from_numpy(DataConverter(data=ts.target).convert_to_torch_format()).float()
+
+    def __getitem__(self, index):
+        pass
+
+    def __len__(self):
+        pass
+
+
+class CustomDatasetCLF:
+    def __init__(self, ts):
+        self.x = torch.from_numpy(ts.features).float()
+        label_1 = max(ts.class_labels)
+        label_0 = min(ts.class_labels)
+        classes = ts.num_classes
+        if classes == 2 and label_1 != 1:
+            ts.target[ts.target == label_0] = 0
+            ts.target[ts.target == label_1] = 1
+        elif classes == 2 and label_0 != 0:
+            ts.target[ts.target == label_0] = 0
+            ts.target[ts.target == label_1] = 1
+        elif classes > 2 and label_0 == 1:
+            ts.target = ts.target - 1
+
+        self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
+                                             num_classes=classes).squeeze(1)
+        self.n_samples = ts.features.shape[0]
+        self.supplementary_data = ts.supplementary_data
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.n_samples
+
+
 class FedotConverter:
     def __init__(self, data):
         self.input_data = self.convert_to_input_data(data)
@@ -157,10 +195,7 @@ class TensorConverter:
         elif isinstance(data, InputData):
             return torch.from_numpy(data.features)
         else:
-            try:
-                return torch.tensor(data)
-            except:
-                print(f"Can't convert {type(data)} to torch.Tensor", Warning)
+            print(f"Can't convert {type(data)} to torch.Tensor", Warning)
 
     def convert_to_1d_tensor(self):
         if self.tensor_data.ndim == 1:
@@ -202,6 +237,10 @@ class NumpyConverter:
             return data.values
         elif isinstance(data, InputData):
             return data.features
+        elif isinstance(data, CustomDatasetTS):
+            return data.x
+        elif isinstance(data, CustomDatasetCLF):
+            return data.x
         else:
             try:
                 return np.asarray(data)

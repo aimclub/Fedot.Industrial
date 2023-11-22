@@ -150,9 +150,9 @@
       "description": "Implementations of fedot automl classification strategy"
     },
     "fedot_NN_classification": {
-      "tasks": "[TaskTypesEnum.classification]",
-      "input_type": "[DataTypesEnum.image]",
-      "output_type": "[DataTypesEnum.table]",
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
       "accepted_node_types": [
         "any"
       ],
@@ -248,6 +248,15 @@
       ]
     },
     "xcm_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+        "automl"
+      ]
+    },
+    "patch_tst_model": {
       "meta": "fedot_NN_classification",
       "presets": [
         "best_quality"

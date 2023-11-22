@@ -17,9 +17,9 @@ def visualise_gradcam(att_maps,
     if att_maps[1].ndim == 3:
         att_maps[1] = att_maps[1].mean(1)
 
-    idx_plot = list(range(2+len(median_sample)))
+    idx_plot = list(range(2 + len(median_sample)))
     fig, axs = plt.subplots(len(idx_plot), 1, figsize=figsize, sharex=True, **kwargs)
-    for idx,class_number in enumerate(median_sample):
+    for idx, class_number in enumerate(median_sample):
         axs[idx].set_title(f'Median sample of {class_number}')
         sns.lineplot(median_sample[class_number].reshape(-1, 1), ax=axs[idx])
     axs[idx_plot[-2]].set_title('Observed Variables')

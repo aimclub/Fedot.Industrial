@@ -1,12 +1,14 @@
+import matplotlib
 import numpy as np
 from fedot.core.composer.metrics import smape
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from matplotlib import pyplot as plt
 
 from examples.example_utils import get_ts_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+import matplotlib.pyplot as plt
 
+matplotlib.use('TkAgg')
 
 def plot_metrics_and_prediction(test_data: InputData,
                                 train_data: InputData,
@@ -23,8 +25,8 @@ def plot_metrics_and_prediction(test_data: InputData,
     plt.legend()
     plt.show()
 
-    print(f"SSA smape: {smape(test_data.target, model_prediction)}")
-    print(f"no SSA smape: {smape(test_data.target, baseline_prediction)}")
+    print(f"model smape: {smape(test_data.target, model_prediction)}")
+    print(f"baseline smape: {smape(test_data.target, baseline_prediction)}")
 
 
 model_dict = {'ssa_forecasting': PipelineBuilder().add_node('ssa_forecaster'),

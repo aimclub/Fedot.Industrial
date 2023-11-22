@@ -56,6 +56,7 @@ class TransformerModel(Module):
         x = self.outlinear(x)
         return x
 
+
 class TransformerModel(BaseNeuralModel):
     """Class responsible for InceptionTime model implementation.
 
@@ -86,8 +87,8 @@ class TransformerModel(BaseNeuralModel):
         self.batch_size = params.get('batch_size', 20)
 
     def _init_model(self, ts):
-        self.model =  TransformerModel(input_dim=ts.features.shape[1],
-                                  output_dim=self.num_classes).to(default_device())
+        self.model = TransformerModel(input_dim=ts.features.shape[1],
+                                      output_dim=self.num_classes).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         loss_fn = nn.CrossEntropyLoss()
         return loss_fn, optimizer

@@ -11,6 +11,7 @@ from fastai.torch_core import Module
 
 from fastcore.basics import snake2camel
 
+from fedot_ind.core.architecture.settings.computational import default_device
 
 
 def init_lin_zero(m):
@@ -39,7 +40,6 @@ class Reshape(nn.Module):
 
     def forward(self, x):
         return x.view(-1, *self.out_shape)
-
 
 
 # %% ../../nbs/029_models.layers.ipynb 29
@@ -232,5 +232,42 @@ class AddCoords1d(Module):
         x = torch.cat([x, cc], dim=1)
         return x
 
+
+class Flatten_Head(nn.Module):
+    def __init__(self, individual, n_vars, nf, pred_dim):
+        super().__init__()
+
+        if isinstance(pred_dim, (tuple, list)):
+            pred_dim = pred_dim[-1]
+        self.individual = individual
+        self.n = n_vars if individual else 1
+        self.nf, self.pred_dim = nf, pred_dim
+
+        if individual:
+            self.layers = nn.ModuleList()
+            for i in range(self.n):
+                self.layers.append(nn.Sequential(nn.Flatten(start_dim=-2), nn.Linear(nf, pred_dim)))
+        else:
+            self.layer = nn.Sequential(nn.Flatten(start_dim=-2), nn.Linear(nf, pred_dim))
+
+    def forward(self, x: Tensor):
+        """
+        Args:
+            x: [bs x nvars x d_model x n_patch]
+            output: [bs x nvars x pred_dim]
+        """
+        if self.individual:
+            x_out = []
+            for i, layer in enumerate(self.layers):
+                x_out.append(layer(x[:, i]))
+            x = torch.stack(x_out, dim=1)
+            return x
+        else:
+            try:
+                return self.layer(x)
+            except Exception:
+                self.layer = nn.Sequential(nn.Flatten(start_dim=-2),
+                                           nn.Linear(x.shape[3]*self.nf, self.pred_dim)).to(default_device())
+                return self.layer(x)
 
 Noop = nn.Sequential()

@@ -8,7 +8,7 @@ def _has_mps():
     # return nested_attr(torch, "backends.mps.is_available", noop)()
 
 
-def default_device(device_type: str = 'CPU'):
+def default_device(device_type: str = 'CUDA'):
     "Return or set default device; `use_cuda`: -1 - CUDA/mps if available; True - error if not available; False - CPU"
     if device_type == 'CUDA':
         device_type = defaults.use_cuda

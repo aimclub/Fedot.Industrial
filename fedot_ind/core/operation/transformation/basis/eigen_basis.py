@@ -70,14 +70,16 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         else:
             features = np.array(ListMonad(*input_data.values.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
+        if len(features.shape) == 2 and features.shape[1] == 1:
+            features = features.reshape(1, -1)
 
         if self.SV_threshold is None:
-            self.SV_threshold = self.get_threshold(data=features)
+            self.SV_threshold = max(self.get_threshold(data=features),2)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
-        self.predict = np.array(v)
+        self.predict = np.array(v) if len(v) > 1 else v[0]
         return self.predict
 
     def get_threshold(self, data) -> int:

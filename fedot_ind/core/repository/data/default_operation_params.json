@@ -213,5 +213,9 @@
   "xcm_model": {
     "epochs": 100,
     "batch_size": 32
+  },
+  "patch_tst_model": {
+    "epochs": 100,
+    "batch_size": 32
   }
 }

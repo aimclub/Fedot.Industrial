@@ -72,7 +72,7 @@ def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
     time_series = time_series[time_series['label'] == label]
 
     if dataset not in ['australia']:
-        idx = pd.to_datetime(time_series['idx'].values)
+        idx = pd.to_datetime(time_series['datetime'].values)
     else:
         # non datetime indexes
         idx = time_series['idx'].values
