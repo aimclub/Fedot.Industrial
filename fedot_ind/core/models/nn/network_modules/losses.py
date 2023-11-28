@@ -5,6 +5,7 @@ from torch import nn, Tensor
 from fastai.torch_core import Module
 import torch.nn.functional as F
 
+
 class HuberLoss(nn.Module):
     """Huber loss
 
