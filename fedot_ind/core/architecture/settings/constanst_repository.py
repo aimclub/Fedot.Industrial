@@ -6,22 +6,15 @@ import pywt
 import torch
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import nn, Tensor
+
+from fedot_ind.core.models.nn.network_modules.losses import *
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from torch.nn.modules import Module
 
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
-
-
-class SMAPELoss(Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        return 100 * torch.mean(2 * torch.abs(input - target) / (torch.abs(target) + torch.abs(input)) + 1e-8)
 
 
 class ComputationalConstant(Enum):
@@ -145,6 +138,13 @@ class TorchLossesConstant(Enum):
     MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
     MSE = nn.MSELoss
     SMAPE = SMAPELoss
+    TWEEDIE_LOSS = TweedieLoss
+    FOCAL_LOSS = FocalLoss
+    CENTER_PLUS_LOSS = CenterPlusLoss
+    CENTER_LOSS = CenterLoss
+    MASK_LOSS = MaskedLossWrapper
+    LOG_COSH_LOSS = LogCoshLoss
+    HUBER_LOSS = HuberLoss
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
@@ -178,3 +178,10 @@ CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
 MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value
 MSE = TorchLossesConstant.MSE.value
 SMAPE = TorchLossesConstant.SMAPE.value
+TWEEDIE_LOSS = TorchLossesConstant.TWEEDIE_LOSS.value
+FOCAL_LOSS = TorchLossesConstant.FOCAL_LOSS.value
+CENTER_PLUS_LOSS = TorchLossesConstant.CENTER_PLUS_LOSS.value
+CENTER_LOSS = TorchLossesConstant.CENTER_LOSS.value
+MASK_LOSS = TorchLossesConstant.MASK_LOSS.value
+LOG_COSH_LOSS = TorchLossesConstant.LOG_COSH_LOSS.value
+HUBER_LOSS = TorchLossesConstant.HUBER_LOSS.value

@@ -5,7 +5,6 @@ from torch import nn, Tensor
 from fastai.torch_core import Module
 import torch.nn.functional as F
 
-
 class HuberLoss(nn.Module):
     """Huber loss
 
@@ -64,7 +63,6 @@ class MaskedLossWrapper(Module):
         return self.loss(inp, targ)
 
 
-# %% ../nbs/016_losses.ipynb 9
 class CenterLoss(Module):
     r"""
     Code in Pytorch has been slightly modified from: https://github.com/KaiyangZhou/pytorch-center-loss/blob/master/center_loss.py
@@ -142,7 +140,6 @@ class FocalLoss(Module):
         return loss
 
 
-# %% ../nbs/016_losses.ipynb 14
 class TweedieLoss(Module):
     def __init__(self, p=1.5, eps=1e-8):
         """
@@ -163,3 +160,11 @@ class TweedieLoss(Module):
         b = torch.exp((2 - self.p) * torch.log(inp)) / (2 - self.p)
         loss = -a + b
         return loss.mean()
+
+
+class SMAPELoss(Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        return 100 * torch.mean(2 * torch.abs(input - target) / (torch.abs(target) + torch.abs(input)) + 1e-8)
