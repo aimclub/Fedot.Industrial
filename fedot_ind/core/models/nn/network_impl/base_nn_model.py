@@ -50,7 +50,7 @@ class BaseNeuralModel:
         self.model = None
         return
 
-    def _convert_predict(self,pred):
+    def _convert_predict(self, pred):
         pred = F.softmax(pred, dim=1)
         if self.num_classes == 2:
             pred = torch.argmax(pred, dim=1)
@@ -131,6 +131,14 @@ class BaseNeuralModel:
     @fedot_data_type
     def predict(self,
                 input_data: InputData) -> np.array:
+        """
+        Method for feature generation for all series
+        """
+        return self._predict_model(input_data)
+
+    @fedot_data_type
+    def predict_for_fit(self,
+                        input_data: InputData) -> np.array:
         """
         Method for feature generation for all series
         """

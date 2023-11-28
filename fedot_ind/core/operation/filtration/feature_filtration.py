@@ -27,7 +27,10 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
 
     def _transform(self, operation):
         self._init_params()
-        operation_name = operation.task.task_params
+        if operation.task.task_params is None:
+            operation_name = operation.task.task_params
+        else:
+            operation_name = operation.task.task_params.feature_filter
         if operation_name in self.method_dict.keys():
             method = self.method_dict[operation_name]
             return method(operation)

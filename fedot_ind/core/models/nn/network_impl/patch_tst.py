@@ -312,6 +312,33 @@ class PatchTSTModel(BaseNeuralModel):
     def predict(self,
                 test_data,
                 output_mode: str = 'labels'):
+        y_pred = self._predict_loop(test_data)
+        forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
+                                         stop=test_data.idx[-self.horizon] + len(y_pred),
+                                         step=1)
+        predict = OutputData(
+            idx=forecast_idx_predict,
+            task=self.task_type,
+            predict=y_pred.reshape(1, -1),
+            target=self.target,
+            data_type=DataTypesEnum.table)
+        return predict
+
+    def predict_for_fit(self,
+                        test_data,
+                        output_mode: str = 'labels'):
+        y_pred = self._predict_loop(test_data)
+        forecast_idx_predict = np.arange(len(y_pred))
+        predict = OutputData(
+            idx=forecast_idx_predict,
+            task=self.task_type,
+            predict=y_pred.reshape(1, -1),
+            target=self.target,
+            data_type=DataTypesEnum.table)
+        return predict
+
+    def _predict_loop(self,
+                      test_data):
         y_pred = []
         test_data.features = test_data.features.squeeze()
 
@@ -323,12 +350,5 @@ class PatchTSTModel(BaseNeuralModel):
                 y_pred.append(model)
             else:
                 y_pred.append(self._predict(model, sequences))
-
-        y_pred = np.array(y_pred)
-        predict = OutputData(
-            idx=np.arange(len(y_pred)),
-            task=self.task_type,
-            predict=y_pred,
-            target=self.target,
-            data_type=DataTypesEnum.table)
-        return predict
+        y_pred = np.sum(np.array(y_pred), axis=0)
+        return y_pred

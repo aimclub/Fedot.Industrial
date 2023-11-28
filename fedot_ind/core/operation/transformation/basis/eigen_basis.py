@@ -64,7 +64,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
         self.predict = np.array(v) if len(v) > 1 else v[0]
-        input_data.task.task_params = self.__repr__()
+        if input_data.task.task_params is None:
+            input_data.task.task_params = self.__repr__()
+        else:
+            input_data.task.task_params.feature_filter = self.__repr__()
         predict = OutputData(idx=input_data.idx,
                              features=input_data.features,
                              predict=self.predict,
