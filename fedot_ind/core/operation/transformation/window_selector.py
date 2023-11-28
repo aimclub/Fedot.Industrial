@@ -6,6 +6,8 @@ import pandas as pd
 from scipy.signal import find_peaks
 from statsmodels.tsa.stattools import acf
 
+from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
+
 
 class WindowSizeSelector:
     """Class to select appropriate window size to catch periodicity for time series analysis.
@@ -111,7 +113,7 @@ class WindowSizeSelector:
         """
         fourier = np.fft.fft(time_series)
         freq = np.fft.fftfreq(time_series.shape[0], 1)
-
+        l = int(len(freq) // 2)
         magnitudes, window_sizes = [], []
 
         for coef, freq in zip(fourier, freq):

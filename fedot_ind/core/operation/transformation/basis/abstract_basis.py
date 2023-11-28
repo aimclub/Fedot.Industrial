@@ -10,6 +10,7 @@ from joblib import cpu_count, delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
 from fedot_ind.core.architecture.settings.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
@@ -70,9 +71,10 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         if type(input_data) is InputData:
             features = np.array(ListMonad(*input_data.features.tolist()).value)
         else:
-            features = np.array(ListMonad(*input_data.values.tolist()).value)
+            features = np.array(ListMonad(*input_data.tolist()).value)
         features = np.array([series[~np.isnan(series)] for series in features])
-
+        if len(features.shape) == 2 and features.shape[1] == 1:
+            features = features.reshape(1, -1)
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
 

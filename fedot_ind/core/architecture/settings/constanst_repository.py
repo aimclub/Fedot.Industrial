@@ -3,15 +3,25 @@ from enum import Enum
 from multiprocessing import cpu_count
 
 import pywt
+import torch
 from fedot.core.repository.dataset_types import DataTypesEnum
-from torch import nn
+from torch import nn, Tensor
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from torch.nn.modules import Module
 
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
+
+
+class SMAPELoss(Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        return 100 * torch.mean(2 * torch.abs(input - target) / (torch.abs(target) + torch.abs(input)) + 1e-8)
 
 
 class ComputationalConstant(Enum):
@@ -134,6 +144,7 @@ class TorchLossesConstant(Enum):
     CROSS_ENTROPY = nn.CrossEntropyLoss
     MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
     MSE = nn.MSELoss
+    SMAPE = SMAPELoss
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
@@ -166,3 +177,4 @@ MODELS_FROM_LENGHT = ModelCompressionConstant.MODELS_FROM_LENGHT.value
 CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
 MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value
 MSE = TorchLossesConstant.MSE.value
+SMAPE = TorchLossesConstant.SMAPE.value

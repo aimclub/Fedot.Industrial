@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Optional
 
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
@@ -271,6 +271,9 @@ class MiniRocketExtractor(BaseExtractor):
         super().__init__(params)
         self.num_features = params.get('num_features', 10000)
 
+    def __repr__(self):
+        return 'LargeFeatureSpace'
+
     def _generate_features_from_ts(self, ts: np.array):
         mrf = MiniRocketFeatures(input_dim=ts.shape[1],
                                  seq_len=ts.shape[2],
@@ -279,12 +282,10 @@ class MiniRocketExtractor(BaseExtractor):
         mrf.fit(ts)
         features = get_minirocket_features(ts, mrf)
         features = features.squeeze()
-        minirocket_features = InputData(idx=np.arange(len(features)),
-                                        features=features,
-                                        target='no_target',
-                                        task='no_task',
-                                        data_type=DataTypesEnum.table,
-                                        supplementary_data={'feature_name': 'MiniRocket_features'})
+        minirocket_features = OutputData(idx=np.arange(len(features)),
+                                         task=self.task,
+                                         predict=features,
+                                         data_type=DataTypesEnum.table)
         return minirocket_features
 
     def generate_minirocket_features(self, ts: np.array) -> InputData:
@@ -301,13 +302,13 @@ class MiniRocketExtractor(BaseExtractor):
                                   dataset_name: str = None):
         return self.generate_minirocket_features(ts=ts_data)
 
-    @fedot_data_type
     def _transform(self,
                    input_data: InputData) -> np.array:
         """
         Method for feature generation for all series
         """
-        feature_matrix = self.generate_features_from_ts(input_data)
-        predict = self._clean_predict(feature_matrix.features)
-        self.relevant_features = feature_matrix.supplementary_data['feature_name']
-        return predict
+        self.task = input_data.task
+        self.task.task_params = self.__repr__()
+        feature_matrix = self.generate_features_from_ts(input_data.features)
+        feature_matrix.predict = self._clean_predict(feature_matrix.predict)
+        return feature_matrix

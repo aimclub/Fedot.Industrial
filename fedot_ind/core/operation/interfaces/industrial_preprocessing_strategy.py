@@ -9,6 +9,7 @@ from fedot_ind.core.models.signal.signal_extractor import SignalExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
+from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
@@ -41,7 +42,8 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         'signal_extractor': SignalExtractor,
         'recurrence_extractor': RecurrenceExtractor,
         'minirocket_extractor': MiniRocketExtractor,
-        'cat_features': DummyOperation
+        'cat_features': DummyOperation,
+        'feature_filter_model': FeatureFilter
     }
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):

@@ -3,7 +3,7 @@ from typing import Optional, Tuple, TypeVar
 import numpy as np
 import pandas as pd
 import tensorly as tl
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from joblib import delayed, Parallel
 from pymonad.either import Either
@@ -37,29 +37,13 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         super().__init__(params)
         self.window_size = params.get('window_size', 20)
         self.low_rank_approximation = params.get('low_rank_approximation', True)
-        self.basis = None
+        self.logging_params.update({'WS': self.window_size})
+        self.explained_dispersion = []
         self.SV_threshold = None
         self.svd_estimator = RSVDDecomposition()
-        self.logging_params.update({'WS': self.window_size})
 
-    def _combine_components(self, predict):
-        count = 0
-        grouped_v = []
-        for df in predict:
-            tmp = pd.DataFrame(df)
-            ff = cdist(metric='cosine', XA=tmp.values, XB=tmp.values)
-            if ff[-1, -2] < 0.5:
-                count += 1
-            tmp.iloc[-2, :] = tmp.iloc[-2,] + tmp.iloc[-1, :]
-            tmp.drop(tmp.tail(1).index, inplace=True)
-            grouped_v.append(tmp.values)
-
-        if count / len(predict) > 0.35:
-            self.SV_threshold = grouped_v[0].shape[0]
-            self.logging_params.update({'SV_thr': self.SV_threshold})
-            return np.array(grouped_v)
-        else:
-            return predict
+    def __repr__(self):
+        return 'EigenBasisImplementation'
 
     def _transform(self, input_data: InputData) -> np.array:
         """Method for transforming all samples
@@ -74,13 +58,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             features = features.reshape(1, -1)
 
         if self.SV_threshold is None:
-            self.SV_threshold = max(self.get_threshold(data=features),2)
+            self.SV_threshold = max(self.get_threshold(data=features), 2)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
         self.predict = np.array(v) if len(v) > 1 else v[0]
-        return self.predict
+        input_data.task.task_params = self.__repr__()
+        predict = OutputData(idx=input_data.idx,
+                             features=input_data.features,
+                             predict=self.predict,
+                             task=input_data.task,
+                             target=input_data.target,
+                             data_type=input_data.data_type,
+                             supplementary_data=input_data.supplementary_data)
+        return predict
 
     def get_threshold(self, data) -> int:
         svd_numbers = []
@@ -97,16 +89,20 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
+        rank = self.estimate_singular_values(data)
         if svd_flag:
-            return self.estimate_singular_values(data)
-        return self._get_basis(data)
+            return rank
+        else:
+            return self._get_basis(data)
 
     def estimate_singular_values(self, data):
         svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x, approximation=self.low_rank_approximation))
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
+        rank = len(spectrum)
+        self.explained_dispersion.append([round(x / sum(spectrum) * 100) for x in spectrum][:rank])
         # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
-        return len(spectrum)
+        return rank
 
     def _get_1d_basis(self, data):
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],

@@ -32,16 +32,16 @@ if __name__ == "__main__":
         'fedot_cls']
 
     pipeline_dict = {
-        'inception_model': PipelineBuilder().add_node('inception_model', params={'epochs': EPOCHS,
-                                                                                 'batch_size': BATCH_SIZE}),
-        'omniscale_model': PipelineBuilder().add_node('omniscale_model', params={'epochs': EPOCHS,
-                                                                                 'batch_size': BATCH_SIZE}),
-        # 'image_model': PipelineBuilder().add_node('recurrence_extractor', params={'image_mode': True}) \
-        #     .add_node('resnet_model', params={'epochs': EPOCHS,
-        #                                       'batch_size': BATCH_SIZE,
-        #                                       'model_name': 'ResNet50'}),
-        'rocket_model': PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 1000}).add_node(
-            'pca', params={"n_components": 0.9}) \
+        # 'inception_model': PipelineBuilder().add_node('inception_model', params={'epochs': EPOCHS,
+        #                                                                          'batch_size': BATCH_SIZE}),
+        # 'omniscale_model': PipelineBuilder().add_node('omniscale_model', params={'epochs': EPOCHS,
+        #                                                                          'batch_size': BATCH_SIZE}),
+        # # 'image_model': PipelineBuilder().add_node('recurrence_extractor', params={'image_mode': True}) \
+        # #     .add_node('resnet_model', params={'epochs': EPOCHS,
+        # #                                       'batch_size': BATCH_SIZE,
+        # #                                       'model_name': 'ResNet50'}),
+        'rocket_model': PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 20000}).add_node(
+            'feature_filter_model', params={'explained_dispersion': 0.9}) \
             .add_node('fedot_cls', params={'timeout': 10}),
         'quantile_rf_model': PipelineBuilder() \
             .add_node('quantile_extractor') \

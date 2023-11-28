@@ -217,5 +217,10 @@
   "patch_tst_model": {
     "epochs": 100,
     "batch_size": 32
+  },
+  "feature_filter_model": {
+    "grouping_level": 0.4,
+    "fourier_approximation": "exact",
+    "explained_dispersion": 0.9
   }
 }

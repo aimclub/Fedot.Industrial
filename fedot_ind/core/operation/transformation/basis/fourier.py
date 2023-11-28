@@ -1,6 +1,8 @@
 from typing import Optional
 import numpy as np
 from fedot.core.operations.operation_parameters import OperationParameters
+
+from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
@@ -16,10 +18,13 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         basis_1d = bss.transform(ts1)
 
     """
+    def __repr__(self):
+        return 'FourierBasisImplementation'
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.threshold = params.get('threshold')
+        self.approximation = params.get('approximation', 'smooth')
         self.basis = None
 
         self.logging_params.update({'threshold': self.threshold})
@@ -27,7 +32,10 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
     def _decompose_signal(self, input_data):
         fourier_coef = np.fft.rfft(input_data)
         frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
-        fourier_coef[frequencies > self.threshold] = 0
+        if self.approximation == 'exact':
+            fourier_coef[frequencies != frequencies[self.threshold]] = 0
+        else:
+            fourier_coef[frequencies > frequencies[self.threshold]] = 0
         return np.fft.irfft(fourier_coef)
 
     def _transform_one_sample(self, series: np.array):

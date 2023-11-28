@@ -219,6 +219,15 @@
         "extractor"
       ]
     },
+    "feature_filter_model": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
     "cat_features": {
       "meta": "industrial_preprocessing",
       "presets": [

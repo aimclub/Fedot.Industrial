@@ -6,7 +6,8 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from pymonad.list import ListMonad
 
-from fedot_ind.core.architecture.settings.constanst_repository import DISCRETE_WAVELETS,CONTINUOUS_WAVELETS,WAVELET_SCALES
+from fedot_ind.core.architecture.settings.constanst_repository import DISCRETE_WAVELETS, CONTINUOUS_WAVELETS, \
+    WAVELET_SCALES
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
@@ -29,6 +30,9 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         self.discrete_wavelets = DISCRETE_WAVELETS
         self.continuous_wavelets = CONTINUOUS_WAVELETS
         self.scales = WAVELET_SCALES
+
+    def __repr__(self):
+        return 'WaveletBasisImplementation'
 
     def _decompose_signal(self, input_data) -> Tuple[np.array, np.array]:
         if self.wavelet in self.discrete_wavelets:
@@ -73,4 +77,3 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
 
         basis = Either.insert(data).then(decompose).then(threshold).value
         return basis
-

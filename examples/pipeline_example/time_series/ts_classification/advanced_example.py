@@ -21,12 +21,14 @@ model_dict = {
         'rf'),
 
     'eigen_basis_advanced': PipelineBuilder().add_node(
-        'eigen_basis', params={'window_size': 10, 'low_rank_approximation': True}).add_node(
+        'eigen_basis', params={'window_size': 10, 'low_rank_approximation': False}).
+    add_node('feature_filter_model', params={
+        'grouping_level': 0.5}).add_node(
         'quantile_extractor', params={'window_size': 50}).add_node(
         'rf')}
 
 datasets_bad_f1 = [
-    # 'EOGVerticalSignal',
+    'EOGVerticalSignal',
     # 'ScreenType',
     # 'CricketY',
     # 'ElectricDevices',
@@ -63,14 +65,5 @@ if __name__ == "__main__":
                 features = pipeline.predict(val_data, 'labels').predict
                 metric = evaluate_metric(target=test_data[1], prediction=features)
                 metric_dict.update({f'{dataset_name}_{model}': metric})
-                import matplotlib
-                import matplotlib.pyplot as plt
-                import pandas as pd
-
-                matplotlib.use('TkAgg')
-                train_data[0].iloc[0, :].T.plot()
-                pd.DataFrame(pipeline.nodes[2].fitted_operation.predict[0]).T.plot()
-                plt.show()
                 print(f'{dataset_name}_{model} - {metric}')
-
     print(metric_dict)
