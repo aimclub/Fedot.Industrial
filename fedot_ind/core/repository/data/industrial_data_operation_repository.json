@@ -129,8 +129,24 @@
 			],
 			"tasks": "[TaskTypesEnum.classification]"
 		},
-    "industrial_preprocessing": {
-      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.ts_forecasting]",
+    "industrial_preprocessing_classification": {
+      "tasks": "[TaskTypesEnum.classification,]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialPreprocessingStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of industrial preprocessing operations"
+    },
+    "industrial_preprocessing_forecasting": {
+      "tasks": "[TaskTypesEnum.ts_forecasting]",
       "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "accepted_node_types": [
@@ -148,7 +164,7 @@
   },
   "operations": {
     "eigen_basis": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -157,7 +173,7 @@
       ]
     },
     "wavelet_basis": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -166,7 +182,7 @@
       ]
     },
     "fourier_basis": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -175,16 +191,16 @@
       ]
     },
     "topological_extractor": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_forecasting",
       "presets": [
-        "fast_train"
+        "fast_train","best_quality","ts"
       ],
       "tags": [
         "extractor"
       ]
     },
     "quantile_extractor": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -193,7 +209,7 @@
       ]
     },
     "signal_extractor": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -202,7 +218,7 @@
       ]
     },
     "recurrence_extractor": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -210,8 +226,16 @@
         "extractor"
       ]
     },
+      "topological_features": {
+        "meta": "custom_preprocessing",
+        "presets": [
+          "ts"
+        ],
+        "tags": [
+          "non_applicable_for_ts"
+        ]},
     "minirocket_extractor": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -220,7 +244,7 @@
       ]
     },
     "feature_filter_model": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],
@@ -229,7 +253,7 @@
       ]
     },
     "cat_features": {
-      "meta": "industrial_preprocessing",
+      "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"
       ],

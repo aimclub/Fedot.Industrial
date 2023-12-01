@@ -68,8 +68,15 @@ class ScaledDotProductAttention(Module):
 
 
 class MultiHeadAttention(Module):
-    def __init__(self, d_model, n_heads, d_k=None, d_v=None, res_attention=False, attn_dropout=0., proj_dropout=0.,
-                 qkv_bias=True, lsa=False):
+    def __init__(self, d_model,
+                 n_heads,
+                 d_k=None,
+                 d_v=None,
+                 res_attention=False,
+                 attn_dropout=0.,
+                 proj_dropout=0.,
+                 qkv_bias=True,
+                 lsa=False):
         """Multi Head Attention Layer
 
         Input shape:

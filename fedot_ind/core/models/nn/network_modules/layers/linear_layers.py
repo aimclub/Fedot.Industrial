@@ -267,7 +267,8 @@ class Flatten_Head(nn.Module):
                 return self.layer(x)
             except Exception:
                 self.layer = nn.Sequential(nn.Flatten(start_dim=-2),
-                                           nn.Linear(x.shape[3]*self.nf, self.pred_dim)).to(default_device())
+                                           nn.Linear(x.shape[3] * self.nf, self.pred_dim, device=default_device()))
                 return self.layer(x)
+
 
 Noop = nn.Sequential()

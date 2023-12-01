@@ -16,12 +16,11 @@ from torch import nn, optim
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.architecture.settings.constanst_repository import MSE, SMAPE
+from fedot_ind.core.architecture.settings.constanst_repository import RMSE, MSE, SMAPE
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.backbone import _PatchTST_backbone
 from fedot_ind.core.models.nn.network_modules.layers.special import SeriesDecomposition, \
     EarlyStopping, adjust_learning_rate
-from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from torch.optim import lr_scheduler
 
@@ -55,58 +54,30 @@ class PatchTST(nn.Module):
                  norm='BatchNorm',  # type of normalization layer used in the encoder
                  pre_norm=False,  # flag to indicate if normalization is applied as the first step in the sublayers
                  res_attention=True,  # flag to indicate if Residual MultiheadAttention should be used
-                 store_attn=False,  # can be used to visualize attention weights
+                 store_attn=True,
+                 preprocess_to_lagged=False  # can be used to visualize attention weights
                  ):
-
         super().__init__()
 
         # model
         if pred_dim is None:
             pred_dim = seq_len
 
-        self.decomposition = decomposition
-        if self.decomposition:
-            self.decomp_module = SeriesDecomposition(kernel_size)
-            self.model_trend = _PatchTST_backbone(input_dim=input_dim, seq_len=seq_len, pred_dim=pred_dim,
-                                                  patch_len=patch_len, stride=stride, n_layers=n_layers,
-                                                  d_model=d_model,
-                                                  n_heads=n_heads, d_ff=d_ff, norm=norm, attn_dropout=attn_dropout,
-                                                  dropout=dropout, act=activation, res_attention=res_attention,
-                                                  pre_norm=pre_norm,
-                                                  store_attn=store_attn, padding_patch=padding_patch,
-                                                  individual=individual, revin=revin, affine=affine,
-                                                  subtract_last=subtract_last)
-            self.model_res = _PatchTST_backbone(input_dim=input_dim, seq_len=seq_len, pred_dim=pred_dim,
-                                                patch_len=patch_len, stride=stride, n_layers=n_layers, d_model=d_model,
-                                                n_heads=n_heads, d_ff=d_ff, norm=norm, attn_dropout=attn_dropout,
-                                                dropout=dropout, act=activation, res_attention=res_attention,
-                                                pre_norm=pre_norm,
-                                                store_attn=store_attn, padding_patch=padding_patch,
-                                                individual=individual, revin=revin, affine=affine,
-                                                subtract_last=subtract_last)
-            self.patch_num = self.model_trend.patch_num
-        else:
-            self.model = _PatchTST_backbone(input_dim=input_dim, seq_len=seq_len, pred_dim=pred_dim,
-                                            patch_len=patch_len, stride=stride, n_layers=n_layers, d_model=d_model,
-                                            n_heads=n_heads, d_ff=d_ff, norm=norm, attn_dropout=attn_dropout,
-                                            dropout=dropout, act=activation, res_attention=res_attention,
-                                            pre_norm=pre_norm,
-                                            store_attn=store_attn, padding_patch=padding_patch,
-                                            individual=individual, revin=revin, affine=affine,
-                                            subtract_last=subtract_last)
-            self.patch_num = self.model.patch_num
+        self.model = _PatchTST_backbone(input_dim=input_dim, seq_len=seq_len, pred_dim=pred_dim,
+                                        patch_len=patch_len, stride=stride, n_layers=n_layers, d_model=d_model,
+                                        n_heads=n_heads, d_ff=d_ff, norm=norm, attn_dropout=attn_dropout,
+                                        dropout=dropout, act=activation, res_attention=res_attention,
+                                        pre_norm=pre_norm,
+                                        store_attn=store_attn, padding_patch=padding_patch,
+                                        individual=individual, revin=revin, affine=affine,
+                                        subtract_last=subtract_last, preprocess_to_lagged=preprocess_to_lagged)
+        self.patch_num = self.model.patch_num
 
     def forward(self, x):
         """Args:
             x: rank 3 tensor with shape [batch size x features x sequence length]
         """
-        if self.decomposition:
-            res_init, trend_init = self.decomp_module(x)
-            res = self.model_res(res_init)
-            trend = self.model_trend(trend_init)
-            x = res + trend
-        else:
-            x = self.model(x)
+        x = self.model(x)
         return x
 
 
@@ -135,47 +106,76 @@ class PatchTSTModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
-        self.epochs = params.get('epochs', 100)
+        self.epochs = params.get('epochs', 1)
         self.batch_size = params.get('batch_size', 16)
         self.learning_rate = params.get('learning_rate', 0.001)
         self.use_amp = params.get('use_amp', False)
-        self.horizon = params.get('forecast_length', 30)
+        self.horizon = params.get('forecast_length', None)
         self.patch_len = params.get('patch_len', None)
         self.output_attention = params.get('output_attention', False)
         self.test_patch_len = self.patch_len
+        self.preprocess_to_lagged = False
+        self.forecast_mode = params.get('forecast_mode', 'out_of_sample')
         self.model_list = []
 
     def _init_model(self, ts):
         model = PatchTST(input_dim=1,
                          output_dim=None,
-                         seq_len=ts.features.shape[0],
-                         pred_dim=self.horizon).to(default_device())
+                         seq_len=self.seq_len,
+                         pred_dim=self.horizon,
+                         patch_len=self.patch_len,
+                         preprocess_to_lagged=self.preprocess_to_lagged).to(default_device())
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
-        loss_fn = SMAPE()
+        loss_fn = RMSE()
         return model, loss_fn, optimizer
 
-    def _fit_model(self, ts: InputData, split_data: bool = True):
-        if len(ts.features.shape) == 1:
-            ts.features = ts.features.reshape(1, -1)
-
-        for index, sequences in enumerate(ts.features):
+    def _fit_model(self, input_data: InputData, split_data: bool = True):
+        if self.preprocess_to_lagged:
+            self.patch_len = input_data.features.shape[1]
+            train_loader = self.__create_torch_loader(input_data)
+        else:
             if self.patch_len is None:
-                dominant_window_size = WindowSizeSelector(method='dff').get_window_size(sequences)
-                patch_len = 2 * dominant_window_size
-                self.test_patch_len = patch_len
-                train_loader = self._prepare_data(sequences, patch_len, False)
-                model, loss_fn, optimizer = self._init_model(ts)
-                model = self._train_loop(model, train_loader, loss_fn, optimizer)
-                self.model_list.append(model)
+                dominant_window_size = WindowSizeSelector(method='dff').get_window_size(input_data.features)
+                self.patch_len = 2 * dominant_window_size
+                train_loader = self._prepare_data(input_data.features, self.patch_len, False)
+        self.test_patch_len = self.patch_len
+        model, loss_fn, optimizer = self._init_model(input_data)
+        model = self._train_loop(model, train_loader, loss_fn, optimizer)
+        self.model_list.append(model)
+
+    def __preprocess_for_fedot(self, input_data):
+        input_data.features = np.squeeze(input_data.features)
+        if self.horizon is None:
+            self.horizon = input_data.task.task_params.forecast_length
+        if input_data.features.shape[1] != 1:
+            self.preprocess_to_lagged = True
+        if len(input_data.features.shape) == 1:
+            input_data.features = input_data.features.reshape(1, -1)
+        if self.preprocess_to_lagged:
+            self.seq_len = input_data.features.shape[0] + input_data.features.shape[1]
+        else:
+            self.seq_len = input_data.features.shape[0]
+        self.target = input_data.target
+        self.task_type = input_data.task
+        return input_data
+
+    def __create_torch_loader(self, train_data):
+
+        train_dataset = self._create_dataset(train_data)
+        if not self.preprocess_to_lagged:
+            train_dataset.x = train_dataset.x.permute(0, 2, 1)
+            train_dataset.y = train_dataset.y.permute(0, 2, 1)
+        train_loader = torch.utils.data.DataLoader(
+            data.TensorDataset(train_dataset.x, train_dataset.y),
+            batch_size=self.batch_size, shuffle=False)
+        return train_loader
 
     def fit(self,
             input_data: InputData):
         """
         Method for feature generation for all series
         """
-        input_data.features = np.squeeze(input_data.features)
-        self.target = input_data.target
-        self.task_type = input_data.task
+        input_data = self.__preprocess_for_fedot(input_data)
         self._fit_model(input_data)
 
     def split_data(self, input_data):
@@ -205,7 +205,8 @@ class PatchTSTModel(BaseNeuralModel):
                         freq: int = 1):
         return ts
 
-    def _prepare_data(self, ts,
+    def _prepare_data(self,
+                      ts,
                       patch_len,
                       split_data: bool = True,
                       validation_blocks: int = None):
@@ -222,14 +223,7 @@ class PatchTSTModel(BaseNeuralModel):
             _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
                                                                                                   self.horizon,
                                                                                                   patch_len)
-
-        train_dataset = self._create_dataset(train_data)
-        train_dataset.x = train_dataset.x.permute(0, 2, 1)
-        train_dataset.y = train_dataset.y.permute(0, 2, 1)
-        train_loader = torch.utils.data.DataLoader(
-            data.TensorDataset(train_dataset.x, train_dataset.y),
-            batch_size=self.batch_size, shuffle=False)
-
+        train_loader = self.__create_torch_loader(train_data)
         return train_loader
 
     def _train_loop(self, model,
@@ -278,24 +272,24 @@ class PatchTSTModel(BaseNeuralModel):
 
         return model
 
-    def _predict(self, model, test_data):
-        features = HankelMatrix(time_series=test_data.T,
-                                window_size=self.test_patch_len).trajectory_matrix[:, -1:]
-        features = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float().permute(2, 1, 0)
-        target = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float()
-        test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
-                                                  batch_size=1, shuffle=False)
+    def _predict(self, model, test_loader):
         model.eval()
-
         with torch.no_grad():
-            for i, (batch_x, batch_y) in enumerate(test_loader):
-                batch_x = batch_x.float().to(default_device())
-                batch_y = batch_y.float().to(default_device())
-                # decoder input
-                dec_inp = torch.zeros_like(batch_y[:, :, :]).float()
-                dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(default_device())
-                # encoder - decoder
-                outputs = model(batch_x)
+            if self.forecast_mode == 'in_sample':
+                for i, (batch_x, batch_y) in enumerate(test_loader):
+                    batch_x = batch_x.float().to(default_device())
+                    batch_y = batch_y.float().to(default_device())
+                    # decoder input
+                    dec_inp = torch.zeros_like(batch_y[:, :, :]).float()
+                    dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(default_device())
+                    # encoder - decoder
+                    outputs = model(batch_x)
+            else:
+                last_patch = test_loader.dataset[0][-1]
+                c, s = last_patch.size()
+                last_patch = last_patch.reshape(1, c, s).to(default_device())
+                outputs = model(last_patch)
+
         return outputs.flatten().cpu().numpy()
 
     def _encoder_decoder_transition(self, batch_x, batch_x_mark, dec_inp, batch_y_mark):
@@ -312,7 +306,10 @@ class PatchTSTModel(BaseNeuralModel):
     def predict(self,
                 test_data,
                 output_mode: str = 'labels'):
-        y_pred = self._predict_loop(test_data)
+        y_pred = []
+        for model in self.model_list:
+            y_pred.append(self._predict_loop(model, test_data))
+        y_pred = np.array(y_pred)
         forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
                                          stop=test_data.idx[-self.horizon] + len(y_pred),
                                          step=1)
@@ -327,7 +324,10 @@ class PatchTSTModel(BaseNeuralModel):
     def predict_for_fit(self,
                         test_data,
                         output_mode: str = 'labels'):
-        y_pred = self._predict_loop(test_data)
+        y_pred = []
+        for model in self.model_list:
+            y_pred.append(self._predict_loop(model, test_data))
+        y_pred = np.array(y_pred)
         forecast_idx_predict = np.arange(len(y_pred))
         predict = OutputData(
             idx=forecast_idx_predict,
@@ -337,18 +337,25 @@ class PatchTSTModel(BaseNeuralModel):
             data_type=DataTypesEnum.table)
         return predict
 
-    def _predict_loop(self,
+    def _predict_loop(self, model,
                       test_data):
-        y_pred = []
         test_data.features = test_data.features.squeeze()
 
         if len(test_data.features.shape) == 1:
             test_data.features = test_data.features.reshape(1, -1)
 
-        for sequences, model in zip(test_data.features, self.model_list):
-            if type(model) is np.ndarray:
-                y_pred.append(model)
-            else:
-                y_pred.append(self._predict(model, sequences))
-        y_pred = np.sum(np.array(y_pred), axis=0)
-        return y_pred
+        if not self.preprocess_to_lagged:
+            features = HankelMatrix(time_series=test_data.T,
+                                    window_size=self.test_patch_len).trajectory_matrix[:, -1:]
+            features = torch.from_numpy(DataConverter(data=features).
+                                        convert_to_torch_format()).float().permute(2, 1, 0)
+            target = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float()
+
+        else:
+            features = test_data.features
+            features = torch.from_numpy(DataConverter(data=features).
+                                        convert_to_torch_format()).float()
+            target = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float()
+        test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
+                                                  batch_size=self.batch_size, shuffle=False)
+        return self._predict(model, test_loader)

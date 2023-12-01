@@ -6,13 +6,14 @@ import torch.nn.functional as F
 from torch import nn, optim, Tensor
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_torch_tensor
+from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.attention_layers import MultiHeadAttention
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, ConvBlock
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import BN1d, Concat, Add, Noop, Transpose
 from fastcore.meta import delegates
 
-from fastai.torch_core import Module, default_device
+from fastai.torch_core import Module
 
 
 class EarlyStopping:
@@ -283,10 +284,12 @@ class _TSTiEncoderLayer(nn.Module):
         # Feed-forward sublayer
         if self.pre_norm:
             src = self.norm_ffn(src)
+
         ## Position-wise Feed-Forward
         src2 = self.ff(src)
         ## Add & Norm
         src = src + self.dropout_ffn(src2)  # Add: residual connection with residual dropout
+
         if not self.pre_norm:
             src = self.norm_ffn(src)
 
@@ -294,6 +297,7 @@ class _TSTiEncoderLayer(nn.Module):
             return src, scores
         else:
             return src
+
 
 class _TSTiEncoder(nn.Module):  # i means channel-independent
     def __init__(self, input_dim, patch_num, patch_len, n_layers=3, d_model=128, n_heads=16, d_k=None, d_v=None,
@@ -341,15 +345,15 @@ class _TSTiEncoder(nn.Module):  # i means channel-independent
         try:
             pos_encooding = x + self.W_pos
         except Exception:
-            W_pos = torch.empty((x.shape[1], x.shape[2]))
+            W_pos = torch.empty((x.shape[1], x.shape[2]), device=default_device())
             nn.init.uniform_(W_pos, -0.02, 0.02)
-            self.W_pos = nn.Parameter(W_pos).to(default_device())
-            pos_encooding = x + self.W_pos # x: [bs * nvars x patch_num x d_model]
+            self.W_pos = nn.Parameter(W_pos)
+            pos_encooding = x + self.W_pos  # x: [bs * nvars x patch_num x d_model]
         x = self.dropout(pos_encooding)  # x: [bs * nvars x patch_num x d_model]
+        scores = None
 
         # Encoder
         if self.res_attention:
-            scores = None
             for mod in self.layers:
                 x, scores = mod(x, prev=scores)
         else:
@@ -357,7 +361,7 @@ class _TSTiEncoder(nn.Module):  # i means channel-independent
         x = torch.reshape(x, (-1, n_vars, x.shape[-2], x.shape[-1]))  # x: [bs x nvars x patch_num x d_model]
         x = x.permute(0, 1, 3, 2)  # x: [bs x nvars x d_model x patch_num]
 
-        return x
+        return x, scores
 
 
 class RevIN(nn.Module):

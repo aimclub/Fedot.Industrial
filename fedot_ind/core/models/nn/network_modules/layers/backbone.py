@@ -12,7 +12,7 @@ class _PatchTST_backbone(nn.Module):
                  d_ff=256, norm='BatchNorm', attn_dropout=0., dropout=0.,
                  act="gelu", res_attention=True, pre_norm=False, store_attn=False,
                  padding_patch=True, individual=False,
-                 revin=True, affine=True, subtract_last=False):
+                 revin=True, affine=True, subtract_last=False, preprocess_to_lagged=False):
 
         super().__init__()
 
@@ -27,6 +27,7 @@ class _PatchTST_backbone(nn.Module):
         patch_num = int((seq_len - patch_len) / stride + 1) + 1
         self.patch_num = patch_num
         self.padding_patch_layer = nn.ReplicationPad1d((stride, 0))  # original padding at the end
+        self.preprocess_to_lagged = preprocess_to_lagged
 
         # Unfold
         self.unfold = nn.Unfold(kernel_size=(1, patch_len), stride=stride)
@@ -55,14 +56,18 @@ class _PatchTST_backbone(nn.Module):
             z = self.revin_layer(z, torch.tensor(True, dtype=torch.bool))
 
         # do patching
-        z = self.padding_patch_layer(z)
-        b, c, s = z.size()
-        z = z.reshape(-1, 1, 1, s)
-        z = self.unfold(z)
-        z = z.permute(0, 2, 1).reshape(b, c, -1, self.patch_len).permute(0, 1, 3, 2)
+        if not self.preprocess_to_lagged:
+            z = self.padding_patch_layer(z)
+            b, c, s = z.size()
+            z = z.reshape(-1, 1, 1, s)
+            z = self.unfold(z)
+            z = z.permute(0, 2, 1).reshape(b, c, -1, self.patch_len)
+        else:
+            b, c, s = z.size()
+            z = z.reshape(-1, 1, 1, s).permute(0, 1, 3, 2)
 
         # model
-        z = self.backbone(z)  # z: [bs x nvars x d_model x patch_num]
+        z, scores = self.backbone(z)  # z: [bs x nvars x d_model x patch_num]
         z = self.head(z)  # z: [bs x nvars x pred_dim]
 
         # denorm

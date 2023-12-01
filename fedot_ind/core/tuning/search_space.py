@@ -31,6 +31,9 @@ industrial_search_space = {
                      'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
     'minirocket_extractor':
         {'num_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(500, 10000, 500)]]}},
+    'patch_tst_model':
+        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 100, 10)]]},
+         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]}},
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice,
                                 'window_size_method': [['hac', 'dff', 'mwf', 'sss']]}}

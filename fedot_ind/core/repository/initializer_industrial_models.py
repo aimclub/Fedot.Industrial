@@ -107,6 +107,22 @@ class IndustrialModels:
                                                   'industrial_model_repository.json')
         self.base_model_path = pathlib.Path('model_repository.json')
 
+    def setup_repository(self):
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.industrial_data_operation_path,
+                                'initialized_repo': None,
+                                'default_tags': []}})
+
+        OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.industrial_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
+        OperationTypesRepository.assign_repo('model', self.industrial_model_path)
+
+        setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
+
     def __enter__(self):
         """
         Switching to industrial models

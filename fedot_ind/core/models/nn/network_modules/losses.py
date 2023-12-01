@@ -169,3 +169,13 @@ class SMAPELoss(Module):
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         return 100 * torch.mean(2 * torch.abs(input - target) / (torch.abs(target) + torch.abs(input)) + 1e-8)
+
+
+class RMSE(Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        criterion = nn.MSELoss()
+        loss = torch.sqrt(criterion(input, target))
+        return loss

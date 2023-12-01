@@ -137,6 +137,7 @@ class TorchLossesConstant(Enum):
     CROSS_ENTROPY = nn.CrossEntropyLoss
     MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
     MSE = nn.MSELoss
+    RMSE = RMSE
     SMAPE = SMAPELoss
     TWEEDIE_LOSS = TweedieLoss
     FOCAL_LOSS = FocalLoss
@@ -177,6 +178,7 @@ MODELS_FROM_LENGHT = ModelCompressionConstant.MODELS_FROM_LENGHT.value
 CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
 MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value
 MSE = TorchLossesConstant.MSE.value
+RMSE = TorchLossesConstant.RMSE.value
 SMAPE = TorchLossesConstant.SMAPE.value
 TWEEDIE_LOSS = TorchLossesConstant.TWEEDIE_LOSS.value
 FOCAL_LOSS = TorchLossesConstant.FOCAL_LOSS.value
