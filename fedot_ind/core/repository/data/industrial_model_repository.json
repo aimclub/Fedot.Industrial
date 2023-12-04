@@ -167,8 +167,8 @@
     },
     "fedot_NN_forecasting": {
       "tasks": "[TaskTypesEnum.ts_forecasting]",
-      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
-      "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
+      "input_type": "[DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.table]",
       "accepted_node_types": [
         "any"
       ],
@@ -179,7 +179,7 @@
       ],
       "tags": ["time_series"
       ],
-      "description": "Implementations of fedot NN classification strategy"
+      "description": "Implementations of fedot NN forecasting strategy"
     },
     "fedot_automl_regression": {
       "tasks": "[TaskTypesEnum.regression]",

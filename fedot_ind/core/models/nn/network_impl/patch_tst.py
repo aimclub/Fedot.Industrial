@@ -106,7 +106,7 @@ class PatchTSTModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
-        self.epochs = params.get('epochs', 1)
+        self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 16)
         self.learning_rate = params.get('learning_rate', 0.001)
         self.use_amp = params.get('use_amp', False)
@@ -147,10 +147,12 @@ class PatchTSTModel(BaseNeuralModel):
         input_data.features = np.squeeze(input_data.features)
         if self.horizon is None:
             self.horizon = input_data.task.task_params.forecast_length
-        if input_data.features.shape[1] != 1:
-            self.preprocess_to_lagged = True
         if len(input_data.features.shape) == 1:
             input_data.features = input_data.features.reshape(1, -1)
+        else:
+            if input_data.features.shape[1] != 1:
+                self.preprocess_to_lagged = True
+
         if self.preprocess_to_lagged:
             self.seq_len = input_data.features.shape[0] + input_data.features.shape[1]
         else:
@@ -276,6 +278,7 @@ class PatchTSTModel(BaseNeuralModel):
         model.eval()
         with torch.no_grad():
             if self.forecast_mode == 'in_sample':
+                outputs = []
                 for i, (batch_x, batch_y) in enumerate(test_loader):
                     batch_x = batch_x.float().to(default_device())
                     batch_y = batch_y.float().to(default_device())
@@ -283,14 +286,14 @@ class PatchTSTModel(BaseNeuralModel):
                     dec_inp = torch.zeros_like(batch_y[:, :, :]).float()
                     dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(default_device())
                     # encoder - decoder
-                    outputs = model(batch_x)
+                    outputs.append(model(batch_x))
+                return torch.cat(outputs).cpu().numpy()
             else:
                 last_patch = test_loader.dataset[0][-1]
                 c, s = last_patch.size()
                 last_patch = last_patch.reshape(1, c, s).to(default_device())
                 outputs = model(last_patch)
-
-        return outputs.flatten().cpu().numpy()
+                return outputs.flatten().cpu().numpy()
 
     def _encoder_decoder_transition(self, batch_x, batch_x_mark, dec_inp, batch_y_mark):
         # encoder - decoder
@@ -307,11 +310,12 @@ class PatchTSTModel(BaseNeuralModel):
                 test_data,
                 output_mode: str = 'labels'):
         y_pred = []
+        self.forecast_mode = 'out_of_sample'
         for model in self.model_list:
             y_pred.append(self._predict_loop(model, test_data))
         y_pred = np.array(y_pred)
         forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
-                                         stop=test_data.idx[-self.horizon] + len(y_pred),
+                                         stop=test_data.idx[-self.horizon] + y_pred.shape[1],
                                          step=1)
         predict = OutputData(
             idx=forecast_idx_predict,
@@ -325,14 +329,16 @@ class PatchTSTModel(BaseNeuralModel):
                         test_data,
                         output_mode: str = 'labels'):
         y_pred = []
+        self.forecast_mode = 'in_sample'
         for model in self.model_list:
             y_pred.append(self._predict_loop(model, test_data))
         y_pred = np.array(y_pred)
-        forecast_idx_predict = np.arange(len(y_pred))
+        y_pred = y_pred.squeeze()
+        forecast_idx_predict = test_data.idx
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
-            predict=y_pred.reshape(1, -1),
+            predict=y_pred,
             target=self.target,
             data_type=DataTypesEnum.table)
         return predict

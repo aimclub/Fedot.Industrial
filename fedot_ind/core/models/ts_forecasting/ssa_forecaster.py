@@ -58,54 +58,81 @@ class SSAForecasterImplementation(ModelImplementation):
         super().__init__(params)
 
         self.window_size_method = params.get('window_size_method')
-        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        self.n_processes = 1
         self._SV_threshold = None
         self._decomposer = None
         self._window_size = None
+        self.horizon = None
+        self.preprocess_to_lagged = False
+
+    def __preprocess_for_fedot(self, input_data):
+        input_data.features = np.squeeze(input_data.features)
+
+        if self.horizon is None:
+            self.horizon = input_data.task.task_params.forecast_length
+
+        if len(input_data.features.shape) == 1:
+            self.preprocess_to_lagged = False
+        else:
+            if input_data.features.shape[1] != 1:
+                self.preprocess_to_lagged = True
+                self._window_size = input_data.features.shape[1]
+                ts_length = input_data.features.shape[1] + input_data.features.shape[0] - 1
+                ts_length = input_data.features.shape[1]
+                self._decomposer = SpectrumDecomposer(input_data.features,
+                                                      ts_length)
+
+        if self.preprocess_to_lagged:
+            self.seq_len = input_data.features.shape[0] + input_data.features.shape[1]
+        else:
+            self.seq_len = input_data.features.shape[0]
+            self.horizon = input_data.task.task_params.forecast_length
+            input_data.features = input_data.features[-self.LAST_VALUES_THRESHOLD:]
+            trajectory_transformer = HankelMatrix(time_series=input_data.features, window_size=self._window_size)
+            input_data.features = trajectory_transformer.trajectory_matrix
+            self._decomposer = SpectrumDecomposer(input_data.features,
+                                                  trajectory_transformer.ts_length + self.horizon)
+        self.target = input_data.target
+        self.task_type = input_data.task
+        return input_data
 
     def predict(self, input_data: InputData) -> OutputData:
-        forecast_length = input_data.task.task_params.forecast_length
-        features = input_data.features[-self.LAST_VALUES_THRESHOLD:]
-        trajectory_transformer = HankelMatrix(time_series=features, window_size=self._window_size)
-        data = trajectory_transformer.trajectory_matrix
-
-        self._window_size = trajectory_transformer.window_length
-        self._decomposer = SpectrumDecomposer(data,
-                                              trajectory_transformer.ts_length + forecast_length)
-        U, s, VT = self.get_svd(data)
-
-        s_basis = s[:self._SV_threshold]
+        U, s, VT = self._predict_loop(input_data)
+        s_basis = s[:self._decomposer.thr]
 
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         new_VT = np.array(
-            parallel(delayed(self._predict_component)(sample, forecast_length) for sample in VT[:s_basis.shape[0]]))
+            parallel(delayed(self._predict_component)(sample, self.horizon) for sample in VT[:s_basis.shape[0]]))
         basis = self.reconstruct_basis(U, s_basis, new_VT).T
 
         summed_basis = np.array(basis).sum(axis=0)
-        reconstructed_forecast = summed_basis[-forecast_length:]
-        reconstructed_features = summed_basis[:-forecast_length]
-        error = features[-forecast_length:] - reconstructed_features[-forecast_length:]
+        reconstructed_forecast = summed_basis[-self.horizon:]
+        reconstructed_features = summed_basis[:-self.horizon]
+        error = input_data.features[-self.horizon:] - reconstructed_features[-self.horizon:]
 
         return reconstructed_forecast + error
+
+    def _predict_loop(self, input_data: InputData) -> OutputData:
+        U, s, VT = self.get_svd(input_data)
+        return U, s, VT
 
     def fit(self, input_data: InputData):
         pass
 
-    def predict_for_fit(self, input_data: InputData) -> OutputData:
-        features = input_data.features[-self.LAST_VALUES_THRESHOLD:]
-        self._window_size = int(WindowSizeSelector(method=self.window_size_method).get_window_size(features) * len(
-            features) / 100)
-        trajectory_transformer = HankelMatrix(time_series=features, window_size=self._window_size)
-        data = trajectory_transformer.trajectory_matrix
-        self._decomposer = SpectrumDecomposer(data, trajectory_transformer.ts_length)
-
-        self._window_size = trajectory_transformer.window_length
-        self._decomposer = SpectrumDecomposer(data,
-                                              trajectory_transformer.ts_length)
-        U, s, VT = self.get_svd(data)
+    def __predict_for_fit(self, ts):
+        U, s, VT = self._predict_loop(ts)
         basis = self.reconstruct_basis(U, s, VT).T
         reconstructed_features = np.array(basis).sum(axis=0)
         return reconstructed_features
+
+    def predict_for_fit(self, input_data: InputData) -> OutputData:
+        data = self.__preprocess_for_fedot(input_data).features
+        if self.preprocess_to_lagged:
+            predict = [self.__predict_for_fit(ts.reshape(1, -1)) for ts in data]
+            predict = np.array(predict)
+        else:
+            predict = self.__predict_for_fit(data)
+        return predict
 
     def _predict_component(self, comp: np.array, forecast_length: int):
         estimated_seasonal_length = WindowSizeSelector('hac').get_window_size(comp)

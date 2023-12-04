@@ -110,18 +110,19 @@ class IndustrialModels:
     def setup_repository(self):
         OperationTypesRepository.__repository_dict__.update(
             {'data_operation': {'file': self.industrial_data_operation_path,
-                                'initialized_repo': None,
+                                'initialized_repo': True,
                                 'default_tags': []}})
 
         OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
 
         OperationTypesRepository.__repository_dict__.update(
             {'model': {'file': self.industrial_model_path,
-                       'initialized_repo': None,
+                       'initialized_repo': True,
                        'default_tags': []}})
         OperationTypesRepository.assign_repo('model', self.industrial_model_path)
 
         setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
+        return OperationTypesRepository
 
     def __enter__(self):
         """
@@ -141,6 +142,7 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('model', self.industrial_model_path)
 
         setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
+
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """

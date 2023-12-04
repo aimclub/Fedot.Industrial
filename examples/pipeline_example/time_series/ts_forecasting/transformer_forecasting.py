@@ -22,7 +22,7 @@ if __name__ == '__main__':
     window_length_heuristic = round(train_data.features.shape[0] / 100 * window_size_percentage)
     window_length_hac = patch_len * 3
     window_length = max(window_length_hac, window_length_heuristic)
-
+    OperationTypesRepository = IndustrialModels().setup_repository()
     model_dict = {
         'tst_model':
             PipelineBuilder().add_node('patch_tst_model', params={'patch_len': None,
@@ -42,24 +42,29 @@ if __name__ == '__main__':
     del model_dict['baseline']
     baseline.fit(train_data)
     baseline_prediction = np.ravel(baseline.predict(test_data).predict)
-    IndustrialModels().setup_repository()
+    error_pipeline = PipelineBuilder().add_node('lagged').add_node('ssa_forecaster').add_node('ts_naive_average',
+                                                                                               branch_idx=1).join_branches('lasso').build()
     for model in model_dict.keys():
         # pipeline.fit(train_data)
         model = Fedot(problem='ts_forecasting',
-                      logging_level=10,
+                      logging_level=20,
+                      n_jobs=1,
                       preset='ts',
                       available_operations=[
                           'ssa_forecaster',
                           'patch_tst_model',
                           'ar',
-                          'ridge',
+                          #'ridge',
                           'ts_naive_average',
                           'stl_arima',
-                          'lagged', 'arima', 'lasso'
+                          'lagged',
+                          'arima',
+                          'lasso'
                       ],
                       task_params=TsForecastingParams(forecast_length=forecast_length),
-                      timeout=30
+                      timeout=180
                       )
+        error_pipeline.fit(train_data)
         model.fit(train_data)
         model.current_pipeline.show()
         model_prediction = model.predict(test_data)
