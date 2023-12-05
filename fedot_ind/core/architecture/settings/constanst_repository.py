@@ -6,7 +6,7 @@ import pywt
 import torch
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import nn, Tensor
-
+import torch.nn.functional as F
 from fedot_ind.core.models.nn.network_modules.losses import *
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *

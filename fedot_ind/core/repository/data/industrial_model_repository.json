@@ -142,7 +142,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.models.automl.fedot_evaluation_strategy",
+        "fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy",
         "FedotAutoMLClassificationStrategy"
       ],
       "tags": [
@@ -158,7 +158,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.models.nn.fedot_evaluation_strategy",
+        "fedot_ind.core.operation.interfaces.fedot_nn_evaluation_strategy",
         "FedotNNClassificationStrategy"
       ],
       "tags": [
@@ -174,7 +174,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.models.nn.fedot_evaluation_strategy",
+        "fedot_ind.core.operation.interfaces.fedot_nn_evaluation_strategy",
         "FedotNNTimeSeriesStrategy"
       ],
       "tags": ["time_series"
@@ -190,7 +190,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.models.automl.fedot_evaluation_strategy",
+        "fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy",
         "FedotAutoMLRegressionStrategy"
       ],
       "tags": [
@@ -210,7 +210,7 @@
      "fedot_cls": {
       "meta": "fedot_automl_classification",
       "presets": [
-        "best_quality"
+        "auto"
       ],
       "tags": [
         "automl"
@@ -219,7 +219,7 @@
     "fedot_regr": {
       "meta": "fedot_automl_regression",
       "presets": [
-        "best_quality"
+        "auto"
       ],
       "tags": [
         "automl"
@@ -231,7 +231,6 @@
         "best_quality"
       ],
       "tags": [
-        "automl"
       ]
     },
     "omniscale_model": {
@@ -240,7 +239,6 @@
         "best_quality"
       ],
       "tags": [
-        "automl"
       ]
     },
     "tst_model": {
@@ -249,7 +247,6 @@
         "best_quality"
       ],
       "tags": [
-        "automl"
       ]
     },
     "resnet_model": {

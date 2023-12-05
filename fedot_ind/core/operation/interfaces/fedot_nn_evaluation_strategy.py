@@ -30,6 +30,7 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
+        self.output_mode = params.get('output_mode', 'labels')
         super().__init__(operation_type, params)
 
     def fit(self, train_data: InputData):

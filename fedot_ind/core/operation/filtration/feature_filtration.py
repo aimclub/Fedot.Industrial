@@ -31,11 +31,11 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
             operation_name = operation.task.task_params
         else:
             operation_name = operation.task.task_params.feature_filter
-        if operation_name in self.method_dict.keys():
+        if operation_name is None:
+            return operation.features
+        elif operation_name in self.method_dict.keys():
             method = self.method_dict[operation_name]
             return method(operation)
-        else:
-            return operation.features
 
     def filter_dimension_num(self, data):
         if len(data.features.shape) < 3:

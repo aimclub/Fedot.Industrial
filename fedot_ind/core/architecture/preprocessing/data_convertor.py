@@ -100,6 +100,7 @@ from examples.example_utils import check_multivariate_data
 #     else:
 #         if return_names: return split_xy(X, y, splits), data_cols
 #         return split_xy(X, y, splits)
+from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.architecture.settings.constanst_repository import MULTI_ARRAY, MATRIX
 
 
@@ -117,21 +118,26 @@ class CustomDatasetTS:
 
 class CustomDatasetCLF:
     def __init__(self, ts):
-        self.x = torch.from_numpy(ts.features).float()
+        self.x = torch.from_numpy(ts.features).to(default_device()).float()
         label_1 = max(ts.class_labels)
         label_0 = min(ts.class_labels)
-        classes = ts.num_classes
-        if classes == 2 and label_1 != 1:
+        self.classes = ts.num_classes
+        if self.classes == 2 and label_1 != 1:
             ts.target[ts.target == label_0] = 0
             ts.target[ts.target == label_1] = 1
-        elif classes == 2 and label_0 != 0:
+        elif self.classes == 2 and label_0 != 0:
             ts.target[ts.target == label_0] = 0
             ts.target[ts.target == label_1] = 1
-        elif classes > 2 and label_0 == 1:
+        elif self.classes > 2 and label_0 == 1:
             ts.target = ts.target - 1
 
-        self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
-                                             num_classes=classes).squeeze(1)
+        try:
+            self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
+                                                 num_classes=self.classes).to(default_device()).squeeze(1)
+        except Exception:
+            self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long()).to(default_device()).squeeze(1)
+            self.classes = self.y.shape[1]
+
         self.n_samples = ts.features.shape[0]
         self.supplementary_data = ts.supplementary_data
 

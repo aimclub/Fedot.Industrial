@@ -24,13 +24,13 @@
 			],
 			"forbidden_node_types": "[]",
 			"strategies": [
-				"fedot.core.operations.evaluation.common_preprocessing",
-				"FedotPreprocessingStrategy"
+				"fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+				"IndustrialCustomPreprocessingStrategy"
 			],
 			"tags": [
 				"sklearn"
 			],
-			"description": "Implementations of the preprocessing from scikit-learn framework"
+			"description": "Implementations of the preprocessing from scikit-learn framework upg"
 		},
 		"sklearn_categorical": {
 			"tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression, TaskTypesEnum.clustering]",
@@ -214,7 +214,7 @@
         "fast_train"
       ],
       "tags": [
-        "extractor"
+        "basis"
       ]
     },
     "recurrence_extractor": {
@@ -243,7 +243,7 @@
         "extractor"
       ]
     },
-    "feature_filter_model": {
+    "dimension_reduction": {
       "meta": "industrial_preprocessing_classification",
       "presets": [
         "fast_train"

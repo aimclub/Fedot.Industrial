@@ -38,9 +38,10 @@ class BaseNeuralModel:
     """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
-        self.num_classes = params.get('num_classes', 1)
+        self.num_classes = params.get('num_classes', None)
         self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 20)
+        self.output_mode = params.get('output_mode', 'labels')
 
     @convert_inputdata_to_torch_dataset
     def _create_dataset(self, ts: InputData):
@@ -50,9 +51,16 @@ class BaseNeuralModel:
         self.model = None
         return
 
+    def _evalute_num_of_epochs(self, ts):
+        min_num_epochs = min(100, round(ts.features.shape[0] * 1.5))
+        if self.epochs is None:
+            self.epochs = min_num_epochs
+        else:
+            self.epochs = max(min_num_epochs, self.epochs)
+
     def _convert_predict(self, pred):
         pred = F.softmax(pred, dim=1)
-        if self.num_classes == 2:
+        if self.output_mode == 'labels':
             pred = torch.argmax(pred, dim=1)
         y_pred = pred.cpu().detach().numpy()
         predict = OutputData(
@@ -70,6 +78,7 @@ class BaseNeuralModel:
         val_dataset = self._create_dataset(val_data)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+        self.num_classes = train_dataset.classes
         return train_loader, val_loader
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
@@ -88,24 +97,16 @@ class BaseNeuralModel:
             training_loss /= len(train_loader.dataset)
 
             self.model.eval()
-            num_correct = 0
-            num_examples = 0
             for batch in val_loader:
                 inputs, targets = batch
                 output = self.model(inputs)
                 loss = loss_fn(output, targets.float())
                 valid_loss += loss.data.item() * inputs.size(0)
-                correct = torch.eq(torch.max(F.softmax(output, dim=1), dim=1)[1],
-                                   torch.max(targets, dim=1)[1])
-
-                num_correct += torch.sum(correct).item()
-                num_examples += correct.shape[0]
             valid_loss /= len(val_loader.dataset)
 
-            print('Epoch: {}, Training Loss: {:.2f}, Validation Loss: {:.2f}, accuracy = {:.2f}'.format(epoch,
-                                                                                                        training_loss,
-                                                                                                        valid_loss,
-                                                                                                        num_correct / num_examples))
+            print('Epoch: {}, Training Loss: {:.2f}, Validation Loss: {:.2f}'.format(epoch,
+                                                                                     training_loss,
+                                                                                     valid_loss))
 
     @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = True):

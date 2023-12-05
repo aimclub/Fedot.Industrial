@@ -51,7 +51,7 @@ class ResNetModel(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', 100)
+        self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 32)
         self.model_name = params.get('model_name', 'ResNet18')
 
