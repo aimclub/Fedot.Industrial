@@ -9,8 +9,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.classification",
-        "FedotClassificationStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialClassificationPreprocessingStrategy"
       ],
       "tags": [
         "ml",
@@ -45,8 +45,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.classification",
-        "SkLearnClassificationStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialSkLearnClassificationStrategy"
       ],
       "tags": [
         "ml",

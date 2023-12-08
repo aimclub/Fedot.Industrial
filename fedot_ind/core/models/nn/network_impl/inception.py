@@ -63,14 +63,12 @@ class InceptionTimeModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', None)
-        self.batch_size = params.get('batch_size', 32)
 
     def _init_model(self, ts):
         self.model = InceptionTime(input_dim=ts.features.shape[1],
                                    output_dim=self.num_classes).to(default_device())
         self._evalute_num_of_epochs(ts)
-        optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         if ts.num_classes == 2:
             loss_fn = CROSS_ENTROPY()
         else:

@@ -148,7 +148,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         multi_ts_stat_features = [extraction_func(x) for x in ts]
         try:
-            features = np.concatenate([component.features for component in multi_ts_stat_features], axis=0)
+            features = np.concatenate([component.features.reshape(1,-1) for component in multi_ts_stat_features], axis=0)
         except Exception:
             _ = 1
 

@@ -8,10 +8,11 @@ from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.configurator import Configurator
-from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
+from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
 from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
@@ -52,8 +53,8 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
-        kwargs.setdefault('output_folder', DEFAULT_PATH_RESULTS)
-        Path(kwargs.get('output_folder', DEFAULT_PATH_RESULTS)).mkdir(parents=True, exist_ok=True)
+        kwargs.setdefault('output_folder', default_path_to_save_results())
+        Path(kwargs.get('output_folder', default_path_to_save_results())).mkdir(parents=True, exist_ok=True)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
@@ -63,8 +64,12 @@ class FedotIndustrial(Fedot):
             ]
         )
         super(Fedot, self).__init__()
+
         self.logger = logging.getLogger('FedotIndustrialAPI')
+
+        # self.reporter = ReporterTSC()
         self.configurator = Configurator()
+
         self.config_dict = None
 
         self.__init_experiment_setup(**kwargs)
@@ -72,26 +77,32 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
+        # self.reporter.path_to_save = kwargs.get('output_folder')
         if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
             self.config_dict = kwargs
         else:
             self.config_dict = self.configurator.init_experiment_setup(**kwargs)
 
     def __init_solver(self):
+        self.logger.info('Initialising Industrial Repository')
+        self.repo = IndustrialModels().setup_repository()
         self.logger.info('Initialising solver')
-
-        if self.config_dict['task'] == 'ts_classification':
-            if self.config_dict['strategy'] == 'fedot_preset':
-                solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-            else:
-                solver = TaskEnum[self.config_dict['task']].value['default']
-        elif self.config_dict['task'] == 'ts_forecasting':
-            if self.config_dict['strategy'] == 'decomposition':
-                solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-
-        else:
-            solver = TaskEnum[self.config_dict['task']].value[0]
-        return solver(self.config_dict)
+        solver = Fedot(self.config_dict)
+        # if self.config_dict['task'] == 'ts_classification':
+        #     if self.config_dict['strategy'] == 'fedot_preset':
+        #         solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
+        #     # elif self.config_dict['strategy'] is None:
+        #     #     self.config_dict['strategy'] = 'InceptionTime'
+        #     #     solver = TaskEnum[self.config_dict['task']].value['nn']
+        #     else:
+        #         solver = TaskEnum[self.config_dict['task']].value['default']
+        # elif self.config_dict['task'] == 'ts_forecasting':
+        #     if self.config_dict['strategy'] == 'decomposition':
+        #         solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
+        #
+        # else:
+        #     solver = TaskEnum[self.config_dict['task']].value[0]
+        return solver
 
     def fit(self, **kwargs) -> Pipeline:
         """
@@ -187,9 +198,21 @@ class FedotIndustrial(Fedot):
         """
         raise NotImplementedError()
 
-    def plot_prediction(self, **kwargs):
+    def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""
-        raise NotImplementedError()
+        self.solver.history.save(f"optimization_history.json")
+
+    def plot_fitness_by_generation(self, **kwargs):
+        """Plot prediction of the model"""
+        self.solver.history.show.fitness_box(best_fraction=0.5, dpi=100)
+
+    def plot_operation_distribution(self, mode: str = 'total'):
+        """Plot prediction of the model"""
+        if mode == 'total':
+            self.solver.history.show.operations_kde(dpi=100)
+        else:
+            self.solver.history.show.operations_animated_bar(save_path=f'./history_animated_bars.gif',
+                                                             show_fitness=True, dpi=100)
 
     def explain(self, **kwargs):
         raise NotImplementedError()
@@ -241,11 +264,11 @@ class FedotIndustrial(Fedot):
                  strategy: str = 'frequent',
                  plot: bool = True) -> Tuple[np.array, np.array]:
 
-        splitter = TSTransformer(strategy=strategy)
+        splitter = TSTransformer(time_series=time_series,
+                                 anomaly_dict=anomaly_dict,
+                                 strategy=strategy)
 
-        train_data, test_data = splitter.transform_for_fit(series=time_series,
-                                                           anomaly_dict=anomaly_dict,
-                                                           plot=plot,
+        train_data, test_data = splitter.transform_for_fit(plot=plot,
                                                            binarize=binarize)
 
         return train_data, test_data

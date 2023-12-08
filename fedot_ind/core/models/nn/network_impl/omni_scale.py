@@ -3,6 +3,7 @@ from torch import optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.architecture.settings.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
+from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 from fedot_ind.core.models.nn.network_modules.layers.special import ParameterizedLayer
 from fedot_ind.core.models.nn.network_modules.other import *
@@ -25,7 +26,8 @@ class OmniScaleCNN(Module):
                  output_dim,
                  seq_len,
                  layers=[8 * 128, 5 * 128 * 256 + 2 * 256 * 128],
-                 few_shot=False):
+                 few_shot=False,
+                 activation = 'ReLU'):
 
         receptive_field_shape = seq_len // 4
         layer_parameter_list = self.generate_layer_parameter_list(1,
@@ -44,6 +46,7 @@ class OmniScaleCNN(Module):
         for final_layer_parameters in layer_parameter_list[-1]:
             out_put_channel_number = out_put_channel_number + final_layer_parameters[1]
         self.hidden = nn.Linear(out_put_channel_number, output_dim)
+        self.activation = get_activation_fn(activation)
 
     def get_prime_number_in_a_range(self, start, end):
         Prime_list = []
@@ -92,12 +95,13 @@ class OmniScaleCNN(Module):
     def forward(self, x):
         x = self.net(x)
         x = self.gap(x)
-        if not self.few_shot: x = self.hidden(x)
+        if not self.few_shot:
+            x = self.activation(self.hidden(x))
         return x
 
 
 class OmniScaleModel(BaseNeuralModel):
-    """Class responsible for InceptionTime model implementation.
+    """Class responsible for OmniScale model implementation.
 
        Attributes:
            self.num_features: int, the number of features.
@@ -123,13 +127,12 @@ class OmniScaleModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', 50)
-        self.batch_size = params.get('batch_size', 32)
 
     def _init_model(self, ts):
         self.model = OmniScaleCNN(input_dim=ts.features.shape[1],
                                   output_dim=self.num_classes,
-                                  seq_len=ts.features.shape[2]).to(default_device())
+                                  seq_len=ts.features.shape[2],
+                                  activation=self.activation).to(default_device())
         self._evalute_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         if ts.num_classes == 2:

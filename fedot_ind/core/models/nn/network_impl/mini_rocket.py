@@ -281,7 +281,7 @@ class MiniRocketExtractor(BaseExtractor):
 
         mrf.fit(ts)
         features = get_minirocket_features(ts, mrf)
-        features = features.squeeze()
+        features = features.swapaxes(1,2)
         minirocket_features = OutputData(idx=np.arange(len(features)),
                                          task=self.task,
                                          predict=features,
@@ -290,12 +290,7 @@ class MiniRocketExtractor(BaseExtractor):
 
     def generate_minirocket_features(self, ts: np.array) -> InputData:
 
-        if ts.shape[1] == 1:
-            aggregation_df = self._generate_features_from_ts(ts)
-        else:
-            aggregation_df = self._get_feature_matrix(self._generate_features_from_ts, ts)
-
-        return aggregation_df
+        return self._generate_features_from_ts(ts)
 
     @convert_to_3d_torch_array
     def generate_features_from_ts(self, ts_data: np.array,

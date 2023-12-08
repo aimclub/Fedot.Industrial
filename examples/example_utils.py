@@ -8,6 +8,8 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from sklearn.metrics import f1_score, roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
     mean_squared_error, d2_absolute_error_score, \
@@ -43,10 +45,13 @@ def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification'
     is_multivariate_data = check_multivariate_data(X)
     task_dict = {'classification': Task(TaskTypesEnum.classification),
                  'regression': Task(TaskTypesEnum.regression)}
+    if type((y)[0]) is np.str_:
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(y)
     if is_multivariate_data:
         input_data = InputData(idx=np.arange(len(X)),
                                features=np.array(X.values.tolist()).astype(np.float),
-                               target=y.astype(np.float).reshape(-1, 1),
+                               target=y.reshape(-1, 1),
                                task=task_dict[task],
                                data_type=DataTypesEnum.image)
     else:

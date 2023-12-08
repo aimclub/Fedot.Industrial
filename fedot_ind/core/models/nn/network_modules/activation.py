@@ -5,13 +5,28 @@ from fastai.layers import Mish
 
 from fastai.torch_core import Module
 
+
 def get_activation_fn(activation):
-    if activation == "relu":
-        return nn.ReLU()
-    elif activation == "gelu":
-        return nn.GELU()
-    else:
-        return activation()
+    pytorch_acts = {'ELU': nn.ELU,
+                    'LeakyReLU': nn.LeakyReLU,
+                    'PReLU': nn.PReLU,
+                    'ReLU': nn.ReLU,
+                    'ReLU6': nn.ReLU6,
+                    'SELU': nn.SELU,
+                    'CELU': nn.CELU,
+                    'GELU': nn.GELU,
+                    'SwishBeta': SwishBeta,
+                    'Sigmoid': nn.Sigmoid,
+                    'Mish': Mish,
+                    'Softplus': nn.Softplus,
+                    'Tanh': nn.Tanh,
+                    'Softmax': nn.Softmax,
+                    'GEGLU': GEGLU,
+                    'ReGLU': ReGLU,
+                    'SmeLU': SmeLU}
+    return pytorch_acts[activation]()
+
+
 class GEGLU(Module):
     def forward(self, x):
         x, gates = x.chunk(2, dim=-1)

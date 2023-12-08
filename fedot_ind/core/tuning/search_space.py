@@ -23,7 +23,7 @@ industrial_search_space = {
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         #'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
+         # 'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
          },
     'signal_extractor':
         {'wavelet': {'hyperopt-dist': hp.choice,
@@ -32,16 +32,23 @@ industrial_search_space = {
         {'num_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5000, 20000, 1000)]]}},
     'patch_tst_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 100, 10)]]},
-         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]}},
+         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]},
+         'activation': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [
+                            ['LeakyReLU', 'ELU', 'SwishBeta', 'ReLU', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'omniscale_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
-         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]}},
+         'activation': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [
+                            ['LeakyReLU', 'ELU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'inception_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
-         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]}},
+         'activation': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [
+                            ['LeakyReLU', 'ELU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice, 'sampling-scope': [['hac', 'dff']]}}
-    }
+}
 
 
 def get_industrial_search_space(self):

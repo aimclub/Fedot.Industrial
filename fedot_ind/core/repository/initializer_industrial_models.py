@@ -90,18 +90,9 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
                     raise ValueError(
                         f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination. '
                         f'Basis output should contain feature transformation')
-                elif current_operation in other:
-                    if parent_operation in basis_models:
-                        raise ValueError(
-                            f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination.'
-                            f'Basis model should by applied on initial features, not models output.')
 
         else:
             continue
-            # # Only basis models can be primary
-            # if current_operation not in basis_models:
-            #     raise ValueError(
-            #         f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination')
     return True
 
 
@@ -148,18 +139,20 @@ class IndustrialModels:
         """
         OperationTypesRepository.__repository_dict__.update(
             {'data_operation': {'file': self.industrial_data_operation_path,
-                                'initialized_repo': None,
+                                'initialized_repo': True,
                                 'default_tags': []}})
 
         OperationTypesRepository.assign_repo('data_operation', self.industrial_data_operation_path)
 
         OperationTypesRepository.__repository_dict__.update(
             {'model': {'file': self.industrial_model_path,
-                       'initialized_repo': None,
+                       'initialized_repo': True,
                        'default_tags': []}})
         OperationTypesRepository.assign_repo('model', self.industrial_model_path)
 
         setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
+        setattr(ApiComposer, "_get_default_mutations", _get_default_industrial_mutations)
+        class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """

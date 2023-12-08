@@ -8,10 +8,13 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import nn, Tensor, optim
 import torch.nn.functional as F
+from torch.optim import lr_scheduler
+
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array, \
     convert_to_torch_tensor, \
     fedot_data_type, convert_inputdata_to_torch_dataset
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 
 
 class BaseNeuralModel:
@@ -39,9 +42,12 @@ class BaseNeuralModel:
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', None)
-        self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 20)
-        self.output_mode = params.get('output_mode', 'labels')
+        self.epochs = params.get('epochs', None)
+        self.batch_size = params.get('batch_size', 16)
+        self.activation = params.get('activation', 'ReLU')
+        self.learning_rate = 0.001
+
+        print(f'Epoch: {self.epochs}, Batch Size: {self.batch_size}, Activation_function: {self.activation}')
 
     @convert_inputdata_to_torch_dataset
     def _create_dataset(self, ts: InputData):
@@ -58,11 +64,17 @@ class BaseNeuralModel:
         else:
             self.epochs = max(min_num_epochs, self.epochs)
 
-    def _convert_predict(self, pred):
+    def _convert_predict(self, pred, output_mode):
         pred = F.softmax(pred, dim=1)
-        if self.output_mode == 'labels':
-            pred = torch.argmax(pred, dim=1)
-        y_pred = pred.cpu().detach().numpy()
+
+        if output_mode == 'labels':
+            y_pred = torch.argmax(pred, dim=1)
+        else:
+            y_pred = pred.cpu().detach().numpy()
+
+        if self.label_encoder is not None and output_mode is 'labels':
+            y_pred = self.label_encoder.inverse_transform(y_pred)
+
         predict = OutputData(
             idx=np.arange(len(y_pred)),
             task=self.task_type,
@@ -79,9 +91,16 @@ class BaseNeuralModel:
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
         self.num_classes = train_dataset.classes
+        self.label_encoder = train_dataset.label_encoder
         return train_loader, val_loader
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
+        early_stopping = EarlyStopping()
+        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
+                                            steps_per_epoch=len(train_loader),
+                                            epochs=self.epochs,
+                                            max_lr=self.learning_rate)
+        args = {'lradj': 'type2'}
         for epoch in range(1, self.epochs + 1):
             training_loss = 0.0
             valid_loss = 0.0
@@ -104,20 +123,26 @@ class BaseNeuralModel:
                 valid_loss += loss.data.item() * inputs.size(0)
             valid_loss /= len(val_loader.dataset)
 
+            adjust_learning_rate(optimizer, scheduler, epoch + 1, args, printout=False)
+            scheduler.step()
             print('Epoch: {}, Training Loss: {:.2f}, Validation Loss: {:.2f}'.format(epoch,
                                                                                      training_loss,
                                                                                      valid_loss))
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+            print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
 
     @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = True):
         self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
 
     @convert_to_3d_torch_array
-    def _predict_model(self, x_test):
+    def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
         x_test = Tensor(x_test).to(default_device())
         pred = self.model(x_test)
-        return self._convert_predict(pred)
+        return self._convert_predict(pred, output_mode)
 
     def fit(self,
             input_data: InputData):
@@ -131,16 +156,16 @@ class BaseNeuralModel:
 
     @fedot_data_type
     def predict(self,
-                input_data: InputData) -> np.array:
+                input_data: InputData, output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """
-        return self._predict_model(input_data)
+        return self._predict_model(input_data, output_mode)
 
     @fedot_data_type
     def predict_for_fit(self,
-                        input_data: InputData) -> np.array:
+                        input_data: InputData, output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """
-        return self._predict_model(input_data)
+        return self._predict_model(input_data, output_mode)

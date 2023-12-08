@@ -47,7 +47,7 @@
 			"output_type": "[DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.common_preprocessing", "FedotPreprocessingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialCustomPreprocessingStrategy"],
 			"tags": ["sklearn"],
 			"description": "Implementations of the dimensionality transformation operations (e.g. PCA) from scikit-learn framework"},
 		"regression_preprocessing": {
@@ -65,7 +65,7 @@
 			"output_type": "[DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.classification", "FedotClassificationPreprocessingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialClassificationPreprocessingStrategy"],
 			"tags": ["sklearn"],
 			"description": "Implementations of the feature selection operations and robust data filtering from scikit-learn framework for classification task"},
 		"custom_time_series_transformation": {
@@ -227,7 +227,7 @@
       ]
     },
       "topological_features": {
-        "meta": "custom_preprocessing",
+        "meta": "classification_preprocessing",
         "presets": [
           "ts"
         ],
@@ -303,7 +303,7 @@
 		"pca": {
 			"meta": "dimension_transformation",
 			"presets": ["fast_train", "ts", "*tree"],
-			"tags": ["linear", "dimensionality_transforming", "correct_params", "non_applicable_for_ts",
+			"tags": ["linear", "dimensionality_transforming", "non_applicable_for_ts",
 				"feature_reduction"]
 		},
 		"kernel_pca": {
@@ -312,7 +312,6 @@
 			"tags": [
 				"non_linear",
 				"dimensionality_transforming",
-				"correct_params",
 				"non_applicable_for_ts",
 				"non-default",
 				"feature_reduction"

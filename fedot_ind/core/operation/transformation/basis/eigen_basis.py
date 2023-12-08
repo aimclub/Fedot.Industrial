@@ -5,6 +5,7 @@ import pandas as pd
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
@@ -13,6 +14,7 @@ from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
 
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -50,20 +52,22 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         """
         if isinstance(input_data, InputData):
-            features = np.array(ListMonad(*input_data.features.tolist()).value)
+            features = input_data.features
         else:
             features = np.array(ListMonad(*input_data.values.tolist()).value)
-        features = np.array([series[~np.isnan(series)] for series in features])
-        if len(features.shape) == 2 and features.shape[1] == 1:
-            features = features.reshape(1, -1)
+            features = np.array([series[~np.isnan(series)] for series in features])
+        features = NumpyConverter(data=features).convert_to_torch_format()
 
         if self.SV_threshold is None:
             self.SV_threshold = max(self.get_threshold(data=features), 2)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
-        self.predict = np.array(v) if len(v) > 1 else v[0]
+        predict = []
+        for dimension in range(features.shape[1]):
+            parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+            v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:,dimension,:])
+            predict.append(np.array(v) if len(v) > 1 else v[0])
+        self.predict = np.concatenate(predict,axis=1)
         if input_data.task.task_params is None:
             input_data.task.task_params = self.__repr__()
         else:
@@ -73,16 +77,19 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                              predict=self.predict,
                              task=input_data.task,
                              target=input_data.target,
-                             data_type=input_data.data_type,
+                             data_type=DataTypesEnum.table,
                              supplementary_data=input_data.supplementary_data)
         return predict
 
     def get_threshold(self, data) -> int:
         svd_numbers = []
         with tqdm(total=len(data), desc='SVD estimation') as pbar:
-            for signal in data:
-                svd_numbers.append(self._transform_one_sample(signal, svd_flag=True))
-                pbar.update(1)
+            for dimension in range(data.shape[1]):
+                dimension_rank = []
+                for signal in data[:, dimension, :]:
+                    dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
+                    pbar.update(1)
+                svd_numbers.append(stats.mode(dimension_rank).mode)
         try:
             return stats.mode(svd_numbers).mode[0]
         except Exception:

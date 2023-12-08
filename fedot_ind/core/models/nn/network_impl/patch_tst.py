@@ -50,7 +50,7 @@ class PatchTST(nn.Module):
                  subtract_last=False,  # subtract_last
                  decomposition=False,  # apply decomposition
                  kernel_size=25,  # decomposition kernel size
-                 activation="gelu",  # activation function of intermediate layer, relu or gelu.
+                 activation="GELU",  # activation function of intermediate layer, relu or gelu.
                  norm='BatchNorm',  # type of normalization layer used in the encoder
                  pre_norm=False,  # flag to indicate if normalization is applied as the first step in the sublayers
                  res_attention=True,  # flag to indicate if Residual MultiheadAttention should be used
@@ -108,6 +108,7 @@ class PatchTSTModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 16)
+        self.activation = params.get('activation', 'GELU')
         self.learning_rate = params.get('learning_rate', 0.001)
         self.use_amp = params.get('use_amp', False)
         self.horizon = params.get('forecast_length', None)
@@ -124,7 +125,8 @@ class PatchTSTModel(BaseNeuralModel):
                          seq_len=self.seq_len,
                          pred_dim=self.horizon,
                          patch_len=self.patch_len,
-                         preprocess_to_lagged=self.preprocess_to_lagged).to(default_device())
+                         preprocess_to_lagged=self.preprocess_to_lagged,
+                         activation=self.activation).to(default_device())
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
         loss_fn = RMSE()
         return model, loss_fn, optimizer

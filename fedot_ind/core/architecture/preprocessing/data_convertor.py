@@ -1,7 +1,7 @@
 from functools import partial
 import numpy as np
 import pandas as pd
-
+from sklearn.preprocessing import LabelEncoder
 import torch
 import torch.nn as nn
 from fedot.core.data.data import InputData
@@ -131,6 +131,12 @@ class CustomDatasetCLF:
         elif self.classes > 2 and label_0 == 1:
             ts.target = ts.target - 1
 
+        if type(min(ts.target)[0]) is np.str_:
+            self.label_encoder = LabelEncoder()
+            ts.target = self.label_encoder.fit_transform(ts.target)
+        else:
+            self.label_encoder = None
+
         try:
             self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
                                                  num_classes=self.classes).to(default_device()).squeeze(1)
@@ -256,7 +262,7 @@ class NumpyConverter:
     def convert_to_1d_array(self):
         if self.numpy_data.ndim == 1:
             return self.numpy_data
-        elif self.numpy_data.ndim == 3:
+        elif self.numpy_data.ndim > 2:
             return np.squeeze(self.numpy_data)
         elif self.numpy_data.ndim == 2:
             return self.numpy_data.flatten()

@@ -76,7 +76,8 @@ def adjust_learning_rate(optimizer, scheduler, epoch, args, printout=True):
         lr = lr_adjust[epoch]
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-        if printout: print('Updating learning rate to {}'.format(lr))
+        if printout:
+            print('Updating learning rate to {}'.format(lr))
 
 
 class MovingAverage(nn.Module):
@@ -169,7 +170,8 @@ class InceptionModule(Module):
                  input_dim,
                  number_of_filters,
                  ks=40,
-                 bottleneck=True):
+                 bottleneck=True,
+                 activation='ReLU'):
         ks = [ks // (2 ** i) for i in range(3)]
         ks = [k if k % 2 != 0 else k - 1 for k in ks]  # ensure odd ks
         bottleneck = bottleneck if input_dim > 1 else False
@@ -180,7 +182,7 @@ class InceptionModule(Module):
                                            Conv1d(input_dim, number_of_filters, 1, bias=False)])
         self.concat = Concat()
         self.batch_norm = BN1d(number_of_filters * 4)
-        self.activation = nn.ReLU()
+        self.activation = get_activation_fn(activation)
 
     @convert_to_torch_tensor
     def forward(self, x):
@@ -197,6 +199,7 @@ class InceptionBlock(Module):
                  number_of_filters=32,
                  residual=False,
                  depth=6,
+                 activation='ReLU',
                  **kwargs):
         self.residual, self.depth = residual, depth
         self.inception, self.shortcut = nn.ModuleList(), nn.ModuleList()
@@ -207,7 +210,7 @@ class InceptionBlock(Module):
                 n_in, n_out = number_of_filters if d == 2 else number_of_filters * 4, number_of_filters * 4
                 self.shortcut.append(BN1d(n_in) if n_in == n_out else ConvBlock(n_in, n_out, 1, act=None))
         self.add = Add()
-        self.activation = nn.ReLU()
+        self.activation = get_activation_fn(activation)
 
     @convert_to_torch_tensor
     def forward(self, x):
@@ -224,7 +227,7 @@ class InceptionBlock(Module):
 
 class _TSTiEncoderLayer(nn.Module):
     def __init__(self, q_len, d_model, n_heads, d_k=None, d_v=None, d_ff=256, store_attn=False,
-                 norm='BatchNorm', attn_dropout=0, dropout=0., bias=True, activation="gelu", res_attention=False,
+                 norm='BatchNorm', attn_dropout=0, dropout=0., bias=True, activation="GELU", res_attention=False,
                  pre_norm=False):
         super().__init__()
         assert not d_model % n_heads, f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
@@ -301,7 +304,7 @@ class _TSTiEncoderLayer(nn.Module):
 
 class _TSTiEncoder(nn.Module):  # i means channel-independent
     def __init__(self, input_dim, patch_num, patch_len, n_layers=3, d_model=128, n_heads=16, d_k=None, d_v=None,
-                 d_ff=256, norm='BatchNorm', attn_dropout=0., dropout=0., act="gelu", store_attn=False,
+                 d_ff=256, norm='BatchNorm', attn_dropout=0., dropout=0., act="GELU", store_attn=False,
                  res_attention=True, pre_norm=False):
 
         super().__init__()
