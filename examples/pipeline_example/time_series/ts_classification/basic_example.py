@@ -116,9 +116,9 @@ if __name__ == "__main__":
         'SelfRegulationSCP2',
         'StandWalkJump',
     ]
-    error_model = PipelineBuilder().add_node('resample').add_node('resample', branch_idx=1) \
-        .add_node('minirocket_extractor', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
-        'logit').build()
+    # error_model = PipelineBuilder().add_node('resample').add_node('resample', branch_idx=1) \
+    #     .add_node('minirocket_extractor', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
+    #     'logit').build()
     #error_model = PipelineBuilder().add_node('logit').add_node('logit').build()
     # error_model = PipelineBuilder().add_node('pca').add_node('resample', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
     #     'logit').build()
@@ -135,15 +135,15 @@ if __name__ == "__main__":
                       num_of_generations=20,
                       optimizer=IndustrialEvoOptimizer,
                       available_operations=ts_clf_operations,
-                      timeout=60,
+                      timeout=30,
                       with_tuning=False
                       )
-        model = error_model
+        #model = error_model
         model.fit(input_data)
-        features = model.predict(val_data, 'labels')
+        features = model.predict(val_data)
         metric = evaluate_metric(target=val_data.target, prediction=features)
         try:
-            acc = accuracy_score(y_true=val_data.target, y_pred=features)
+            acc = accuracy_score(y_true=val_data.target, y_pred=features.predict)
         except Exception:
             acc = accuracy_score(y_true=val_data.target, y_pred=np.argmax(features, axis=1))
         metric_dict.update({model: metric})

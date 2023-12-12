@@ -17,7 +17,7 @@ from fastai.torch_core import Module
 
 
 class EarlyStopping:
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, patience=5, verbose=False, delta=0):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -48,28 +48,28 @@ class EarlyStopping:
         self.val_loss_min = val_loss
 
 
-def adjust_learning_rate(optimizer, scheduler, epoch, args, printout=True):
+def adjust_learning_rate(optimizer, scheduler, epoch, learning_rate, printout=True, lradj = '3'):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
-    if args['lradj'] == 'type1':
+    if lradj == 'type1':
         lr_adjust = {epoch: ['learning_rate'] * (0.5 ** ((epoch - 1) // 1))}
-    elif args['lradj'] == 'type2':
+    elif lradj == 'type2':
         lr_adjust = {
             2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
             10: 5e-7, 15: 1e-7, 20: 5e-8
         }
-    elif args.lradj == 'type3':
-        lr_adjust = {epoch: args.learning_rate if epoch < 3 else args.learning_rate * (0.9 ** ((epoch - 3) // 1))}
-    elif args.lradj == 'constant':
-        lr_adjust = {epoch: args.learning_rate}
-    elif args.lradj == '3':
-        lr_adjust = {epoch: args.learning_rate if epoch < 10 else args.learning_rate * 0.1}
-    elif args.lradj == '4':
-        lr_adjust = {epoch: args.learning_rate if epoch < 15 else args.learning_rate * 0.1}
-    elif args.lradj == '5':
-        lr_adjust = {epoch: args.learning_rate if epoch < 25 else args.learning_rate * 0.1}
-    elif args.lradj == '6':
-        lr_adjust = {epoch: args.learning_rate if epoch < 5 else args.learning_rate * 0.1}
-    elif args.lradj == 'TST':
+    elif lradj == 'type3':
+        lr_adjust = {epoch: learning_rate if epoch < 3 else learning_rate * (0.9 ** ((epoch - 3) // 1))}
+    elif lradj == 'constant':
+        lr_adjust = {epoch:learning_rate}
+    elif lradj == '3':
+        lr_adjust = {epoch: learning_rate if epoch < 10 else learning_rate * 0.1}
+    elif lradj == '4':
+        lr_adjust = {epoch: learning_rate if epoch < 15 else learning_rate * 0.1}
+    elif lradj == '5':
+        lr_adjust = {epoch: learning_rate if epoch < 25 else learning_rate * 0.1}
+    elif lradj == '6':
+        lr_adjust = {epoch: learning_rate if epoch < 5 else learning_rate * 0.1}
+    elif lradj == 'TST':
         lr_adjust = {epoch: scheduler.get_last_lr()[0]}
 
     if epoch in lr_adjust.keys():

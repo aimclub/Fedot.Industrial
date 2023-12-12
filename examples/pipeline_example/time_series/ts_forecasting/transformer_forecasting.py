@@ -11,7 +11,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 
 if __name__ == '__main__':
 
-    forecast_length = 14
+    forecast_length = 16
     window_size_percentage = 10
 
     train_data, test_data, dataset_name = get_ts_data('m4_daily',
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         'tst_model':
             PipelineBuilder().add_node('patch_tst_model', params={'patch_len': None,
                                                                   'forecast_length': forecast_length,
-                                                                  'epochs': 10}),
+                                                                  'epochs': 50}),
         'spectral_tst_model':
             PipelineBuilder().add_node('ar').add_node('eigen_basis',
                                                       params={'window_size': window_length}, branch_idx=1).
@@ -45,7 +45,8 @@ if __name__ == '__main__':
     error_pipeline = PipelineBuilder().add_node('lagged').add_node('ssa_forecaster').add_node('ts_naive_average',
                                                                                                branch_idx=1).join_branches('lasso').build()
     for model in model_dict.keys():
-        # pipeline.fit(train_data)
+        pipeline = model_dict[model].build()
+        pipeline.fit(train_data)
         model = Fedot(problem='ts_forecasting',
                       logging_level=20,
                       n_jobs=1,
@@ -64,6 +65,7 @@ if __name__ == '__main__':
                       task_params=TsForecastingParams(forecast_length=forecast_length),
                       timeout=180
                       )
+        preds = pipeline.predict(test_data)
         error_pipeline.fit(train_data)
         model.fit(train_data)
         model.current_pipeline.show()

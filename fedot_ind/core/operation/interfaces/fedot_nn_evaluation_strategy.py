@@ -38,14 +38,14 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
         model.fit(train_data)
         return model
 
-    def predict(self, trained_operation, predict_data: InputData) -> OutputData:
-        return trained_operation.predict(predict_data, self.output_mode)
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+        return trained_operation.predict(predict_data, output_mode)
 
-    def predict_for_fit(self, trained_operation, predict_data: InputData) -> OutputData:
+    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
         if 'predict_for_fit' in dir(trained_operation):
-            return trained_operation.predict_for_fit(predict_data, self.output_mode)
+            return trained_operation.predict_for_fit(predict_data, output_mode)
         else:
-            return trained_operation.predict(predict_data, self.output_mode)
+            return trained_operation.predict(predict_data, output_mode)
 
 
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):

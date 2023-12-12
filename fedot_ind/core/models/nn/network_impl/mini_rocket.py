@@ -71,6 +71,7 @@ class MiniRocketFeatures(nn.Module):
         else:
             self(X[idxs].to(self.kernels.device))
         self.fitting = False
+        return self
 
     def forward(self, x):
         _features = []
@@ -274,22 +275,36 @@ class MiniRocketExtractor(BaseExtractor):
     def __repr__(self):
         return 'LargeFeatureSpace'
 
-    def _generate_features_from_ts(self, ts: np.array):
-        mrf = MiniRocketFeatures(input_dim=ts.shape[1],
-                                 seq_len=ts.shape[2],
-                                 num_features=self.num_features).to(default_device())
+    def _generate_features_from_ts(self, ts: np.array, mode: str = 'multivariate'):
 
-        mrf.fit(ts)
-        features = get_minirocket_features(ts, mrf)
-        features = features.swapaxes(1,2)
-        minirocket_features = OutputData(idx=np.arange(len(features)),
+        if ts.shape[1] > 1 and mode == 'chanel_independent':
+            mrf = MiniRocketFeatures(input_dim=1,
+                                     seq_len=ts.shape[2],
+                                     num_features=self.num_features).to(default_device())
+
+            n_dim = range(ts.shape[1])
+            ts_converted = [ts[:, i, :] for i in n_dim]
+            ts_converted = [x.reshape(x.shape[0], 1, x.shape[1]) for x in ts_converted]
+            model_list = [mrf for i in n_dim]
+        else:
+            mrf = MiniRocketFeatures(input_dim=ts.shape[1],
+                                     seq_len=ts.shape[2],
+                                     num_features=self.num_features).to(default_device())
+
+            ts_converted = [ts]
+            model_list = [mrf]
+
+        fitted_model = [model.fit(data) for model, data in zip(model_list, ts_converted)]
+        features = [get_minirocket_features(data, model) for model, data in zip(fitted_model, ts_converted)]
+        minirocket_features = [feature_by_dim.swapaxes(1, 2) for feature_by_dim in features]
+        minirocket_features = np.concatenate(minirocket_features, axis=1)
+        minirocket_features = OutputData(idx=np.arange(minirocket_features.shape[2]),
                                          task=self.task,
-                                         predict=features,
-                                         data_type=DataTypesEnum.table)
+                                         predict=minirocket_features,
+                                         data_type=DataTypesEnum.image)
         return minirocket_features
 
     def generate_minirocket_features(self, ts: np.array) -> InputData:
-
         return self._generate_features_from_ts(ts)
 
     @convert_to_3d_torch_array

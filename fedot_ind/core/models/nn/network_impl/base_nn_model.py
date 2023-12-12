@@ -140,8 +140,8 @@ class BaseNeuralModel:
                 valid_loss /= len(val_loader.dataset)
                 print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,
                                                                  valid_loss))
-
-            adjust_learning_rate(optimizer, scheduler, epoch + 1, args, printout=False)
+            early_stopping(training_loss, self.model, './')
+            adjust_learning_rate(optimizer, scheduler, epoch + 1, self.learning_rate, printout=False)
             scheduler.step()
 
             if early_stopping.early_stop:
@@ -150,7 +150,7 @@ class BaseNeuralModel:
             print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
 
     @convert_to_3d_torch_array
-    def _fit_model(self, ts: InputData, split_data: bool = True):
+    def _fit_model(self, ts: InputData, split_data: bool = False):
         self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
 
     @convert_to_3d_torch_array

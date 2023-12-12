@@ -45,7 +45,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             prediction = prediction.squeeze()
         return prediction
 
-    def _convert_to_output(self, prediction, predict_data: InputData,
+    def _convert_to_output(self, prediction,
+                           predict_data: InputData,
                            output_data_type: DataTypesEnum = DataTypesEnum.table,
                            output_mode: str = 'default') -> OutputData:
         """Method convert prediction into :obj:`OutputData` if it is not this type yet
@@ -57,10 +58,11 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
         Returns: prediction as :obj:`OutputData`
         """
-        prediction = self.__convert_dimensions(predict_data, prediction, output_mode)
-
-        if type(prediction) is not OutputData:
-            # Wrap prediction as OutputData
+        if type(prediction) is OutputData:
+            prediction.predict = self.__convert_dimensions(predict_data, prediction.predict, output_mode)
+            converted = prediction
+        else:
+            prediction = self.__convert_dimensions(predict_data, prediction, output_mode)
             converted = OutputData(idx=predict_data.idx,
                                    features=predict_data.features,
                                    predict=prediction,
@@ -68,8 +70,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                    target=predict_data.target,
                                    data_type=output_data_type,
                                    supplementary_data=predict_data.supplementary_data)
-        else:
-            converted = prediction
 
         return converted
 
@@ -223,6 +223,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         if mode == 'model_fitting':
             if len(predict_data.features.shape) > 2:
                 converted_predict_data = self._convert_input_data(predict_data, mode='model_fitting')
+            else:
+                converted_predict_data = predict_data
             prediction = self._sklearn_compatible_prediction(trained_operation=trained_operation,
                                                              features=converted_predict_data.features,
                                                              output_mode=output_mode)
@@ -275,6 +277,7 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         self.operation_impl = self._convert_to_operation(operation_type)
         params = IndustrialOperationParameters().from_params(operation_type, params) if params \
             else IndustrialOperationParameters().from_operation_type(operation_type)
+        self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl, operation_type)
         super().__init__(operation_type, params)
 
     def _convert_to_operation(self, operation_type: str):
@@ -311,7 +314,7 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         """
         prediction = trained_operation.transform(predict_data)
         # Convert prediction to output (if it is required)
-        converted = self._convert_to_output(prediction, predict_data)
+        converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
         return converted
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
@@ -325,7 +328,7 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
             OutputData:
         """
         prediction = trained_operation.transform_for_fit(predict_data)
-        converted = self._convert_to_output(prediction, predict_data)
+        converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
         return converted
 
 
