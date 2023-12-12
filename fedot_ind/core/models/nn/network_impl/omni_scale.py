@@ -2,21 +2,15 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.architecture.settings.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 from fedot_ind.core.models.nn.network_modules.layers.special import ParameterizedLayer
 from fedot_ind.core.models.nn.network_modules.other import *
-import torch
 import torch.nn as nn
 
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 
-import pandas as pd
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from examples.example_utils import evaluate_metric, init_input_data
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
 
 
 class OmniScaleCNN(Module):
@@ -27,9 +21,9 @@ class OmniScaleCNN(Module):
                  seq_len,
                  layers=[8 * 128, 5 * 128 * 256 + 2 * 256 * 128],
                  few_shot=False,
-                 activation = 'ReLU'):
+                 activation='ReLU'):
 
-        receptive_field_shape = seq_len // 4
+        receptive_field_shape = max(seq_len // 4, 1)
         layer_parameter_list = self.generate_layer_parameter_list(1,
                                                                   receptive_field_shape,
                                                                   layers,

@@ -9,99 +9,8 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 
 from examples.example_utils import check_multivariate_data
-
-# def df2Xy(df,
-#           sample_col=None,
-#           feat_col=None,
-#           data_cols=None,
-#           target_col=None,
-#           steps_in_rows=False,
-#           to3d=True, ):
-#     r"""
-#     This function allows you to transform a pandas dataframe into X and y numpy arrays that can be used to create a TSDataset.
-#     sample_col: column that uniquely identifies each sample.
-#     feat_col: used for multivariate datasets. It indicates which is the column that indicates the feature by row.
-#     data_col: indicates ths column/s where the data is located. If None, it means all columns (except the sample_col, feat_col, and target_col)
-#     target_col: indicates the column/s where the target is.
-#     steps_in_rows: flag to indicate if each step is in a different row or in a different column (default).
-#     to3d: turns X to 3d (including univariate time series)
-#
-#     """
-#     if feat_col is not None:
-#         assert sample_col is not None, 'You must pass a sample_col when you pass a feat_col'
-#
-#     passed_cols = []
-#     sort_cols = []
-#     if sample_col is not None:
-#         if isinstance(sample_col, pd.core.indexes.base.Index): sample_col = sample_col.tolist()
-#         sample_col = listify(sample_col)
-#         if sample_col[0] not in sort_cols: sort_cols += listify(sample_col)
-#         passed_cols += sample_col
-#     if feat_col is not None:
-#         if isinstance(feat_col, pd.core.indexes.base.Index): feat_col = feat_col.tolist()
-#         feat_col = listify(feat_col)
-#         if feat_col[0] not in sort_cols: sort_cols += listify(feat_col)
-#         passed_cols += feat_col
-#     if sort_by is not None:
-#         if isinstance(sort_by, pd.core.indexes.base.Index): sort_by = sort_by.tolist()
-#         sort_cols += listify(sort_by)
-#     if data_cols is not None:
-#         if isinstance(data_cols, pd.core.indexes.base.Index): data_cols = data_cols.tolist()
-#         data_cols = listify(data_cols)
-#     if target_col is not None:
-#         if isinstance(target_col, pd.core.indexes.base.Index): target_col = target_col.tolist()
-#         target_col = listify(target_col)
-#         passed_cols += target_col
-#     if data_cols is None:
-#         data_cols = [col for col in df.columns if col not in passed_cols]
-#     if target_col is not None:
-#         if any([t for t in target_col if t in data_cols]): print(f"Are you sure you want to include {target_col} in X?")
-#     if sort_cols:
-#         df.sort_values(sort_cols, ascending=ascending, kind='stable', inplace=True)
-#
-#     # X
-#     X = df.loc[:, data_cols].values
-#     if X.dtype == 'O':
-#         X = X.astype(np.float32)
-#     if sample_col is not None:
-#         unique_ids = df[sample_col[0]].unique().tolist()
-#         n_samples = len(unique_ids)
-#     else:
-#         unique_ids = np.arange(len(df)).tolist()
-#         n_samples = len(df)
-#     if to3d:
-#         if feat_col is not None:
-#             n_feats = df[feat_col[0]].nunique()
-#             X = X.reshape(n_samples, n_feats, -1)
-#         elif steps_in_rows:
-#             X = X.reshape(n_samples, -1, len(data_cols)).swapaxes(1,2)
-#         else:
-#             X = X.reshape(n_samples, 1, -1)
-#
-#     # y
-#     if target_col is not None:
-#         if sample_col is not None:
-#             y = []
-#             for tc in target_col:
-#                 _y = np.concatenate(df.groupby(sample_col)[tc].apply(np.array).reset_index()[tc]).reshape(n_samples, -1)
-#                 if y_func is not None: _y = y_func(_y)
-#                 y.append(_y)
-#             y = np.concatenate(y, -1)
-#         else:
-#             y = df[target_col].values
-#         y = np.squeeze(y)
-#     else:
-#         y = None
-#
-#     # Output
-#     if splits is None:
-#         if return_names: return X, y, data_cols
-#         else: return X, y
-#     else:
-#         if return_names: return split_xy(X, y, splits), data_cols
-#         return split_xy(X, y, splits)
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.architecture.settings.constanst_repository import MULTI_ARRAY, MATRIX
+from fedot_ind.core.repository.constanst_repository import MULTI_ARRAY, MATRIX
 
 
 class CustomDatasetTS:
@@ -290,7 +199,9 @@ class NumpyConverter:
         if self.numpy_data.ndim >= 3:
             return self.numpy_data
         elif self.numpy_data.ndim == 1:
-            return self.numpy_data[None, None]
+            return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                           1,
+                                           1)
         elif self.numpy_data.ndim == 2:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,

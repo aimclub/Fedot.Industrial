@@ -16,7 +16,7 @@ from torch import nn, optim
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.architecture.settings.constanst_repository import RMSE, MSE, SMAPE
+from fedot_ind.core.repository.constanst_repository import RMSE, MSE, SMAPE, EXPONENTIAL_WEIGHTED_LOSS
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.backbone import _PatchTST_backbone
 from fedot_ind.core.models.nn.network_modules.layers.special import SeriesDecomposition, \
@@ -48,8 +48,6 @@ class PatchTST(nn.Module):
                  affine=False,  # RevIN affine
                  individual=False,  # individual head
                  subtract_last=False,  # subtract_last
-                 decomposition=False,  # apply decomposition
-                 kernel_size=25,  # decomposition kernel size
                  activation="GELU",  # activation function of intermediate layer, relu or gelu.
                  norm='BatchNorm',  # type of normalization layer used in the encoder
                  pre_norm=False,  # flag to indicate if normalization is applied as the first step in the sublayers
@@ -120,7 +118,7 @@ class PatchTSTModel(BaseNeuralModel):
         self.model_list = []
 
     def _init_model(self, ts):
-        model = PatchTST(input_dim=1,
+        model = PatchTST(input_dim=ts.features.shape[0],
                          output_dim=None,
                          seq_len=self.seq_len,
                          pred_dim=self.horizon,
@@ -128,7 +126,9 @@ class PatchTSTModel(BaseNeuralModel):
                          preprocess_to_lagged=self.preprocess_to_lagged,
                          activation=self.activation).to(default_device())
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
-        loss_fn = RMSE()
+        patch_pred_len = round(self.horizon / 4)
+        loss_fn = EXPONENTIAL_WEIGHTED_LOSS(time_steps=patch_pred_len, tolerance=0.3)
+        #loss_fn = RMSE()
         return model, loss_fn, optimizer
 
     def _fit_model(self, input_data: InputData, split_data: bool = True):
@@ -158,7 +158,7 @@ class PatchTSTModel(BaseNeuralModel):
         if self.preprocess_to_lagged:
             self.seq_len = input_data.features.shape[0] + input_data.features.shape[1]
         else:
-            self.seq_len = input_data.features.shape[0]
+            self.seq_len = input_data.features.shape[1]
         self.target = input_data.target
         self.task_type = input_data.task
         return input_data
@@ -166,9 +166,6 @@ class PatchTSTModel(BaseNeuralModel):
     def __create_torch_loader(self, train_data):
 
         train_dataset = self._create_dataset(train_data)
-        if not self.preprocess_to_lagged:
-            train_dataset.x = train_dataset.x.permute(0, 2, 1)
-            train_dataset.y = train_dataset.y.permute(0, 2, 1)
         train_loader = torch.utils.data.DataLoader(
             data.TensorDataset(train_dataset.x, train_dataset.y),
             batch_size=self.batch_size, shuffle=False)
@@ -190,12 +187,12 @@ class PatchTSTModel(BaseNeuralModel):
         if 'datetime' in time_series.columns:
             idx = pd.to_datetime(time_series['datetime'].values)
         else:
-            idx = time_series.index.values
+            idx = time_series.columns.values
 
         time_series = time_series.values
         train_input = InputData(idx=idx,
-                                features=time_series,
-                                target=time_series,
+                                features=time_series.flatten(),
+                                target=time_series.flatten(),
                                 task=task,
                                 data_type=DataTypesEnum.ts)
 
@@ -236,9 +233,7 @@ class PatchTSTModel(BaseNeuralModel):
                     optimizer):
         train_steps = len(train_loader)
         early_stopping = EarlyStopping()
-        model_optim = optimizer
-        criterion = loss_fn
-        scheduler = lr_scheduler.OneCycleLR(optimizer=model_optim,
+        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
@@ -251,7 +246,7 @@ class PatchTSTModel(BaseNeuralModel):
             model.train()
             for i, (batch_x, batch_y) in enumerate(train_loader):
                 iter_count += 1
-                model_optim.zero_grad()
+                optimizer.zero_grad()
                 batch_x = batch_x.float().to(default_device())
 
                 batch_y = batch_y.float().to(default_device())
@@ -260,11 +255,12 @@ class PatchTSTModel(BaseNeuralModel):
                 dec_inp = torch.zeros_like(batch_y).float()
                 dec_inp = torch.cat([batch_y, dec_inp], dim=1).float().to(default_device())
                 outputs = model(batch_x)
-                loss = criterion(outputs, batch_y)
+                loss = loss_fn(outputs, batch_y)
                 train_loss.append(loss.item())
                 loss.backward()
-                model_optim.step()
-                adjust_learning_rate(model_optim, scheduler, epoch + 1, args, printout=False)
+                model.float()
+                optimizer.step()
+                adjust_learning_rate(optimizer, scheduler, epoch + 1, args, printout=False)
                 scheduler.step()
             train_loss = np.average(train_loss)
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
@@ -347,14 +343,13 @@ class PatchTSTModel(BaseNeuralModel):
 
     def _predict_loop(self, model,
                       test_data):
-        test_data.features = test_data.features.squeeze()
 
         if len(test_data.features.shape) == 1:
             test_data.features = test_data.features.reshape(1, -1)
 
         if not self.preprocess_to_lagged:
-            features = HankelMatrix(time_series=test_data.T,
-                                    window_size=self.test_patch_len).trajectory_matrix[:, -1:]
+            features = HankelMatrix(time_series=test_data.features,
+                                    window_size=self.test_patch_len).trajectory_matrix
             features = torch.from_numpy(DataConverter(data=features).
                                         convert_to_torch_format()).float().permute(2, 1, 0)
             target = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float()

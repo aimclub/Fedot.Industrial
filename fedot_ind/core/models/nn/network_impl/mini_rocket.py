@@ -8,7 +8,7 @@ from typing import Optional
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, convert_to_3d_torch_array
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.base_extractor import BaseExtractor
 

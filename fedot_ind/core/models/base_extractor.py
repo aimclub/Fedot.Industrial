@@ -14,7 +14,7 @@ from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, remove_1_dim_axis, \
     convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.architecture.settings.constanst_repository import STAT_METHODS_GLOBAL, STAT_METHODS
+from fedot_ind.core.repository.constanst_repository import STAT_METHODS_GLOBAL, STAT_METHODS
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 

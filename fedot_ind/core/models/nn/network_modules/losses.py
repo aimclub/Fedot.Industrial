@@ -1,9 +1,76 @@
-from typing import Optional
+from typing import Optional, Union, Tuple
 
 import torch
 from torch import nn, Tensor
 from fastai.torch_core import Module
 import torch.nn.functional as F
+
+from fedot_ind.core.architecture.settings.computational import default_device
+
+
+def lambda_prepare(val: torch.Tensor,
+                   lambda_: Union[int, list, torch.Tensor]) -> torch.Tensor:
+    """ Prepares lambdas for corresponding equation or bcond type.
+
+    Args:
+        val (_type_): operator tensor or bval tensor
+        lambda_ (Union[int, list, torch.Tensor]): regularization parameters values
+
+    Returns:
+        torch.Tensor: torch.Tensor with lambda_ values,
+        len(lambdas) = number of columns in val
+    """
+
+    if isinstance(lambda_, torch.Tensor):
+        return lambda_
+
+    if isinstance(lambda_, int):
+        try:
+            lambdas = torch.ones(val.shape[-1], dtype=val.dtype) * lambda_
+        except:
+            lambdas = torch.tensor(lambda_, dtype=val.dtype)
+    elif isinstance(lambda_, list):
+        lambdas = torch.tensor(lambda_, dtype=val.dtype)
+
+    return lambdas.reshape(1, -1)
+
+
+class ExpWeightedLoss(nn.Module):
+
+    def __init__(self, time_steps, tolerance):
+        self.n_t = time_steps
+        self.tol = tolerance
+        super().__init__()
+
+    def forward(self,
+                input: Tensor,
+                target: Tensor) -> torch.Tensor:
+        """ Computes causal loss, which is calculated with weights matrix:
+        W = exp(-tol*(Loss_i)) where Loss_i is sum of the L2 loss from 0
+        to t_i moment of time. This loss function should be used when one
+        of the DE independent parameter is time.
+
+        Args:
+            operator (torch.Tensor): operator calc-n result.
+            For more details to eval module -> operator_compute().
+            bval (torch.Tensor): calculated values of boundary conditions.
+            true_bval (torch.Tensor): true values of boundary conditions.
+            lambda_op (torch.Tensor): regularization parameter for operator term in loss.
+            lambda_bound (torch.Tensor): regularization parameter for boundary term in loss.
+
+        Returns:
+            loss (torch.Tensor): loss.
+            loss_normalized (torch.Tensor): loss, where regularization parameters are 1.
+        """
+        # res = torch.sum(input ** 2, dim=0).reshape(self.n_t, -1)
+        res = torch.mean(input, axis=0).reshape(self.n_t, -1)
+        target = torch.mean(target, axis=0).reshape(self.n_t, -1)
+        m = torch.triu(torch.ones((self.n_t, self.n_t), dtype=res.dtype), diagonal=1).T.to(default_device())
+        with torch.no_grad():
+            w = torch.exp(- self.tol * (m @ res))
+        loss = torch.mean(w * res)
+        loss = torch.mean(torch.sqrt((loss - target) ** 2).flatten())
+        return loss
 
 
 class HuberLoss(nn.Module):

@@ -102,30 +102,45 @@ if __name__ == "__main__":
     results.index = multivariate_equal_length
     results['Fedot_Ind'] = 0
     multivariate_equal_length = [
+        #  'DuckDuckGeese',
         # 'MotorImagery',
-        'Heartbeat',
-        'Handwriting'
+        # 'Heartbeat',
+        # 'Handwriting',
+        # 'EigenWorms',
+        # 'Epilepsy',
+        # 'EthanolConcentration',
+        # 'FaceDetection',
+        'RacketSports',
+        'LSST',
+        'SelfRegulationSCP1',
+        'SelfRegulationSCP2',
+        'StandWalkJump',
     ]
-    error_model = PipelineBuilder().add_node('minirocket_extractor').join_branches(
+    error_model = PipelineBuilder().add_node('resample').add_node('resample', branch_idx=1) \
+        .add_node('minirocket_extractor', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
         'logit').build()
+    #error_model = PipelineBuilder().add_node('logit').add_node('logit').build()
+    # error_model = PipelineBuilder().add_node('pca').add_node('resample', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
+    #     'logit').build()
+    #error_model = PipelineBuilder().add_node('pca').add_node('logit').build()
     for dataset in multivariate_equal_length:
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
         input_data = init_input_data(train_data[0], train_data[1])
         val_data = init_input_data(test_data[0], test_data[1])
         model = Fedot(problem='classification',
                       logging_level=10,
-                      n_jobs=-1,
+                      n_jobs=2,
                       metric='accuracy',
                       pop_size=20,
                       num_of_generations=20,
                       optimizer=IndustrialEvoOptimizer,
                       available_operations=ts_clf_operations,
-                      timeout=30,
+                      timeout=60,
                       with_tuning=False
                       )
         model = error_model
         model.fit(input_data)
-        features = model.predict(val_data)
+        features = model.predict(val_data, 'labels')
         metric = evaluate_metric(target=val_data.target, prediction=features)
         try:
             acc = accuracy_score(y_true=val_data.target, y_pred=features)
@@ -133,11 +148,12 @@ if __name__ == "__main__":
             acc = accuracy_score(y_true=val_data.target, y_pred=np.argmax(features, axis=1))
         metric_dict.update({model: metric})
         model.history.save(f"{dataset}classification_history.json")
+        model.current_pipeline.show(save_path=f'./{dataset}_best_model.png')
         # model.history.show.fitness_box(best_fraction=0.5, dpi=100)
         # model.history.show.operations_kde(dpi=100)
         model.history.show.operations_animated_bar(save_path=f'./{dataset}_history_animated_bars.gif',
                                                    show_fitness=True, dpi=100)
 
         results.loc[dataset, 'Fedot_Ind'] = acc
-        results.to_csv('./multi_ts_clf_run2.csv')
+        results.to_csv('./multi_ts_clf_run4.csv')
     _ = 1

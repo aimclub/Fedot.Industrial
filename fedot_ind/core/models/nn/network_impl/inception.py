@@ -4,7 +4,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.architecture.settings.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
+from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
 from fedot_ind.core.models.nn.network_modules.layers.special import InceptionModule, InceptionBlock
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 

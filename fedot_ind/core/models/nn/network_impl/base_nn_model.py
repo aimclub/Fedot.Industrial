@@ -2,7 +2,7 @@ from typing import Optional
 import numpy as np
 import torch
 from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.data.data_split import train_test_data_setup, _are_stratification_allowed
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -84,12 +84,22 @@ class BaseNeuralModel:
         return predict
 
     def _prepare_data(self, ts, split_data: bool = True):
-        if split_data:
-            train_data, val_data = train_test_data_setup(ts, shuffle_flag=True, split_ratio=0.7)
-        train_dataset = self._create_dataset(train_data)
-        val_dataset = self._create_dataset(val_data)
+        stratify = _are_stratification_allowed(ts, 0.7)
+        if split_data and stratify:
+            train_data, val_data = train_test_data_setup(ts, stratify=stratify, shuffle_flag=True, split_ratio=0.7)
+            train_dataset = self._create_dataset(train_data)
+            val_dataset = self._create_dataset(val_data)
+        else:
+            train_dataset = self._create_dataset(ts)
+            val_dataset = None
+
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+
+        if val_dataset is None:
+            val_loader = val_dataset
+        else:
+            val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+
         self.num_classes = train_dataset.classes
         self.label_encoder = train_dataset.label_encoder
         return train_loader, val_loader
@@ -101,6 +111,9 @@ class BaseNeuralModel:
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
         args = {'lradj': 'type2'}
+        if val_loader is None:
+            print('Not enough class samples for valudation')
+
         for epoch in range(1, self.epochs + 1):
             training_loss = 0.0
             valid_loss = 0.0
@@ -113,21 +126,24 @@ class BaseNeuralModel:
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
-            training_loss /= len(train_loader.dataset)
 
-            self.model.eval()
-            for batch in val_loader:
-                inputs, targets = batch
-                output = self.model(inputs)
-                loss = loss_fn(output, targets.float())
-                valid_loss += loss.data.item() * inputs.size(0)
-            valid_loss /= len(val_loader.dataset)
+            training_loss /= len(train_loader.dataset)
+            print('Epoch: {}, Training Loss: {:.2f}'.format(epoch, training_loss))
+
+            if val_loader is not None:
+                self.model.eval()
+                for batch in val_loader:
+                    inputs, targets = batch
+                    output = self.model(inputs)
+                    loss = loss_fn(output, targets.float())
+                    valid_loss += loss.data.item() * inputs.size(0)
+                valid_loss /= len(val_loader.dataset)
+                print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,
+                                                                 valid_loss))
 
             adjust_learning_rate(optimizer, scheduler, epoch + 1, args, printout=False)
             scheduler.step()
-            print('Epoch: {}, Training Loss: {:.2f}, Validation Loss: {:.2f}'.format(epoch,
-                                                                                     training_loss,
-                                                                                     valid_loss))
+
             if early_stopping.early_stop:
                 print("Early stopping")
                 break

@@ -1,6 +1,6 @@
 import numpy as np
 
-from fedot_ind.core.architecture.settings.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
+from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
 
 
 def sv_to_explained_variance_ratio(singular_values, rank):

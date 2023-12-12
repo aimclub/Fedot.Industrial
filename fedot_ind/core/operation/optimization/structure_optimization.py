@@ -13,7 +13,7 @@ from torchvision.models import ResNet
 
 from fedot_ind.core.architecture.abstraction.writers import WriterComposer, TFWriter, CSVWriter, Writer
 from fedot_ind.core.architecture.experiment.nn_experimenter import NNExperimenter, FitParameters
-from fedot_ind.core.architecture.settings.constanst_repository import *
+from fedot_ind.core.repository.constanst_repository import *
 from fedot_ind.core.metrics.loss.svd_loss import OrthogonalLoss, HoyerLoss
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from fedot_ind.core.operation.optimization.sfp_tools import percentage_filter_zeroing, energy_filter_zeroing, prune_resnet, load_sfp_resnet_model

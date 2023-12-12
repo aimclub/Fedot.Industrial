@@ -55,16 +55,9 @@ class _PatchTST_backbone(nn.Module):
         if self.revin:
             z = self.revin_layer(z, torch.tensor(True, dtype=torch.bool))
 
-        # do patching
-        if not self.preprocess_to_lagged:
-            z = self.padding_patch_layer(z)
-            b, c, s = z.size()
-            z = z.reshape(-1, 1, 1, s)
-            z = self.unfold(z)
-            z = z.permute(0, 2, 1).reshape(b, c, -1, self.patch_len)
-        else:
-            b, c, s = z.size()
-            z = z.reshape(-1, 1, 1, s).permute(0, 1, 3, 2)
+
+        b, c, s = z.size()
+        z = z.reshape(-1, 1, 1, s).permute(0, 1, 3, 2)
 
         # model
         z, scores = self.backbone(z)  # z: [bs x nvars x d_model x patch_num]

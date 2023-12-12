@@ -15,6 +15,7 @@ class HankelMatrix:
                  window_size: int = None,
                  strides: int = 1):
         self.__time_series = time_series
+        self.__time_series = self.__time_series.squeeze()
         self.__convert_ts_to_array()
         self.__window_length = window_size - 1
         self.__strides = strides
@@ -48,6 +49,7 @@ class HankelMatrix:
             self.__time_series = self.__time_series
 
     def __get_1d_trajectory_matrix(self):
+
         if self.__strides > 1:
             return self.__strided_trajectory_matrix(self.__time_series)
         else:

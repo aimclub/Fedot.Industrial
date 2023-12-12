@@ -6,7 +6,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from pymonad.list import ListMonad
 
-from fedot_ind.core.architecture.settings.constanst_repository import DISCRETE_WAVELETS, CONTINUOUS_WAVELETS, \
+from fedot_ind.core.repository.constanst_repository import DISCRETE_WAVELETS, CONTINUOUS_WAVELETS, \
     WAVELET_SCALES
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 

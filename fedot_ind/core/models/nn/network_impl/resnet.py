@@ -6,7 +6,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim, Tensor
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.architecture.settings.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
+from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
 from fedot_ind.core.models.cnn.classification_models import CLF_MODELS,CLF_MODELS_ONE_CHANNEL
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 

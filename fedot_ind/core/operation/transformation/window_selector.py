@@ -6,8 +6,6 @@ import pandas as pd
 from scipy.signal import find_peaks
 from statsmodels.tsa.stattools import acf
 
-from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
-
 
 class WindowSizeSelector:
     """Class to select appropriate window size to catch periodicity for time series analysis.

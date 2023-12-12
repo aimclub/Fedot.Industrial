@@ -11,7 +11,7 @@ from pymonad.either import Either
 from pymonad.list import ListMonad
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
-from fedot_ind.core.architecture.settings.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
+from fedot_ind.core.repository.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
 

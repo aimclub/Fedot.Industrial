@@ -11,7 +11,7 @@ from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.settings.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, \
+from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, \
     PERSISTENCE_DIAGRAM_FEATURES
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.models.topological.topofeatures import PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
