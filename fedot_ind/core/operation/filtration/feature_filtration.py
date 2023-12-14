@@ -30,7 +30,8 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         if operation.task.task_params is None:
             operation_name = operation.task.task_params
         else:
-            operation_name = operation.task.task_params.feature_filter
+            operation_name = operation.task.task_params.feature_filter if 'feature_filter' \
+                                                                          in operation.task.task_params else operation.task.task_params
         if operation_name is None:
             return operation.features
         elif operation_name in self.method_dict.keys():
@@ -43,8 +44,10 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         else:
             grouped_components = list(map(self._compute_component_corr, data.features))
         dimension_distrib = [x.shape[0] for x in grouped_components]
+        minimal_dim = min(dimension_distrib)
         dominant_dim = stats.mode(dimension_distrib).mode
-        grouped_predict = [x[:dominant_dim, :] for x in grouped_components]
+        reduction_dim = min(minimal_dim, dominant_dim)
+        grouped_predict = [x[:reduction_dim, :] for x in grouped_components]
         return np.stack(grouped_predict) if len(grouped_predict) > 1 else grouped_predict[0]
 
     def _compute_component_corr(self, sample):
@@ -56,7 +59,7 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
             grouped_predict = sample[0, :].reshape(1, -1)
             tmp = pd.DataFrame(sample[1:, :])
             component_list = []
-            correlation_matrix = cdist(metric='cosine', XA=tmp.values, XB=tmp.values)
+            correlation_matrix = cdist(metric='correlation', XA=tmp.values, XB=tmp.values)
             if (correlation_matrix > self.grouping_level).sum() > 0:
                 for index in component_idx_list:
                     if len(component_idx_list) == 0:
@@ -71,7 +74,10 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
                                 if cor_level > self.grouping_level:
                                     component_idx = np.where(correlation_level == cor_level)[0][0] + 1
                                     grouped_v = grouped_v + sample[component_idx, :]
-                                    component_idx_list.remove(component_idx)
+                                    if component_idx in component_idx_list:
+                                        component_idx_list.remove(component_idx)
+                                    else:
+                                        continue
                             component_list.append(grouped_v)
                     component_list = [x.reshape(1, -1) for x in component_list]
                     grouped_predict = np.concatenate([grouped_predict, *component_list], axis=0)

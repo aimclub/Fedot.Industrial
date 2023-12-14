@@ -32,19 +32,13 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
     def _decompose_signal(self, input_data):
         fourier_coef = np.fft.rfft(input_data)
         frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
+        ind_of_main_freq = np.where(frequencies == self.threshold)
         if self.approximation == 'exact':
-            fourier_coef[frequencies != frequencies[self.threshold]] = 0
+            fourier_coef[frequencies != frequencies[ind_of_main_freq]] = 0
         else:
-            fourier_coef[frequencies > frequencies[self.threshold]] = 0
+            fourier_coef[frequencies > frequencies[ind_of_main_freq]] = 0
         return np.fft.irfft(fourier_coef)
 
     def _transform_one_sample(self, series: np.array):
         return self._get_basis(series)
 
-    def evaluate_derivative(self, order):
-        """Evaluates the derivative of the Fourier decomposition of the given data.
-
-        Returns:
-            np.array: The derivative of the Fourier decomposition of the given data.
-        """
-        return np.fft.ifft(1j * np.arange(len(self.data_range)) * self.decomposed)

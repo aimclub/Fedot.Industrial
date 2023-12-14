@@ -41,13 +41,15 @@ ts_clf_operations = [
     'dimension_reduction',
     'inception_model',
     'logit',
+    'rf',
+    'xgboost',
     'minirocket_extractor',
     'normalization',
     'omniscale_model',
     'pca',
     'mlp',
     'quantile_extractor',
-    'resample',
+   # 'resample',
     'scaling',
     'signal_extractor',
     'topological_features'
@@ -96,26 +98,29 @@ monash_regression_nm_eq = [
 
 if __name__ == "__main__":
     OperationTypesRepository = IndustrialModels().setup_repository()
-    results = get_averaged_results_from_web(datasets=multivariate_equal_length, classifiers=valid_multi_classifiers)
-    results = pd.DataFrame(results)
-    results.columns = valid_multi_classifiers
-    results.index = multivariate_equal_length
+    try:
+        results = pd.read_csv('./multi_ts_res.csv',sep=';',index_col=0)
+    except Exception:
+        results = get_averaged_results_from_web(datasets=multivariate_equal_length, classifiers=valid_multi_classifiers)
+        results = pd.DataFrame(results)
+        results.columns = valid_multi_classifiers
+        results.index = multivariate_equal_length
     results['Fedot_Ind'] = 0
-    multivariate_equal_length = [
-        #  'DuckDuckGeese',
-        # 'MotorImagery',
-        # 'Heartbeat',
-        # 'Handwriting',
-        # 'EigenWorms',
-        # 'Epilepsy',
-        # 'EthanolConcentration',
-        # 'FaceDetection',
-        'RacketSports',
-        'LSST',
-        'SelfRegulationSCP1',
-        'SelfRegulationSCP2',
-        'StandWalkJump',
-    ]
+    # multivariate_equal_length = [
+    #     #  'DuckDuckGeese',
+    #     # 'MotorImagery',
+    #     'Heartbeat',
+    #     'Handwriting',
+    #     'EigenWorms',
+    #     'Epilepsy',
+    #     'EthanolConcentration',
+    #     'FaceDetection',
+    #     'RacketSports',
+    #     'LSST',
+    #     'SelfRegulationSCP1',
+    #     'SelfRegulationSCP2',
+    #     'StandWalkJump'
+    # ]
     # error_model = PipelineBuilder().add_node('resample').add_node('resample', branch_idx=1) \
     #     .add_node('minirocket_extractor', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
     #     'logit').build()
@@ -123,6 +128,8 @@ if __name__ == "__main__":
     # error_model = PipelineBuilder().add_node('pca').add_node('resample', branch_idx=1).add_node('quantile_extractor', branch_idx=1).join_branches(
     #     'logit').build()
     #error_model = PipelineBuilder().add_node('pca').add_node('logit').build()
+    error_model = PipelineBuilder().add_node('signal_extractor').add_node('dimension_reduction').add_node('logit').build()
+    #(/n_fourier_basis;)/n_quantile_extractor;)/n_rf
     for dataset in multivariate_equal_length:
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
         input_data = init_input_data(train_data[0], train_data[1])
@@ -138,12 +145,12 @@ if __name__ == "__main__":
                       timeout=30,
                       with_tuning=False
                       )
-        #model = error_model
+        model = error_model
         model.fit(input_data)
         features = model.predict(val_data)
         metric = evaluate_metric(target=val_data.target, prediction=features)
         try:
-            acc = accuracy_score(y_true=val_data.target, y_pred=features.predict)
+            acc = accuracy_score(y_true=val_data.target, y_pred=features)
         except Exception:
             acc = accuracy_score(y_true=val_data.target, y_pred=np.argmax(features, axis=1))
         metric_dict.update({model: metric})
@@ -155,5 +162,5 @@ if __name__ == "__main__":
                                                    show_fitness=True, dpi=100)
 
         results.loc[dataset, 'Fedot_Ind'] = acc
-        results.to_csv('./multi_ts_clf_run4.csv')
+        results.to_csv('./multi_ts_clf_run7.csv')
     _ = 1

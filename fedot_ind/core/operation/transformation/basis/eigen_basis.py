@@ -62,12 +62,14 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             self.SV_threshold = max(self.get_threshold(data=features), 2)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
+
         predict = []
         for dimension in range(features.shape[1]):
             parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-            v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:,dimension,:])
+            v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
             predict.append(np.array(v) if len(v) > 1 else v[0])
-        self.predict = np.concatenate(predict,axis=1)
+        self.predict = np.concatenate(predict, axis=1)
+
         if input_data.task.task_params is None:
             input_data.task.task_params = self.__repr__()
         else:
@@ -103,7 +105,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         if svd_flag:
             return rank
         else:
-            return self._get_basis(data)
+            return self._get_1d_basis(data)
 
     def estimate_singular_values(self, data):
         svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x, approximation=self.low_rank_approximation))
@@ -160,13 +162,3 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         return basis
 
-    def evaluate_derivative(self: class_type,
-                            coefs: np.array,
-                            order: int = 1) -> Tuple[class_type, np.array]:
-        basis = type(self)(
-            domain_range=self.domain_range,
-            n_basis=self.n_basis - order,
-        )
-        derivative_coefs = np.array([np.polyder(x[::-1], order)[::-1] for x in coefs])
-
-        return basis, derivative_coefs

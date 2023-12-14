@@ -31,7 +31,12 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         self.logging_params = {'jobs': self.n_processes}
 
     def _get_basis(self, data):
-        basis = Either.insert(data).then(self._get_1d_basis if type(data) != list else self._get_multidim_basis).value
+
+        if type(data) is list or all([type(data) is np.ndarray and len(data.shape) > 1]):
+            func = self._get_multidim_basis
+        else:
+            func = self._get_1d_basis
+        basis = Either.insert(data).then(func).value
         return basis
 
     def fit(self, data):
@@ -72,7 +77,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
             features = np.array(ListMonad(*input_data.features.tolist()).value)
         else:
             features = np.array(ListMonad(*input_data.tolist()).value)
-        features = np.array([series[~np.isnan(series)] for series in features])
+        #features = np.array([series[~np.isnan(series)] for series in features])
         if len(features.shape) == 2 and features.shape[1] == 1:
             features = features.reshape(1, -1)
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
