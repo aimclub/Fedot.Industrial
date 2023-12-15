@@ -2,14 +2,14 @@ from enum import Enum
 
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
     TopologicalFeaturesImplementation
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.operation_types_repository import OperationTypesRepository
-from fedot.utilities.random import ImplementationRandomStateHandler
+from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnRegImplementation
+
+from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestClassifier, GradientBoostingRegressor, ExtraTreesRegressor, \
     RandomForestRegressor
 from sklearn.neural_network import MLPClassifier
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from xgboost import XGBRegressor, XGBClassifier
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
@@ -36,7 +36,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
-    IsolationForestClassImplementation
+    IsolationForestClassImplementation, IsolationForestRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_imbalanced_class import \
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
@@ -50,21 +50,15 @@ class AtomizedModel(Enum):
         'class_decompose': DecomposerClassImplementation,
         'resample': ResampleImplementation,
         'isolation_forest_class': IsolationForestClassImplementation,
+        'isolation_forest_reg': IsolationForestRegImplementation,
         'topological_features': TopologicalFeaturesImplementation
     }
     SKLEARN_CLF_MODELS = {
-        'xgbreg': XGBRegressor,
-        'adareg': AdaBoostRegressor,
-        'gbr': GradientBoostingRegressor,
-        'dtreg': DecisionTreeRegressor,
-        'treg': ExtraTreesRegressor,
-        'rfr': RandomForestRegressor,
-        'linear': SklearnLinReg,
-        'ridge': SklearnRidgeReg,
-        'lasso': SklearnLassoReg,
-        'lgbmreg': LGBMRegressor,
         'xgboost': XGBClassifier,
         'logit': SklearnLogReg,
+        'bernb': SklearnBernoulliNB,
+        'multinb': SklearnMultinomialNB,
+        'dt': DecisionTreeClassifier,
         'rf': RandomForestClassifier,
         'mlp': MLPClassifier,
         'lgbm': LGBMClassifier,
@@ -94,8 +88,24 @@ class AtomizedModel(Enum):
         'dimension_reduction': FeatureFilter
     }
 
+    SKLEARN_REG_MODELS = {
+        'xgbreg': XGBRegressor,
+        'adareg': AdaBoostRegressor,
+        'gbr': GradientBoostingRegressor,
+        'dtreg': DecisionTreeRegressor,
+        'treg': ExtraTreesRegressor,
+        'rfr': RandomForestRegressor,
+        'linear': SklearnLinReg,
+        'ridge': SklearnRidgeReg,
+        'lasso': SklearnLassoReg,
+        'sgdr': SklearnSGD,
+        'lgbmreg': LGBMRegressor,
+        'knnreg': FedotKnnRegImplementation
+    }
+
 
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
+SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value

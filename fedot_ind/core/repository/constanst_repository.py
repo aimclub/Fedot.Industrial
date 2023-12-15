@@ -104,7 +104,6 @@ class FedotOperationConstant(Enum):
                                 'scaling',
                                 'normalization',
                                 'pca',
-                                'catboostreg',
                                 'xgbreg',
                                 'svr',
                                 'dtreg',

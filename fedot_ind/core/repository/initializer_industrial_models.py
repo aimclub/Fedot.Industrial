@@ -37,8 +37,9 @@ class MutationStrengthEnumIndustrial(Enum):
 
 
 class IndustrialMutations:
-    def __init__(self):
+    def __init__(self, task_type):
         self.node_adapter = PipelineAdapter()
+        self.task_type = Task(task_type)
         self.industrial_data_operations = [*list(AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys())]
@@ -196,10 +197,10 @@ class IndustrialMutations:
 
     def single_drop(self,
                     graph: OptGraph,
-                             requirements: GraphRequirements,
-                             graph_gen_params: GraphGenerationParams,
-                             parameters: AlgorithmParameters
-                             ) -> OptGraph:
+                    requirements: GraphRequirements,
+                    graph_gen_params: GraphGenerationParams,
+                    parameters: AlgorithmParameters
+                    ) -> OptGraph:
         """
         Drop single node from graph.
 
@@ -232,10 +233,10 @@ class IndustrialMutations:
 
     def add_preprocessing(self,
                           pipeline: Pipeline, **kwargs) -> Pipeline:
-        task = Task(TaskTypesEnum.classification)
-        basis_models = get_operations_for_task(task=task, mode='data_operation', tags=["basis"])
-        extractors = get_operations_for_task(task=task, mode='data_operation', tags=["extractor"])
-        models = get_operations_for_task(task=task, mode='model')
+
+        basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
+        extractors = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["extractor"])
+        models = get_operations_for_task(task=self.task_type, mode='model')
         models = [x for x in models if x != 'fedot_cls']
         basis_model = PipelineNode(random.choice(basis_models))
         extractor_model = PipelineNode(random.choice(extractors), nodes_from=[basis_model])
@@ -251,12 +252,13 @@ class IndustrialMutations:
 
 
 def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Sequence[MutationTypesEnum]:
+    ind_mutations = IndustrialMutations(task_type=task_type)
     mutations = [
         parameter_change_mutation,
-        IndustrialMutations().single_change,
-        IndustrialMutations().add_preprocessing,
-       #IndustrialMutations().single_drop,
-        IndustrialMutations().single_add
+        ind_mutations.single_change,
+        ind_mutations.add_preprocessing,
+        # IndustrialMutations().single_drop,
+        ind_mutations.single_add
     ]
     return mutations
 

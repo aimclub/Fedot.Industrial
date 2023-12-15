@@ -27,8 +27,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.regression",
-        "FedotRegressionStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialCustomRegressionStrategy"
       ],
       "tags": [
         "ml",
@@ -81,8 +81,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.regression",
-        "SkLearnRegressionStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialSkLearnRegressionStrategy"
       ],
       "tags": [
         "ml",
@@ -387,7 +387,6 @@
       "presets": ["fast_train", "ts"],
       "tags": [
         "simple",
-        "correct_params",
         "non_linear"
       ]
     },

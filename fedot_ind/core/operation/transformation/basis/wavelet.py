@@ -76,4 +76,4 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         threshold = lambda decomposed_signal: list(map(select_level, decomposed_signal))
 
         basis = Either.insert(data).then(decompose).then(threshold).value
-        return basis
+        return np.concatenate([np.concatenate(x) for x in basis])

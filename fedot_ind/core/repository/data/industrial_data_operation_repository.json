@@ -56,7 +56,7 @@
 			"output_type": "[DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.regression", "FedotRegressionPreprocessingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialClassificationPreprocessingStrategy"],
 			"tags": ["sklearn"],
 			"description": "Implementations of the feature selection operations and robust data filtering from scikit-learn framework for regression task"},
 		"classification_preprocessing": {
@@ -129,8 +129,8 @@
 			],
 			"tasks": "[TaskTypesEnum.classification]"
 		},
-    "industrial_preprocessing_classification": {
-      "tasks": "[TaskTypesEnum.classification,]",
+    "industrial_preprocessing": {
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
       "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "accepted_node_types": [
@@ -164,7 +164,7 @@
   },
   "operations": {
     "eigen_basis": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -173,7 +173,7 @@
       ]
     },
     "wavelet_basis": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -182,7 +182,7 @@
       ]
     },
     "fourier_basis": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -200,7 +200,7 @@
       ]
     },
     "quantile_extractor": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -209,7 +209,7 @@
       ]
     },
     "signal_extractor": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -218,7 +218,7 @@
       ]
     },
     "recurrence_extractor": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -235,7 +235,7 @@
           "non_applicable_for_ts"
         ]},
     "minirocket_extractor": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -244,7 +244,7 @@
       ]
     },
     "dimension_reduction": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
@@ -253,7 +253,7 @@
       ]
     },
     "cat_features": {
-      "meta": "industrial_preprocessing_classification",
+      "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],

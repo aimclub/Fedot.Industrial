@@ -21,6 +21,7 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         self.grouping_level = 0.4
         self.fourier_approx = 'exact'
         self.explained_dispersion = 0.9
+        self.reduction_dim = None
         self.method_dict = {'EigenBasisImplementation': self.filter_dimension_num,
                             'FourierBasisImplementation': self.filter_signal,
                             'LargeFeatureSpace': self.filter_feature_num}
@@ -46,8 +47,9 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         dimension_distrib = [x.shape[0] for x in grouped_components]
         minimal_dim = min(dimension_distrib)
         dominant_dim = stats.mode(dimension_distrib).mode
-        reduction_dim = min(minimal_dim, dominant_dim)
-        grouped_predict = [x[:reduction_dim, :] for x in grouped_components]
+        if self.reduction_dim is None:
+            self.reduction_dim = min(minimal_dim, dominant_dim)
+        grouped_predict = [x[:self.reduction_dim, :] for x in grouped_components]
         return np.stack(grouped_predict) if len(grouped_predict) > 1 else grouped_predict[0]
 
     def _compute_component_corr(self, sample):
