@@ -10,7 +10,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 from tqdm import tqdm
 
-from fedot_ind.api.utils.input_data import init_input_data
+from examples.example_utils import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, remove_1_dim_axis, \
     convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *

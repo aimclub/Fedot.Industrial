@@ -16,10 +16,12 @@ from fedot_ind.tools.loader import DataLoader
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
-    def __init__(self, number_of_datasets: int = 5,
+    def __init__(self,
+                 number_of_datasets: int = 5,
                  random_selection: bool = False,
                  custom_datasets: Union[list, bool] = False,
                  use_small_datasets: bool = False):
+        
         super(BenchmarkTSC, self).__init__(
             output_dir='./tsc/benchmark_results',
             random_selection=random_selection,

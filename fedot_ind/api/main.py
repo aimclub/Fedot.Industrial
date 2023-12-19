@@ -6,11 +6,10 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from fedot_ind.api.utils.configurator import Configurator
+from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
-from fedot_ind.core.architecture.experiment.computer_vision import CV_TASKS
-from fedot_ind.core.architecture.settings.task_factory import TaskEnum
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
@@ -53,24 +52,30 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
-        kwargs.setdefault('output_folder', default_path_to_save_results())
-        Path(kwargs.get('output_folder', default_path_to_save_results())).mkdir(parents=True, exist_ok=True)
+        self.output_folder = kwargs.get('output_folder')
+        if self.output_folder is None:
+            kwargs.setdefault('output_folder', default_path_to_save_results())
+            Path(kwargs.get('output_folder', default_path_to_save_results())).mkdir(parents=True, exist_ok=True)
+        else:
+
+            Path(self.output_folder).mkdir(parents=True, exist_ok=True)
+            del kwargs['output_folder']
+
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
             handlers=[
-                logging.FileHandler(Path(kwargs.get('output_folder')) / 'log.log'),
+                logging.FileHandler(Path(self.output_folder) / 'log.log'),
                 logging.StreamHandler()
             ]
         )
+
         super(Fedot, self).__init__()
 
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
-        # self.reporter = ReporterTSC()
-        self.configurator = Configurator()
-
         self.config_dict = None
+        self.preprocessing_model = None
 
         self.__init_experiment_setup(**kwargs)
         self.solver = self.__init_solver()
@@ -78,33 +83,23 @@ class FedotIndustrial(Fedot):
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
         # self.reporter.path_to_save = kwargs.get('output_folder')
-        if 'task' in kwargs.keys() and kwargs['task'] in CV_TASKS.keys():
+        if 'problem' in kwargs.keys():
             self.config_dict = kwargs
-        else:
-            self.config_dict = self.configurator.init_experiment_setup(**kwargs)
 
     def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
         self.logger.info('Initialising solver')
-        solver = Fedot(self.config_dict)
-        # if self.config_dict['task'] == 'ts_classification':
-        #     if self.config_dict['strategy'] == 'fedot_preset':
-        #         solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-        #     # elif self.config_dict['strategy'] is None:
-        #     #     self.config_dict['strategy'] = 'InceptionTime'
-        #     #     solver = TaskEnum[self.config_dict['task']].value['nn']
-        #     else:
-        #         solver = TaskEnum[self.config_dict['task']].value['default']
-        # elif self.config_dict['task'] == 'ts_forecasting':
-        #     if self.config_dict['strategy'] == 'decomposition':
-        #         solver = TaskEnum[self.config_dict['task']].value['fedot_preset']
-        #
-        # else:
-        #     solver = TaskEnum[self.config_dict['task']].value[0]
+        solver = Fedot(**self.config_dict)
         return solver
 
-    def fit(self, **kwargs) -> Pipeline:
+    def _preprocessing_strategy(self, input_data):
+        if input_data.features.size > 1000000:
+            self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
+            self.preprocessing_model.fit(input_data)
+
+
+    def fit(self, input_data, **kwargs) -> Pipeline:
         """
         Method for training Industrial model.
 
@@ -118,10 +113,14 @@ class FedotIndustrial(Fedot):
 
         """
 
-        fitted_pipeline = self.solver.fit(**kwargs)
+        input_data = DataCheck(input_data=input_data, task=self.config_dict['problem']).check_input_data()
+        self._preprocessing_strategy(input_data)
+        if self.preprocessing_model is not None:
+            input_data.features = self.preprocessing_model.predict(input_data).predict
+        fitted_pipeline = self.solver.fit(input_data)
         return fitted_pipeline
 
-    def predict(self, **kwargs) -> np.ndarray:
+    def predict(self, predict_data, **kwargs) -> np.ndarray:
         """
         Method to obtain prediction labels from trained Industrial model.
 
@@ -132,9 +131,12 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        return self.solver.predict(**kwargs)
+        self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
+        if self.preprocessing_model is not None:
+            self.predict_data.features = self.preprocessing_model.predict(self.predict_data).predict
+        return self.solver.predict(self.predict_data)
 
-    def predict_proba(self, **kwargs) -> np.ndarray:
+    def predict_proba(self, predict_data, **kwargs) -> np.ndarray:
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -145,7 +147,10 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        return self.solver.predict_proba(**kwargs)
+        self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['task']).check_input_data()
+        if self.preprocessing_model is not None:
+            self.predict_data.features = self.preprocessing_model.predict(predict_data).predict
+        return self.solver.predict_proba(self.predict_data)
 
     def get_metrics(self, **kwargs) -> dict:
         """
@@ -200,19 +205,24 @@ class FedotIndustrial(Fedot):
 
     def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""
-        self.solver.history.save(f"optimization_history.json")
+        self.solver.history.save(f"{self.output_folder}/optimization_history.json")
+
+    def save_best_model(self):
+        self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""
-        self.solver.history.show.fitness_box(best_fraction=0.5, dpi=100)
+        self.solver.history.show.fitness_box(save_path=f'{self.output_folder}/fitness_by_gen.png', best_fraction=0.5,
+                                             dpi=100)
 
     def plot_operation_distribution(self, mode: str = 'total'):
         """Plot prediction of the model"""
         if mode == 'total':
-            self.solver.history.show.operations_kde(dpi=100)
+            self.solver.history.show.operations_kde(save_path=f'{self.output_folder}/operation_kde.png', dpi=100)
         else:
-            self.solver.history.show.operations_animated_bar(save_path=f'./history_animated_bars.gif',
-                                                             show_fitness=True, dpi=100)
+            self.solver.history.show.operations_animated_bar(
+                save_path=f'{self.output_folder}/history_animated_bars.gif',
+                show_fitness=True, dpi=100)
 
     def explain(self, **kwargs):
         raise NotImplementedError()

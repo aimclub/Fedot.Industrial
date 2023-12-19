@@ -32,7 +32,13 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
     def _decompose_signal(self, input_data):
         fourier_coef = np.fft.rfft(input_data)
         frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
+
+        if self.threshold > frequencies[-1]:
+            median_freq = round(len(frequencies)/2)
+            self.threshold = frequencies[median_freq]
+
         ind_of_main_freq = np.where(frequencies == self.threshold)
+
         if self.approximation == 'exact':
             fourier_coef[frequencies != frequencies[ind_of_main_freq]] = 0
         else:

@@ -1,6 +1,11 @@
 import logging
 import os
 
+import matplotlib
+
+from fedot_ind.api.main import FedotIndustrial
+from fedot_ind.tools.loader import DataLoader
+
 
 class AbstractBenchmark(object):
     """Abstract class for benchmarks.
@@ -48,6 +53,21 @@ class AbstractBenchmark(object):
         """
         raise NotImplementedError()
 
+    def evaluate_loop(self, dataset, experiment_setup: dict = None):
+        matplotlib.use('TkAgg')
+        train_data, test_data = DataLoader(dataset_name=dataset).load_data()
+        experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset}'
+        model = FedotIndustrial(**experiment_setup)
+        model.fit(train_data)
+        prediction = model.predict(test_data)
+        model.save_best_model()
+        model.save_optimization_history()
+        try:
+            model.plot_operation_distribution(mode='each')
+            model.plot_fitness_by_generation()
+        except Exception:
+            print('No_visualisation')
+        return prediction, model.predict_data.target
     def collect_results(self, output_dir):
         """Collect the results of the benchmark.
 

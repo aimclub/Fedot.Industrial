@@ -72,8 +72,9 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         if input_data.task.task_params is None:
             input_data.task.task_params = self.__repr__()
-        else:
+        elif input_data.task.task_params not in [self.__repr__(), 'LargeFeatureSpace']:
             input_data.task.task_params.feature_filter = self.__repr__()
+
         predict = OutputData(idx=input_data.idx,
                              features=input_data.features,
                              predict=self.predict,

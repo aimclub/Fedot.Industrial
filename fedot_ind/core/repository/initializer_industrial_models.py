@@ -236,6 +236,7 @@ class IndustrialMutations:
 
         basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
         extractors = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["extractor"])
+        extractors = [x for x in extractors if x != 'dimension_reduction']
         models = get_operations_for_task(task=self.task_type, mode='model')
         models = [x for x in models if x != 'fedot_cls']
         basis_model = PipelineNode(random.choice(basis_models))

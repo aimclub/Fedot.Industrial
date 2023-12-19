@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from fedot.core.data.data import OutputData
 
-from fedot_ind.api.utils.input_data import init_input_data
+from examples.example_utils import init_input_data
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 

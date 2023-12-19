@@ -1,4 +1,7 @@
 import warnings
+from copy import deepcopy
+
+import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.common_preprocessing import FedotPreprocessingStrategy
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy, \
@@ -9,6 +12,8 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
 from fedot.utilities.random import ImplementationRandomStateHandler
+
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.repository.model_repository import INDUSTRIAL_CLF_PREPROC_MODEL, SKLEARN_CLF_MODELS, \
     FEDOT_PREPROC_MODEL, INDUSTRIAL_PREPROC_MODEL, SKLEARN_REG_MODELS
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
@@ -153,19 +158,24 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             test_data = predict_data
         try:
             prediction = list(
-                operation.transform(data).features for operation, data in zip(trained_operation, test_data))
+                operation.transform(data).predict for operation, data in zip(trained_operation, test_data))
         except Exception:
             prediction = list(
                 operation.transform(data.features) for operation, data in zip(trained_operation, test_data))
-
-        prediction = np.stack(prediction).swapaxes(0, 1)
+        try:
+            prediction = np.hstack(prediction)
+        except Exception:
+            min_dim = min([x.shape[1] for x in prediction])
+            prediction = [x[:,:min_dim] for x in prediction]
+            prediction = np.stack(prediction).swapaxes(0, 1).squeeze()
+        prediction = NumpyConverter(data=prediction).convert_to_torch_format()
         return prediction
 
     def _custom_fit(self, train_data):
         operation_implementation = self.operation_impl(self.params_for_fit)
         with ImplementationRandomStateHandler(implementation=operation_implementation):
             if type(train_data) is list:
-                trained_operation = [operation_implementation for i in range(len(train_data))]
+                trained_operation = [deepcopy(operation_implementation) for i in range(len(train_data))]
                 fitted_operation = [operation.fit(data) for operation, data in zip(trained_operation, train_data)]
                 operation_implementation = fitted_operation
             else:

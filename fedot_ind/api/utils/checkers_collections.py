@@ -1,52 +1,65 @@
 import logging
-from typing import Union
 
 import numpy as np
-import pandas as pd
+from fedot.core.data.data import InputData
+from fedot.core.repository.dataset_types import DataTypesEnum
+from sklearn.preprocessing import LabelEncoder
+from fedot.core.repository.tasks import Task, TaskTypesEnum
+
+from examples.example_utils import check_multivariate_data
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 
 
 class DataCheck:
-    def __init__(self):
+    def __init__(self,
+                 input_data,
+                 task):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.input_data = input_data
+        self.task = task
+        self.task_dict = {'classification': Task(TaskTypesEnum.classification),
+                          'regression': Task(TaskTypesEnum.regression)}
 
-    @staticmethod
-    def _replace_inf_with_nans(input_data: np.ndarray):
-        values_to_replace = [np.inf, -np.inf]
-        features_with_replaced_inf = np.where(np.isin(input_data,
-                                                      values_to_replace),
-                                              np.nan,
-                                              input_data)
-        input_data = features_with_replaced_inf
-        return input_data
+    def _init_input_data(self):
 
-    def _check_for_nan(self, input_data: np.ndarray) -> np.ndarray:
-        """Method responsible for checking if there are any NaN values in the time series dataframe
-        and replacing them with 0
+        if type(self.input_data) is tuple:
+            X, y = self.input_data[0], self.input_data[1]
+            is_multivariate_data = check_multivariate_data(X)
 
-        Args:
-            input_data: time series dataframe with NaN values
-
-        Returns:
-            input_data: time series dataframe without NaN values
-
-        """
-        if np.any(np.isnan(input_data)):
-            input_data = np.nan_to_num(input_data, nan=0)
-        return input_data
-
-    def check_data(self, input_data: pd.DataFrame, return_df: bool = False) -> Union[pd.DataFrame, np.ndarray]:
-        if type(input_data) != pd.DataFrame:
-            return input_data
-        else:
-            filled_data = input_data.apply(lambda x: self._replace_inf_with_nans(x))
-            filled_data = filled_data.apply(lambda x: self._check_for_nan(x))
-            if filled_data.shape[0] == input_data.shape[0] and filled_data.shape[1] == input_data.shape[1]:
-                input_data = filled_data
+            if is_multivariate_data:
+                self.input_data = InputData(idx=np.arange(len(X)),
+                                            features=np.array(X.values.tolist()).astype(np.float),
+                                            target=y.reshape(-1, 1),
+                                            task=self.task_dict[self.task],
+                                            data_type=DataTypesEnum.image)
             else:
-                self.logger.error('Encontered error during extracted features checking')
-                raise ValueError('Data contains NaN values')
+                self.input_data = InputData(idx=np.arange(len(X)),
+                                            features=X.values,
+                                            target=np.ravel(y).reshape(-1, 1),
+                                            task=self.task_dict[self.task],
+                                            data_type=DataTypesEnum.table)
+        elif type(self.input_data) is InputData:
+            return
 
-            if return_df:
-                return input_data
-            else:
-                return input_data.values
+    def _check_input_data_features(self):
+        self.input_data.features = np.where(np.isnan(self.input_data.features), 0, self.input_data.features)
+        self.input_data.features = np.where(np.isinf(self.input_data.features), 0, self.input_data.features)
+        self.input_data.features = NumpyConverter(data=self.input_data.features).convert_to_torch_format()
+
+    def _check_input_data_target(self):
+        if type(self.input_data.target[0][0]) is np.str_ and self.task == 'classification':
+            label_encoder = LabelEncoder()
+            self.input_data.target = label_encoder.fit_transform(self.input_data.target)
+        elif type(self.input_data.target[0][0]) is np.str_ and self.task == 'regression':
+            self.input_data.target = self.input_data.target.astype(float)
+
+        if self.task == 'regression':
+            self.input_data.target = self.input_data.target.squeeze()
+        elif self.task == 'classification':
+            self.input_data.target[self.input_data.target == -1] = 0
+
+    def check_input_data(self):
+        self._init_input_data()
+        self._check_input_data_features()
+        self._check_input_data_target()
+        return self.input_data
