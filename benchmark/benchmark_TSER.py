@@ -9,6 +9,7 @@ from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.metrics.metrics_implementation import RMSE
 from benchmark.abstract_bench import AbstractBenchmark
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+from fedot_ind.core.repository.constanst_repository import MULTI_REG_BENCH
 
 
 class BenchmarkTSER(AbstractBenchmark, ABC):
@@ -24,27 +25,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
 
         # self._create_output_dir()
         self.experiment_setup = experiment_setup
-        self.monash_regression = [
-            "AppliancesEnergy",
-            "AustraliaRainfall",
-            "BeijingPM10Quality",
-            "BeijingPM25Quality",
-            "BenzeneConcentration",
-            "BIDMC32HR",
-            "BIDMC32RR",
-            "BIDMC32SpO2",
-            "Covid3Month",
-            "FloodModeling1",
-            "FloodModeling2",
-            "FloodModeling3",
-            "HouseholdPowerConsumption1",
-            "HouseholdPowerConsumption2",
-            "IEEEPPG",
-            "LiveFuelMoistureContent",
-            "NewsHeadlineSentiment",
-            "NewsTitleSentiment",
-            "PPGDalia",
-        ]
+        self.monash_regression = MULTI_REG_BENCH
         if custom_datasets is None:
             self.custom_datasets = self.monash_regression
         else:
