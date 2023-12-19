@@ -95,8 +95,11 @@ class FedotIndustrial(Fedot):
 
     def _preprocessing_strategy(self, input_data):
         if input_data.features.size > 1000000:
+            self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
+            self.logger.info('PCA transformation was applied to input data due to dataset size')
             self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
             self.preprocessing_model.fit(input_data)
+            self.logger.info('PCA finished')
 
 
     def fit(self, input_data, **kwargs) -> Pipeline:
@@ -117,6 +120,7 @@ class FedotIndustrial(Fedot):
         self._preprocessing_strategy(input_data)
         if self.preprocessing_model is not None:
             input_data.features = self.preprocessing_model.predict(input_data).predict
+            self.logger.info(f'Train Dataset size after preprocessing - {input_data.features.shape}')
         fitted_pipeline = self.solver.fit(input_data)
         return fitted_pipeline
 
@@ -134,6 +138,7 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
         if self.preprocessing_model is not None:
             self.predict_data.features = self.preprocessing_model.predict(self.predict_data).predict
+            self.logger.info(f'Test Dataset size after preprocessing - {self.predict_data.features.shape}')
         return self.solver.predict(self.predict_data)
 
     def predict_proba(self, predict_data, **kwargs) -> np.ndarray:
@@ -150,6 +155,7 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['task']).check_input_data()
         if self.preprocessing_model is not None:
             self.predict_data.features = self.preprocessing_model.predict(predict_data).predict
+            self.logger.info(f'Test Dataset size after preprocessing - {self.predict_data.features.shape}')
         return self.solver.predict_proba(self.predict_data)
 
     def get_metrics(self, **kwargs) -> dict:
