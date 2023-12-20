@@ -1,5 +1,5 @@
-fedot @ https://github.com/nccr-itmo/FEDOT/archive/master.zip
-
+# fedot @ https://github.com/nccr-itmo/FEDOT/archive/master.zip
+fedot==0.7.2
 # workaround for macos
 catboost==1.1.1; sys_platform == 'darwin'
 
