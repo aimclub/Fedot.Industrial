@@ -1,11 +1,11 @@
 import math
 
-import lime
-import lime.lime_tabular
+# import lime
+# import lime.lime_tabular
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import shap
+# import shap
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from tqdm import tqdm
@@ -162,36 +162,16 @@ class PointExplainer:
         plt.show()
 
 
-class ShapExplainer:
-    def __init__(self, model, features, target, prediction):
-        self.model = model
-        self.features = features
-        self.target = target
-        self.prediction = prediction
-
-    def explain(self, n_samples: int = 5):
-        X_test = self.features
-
-        explainer = shap.KernelExplainer(self.model.predict, X_test, n_samples=n_samples)
-        shap_values = explainer.shap_values(X_test.iloc[:n_samples, :])
-        shap.summary_plot(shap_values, X_test.iloc[:n_samples, :], plot_type="bar")
-
-
-class LimeExplainer:
-    def __init__(self, model, train_features, test_features, target, prediction):
-        self.model = model
-        self.train_features = train_features
-        self.test_features = test_features
-        self.target = target
-        self.prediction = prediction
-
-    def explain(self, n_samples):
-        explainer = lime.lime_tabular.LimeTabularExplainer(training_data=self.train_features.values,
-                                                           feature_names=self.train_features.columns,
-                                                           class_names=self.target,
-                                                           discretize_continuous=True)
-        i = np.random.randint(0, self.test_features.shape[0])
-        exp = explainer.explain_instance(data_row=self.test_features.iloc[i, :].values,
-                                         predict_fn=self.model.predict_proba,
-                                         num_features=10)
-        exp.show_in_notebook(show_table=True, show_all=False)
+# class ShapExplainer:
+#     def __init__(self, model, features, target, prediction):
+#         self.model = model
+#         self.features = features
+#         self.target = target
+#         self.prediction = prediction
+#
+#     def explain(self, n_samples: int = 5):
+#         X_test = self.features
+#
+#         explainer = shap.KernelExplainer(self.model.predict, X_test, n_samples=n_samples)
+#         shap_values = explainer.shap_values(X_test.iloc[:n_samples, :])
+#         shap.summary_plot(shap_values, X_test.iloc[:n_samples, :], plot_type="bar")
