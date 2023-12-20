@@ -8,10 +8,10 @@ from fedot_ind.core.models.topological.topological_extractor import TopologicalE
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
-def dataset(n_classes):
+def dataset(binary):
     (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
                                                                        max_ts_len=50,
-                                                                       n_classes=n_classes,
+                                                                       binary=True,
                                                                        test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 
@@ -44,7 +44,7 @@ def test_generate_topological_features(topological_extractor, input_data):
 
 
 def test_extract_features(topological_extractor):
-    X, y, _, _ = dataset(n_classes=2)
+    X, y, _, _ = dataset(binary=True)
     features = topological_extractor.extract_features(X, y)
     assert features is not None
     assert isinstance(features, pd.DataFrame)

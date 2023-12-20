@@ -4,7 +4,7 @@ from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGe
 def test_generate_data_uni():
     generator = TimeSeriesDatasetsGenerator(num_samples=80,
                                             max_ts_len=50,
-                                            n_classes=3,
+                                            binary=False,
                                             test_size=0.5)
     (X_train, y_train), (X_test, y_test) = generator.generate_data()
 
@@ -15,7 +15,7 @@ def test_generate_data_uni():
 def test_generate_data_multi():
     generator = TimeSeriesDatasetsGenerator(num_samples=80,
                                             max_ts_len=50,
-                                            n_classes=3,
+                                            binary=False,
                                             test_size=0.5,
                                             multivariate=True)
     (X_train, y_train), (X_test, y_test) = generator.generate_data()

@@ -11,7 +11,6 @@ from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.sequential import SequentialTuner
 
 from fedot_ind.api.utils.input_data import init_input_data
@@ -106,9 +105,9 @@ class TimeSeriesClassifierPreset:
             tuned pipeline
         """
         if train_data.num_classes > 2:
-            metric = ClassificationMetricsEnum.f1
+            metric = 'f1'
         else:
-            metric = ClassificationMetricsEnum.ROCAUC
+            metric = 'roc_auc'
 
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SequentialTuner) \

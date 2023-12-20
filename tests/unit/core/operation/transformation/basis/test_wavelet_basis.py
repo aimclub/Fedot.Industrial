@@ -19,7 +19,7 @@ def wavelet_components_combination():
 def dataset():
     (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
                                                                        max_ts_len=50,
-                                                                       n_classes=2,
+                                                                       binary=True,
                                                                        test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 

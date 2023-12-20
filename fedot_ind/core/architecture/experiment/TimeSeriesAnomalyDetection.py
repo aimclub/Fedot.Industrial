@@ -13,7 +13,6 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from matplotlib import pyplot as plt
@@ -158,9 +157,9 @@ class TimeSeriesAnomalyDetectionPreset:
             tuned pipeline
         """
         if train_data.num_classes > 2:
-            metric = ClassificationMetricsEnum.f1
+            metric = 'f1'
         else:
-            metric = ClassificationMetricsEnum.ROCAUC
+            metric = 'roc_auc'
 
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
