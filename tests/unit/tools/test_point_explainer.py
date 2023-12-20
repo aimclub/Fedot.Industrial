@@ -1,0 +1,66 @@
+import warnings
+
+import pytest
+from matplotlib import get_backend, pyplot as plt
+
+from fedot_ind.api.main import FedotIndustrial as FI
+from fedot_ind.tools.explain.distances import DistanceTypes
+from fedot_ind.tools.explain.explain import PointExplainer
+from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+
+distances = DistanceTypes.keys()
+
+
+@pytest.fixture()
+def data():
+    generator = TimeSeriesDatasetsGenerator(num_samples=14,
+                                            max_ts_len=50,
+                                            binary=True)
+    train_data, test_data = generator.generate_data()
+    X_test, y_test = test_data
+    X_train, y_train = train_data
+    return X_train, y_train, X_test, y_test
+
+
+@pytest.fixture()
+def model(data):
+    available_operations = ['scaling',
+                            'normalization',
+                            'xgboost',
+                            'rfr',
+                            'rf',
+                            'logit',
+                            'mlp',
+                            'knn',
+                            'lgbm',
+                            'pca']
+
+    stat_model = FI(task='ts_classification',
+                    dataset='dataset',
+                    strategy='quantile',
+                    use_cache=False,
+                    timeout=0.1,
+                    n_jobs=-1,
+                    logging_level=50,
+                    available_operations=available_operations)
+    x_train, y_train, x_test, y_test = data
+    stat_model.fit(features=x_train, target=y_train)
+    stat_labels = stat_model.predict(features=x_test, target=y_test)
+    stat_probs = stat_model.predict_proba(features=x_test, target=y_test)
+    stat_model.get_metrics(target=y_test, metric_names=['roc_auc'])
+    return stat_model, x_test, y_test
+
+
+@pytest.mark.parametrize('distance', distances)
+def test_explain(data, model, distance):
+    # switch to non-Gui, preventing plots being displayed
+    # suppress UserWarning that agg cannot show plots
+    curr_backend = get_backend()
+    plt.switch_backend("Agg")
+    warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
+
+    stat_model, X_test, y_test = model
+    distance = distance
+    explainer = PointExplainer(stat_model, X_test, y_test)
+    explainer.explain(n_samples=1, window=30, method=distance)
+    explainer.visual(threshold=0, name='Custom' + '_' + distance)

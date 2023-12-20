@@ -186,24 +186,30 @@ class TimeSeriesClassifierPreset:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
         else:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-        self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
-                                                features=test_data_preprocessed.predict,
-                                                target=test_data_preprocessed.target,
-                                                data_type=test_data_preprocessed.data_type,
-                                                task=test_data_preprocessed.task)
+        test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                           features=test_data_preprocessed.predict,
+                                           target=test_data_preprocessed.target,
+                                           data_type=test_data_preprocessed.data_type,
+                                           task=test_data_preprocessed.task)
 
-        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
-        self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
+        self.prediction_label_baseline = self.baseline_model.predict(test_data_preprocessed).predict
+        self.prediction_label = self.predictor.predict(test_data_preprocessed)
 
         return self.prediction_label
 
     def predict_proba(self, features, target) -> dict:
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
-        self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
 
-        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed, 'probs').predict
-        self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
+        test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                           features=test_data_preprocessed.predict,
+                                           target=test_data_preprocessed.target,
+                                           data_type=test_data_preprocessed.data_type,
+                                           task=test_data_preprocessed.task)
+
+        self.prediction_proba_baseline = self.baseline_model.predict(test_data_preprocessed, 'probs').predict
+        self.prediction_proba = self.predictor.predict_proba(test_data_preprocessed)
         return self.prediction_proba
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]) -> dict:
