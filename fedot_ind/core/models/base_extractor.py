@@ -24,7 +24,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.current_window = None
+        # self.current_window = None
         self.stride = None
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
@@ -38,7 +38,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         pass
 
     def extract_features(self, x, y) -> pd.DataFrame:
-        """For those cases when you need to use feature extractor as a stangalone object
+        """For those cases when you need to use feature extractor as a standalone object
         """
         input_data = init_input_data(x, y)
         transformed_features = self.transform(input_data, use_cache=self.use_cache)

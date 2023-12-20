@@ -191,9 +191,6 @@ class FedotIndustrial(Fedot):
         """Plot prediction of the model"""
         raise NotImplementedError()
 
-    def explain(self, **kwargs):
-        raise NotImplementedError()
-
     def generate_ts(self, ts_config: dict) -> np.array:
         """
         Method to generate synthetic time series
@@ -249,3 +246,6 @@ class FedotIndustrial(Fedot):
                                                            binarize=binarize)
 
         return train_data, test_data
+
+    def explain(self, **kwargs):
+        NotImplementedError()

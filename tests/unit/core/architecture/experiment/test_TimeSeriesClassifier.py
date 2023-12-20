@@ -82,7 +82,7 @@ def test_fit(classifier, generator, model_hyperparams, features_n_target):
     assert isinstance(model, Fedot)
     assert classifier.train_features is not None
     assert classifier.train_features.shape[0] == N_SAMPLES
-    assert classifier.predictor is model
+    assert classifier.classifier is model
 
 
 def test_fit_model(classifier, model_hyperparams, features_n_target):
@@ -102,7 +102,7 @@ def test_fit_baseline_model(classifier, features_n_target):
 
 def test_predict(classifier, generator, model_hyperparams, features_n_target):
     classifier.generator_runner = generator
-    classifier.predictor = Pipeline().load('./ppl.json')
+    classifier.classifier = Pipeline().load('./ppl.json')
     features, target = features_n_target
     features = pd.DataFrame(features)
     labels = classifier.predict(features=features, target=target)
@@ -112,7 +112,7 @@ def test_predict(classifier, generator, model_hyperparams, features_n_target):
 
 def test_predict_proba(classifier, generator, model_hyperparams, features_n_target):
     classifier.generator_runner = generator
-    classifier.predictor = Pipeline().load('./ppl.json')
+    classifier.classifier = Pipeline().load('./ppl.json')
     features, target = features_n_target
     features = pd.DataFrame(features)
     proba = classifier.predict_proba(features=features, target=target)
@@ -123,12 +123,12 @@ def test_predict_proba(classifier, generator, model_hyperparams, features_n_targ
 @pytest.mark.parametrize('mode', ['labels', 'probs'])
 def test_predict_abstraction(classifier, mode, features_n_target, generator):
     classifier.generator_runner = generator
-    classifier.predictor = Pipeline().load('./ppl.json')
+    classifier.classifier = Pipeline().load('./ppl.json')
     features, target = features_n_target
     features = pd.DataFrame(features)
-    prediction = classifier._predict_abstraction(test_features=features,
-                                                 target=target,
-                                                 mode=mode)
+    prediction = classifier._predict_abstract(test_features=features,
+                                              target=target,
+                                              mode=mode)
     if mode == 'probs':
         assert isinstance(prediction, np.ndarray)
         assert prediction.shape[0] == N_SAMPLES

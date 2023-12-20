@@ -1,8 +1,5 @@
-from enum import Enum
-
 import numpy as np
 from scipy.spatial.distance import cosine, euclidean
-from scipy.stats import anderson_ksamp
 from scipy.stats import cramervonmises
 from scipy.stats import energy_distance
 from scipy.stats import entropy
@@ -38,6 +35,7 @@ def jensen_shannon_divergence(probs_before: np.ndarray, probs_after: np.ndarray)
 def total_variation_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
     """
     Total Variation Distance measures the discrepancy between two probability distributions.
+    It is also half the absolute area between the two curves
 
     Args:
         probs_before: The probability distribution before some event.
@@ -73,19 +71,6 @@ def kolmogorov_smirnov_statistic(probs_before: np.ndarray, probs_after: np.ndarr
     """
     _, p_value = ks_2samp(probs_before, probs_after)
     return p_value
-
-
-def anderson_darling_statistic(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
-    """
-    The Anderson-Darling statistic tests the hypothesis that two samples are drawn from the same distribution.
-
-    Args:
-        probs_before: The probability distribution before some event.
-        probs_after: The probability distribution after the same event.
-
-    """
-    _, _, ad_statistic = anderson_ksamp([probs_before, probs_after])
-    return ad_statistic
 
 
 def energy_distance_measure(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
@@ -148,15 +133,25 @@ def euclidean_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> flo
     return euclidean(probs_before, probs_after)
 
 
-class DistanceTypes(Enum):
-    cosine = cosine_distance
-    euclidean = euclidean_distance
-    hellinger = hellinger_distance
-    bhattacharyya = bhattacharyya_distance
-    energy = energy_distance_measure
-    anderson = anderson_darling_statistic
-    kolmogorov = kolmogorov_smirnov_statistic
-    cramer = cramer_von_mises_statistic
-    total_variation = total_variation_distance
-    jensen_shannon = jensen_shannon_divergence
-    kl_div = kl_divergence
+def cross_entropy(p, q):
+    return -sum([p[i] * np.log2(q[i]) for i in range(len(p))])
+
+
+def rmse(p, q):
+    return np.sqrt(np.mean((p - q) ** 2))
+
+
+DistanceTypes = dict(
+    cosine=cosine_distance,
+    euclidean=euclidean_distance,
+    hellinger=hellinger_distance,
+    # bhattacharyya=bhattacharyya_distance,
+    energy=energy_distance_measure,
+    # kolmogorov=kolmogorov_smirnov_statistic,
+    # cramer=cramer_von_mises_statistic,
+    # total_variation=total_variation_distance,
+    jensen_shannon=jensen_shannon_divergence,
+    kl_div=kl_divergence,
+    cross_entropy=cross_entropy,
+    rmse=rmse
+)

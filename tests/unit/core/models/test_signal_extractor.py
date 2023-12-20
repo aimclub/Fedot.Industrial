@@ -11,10 +11,10 @@ from fedot_ind.core.models.signal.signal_extractor import SignalExtractor
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
-def dataset(n_classes):
+def dataset(binary):
     (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=100,
                                                                        max_ts_len=24,
-                                                                       n_classes=n_classes,
+                                                                       binary=binary,
                                                                        test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 
@@ -28,8 +28,8 @@ def default_params():
 
 @pytest.fixture
 def input_data():
-    n_classes = np.random.choice([2, 3])
-    X_train, y_train, X_test, y_test = dataset(n_classes)
+    binary = np.random.choice([True, False])
+    X_train, y_train, X_test, y_test = dataset(binary)
     input_train_data = init_input_data(X_train, y_train)
     return input_train_data
 
@@ -46,7 +46,7 @@ def test_transform(signal_extractor, input_data):
 
 
 def test_extract_features(signal_extractor):
-    X, y, _, _ = dataset(n_classes=2)
+    X, y, _, _ = dataset(binary=True)
     train_features = signal_extractor.extract_features(X, y)
     assert train_features is not None
     assert isinstance(train_features, pd.DataFrame)

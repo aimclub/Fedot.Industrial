@@ -113,7 +113,7 @@ def test_api_tsc(tsc_topo_config):
     industrial = FedotIndustrial(**tsc_topo_config)
     train_data, test_data = TimeSeriesDatasetsGenerator(num_samples=50,
                                                         max_ts_len=30,
-                                                        n_classes=2,
+                                                        binary=True,
                                                         test_size=0.5).generate_data()
     model = industrial.fit(features=train_data[0], target=train_data[1])
     labels = industrial.predict(features=test_data[0], target=test_data[1])

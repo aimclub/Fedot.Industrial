@@ -47,21 +47,21 @@ class TimeSeriesClassifier:
         self.prediction_proba = None
         self.test_predict_hash = None
         self.prediction_label = None
-        self.predictor = None
-        self.y_train = None
+        self.classifier = None
+        # self.y_train = None
         self.train_features = None
         self.test_features = None
-        self.input_test_data = None
+        # self.input_test_data = None
 
         self.logger.info('TimeSeriesClassifier initialised')
 
-    def fit(self, features: pd.DataFrame,
+    def fit(self, features: Union[np.ndarray, pd.DataFrame],
             target: np.ndarray,
             **kwargs) -> Fedot:
 
         baseline_type = kwargs.get('baseline_type', None)
         self.logger.info('Fitting model')
-        self.y_train = target
+        # self.y_train = target
         if self.generator_runner is None:
             raise AttributeError('Feature generator is not defined')
 
@@ -72,11 +72,10 @@ class TimeSeriesClassifier:
         self.train_features = self.datacheck.check_data(input_data=train_features, return_df=True)
 
         if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, target, baseline_type)
+            self.classifier = self._fit_baseline_model(self.train_features, target, baseline_type)
         else:
-            self.predictor = self._fit_model(self.train_features, target)
-
-        return self.predictor
+            self.classifier = self._fit_model(self.train_features, target)
+        return self.classifier
 
     def _fit_model(self, features: pd.DataFrame, target: np.ndarray) -> Fedot:
         """Fit Fedot model with feature and target.
@@ -89,11 +88,11 @@ class TimeSeriesClassifier:
             Fitted Fedot model
 
         """
-        self.predictor = Fedot(**self.model_hyperparams)
-        self.predictor.fit(features, target)
+        self.classifier = Fedot(**self.model_hyperparams)
+        self.classifier.fit(features, target)
         self.logger.info(
-            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.predictor.current_pipeline})')
-        return self.predictor
+            f'Solver fitted: {self.strategy}_extractor -> fedot_pipeline ({self.classifier.current_pipeline})')
+        return self.classifier
 
     def _fit_baseline_model(self, features: pd.DataFrame, target: np.ndarray, baseline_type: str = 'rf') -> Pipeline:
         """Returns pipeline with the following structure:
@@ -122,33 +121,33 @@ class TimeSeriesClassifier:
         return baseline_pipeline
 
     def predict(self, features: np.ndarray, **kwargs) -> np.ndarray:
-        self.prediction_label = self._predict_abstraction(test_features=features, mode='labels', **kwargs)
+        self.prediction_label = self._predict_abstract(test_features=features, mode='labels', **kwargs)
         return self.prediction_label
 
     def predict_proba(self, features: np.ndarray, **kwargs) -> np.ndarray:
-        self.prediction_proba = self._predict_abstraction(test_features=features, mode='probs', **kwargs)
+        self.prediction_proba = self._predict_abstract(test_features=features, mode='probs', **kwargs)
         return self.prediction_proba
 
-    def _predict_abstraction(self,
-                             test_features: Union[np.ndarray, pd.DataFrame],
-                             mode: str = 'labels', **kwargs):
+    def _predict_abstract(self,
+                          test_features: Union[np.ndarray, pd.DataFrame],
+                          mode: str = 'labels', **kwargs):
         self.logger.info(f'Predicting with {self.strategy} generator')
-
+        self.test_target = kwargs.get('target')
         if self.test_features is None:
             input_data = init_input_data(test_features, kwargs.get('target'))
             output_data = self.generator_runner.transform(input_data)
             test_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
             self.test_features = self.datacheck.check_data(input_data=test_features, return_df=True)
 
-        if isinstance(self.predictor, Pipeline):
-            self.input_test_data = init_input_data(self.test_features, kwargs.get('target'))
-            prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
+        if isinstance(self.classifier, Pipeline):
+            input_test_data = init_input_data(self.test_features, kwargs.get('target'))
+            prediction_label = self.classifier.predict(input_test_data, output_mode=mode).predict
             return prediction_label
         else:
             if mode == 'labels':
-                prediction_label = self.predictor.predict(self.test_features)
+                prediction_label = self.classifier.predict(self.test_features)
             else:
-                prediction_label = self.predictor.predict_proba(self.test_features)
+                prediction_label = self.classifier.predict_proba(self.test_features)
             return prediction_label
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):

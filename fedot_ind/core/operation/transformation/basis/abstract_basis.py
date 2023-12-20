@@ -66,7 +66,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """Method for transforming all samples
 
         """
-        if type(input_data) is InputData:
+        if isinstance(input_data, InputData):
             features = np.array(ListMonad(*input_data.features.tolist()).value)
         else:
             features = np.array(ListMonad(*input_data.values.tolist()).value)
