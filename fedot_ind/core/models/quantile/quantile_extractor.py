@@ -47,29 +47,6 @@ class QuantileExtractor(BaseExtractor):
                                     'Stride': self.stride,
                                     'VarTh': self.var_threshold})
 
-    def _drop_features(self, predict: pd.DataFrame, columns: Index, n_components: int):
-        """
-        Method for dropping features with low variance
-        """
-        # Fill columns names for every extracted ts component
-        predict = pd.DataFrame(predict,
-                               columns=[f'{col}{str(i)}' for i in range(1, n_components + 1) for col in columns])
-
-        if self.relevant_features is None:
-            reduced_df, self.relevant_features = self._filter_by_var(predict, threshold=self.var_threshold)
-            return reduced_df
-        else:
-            return predict[self.relevant_features]
-
-    def _filter_by_var(self, data: pd.DataFrame, threshold: float):
-        cols = data.columns
-        filtrat = {}
-
-        for col in cols:
-            if np.var(data[col].values) > threshold:
-                filtrat.update({col: data[col].values.flatten()})
-
-        return pd.DataFrame(filtrat), list(filtrat.keys())
 
     def _concatenate_global_and_local_feature(self, global_features: InputData,
                                               window_stat_features: InputData) -> InputData:

@@ -3,7 +3,7 @@ import os
 
 import pandas as pd
 
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 
 
 class ResultSaver:
@@ -15,12 +15,11 @@ class ResultSaver:
         self.save_method_dict = {'labels': self.save_labels,
                                  'probs': self.save_probs,
                                  'metrics': self.save_metrics,
-                                 'baseline_metrics': self.save_baseline_metrics
-                                 }
+                                 'baseline_metrics': self.save_baseline_metrics}
 
     def __init_save_path(self, dataset_name, generator_name, output_dir):
         if output_dir is None:
-            self.output_dir = default_path_to_save_results()
+            self.output_dir = DEFAULT_PATH_RESULTS
         else:
             self.output_dir = os.path.abspath(output_dir)
         path = os.path.join(self.output_dir, generator_name, dataset_name)
@@ -37,12 +36,12 @@ class ResultSaver:
 
     def save_labels(self, label_data):
         df = pd.DataFrame(label_data, dtype=int)
-        df.to_csv(os.path.join(self.path, 'predicted_labels.csv'))
+        df.to_csv(os.path.join(self.path, 'labels.csv'))
 
     def save_probs(self, prob_data):
         df_preds = pd.DataFrame(prob_data.round(3), dtype=float)
         df_preds.columns = [f'Class_{x + 1}' for x in df_preds.columns]
-        df_preds.to_csv(os.path.join(self.path, 'predicted_probs.csv'))
+        df_preds.to_csv(os.path.join(self.path, 'probs.csv'))
 
     def save_metrics(self, metrics: dict):
         df = pd.DataFrame(metrics, index=[0])

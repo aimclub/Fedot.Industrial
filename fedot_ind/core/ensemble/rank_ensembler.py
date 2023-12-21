@@ -71,7 +71,7 @@ class RankEnsemble(BaseEnsemble):
                 if item is not None:
                     return item
 
-    def _create_models_rank_dict(self, prediction_proba_dict, metric_dict):
+    def _create_models_rank_dict(self, prediction_proba_dict, metric_dict) -> dict:
         """
         Method that returns a dictionary with the best metric values of base models
 
@@ -96,7 +96,7 @@ class RankEnsemble(BaseEnsemble):
             model_rank.update({model: current_metrics[self.metric]})
         return model_rank
 
-    def _sort_models(self, model_rank):
+    def _sort_models(self, model_rank) -> dict:
         """
         Method that returns sorted dictionary with models results ``
 

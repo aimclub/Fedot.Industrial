@@ -16,11 +16,12 @@ from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 
 class DataLoader:
-    """Class for reading data from ``tsv`` files and downloading from UCR archive if not found locally.
-    At the moment supports only ``.txt`` and ``.arff`` formats, but not relational ``.arff`` or ``.ts`` files.
+    """Class for reading data files and downloading from UCR archive if not found locally.
+    At the moment supports ``.ts``, ``.txt``, ``.tsv``, and ``.arff`` formats.
 
     Args:
         dataset_name: name of dataset
+        folder: path to folder with data
 
     Examples:
         >>> data_loader = DataLoader('ItalyPowerDemand')
@@ -729,8 +730,8 @@ class DataLoader:
         """Reads data from ``.arff`` file.
 
         """
-        train = loadarff(temp_data_path + dataset_name + f'/{dataset_name}_TRAIN.arff')
-        test = loadarff(temp_data_path + dataset_name + f'/{dataset_name}_TEST.arff')
+        train = loadarff(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff')
+        test = loadarff(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.arff')
 
         data_train = np.asarray([train[0][name] for name in train[1].names()])
         x_train = data_train[:-1].T.astype('float64')
@@ -787,8 +788,3 @@ class DataLoader:
             return (x_train, y_train), (x_test, y_test)
         else:
             return (pd.DataFrame(x_train), y_train), (pd.DataFrame(x_test), y_test)
-
-
-if __name__ == '__main__':
-    data_loader = DataLoader('AppliancesEnergy')
-    _train_data, _test_data = data_loader.load_data()

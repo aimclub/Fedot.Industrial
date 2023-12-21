@@ -62,7 +62,8 @@ class Inception(nn.Module):
             padding=kernel_sizes[2] // 2,
             bias=False
         )
-        self.max_pool = nn.MaxPool1d(kernel_size=3, stride=1, padding=1, return_indices=return_indices)
+        self.max_pool = nn.MaxPool1d(
+            kernel_size=3, stride=1, padding=1, return_indices=return_indices)
         self.conv_from_maxpool = nn.Conv1d(
             in_channels=in_channels,
             out_channels=n_filters,
@@ -316,4 +317,3 @@ class InceptionTimeNetwork:
             nn.Linear(in_features=4 * 32 * 1, out_features=4)
         )
         return network
-

@@ -85,11 +85,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def get_threshold(self, data) -> int:
         svd_numbers = []
-        with tqdm(total=len(data), desc='SVD estimation') as pbar:
-            for signal in data:
-                svd_numbers.append(
-                    self._transform_one_sample(signal, svd_flag=True))
-                pbar.update(1)
+        # with tqdm(total=len(data), desc='SVD estimation') as pbar:
+        for signal in data:
+            svd_numbers.append(
+                self._transform_one_sample(signal, svd_flag=True))
+                # pbar.update(1)
         return self._mode(svd_numbers)
         # return stats.mode(svd_numbers).mode if scipy.__version__ > '1.7.3' else stats.mode(svd_numbers).mode[0]
 

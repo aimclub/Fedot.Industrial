@@ -11,11 +11,10 @@ from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.sequential import SequentialTuner
 
 from fedot_ind.api.utils.input_data import init_input_data
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -48,7 +47,7 @@ class TimeSeriesClassifierPreset:
         self.dataset_name = params.get('dataset')
         self.tuning_iterations = params.get('tuning_iterations', 30)
         self.tuning_timeout = params.get('tuning_timeout', 15.0)
-        self.output_folder = params.get('output_folder', default_path_to_save_results())
+        self.output_folder = params.get('output_folder', DEFAULT_PATH_RESULTS)
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
                                  generator_name='fedot_preset',
@@ -106,9 +105,9 @@ class TimeSeriesClassifierPreset:
             tuned pipeline
         """
         if train_data.num_classes > 2:
-            metric = ClassificationMetricsEnum.f1
+            metric = 'f1'
         else:
-            metric = ClassificationMetricsEnum.ROCAUC
+            metric = 'roc_auc'
 
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SequentialTuner) \
@@ -137,11 +136,9 @@ class TimeSeriesClassifierPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, target)
-
             self.preprocessing_pipeline = self._tune_pipeline(self.preprocessing_pipeline,
                                                               self.train_data)
             self.preprocessing_pipeline.fit(self.train_data)
-
             self.baseline_model = self.preprocessing_pipeline.nodes[0]
             self.preprocessing_pipeline.update_node(self.baseline_model, PipelineNode('cat_features'))
             self.baseline_model.nodes_from = []
@@ -189,24 +186,30 @@ class TimeSeriesClassifierPreset:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
         else:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
-        self.test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
-                                                features=test_data_preprocessed.predict,
-                                                target=test_data_preprocessed.target,
-                                                data_type=test_data_preprocessed.data_type,
-                                                task=test_data_preprocessed.task)
+        test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                           features=test_data_preprocessed.predict,
+                                           target=test_data_preprocessed.target,
+                                           data_type=test_data_preprocessed.data_type,
+                                           task=test_data_preprocessed.task)
 
-        self.prediction_label_baseline = self.baseline_model.predict(self.test_data_preprocessed).predict
-        self.prediction_label = self.predictor.predict(self.test_data_preprocessed)
+        self.prediction_label_baseline = self.baseline_model.predict(test_data_preprocessed).predict
+        self.prediction_label = self.predictor.predict(test_data_preprocessed)
 
         return self.prediction_label
 
     def predict_proba(self, features, target) -> dict:
         test_data = self._init_input_data(features, target)
         test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
-        self.test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
 
-        self.prediction_proba_baseline = self.baseline_model.predict(self.test_data_preprocessed, 'probs').predict
-        self.prediction_proba = self.predictor.predict_proba(self.test_data_preprocessed)
+        test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
+                                           features=test_data_preprocessed.predict,
+                                           target=test_data_preprocessed.target,
+                                           data_type=test_data_preprocessed.data_type,
+                                           task=test_data_preprocessed.task)
+
+        self.prediction_proba_baseline = self.baseline_model.predict(test_data_preprocessed, 'probs').predict
+        self.prediction_proba = self.predictor.predict_proba(test_data_preprocessed)
         return self.prediction_proba
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]) -> dict:

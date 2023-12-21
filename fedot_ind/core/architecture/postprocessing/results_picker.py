@@ -30,7 +30,6 @@ class ResultsPicker:
         self.launch_type = launch_type
         self.logger = logging.getLogger(self.__class__.__name__)
 
-
     def __get_results_path(self, path):
         if path:
             return path

@@ -32,7 +32,7 @@ class TimeSeriesGenerator:
         self.ts_types = {'sin': SinWave,
                          'random_walk': RandomWalk,
                          'auto_regression': AutoRegression,
-                         'smooth_normal': SmoothNormal}
+                                             'smooth_normal': SmoothNormal}
         self.params = params
 
     def __define_seed(self):
@@ -89,7 +89,8 @@ class SinWave(DefaultTimeSeries):
     def get_ts(self):
         time_index = np.arange(0, self.ts_length)
         sine_wave = self.amplitude * np.sin(2 * np.pi / self.period * time_index)
-        return sine_wave
+        noise = np.random.normal(0, 1, self.ts_length)
+        return np.array(sine_wave + noise)
 
 
 class RandomWalk(DefaultTimeSeries):
@@ -100,7 +101,8 @@ class RandomWalk(DefaultTimeSeries):
     def get_ts(self):
         time_index = pd.Series(np.arange(0, self.ts_length))
         random_walk = pd.Series(np.cumsum(np.random.randn(self.ts_length)) + self.start_val, index=time_index)
-        return np.array(random_walk)
+        noise = np.random.normal(0, 1, self.ts_length)
+        return np.array(random_walk + noise)
 
 
 class AutoRegression(DefaultTimeSeries):
@@ -122,8 +124,8 @@ class AutoRegression(DefaultTimeSeries):
             else:
                 ar_process[i] = np.sum(self.ar_params * ar_process[i - len(self.ar_params):i].ravel(),
                                        axis=0) + np.random.normal(0, 1)
-        # return np.array(pd.Series(ar_process[:, 0], index=time_index))
-        return ar_process
+        noise = np.random.normal(0, 1, self.ts_length)
+        return np.array(ar_process + noise)
 
 
 class SmoothNormal(DefaultTimeSeries):
@@ -139,7 +141,8 @@ class SmoothNormal(DefaultTimeSeries):
 
     def get_ts(self):
         normal_ts = np.random.normal(0, 1, self.ts_length) + 100
-        return self.savitzky_golay(y=normal_ts, window_size=self.window_size, order=3)
+        noise = np.random.normal(0, 1, self.ts_length)
+        return np.array(self.savitzky_golay(y=normal_ts, window_size=self.window_size, order=3) + noise)
 
     @staticmethod
     def savitzky_golay(y: np.array, window_size: int, order: int = 3, deriv: int = 0, rate: int = 1):

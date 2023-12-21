@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import Dict, List, Union
 from typing import Optional
 
 import matplotlib.patches as mpatches
@@ -13,12 +13,11 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from matplotlib import pyplot as plt
 
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -53,7 +52,7 @@ class TimeSeriesAnomalyDetectionPreset:
         self.dataset_name = params.get('dataset')
         self.tuning_iterations = params.get('tuning_iterations', 30)
         self.tuning_timeout = params.get('tuning_timeout', 15.0)
-        self.output_folder = params.get('output_folder', default_path_to_save_results())
+        self.output_folder = params.get('output_folder', DEFAULT_PATH_RESULTS)
 
         self.saver = ResultSaver(dataset_name=self.dataset_name,
                                  generator_name='fedot_preset',
@@ -137,10 +136,12 @@ class TimeSeriesAnomalyDetectionPreset:
         for index, (basis, extractor) in enumerate(zip(self.branch_nodes, self.extractors)):
             pipeline_builder.add_node(basis, branch_idx=index)
             pipeline_builder.add_node(extractor, branch_idx=index)
-        pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
-                                                      'max_iter': 300,
-                                                      'activation': 'relu',
-                                                      'solver': 'adam', })
+        pipeline_builder.join_branches('rf')
+
+        # pipeline_builder.join_branches('mlp', params={'hidden_layer_sizes': (256, 128, 64, 32),
+        #                                               'max_iter': 300,
+        #                                               'activation': 'relu',
+        #                                               'solver': 'adam', })
 
         return pipeline_builder.build()
 
@@ -156,9 +157,9 @@ class TimeSeriesAnomalyDetectionPreset:
             tuned pipeline
         """
         if train_data.num_classes > 2:
-            metric = ClassificationMetricsEnum.f1
+            metric = 'f1'
         else:
-            metric = ClassificationMetricsEnum.ROCAUC
+            metric = 'roc_auc'
 
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(SimultaneousTuner) \
@@ -186,12 +187,10 @@ class TimeSeriesAnomalyDetectionPreset:
 
         with IndustrialModels():
             self.train_data = self._init_input_data(features, anomaly_dict)
-            self.pre_pipeline = self._tune_pipeline(self.predictor,
-                                                    self.train_data)
-
-            self.pre_pipeline.fit(self.train_data)
-            # train_data_preprocessed = self.generator.root_node.predict(self.train_data)
-            train_data_preprocessed = self.pre_pipeline.root_node.predict(self.train_data)
+            self.preprocessing_pipeline = self._tune_pipeline(self.predictor,
+                                                              self.train_data)
+            self.preprocessing_pipeline.fit(self.train_data)
+            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
             train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
 
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
@@ -202,18 +201,12 @@ class TimeSeriesAnomalyDetectionPreset:
 
         metric = 'roc_auc' if train_data_preprocessed.num_classes == 2 else 'f1'
         self.model_params.update({'metric': metric})
-        self.auto_model = Fedot(available_operations=['scaling',
-                                                      'normalization',
-                                                      'fast_ica',
-                                                      'xgboost',
-                                                      'rfr',
-                                                      'rf',
-                                                      'logit',
-                                                      'mlp',
-                                                      'knn',
-                                                      'lgbm',
-                                                      'pca'],
-                                **self.model_params)
+        if self.model_params.get('available_operations') is None:
+            self.auto_model = Fedot(available_operations=['scaling', 'normalization', 'fast_ica', 'xgboost',
+                                                          'rfr', 'rf', 'logit', 'mlp', 'knn', 'lgbm', 'pca'],
+                                    **self.model_params)
+        else:
+            self.auto_model = Fedot(**self.model_params)
 
         self.auto_model.fit(train_data_preprocessed)
         self.predictor = self.auto_model.current_pipeline
@@ -229,7 +222,7 @@ class TimeSeriesAnomalyDetectionPreset:
         """
 
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.pre_pipeline.root_node.predict(test_data)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
 
         if test_data.features.shape[0] == 1:
             test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
@@ -247,7 +240,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
     def predict_proba(self, features) -> np.array:
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.pre_pipeline.predict(test_data)
+        test_data_preprocessed = self.preprocessing_pipeline.predict(test_data)
         test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,

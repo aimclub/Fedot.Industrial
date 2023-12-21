@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 
+from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
-from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.core.models.nn.inception import InceptionTimeNetwork
 
 TSCCLF_MODEL = {
@@ -22,9 +22,9 @@ class TimeSeriesClassifierNN(TimeSeriesClassifier):
         self.num_epochs = params.get('num_epochs', 10)
 
     def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:
-        self.model_hyperparams['models_saving_path'] = os.path.join(default_path_to_save_results(), 'TSCNN',
+        self.model_hyperparams['models_saving_path'] = os.path.join(DEFAULT_PATH_RESULTS, 'TSCNN',
                                                                     '../../models')
-        self.model_hyperparams['summary_path'] = os.path.join(default_path_to_save_results(), 'TSCNN',
+        self.model_hyperparams['summary_path'] = os.path.join(DEFAULT_PATH_RESULTS, 'TSCNN',
                                                               'runs')
         self.model_hyperparams['num_classes'] = np.unique(target).shape[0]
 

@@ -29,5 +29,7 @@ torchvision==0.15.1
 tensorboard>=2.12.0
 statsforecast==1.5.0
 
+opencv-python
+
 chardet
 tqdm
