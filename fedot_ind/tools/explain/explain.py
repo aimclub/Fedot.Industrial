@@ -99,7 +99,7 @@ class PointExplainer:
     def select(features_, target_, n_samples_: int = 3):
         selected_df = pd.DataFrame()
         selected_target = np.array([])
-        df = features_
+        df = features_.copy()
         df['target'] = target_
         for class_label in np.unique(target_):
             class_samples = df[df['target'] == class_label].sample(n=n_samples_, replace=False)
@@ -134,7 +134,7 @@ class PointExplainer:
                 # every 10% of length
                 x_ticks = np.arange(0, len(feature.iloc[idx, :]), len(feature.iloc[idx, :]) // 10)
                 for dot_idx, dot in enumerate(copy_vec):
-                    axs[idx].axvline(dot_idx, cmap(norm(dot)))
+                    axs[idx].axvline(dot_idx, color=cmap(norm(dot)))
                     axs[idx].set_xticks(x_ticks)
 
             else:
