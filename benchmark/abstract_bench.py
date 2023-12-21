@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 
@@ -61,12 +62,14 @@ class AbstractBenchmark(object):
         model.fit(train_data)
         prediction = model.predict(test_data)
         model.save_best_model()
+        model.solver.current_pipeline.save(path=experiment_setup['output_folder'])
         model.save_optimization_history()
         try:
             model.plot_operation_distribution(mode='each')
             model.plot_fitness_by_generation()
         except Exception:
             print('No_visualisation')
+        gc.collect()
         return prediction, model.predict_data.target
     def collect_results(self, output_dir):
         """Collect the results of the benchmark.

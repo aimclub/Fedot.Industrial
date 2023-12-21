@@ -1,3 +1,5 @@
+import gc
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -302,6 +304,8 @@ class MiniRocketExtractor(BaseExtractor):
                                          task=self.task,
                                          predict=minirocket_features,
                                          data_type=DataTypesEnum.image)
+        torch.cuda.empty_cache()
+        gc.collect()
         return minirocket_features
 
     def generate_minirocket_features(self, ts: np.array) -> InputData:

@@ -97,10 +97,13 @@ class FedotIndustrial(Fedot):
         if input_data.features.size > 1000000:
             self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
             self.logger.info('PCA transformation was applied to input data due to dataset size')
-            self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
+            if len(input_data.features.shape) == 3:
+                #self.preprocessing_model = PipelineBuilder().add_node('eigen_basis', params={'tensor_approximation': True}).build()
+                self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
+            else:
+                self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
             self.preprocessing_model.fit(input_data)
-            self.logger.info('PCA finished')
-
+            self.logger.info('Dimension reduction finished')
 
     def fit(self, input_data, **kwargs) -> Pipeline:
         """

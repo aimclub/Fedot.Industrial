@@ -1,3 +1,4 @@
+import gc
 from typing import Optional
 import numpy as np
 import torch
@@ -169,6 +170,8 @@ class BaseNeuralModel:
         self.target = input_data.target
         self.task_type = input_data.task
         self._fit_model(input_data)
+        torch.cuda.empty_cache()
+        gc.collect()
 
     @fedot_data_type
     def predict(self,

@@ -39,6 +39,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         super().__init__(params)
         self.window_size = params.get('window_size', 20)
         self.low_rank_approximation = params.get('low_rank_approximation', True)
+        self.tensor_approximation = params.get('tensor_approximation', False)
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = []
         self.SV_threshold = None
@@ -57,17 +58,18 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             features = np.array(ListMonad(*input_data.values.tolist()).value)
             features = np.array([series[~np.isnan(series)] for series in features])
         features = NumpyConverter(data=features).convert_to_torch_format()
+        if self.tensor_approximation:
+            predict = self._get_multidim_basis(features)
+        else:
+            if self.SV_threshold is None:
+                self.SV_threshold = max(self.get_threshold(data=features), 2)
+                self.logging_params.update({'SV_thr': self.SV_threshold})
+            predict = []
+            for dimension in range(features.shape[1]):
+                parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+                v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
+                predict.append(np.array(v) if len(v) > 1 else v[0])
 
-        if self.SV_threshold is None:
-            self.SV_threshold = max(self.get_threshold(data=features), 2)
-            self.logging_params.update({'SV_thr': self.SV_threshold})
-
-
-        predict = []
-        for dimension in range(features.shape[1]):
-            parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-            v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
-            predict.append(np.array(v) if len(v) > 1 else v[0])
         self.predict = np.concatenate(predict, axis=1)
 
         if input_data.task.task_params is None:
@@ -132,29 +134,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return np.swapaxes(basis, 1, 0)
 
     def _get_multidim_basis(self, data):
-        rank = round(data[0].shape[0] / 10)
-        beta = data[0].shape[0] / data[0].shape[1]
+        rank = round(data.shape[2] / 10)
+        beta = data.shape[2] / data.shape[0]
 
         tensor_decomposition = lambda x: ListMonad(parafac(tl.tensor(x), rank=rank).factors)
         multi_threshold = lambda x: singular_value_hard_threshold(singular_values=x,
                                                                   beta=beta,
                                                                   threshold=None)
 
-        threshold = lambda Monoid: ListMonad([Monoid[1],
-                                              list(map(multi_threshold, Monoid[0])),
-                                              Monoid[2].T]) if self.n_components is None else ListMonad([Monoid[1][
-                                                                                                         :,
-                                                                                                         :self.n_components],
-                                                                                                         Monoid[0][
-                                                                                                         :,
-                                                                                                         :self.n_components],
-                                                                                                         Monoid[2][
-                                                                                                         :,
-                                                                                                         :self.n_components].T])
+        threshold = lambda Monoid: ListMonad([Monoid[0],
+                                              list(map(multi_threshold, Monoid[1])),
+                                              Monoid[2].T])
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
                                                                        Monoid[1],
                                                                        Monoid[2],
-                                                                       ts_length=self.ts_length))
+                                                                       ts_length=data.shape[2]))
 
         basis = np.array(
             Either.insert(data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0])

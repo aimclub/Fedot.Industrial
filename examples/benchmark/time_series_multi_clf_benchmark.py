@@ -6,6 +6,7 @@ experiment_setup = {'problem': 'classification',
                     'timeout': 120,
                     'num_of_generations': 15,
                     'pop_size': 20,
+                    'logging_level': 10,
                     'available_operations': [
                         'eigen_basis',
                         'dimension_reduction',
@@ -33,7 +34,8 @@ experiment_setup = {'problem': 'classification',
 
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
-                             custom_datasets=['Epilepsy',
+                             custom_datasets=[
+                                 'Epilepsy',
                                               'EthanolConcentration',
                                               'ERing',
                                               'FaceDetection',

@@ -37,7 +37,7 @@ class DataCheck:
                                             features=X.values,
                                             target=np.ravel(y).reshape(-1, 1),
                                             task=self.task_dict[self.task],
-                                            data_type=DataTypesEnum.table)
+                                            data_type=DataTypesEnum.image)
         elif type(self.input_data) is InputData:
             return
 
