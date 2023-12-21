@@ -1,9 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cosine, euclidean
-from scipy.stats import cramervonmises
 from scipy.stats import energy_distance
 from scipy.stats import entropy
-from scipy.stats import ks_2samp
 
 
 def kl_divergence(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
@@ -45,34 +43,6 @@ def total_variation_distance(probs_before: np.ndarray, probs_after: np.ndarray) 
     return 0.5 * np.sum(np.abs(probs_before - probs_after))
 
 
-def cramer_von_mises_statistic(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
-    """
-    The Cramer-von Mises statistic tests the goodness-of-fit of two samples, measuring the
-    similarity of their distributions.
-
-    Args:
-        probs_before: The probability distribution before some event.
-        probs_after: The probability distribution after the same event.
-
-    """
-    _, p_value = cramervonmises(probs_before, cdf='uniform')
-    return p_value
-
-
-def kolmogorov_smirnov_statistic(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
-    """
-    The Kolmogorov-Smirnov statistic tests the equality of two samples, measuring the maximum
-    difference between their empirical cumulative distribution functions.
-
-    Args:
-        probs_before: The probability distribution before some event.
-        probs_after: The probability distribution after the same event.
-
-    """
-    _, p_value = ks_2samp(probs_before, probs_after)
-    return p_value
-
-
 def energy_distance_measure(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
     """
     Energy Distance measures the distance between the characteristic functions of two distributions.
@@ -95,18 +65,6 @@ def hellinger_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> flo
 
     """
     return np.sqrt(np.sum((np.sqrt(probs_before) - np.sqrt(probs_after)) ** 2)) / np.sqrt(2)
-
-
-def bhattacharyya_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
-    """
-    Bhattacharyya Distance measures the similarity between two probability distributions.
-
-    Args:
-        probs_before: The probability distribution before some event.
-        probs_after: The probability distribution after the same event.
-
-    """
-    return -np.log(np.sum(np.sqrt(probs_before * probs_after)))
 
 
 def cosine_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
@@ -145,11 +103,8 @@ DistanceTypes = dict(
     cosine=cosine_distance,
     euclidean=euclidean_distance,
     hellinger=hellinger_distance,
-    # bhattacharyya=bhattacharyya_distance,
     energy=energy_distance_measure,
-    # kolmogorov=kolmogorov_smirnov_statistic,
-    # cramer=cramer_von_mises_statistic,
-    # total_variation=total_variation_distance,
+    total_variation=total_variation_distance,
     jensen_shannon=jensen_shannon_divergence,
     kl_div=kl_divergence,
     cross_entropy=cross_entropy,
