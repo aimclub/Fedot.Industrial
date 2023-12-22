@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Tuple, Union
 
@@ -7,7 +8,10 @@ import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-
+from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
+from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
+from golem.core.tuning.simultaneous import SimultaneousTuner
+from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -98,7 +102,6 @@ class FedotIndustrial(Fedot):
             self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
             self.logger.info('PCA transformation was applied to input data due to dataset size')
             if len(input_data.features.shape) == 3:
-                #self.preprocessing_model = PipelineBuilder().add_node('eigen_basis', params={'tensor_approximation': True}).build()
                 self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
             else:
                 self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
@@ -161,6 +164,48 @@ class FedotIndustrial(Fedot):
             self.logger.info(f'Test Dataset size after preprocessing - {self.predict_data.features.shape}')
         return self.solver.predict_proba(self.predict_data)
 
+    def finetune(self, train_data, tuning_params) -> np.ndarray:
+        """
+        Method to obtain prediction probabilities from trained Industrial model.
+
+        Args:
+            test_features: raw test data
+
+        Returns:
+            the array with prediction probabilities
+
+        """
+        train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
+        if train_data.num_classes > 2:
+            metric = ClassificationMetricsEnum.f1
+        else:
+            metric = ClassificationMetricsEnum.accuracy
+        tuning_method = partial(SequentialTuner, inverse_node_order=True)
+        tuning_method = SimultaneousTuner
+        pipeline_tuner = TunerBuilder(train_data.task) \
+            .with_tuner(tuning_method) \
+            .with_metric(metric) \
+            .with_timeout(tuning_params['tuning_timeout']) \
+            .with_early_stopping_rounds(tuning_params['tuning_early_stop']) \
+            .with_iterations(tuning_params['tuning_iterations']) \
+            .build(train_data)
+        self.current_pipeline = pipeline_tuner.tune(self.current_pipeline)
+        self.current_pipeline.fit(train_data)
+
+    def finetune_predict(self, test_data) -> np.ndarray:
+        """
+        Method to obtain prediction probabilities from trained Industrial model.
+
+        Args:
+            test_features: raw test data
+
+        Returns:
+            the array with prediction probabilities
+
+        """
+        self.predict_data = DataCheck(input_data=test_data, task=self.config_dict['problem']).check_input_data()
+        return self.current_pipeline.predict(self.predict_data, 'labels').predict
+
     def get_metrics(self, **kwargs) -> dict:
         """
         Method to obtain Gets quality metrics
@@ -210,7 +255,8 @@ class FedotIndustrial(Fedot):
             path (str): path to the model
 
         """
-        raise NotImplementedError()
+        self.current_pipeline = Pipeline(use_input_preprocessing=self.solver.params.get('use_input_preprocessing'))
+        self.current_pipeline.load(path)
 
     def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""

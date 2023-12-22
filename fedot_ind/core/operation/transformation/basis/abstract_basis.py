@@ -77,9 +77,10 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
             features = np.array(ListMonad(*input_data.features.tolist()).value)
         else:
             features = np.array(ListMonad(*input_data.tolist()).value)
-        #features = np.array([series[~np.isnan(series)] for series in features])
         if len(features.shape) == 2 and features.shape[1] == 1:
             features = features.reshape(1, -1)
+        elif len(features.shape) == 3 and features.shape[1] == 1:
+            features = features.squeeze()
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
 

@@ -11,7 +11,7 @@ industrial_search_space = {
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
-                     'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
+                     'sampling-scope': [['mexh', 'morl', 'db5', 'sym5']]}},
     'fourier_basis':
         {'threshold': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [10000, 50000]}},
     'topological_extractor':
@@ -26,8 +26,9 @@ industrial_search_space = {
          # 'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
          },
     'signal_extractor':
-        {'wavelet': {'hyperopt-dist': hp.choice,
-                     'sampling-scope': [['mexh', 'shan', 'morl', 'cmor', 'fbsp', 'db5', 'sym5']]}},
+        {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
+         'wavelet': {'hyperopt-dist': hp.choice,
+                     'sampling-scope': [['mexh', 'morl', 'db5', 'sym5']]}},
     'minirocket_extractor':
         {'num_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5000, 20000, 1000)]]}},
     'patch_tst_model':
@@ -319,6 +320,22 @@ def get_industrial_search_space(self):
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 365],
                 'type': 'discrete'}
+        },
+        'mlp': {
+            'hidden_layer_sizes': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[(256, 128, 64, 32), (1028, 512, 64,)]],
+                'type': 'categorical'},
+            'activation': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [['logistic', 'tanh', 'relu']],
+                'type': 'categorical'},
+            'max_iter': {'hyperopt-dist': hp.uniformint,
+                         'sampling-scope': [1000, 2000],
+                         'type': 'discrete'},
+            'learning_rate': {'hyperopt-dist': hp.choice,
+                              'sampling-scope': [['constant', 'adaptive']],
+                              'type': 'categorical'}
         },
         'ar': {
             'lag_1': {

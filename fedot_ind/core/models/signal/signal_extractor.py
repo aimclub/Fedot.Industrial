@@ -24,7 +24,7 @@ class SignalExtractor(BaseExtractor):
 
     def _transform(self, input_data: InputData) -> np.array:
         wavelet_basis = self.wavelet_basis({'n_components': self.n_components,
-                                            'wavelet': self.wavelet})
+                                            'wavelet':self.wavelet})
         transformed_features = wavelet_basis.transform(input_data)
         predict = self._clean_predict(transformed_features.predict)
         return predict

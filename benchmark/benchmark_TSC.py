@@ -55,7 +55,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                 metric = Accuracy(target, prediction).metric()
                 metric_dict.update({dataset_name: metric})
                 basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}', 'metrics_report.csv')
+                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                            'metrics_report.csv')
                 basic_results.to_csv(dataset_path)
             except Exception:
                 print('Skip dataset')
@@ -63,6 +64,29 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
+
+    def finetune(self):
+        self.logger.info('Benchmark finetune started')
+        for dataset_name in self.custom_datasets:
+            try:
+                composed_model_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/0_pipeline_saved'
+                if os.path.isdir(composed_model_path):
+                    self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+                    experiment_setup = deepcopy(self.experiment_setup)
+                    prediction, target = self.finetune_loop(dataset_name, experiment_setup)
+                    metric = Accuracy(target, prediction).metric()
+                    dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                                'metrics_report.csv')
+                    fedot_results = pd.read_csv(dataset_path, index_col=0)
+                    fedot_results.loc[dataset_name, 'Fedot_Industrial_finetuned'] = metric
+
+                    fedot_results.to_csv(dataset_path)
+                else:
+                    print(f"No composed model for dataset - {dataset_name}")
+            except Exception:
+                print('Skip dataset')
+            gc.collect()
+        self.logger.info("Benchmark finetune finished")
 
     def load_local_basic_results(self, path: str = None):
         if path is None:
@@ -83,4 +107,3 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         sota_results = get_estimator_results(estimators=sota_estimators['classification'].values.tolist())
         sota_results_df = pd.DataFrame(sota_results)
         return sota_results_df
-

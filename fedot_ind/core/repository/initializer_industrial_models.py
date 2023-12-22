@@ -3,10 +3,16 @@ import random
 from enum import Enum
 from typing import Sequence
 from random import choice, sample
+from typing import List, Iterable, Union, Optional
+
+import numpy as np
+
+from fedot.core.data.array_utilities import atleast_4d
 
 from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
+from fedot.core.data.merge.data_merger import ImageDataMerger
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -309,6 +315,46 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
     return True
 
 
+def preprocess_predicts(*args) -> List[np.array]:
+    predicts = args[1]
+    if len(predicts[0].shape) <= 3:
+        return predicts
+    else:
+        reshaped_predicts = list(map(atleast_4d, predicts))
+
+        # And check image sizes
+        img_wh = [predict.shape[1:3] for predict in reshaped_predicts]
+        invalid_sizes = len(set(img_wh)) > 1  # Can merge only images of the same size
+        if invalid_sizes:
+            raise ValueError("Can't merge images of different sizes: " + str(img_wh))
+        return reshaped_predicts
+
+
+def merge_predicts(*args) -> np.array:
+    predicts = args[1]
+    predicts = [x.reshape(-1, 1) if len(x.shape) == 1 else x for x in predicts]
+
+    channel_shape, elem_shape = [(x.shape[1], x.shape[2]) if len(x.shape) > 2 else (1, x.shape[0]) for x in predicts][0]
+
+    chanel_concat = [x.shape[1] == channel_shape if len(x.shape) > 2
+                     else 1 == channel_shape for x in predicts]
+
+    element_wise_concat = [x.shape[2] == elem_shape if len(x.shape) > 2
+                           else x.shape[1] == elem_shape for x in predicts]
+
+    if all(chanel_concat) and all(element_wise_concat):
+        try:
+            return np.concatenate(predicts, axis=1)
+        except Exception:
+            return np.concatenate(predicts, axis=0)
+    elif not all(chanel_concat) and not all(element_wise_concat):
+        prediction_2d = np.concatenate([x.reshape(x.shape[0], x.shape[1] * x.shape[2]) if len(x.shape) > 2
+                                        else x for x in predicts], axis=1)
+        return prediction_2d.reshape(prediction_2d.shape[0], 1, prediction_2d.shape[1])
+    else:
+        return np.concatenate(predicts, axis=1)
+
+
 class IndustrialModels:
     def __init__(self):
         self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH, 'fedot_ind',
@@ -341,6 +387,8 @@ class IndustrialModels:
 
         setattr(PipelineSearchSpace, "get_parameters_dict", get_industrial_search_space)
         setattr(ApiParamsRepository, "_get_default_mutations", _get_default_industrial_mutations)
+        setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
+        setattr(ImageDataMerger, "merge_predicts", merge_predicts)
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         # common_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)

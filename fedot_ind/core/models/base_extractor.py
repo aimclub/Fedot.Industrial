@@ -106,7 +106,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         for method in list_of_methods:
             try:
-                features.append(method[1](time_series))
+                features.append(method[1](time_series).reshape(-1,1))
                 names.append(method[0])
             except ValueError:
                 continue
