@@ -166,7 +166,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             prediction = np.hstack(prediction)
         except Exception:
             min_dim = min([x.shape[1] for x in prediction])
-            prediction = [x[:,:min_dim] for x in prediction]
+            prediction = [x[:, :min_dim] for x in prediction]
             prediction = np.stack(prediction).swapaxes(0, 1).squeeze()
         prediction = NumpyConverter(data=prediction).convert_to_torch_format()
         return prediction

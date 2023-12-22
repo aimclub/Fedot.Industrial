@@ -4,6 +4,7 @@ import os
 from abc import ABC
 from copy import deepcopy
 
+import numpy as np
 import pandas as pd
 from aeon.benchmarking.results_loaders import *
 from benchmark.abstract_bench import AbstractBenchmark
@@ -101,6 +102,27 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             return results
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
+
+    def create_report(self):
+        _ = []
+        names = []
+        for dataset_name in self.custom_datasets:
+                model_result_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/metrics_report.csv'
+                if os.path.isfile(model_result_path):
+                    df = pd.read_csv(model_result_path, index_col=0, sep = ',')
+                    df = df.fillna(0)
+                    if 'Fedot_Industrial_finetuned' not in df.columns:
+                        df['Fedot_Industrial_finetuned'] = 0
+                    metrics = df.loc[dataset_name, 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                    _.append(metrics.T.values)
+                    names.append(dataset_name)
+        stacked_resutls = np.stack(_,axis=1).T
+        df_res = pd.DataFrame(stacked_resutls,index=names)
+        df_res.columns = ['Fedot_Industrial','Fedot_Industrial_finetuned']
+        del df['Fedot_Industrial'], df['Fedot_Industrial_finetuned']
+        df = df.join(df_res)
+        df = df.fillna(0)
+        return df
 
     def load_web_results(self):
         sota_estimators = get_available_estimators()
