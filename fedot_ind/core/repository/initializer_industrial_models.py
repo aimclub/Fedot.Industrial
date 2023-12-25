@@ -423,7 +423,7 @@ class IndustrialModels:
         setattr(ApiParamsRepository, "_get_default_mutations", _get_default_industrial_mutations)
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
-        setattr(F1, "merge_predicts", metric)
+        setattr(F1, "metric", metric)
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository
