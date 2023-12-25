@@ -7,8 +7,8 @@
 			],
 			"forbidden_node_types": "[]",
 			"strategies": [
-				"fedot.core.operations.evaluation.data_source",
-				"DataSourceStrategy"
+				"fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+				"IndustrialDataSourceStrategy"
 			],
 			"tags": [
 				"non-default", "data_source"

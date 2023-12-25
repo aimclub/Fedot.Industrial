@@ -460,3 +460,19 @@ class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data, mode='model_fitting')
         return self.multi_dim_dispatcher.fit(train_data, mode='custom_fit')
+
+
+class IndustrialDataSourceStrategy(IndustrialCustomPreprocessingStrategy):
+
+    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+        super().__init__(operation_type, params)
+
+    def fit(self, train_data: InputData):
+        return object()
+
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        return OutputData(idx=predict_data.idx, features=predict_data.features, task=predict_data.task,
+                          data_type=predict_data.data_type, target=predict_data.target, predict=predict_data.features)
+
+    def _convert_to_operation(self, operation_type: str):
+        return object()

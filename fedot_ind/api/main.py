@@ -14,6 +14,7 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
@@ -99,6 +100,8 @@ class FedotIndustrial(Fedot):
 
     def _preprocessing_strategy(self, input_data):
         if input_data.features.size > 1000000:
+            self.preprocessing_model = RAFensembler(composing_params=self.config_dict).fit(input_data)
+        elif input_data.features.size > 100000:
             self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
             self.logger.info('PCA transformation was applied to input data due to dataset size')
             if len(input_data.features.shape) == 3:

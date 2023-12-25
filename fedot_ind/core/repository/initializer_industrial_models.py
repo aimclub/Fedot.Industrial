@@ -14,6 +14,8 @@ from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
 from fedot.core.data.merge.data_merger import ImageDataMerger
+from fedot.core.operations.operation import Operation
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -388,6 +390,30 @@ def metric(reference: InputData, predicted: OutputData) -> float:
         return f1_score(y_true=reference.target, y_pred=predicted.predict,
                         **additional_params)
 
+def predict_operation(self,fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
+                 output_mode: str = 'default', is_fit_stage: bool = False):
+        is_main_target = data.supplementary_data.is_main_target
+        data_flow_length = data.supplementary_data.data_flow_length
+        self._init(data.task, output_mode=output_mode, params=params, n_samples_data=data.features.shape[0])
+
+        if is_fit_stage:
+            prediction = self._eval_strategy.predict_for_fit(
+                trained_operation=fitted_operation,
+                predict_data=data,
+                output_mode=output_mode)
+        else:
+            prediction = self._eval_strategy.predict(
+                trained_operation=fitted_operation,
+                predict_data=data,
+                output_mode=output_mode)
+        prediction = self.assign_tabular_column_types(prediction, output_mode)
+
+        # any inplace operations here are dangerous!
+        if is_main_target is False:
+            prediction.supplementary_data.is_main_target = is_main_target
+
+        prediction.supplementary_data.data_flow_length = data_flow_length
+        return prediction
 
 class IndustrialModels:
     def __init__(self):
@@ -424,6 +450,7 @@ class IndustrialModels:
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
         setattr(F1, "metric", metric)
+        setattr(Operation, "_predict", predict_operation)
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository
