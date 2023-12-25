@@ -14,6 +14,7 @@ from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
 from fedot.core.data.merge.data_merger import ImageDataMerger
+from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.operations.operation import Operation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.adapters import PipelineAdapter
@@ -390,30 +391,62 @@ def metric(reference: InputData, predicted: OutputData) -> float:
         return f1_score(y_true=reference.target, y_pred=predicted.predict,
                         **additional_params)
 
-def predict_operation(self,fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
-                 output_mode: str = 'default', is_fit_stage: bool = False):
-        is_main_target = data.supplementary_data.is_main_target
-        data_flow_length = data.supplementary_data.data_flow_length
-        self._init(data.task, output_mode=output_mode, params=params, n_samples_data=data.features.shape[0])
 
-        if is_fit_stage:
-            prediction = self._eval_strategy.predict_for_fit(
-                trained_operation=fitted_operation,
-                predict_data=data,
-                output_mode=output_mode)
-        else:
-            prediction = self._eval_strategy.predict(
-                trained_operation=fitted_operation,
-                predict_data=data,
-                output_mode=output_mode)
-        prediction = self.assign_tabular_column_types(prediction, output_mode)
+def predict_operation(self, fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
+                      output_mode: str = 'default', is_fit_stage: bool = False):
+    is_main_target = data.supplementary_data.is_main_target
+    data_flow_length = data.supplementary_data.data_flow_length
+    self._init(data.task, output_mode=output_mode, params=params, n_samples_data=data.features.shape[0])
 
-        # any inplace operations here are dangerous!
-        if is_main_target is False:
-            prediction.supplementary_data.is_main_target = is_main_target
+    if is_fit_stage:
+        prediction = self._eval_strategy.predict_for_fit(
+            trained_operation=fitted_operation,
+            predict_data=data,
+            output_mode=output_mode)
+    else:
+        prediction = self._eval_strategy.predict(
+            trained_operation=fitted_operation,
+            predict_data=data,
+            output_mode=output_mode)
+    prediction = self.assign_tabular_column_types(prediction, output_mode)
 
-        prediction.supplementary_data.data_flow_length = data_flow_length
-        return prediction
+    # any inplace operations here are dangerous!
+    if is_main_target is False:
+        prediction.supplementary_data.is_main_target = is_main_target
+
+    prediction.supplementary_data.data_flow_length = data_flow_length
+    return prediction
+
+
+def predict(self, fitted_operation, data: InputData, params: Optional[Union[OperationParameters, dict]] = None,
+            output_mode: str = 'labels'):
+    """This method is used for defining and running of the evaluation strategy
+    to predict with the data provided
+
+    Args:
+        fitted_operation: trained operation object
+        data: data used for prediction
+        params: hyperparameters for operation
+        output_mode: string with information about output of operation,
+        for example, is the operation predict probabilities or class labels
+    """
+    return self._predict(fitted_operation, data, params, output_mode, is_fit_stage=False)
+
+
+def predict_for_fit(self, fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
+                    output_mode: str = 'default'):
+    """This method is used for defining and running of the evaluation strategy
+    to predict with the data provided during fit stage
+
+    Args:
+        fitted_operation: trained operation object
+        data: data used for prediction
+        params: hyperparameters for operation
+        output_mode: string with information about output of operation,
+            for example, is the operation predict probabilities or class labels
+    """
+    return self._predict(fitted_operation, data, params, output_mode, is_fit_stage=True)
+
 
 class IndustrialModels:
     def __init__(self):
@@ -451,7 +484,10 @@ class IndustrialModels:
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
         setattr(F1, "metric", metric)
         setattr(Operation, "_predict", predict_operation)
-        class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+        setattr(Operation, "predict", predict)
+        setattr(Operation, "predict_for_fit", predict_for_fit)
+
+        # class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository
 

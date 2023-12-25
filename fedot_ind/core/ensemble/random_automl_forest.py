@@ -16,21 +16,37 @@ class RAFensembler:
                          }
         task_dict = {'classification': Task(TaskTypesEnum.classification),
                      'regression': Task(TaskTypesEnum.regression)}
+        head_dict = {'classification': 'logit',
+                     'regression': 'ridge'}
+
         self.task = task_dict[composing_params['problem']]
         self.atomized_automl = problem_dict[composing_params['problem']]
         self.ensemble_method = ensemble_dict[ensemble_type]
         self.atomized_automl_params = composing_params
+        self.head = head_dict[composing_params['problem']]
+        del self.atomized_automl_params['available_operations']
 
-    def fit(self, train_data, n_splits=5):
-        new_features = np.split(train_data.features, n_splits)
-        new_target = np.split(train_data.target, n_splits)
-        self.fitted_ensemble = self.ensemble_method(new_features, new_target, n_splits=n_splits)
+    def fit(self, train_data, n_splits=None):
+        for split in [5, 4, 3, 2]:
+            if train_data.features.shape[0] % split == 0:
+                self.n_splits = split
+                break
+            else:
+                self.n_splits = 1
+        new_features = np.split(train_data.features, self.n_splits)
+        new_target = np.split(train_data.target, self.n_splits)
+        self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
 
     def predict(self, test_data):
-        pass
+        data_dict = {}
+        for i in range(self.n_splits):
+            data_dict.update({f'data_source_img/{i}': test_data})
+        test_multimodal = MultiModalData(data_dict)
+        return self.current_pipeline.predict(test_multimodal).predict
 
     def _raf_ensemble(self, features, target, n_splits):
         raf_ensemble = PipelineBuilder()
+        data_dict = {}
         for i, data_fold_features, data_fold_target in zip(range(n_splits), features, target):
             train_fold = InputData(idx=np.arange(0, len(data_fold_features)),
                                    features=data_fold_features,
@@ -38,9 +54,12 @@ class RAFensembler:
                                    task=self.task,
                                    data_type=DataTypesEnum.image)
 
-            raf_ensemble.add_node('data_source_img', branch_idx=i, params={'data_source_img': train_fold}).add_node(
+            raf_ensemble.add_node(f'data_source_img/{i}', branch_idx=i).add_node(
                 self.atomized_automl,
                 params=self.atomized_automl_params,
                 branch_idx=i)
-        raf_ensemble = raf_ensemble.join_branches('logit').build()
-        return raf_ensemble.fit()
+            data_dict.update({f'data_source_img/{i}': train_fold})
+        train_multimodal = MultiModalData(data_dict)
+        raf_ensemble = raf_ensemble.join_branches(self.head).build()
+        raf_ensemble.fit(input_data=train_multimodal)
+        return raf_ensemble

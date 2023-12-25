@@ -84,7 +84,7 @@ class FedotIndustrial(Fedot):
 
         self.__init_experiment_setup(**kwargs)
         self.solver = self.__init_solver()
-
+        self.ensemble_solver = None
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
         # self.reporter.path_to_save = kwargs.get('output_folder')
@@ -99,8 +99,11 @@ class FedotIndustrial(Fedot):
         return solver
 
     def _preprocessing_strategy(self, input_data):
-        if input_data.features.size > 1000000:
-            self.preprocessing_model = RAFensembler(composing_params=self.config_dict).fit(input_data)
+        if input_data.features.size > 500000:
+            self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
+            self.ensemble_solver.fit(input_data)
+            self.logger.info(f'Number of AutoMl models in ensemble - { self.ensemble_solver.n_splits}')
+            self.logger.info('RAF algorithm was applied')
         elif input_data.features.size > 100000:
             self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
             self.logger.info('PCA transformation was applied to input data due to dataset size')
@@ -130,7 +133,12 @@ class FedotIndustrial(Fedot):
         if self.preprocessing_model is not None:
             input_data.features = self.preprocessing_model.predict(input_data).predict
             self.logger.info(f'Train Dataset size after preprocessing - {input_data.features.shape}')
-        fitted_pipeline = self.solver.fit(input_data)
+
+        if self.ensemble_solver is not None:
+            fitted_pipeline = self.ensemble_solver
+            self.solver = self.ensemble_solver
+        else:
+            fitted_pipeline = self.solver.fit(input_data)
         return fitted_pipeline
 
     def predict(self, predict_data, **kwargs) -> np.ndarray:
@@ -264,7 +272,9 @@ class FedotIndustrial(Fedot):
         self.solver.history.save(f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
-        self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
+
+        return self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
+
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""

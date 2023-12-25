@@ -28,8 +28,15 @@ class FedotAutoMLClassificationStrategy(EvaluationStrategy):
         model.fit(train_data)
         return model
 
-    def predict(self, trained_operation, predict_data: InputData) -> OutputData:
-        return trained_operation.predict(predict_data, self.output_mode)
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        prediction = trained_operation.model.predict(predict_data, output_mode)
+        converted = self._convert_to_output(prediction, predict_data, predict_data.data_type)
+        return converted
+
+    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        prediction = trained_operation.model.predict(predict_data, output_mode)
+        converted = self._convert_to_output(prediction, predict_data, predict_data.data_type)
+        return converted
 
 
 class FedotAutoMLRegressionStrategy(EvaluationStrategy):
@@ -52,5 +59,12 @@ class FedotAutoMLRegressionStrategy(EvaluationStrategy):
         model.fit(train_data)
         return model
 
-    def predict(self, trained_operation, predict_data: InputData) -> OutputData:
-        return trained_operation.predict(predict_data)
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        prediction = trained_operation.model.predict(predict_data, output_mode)
+        converted = self._convert_to_output(prediction, predict_data, predict_data.data_type)
+        return converted
+
+    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        prediction = trained_operation.model.predict(predict_data, output_mode)
+        converted = self._convert_to_output(prediction, predict_data, predict_data.data_type)
+        return converted

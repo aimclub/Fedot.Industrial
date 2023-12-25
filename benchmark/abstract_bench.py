@@ -64,15 +64,15 @@ class AbstractBenchmark(object):
         model.fit(train_data)
         prediction = model.predict(test_data)
         model.save_best_model()
-        model.solver.current_pipeline.save(path=experiment_setup['output_folder'])
-        model.save_optimization_history()
         try:
+            model.solver.current_pipeline.save(path=experiment_setup['output_folder'])
+            model.save_optimization_history()
             model.plot_operation_distribution(mode='each')
             model.plot_fitness_by_generation()
         except Exception:
             print('No_visualisation')
         gc.collect()
-        return prediction, model.predict_data.target
+        return prediction.squeeze(), model.predict_data.target
 
     def finetune_loop(self, dataset, experiment_setup: dict = None):
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()

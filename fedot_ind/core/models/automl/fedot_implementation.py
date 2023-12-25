@@ -13,7 +13,7 @@ class FedotClassificationImplementation(ModelImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         if not params:
             params = OperationParameters()
-        self.model = Fedot(problem='classification', available_operations=self.AVAILABLE_OPERATIONS, **params.to_dict())
+        self.model = Fedot(available_operations=self.AVAILABLE_OPERATIONS, **params.to_dict())
         super(FedotClassificationImplementation, self).__init__()
 
     def fit(self, input_data: InputData):
@@ -26,10 +26,11 @@ class FedotClassificationImplementation(ModelImplementation):
 
 class FedotRegressionImplementation(ModelImplementation):
     AVAILABLE_OPERATIONS = AVAILABLE_REG_OPERATIONS
+
     def __init__(self, params: Optional[OperationParameters] = None):
         if not params:
             params = OperationParameters()
-        self.model = Fedot(problem='regression', available_operations=self.AVAILABLE_OPERATIONS,
+        self.model = Fedot(available_operations=self.AVAILABLE_OPERATIONS,
                            **params.to_dict())
         super(FedotRegressionImplementation, self).__init__()
 

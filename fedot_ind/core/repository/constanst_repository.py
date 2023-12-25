@@ -100,19 +100,15 @@ class FedotOperationConstant(Enum):
         'isolation_forest_class']
 
     AVAILABLE_REG_OPERATIONS = ['rfr',
-                                'ridge',
                                 'scaling',
                                 'normalization',
                                 'pca',
                                 'xgbreg',
-                                'svr',
                                 'dtreg',
                                 'treg',
                                 'knnreg',
                                 'kernel_pca',
-                                'isolation_forest_reg',
-                                'rfe_lin_reg',
-                                'rfe_non_lin_reg']
+                                'isolation_forest_reg']
 
 
 class ModelCompressionConstant(Enum):

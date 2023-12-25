@@ -3,9 +3,10 @@ from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimiz
 
 experiment_setup = {'problem': 'regression',
                     'metric': 'rmse',
-                    'timeout': 180,
+                    'timeout': 90,
                     'num_of_generations': 10,
-                    'pop_size': 10,
+                    'pop_size': 20,
+                    'logging_level': 10,
                     'available_operations':
                         ['rfr',
                          'ridge',
@@ -27,12 +28,12 @@ experiment_setup = {'problem': 'regression',
                          'signal_extractor',
                          'topological_features'
                          ],
-                    'n_jobs': 4,
+                    'n_jobs': 1,
                     'initial_assumption': None,
                     'max_pipeline_fit_time': 10,
                     'with_tuning': False,
                     'early_stopping_iterations': 5,
-                    'early_stopping_timeout': 60,
+                    'early_stopping_timeout': 90,
                     'optimizer': IndustrialEvoOptimizer}
 
 if __name__ == "__main__":
@@ -45,14 +46,15 @@ if __name__ == "__main__":
                                   "BIDMC32HR",
                                   "BIDMC32RR",
                                   "BIDMC32SpO2",
-                                  "Covid3Month",
-                                  # "AppliancesEnergy",
+                                  # "Covid3Month",
+                                  #"AppliancesEnergy",
                                   # "HouseholdPowerConsumption1",
                                   # "HouseholdPowerConsumption2",
-                                  # "IEEEPPG",
+                                  "IEEEPPG",
                                   # "LiveFuelMoistureContent",
                                   # "NewsHeadlineSentiment",
                                   "NewsTitleSentiment",
                                   # "PPGDalia",
                               ])
     benchmark.run()
+
