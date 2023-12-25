@@ -107,7 +107,17 @@ def get_industrial_search_space(self):
             'C': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [1e-2, 10.0],
-                'type': 'continuous'}
+                'type': 'continuous'},
+
+            'penalty': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [['l1', 'l2', 'elasticnet']],
+                'type': 'categorical'},
+
+            'solver': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [['lbfgs', 'newton-cg', 'newton-cholesky', 'saga']],
+                'type': 'categorical'}
         },
         'rf': {
             'criterion': {

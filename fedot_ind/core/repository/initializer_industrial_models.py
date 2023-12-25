@@ -6,6 +6,7 @@ from random import choice, sample
 from typing import List, Iterable, Union, Optional
 
 import numpy as np
+from fedot.core.composer.metrics import QualityMetric, from_maximised_metric, F1
 
 from fedot.core.data.array_utilities import atleast_4d
 
@@ -34,6 +35,13 @@ from golem.core.optimisers.optimizer import GraphGenerationParams, AlgorithmPara
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.model_repository import INDUSTRIAL_PREPROC_MODEL, AtomizedModel
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
+
+import numpy as np
+from sklearn.metrics import f1_score
+
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.repository.tasks import TaskTypesEnum
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -355,6 +363,32 @@ def merge_predicts(*args) -> np.array:
         return np.concatenate(predicts, axis=1)
 
 
+@staticmethod
+@from_maximised_metric
+def metric(reference: InputData, predicted: OutputData) -> float:
+    n_classes = reference.num_classes
+    default_value = 0
+    output_mode = 'labels'
+    binary_averaging_mode = 'binary'
+    multiclass_averaging_mode = 'weighted'
+    if n_classes > 2:
+        additional_params = {'average': multiclass_averaging_mode}
+    else:
+        u, count = np.unique(np.ravel(reference.target), return_counts=True)
+        count_sort_ind = np.argsort(count)
+        pos_label = u[count_sort_ind[0]].item()
+        additional_params = {'average': binary_averaging_mode, 'pos_label': pos_label}
+    try:
+        return f1_score(y_true=reference.target, y_pred=predicted.predict,
+                        **additional_params)
+    except Exception:
+        additional_params = {'average': multiclass_averaging_mode}
+        if predicted.predict.shape[1] > reference.target.shape[1]:
+            predicted.predict = np.argmax(predicted.predict, axis=1)
+        return f1_score(y_true=reference.target, y_pred=predicted.predict,
+                        **additional_params)
+
+
 class IndustrialModels:
     def __init__(self):
         self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH, 'fedot_ind',
@@ -389,9 +423,9 @@ class IndustrialModels:
         setattr(ApiParamsRepository, "_get_default_mutations", _get_default_industrial_mutations)
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
+        setattr(F1, "merge_predicts", metric)
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
-        # common_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         return OperationTypesRepository
 
     def __enter__(self):

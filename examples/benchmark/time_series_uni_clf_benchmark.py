@@ -37,19 +37,19 @@ experiment_setup = {'problem': 'classification',
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
                              custom_datasets=[
-                                 # "Beef",
-                                 # "BeetleFly",
-                                 # "BirdChicken",
-                                 # "BME",
-                                 # "Car",
-                                 # "CBF",
-                                 # "Chinatown",
-                                 # "ChlorineConcentration",
-                                 # "CinCECGTorso",
-                                 # "Coffee",
-                                 # "Computers",
-                                 # "CricketX",
-                                 # "CricketY",
+                                 "Beef",
+                                 "BeetleFly",
+                                 "BirdChicken",
+                                 "BME",
+                                 "Car",
+                                 "CBF",
+                                 "Chinatown",
+                                 "ChlorineConcentration",
+                                 "CinCECGTorso",
+                                 "Coffee",
+                                 "Computers",
+                                 "CricketX",
+                                 "CricketY",
                                  "CricketZ",
                                  "Crop",
                                  "DiatomSizeReduction",
@@ -149,4 +149,6 @@ if __name__ == "__main__":
                                  "Yoga",
                              ],
                              use_small_datasets=True)
-    benchmark.finetune()
+    benchmark.create_report()
+    #benchmark.finetune()
+    #benchmark.run()

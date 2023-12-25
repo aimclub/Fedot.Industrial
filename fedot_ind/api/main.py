@@ -176,10 +176,8 @@ class FedotIndustrial(Fedot):
 
         """
         train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
-        if train_data.num_classes > 2:
-            metric = ClassificationMetricsEnum.f1
-        else:
-            metric = ClassificationMetricsEnum.accuracy
+
+        metric = ClassificationMetricsEnum.accuracy
         tuning_method = partial(SequentialTuner, inverse_node_order=True)
         tuning_method = SimultaneousTuner
         pipeline_tuner = TunerBuilder(train_data.task) \

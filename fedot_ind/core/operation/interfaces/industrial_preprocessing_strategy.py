@@ -1,16 +1,14 @@
 import warnings
 from copy import deepcopy
 
-import numpy as np
 from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.evaluation.common_preprocessing import FedotPreprocessingStrategy
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy, \
     convert_to_multivariate_model, is_multi_output_task
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
     *
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.operation_types_repository import OperationTypesRepository
+from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operation_type_from_id
 from fedot.utilities.random import ImplementationRandomStateHandler
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
@@ -92,7 +90,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                    target=predict_data.target,
                                    data_type=output_data_type,
                                    supplementary_data=predict_data.supplementary_data)
-
+        converted.predict = NumpyConverter(data=converted.predict).convert_to_torch_format()
         return converted
 
     def _sklearn_compatible_prediction(self, trained_operation, predict_data, output_mode: str = 'probs'):
@@ -290,7 +288,43 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         return converted
 
 
-class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
+class IndustrialCustomPreprocessingStrategy:
+    _operations_by_types = FEDOT_PREPROC_MODEL
+
+    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+        self.operation_impl = self._convert_to_operation(operation_type)
+        self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl, operation_type)
+        self.params_for_fit = params or OperationParameters()
+        self.operation_id = operation_type
+        self.output_mode = False
+
+    @property
+    def operation_type(self):
+        return get_operation_type_from_id(self.operation_id)
+
+    @property
+    def implementation_info(self) -> str:
+        return str(self._convert_to_operation(self.operation_type))
+
+    def _convert_to_operation(self, operation_type: str):
+        if operation_type in self._operations_by_types:
+            return self._operations_by_types[operation_type]
+        else:
+            raise ValueError(f'Impossible to obtain {self.__class__} strategy for {operation_type}')
+
+    def fit(self, train_data: InputData):
+        return self.multi_dim_dispatcher.fit(train_data, mode='custom_fit')
+
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default'):
+        return self.multi_dim_dispatcher.predict(trained_operation, predict_data,
+                                                 mode='feature_extraction', output_mode=output_mode)
+
+    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data,
+                                                         mode='feature_extraction', output_mode=output_mode)
+
+
+class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
     __operations_by_types = INDUSTRIAL_PREPROC_MODEL
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
@@ -334,7 +368,6 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
             :param output_mode:
         """
         prediction = trained_operation.transform(predict_data)
-        # Convert prediction to output (if it is required)
         converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
         return converted
 
@@ -353,26 +386,6 @@ class IndustrialPreprocessingStrategy(FedotPreprocessingStrategy):
         return converted
 
 
-class IndustrialCustomPreprocessingStrategy(FedotPreprocessingStrategy):
-    _operations_by_types = FEDOT_PREPROC_MODEL
-
-    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
-        self.operation_impl = self._convert_to_operation(operation_type)
-        self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl, operation_type)
-        super().__init__(operation_type, params)
-
-    def fit(self, train_data: InputData):
-        return self.multi_dim_dispatcher.fit(train_data, mode='custom_fit')
-
-    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default'):
-        return self.multi_dim_dispatcher.predict(trained_operation, predict_data,
-                                                 mode='feature_extraction', output_mode=output_mode)
-
-    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data,
-                                                         mode='feature_extraction', output_mode=output_mode)
-
-
 class IndustrialClassificationPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
     """ Strategy for applying custom algorithms from FEDOT to preprocess data
     for classification task
@@ -389,7 +402,7 @@ class IndustrialClassificationPreprocessingStrategy(IndustrialCustomPreprocessin
         return self.multi_dim_dispatcher.fit(train_data, mode='feature_extraction')
 
 
-class IndustrialSkLearnEvaluationStrategy(EvaluationStrategy):
+class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy):
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
