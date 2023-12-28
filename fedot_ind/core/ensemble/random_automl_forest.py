@@ -26,15 +26,18 @@ class RAFensembler:
         self.head = head_dict[composing_params['problem']]
         del self.atomized_automl_params['available_operations']
 
-    def fit(self, train_data, n_splits=None):
-        for split in [5, 4, 3, 2]:
-            if train_data.features.shape[0] % split == 0:
-                self.n_splits = split
-                break
-            else:
-                self.n_splits = 1
-        new_features = np.split(train_data.features, self.n_splits)
-        new_target = np.split(train_data.target, self.n_splits)
+    def fit(self, train_data, n_splits=5):
+        if n_splits is None:
+            for split in [5, 4, 3, 2]:
+                if train_data.features.shape[0] % split == 0:
+                    self.n_splits = split
+                    break
+                else:
+                    self.n_splits = 1
+        else:
+            self.n_splits = n_splits
+        new_features = np.array_split(train_data.features, self.n_splits)
+        new_target = np.array_split(train_data.target, self.n_splits)
         self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
 
     def predict(self, test_data):

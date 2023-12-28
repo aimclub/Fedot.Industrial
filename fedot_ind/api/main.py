@@ -85,6 +85,7 @@ class FedotIndustrial(Fedot):
         self.__init_experiment_setup(**kwargs)
         self.solver = self.__init_solver()
         self.ensemble_solver = None
+        self.preprocessing = True
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
         # self.reporter.path_to_save = kwargs.get('output_folder')
@@ -99,20 +100,21 @@ class FedotIndustrial(Fedot):
         return solver
 
     def _preprocessing_strategy(self, input_data):
-        if input_data.features.size > 500000:
-            self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
-            self.ensemble_solver.fit(input_data)
-            self.logger.info(f'Number of AutoMl models in ensemble - { self.ensemble_solver.n_splits}')
-            self.logger.info('RAF algorithm was applied')
-        elif input_data.features.size > 100000:
-            self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
-            self.logger.info('PCA transformation was applied to input data due to dataset size')
-            if len(input_data.features.shape) == 3:
-                self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
-            else:
-                self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
-            self.preprocessing_model.fit(input_data)
-            self.logger.info('Dimension reduction finished')
+        if self.preprocessing:
+            if input_data.features.size > 1000000:
+                self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
+                self.ensemble_solver.fit(input_data)
+                self.logger.info(f'Number of AutoMl models in ensemble - { self.ensemble_solver.n_splits}')
+                self.logger.info('RAF algorithm was applied')
+            elif input_data.features.size > 100000:
+                self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
+                self.logger.info('PCA transformation was applied to input data due to dataset size')
+                if len(input_data.features.shape) == 3:
+                    self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
+                else:
+                    self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
+                self.preprocessing_model.fit(input_data)
+                self.logger.info('Dimension reduction finished')
 
     def fit(self, input_data, **kwargs) -> Pipeline:
         """

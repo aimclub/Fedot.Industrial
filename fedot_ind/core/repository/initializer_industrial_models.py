@@ -6,7 +6,7 @@ from random import choice, sample
 from typing import List, Iterable, Union, Optional
 
 import numpy as np
-from fedot.core.composer.metrics import QualityMetric, from_maximised_metric, F1
+from fedot.core.composer.metrics import QualityMetric, from_maximised_metric, F1, Accuracy
 
 from fedot.core.data.array_utilities import atleast_4d
 
@@ -36,11 +36,12 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import GraphGenerationParams, AlgorithmParameters
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.repository.model_repository import INDUSTRIAL_PREPROC_MODEL, AtomizedModel
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 import numpy as np
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, accuracy_score
 
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.pipelines.pipeline import Pipeline
@@ -277,23 +278,14 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Seque
         ind_mutations.add_preprocessing,
         # IndustrialMutations().single_drop,
         ind_mutations.single_add
+
     ]
-    return mutations
-
-
-def _get_default_mutations(task_type: TaskTypesEnum) -> Sequence[MutationTypesEnum]:
-    mutations = [parameter_change_mutation,
-                 MutationTypesEnum.single_change,
-                 MutationTypesEnum.single_drop,
-                 MutationTypesEnum.single_add]
-
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
         mutations.append(boosting_mutation)
     # TODO remove workaround after validation fix
     if task_type is not TaskTypesEnum.ts_forecasting:
         mutations.append(MutationTypesEnum.single_edge)
-
     return mutations
 
 
@@ -343,32 +335,31 @@ def preprocess_predicts(*args) -> List[np.array]:
 
 def merge_predicts(*args) -> np.array:
     predicts = args[1]
-    predicts = [x.reshape(-1, 1) if len(x.shape) == 1 else x for x in predicts]
 
-    channel_shape, elem_shape = [(x.shape[1], x.shape[2]) if len(x.shape) > 2 else (1, x.shape[0]) for x in predicts][0]
+    predicts = [NumpyConverter(data=prediction).convert_to_torch_format() for prediction in predicts]
+    sample_shape, channel_shape, elem_shape = [(x.shape[0], x.shape[1], x.shape[2]) for x in predicts][0]
 
-    chanel_concat = [x.shape[1] == channel_shape if len(x.shape) > 2
-                     else 1 == channel_shape for x in predicts]
+    sample_wise_concat = [x.shape[0] == sample_shape for x in predicts]
+    chanel_concat = [x.shape[1] == channel_shape for x in predicts]
+    element_wise_concat = [x.shape[2] == elem_shape for x in predicts]
 
-    element_wise_concat = [x.shape[2] == elem_shape if len(x.shape) > 2
-                           else x.shape[1] == elem_shape for x in predicts]
+    channel_match = all(chanel_concat)
+    element_match = all(element_wise_concat)
+    sample_match = all(sample_wise_concat)
 
-    if all(chanel_concat) and all(element_wise_concat):
-        try:
-            return np.concatenate(predicts, axis=1)
-        except Exception:
-            return np.concatenate(predicts, axis=0)
-    elif not all(chanel_concat) and not all(element_wise_concat):
-        prediction_2d = np.concatenate([x.reshape(x.shape[0], x.shape[1] * x.shape[2]) if len(x.shape) > 2
-                                        else x for x in predicts], axis=1)
-        return prediction_2d.reshape(prediction_2d.shape[0], 1, prediction_2d.shape[1])
-    else:
+    if channel_match and element_match:
         return np.concatenate(predicts, axis=1)
+    elif sample_match and channel_match:
+        return np.concatenate(predicts, axis=2)
+    else:
+        prediction_2d = np.concatenate([x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
+        return prediction_2d.reshape(prediction_2d.shape[0], 1, prediction_2d.shape[1])
+
 
 
 @staticmethod
 @from_maximised_metric
-def metric(reference: InputData, predicted: OutputData) -> float:
+def metric_f1(reference: InputData, predicted: OutputData) -> float:
     n_classes = reference.num_classes
     default_value = 0
     output_mode = 'labels'
@@ -381,15 +372,25 @@ def metric(reference: InputData, predicted: OutputData) -> float:
         count_sort_ind = np.argsort(count)
         pos_label = u[count_sort_ind[0]].item()
         additional_params = {'average': binary_averaging_mode, 'pos_label': pos_label}
-    try:
-        return f1_score(y_true=reference.target, y_pred=predicted.predict,
-                        **additional_params)
-    except Exception:
-        additional_params = {'average': multiclass_averaging_mode}
-        if predicted.predict.shape[1] > reference.target.shape[1]:
-            predicted.predict = np.argmax(predicted.predict, axis=1)
-        return f1_score(y_true=reference.target, y_pred=predicted.predict,
-                        **additional_params)
+    if predicted.predict.shape[1] > reference.target.shape[1]:
+        predicted.predict = np.argmax(predicted.predict, axis=1)
+    elif len(predicted.predict.shape) >= 2:
+        predicted.predict = predicted.predict.squeeze()
+        reference.target = reference.target.squeeze()
+    return f1_score(y_true=reference.target, y_pred=predicted.predict,
+                    **additional_params)
+
+
+@staticmethod
+@from_maximised_metric
+def metric_acc(reference: InputData, predicted: OutputData) -> float:
+    if predicted.predict.shape[1] > reference.target.shape[1]:
+        predicted.predict = np.argmax(predicted.predict, axis=1)
+    elif len(predicted.predict.shape) >= 2:
+        predicted.predict = predicted.predict.squeeze()
+        reference.target = reference.target.squeeze()
+
+    return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
 
 
 def predict_operation(self, fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
@@ -482,7 +483,8 @@ class IndustrialModels:
         setattr(ApiParamsRepository, "_get_default_mutations", _get_default_industrial_mutations)
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
-        setattr(F1, "metric", metric)
+        setattr(F1, "metric", metric_f1)
+        setattr(Accuracy, "metric", metric_acc)
         setattr(Operation, "_predict", predict_operation)
         setattr(Operation, "predict", predict)
         setattr(Operation, "predict_for_fit", predict_for_fit)

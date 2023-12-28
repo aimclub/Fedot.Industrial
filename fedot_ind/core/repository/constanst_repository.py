@@ -93,11 +93,15 @@ class FedotOperationConstant(Enum):
         'scaling',
         'normalization',
         'pca',
-        'catboost',
-        'svc',
         'knn',
+        'xgboost',
+        'multinb',
+        'dt',
+        'mlp',
+        #'lgbm',
         'kernel_pca',
         'isolation_forest_class']
+
 
     AVAILABLE_REG_OPERATIONS = ['rfr',
                                 'scaling',

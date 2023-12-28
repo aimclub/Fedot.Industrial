@@ -2,7 +2,8 @@ from enum import Enum
 
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
     TopologicalFeaturesImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnRegImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
+    FedotKnnRegImplementation
 
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from lightgbm import LGBMClassifier, LGBMRegressor
@@ -55,13 +56,14 @@ class AtomizedModel(Enum):
     }
     SKLEARN_CLF_MODELS = {
         'xgboost': XGBClassifier,
+        'knn': FedotKnnClassImplementation,
         'logit': SklearnLogReg,
         'bernb': SklearnBernoulliNB,
         'multinb': SklearnMultinomialNB,
         'dt': DecisionTreeClassifier,
         'rf': RandomForestClassifier,
         'mlp': MLPClassifier,
-        'lgbm': LGBMClassifier,
+        'lgbm': LGBMClassifier
 
     }
     FEDOT_PREPROC_MODEL = {

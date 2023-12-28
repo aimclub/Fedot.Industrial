@@ -374,7 +374,7 @@
       "tags": ["linear"]
     },
     "knn": {
-      "meta": "custom_class",
+      "meta": "sklearn_class",
       "presets": ["fast_train"],
       "tags": [
         "simple",
