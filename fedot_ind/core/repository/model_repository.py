@@ -42,6 +42,11 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     NonLinearClassFSImplementation, LinearClassFSImplementation
+from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
+from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
+from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 
 
 class AtomizedModel(Enum):
@@ -104,6 +109,13 @@ class AtomizedModel(Enum):
         'lgbmreg': LGBMRegressor,
         'knnreg': FedotKnnRegImplementation
     }
+    NEURAL_MODEL = {
+        'inception_model': InceptionTimeModel,
+        'omniscale_model': OmniScaleModel,
+        'tst_model': TSTModel,
+        'resnet_model': ResNetModel,
+        'xcm_model': XCModel
+    }
 
 
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
@@ -111,3 +123,4 @@ INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
 SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
+NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value

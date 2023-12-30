@@ -60,7 +60,8 @@ class IndustrialMutations:
         self.task_type = Task(task_type)
         self.industrial_data_operations = [*list(AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
-                                           *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys())]
+                                           *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
+                                           *list(AtomizedModel.NEURAL_MODEL.value.keys())]
 
     def transform_to_pipeline_node(self, node):
         return self.node_adapter._transform_to_pipeline_node(node)
@@ -347,7 +348,7 @@ def merge_predicts(*args) -> np.array:
     element_match = all(element_wise_concat)
     sample_match = all(sample_wise_concat)
 
-    if channel_match and element_match:
+    if sample_match and element_match:
         return np.concatenate(predicts, axis=1)
     elif sample_match and channel_match:
         return np.concatenate(predicts, axis=2)

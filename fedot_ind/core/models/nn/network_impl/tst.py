@@ -19,9 +19,6 @@ from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Transpose, Flatten
 from fedot_ind.core.models.nn.network_modules.layers.padding_layers import Pad1d
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
-
 
 class _TSTEncoderLayer(Module):
     def __init__(self,
@@ -295,22 +292,3 @@ if __name__ == "__main__":
                          .add_node('quantile_extractor', branch_idx=1) \
                          .add_node('rf', branch_idx=1) \
                          .join_branches('logit')}
-
-    for dataset in dataset_list:
-        try:
-            train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-            input_data = init_input_data(train_data[0], train_data[1])
-            val_data = init_input_data(test_data[0], test_data[1])
-            metric_dict = {}
-            for model in pipeline_dict:
-                with IndustrialModels():
-                    pipeline = pipeline_dict[model].build()
-                    pipeline.fit(input_data)
-                    target = pipeline.predict(val_data).predict
-                    metric = evaluate_metric(target=test_data[1], prediction=target)
-                metric_dict.update({model: metric})
-            result_dict.update({dataset: metric_dict})
-        except Exception:
-            print('ERROR')
-    result_df = pd.DataFrame(result_dict)
-    print(result_df)

@@ -69,7 +69,7 @@ class MiniRocketFeatures(nn.Module):
         idxs = np.random.choice(num_samples, chunksize, False)
         self.fitting = True
         if isinstance(X, np.ndarray):
-            self(torch.from_numpy(X[idxs]).to(self.kernels.device))
+            self(torch.from_numpy(X[idxs]).float().to(self.kernels.device))
         else:
             self(X[idxs].to(self.kernels.device))
         self.fitting = False
@@ -175,7 +175,7 @@ def get_minirocket_features(data,
     device = torch.device(torch.cuda.current_device()) if use else torch.device('cpu')
     model = model.to(device)
     if isinstance(data, np.ndarray):
-        data = torch.from_numpy(data).to(device)
+        data = torch.from_numpy(data).float().to(device)
     _features = []
     for oi in torch.split(data, chunksize):
         _features.append(model(oi))
@@ -311,7 +311,6 @@ class MiniRocketExtractor(BaseExtractor):
     def generate_minirocket_features(self, ts: np.array) -> InputData:
         return self._generate_features_from_ts(ts)
 
-    @convert_to_3d_torch_array
     def generate_features_from_ts(self, ts_data: np.array,
                                   dataset_name: str = None):
         return self.generate_minirocket_features(ts=ts_data)
