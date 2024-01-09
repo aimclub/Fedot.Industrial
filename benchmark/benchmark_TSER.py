@@ -60,20 +60,3 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
 
-    # def get_catplot(dataset: pd.DataFrame, metric: str, save_fig: bool = False):
-    #     sns.set(font_scale=1.5)
-    #     g = sns.catplot(
-    #         data=dataset,
-    #         kind="bar",
-    #         x="experiment", y=metric, hue="type",
-    #         palette="tab10", alpha=.6, height=5, aspect=2)
-    #     g.despine(left=True)
-    #     g.set_axis_labels("", metric)
-    #     g.legend.set_title("")
-    #     g.fig.suptitle(f'Average {metric.upper()} by experiment type',
-    #                    fontsize=14,
-    #                    )
-    #     if save_fig:
-    #         g.savefig(f'./tsc/benchmark_results/{metric}.png')
-    #
-    #     plt.show()

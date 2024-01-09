@@ -30,7 +30,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def __convert_input_data(self, input_data):
         if len(input_data.features.shape) > 2:
-            converted_data = self._convert_input_data(input_data, mode='model_fitting')
+            converted_data = self._convert_input_data(input_data)
         else:
             converted_data = input_data
         return converted_data
@@ -45,25 +45,13 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 prediction = trained_operation.transform(predict_data)
         return prediction
 
-    def __convert_dimensions(self, predict_data, prediction, output_mode: str = 'default'):
+    def __convert_dimensions(self, predict_data, prediction):
 
         multi_dim_features = len(predict_data.features.shape) > 2
         prob_prediction = len(prediction.shape) == 2
         sklearn_output_mode = len(prediction.shape) == 1
         multi_dim_prediction = len(prediction.shape) > 2
         labels_multi_dim = False
-
-        if multi_dim_prediction:
-            labels_multi_dim = prediction.shape[2] == 1 and prediction.shape[1] == 1
-
-        if multi_dim_features and prob_prediction:
-            new_shape = prediction.shape[0], 1, prediction.shape[1]
-            prediction = prediction.reshape(new_shape)
-        elif sklearn_output_mode and output_mode != 'labels':
-            prediction = prediction.reshape(-1, 1, 1)
-
-        if labels_multi_dim:
-            prediction = prediction.squeeze()
         return prediction
 
     def _convert_to_output(self,
@@ -72,10 +60,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                            output_data_type: DataTypesEnum = DataTypesEnum.table,
                            output_mode: str = 'default') -> OutputData:
         if type(prediction) is OutputData:
-            prediction.predict = self.__convert_dimensions(predict_data, prediction.predict, output_mode)
             converted = prediction
         else:
-            prediction = self.__convert_dimensions(predict_data, prediction, output_mode)
             converted = OutputData(idx=predict_data.idx,
                                    features=predict_data.features,
                                    predict=prediction,
@@ -83,7 +69,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                    target=predict_data.target,
                                    data_type=output_data_type,
                                    supplementary_data=predict_data.supplementary_data)
-        converted.predict = NumpyConverter(data=converted.predict).convert_to_torch_format()
         return converted
 
     def _sklearn_compatible_prediction(self, trained_operation, predict_data, output_mode: str = 'probs'):
@@ -98,7 +83,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             else:
                 n_classes = len(trained_operation.classes_)
             if output_mode == 'labels':
-                prediction = trained_operation.predict(features)
+                prediction = trained_operation.predict(features).reshape(-1,1)
             elif output_mode in ['probs', 'full_probs', 'default']:
                 prediction = trained_operation.predict_proba(features)
                 if n_classes < 2:
@@ -132,7 +117,13 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                     supplementary_data=train_data.supplementary_data) for features in
                           train_data.features.swapaxes(1, 0)]
         elif self.mode == 'multi_dimensional':
-            input_data = train_data
+            features = NumpyConverter(data=train_data.features).convert_to_torch_format()
+            input_data = InputData(idx=train_data.idx,
+                                   features=features,
+                                   target=train_data.target,
+                                   task=train_data.task,
+                                   data_type=train_data.data_type,
+                                   supplementary_data=train_data.supplementary_data)
         return input_data
 
     def _predict_for_ndim(self, predict_data, trained_operation):
@@ -163,7 +154,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def _custom_fit(self, train_data):
         operation_implementation = self.operation_impl(self.params_for_fit)
-        operation_implementation = operation_implementation.fit(train_data)
+        operation_implementation.fit(train_data)
         return operation_implementation
 
     def fit_one_sample(self, train_data: InputData):

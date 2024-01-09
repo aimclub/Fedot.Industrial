@@ -1,0 +1,40 @@
+import numpy as np
+from fedot.core.composer.metrics import from_maximised_metric
+from fedot.core.data.data import InputData, OutputData
+from sklearn.metrics import accuracy_score, f1_score
+
+
+@staticmethod
+@from_maximised_metric
+def metric_f1(reference: InputData, predicted: OutputData) -> float:
+    n_classes = reference.num_classes
+    default_value = 0
+    output_mode = 'labels'
+    binary_averaging_mode = 'binary'
+    multiclass_averaging_mode = 'weighted'
+    if n_classes > 2:
+        additional_params = {'average': multiclass_averaging_mode}
+    else:
+        u, count = np.unique(np.ravel(reference.target), return_counts=True)
+        count_sort_ind = np.argsort(count)
+        pos_label = u[count_sort_ind[0]].item()
+        additional_params = {'average': binary_averaging_mode, 'pos_label': pos_label}
+    if predicted.predict.shape[1] > reference.target.shape[1]:
+        predicted.predict = np.argmax(predicted.predict, axis=1)
+    elif len(predicted.predict.shape) >= 2:
+        predicted.predict = predicted.predict.squeeze()
+        reference.target = reference.target.squeeze()
+    return f1_score(y_true=reference.target, y_pred=predicted.predict,
+                    **additional_params)
+
+
+@staticmethod
+@from_maximised_metric
+def metric_acc(reference: InputData, predicted: OutputData) -> float:
+    if predicted.predict.shape[1] > reference.target.shape[1]:
+        predicted.predict = np.argmax(predicted.predict, axis=1)
+    elif len(predicted.predict.shape) >= 2:
+        predicted.predict = predicted.predict.squeeze()
+        reference.target = reference.target.squeeze()
+
+    return accuracy_score(y_true=reference.target, y_pred=predicted.predict)

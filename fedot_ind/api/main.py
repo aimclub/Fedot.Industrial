@@ -9,7 +9,7 @@ from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.quality_metrics_repository import ClassificationMetricsEnum
+from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.api.utils.checkers_collections import DataCheck
@@ -86,6 +86,7 @@ class FedotIndustrial(Fedot):
         self.solver = self.__init_solver()
         self.ensemble_solver = None
         self.preprocessing = True
+
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
         # self.reporter.path_to_save = kwargs.get('output_folder')
@@ -104,7 +105,7 @@ class FedotIndustrial(Fedot):
             if input_data.features.size > 1000000:
                 self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
                 self.ensemble_solver.fit(input_data)
-                self.logger.info(f'Number of AutoMl models in ensemble - { self.ensemble_solver.n_splits}')
+                self.logger.info(f'Number of AutoMl models in ensemble - {self.ensemble_solver.n_splits}')
                 self.logger.info('RAF algorithm was applied')
             elif input_data.features.size > 100000:
                 self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
@@ -116,7 +117,9 @@ class FedotIndustrial(Fedot):
                 self.preprocessing_model.fit(input_data)
                 self.logger.info('Dimension reduction finished')
 
-    def fit(self, input_data, **kwargs) -> Pipeline:
+    def fit(self,
+            input_data,
+            **kwargs) -> Pipeline:
         """
         Method for training Industrial model.
 
@@ -126,6 +129,7 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         Returns:
+            :param input_data:
             :class:`Pipeline` object.
 
         """
@@ -143,7 +147,9 @@ class FedotIndustrial(Fedot):
             fitted_pipeline = self.solver.fit(input_data)
         return fitted_pipeline
 
-    def predict(self, predict_data, **kwargs) -> np.ndarray:
+    def predict(self,
+                predict_data,
+                **kwargs) -> np.ndarray:
         """
         Method to obtain prediction labels from trained Industrial model.
 
@@ -152,6 +158,7 @@ class FedotIndustrial(Fedot):
 
         Returns:
             the array with prediction values
+            :param predict_data:
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
@@ -160,7 +167,9 @@ class FedotIndustrial(Fedot):
             self.logger.info(f'Test Dataset size after preprocessing - {self.predict_data.features.shape}')
         return self.solver.predict(self.predict_data)
 
-    def predict_proba(self, predict_data, **kwargs) -> np.ndarray:
+    def predict_proba(self,
+                      predict_data,
+                      **kwargs) -> np.ndarray:
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -169,6 +178,7 @@ class FedotIndustrial(Fedot):
 
         Returns:
             the array with prediction probabilities
+            :param predict_data:
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['task']).check_input_data()
@@ -177,7 +187,9 @@ class FedotIndustrial(Fedot):
             self.logger.info(f'Test Dataset size after preprocessing - {self.predict_data.features.shape}')
         return self.solver.predict_proba(self.predict_data)
 
-    def finetune(self, train_data, tuning_params) -> np.ndarray:
+    def finetune(self,
+                 train_data,
+                 tuning_params):
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -186,12 +198,14 @@ class FedotIndustrial(Fedot):
 
         Returns:
             the array with prediction probabilities
+            :param train_data:
+            :param tuning_params:
 
         """
         train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
 
         metric = ClassificationMetricsEnum.accuracy
-        tuning_method = partial(SequentialTuner, inverse_node_order=True)
+        #tuning_method = partial(SequentialTuner, inverse_node_order=True)
         tuning_method = SimultaneousTuner
         pipeline_tuner = TunerBuilder(train_data.task) \
             .with_tuner(tuning_method) \
@@ -276,7 +290,6 @@ class FedotIndustrial(Fedot):
     def save_best_model(self):
 
         return self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
-
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""

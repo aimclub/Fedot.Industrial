@@ -1,7 +1,7 @@
 from enum import Enum
 
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
-    TopologicalFeaturesImplementation
+# from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
+#     TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
     FedotKnnRegImplementation
 
@@ -57,7 +57,7 @@ class AtomizedModel(Enum):
         'resample': ResampleImplementation,
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,
-        'topological_features': TopologicalFeaturesImplementation
+       # 'topological_features': TopologicalFeaturesImplementation
     }
     SKLEARN_CLF_MODELS = {
         'xgboost': XGBClassifier,

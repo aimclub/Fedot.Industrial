@@ -40,6 +40,8 @@ class QuantileExtractor(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size', 0)
+        if self.window_size == 0:
+            _ = 1
         self.stride = params.get('stride', 1)
         self.var_threshold = 0.1
         self.logging_params.update({'Wsize': self.window_size,
@@ -72,7 +74,6 @@ class QuantileExtractor(BaseExtractor):
                                                                       window_size=self.window_size)
         else:
             window_stat_features = self.get_statistical_features(ts)
-
         return self._concatenate_global_and_local_feature(global_features, window_stat_features)
 
     def generate_features_from_ts(self,

@@ -25,6 +25,7 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         self.method_dict = {'EigenBasisImplementation': self.filter_dimension_num,
                             'FourierBasisImplementation': self.filter_signal,
                             'LargeFeatureSpace': self.filter_feature_num}
+        self.model = None
 
     def _transform(self, operation):
         self._init_params()
@@ -88,16 +89,22 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
                 return sample
 
     def filter_feature_num(self, data):
-        model = PipelineNode('pca', params={'n_components': self.explained_dispersion})
-        return model.fit(data).predict
+        if self.model is None:
+            self.model = PipelineNode('pca', params={'n_components': self.explained_dispersion})
+            self.model.fit(data)
+            prediction = self.model.predict(data)
+        else:
+            prediction = self.model.predict(data)
+        return prediction
 
     def filter_signal(self, data):
-        dominant_window_size = WindowSizeSelector(method='dff').get_window_size(data)
-        model = np.median(data) + FourierBasisImplementation(
-            params={'threshold': dominant_window_size,
-                    'approximation': self.fourier_approx}). \
-            transform(data).features
-        return model
+        if self.model is None:
+            dominant_window_size = WindowSizeSelector(method='dff').get_window_size(data)
+            self.model = FourierBasisImplementation(
+                params={'threshold': dominant_window_size,
+                        'approximation': self.fourier_approx})
+
+        return np.median(data) + self.model.transform(data).features
 
 
 class FeatureSpaceReducer:

@@ -53,14 +53,17 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             try:
                 experiment_setup = deepcopy(self.experiment_setup)
                 prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
-                metric = Accuracy(target, prediction).metric()
+                try:
+                    metric = Accuracy(target, prediction).metric()
+                except Exception as exxx:
+                    metric = Accuracy(target, np.argmax(prediction, axis=1)).metric()
                 metric_dict.update({dataset_name: metric})
                 basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
                 dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
                                             'metrics_report.csv')
                 basic_results.to_csv(dataset_path)
-            except Exception:
-                print('Skip dataset')
+            except Exception as ex:
+                print(f'Skip dataset.{ex}')
             gc.collect()
         basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
@@ -107,18 +110,18 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         _ = []
         names = []
         for dataset_name in self.custom_datasets:
-                model_result_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/metrics_report.csv'
-                if os.path.isfile(model_result_path):
-                    df = pd.read_csv(model_result_path, index_col=0, sep = ',')
-                    df = df.fillna(0)
-                    if 'Fedot_Industrial_finetuned' not in df.columns:
-                        df['Fedot_Industrial_finetuned'] = 0
-                    metrics = df.loc[dataset_name, 'Fedot_Industrial':'Fedot_Industrial_finetuned']
-                    _.append(metrics.T.values)
-                    names.append(dataset_name)
-        stacked_resutls = np.stack(_,axis=1).T
-        df_res = pd.DataFrame(stacked_resutls,index=names)
-        df_res.columns = ['Fedot_Industrial','Fedot_Industrial_finetuned']
+            model_result_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/metrics_report.csv'
+            if os.path.isfile(model_result_path):
+                df = pd.read_csv(model_result_path, index_col=0, sep=',')
+                df = df.fillna(0)
+                if 'Fedot_Industrial_finetuned' not in df.columns:
+                    df['Fedot_Industrial_finetuned'] = 0
+                metrics = df.loc[dataset_name, 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                _.append(metrics.T.values)
+                names.append(dataset_name)
+        stacked_resutls = np.stack(_, axis=1).T
+        df_res = pd.DataFrame(stacked_resutls, index=names)
+        df_res.columns = ['Fedot_Industrial', 'Fedot_Industrial_finetuned']
         del df['Fedot_Industrial'], df['Fedot_Industrial_finetuned']
         df = df.join(df_res)
         df = df.fillna(0)

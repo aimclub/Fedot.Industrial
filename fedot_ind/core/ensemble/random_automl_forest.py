@@ -1,10 +1,8 @@
 import numpy as np
 from fedot.core.data.data import InputData
-from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
-from sklearn.model_selection import KFold
 from fedot.core.data.multi_modal import MultiModalData
 
 
@@ -28,12 +26,10 @@ class RAFensembler:
 
     def fit(self, train_data, n_splits=5):
         if n_splits is None:
-            for split in [5, 4, 3, 2]:
+            for split in [4, 3, 2]:
                 if train_data.features.shape[0] % split == 0:
                     self.n_splits = split
                     break
-                else:
-                    self.n_splits = 1
         else:
             self.n_splits = n_splits
         new_features = np.array_split(train_data.features, self.n_splits)

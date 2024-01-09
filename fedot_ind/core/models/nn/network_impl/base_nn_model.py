@@ -152,26 +152,36 @@ class BaseNeuralModel:
 
     @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
-        self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
+        try:
+            self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
+        except Exception:
+            _ = 1
 
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
-        self.model.eval()
-        x_test = Tensor(x_test).to(default_device())
-        pred = self.model(x_test)
-        return self._convert_predict(pred, output_mode)
+        try:
+            self.model.eval()
+            x_test = Tensor(x_test).to(default_device())
+            pred = self.model(x_test)
+            return self._convert_predict(pred, output_mode)
+
+        except Exception:
+            _ = 1
 
     def fit(self,
             input_data: InputData):
         """
         Method for feature generation for all series
         """
-        self.num_classes = input_data.num_classes
-        self.target = input_data.target
-        self.task_type = input_data.task
-        self._fit_model(input_data)
-        torch.cuda.empty_cache()
-        gc.collect()
+        try:
+            self.num_classes = input_data.num_classes
+            self.target = input_data.target
+            self.task_type = input_data.task
+            self._fit_model(input_data)
+            torch.cuda.empty_cache()
+            gc.collect()
+        except Exception:
+            _ = 1
 
     @fedot_data_type
     def predict(self,
