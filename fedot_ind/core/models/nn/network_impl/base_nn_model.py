@@ -85,7 +85,9 @@ class BaseNeuralModel:
         return predict
 
     def _prepare_data(self, ts, split_data: bool = True):
+
         stratify = _are_stratification_allowed(ts, 0.7)
+
         if split_data and stratify:
             train_data, val_data = train_test_data_setup(ts, stratify=stratify, shuffle_flag=True, split_ratio=0.7)
             train_dataset = self._create_dataset(train_data)
@@ -111,7 +113,6 @@ class BaseNeuralModel:
                                             steps_per_epoch=len(train_loader),
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
-        args = {'lradj': 'type2'}
         if val_loader is None:
             print('Not enough class samples for valudation')
 
@@ -152,36 +153,26 @@ class BaseNeuralModel:
 
     @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
-        try:
-            self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
-        except Exception:
-            _ = 1
+        self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
 
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
-        try:
-            self.model.eval()
-            x_test = Tensor(x_test).to(default_device())
-            pred = self.model(x_test)
-            return self._convert_predict(pred, output_mode)
-
-        except Exception:
-            _ = 1
+        self.model.eval()
+        x_test = Tensor(x_test).to(default_device())
+        pred = self.model(x_test)
+        return self._convert_predict(pred, output_mode)
 
     def fit(self,
             input_data: InputData):
         """
         Method for feature generation for all series
         """
-        try:
-            self.num_classes = input_data.num_classes
-            self.target = input_data.target
-            self.task_type = input_data.task
-            self._fit_model(input_data)
-            torch.cuda.empty_cache()
-            gc.collect()
-        except Exception:
-            _ = 1
+        self.num_classes = input_data.num_classes
+        self.target = input_data.target
+        self.task_type = input_data.task
+        self._fit_model(input_data)
+        torch.cuda.empty_cache()
+        gc.collect()
 
     @fedot_data_type
     def predict(self,

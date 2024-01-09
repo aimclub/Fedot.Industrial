@@ -45,15 +45,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 prediction = trained_operation.transform(predict_data)
         return prediction
 
-    def __convert_dimensions(self, predict_data, prediction):
-
-        multi_dim_features = len(predict_data.features.shape) > 2
-        prob_prediction = len(prediction.shape) == 2
-        sklearn_output_mode = len(prediction.shape) == 1
-        multi_dim_prediction = len(prediction.shape) > 2
-        labels_multi_dim = False
-        return prediction
-
     def _convert_to_output(self,
                            prediction,
                            predict_data: InputData,

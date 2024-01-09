@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import pandas as pd
 
+from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.metrics.metrics_implementation import RMSE
 from benchmark.abstract_bench import AbstractBenchmark
@@ -59,4 +60,17 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
             return results
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
+
+    def show_composite_pipeline(self):
+        for dataset_name in self.custom_datasets:
+            composed_model_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/0_pipeline_saved'
+            if os.path.isdir(composed_model_path):
+                self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+                experiment_setup = deepcopy(self.experiment_setup)
+            experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset_name}'
+            tuning_params = experiment_setup['tuning_params']
+            del experiment_setup['tuning_params']
+            model = FedotIndustrial(**experiment_setup)
+            model.load(path=experiment_setup['output_folder'] + '/0_pipeline_saved')
+        return
 
