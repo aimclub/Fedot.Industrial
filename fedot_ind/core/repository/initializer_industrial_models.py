@@ -8,7 +8,6 @@ from fedot.core.operations.operation import Operation
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.verification import class_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
-import golem
 from golem.core.optimisers.genetic.operators.crossover import Crossover
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
@@ -16,8 +15,7 @@ from fedot_ind.core.repository.industrial_implementations.abstract import merge_
     predict_for_fit, predict, predict_operation
 from fedot_ind.core.repository.industrial_implementations.metric import metric_f1, metric_acc
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
-    MutationStrengthEnumIndustrial, has_no_data_flow_conflicts_in_industrial_pipeline, IndustrialCrossover, \
-    _crossover_by_type
+    MutationStrengthEnumIndustrial, has_no_data_flow_conflicts_in_industrial_pipeline, _crossover_by_type
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 

@@ -7,7 +7,10 @@ from fedot.core.data.multi_modal import MultiModalData
 
 
 class RAFensembler:
-    def __init__(self, composing_params, ensemble_type: str = 'random_automl_forest'):
+    def __init__(self, composing_params,
+                 ensemble_type: str = 'random_automl_forest',
+                 n_splits: int = None,
+                 batch_size: int = 1000):
         problem_dict = {'regression': 'fedot_regr',
                         'classification': 'fedot_cls'}
         ensemble_dict = {'random_automl_forest': self._raf_ensemble
@@ -22,16 +25,16 @@ class RAFensembler:
         self.ensemble_method = ensemble_dict[ensemble_type]
         self.atomized_automl_params = composing_params
         self.head = head_dict[composing_params['problem']]
-        del self.atomized_automl_params['available_operations']
-
-    def fit(self, train_data, n_splits=5):
+        self.batch_size = batch_size
         if n_splits is None:
-            for split in [4, 3, 2]:
-                if train_data.features.shape[0] % split == 0:
-                    self.n_splits = split
-                    break
+            self.n_splits = n_splits
         else:
             self.n_splits = n_splits
+        del self.atomized_automl_params['available_operations']
+
+    def fit(self, train_data):
+        if self.n_splits is None:
+            self.n_splits = round(train_data.features.shape[0]/self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
         self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)

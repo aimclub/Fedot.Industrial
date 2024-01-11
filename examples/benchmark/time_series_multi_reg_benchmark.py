@@ -3,7 +3,7 @@ from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimiz
 
 experiment_setup = {'problem': 'regression',
                     'metric': 'rmse',
-                    'timeout': 40,
+                    'timeout': 20,
                     'num_of_generations': 5,
                     'pop_size': 10,
                     'logging_level': 10,
@@ -25,22 +25,22 @@ experiment_setup = {'problem': 'regression',
                          'fourier_basis',
                          'minirocket_extractor',
                          'quantile_extractor',
-                         'signal_extractor',
-                         'topological_features'
+                         'signal_extractor'
                          ],
-                    'n_jobs': 1,
+                    'n_jobs': 2,
+                    'industrial_preprocessing': True,
                     'initial_assumption': None,
-                    'max_pipeline_fit_time': 10,
+                    'max_pipeline_fit_time': 5,
                     'with_tuning': False,
                     'early_stopping_iterations': 5,
-                    'early_stopping_timeout': 40,
+                    'early_stopping_timeout': 10,
                     'optimizer': IndustrialEvoOptimizer}
 
 if __name__ == "__main__":
     benchmark = BenchmarkTSER(experiment_setup=experiment_setup,
                               custom_datasets=[
                                   # "AustraliaRainfall",
-                                  #"BeijingPM10Quality",
+                                  "BeijingPM10Quality",
                                   "BeijingPM25Quality",
                                   "BenzeneConcentration",
                                   # "BIDMC32HR",
@@ -56,5 +56,5 @@ if __name__ == "__main__":
                                  # "NewsTitleSentiment",
                                   "PPGDalia",
                               ])
-    benchmark.run()
-
+    #benchmark.run()
+    benchmark.show_composite_pipeline()

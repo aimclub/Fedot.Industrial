@@ -91,8 +91,8 @@ class AtomizedModel(Enum):
         'signal_extractor': SignalExtractor,
         'recurrence_extractor': RecurrenceExtractor,
         'minirocket_extractor': MiniRocketExtractor,
-        'cat_features': DummyOperation,
-        'dimension_reduction': FeatureFilter
+        # 'cat_features': DummyOperation,
+        # 'dimension_reduction': FeatureFilter
     }
 
     SKLEARN_REG_MODELS = {

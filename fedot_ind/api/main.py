@@ -1,4 +1,7 @@
+import json
 import logging
+import os
+import pickle
 from functools import partial
 from pathlib import Path
 from typing import Tuple, Union
@@ -10,10 +13,12 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
+from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
+from fedot_ind.core.architecture.postprocessing.optimisation_history import MySerializer, renamed_load
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -103,10 +108,10 @@ class FedotIndustrial(Fedot):
     def _preprocessing_strategy(self, input_data):
         if self.preprocessing:
             if input_data.features.size > 1000000:
-                self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
-                self.ensemble_solver.fit(input_data)
-                self.logger.info(f'Number of AutoMl models in ensemble - {self.ensemble_solver.n_splits}')
                 self.logger.info('RAF algorithm was applied')
+                self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
+                self.logger.info(f'Number of AutoMl models in ensemble - {self.ensemble_solver.n_splits}')
+                self.ensemble_solver.fit(input_data)
             elif input_data.features.size > 100000:
                 self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
                 self.logger.info('PCA transformation was applied to input data due to dataset size')
