@@ -8,6 +8,7 @@ from fedot_ind.core.models.nn.network_modules.losses import *
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 
 def beta_thr(beta):
@@ -18,11 +19,11 @@ class ComputationalConstant(Enum):
     CPU_NUMBERS = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
     GLOBAL_IMPORTS = {
         'numpy': 'np',
-                      'cupy': 'np',
-                      'torch': 'torch',
-                      'torch.nn': 'nn',
-                      'torch.nn.functional': 'F'
-                      }
+        'cupy': 'np',
+        'torch': 'torch',
+        'torch.nn': 'nn',
+        'torch.nn.functional': 'F'
+    }
     BATCH_SIZE_FOR_FEDOT_WORKER = 1000
     FEDOT_WORKER_NUM = 5
     FEDOT_WORKER_TIMEOUT_PARTITION = 2
@@ -96,7 +97,12 @@ class FeatureConstant(Enum):
 
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
-
+    FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
+                  'regression': Task(TaskTypesEnum.regression)}
+    FEDOT_HEAD_ENSEMBLE = {'classification': 'logit',
+                           'regression': 'ridge'}
+    FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
+                               'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
         'rf',
         'logit',
@@ -335,6 +341,9 @@ SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
 EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
+FEDOT_HEAD_ENSEMBLE = FedotOperationConstant.FEDOT_HEAD_ENSEMBLE.value
+FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
+FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

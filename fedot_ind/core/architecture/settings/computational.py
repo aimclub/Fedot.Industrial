@@ -1,17 +1,22 @@
+from itertools import chain
+
 import torch
 from fastcore.basics import defaults
+
+
 
 class BackendMethods:
     def __init__(self, device_type: str = 'cpu'):
         self.backend = self.define_backend(device_type)
 
-    def define_backend(self,device_type: str = 'cpu'):
+    def define_backend(self, device_type: str = 'cpu'):
         if device_type == 'CUDA':
             import cupy, cupyx.scipy.linalg
             return cupy, cupyx.scipy.linalg
         else:
             import numpy, scipy.linalg
             return numpy, scipy.linalg
+
 
 def _has_mps():
     "Check if MPS is available - modified from fastai"

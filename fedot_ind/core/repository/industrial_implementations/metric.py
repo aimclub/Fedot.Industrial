@@ -31,11 +31,14 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
 @staticmethod
 @from_maximised_metric
 def metric_acc(reference: InputData, predicted: OutputData) -> float:
-    if len(predicted.predict.shape) >= 2:
-        if len(reference.target.shape) <= 2 < len(predicted.predict.shape):
-            predicted.predict = np.argmax(predicted.predict, axis=1)
-        else:
-            predicted.predict = predicted.predict.squeeze()
-            reference.target = reference.target.squeeze()
+    try:
+        if len(predicted.predict.shape) >= 2:
+            if len(reference.target.shape) <= 2 < len(predicted.predict.shape):
+                predicted.predict = np.argmax(predicted.predict, axis=1)
+            else:
+                predicted.predict = predicted.predict.squeeze()
+                reference.target = reference.target.squeeze()
 
-    return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
+        return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
+    except Exception:
+        _ = 1
