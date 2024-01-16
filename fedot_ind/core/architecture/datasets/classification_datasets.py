@@ -2,7 +2,7 @@
 
 from typing import Tuple
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from torch.utils.data import Dataset
 

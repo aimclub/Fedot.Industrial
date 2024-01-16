@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from statistics import mean
 from scipy.signal import savgol_filter
 from fedot_ind.core.models.detection.utils.get_time import get_current_time

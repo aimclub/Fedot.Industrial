@@ -6,7 +6,7 @@ from fedot.core.operations.evaluation.operation_implementations.models.knn impor
     FedotKnnRegImplementation
 
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
-from lightgbm import LGBMClassifier, LGBMRegressor
+#from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestClassifier, GradientBoostingRegressor, ExtraTreesRegressor, \
     RandomForestRegressor
 from sklearn.neural_network import MLPClassifier
@@ -49,6 +49,17 @@ from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 
 
+class TopologicalFeaturesImplementation:
+    pass
+
+
+TEMPORARY_EXCLUDED = {
+    'INDUSTRIAL_CLF_PREPROC_MODEL': {'topological_features': TopologicalFeaturesImplementation},
+    'FEDOT_PREPROC_MODEL': {'pca': PCAImplementation},
+    'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
+                                 'dimension_reduction': FeatureFilter}}
+
+
 class AtomizedModel(Enum):
     INDUSTRIAL_CLF_PREPROC_MODEL = {
         'rfe_lin_class': LinearClassFSImplementation,
@@ -57,7 +68,7 @@ class AtomizedModel(Enum):
         'resample': ResampleImplementation,
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,
-       # 'topological_features': TopologicalFeaturesImplementation
+
     }
     SKLEARN_CLF_MODELS = {
         'xgboost': XGBClassifier,
@@ -68,14 +79,13 @@ class AtomizedModel(Enum):
         'dt': DecisionTreeClassifier,
         'rf': RandomForestClassifier,
         'mlp': MLPClassifier,
-        'lgbm': LGBMClassifier
+        #'lgbm': LGBMClassifier
 
     }
     FEDOT_PREPROC_MODEL = {
         'scaling': ScalingImplementation,
         'normalization': NormalizationImplementation,
         'simple_imputation': ImputationImplementation,
-        'pca': PCAImplementation,
         'kernel_pca': KernelPCAImplementation,
         'poly_features': PolyFeaturesImplementation,
         'one_hot_encoding': OneHotEncodingImplementation,
@@ -91,8 +101,7 @@ class AtomizedModel(Enum):
         'signal_extractor': SignalExtractor,
         'recurrence_extractor': RecurrenceExtractor,
         'minirocket_extractor': MiniRocketExtractor,
-        # 'cat_features': DummyOperation,
-        # 'dimension_reduction': FeatureFilter
+
     }
 
     SKLEARN_REG_MODELS = {
@@ -106,7 +115,7 @@ class AtomizedModel(Enum):
         'ridge': SklearnRidgeReg,
         'lasso': SklearnLassoReg,
         'sgdr': SklearnSGD,
-        'lgbmreg': LGBMRegressor,
+        #'lgbmreg': LGBMRegressor,
         'knnreg': FedotKnnRegImplementation
     }
     NEURAL_MODEL = {

@@ -5,7 +5,7 @@ import json
 import yaml
 from typing import Tuple, Callable, Dict
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset

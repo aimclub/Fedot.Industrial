@@ -1,5 +1,5 @@
 from typing import List, Iterable, Union, Optional
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.data import InputData

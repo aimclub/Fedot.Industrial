@@ -1,7 +1,7 @@
 import os
 from typing import Optional, Tuple
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 

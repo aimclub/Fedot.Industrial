@@ -1,8 +1,8 @@
 from typing import Union
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
-from scipy.linalg import hankel
+from fedot_ind.core.architecture.settings.computational import backend_scipy
 
 
 class HankelMatrix:
@@ -15,6 +15,7 @@ class HankelMatrix:
                  window_size: int = None,
                  strides: int = 1):
         self.__time_series = time_series
+
         self.__time_series = self.__time_series.squeeze()
         self.__convert_ts_to_array()
         self.__window_length = window_size - 1
@@ -53,14 +54,14 @@ class HankelMatrix:
         if self.__strides > 1:
             return self.__strided_trajectory_matrix(self.__time_series)
         else:
-            return hankel(self.__time_series[:self.__window_length + 1], self.__time_series[self.__window_length:])
+            return backend_scipy.hankel(self.__time_series[:self.__window_length + 1], self.__time_series[self.__window_length:])
 
     def __get_2d_trajectory_matrix(self):
         if self.__strides > 1:
             return [self.__strided_trajectory_matrix(time_series) for time_series
                     in self.__time_series]
         else:
-            return [hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
+            return [backend_scipy.hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
                     in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):

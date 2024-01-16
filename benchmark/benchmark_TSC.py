@@ -4,7 +4,7 @@ import os
 from abc import ABC
 from copy import deepcopy
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from aeon.benchmarking.results_loaders import *
 from benchmark.abstract_bench import AbstractBenchmark

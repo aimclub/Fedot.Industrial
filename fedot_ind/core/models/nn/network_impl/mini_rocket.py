@@ -3,7 +3,7 @@ import gc
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from collections import OrderedDict
 from typing import Optional
 
@@ -305,7 +305,6 @@ class MiniRocketExtractor(BaseExtractor):
                                          predict=minirocket_features,
                                          data_type=DataTypesEnum.image)
         torch.cuda.empty_cache()
-        gc.collect()
         return minirocket_features
 
     def generate_minirocket_features(self, ts: np.array) -> InputData:

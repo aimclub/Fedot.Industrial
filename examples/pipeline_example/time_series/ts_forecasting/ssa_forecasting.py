@@ -1,5 +1,5 @@
 import matplotlib
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import smape
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder

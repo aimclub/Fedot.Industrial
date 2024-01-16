@@ -1,26 +1,18 @@
-import json
 import logging
-import os
-import pickle
-from functools import partial
 from pathlib import Path
-from typing import Tuple, Union
-
-import numpy as np
-import pandas as pd
 from fedot.api.main import Fedot
+from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
-from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
 from golem.core.tuning.simultaneous import SimultaneousTuner
-from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import default_path_to_save_results
-from fedot_ind.core.architecture.postprocessing.optimisation_history import MySerializer, renamed_load
+from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
+from fedot_ind.core.repository.constanst_repository import FEDOT_WORKER_NUM, BATCH_SIZE_FOR_FEDOT_WORKER, \
+    FEDOT_WORKER_TIMEOUT_PARTITION
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
@@ -88,39 +80,38 @@ class FedotIndustrial(Fedot):
         self.preprocessing_model = None
 
         self.__init_experiment_setup(**kwargs)
-        self.solver = self.__init_solver()
         self.ensemble_solver = None
         self.preprocessing = True
 
     def __init_experiment_setup(self, **kwargs):
         self.logger.info('Initialising experiment setup')
-        # self.reporter.path_to_save = kwargs.get('output_folder')
-        if 'problem' in kwargs.keys():
-            self.config_dict = kwargs
-
-    def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
+        if 'problem' in kwargs.keys():
+            self.config_dict = kwargs
+        if 'backend' not in self.config_dict.keys():
+            self.config_dict['backend'] = 'cpu'
+        backend_method_current, backend_scipy_current = BackendMethods(self.config_dict['backend']).backend
+        globals()['backend_methods'] = backend_method_current
+        globals()['backend_scipy'] = backend_scipy_current
+        del self.config_dict['backend']
+
+    def __init_solver(self):
         self.logger.info('Initialising solver')
         solver = Fedot(**self.config_dict)
         return solver
 
     def _preprocessing_strategy(self, input_data):
         if self.preprocessing:
-            if input_data.features.size > 1000000:
+            if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
                 self.logger.info('RAF algorithm was applied')
-                self.ensemble_solver = RAFensembler(composing_params=self.config_dict)
+                batch_size = round(input_data.features.shape[0] / FEDOT_WORKER_NUM)
+                batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
+                self.config_dict['timeout'] = batch_timeout
+                self.logger.info(f'Batch_size - {batch_size}. Number of batches - 5')
+                self.ensemble_solver = RAFensembler(composing_params=self.config_dict, batch_size=batch_size)
                 self.logger.info(f'Number of AutoMl models in ensemble - {self.ensemble_solver.n_splits}')
                 self.ensemble_solver.fit(input_data)
-            elif input_data.features.size > 100000:
-                self.logger.info(f'Dataset size before preprocessing - {input_data.features.shape}')
-                self.logger.info('PCA transformation was applied to input data due to dataset size')
-                if len(input_data.features.shape) == 3:
-                    self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
-                else:
-                    self.preprocessing_model = PipelineBuilder().add_node('pca', params={'n_components': 0.9}).build()
-                self.preprocessing_model.fit(input_data)
-                self.logger.info('Dimension reduction finished')
 
     def fit(self,
             input_data,
@@ -144,7 +135,7 @@ class FedotIndustrial(Fedot):
         if self.preprocessing_model is not None:
             input_data.features = self.preprocessing_model.predict(input_data).predict
             self.logger.info(f'Train Dataset size after preprocessing - {input_data.features.shape}')
-
+        self.solver = self.__init_solver()
         if self.ensemble_solver is not None:
             fitted_pipeline = self.ensemble_solver
             self.solver = self.ensemble_solver
@@ -154,7 +145,7 @@ class FedotIndustrial(Fedot):
 
     def predict(self,
                 predict_data,
-                **kwargs) -> np.ndarray:
+                **kwargs):
         """
         Method to obtain prediction labels from trained Industrial model.
 
@@ -174,7 +165,7 @@ class FedotIndustrial(Fedot):
 
     def predict_proba(self,
                       predict_data,
-                      **kwargs) -> np.ndarray:
+                      **kwargs):
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -194,7 +185,8 @@ class FedotIndustrial(Fedot):
 
     def finetune(self,
                  train_data,
-                 tuning_params):
+                 tuning_params,
+                 mode: str = 'full'):
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -208,21 +200,33 @@ class FedotIndustrial(Fedot):
 
         """
         train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
-
         metric = ClassificationMetricsEnum.accuracy
-        #tuning_method = partial(SequentialTuner, inverse_node_order=True)
+        # tuning_method = partial(SequentialTuner, inverse_node_order=True)
         tuning_method = SimultaneousTuner
-        pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(tuning_method) \
-            .with_metric(metric) \
-            .with_timeout(tuning_params['tuning_timeout']) \
-            .with_early_stopping_rounds(tuning_params['tuning_early_stop']) \
-            .with_iterations(tuning_params['tuning_iterations']) \
-            .build(train_data)
-        self.current_pipeline = pipeline_tuner.tune(self.current_pipeline)
-        self.current_pipeline.fit(train_data)
+        if mode == 'head':
+            head_type = {'regression': 'fedot_regr',
+                         'classification': 'fedot_cls'}
+            batch_pipelines = [automl_branch for automl_branch in self.current_pipeline.nodes if
+                               automl_branch.name == 'fedot_regr']
+            pr = PipelineNode(operation_type=head_type[self.config_dict['problem']],
+                              nodes_from=batch_pipelines,
+                              content={'params': self.config_dict,
+                                       'name': 'fedot_regr'})
+            composed_pipeline = Pipeline(pr)
+            composed_pipeline.fit(train_data)
+            self.current_pipeline = composed_pipeline
+        else:
+            pipeline_tuner = TunerBuilder(train_data.task) \
+                .with_tuner(tuning_method) \
+                .with_metric(metric) \
+                .with_timeout(tuning_params['tuning_timeout']) \
+                .with_early_stopping_rounds(tuning_params['tuning_early_stop']) \
+                .with_iterations(tuning_params['tuning_iterations']) \
+                .build(train_data)
+            self.current_pipeline = pipeline_tuner.tune(self.current_pipeline)
+            self.current_pipeline.fit(train_data)
 
-    def finetune_predict(self, test_data) -> np.ndarray:
+    def finetune_predict(self, test_data):
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
@@ -251,7 +255,7 @@ class FedotIndustrial(Fedot):
         """
         return self.solver.get_metrics(**kwargs)
 
-    def save_predict(self, predicted_data: Union[pd.DataFrame, np.ndarray], **kwargs) -> None:
+    def save_predict(self, predicted_data, **kwargs) -> None:
         """
         Method to save prediction locally in csv format
 
@@ -293,8 +297,10 @@ class FedotIndustrial(Fedot):
         self.solver.history.save(f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
-
-        return self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
+        try:
+            return self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
+        except Exception:
+            return self.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""
@@ -313,7 +319,7 @@ class FedotIndustrial(Fedot):
     def explain(self, **kwargs):
         raise NotImplementedError()
 
-    def generate_ts(self, ts_config: dict) -> np.array:
+    def generate_ts(self, ts_config: dict):
         """
         Method to generate synthetic time series
         Args:
@@ -328,10 +334,10 @@ class FedotIndustrial(Fedot):
         return t_series
 
     def generate_anomaly_ts(self,
-                            ts_data: Union[dict, np.array],
+                            ts_data,
                             anomaly_config: dict,
                             plot: bool = False,
-                            overlap: float = 0.1) -> Tuple[np.array, np.array, dict]:
+                            overlap: float = 0.1):
         """
         Method to generate anomaly time series
         Args:
@@ -354,11 +360,11 @@ class FedotIndustrial(Fedot):
 
         return init_synth_ts, mod_synth_ts, synth_inters
 
-    def split_ts(self, time_series: np.array,
+    def split_ts(self, time_series,
                  anomaly_dict: dict,
                  binarize: bool = False,
                  strategy: str = 'frequent',
-                 plot: bool = True) -> Tuple[np.array, np.array]:
+                 plot: bool = True):
 
         splitter = TSTransformer(time_series=time_series,
                                  anomaly_dict=anomaly_dict,

@@ -1,7 +1,7 @@
 import random
 from pathlib import Path
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup

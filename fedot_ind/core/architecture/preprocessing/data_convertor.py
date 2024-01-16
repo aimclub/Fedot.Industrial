@@ -1,11 +1,11 @@
 from functools import partial
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
+from pymonad.list import ListMonad
 from sklearn.preprocessing import LabelEncoder
 import torch
 import torch.nn as nn
 from fedot.core.data.data import InputData
-from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum, Task
 
 from examples.example_utils import check_multivariate_data
@@ -28,30 +28,34 @@ class CustomDatasetTS:
 class CustomDatasetCLF:
     def __init__(self, ts):
         self.x = torch.from_numpy(ts.features).to(default_device()).float()
-        label_1 = max(ts.class_labels)
-        label_0 = min(ts.class_labels)
-        self.classes = ts.num_classes
-        if self.classes == 2 and label_1 != 1:
-            ts.target[ts.target == label_0] = 0
-            ts.target[ts.target == label_1] = 1
-        elif self.classes == 2 and label_0 != 0:
-            ts.target[ts.target == label_0] = 0
-            ts.target[ts.target == label_1] = 1
-        elif self.classes > 2 and label_0 == 1:
-            ts.target = ts.target - 1
+        if ts.task.task_type == 'classification':
+            label_1 = max(ts.class_labels)
+            label_0 = min(ts.class_labels)
+            self.classes = ts.num_classes
+            if self.classes == 2 and label_1 != 1:
+                ts.target[ts.target == label_0] = 0
+                ts.target[ts.target == label_1] = 1
+            elif self.classes == 2 and label_0 != 0:
+                ts.target[ts.target == label_0] = 0
+                ts.target[ts.target == label_1] = 1
+            elif self.classes > 2 and label_0 == 1:
+                ts.target = ts.target - 1
+            if type(min(ts.target)[0]) is np.str_:
+                self.label_encoder = LabelEncoder()
+                ts.target = self.label_encoder.fit_transform(ts.target)
+            else:
+                self.label_encoder = None
 
-        if type(min(ts.target)[0]) is np.str_:
-            self.label_encoder = LabelEncoder()
-            ts.target = self.label_encoder.fit_transform(ts.target)
+            try:
+                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
+                                                     num_classes=self.classes).to(default_device()).squeeze(1)
+            except Exception:
+                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long()).to(default_device()).squeeze(1)
+                self.classes = self.y.shape[1]
         else:
+            self.y = torch.from_numpy(ts.target).to(default_device()).float()
+            self.classes = 1
             self.label_encoder = None
-
-        try:
-            self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
-                                                 num_classes=self.classes).to(default_device()).squeeze(1)
-        except Exception:
-            self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long()).to(default_device()).squeeze(1)
-            self.classes = self.y.shape[1]
 
         self.n_samples = ts.features.shape[0]
         self.supplementary_data = ts.supplementary_data
@@ -196,7 +200,7 @@ class NumpyConverter:
         assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
 
     def convert_to_torch_format(self):
-        if self.numpy_data.ndim >= 3:
+        if self.numpy_data.ndim == 3:
             return self.numpy_data
         elif self.numpy_data.ndim == 1:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
@@ -206,6 +210,8 @@ class NumpyConverter:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            self.numpy_data.shape[1])
+        elif self.numpy_data.ndim > 3:
+            return self.numpy_data.squeeze()
         assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
 
 
@@ -248,6 +254,10 @@ class DataConverter(TensorConverter, NumpyConverter):
         return self.data is None
 
     @property
+    def is_fedot_data(self):
+        return isinstance(self.data, InputData)
+
+    @property
     def is_exist(self):
         return self.data is not None
 
@@ -283,6 +293,26 @@ class DataConverter(TensorConverter, NumpyConverter):
         if self.data.ndim == 3: return self.data
         if isinstance(self.data, (np.ndarray, pd.self.dataFrame)): return self.convert_to_3d_array()
         if isinstance(self.data, torch.Tensor): return self.convert_to_3d_tensor()
+
+    def convert_to_monad_data(self):
+        if self.is_fedot_data:
+            features = np.array(ListMonad(*self.data.features.tolist()).value)
+        else:
+            features = np.array(ListMonad(*self.data.tolist()).value)
+
+        if len(features.shape) == 2 and features.shape[1] == 1:
+            features = features.reshape(1, -1)
+        elif len(features.shape) == 3 and features.shape[1] == 1:
+            features = features.squeeze()
+        return features
+
+    def convert_to_eigen_basis(self):
+        if self.is_fedot_data:
+            features = self.data.features
+        else:
+            features = np.array(ListMonad(*self.data.values.tolist()).value)
+            features = np.array([series[~np.isnan(series)] for series in features])
+        return features
 
 
 class NeuralNetworkConverter:

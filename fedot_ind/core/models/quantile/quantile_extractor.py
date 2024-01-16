@@ -1,7 +1,7 @@
 from itertools import chain
 from typing import Optional
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -40,8 +40,6 @@ class QuantileExtractor(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size', 0)
-        if self.window_size is None:
-            _ = 1
         self.stride = params.get('stride', 1)
         self.var_threshold = 0.1
         self.logging_params.update({'Wsize': self.window_size,
@@ -51,6 +49,7 @@ class QuantileExtractor(BaseExtractor):
 
     def _concatenate_global_and_local_feature(self, global_features: InputData,
                                               window_stat_features: InputData) -> InputData:
+
         if type(window_stat_features.features[0]) is list:
             window_stat_features.features = np.concatenate(window_stat_features.features, axis=0)
             window_stat_features.supplementary_data['feature_name'] = list(
@@ -74,10 +73,7 @@ class QuantileExtractor(BaseExtractor):
                                                                       window_size=self.window_size)
         else:
             window_stat_features = self.get_statistical_features(ts)
-        try:
-            return self._concatenate_global_and_local_feature(global_features, window_stat_features)
-        except Exception:
-            return self._concatenate_global_and_local_feature(global_features, window_stat_features)
+        return self._concatenate_global_and_local_feature(global_features, window_stat_features)
 
     def generate_features_from_ts(self,
                                   ts: np.array,

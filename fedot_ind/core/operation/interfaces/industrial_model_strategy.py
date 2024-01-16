@@ -36,6 +36,18 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode=output_mode)
 
 
+class FedotNNRegressionStrategy(FedotNNClassificationStrategy):
+    __operations_by_types = NEURAL_MODEL
+
+    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+        super().__init__(operation_type, params)
+        self.operation_impl = self._convert_to_operation(operation_type)
+        self.output_mode = params.get('output_mode', 'labels')
+        self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
+                                                                  operation_type,
+                                                                  mode='multi_dimensional')
+
+
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
     __operations_by_types = {
         'patch_tst_model': PatchTSTModel

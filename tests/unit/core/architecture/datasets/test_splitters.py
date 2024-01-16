@@ -1,6 +1,6 @@
 import os
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 from torchvision.datasets import ImageFolder
 from torchvision.transforms import ToTensor

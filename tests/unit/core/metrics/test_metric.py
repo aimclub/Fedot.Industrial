@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 
 from fedot_ind.core.metrics.metrics_implementation import Accuracy, F1, Logloss, MAE, MAPE, MSE, ParetoMetrics, \

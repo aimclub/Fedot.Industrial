@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from typing import List, Tuple
 
 

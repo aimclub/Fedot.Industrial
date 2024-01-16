@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot import Fedot
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.tasks import TsForecastingParams, Task, TaskTypesEnum

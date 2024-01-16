@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation

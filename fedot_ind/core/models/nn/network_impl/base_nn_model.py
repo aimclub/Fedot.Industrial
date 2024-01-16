@@ -1,6 +1,6 @@
 import gc
 from typing import Optional
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import train_test_data_setup, _are_stratification_allowed
@@ -172,7 +172,6 @@ class BaseNeuralModel:
         self.task_type = input_data.task
         self._fit_model(input_data)
         torch.cuda.empty_cache()
-        gc.collect()
 
     @fedot_data_type
     def predict(self,

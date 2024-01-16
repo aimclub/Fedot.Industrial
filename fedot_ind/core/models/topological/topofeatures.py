@@ -3,7 +3,7 @@
 from abc import ABC
 from multiprocessing.dummy import Pool as ThreadPool
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from gtda.diagrams import BettiCurve, Filtering, PersistenceEntropy, PersistenceLandscape, Scaler
 from gtda.homology import VietorisRipsPersistence

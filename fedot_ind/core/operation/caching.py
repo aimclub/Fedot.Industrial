@@ -2,7 +2,7 @@ import hashlib
 import os
 import timeit
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 import logging
 

@@ -2,7 +2,7 @@ from functools import partial
 from numbers import Integral
 from typing import Optional
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -19,7 +19,6 @@ from fastcore.basics import snake2camel
 from fastcore.test import test_eq
 
 
-
 def correct_sizes(sizes):
     corrected_sizes = [s if s % 2 != 0 else s - 1 for s in sizes]
     return corrected_sizes
@@ -27,8 +26,6 @@ def correct_sizes(sizes):
 
 def pass_through(X):
     return X
-
-
 
 
 def test_module_to_torchscript(
@@ -111,13 +108,7 @@ def init_lin_zero(m):
 lin_zero_init = init_lin_zero
 
 
-
 # @delegates(nn.Conv2d.__init__)
-
-
-
-
-
 
 
 # Conv = named_partial('Conv', ConvBlock, norm=None, act=None)
@@ -157,14 +148,6 @@ lin_zero_init = init_lin_zero
 #     def forward(self, x):
 #         return self.act(self.convpath(x) + self.idpath(x))
 
-
-
-
-
-
-
-
-# %% ../../nbs/029_models.layers.ipynb 38
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
 
@@ -305,10 +288,6 @@ class LogitAdjustmentLayer(Module):
 LogitAdjLayer = LogitAdjustmentLayer
 
 
-
-
-
-
 def get_act_fn(act, **act_kwargs):
     if act is None:
         return
@@ -320,19 +299,6 @@ def get_act_fn(act, **act_kwargs):
     return pytorch_acts[idx](**act_kwargs)
 
 
-
-
-
-
-
-
-
-
-# %% ../../nbs/029_models.layers.ipynb 104
-
-
-
-# %% ../../nbs/029_models.layers.ipynb 108
 class SqueezeExciteBlock(Module):
     def __init__(self, ni, reduction=16):
         self.avg_pool = GAP1d(1)
@@ -345,7 +311,6 @@ class SqueezeExciteBlock(Module):
         return x * y.expand_as(x)
 
 
-# %% ../../nbs/029_models.layers.ipynb 110
 class GaussianNoise(Module):
     """Gaussian noise regularizer.
 
@@ -370,8 +335,6 @@ class GaussianNoise(Module):
             x = x + sampled_noise
         return x
 
-    # %% ../../nbs/029_models.layers.ipynb 114
-
 
 class PositionwiseFeedForward(nn.Sequential):
     def __init__(self, dim, dropout=0., act='reglu', mlp_ratio=1):
@@ -391,15 +354,6 @@ class TokenLayer(Module):
     def __repr__(self): return f"{self.__class__.__name__}()"
 
 
-
-
-    # %% ../../nbs/029_models.layers.ipynb 125
-
-
-
-
-
-# %% ../../nbs/029_models.layers.ipynb 127
 class LSTMOutput(Module):
     def forward(self, x): return x[0]
 
@@ -457,9 +411,6 @@ class MultiEmbedding(Module):
             x_cat, x_cont = x[:, self.cat_pos], x[:, self.cont_pos]
         x_cat = torch.cat([e(torch.round(x_cat[:, i]).long()).transpose(1, 2) for i, e in enumerate(self.cat_embed)], 1)
         return torch.cat([x_cat, x_cont], 1)
-
-
-
 
 # def build_ts_model(arch, c_in=None, c_out=None, seq_len=None, d=None, dls=None, device=None, verbose=False,
 #                    s_cat_idxs=None, s_cat_embeddings=None, s_cat_embedding_dims=None, s_cont_idxs=None,

@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from MKLpy.algorithms import FHeuristic, RMKL
 from MKLpy.callbacks import EarlyStopping

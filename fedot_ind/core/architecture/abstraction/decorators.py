@@ -1,9 +1,7 @@
-import numpy as np
-import torch
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
-from torch.utils.data import DataLoader
-
+from distributed import Client, LocalCluster
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter, \
     CustomDatasetCLF, CustomDatasetTS
 
@@ -86,3 +84,28 @@ def convert_to_input_data(func):
         return ts_data
 
     return decorated_func
+
+
+class Singleton(type):
+    # Inherit from "type" in order to gain access to method __call__
+    def __init__(self, *args, **kwargs):
+        self.__instance = None  # Create a variable to store the object reference
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        if self.__instance is None:
+            # if the object has not already been created
+            self.__instance = super().__call__(*args,
+                                               **kwargs)  # Call the __init__ method of the subclass (Spam) and save the reference
+            return self.__instance
+        else:
+            # if object (Spam) reference already exists; return it
+            return self.__instance
+
+
+class DaskServer(metaclass=Singleton):
+    def __init__(self):
+        print('Creating Dask Server')
+        cluster = LocalCluster(processes=False)
+        # connect client to your cluster
+        self.client = Client(cluster)

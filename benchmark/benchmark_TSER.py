@@ -3,7 +3,14 @@ import os
 from abc import ABC
 from copy import deepcopy
 
+import matplotlib
+
+from fedot_ind.tools.loader import DataLoader
+
+matplotlib.use('TkAgg')
 import pandas as pd
+from fedot.core.pipelines.node import PipelineNode
+from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
@@ -61,16 +68,42 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
 
+    def finetune(self):
+        for dataset_name in self.custom_datasets:
+            experiment_setup = deepcopy(self.experiment_setup)
+            composed_model_path = PROJECT_PATH + '/benchmark/results/ts_regression' + f'/{dataset_name}' + '/0_pipeline_saved'
+            experiment_setup['output_folder'] = composed_model_path
+            del experiment_setup['industrial_preprocessing']
+            prediction, model = self.finetune_loop(dataset_name, experiment_setup)
+            metric = RMSE(model.predict_data.target, prediction).metric()
+            metric_path = PROJECT_PATH + '/benchmark/results/ts_regression' + f'/{dataset_name}' + '/metrics_report.csv'
+            fedot_results = pd.read_csv(metric_path, index_col=0)
+            fedot_results.loc[dataset_name, 'Fedot_Industrial_finetuned'] = metric
+            fedot_results.to_csv(metric_path)
+            model.save_best_model()
+        self.logger.info("Benchmark finetune finished")
+
+    def finetune_loop(self, dataset, experiment_setup: dict = None):
+        train_data, test_data = DataLoader(dataset_name=dataset).load_data()
+        model = FedotIndustrial(**experiment_setup)
+        model.load(path=experiment_setup['output_folder'])
+        model.finetune(train_data, tuning_params=experiment_setup, mode='head')
+        prediction = model.finetune_predict(test_data)
+        return prediction, model
+
     def show_composite_pipeline(self):
         for dataset_name in self.custom_datasets:
-            composed_model_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/0_pipeline_saved'
-            if os.path.isdir(composed_model_path):
-                self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
-                experiment_setup = deepcopy(self.experiment_setup)
-            experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset_name}'
-            tuning_params = experiment_setup['tuning_params']
-            del experiment_setup['tuning_params']
+            composed_model_path = PROJECT_PATH + '/benchmark/results/ts_regression' + f'/{dataset_name}' + '/0_pipeline_saved'
+            experiment_setup = deepcopy(self.experiment_setup)
+            experiment_setup['output_folder'] = composed_model_path
+            del experiment_setup['industrial_preprocessing']
             model = FedotIndustrial(**experiment_setup)
-            model.load(path=experiment_setup['output_folder'] + '/0_pipeline_saved')
-        return
+            model.load(path=composed_model_path)
+            batch_pipelines = [automl_branch.fitted_operation.model.current_pipeline
+                               for automl_branch in model.current_pipeline.nodes if automl_branch.name == 'fedot_regr']
+            pr = PipelineNode('ridge', nodes_from=[p.root_node for p in batch_pipelines])
+            composed_pipeline = Pipeline(pr)
+            composed_pipeline.show()
 
+            _ = 1
+        return

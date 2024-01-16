@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime as dt
 from math import factorial
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from matplotlib import pyplot as plt
 

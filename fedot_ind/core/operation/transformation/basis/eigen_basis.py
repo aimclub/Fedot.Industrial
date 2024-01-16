@@ -1,7 +1,6 @@
 from typing import Optional, Tuple, TypeVar
 
-import numpy as np
-import pandas as pd
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -10,11 +9,10 @@ from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from scipy import stats
-from scipy.spatial.distance import cdist
 from tensorly.decomposition import parafac
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -48,29 +46,19 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
     def __repr__(self):
         return 'EigenBasisImplementation'
 
-    def _transform(self, input_data: InputData) -> np.array:
-        """Method for transforming all samples
+    def _channel_decompose(self, features):
+        predict = []
+        if self.SV_threshold is None:
+            self.SV_threshold = max(self.get_threshold(data=features), 2)
+            self.logging_params.update({'SV_thr': self.SV_threshold})
+        for dimension in range(features.shape[1]):
+            parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+            v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
+            predict.append(np.array(v) if len(v) > 1 else v[0])
+        return predict
 
-        """
-        if isinstance(input_data, InputData):
-            features = input_data.features
-        else:
-            features = np.array(ListMonad(*input_data.values.tolist()).value)
-            features = np.array([series[~np.isnan(series)] for series in features])
-        features = NumpyConverter(data=features).convert_to_torch_format()
-        if self.tensor_approximation:
-            predict = self._get_multidim_basis(features)
-        else:
-            if self.SV_threshold is None:
-                self.SV_threshold = max(self.get_threshold(data=features), 2)
-                self.logging_params.update({'SV_thr': self.SV_threshold})
-            predict = []
-            for dimension in range(features.shape[1]):
-                parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-                v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
-                predict.append(np.array(v) if len(v) > 1 else v[0])
-
-        self.predict = np.concatenate(predict, axis=1)
+    def _convert_basis_to_predict(self, basis, input_data):
+        self.predict = basis
 
         if input_data.task.task_params is None:
             input_data.task.task_params = self.__repr__()
@@ -86,38 +74,17 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                              supplementary_data=input_data.supplementary_data)
         return predict
 
-    def get_threshold(self, data) -> int:
-        svd_numbers = []
-        with tqdm(total=len(data), desc='SVD estimation') as pbar:
-            for dimension in range(data.shape[1]):
-                dimension_rank = []
-                for signal in data[:, dimension, :]:
-                    dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
-                    pbar.update(1)
-                svd_numbers.append(stats.mode(dimension_rank).mode)
-        try:
-            return stats.mode(svd_numbers).mode[0]
-        except Exception:
-            return stats.mode(svd_numbers).mode
-
-    def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
-        trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
-        data = trajectory_transformer.trajectory_matrix
-        self.ts_length = trajectory_transformer.ts_length
-        rank = self.estimate_singular_values(data)
-        if svd_flag:
-            return rank
-        else:
-            return self._get_1d_basis(data)
-
-    def estimate_singular_values(self, data):
-        svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x, approximation=self.low_rank_approximation))
-        basis = Either.insert(data).then(svd).value[0]
-        spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
-        rank = len(spectrum)
-        self.explained_dispersion.append([round(x / sum(spectrum) * 100) for x in spectrum][:rank])
-        # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
-        return rank
+    def _transform(self, input_data: InputData) -> np.array:
+        """
+        Method for transforming all samples
+        """
+        features = DataConverter(data=input_data).convert_to_monad_data()
+        features = NumpyConverter(data=features).convert_to_torch_format()
+        tensor_decomposition = lambda x: ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation \
+            else self._channel_decompose(x)
+        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
+        predict = self._convert_basis_to_predict(basis, input_data)
+        return predict
 
     def _get_1d_basis(self, data):
         data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
@@ -156,4 +123,38 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         basis = basis.reshape(basis.shape[1], -1)
 
         return basis
+
+    def get_threshold(self, data) -> int:
+        svd_numbers = []
+        with tqdm(total=len(data), desc='SVD estimation') as pbar:
+            for dimension in range(data.shape[1]):
+                dimension_rank = []
+                for signal in data[:, dimension, :]:
+                    dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
+                    pbar.update(1)
+                svd_numbers.append(stats.mode(dimension_rank).mode)
+        try:
+            return stats.mode(svd_numbers).mode[0]
+        except Exception:
+            return stats.mode(svd_numbers).mode
+
+    def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
+        trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
+        data = trajectory_transformer.trajectory_matrix
+        self.ts_length = trajectory_transformer.ts_length
+        rank = self.estimate_singular_values(data)
+        if svd_flag:
+            return rank
+        else:
+            return self._get_1d_basis(data)
+
+    def estimate_singular_values(self, data):
+        svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x, approximation=self.low_rank_approximation))
+        basis = Either.insert(data).then(svd).value[0]
+        spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
+        rank = len(spectrum)
+        self.explained_dispersion.append([round(x / sum(spectrum) * 100) for x in spectrum][:rank])
+        # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
+        return rank
+
 

@@ -1,6 +1,6 @@
 import json
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 from scipy.spatial.distance import pdist
 

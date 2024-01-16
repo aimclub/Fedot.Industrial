@@ -60,6 +60,7 @@ class IndustrialModels:
         setattr(Operation, "predict", predict)
         setattr(Operation, "predict_for_fit", predict_for_fit)
 
+
         # class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository

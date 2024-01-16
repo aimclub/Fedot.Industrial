@@ -1,6 +1,6 @@
 from typing import Optional
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from torch import Tensor
 import torch.nn as nn

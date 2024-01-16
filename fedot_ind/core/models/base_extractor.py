@@ -35,6 +35,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
         self.predict = None
+
     def fit(self, input_data: InputData):
         pass
 
@@ -116,15 +117,18 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> InputData:
+
         if window_size is None:
             # 10% of time series length by default
             window_size = round(ts_data.shape[0] / 10)
         else:
             window_size = round(ts_data.shape[0] * (window_size / 100))
+
         features = []
         names = []
         window_size = max(window_size, 5)
         self.stride = 3
+
         if self.stride > 1:
             trajectory_transformer = HankelMatrix(time_series=ts_data,
                                                   window_size=window_size,
@@ -133,12 +137,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         else:
             subseq_set = np.lib.stride_tricks.sliding_window_view(ts_data,
                                                                   ts_data.shape[0] - window_size)
+
         for i in range(0, subseq_set.shape[1]):
             slice_ts = subseq_set[:, i]
             stat_feature = feature_generator(slice_ts)
             features.append(stat_feature.features)
             names.append([x + f'_on_interval: {i + 1} - {i + 1 + window_size}'
                           for x in stat_feature.supplementary_data['feature_name']])
+
         return features, names
 
     @convert_to_input_data
@@ -147,11 +153,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                             ts: np.array) -> InputData:
 
         multi_ts_stat_features = [extraction_func(x) for x in ts]
-        features = np.concatenate([component.features.reshape(1,-1) for component in multi_ts_stat_features], axis=0)
+        features = np.concatenate([component.features.reshape(1, -1) for component in multi_ts_stat_features], axis=0)
+
         for index, component in enumerate(multi_ts_stat_features):
             component.supplementary_data['feature_name'] = [f'{x} for component {index}'
                                                             for x in component.supplementary_data['feature_name']]
-        names = list(
-            chain(*[x.supplementary_data['feature_name'] for x in multi_ts_stat_features]))
+        names = list(chain(*[x.supplementary_data['feature_name'] for x in multi_ts_stat_features]))
 
         return features, names

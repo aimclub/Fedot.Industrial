@@ -3,7 +3,7 @@ This module contains functions for splitting a torch dataset into parts.
 """
 from typing import Dict, Generator, List, Optional, Tuple
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as npumpy as np
 from torch.utils.data import Dataset, Subset
 from tqdm import tqdm
 

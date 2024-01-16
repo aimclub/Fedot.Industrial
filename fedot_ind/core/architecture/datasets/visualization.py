@@ -2,7 +2,7 @@ from typing import Dict, Optional, Union, List, Tuple
 
 import cv2
 import matplotlib.pyplot as plt
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 
 _PALETTE = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255), (128, 0, 0),

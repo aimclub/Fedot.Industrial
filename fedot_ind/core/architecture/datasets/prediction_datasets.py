@@ -5,7 +5,7 @@ for passing it to the prediction method of computer vision models.
 import os
 from typing import Tuple, Callable
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset

@@ -3,7 +3,7 @@ from copy import deepcopy
 from functools import partial
 from math import log
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from numpy import dot, eye, zeros
 from sklearn.preprocessing import MinMaxScaler
 

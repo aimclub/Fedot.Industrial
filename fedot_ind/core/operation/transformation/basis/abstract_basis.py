@@ -1,7 +1,7 @@
 import math
 from typing import Optional, Union
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -11,6 +11,7 @@ from pymonad.either import Either
 from pymonad.list import ListMonad
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.repository.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 
@@ -73,18 +74,10 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """Method for transforming all samples
 
         """
-        if type(input_data) is InputData:
-            features = np.array(ListMonad(*input_data.features.tolist()).value)
-        else:
-            features = np.array(ListMonad(*input_data.tolist()).value)
-        if len(features.shape) == 2 and features.shape[1] == 1:
-            features = features.reshape(1, -1)
-        elif len(features.shape) == 3 and features.shape[1] == 1:
-            features = features.squeeze()
+        features = DataConverter(data=input_data).convert_to_monad_data()
         parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
         v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
-
-        predict = np.array(v)
+        predict = NumpyConverter(data=np.array(v)).convert_to_torch_format()
         return predict
 
     def _get_multidim_basis(self, input_data):

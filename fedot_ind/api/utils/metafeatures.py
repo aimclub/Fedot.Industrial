@@ -1,6 +1,6 @@
 import logging
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class MetaFeaturesDetector:

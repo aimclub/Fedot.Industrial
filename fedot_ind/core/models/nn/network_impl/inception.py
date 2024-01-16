@@ -4,7 +4,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
+from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY, RMSE
 from fedot_ind.core.models.nn.network_modules.layers.special import InceptionModule, InceptionBlock
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 
@@ -69,8 +69,11 @@ class InceptionTimeModel(BaseNeuralModel):
                                    output_dim=self.num_classes).to(default_device())
         self._evalute_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        if ts.num_classes == 2:
-            loss_fn = CROSS_ENTROPY()
+        if ts.task.task_type == 'classification':
+            if ts.num_classes == 2:
+                loss_fn = CROSS_ENTROPY
+            else:
+                loss_fn = MULTI_CLASS_CROSS_ENTROPY
         else:
-            loss_fn = MULTI_CLASS_CROSS_ENTROPY()
+            loss_fn = RMSE
         return loss_fn, optimizer

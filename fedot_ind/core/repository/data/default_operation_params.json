@@ -132,6 +132,10 @@
     "svd_solver": "full",
     "n_components": 0.7
   },
+  "kernel_pca": {
+    "n_components": null,
+    "kernel": "rbf"
+  },
   "ts_naive_average": {
     "part_for_averaging": 1.0
   },

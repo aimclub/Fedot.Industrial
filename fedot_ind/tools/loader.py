@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 import chardet
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe

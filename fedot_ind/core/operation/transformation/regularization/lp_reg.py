@@ -38,7 +38,7 @@
 #         :math:`f(t) = c_1 + c_2 \sin \omega t + c_3 \cos \omega t`, where
 #         :math:`\omega` is the angular frequency. This is useful for some
 #         periodic functions.
-#         >>> import numpy as np
+#         >>> from fedot_ind.core.architecture.settings.computational import backend_methods as np
 #         >>>
 #         >>> period = 1
 #         >>> w = 2 * np.pi / period

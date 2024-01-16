@@ -1,6 +1,6 @@
 from __future__ import division, print_function
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class RecurrenceFeatureExtractor:

@@ -2,7 +2,7 @@ import time
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 
 from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor

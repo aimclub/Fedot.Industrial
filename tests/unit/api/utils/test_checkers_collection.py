@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 import pytest

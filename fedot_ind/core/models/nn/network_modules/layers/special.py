@@ -1,6 +1,6 @@
 from typing import Optional
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 import torch.nn.functional as F
 from torch import nn, optim, Tensor
@@ -15,9 +15,11 @@ from fastcore.meta import delegates
 
 from fastai.torch_core import Module
 
+from fedot_ind.core.repository.constanst_repository import PATIENCE_FOR_EARLY_STOP
+
 
 class EarlyStopping:
-    def __init__(self, patience=5, verbose=False, delta=0):
+    def __init__(self, patience=PATIENCE_FOR_EARLY_STOP, verbose=False, delta=0):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0

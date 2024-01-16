@@ -1,6 +1,6 @@
 import math
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from torch.nn.utils import weight_norm, spectral_norm
 from torch.nn.init import normal_

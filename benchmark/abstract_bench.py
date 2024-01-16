@@ -3,6 +3,7 @@ import logging
 import os
 
 import matplotlib
+from matplotlib import pyplot as plt
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
@@ -80,7 +81,7 @@ class AbstractBenchmark(object):
             model.plot_fitness_by_generation()
         except Exception:
             print('No_visualisation')
-        gc.collect()
+        plt.close('all')
         return prediction.squeeze(), model.predict_data.target
 
     def finetune_loop(self, dataset, experiment_setup: dict = None):
@@ -92,7 +93,6 @@ class AbstractBenchmark(object):
         model.load(path=experiment_setup['output_folder'] + '/0_pipeline_saved')
         model.finetune(train_data, tuning_params=tuning_params)
         prediction = model.finetune_predict(test_data)
-        gc.collect()
         return prediction, model.predict_data.target
 
     def collect_results(self, output_dir):

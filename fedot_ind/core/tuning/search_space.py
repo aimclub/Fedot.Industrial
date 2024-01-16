@@ -46,7 +46,12 @@ industrial_search_space = {
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
-                            ['LeakyReLU', 'ELU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+                            ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+    'resnet_model':
+        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
+         'activation': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [
+                            ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice, 'sampling-scope': [['hac', 'dff']]}}
 }

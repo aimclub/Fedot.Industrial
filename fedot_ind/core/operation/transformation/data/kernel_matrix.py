@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from scipy.spatial.distance import pdist, squareform
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter

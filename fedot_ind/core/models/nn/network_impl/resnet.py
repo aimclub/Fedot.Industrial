@@ -6,8 +6,8 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim, Tensor
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY
-from fedot_ind.core.models.cnn.classification_models import CLF_MODELS,CLF_MODELS_ONE_CHANNEL
+from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY, RMSE
+from fedot_ind.core.models.cnn.classification_models import CLF_MODELS, CLF_MODELS_ONE_CHANNEL
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 
 
@@ -16,7 +16,7 @@ class ResNet:
                  input_dim,
                  output_dim,
                  model_name):
-        model_list = {**CLF_MODELS,**CLF_MODELS_ONE_CHANNEL}
+        model_list = {**CLF_MODELS, **CLF_MODELS_ONE_CHANNEL}
         self.model = model_list[model_name](num_classes=output_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -50,7 +50,6 @@ class ResNetModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
-        self.num_classes = params.get('num_classes', 1)
         self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 32)
         self.model_name = params.get('model_name', 'ResNet18')
@@ -62,19 +61,21 @@ class ResNetModel(BaseNeuralModel):
                             model_name=self.model_name)
         self.model = self.model.model
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        if ts.num_classes == 2:
-            loss_fn = CROSS_ENTROPY
+        if ts.task.task_type == 'classification':
+            if ts.num_classes == 2:
+                loss_fn = CROSS_ENTROPY
+            else:
+                loss_fn = MULTI_CLASS_CROSS_ENTROPY
         else:
-            loss_fn = MULTI_CLASS_CROSS_ENTROPY
+            loss_fn = RMSE
         return loss_fn, optimizer
 
     def _prepare_data(self, ts, split_data: bool = True):
-        if split_data:
-            train_data, val_data = train_test_data_setup(ts, shuffle_flag=True, split_ratio=0.7)
+        train_data, val_data = train_test_data_setup(ts, shuffle_flag=True, split_ratio=0.7)
         train_dataset = self._create_dataset(train_data)
-        train_dataset.x = train_dataset.x.permute(0, 3, 1, 2)
+        # train_dataset.x = train_dataset.x.permute(0, 3, 1, 2)
         val_dataset = self._create_dataset(val_data)
-        val_dataset.x = val_dataset.x.permute(0, 3, 1, 2)
+        # val_dataset.x = val_dataset.x.permute(0, 3, 1, 2)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
         return train_loader, val_loader
@@ -85,4 +86,3 @@ class ResNetModel(BaseNeuralModel):
         x_test = Tensor(x_test).permute(0, 3, 1, 2).to(default_device())
         pred = self.model(x_test)
         return self._convert_predict(pred)
-

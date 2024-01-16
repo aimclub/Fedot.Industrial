@@ -1,5 +1,5 @@
 from typing import Union
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from ripser import Rips, ripser
 from scipy import sparse

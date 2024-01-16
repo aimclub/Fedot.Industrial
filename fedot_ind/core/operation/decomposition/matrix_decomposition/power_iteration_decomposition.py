@@ -1,5 +1,5 @@
-import numpy as np
-from scipy.linalg import qr
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.architecture.settings.computational import backend_scipy
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
     sv_to_explained_variance_ratio
 import math
@@ -92,7 +92,7 @@ class RSVDDecomposition:
             # in order to reduce the dimension and facilitate the procedure for "large" matrices.
             sampled_tensor = np.linalg.matrix_power(AAT, self.poly_deg) @ tensor @ self.random_projection
             # Fourth step. Orthogonalization of the resulting "sampled" matrix creates for us a basis of eigenvectors.
-            sampled_tensor_orto, _ = qr(sampled_tensor, mode='economic')
+            sampled_tensor_orto, _ = np.linalg.qr(sampled_tensor, mode='reduced')
             # Fifth step. Project initial Gramm matrix on new basis obtained from "sampled matrix".
             M = sampled_tensor_orto.T @ AAT @ sampled_tensor_orto
             # Six step. Classical svd decomposition with choosen type of spectrum thresholding

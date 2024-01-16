@@ -1,27 +1,21 @@
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+
 try:
     import seaborn
 except:
     pass
-import math
-from multiprocessing import cpu_count
 from typing import TypeVar, Optional
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from joblib import Parallel, delayed
-from matplotlib.pylab import rcParams
 from pymonad.either import Either
-from statsforecast.arima import AutoARIMA
 
 from fedot_ind.core.operation.decomposition.spectrum_decomposition import SpectrumDecomposer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.regularization.spectrum import sv_to_explained_variance_ratio
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
-
-class_type = TypeVar("T", bound="DataDrivenBasis")
-rcParams['figure.figsize'] = 11, 4
 
 
 class SSAForecasterImplementation(ModelImplementation):
@@ -37,7 +31,7 @@ class SSAForecasterImplementation(ModelImplementation):
     Example:
         To use this operation you can create pipeline as follows::
 
-            import numpy as np
+            from fedot_ind.core.architecture.settings.computational import backend_methods as np
             from fedot.core.data.data import InputData
             from fedot.core.pipelines.pipeline_builder import PipelineBuilder
             from examples.example_utils import get_ts_data
@@ -136,12 +130,10 @@ class SSAForecasterImplementation(ModelImplementation):
 
     def _predict_component(self, comp: np.array, forecast_length: int):
         estimated_seasonal_length = WindowSizeSelector('hac').get_window_size(comp)
-        model_arima = AutoARIMA(period=estimated_seasonal_length)
-        forecast = []
-        for model in [model_arima]:
-            model.fit(comp)
-            p = model.predict(forecast_length)['mean']
-            forecast.append(p)
+        model = PipelineBuilder().add_node('lagged', params={'window_size': estimated_seasonal_length}).add_node(
+            'ridge').build()
+        model.fit(comp)
+        forecast = model.predict(forecast_length)
         forecast = np.mean(np.array(forecast), axis=0)
         return np.concatenate([comp, forecast])
 

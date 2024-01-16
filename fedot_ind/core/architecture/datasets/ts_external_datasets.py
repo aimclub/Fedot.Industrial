@@ -1,4 +1,4 @@
-# import numpy as np
+# from fedot_ind.core.architecture.settings.computational import backend_methods as np
 # try: from urllib import urlretrieveda
 # except ImportError: from urllib.request import urlretrieve
 # import shutil

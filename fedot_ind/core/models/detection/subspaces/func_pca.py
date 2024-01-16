@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from scipy.linalg import solve_triangular
 from sklearn.decomposition import PCA
 from fedot_ind.core.operation.filtration.quantile_filtration import quantile_filter

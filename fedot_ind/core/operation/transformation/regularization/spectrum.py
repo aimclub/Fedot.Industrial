@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
 

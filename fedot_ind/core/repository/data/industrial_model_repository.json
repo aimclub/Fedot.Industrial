@@ -150,7 +150,7 @@
       "description": "Implementations of fedot automl classification strategy"
     },
     "fedot_NN_classification": {
-      "tasks": "[TaskTypesEnum.classification]",
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
       "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
       "accepted_node_types": [
@@ -164,6 +164,22 @@
       "tags": [
       ],
       "description": "Implementations of fedot NN classification strategy"
+    },
+    "fedot_NN_regression": {
+      "tasks": "[TaskTypesEnum.regression]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "FedotNNRegressionStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of fedot NN regression strategy"
     },
     "fedot_NN_forecasting": {
       "tasks": "[TaskTypesEnum.ts_forecasting]",

@@ -1,6 +1,6 @@
 import logging
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from sklearn.preprocessing import LabelEncoder

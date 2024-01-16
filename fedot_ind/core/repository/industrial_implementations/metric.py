@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import from_maximised_metric
 from fedot.core.data.data import InputData, OutputData
 from sklearn.metrics import accuracy_score, f1_score
@@ -31,10 +31,11 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
 @staticmethod
 @from_maximised_metric
 def metric_acc(reference: InputData, predicted: OutputData) -> float:
-    if predicted.predict.shape[1] > reference.target.shape[1]:
-        predicted.predict = np.argmax(predicted.predict, axis=1)
-    elif len(predicted.predict.shape) >= 2:
-        predicted.predict = predicted.predict.squeeze()
-        reference.target = reference.target.squeeze()
+    if len(predicted.predict.shape) >= 2:
+        if len(reference.target.shape) <= 2 < len(predicted.predict.shape):
+            predicted.predict = np.argmax(predicted.predict, axis=1)
+        else:
+            predicted.predict = predicted.predict.squeeze()
+            reference.target = reference.target.squeeze()
 
     return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
