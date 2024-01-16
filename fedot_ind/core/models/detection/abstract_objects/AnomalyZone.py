@@ -7,16 +7,17 @@ class AnomalyZone:
         Be careful, this class uses both for dataset objects of anomalies and for 
         anomalies that we are looking at!
     """
+
     def __init__(self, start: int = None, end: int = None) -> None:
         # Common fields
         # start and end counts of anomaly on data
         self.start: int = start
         self.end: int = end
-        # parts of data that contains in this anomaly in form of 
+        # parts of data that contains in this anomaly in form of
         # an Mapping[str, list]
         self.data: Mapping[str, list] = {}
         # Additional time series that was generated for anomaly
-        # Max and min time series that formed by choosing max and min of all 
+        # Max and min time series that formed by choosing max and min of all
         # data time seris en every point of anomaly
         self.min_data:  List[float] = None
         self.max_data:  List[float] = None
@@ -46,25 +47,25 @@ class AnomalyZone:
         # For adataset usage - names of features
         self.features: List[str] = []
         # ???
-        self.data_for_dataset: dict  = {}
+        self.data_for_dataset: dict = {}
         # +++ Threshold for <self.distance_data_trans> field +++
         self.threshold = 0
-        # Fields for visualisation 
+        # Fields for visualisation
         # still in progress...
         self.x: float = 0
         self.y: float = 0
-        # coordinates for visualisation of clusters 
+        # coordinates for visualisation of clusters
         # during search of heaviness of animaly
         self.x_heaviness: float = 0
         self.y_heaviness: float = 0
-        # coordinates for visualisation of clusters 
+        # coordinates for visualisation of clusters
         # during search of type of animaly
         self.x_type: float = 0
         self.y_type: float = 0
 
         # predicted information
         # type and heaviness of anomaly that was get by comparing this anomaly
-        # to dataset of anomalies 
+        # to dataset of anomalies
         self.dataset_type: int = 0
         self.dataset_heaviness: int = 0
         self.dataset_comment: str = ""
@@ -72,16 +73,13 @@ class AnomalyZone:
         self.cluster_type: int = 0
         self.cluster_heaviness: int = 0
         self.cluster_comment: str = ""
-        # resulted type and heaviness of anomaly 
+        # resulted type and heaviness of anomaly
         self.predicted_type: int = 0
         self.predicted_heaviness: int = 0
         self.predicted_comment: str = ""
 
-
     def get_start(self) -> int:
         return self.start
-        
+
     def get_end(self) -> int:
         return self.end
-    
-    

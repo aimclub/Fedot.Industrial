@@ -1,9 +1,10 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from distributed import Client, LocalCluster
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
-from distributed import Client, LocalCluster
-from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter, \
-    CustomDatasetCLF, CustomDatasetTS
+
+from fedot_ind.core.architecture.preprocessing.data_convertor import CustomDatasetCLF, CustomDatasetTS, DataConverter, \
+    TensorConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 def fedot_data_type(func):
@@ -15,13 +16,11 @@ def fedot_data_type(func):
         if len(features.shape) < 4:
             try:
                 input_data_squeezed = np.squeeze(features, 3)
-            except Exception:
+            except ValueError:
                 input_data_squeezed = np.squeeze(features)
         else:
             input_data_squeezed = features
-
         return func(self, input_data_squeezed)
-
     return decorated_func
 
 
@@ -87,19 +86,15 @@ def convert_to_input_data(func):
 
 
 class Singleton(type):
-    # Inherit from "type" in order to gain access to method __call__
     def __init__(self, *args, **kwargs):
-        self.__instance = None  # Create a variable to store the object reference
+        self.__instance = None
         super().__init__(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
         if self.__instance is None:
-            # if the object has not already been created
-            self.__instance = super().__call__(*args,
-                                               **kwargs)  # Call the __init__ method of the subclass (Spam) and save the reference
+            self.__instance = super().__call__(*args, **kwargs)
             return self.__instance
         else:
-            # if object (Spam) reference already exists; return it
             return self.__instance
 
 
@@ -107,5 +102,4 @@ class DaskServer(metaclass=Singleton):
     def __init__(self):
         print('Creating Dask Server')
         cluster = LocalCluster(processes=False)
-        # connect client to your cluster
         self.client = Client(cluster)

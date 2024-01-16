@@ -21,7 +21,8 @@ def reshape_z(z, dim_z, ndim):
 
     if z.shape != (dim_z, 1):
         raise ValueError(
-            "z (shape {}) must be convertible to shape ({}, 1)".format(z.shape, dim_z)
+            "z (shape {}) must be convertible to shape ({}, 1)".format(
+                z.shape, dim_z)
         )
 
     if ndim == 1:
@@ -57,7 +58,8 @@ class AbstractKalmanFilter:
         self.measurement_function = eye(self.input_dim)  # H
         self.measurement_uncertainty = 5. * eye(self.input_dim)  # Q
         self.fading_memory_control = 1.  # alpha
-        self.process_measurement_cross_correlation = np.zeros((self.input_dim, self.output_dim))  # M
+        self.process_measurement_cross_correlation = np.zeros(
+            (self.input_dim, self.output_dim))  # M
         self.z = np.array([[None] * self.output_dim]).T
 
         # gain and residual are computed during the innovation step. We
@@ -65,8 +67,10 @@ class AbstractKalmanFilter:
         # purposes
         self.kalman_gain = np.zeros((self.input_dim, self.output_dim))  # K
         self.residual = zeros((self.output_dim, 1))
-        self.system_uncertainty = np.zeros((self.output_dim, self.output_dim))  # S
-        self.inversed_system_uncertainty = np.zeros((self.output_dim, self.output_dim))  # SI
+        self.system_uncertainty = np.zeros(
+            (self.output_dim, self.output_dim))  # S
+        self.inversed_system_uncertainty = np.zeros(
+            (self.output_dim, self.output_dim))  # SI
 
     def _fit_model_dynamic(self, train_features: np.ndarray):
         self._init_kalman_params(train_features)
@@ -77,10 +81,13 @@ class AbstractKalmanFilter:
                                                          prediction_periods=1)
         self.measurement_function = MinMaxScaler(feature_range=(0, 1))
         self.measurement_function.fit(self.train_features)
-        self.train_features = self.measurement_function.transform(self.train_features)
+        self.train_features = self.measurement_function.transform(
+            self.train_features)
         self.target = self.measurement_function.transform(self.target)
-        self.state_transition_matrix = TimeSeriesClassifier(model_hyperparams=self.model_hyperparams)
-        self.state_transition_matrix.fit(train_features=self.train_features, train_target=self.target)
+        self.state_transition_matrix = TimeSeriesClassifier(
+            model_hyperparams=self.model_hyperparams)
+        self.state_transition_matrix.fit(
+            train_features=self.train_features, train_target=self.target)
 
     def fit(self, train_features, fit_settings: dict = {'control vector': None}):
         self._fit_model_dynamic(train_features=train_features)
@@ -137,14 +144,16 @@ class AbstractKalmanFilter:
 
         # y = z - Hx
         # error (residual) between measurement and prediction
-        self.residual = test_features - self.state_transition_matrix.predict(self.state)
+        self.residual = test_features - \
+            self.state_transition_matrix.predict(self.state)
 
         # common subexpression for speed
         PHT = dot(self.uncertainty_covariance, H.T)
 
         # S = HPH' + R
         # project system uncertainty into measurement space
-        self.system_uncertainty = dot(self.state_transition_matrix, PHT) + self.measurement_uncertainty
+        self.system_uncertainty = dot(
+            self.state_transition_matrix, PHT) + self.measurement_uncertainty
         self.inversed_system_uncertainty = self.inv(self.system_uncertainty)
         # K = PH'inv(S)
         # map system uncertainty into kalman gain
@@ -198,14 +207,17 @@ class AbstractKalmanFilter:
 class UnscentedKalmanFilter(AbstractKalmanFilter):
     def __init__(self, model_hyperparams: dict):
         super().__init__(model_hyperparams)
-        self.sigma_points = partial(MerweScaledSigmaPoints, alpha=.1, beta=2., kappa=-1)
+        self.sigma_points = partial(
+            MerweScaledSigmaPoints, alpha=.1, beta=2., kappa=-1)
 
     def fit(self, train_features, fit_settings: dict = {'control vector': None}):
         self._fit_model_dynamic(train_features=train_features)
         # calculate sigma points for given mean and covariance
         self.sigma_distribution = self.sigma_points(self.input_dim)
-        self.sigmas_f = zeros((self.sigma_distribution.num_sigmas(), self.input_dim))
-        self.sigmas_h = zeros((self.sigma_distribution.num_sigmas(), self.output_dim))
+        self.sigmas_f = zeros(
+            (self.sigma_distribution.num_sigmas(), self.input_dim))
+        self.sigmas_h = zeros(
+            (self.sigma_distribution.num_sigmas(), self.output_dim))
 
     def update(self):
         r"""
@@ -215,13 +227,15 @@ class UnscentedKalmanFilter(AbstractKalmanFilter):
         time.
         """
 
-        sigmas = self.sigma_distribution.sigma_points(self.state_mean, self.uncertainty_covariance)
+        sigmas = self.sigma_distribution.sigma_points(
+            self.state_mean, self.uncertainty_covariance)
         sigmas = self.measurement_function.transform(sigmas)
         for i, s in enumerate(sigmas):
             if len(s.shape) < 2:
                 s = s.reshape(1, -1)
             self.sigmas_f[i] = self.state_transition_matrix.predict(s)
-        self.sigmas_f = self.measurement_function.inverse_transform(self.sigmas_f)
+        self.sigmas_f = self.measurement_function.inverse_transform(
+            self.sigmas_f)
 
         # pass sigmas through the unscented transform to compute prior
         self.state_mean, self.uncertainty_covariance = self.unscented_transform(sigmas=self.sigmas_f,
@@ -232,11 +246,13 @@ class UnscentedKalmanFilter(AbstractKalmanFilter):
                                                                                 residual_fn=np.subtract)
 
         # update sigma points to reflect the new variance of the points
-        self.sigmas_f = self.sigma_distribution.sigma_points(self.state_mean, self.uncertainty_covariance)
+        self.sigmas_f = self.sigma_distribution.sigma_points(
+            self.state_mean, self.uncertainty_covariance)
 
         # save prior
         self.state_prior = np.copy(self.state_mean)
-        self.uncertainty_covariance_prior = np.copy(self.uncertainty_covariance)
+        self.uncertainty_covariance_prior = np.copy(
+            self.uncertainty_covariance)
 
     def _predict(self, test_features,
                  measurement_uncertainty=None,
@@ -278,10 +294,13 @@ class UnscentedKalmanFilter(AbstractKalmanFilter):
         self.inversed_system_uncertainty = self.inv(self.system_uncertainty)
 
         # compute cross variance of the state and the measurements
-        Pxz = self.cross_variance(self.state_mean, measurement_mean, self.sigmas_f, self.sigmas_h)
+        Pxz = self.cross_variance(
+            self.state_mean, measurement_mean, self.sigmas_f, self.sigmas_h)
 
-        self.kalman_gain = dot(Pxz, self.inversed_system_uncertainty)  # Kalman gain
-        self.residual = np.subtract(test_features, measurement_mean.reshape(-1, 1))
+        self.kalman_gain = dot(
+            Pxz, self.inversed_system_uncertainty)  # Kalman gain
+        self.residual = np.subtract(
+            test_features, measurement_mean.reshape(-1, 1))
         weighted_residual = dot(self.kalman_gain, self.residual)  # residual
         predicted_state = test_features + weighted_residual
         weighted_mean = np.mean(weighted_residual, axis=1)

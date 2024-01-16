@@ -106,7 +106,8 @@ class AngleBasedDetector(AbstractDataOperation):
                 temp_window_data[key] = []
                 for j in range(i, i + self.window_len):
                     temp_window_data[key].append(ts[key][j])
-            temp_window_list.append(Window(i, i + self.window_len, temp_window_data))
+            temp_window_list.append(
+                Window(i, i + self.window_len, temp_window_data))
         return temp_window_list
 
     def _turn_windows_to_ts(self, windows: List[Window], demanded_len) -> List[float]:

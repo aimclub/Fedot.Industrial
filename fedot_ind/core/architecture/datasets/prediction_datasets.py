@@ -10,7 +10,8 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
-IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp")
+IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp",
+                  ".pgm", ".tif", ".tiff", ".webp")
 
 
 class PredictionNumpyDataset(Dataset):
@@ -76,7 +77,8 @@ class PredictionFolderDataset(Dataset):
                 and id is file name.
         """
 
-        image = Image.open(os.path.join(self.root, self.images[idx])).convert('RGB')
+        image = Image.open(os.path.join(
+            self.root, self.images[idx])).convert('RGB')
         image = self.transform(image)
         return image, self.images[idx]
 

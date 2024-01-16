@@ -185,7 +185,8 @@ class FunctionalPCA:
         if type(test_features) == list:
             list_of_projection, list_of_outliers = [], []
             for window_slice in test_features:
-                current_projection, current_outlier = self._predict(window_slice.T, threshold)
+                current_projection, current_outlier = self._predict(
+                    window_slice.T, threshold)
                 list_of_projection.append(current_projection)
                 list_of_outliers.append(current_outlier)
             return list_of_projection, list_of_outliers
@@ -195,7 +196,8 @@ class FunctionalPCA:
     def _predict(self, test_features, threshold: float = 0.90):
         projection = self.transform(test_features)
         recover = self.inverse_transform(projection)
-        outlier_idx = quantile_filter(input_data=test_features, predicted_data=recover)
+        outlier_idx = quantile_filter(
+            input_data=test_features, predicted_data=recover)
         return recover, outlier_idx
 
     def fit_transform(

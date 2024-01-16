@@ -25,5 +25,3 @@ class TaskEnum(Enum):
     image_classification = (CVExperimenter,)
     object_detection = (CVExperimenter,)
     semantic_segmentation = (CVExperimenter,)
-
-

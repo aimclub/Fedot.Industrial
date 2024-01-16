@@ -12,7 +12,6 @@ from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisIm
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 
 
-
 class BasisTransformations(Enum):
     datadriven = EigenBasisImplementation
     wavelet = WaveletBasisImplementation
@@ -69,8 +68,7 @@ class KernelFeatureGenerator(Enum):
          'feature_hyperparams': {
              'wavelet': "mexh",
              'n_components': 2
-         }}
-        # ,
+         }}        # ,
         # {'feature_generator_type': 'wavelet',
         #  'feature_hyperparams': {
         #      'wavelet': "haar",

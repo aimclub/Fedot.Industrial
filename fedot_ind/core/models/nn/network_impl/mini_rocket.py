@@ -1,16 +1,14 @@
-import gc
+from collections import OrderedDict
+from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from collections import OrderedDict
-from typing import Optional
-
-from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
+from fedot.core.repository.dataset_types import DataTypesEnum
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
@@ -43,9 +41,12 @@ class MiniRocketFeatures(nn.Module):
         self.random_state = random_state
 
         # Convolution
-        indices = torch.combinations(torch.arange(self.kernel_size), 3).unsqueeze(1)
-        kernels = (-torch.ones(self.num_kernels, 1, self.kernel_size)).scatter_(2, indices, 2)
-        self.kernels = nn.Parameter(kernels.repeat(input_dim, 1, 1), requires_grad=False)
+        indices = torch.combinations(
+            torch.arange(self.kernel_size), 3).unsqueeze(1)
+        kernels = (-torch.ones(self.num_kernels, 1, self.kernel_size)
+                   ).scatter_(2, indices, 2)
+        self.kernels = nn.Parameter(kernels.repeat(
+            input_dim, 1, 1), requires_grad=False)
 
         # Dilations & padding
         self._set_dilations(seq_len)
@@ -56,7 +57,8 @@ class MiniRocketFeatures(nn.Module):
 
         # Bias
         for i in range(self.num_dilations):
-            self.register_buffer(f'biases_{i}', torch.empty((self.num_kernels, self.num_features_per_dilation[i])))
+            self.register_buffer(f'biases_{i}', torch.empty(
+                (self.num_kernels, self.num_features_per_dilation[i])))
         self.register_buffer('prefit', torch.BoolTensor([False]))
 
     def fit(self, X, chunksize=None):
@@ -81,17 +83,20 @@ class MiniRocketFeatures(nn.Module):
             _padding1 = i % 2
 
             # Convolution
-            C = F.conv1d(x.float(), self.kernels, padding=padding, dilation=dilation, groups=self.input_dim)
+            C = F.conv1d(x.float(), self.kernels, padding=padding,
+                         dilation=dilation, groups=self.input_dim)
             if self.input_dim > 1:  # multivariate
                 C = C.reshape(x.shape[0], self.input_dim, self.num_kernels, -1)
-                channel_combination = getattr(self, f'channel_combinations_{i}')
+                channel_combination = getattr(
+                    self, f'channel_combinations_{i}')
                 C = torch.mul(C, channel_combination)
                 C = C.sum(1)
 
             # Bias
             if not self.prefit or self.fitting:
                 num_features_this_dilation = self.num_features_per_dilation[i]
-                bias_this_dilation = self._get_bias(C, num_features_this_dilation)
+                bias_this_dilation = self._get_bias(
+                    C, num_features_this_dilation)
                 setattr(self, f'biases_{i}', bias_this_dilation)
                 if self.fitting:
                     if i < self.num_dilations - 1:
@@ -105,7 +110,8 @@ class MiniRocketFeatures(nn.Module):
                 bias_this_dilation = getattr(self, f'biases_{i}')
 
             # Features
-            _features.append(self._get_PPVs(C[:, _padding1::2], bias_this_dilation[_padding1::2]))
+            _features.append(self._get_PPVs(
+                C[:, _padding1::2], bias_this_dilation[_padding1::2]))
             _features.append(
                 self._get_PPVs(C[:, 1 - _padding1::2, padding:-padding], bias_this_dilation[1 - _padding1::2]))
         return torch.cat(_features, dim=1)
@@ -117,13 +123,15 @@ class MiniRocketFeatures(nn.Module):
 
     def _set_dilations(self, input_length):
         num_features_per_kernel = self.num_features // self.num_kernels
-        true_max_dilations_per_kernel = min(num_features_per_kernel, self.max_dilations_per_kernel)
+        true_max_dilations_per_kernel = min(
+            num_features_per_kernel, self.max_dilations_per_kernel)
         multiplier = num_features_per_kernel / true_max_dilations_per_kernel
         max_exponent = np.log2((input_length - 1) / (9 - 1))
         dilations, num_features_per_dilation = \
             np.unique(np.logspace(0, max_exponent, true_max_dilations_per_kernel, base=2).astype(np.int32),
                       return_counts=True)
-        num_features_per_dilation = (num_features_per_dilation * multiplier).astype(np.int32)
+        num_features_per_dilation = (
+            num_features_per_dilation * multiplier).astype(np.int32)
         remainder = num_features_per_kernel - num_features_per_dilation.sum()
         i = 0
         while remainder > 0:
@@ -144,12 +152,16 @@ class MiniRocketFeatures(nn.Module):
         np.random.seed(self.random_state)
         num_channels_per_combination = (2 ** np.random.uniform(0, max_exponent_channels, num_combinations)).astype(
             np.int32)
-        channel_combinations = torch.zeros((1, num_channels, num_combinations, 1))
+        channel_combinations = torch.zeros(
+            (1, num_channels, num_combinations, 1))
         for i in range(num_combinations):
-            channel_combinations[:, np.random.choice(num_channels, num_channels_per_combination[i], False), i] = 1
-        channel_combinations = torch.split(channel_combinations, self.num_kernels, 2)  # split by dilation
+            channel_combinations[:, np.random.choice(
+                num_channels, num_channels_per_combination[i], False), i] = 1
+        channel_combinations = torch.split(
+            channel_combinations, self.num_kernels, 2)  # split by dilation
         for i, channel_combination in enumerate(channel_combinations):
-            self.register_buffer(f'channel_combinations_{i}', channel_combination)  # per dilation
+            self.register_buffer(
+                f'channel_combinations_{i}', channel_combination)  # per dilation
 
     def _get_quantiles(self, n):
         return torch.tensor([(_ * ((np.sqrt(5) + 1) / 2)) % 1 for _ in range(1, n + 1)]).float()
@@ -158,7 +170,8 @@ class MiniRocketFeatures(nn.Module):
         np.random.seed(self.random_state)
         idxs = np.random.choice(C.shape[0], self.num_kernels)
         samples = C[idxs].diagonal().T
-        biases = torch.quantile(samples, self._get_quantiles(num_features_this_dilation).to(C.device), dim=1).T
+        biases = torch.quantile(samples, self._get_quantiles(
+            num_features_this_dilation).to(C.device), dim=1).T
         return biases
 
 
@@ -172,7 +185,8 @@ def get_minirocket_features(data,
                             convert_to_numpy=True):
     """Function used to split a large dataset into chunks, avoiding OOM error."""
     use = torch.cuda.is_available() if use_cuda is None else use_cuda
-    device = torch.device(torch.cuda.current_device()) if use else torch.device('cpu')
+    device = torch.device(torch.cuda.current_device()
+                          ) if use else torch.device('cpu')
     model = model.to(device)
     if isinstance(data, np.ndarray):
         data = torch.from_numpy(data).float().to(device)
@@ -286,7 +300,8 @@ class MiniRocketExtractor(BaseExtractor):
 
             n_dim = range(ts.shape[1])
             ts_converted = [ts[:, i, :] for i in n_dim]
-            ts_converted = [x.reshape(x.shape[0], 1, x.shape[1]) for x in ts_converted]
+            ts_converted = [x.reshape(x.shape[0], 1, x.shape[1])
+                            for x in ts_converted]
             model_list = [mrf for i in n_dim]
         else:
             mrf = MiniRocketFeatures(input_dim=ts.shape[1],
@@ -296,9 +311,12 @@ class MiniRocketExtractor(BaseExtractor):
             ts_converted = [ts]
             model_list = [mrf]
 
-        fitted_model = [model.fit(data) for model, data in zip(model_list, ts_converted)]
-        features = [get_minirocket_features(data, model) for model, data in zip(fitted_model, ts_converted)]
-        minirocket_features = [feature_by_dim.swapaxes(1, 2) for feature_by_dim in features]
+        fitted_model = [model.fit(data)
+                        for model, data in zip(model_list, ts_converted)]
+        features = [get_minirocket_features(
+            data, model) for model, data in zip(fitted_model, ts_converted)]
+        minirocket_features = [feature_by_dim.swapaxes(
+            1, 2) for feature_by_dim in features]
         minirocket_features = np.concatenate(minirocket_features, axis=1)
         minirocket_features = OutputData(idx=np.arange(minirocket_features.shape[2]),
                                          task=self.task,

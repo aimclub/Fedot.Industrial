@@ -16,7 +16,8 @@ class ShiftTrendUP(Anomaly):
 
     def get(self, ts: np.ndarray, interval: tuple):
         shift = np.zeros(ts.size)
-        shift_value = np.mean(ts[interval[0]:interval[1] + 1]) * (self.level / 100)
+        shift_value = np.mean(
+            ts[interval[0]:interval[1] + 1]) * (self.level / 100)
         shift_value = abs(shift_value)
         shift[interval[0]:interval[1] + 1] = shift_value
         return self.apply_shift(ts, shift)
@@ -85,7 +86,8 @@ class AddNoise(Anomaly):
         elif self.noise_type == 'laplace':
             noise = np.random.laplace(0, noise_std, len(sector))
         else:
-            raise ValueError("Invalid noise_type. Please choose 'gaussian', 'uniform', or 'laplace'.")
+            raise ValueError(
+                "Invalid noise_type. Please choose 'gaussian', 'uniform', or 'laplace'.")
 
         noisy_sector = sector + noise
         ts_[interval[0]:interval[1]+1] = noisy_sector

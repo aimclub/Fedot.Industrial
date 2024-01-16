@@ -1,5 +1,6 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from typing import List, Tuple
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 def weighted_inner_product(F_i: np.ndarray, F_j: np.ndarray, window_length: int, ts_length: int) -> float:
@@ -34,7 +35,8 @@ def calculate_matrix_norms(TS_comps: np.ndarray, window_length: int, ts_length: 
     """
     r = []
     for i in range(TS_comps.shape[1]):
-        r.append(weighted_inner_product(TS_comps[:, i], TS_comps[:, i], window_length, ts_length))
+        r.append(weighted_inner_product(
+            TS_comps[:, i], TS_comps[:, i], window_length, ts_length))
     F_wnorms = np.array(r)
     F_wnorms = F_wnorms ** -0.5
     return F_wnorms
@@ -77,7 +79,8 @@ def combine_eigenvectors(ts_comps: np.ndarray, window_length: int) -> List[np.nd
     """
     ts_length = ts_comps.shape[0]
     F_wnorms = calculate_matrix_norms(ts_comps, window_length, ts_length)
-    Wcorr, components = calculate_corr_matrix(ts_comps, F_wnorms, window_length, ts_length)
+    Wcorr, components = calculate_corr_matrix(
+        ts_comps, F_wnorms, window_length, ts_length)
     combined_components = []
     current_group = []
     for i in range(len(components)):

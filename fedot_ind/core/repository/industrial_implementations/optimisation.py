@@ -1,36 +1,34 @@
-import random
-from typing import Sequence
-from fedot.core.composer.gp_composer.specific_operators import parameter_change_mutation, boosting_mutation
-from fedot.core.pipelines.adapters import PipelineAdapter
-from fedot.core.pipelines.node import PipelineNode
-from fedot.core.repository.operation_types_repository import get_operations_for_task
-from fedot.core.repository.tasks import Task
-from golem.core.dag.graph import ReconnectType
-from golem.core.dag.graph_utils import graph_has_cycle
-from golem.core.dag.verification_rules import ERROR_PREFIX
-from golem.core.optimisers.advisor import RemoveType
-from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
-from golem.core.optimisers.opt_node_factory import OptNodeFactory
-from golem.core.optimisers.optimizer import AlgorithmParameters
-from golem.core.optimisers.genetic.operators.crossover import CrossoverTypesEnum, CrossoverCallable
-from fedot_ind.core.repository.model_repository import AtomizedModel
-from golem.core.adapter import register_native
-from golem.core.dag.graph_utils import nodes_from_layer, node_depth
-from golem.core.optimisers.genetic.gp_operators import equivalent_subtree, replace_subtrees
-from golem.core.optimisers.genetic.operators.operator import PopulationT, Operator
-from golem.core.optimisers.graph import OptGraph, OptNode
-from golem.core.optimisers.opt_history_objects.individual import Individual
-from golem.core.optimisers.opt_history_objects.parent_operator import ParentOperator
-from golem.core.optimisers.optimization_parameters import GraphRequirements
-from golem.core.optimisers.optimizer import GraphGenerationParams
-from golem.utilities.data_structures import ComparableEnum as Enum
-from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.repository.tasks import TaskTypesEnum
 from copy import deepcopy
 from itertools import chain
 from math import ceil
-from random import choice, random, sample
-from typing import Callable, Union, Iterable, Tuple, TYPE_CHECKING
+from random import choice, sample
+from typing import Sequence
+from typing import Tuple
+
+from fedot.core.composer.gp_composer.specific_operators import boosting_mutation, parameter_change_mutation
+from fedot.core.pipelines.adapters import PipelineAdapter
+from fedot.core.pipelines.node import PipelineNode
+from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.repository.operation_types_repository import get_operations_for_task
+from fedot.core.repository.tasks import Task
+from fedot.core.repository.tasks import TaskTypesEnum
+from golem.core.adapter import register_native
+from golem.core.dag.graph import ReconnectType
+from golem.core.dag.graph_utils import graph_has_cycle
+from golem.core.dag.graph_utils import node_depth, nodes_from_layer
+from golem.core.dag.verification_rules import ERROR_PREFIX
+from golem.core.optimisers.advisor import RemoveType
+from golem.core.optimisers.genetic.gp_operators import equivalent_subtree, replace_subtrees
+from golem.core.optimisers.genetic.operators.crossover import CrossoverCallable, CrossoverTypesEnum
+from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
+from golem.core.optimisers.graph import OptGraph, OptNode
+from golem.core.optimisers.opt_node_factory import OptNodeFactory
+from golem.core.optimisers.optimization_parameters import GraphRequirements
+from golem.core.optimisers.optimizer import AlgorithmParameters
+from golem.core.optimisers.optimizer import GraphGenerationParams
+from golem.utilities.data_structures import ComparableEnum as Enum
+
+from fedot_ind.core.repository.model_repository import AtomizedModel
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -98,7 +96,8 @@ class IndustrialMutations:
                               node_to_mutate: OptNode,
                               node_factory: OptNodeFactory) -> OptGraph:
         # add between node and parent
-        new_node = node_factory.get_parent_node(self.transform_to_opt_node(node_to_mutate), is_primary=False)
+        new_node = node_factory.get_parent_node(
+            self.transform_to_opt_node(node_to_mutate), is_primary=False)
         new_node = self.transform_to_pipeline_node(new_node)
         if not new_node:
             return graph
@@ -116,7 +115,8 @@ class IndustrialMutations:
                                  node_to_mutate: PipelineNode,
                                  node_factory: OptNodeFactory) -> OptGraph:
         # add as separate parent
-        new_node = node_factory.get_parent_node(self.transform_to_opt_node(node_to_mutate), is_primary=True)
+        new_node = node_factory.get_parent_node(
+            self.transform_to_opt_node(node_to_mutate), is_primary=True)
         new_node = self.transform_to_pipeline_node(new_node)
         if not new_node:
             # there is no possible operators
@@ -134,7 +134,8 @@ class IndustrialMutations:
                      node_factory: OptNodeFactory) -> OptGraph:
         # add as child
         old_node_children = graph.node_children(node_to_mutate)
-        new_node_child = choice(old_node_children) if old_node_children else None
+        new_node_child = choice(
+            old_node_children) if old_node_children else None
 
         while True:
             new_node = node_factory.get_node(is_primary=False)
@@ -147,13 +148,16 @@ class IndustrialMutations:
 
         if graph.depth == 1:
             graph.add_node(new_node)
-            graph.connect_nodes(node_parent=new_node, node_child=node_to_mutate)
+            graph.connect_nodes(node_parent=new_node,
+                                node_child=node_to_mutate)
         else:
             graph.add_node(new_node)
-            graph.connect_nodes(node_parent=node_to_mutate, node_child=new_node)
+            graph.connect_nodes(node_parent=node_to_mutate,
+                                node_child=new_node)
 
         if new_node_child:
-            graph.connect_nodes(node_parent=new_node, node_child=new_node_child)
+            graph.connect_nodes(node_parent=new_node,
+                                node_child=new_node_child)
             graph.disconnect_nodes(node_parent=node_to_mutate, node_child=new_node_child,
                                    clean_up_leftovers=True)
 
@@ -200,7 +204,8 @@ class IndustrialMutations:
         :param graph: graph to mutate
         """
         node = choice(graph.nodes)
-        new_node = graph_gen_params.node_factory.exchange_node(self.transform_to_opt_node(node))
+        new_node = graph_gen_params.node_factory.exchange_node(
+            self.transform_to_opt_node(node))
         if not new_node:
             return graph
         graph.update_node(node, self.transform_to_pipeline_node(new_node))
@@ -239,20 +244,25 @@ class IndustrialMutations:
         elif removal_type == RemoveType.forbidden:
             pass
         else:
-            raise ValueError("Unknown advice (RemoveType) returned by Advisor ")
+            raise ValueError(
+                "Unknown advice (RemoveType) returned by Advisor ")
         return graph
 
     def add_preprocessing(self,
                           pipeline: Pipeline, **kwargs) -> Pipeline:
 
-        basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
-        extractors = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["extractor"])
+        basis_models = get_operations_for_task(
+            task=self.task_type, mode='data_operation', tags=["basis"])
+        extractors = get_operations_for_task(
+            task=self.task_type, mode='data_operation', tags=["extractor"])
         extractors = [x for x in extractors if x != 'dimension_reduction']
         models = get_operations_for_task(task=self.task_type, mode='model')
         models = [x for x in models if x != 'fedot_cls']
         basis_model = PipelineNode(choice(basis_models))
-        extractor_model = PipelineNode(choice(extractors), nodes_from=[basis_model])
-        node_to_mutate = list(filter(lambda x: x.name in models, pipeline.nodes))[0]
+        extractor_model = PipelineNode(
+            choice(extractors), nodes_from=[basis_model])
+        node_to_mutate = list(
+            filter(lambda x: x.name in models, pipeline.nodes))[0]
         if node_to_mutate.nodes_from:
             node_to_mutate.nodes_from.append(extractor_model)
         else:
@@ -300,10 +310,13 @@ class IndustrialCrossover:
 
         random_layer_in_graph_first = choice(range(graph_1.depth))
         min_second_layer = 1 if random_layer_in_graph_first == 0 and graph_2.depth > 1 else 0
-        random_layer_in_graph_second = choice(range(min_second_layer, graph_2.depth))
+        random_layer_in_graph_second = choice(
+            range(min_second_layer, graph_2.depth))
 
-        node_from_graph_first = choice(nodes_from_layer(graph_1, random_layer_in_graph_first))
-        node_from_graph_second = choice(nodes_from_layer(graph_2, random_layer_in_graph_second))
+        node_from_graph_first = choice(nodes_from_layer(
+            graph_1, random_layer_in_graph_first))
+        node_from_graph_second = choice(nodes_from_layer(
+            graph_2, random_layer_in_graph_second))
 
         replace_subtrees(graph_1, graph_2, node_from_graph_first, node_from_graph_second,
                          random_layer_in_graph_first, random_layer_in_graph_second, max_depth)
@@ -319,10 +332,13 @@ class IndustrialCrossover:
         chooses the location of nodes, subtrees of which will be swapped"""
         pairs_of_nodes = equivalent_subtree(graph_first, graph_second)
         if pairs_of_nodes:
-            node_from_graph_first, node_from_graph_second = choice(pairs_of_nodes)
+            node_from_graph_first, node_from_graph_second = choice(
+                pairs_of_nodes)
 
-            layer_in_graph_first = graph_first.depth - node_depth(node_from_graph_first)
-            layer_in_graph_second = graph_second.depth - node_depth(node_from_graph_second)
+            layer_in_graph_first = graph_first.depth - \
+                node_depth(node_from_graph_first)
+            layer_in_graph_second = graph_second.depth - \
+                node_depth(node_from_graph_second)
 
             replace_subtrees(graph_first, graph_second, node_from_graph_first, node_from_graph_second,
                              layer_in_graph_first, layer_in_graph_second, max_depth)
@@ -406,13 +422,15 @@ class IndustrialCrossover:
             selected_node = choice(nodes_with_parent_or_child)
             parents = selected_node.nodes_from
 
-            node_from_first_graph = find_nodes_in_other_graph([selected_node], graph_first)[0]
+            node_from_first_graph = find_nodes_in_other_graph(
+                [selected_node], graph_first)[0]
 
             node_from_first_graph.nodes_from = []
             old_edges1 = graph_first.get_edges()
 
             if parents:
-                parents_in_first_graph = find_nodes_in_other_graph(parents, graph_first)
+                parents_in_first_graph = find_nodes_in_other_graph(
+                    parents, graph_first)
                 for parent in parents_in_first_graph:
                     if (parent, node_from_first_graph) not in old_edges1:
                         node_from_first_graph.nodes_from.append(parent)
@@ -448,12 +466,15 @@ class IndustrialCrossover:
             selected_node2 = choice(nodes_with_parent_or_child)
             parents2 = selected_node2.nodes_from
             if parents2:
-                parents_in_first_graph = find_nodes_in_other_graph(parents2, graph_first)
+                parents_in_first_graph = find_nodes_in_other_graph(
+                    parents2, graph_first)
 
-            selected_node1 = find_nodes_in_other_graph([selected_node2], graph_first)[0]
+            selected_node1 = find_nodes_in_other_graph(
+                [selected_node2], graph_first)[0]
             parents1 = selected_node1.nodes_from
             if parents1:
-                parents_in_second_graph = find_nodes_in_other_graph(parents1, graph_second)
+                parents_in_second_graph = find_nodes_in_other_graph(
+                    parents1, graph_second)
 
             for p in parents1:
                 selected_node1.nodes_from.remove(p)
@@ -473,12 +494,16 @@ class IndustrialCrossover:
 
         return graph_first, graph_second
 
+
 def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
     """ Function checks the correctness of connection between nodes """
     task = Task(TaskTypesEnum.classification)
-    basis_models = get_operations_for_task(task=task, mode='data_operation', tags=["basis"])
-    extractor = get_operations_for_task(task=task, mode='data_operation', tags=["extractor"])
-    other = get_operations_for_task(task=task, forbidden_tags=["basis", "extractor"])
+    basis_models = get_operations_for_task(
+        task=task, mode='data_operation', tags=["basis"])
+    extractor = get_operations_for_task(
+        task=task, mode='data_operation', tags=["extractor"])
+    other = get_operations_for_task(
+        task=task, forbidden_tags=["basis", "extractor"])
 
     for idx, node in enumerate(pipeline.nodes):
         # Operation name in the current node
@@ -492,7 +517,7 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
             for parent in parent_nodes:
                 parent_operation = parent.operation.operation_type
                 if current_operation in basis_models and pipeline.nodes[
-                    idx + 1].operation.operation_type not in extractor:
+                        idx + 1].operation.operation_type not in extractor:
                     raise ValueError(
                         f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination. '
                         f'Basis output should contain feature transformation')
@@ -514,4 +539,5 @@ def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> CrossoverCal
     if crossover_type in crossovers:
         return crossovers[crossover_type]
     else:
-        raise ValueError(f'Required crossover type is not found: {crossover_type}')
+        raise ValueError(
+            f'Required crossover type is not found: {crossover_type}')

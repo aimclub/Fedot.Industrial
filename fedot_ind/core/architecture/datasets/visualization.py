@@ -6,10 +6,14 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 import torch
 
 _PALETTE = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255), (128, 0, 0),
-            (0, 128, 0), (128, 0, 128), (0, 128, 128), (0, 0, 128), (128, 0, 0), (220, 20, 60), (255, 165, 0),
-            (218, 165, 32), (240, 230, 140), (154, 205, 50), (107, 142, 35), (0, 100, 0), (46, 139, 87),
-            (32, 178, 170), (64, 224, 208), (70, 130, 180), (138, 43, 226), (72, 61, 139), (147, 112, 219),
-            (139, 0, 139), (218, 112, 214), (219, 112, 147), (255, 20, 147), (255, 228, 196), (139, 69, 19),
+            (0, 128, 0), (128, 0, 128), (0, 128, 128), (0, 0,
+                                                        128), (128, 0, 0), (220, 20, 60), (255, 165, 0),
+            (218, 165, 32), (240, 230, 140), (154, 205,
+                                              50), (107, 142, 35), (0, 100, 0), (46, 139, 87),
+            (32, 178, 170), (64, 224, 208), (70, 130, 180), (138,
+                                                             43, 226), (72, 61, 139), (147, 112, 219),
+            (139, 0, 139), (218, 112, 214), (219, 112,
+                                             147), (255, 20, 147), (255, 228, 196), (139, 69, 19),
             (210, 105, 30), (244, 164, 96), (188, 143, 143), (112, 128, 144), (230, 230, 250), (245, 245, 245))
 
 
@@ -53,14 +57,17 @@ def draw_sample_with_bboxes(
         boxes, labels = _2nparray([target['boxes'], target['labels']])
         timage = image.copy()
         for box, label in zip(boxes.astype(np.int32), labels.astype(str)):
-            cv2.rectangle(timage, (box[0], box[1]), (box[2], box[3]), (220, 255, 255), thickness)
-            cv2.putText(timage, label, (box[0], box[1]), 0, font_scale, (255, 255, 255), thickness)
+            cv2.rectangle(timage, (box[0], box[1]),
+                          (box[2], box[3]), (220, 255, 255), thickness)
+            cv2.putText(timage, label, (box[0], box[1]),
+                        0, font_scale, (255, 255, 255), thickness)
         ax.set_axis_off()
         ax.imshow(timage)
 
     if prediction is not None:
         ax = plt.subplot(1, n, n)
-        boxes, labels, scores = _2nparray([prediction['boxes'], prediction['labels'], prediction['scores']])
+        boxes, labels, scores = _2nparray(
+            [prediction['boxes'], prediction['labels'], prediction['scores']])
 
         not_thresh = scores > threshold
         boxes = boxes[not_thresh]
@@ -69,8 +76,10 @@ def draw_sample_with_bboxes(
 
         pimage = image.copy()
         for box, label, score in zip(boxes.astype(np.int32), labels, scores):
-            cv2.rectangle(pimage, (box[0], box[1]), (box[2], box[3]), (220, 255, 255), thickness)
-            cv2.putText(pimage, f'{label} ({score:.2f})', (box[0], box[1]), 0, font_scale, (255, 255, 255), thickness)
+            cv2.rectangle(pimage, (box[0], box[1]),
+                          (box[2], box[3]), (220, 255, 255), thickness)
+            cv2.putText(pimage, f'{label} ({score:.2f})',
+                        (box[0], box[1]), 0, font_scale, (255, 255, 255), thickness)
         ax.set_axis_off()
         ax.imshow(pimage)
     return fig
@@ -80,7 +89,8 @@ def _put_mask(axis: plt.axis, image: np.ndarray, mask: np.ndarray, palette: Tupl
     thickness = 1 + int(image.shape[-2] / 500)
     image = image.copy()
     for ch in range(mask.shape[0]):
-        contours, _ = cv2.findContours(mask[ch, :, :], cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        contours, _ = cv2.findContours(
+            mask[ch, :, :], cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         for contour in contours:
             cv2.polylines(image, contour, True, palette[ch], thickness)
     axis.set_axis_off()

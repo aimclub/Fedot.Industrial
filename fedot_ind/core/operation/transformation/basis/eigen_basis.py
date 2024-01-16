@@ -1,6 +1,5 @@
-from typing import Optional, Tuple, TypeVar
+from typing import Optional, TypeVar
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -12,7 +11,8 @@ from scipy import stats
 from tensorly.decomposition import parafac
 from tqdm import tqdm
 
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -36,7 +36,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size', 20)
-        self.low_rank_approximation = params.get('low_rank_approximation', True)
+        self.low_rank_approximation = params.get(
+            'low_rank_approximation', True)
         self.tensor_approximation = params.get('tensor_approximation', False)
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = []
@@ -52,8 +53,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             self.SV_threshold = max(self.get_threshold(data=features), 2)
             self.logging_params.update({'SV_thr': self.SV_threshold})
         for dimension in range(features.shape[1]):
-            parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-            v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
+            parallel = Parallel(n_jobs=self.n_processes,
+                                verbose=0, pre_dispatch="2*n_jobs")
+            v = parallel(delayed(self._transform_one_sample)(sample)
+                         for sample in features[:, dimension, :])
             predict.append(np.array(v) if len(v) > 1 else v[0])
         return predict
 
@@ -80,42 +83,50 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         """
         features = DataConverter(data=input_data).convert_to_monad_data()
         features = NumpyConverter(data=features).convert_to_torch_format()
-        tensor_decomposition = lambda x: ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation \
+        def tensor_decomposition(x): return ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation \
             else self._channel_decompose(x)
-        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
+        basis = np.array(Either.insert(features).then(
+            tensor_decomposition).value[0])
         predict = self._convert_basis_to_predict(basis, input_data)
         return predict
 
     def _get_1d_basis(self, data):
-        data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
-                                                                       Monoid[1],
-                                                                       Monoid[2],
-                                                                       ts_length=self.ts_length))
-        threshold = lambda Monoid: ListMonad([Monoid[0],
-                                              Monoid[1][:self.SV_threshold],
-                                              Monoid[2]])
-        svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x,
-                                                          approximation=self.low_rank_approximation,
-                                                          regularized_rank=self.SV_threshold))
-        basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
+        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(Monoid[0],
+                                                                          Monoid[1],
+                                                                          Monoid[2],
+                                                                          ts_length=self.ts_length))
+
+        def threshold(Monoid): return ListMonad([Monoid[0],
+                                                 Monoid[1][:self.SV_threshold],
+                                                 Monoid[2]])
+
+        def svd(x): return ListMonad(self.svd_estimator.rsvd(tensor=x,
+                                                             approximation=self.low_rank_approximation,
+                                                             regularized_rank=self.SV_threshold))
+        basis = Either.insert(data).then(svd).then(
+            threshold).then(data_driven_basis).value[0]
         return np.swapaxes(basis, 1, 0)
 
     def _get_multidim_basis(self, data):
         rank = round(data.shape[2] / 10)
         beta = data.shape[2] / data.shape[0]
 
-        tensor_decomposition = lambda x: ListMonad(parafac(tl.tensor(x), rank=rank).factors)
-        multi_threshold = lambda x: singular_value_hard_threshold(singular_values=x,
-                                                                  beta=beta,
-                                                                  threshold=None)
+        def tensor_decomposition(x): return ListMonad(
+            parafac(tl.tensor(x), rank=rank).factors)
 
-        threshold = lambda Monoid: ListMonad([Monoid[0],
-                                              list(map(multi_threshold, Monoid[1])),
-                                              Monoid[2].T])
-        data_driven_basis = lambda Monoid: ListMonad(reconstruct_basis(Monoid[0],
-                                                                       Monoid[1],
-                                                                       Monoid[2],
-                                                                       ts_length=data.shape[2]))
+        def multi_threshold(x): return singular_value_hard_threshold(singular_values=x,
+                                                                     beta=beta,
+                                                                     threshold=None)
+
+        def threshold(Monoid): return ListMonad([Monoid[0],
+                                                 list(
+                                                     map(multi_threshold, Monoid[1])),
+                                                 Monoid[2].T])
+
+        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(Monoid[0],
+                                                                          Monoid[1],
+                                                                          Monoid[2],
+                                                                          ts_length=data.shape[2]))
 
         basis = np.array(
             Either.insert(data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0])
@@ -130,7 +141,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             for dimension in range(data.shape[1]):
                 dimension_rank = []
                 for signal in data[:, dimension, :]:
-                    dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
+                    dimension_rank.append(
+                        self._transform_one_sample(signal, svd_flag=True))
                     pbar.update(1)
                 svd_numbers.append(stats.mode(dimension_rank).mode)
         try:
@@ -139,7 +151,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             return stats.mode(svd_numbers).mode
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
-        trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
+        trajectory_transformer = HankelMatrix(
+            time_series=series, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
         rank = self.estimate_singular_values(data)
@@ -149,12 +162,12 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             return self._get_1d_basis(data)
 
     def estimate_singular_values(self, data):
-        svd = lambda x: ListMonad(self.svd_estimator.rsvd(tensor=x, approximation=self.low_rank_approximation))
+        def svd(x): return ListMonad(self.svd_estimator.rsvd(
+            tensor=x, approximation=self.low_rank_approximation))
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
         rank = len(spectrum)
-        self.explained_dispersion.append([round(x / sum(spectrum) * 100) for x in spectrum][:rank])
+        self.explained_dispersion.append(
+            [round(x / sum(spectrum) * 100) for x in spectrum][:rank])
         # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
         return rank
-
-

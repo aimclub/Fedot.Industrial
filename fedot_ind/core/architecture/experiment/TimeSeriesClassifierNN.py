@@ -17,8 +17,10 @@ TSCCLF_MODEL = {
 class TimeSeriesClassifierNN(TimeSeriesClassifier):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.device = torch.device('cuda' if params.get('gpu', False) else 'cpu')
-        self.model = TSCCLF_MODEL[params.get('model', 'inception_time')].network_architecture
+        self.device = torch.device(
+            'cuda' if params.get('gpu', False) else 'cpu')
+        self.model = TSCCLF_MODEL[params.get(
+            'model', 'inception_time')].network_architecture
         self.num_epochs = params.get('num_epochs', 10)
 
     def _init_model_param(self, target: np.ndarray) -> Tuple[int, np.ndarray]:

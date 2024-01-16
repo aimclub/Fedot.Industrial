@@ -1,39 +1,7 @@
 from enum import Enum
 
-# from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
-#     TopologicalFeaturesImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
-    FedotKnnRegImplementation
-
-from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
-#from lightgbm import LGBMClassifier, LGBMRegressor
-from sklearn.ensemble import AdaBoostRegressor, RandomForestClassifier, GradientBoostingRegressor, ExtraTreesRegressor, \
-    RandomForestRegressor
-from sklearn.neural_network import MLPClassifier
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
-from xgboost import XGBRegressor, XGBClassifier
-from sklearn.linear_model import (
-    Lasso as SklearnLassoReg,
-    LinearRegression as SklearnLinReg,
-    LogisticRegression as SklearnLogReg,
-    Ridge as SklearnRidgeReg,
-    SGDRegressor as SklearnSGD
-)
-from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
-from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
-from fedot_ind.core.models.signal.signal_extractor import SignalExtractor
-from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
-from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
-from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
-
-from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
-from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
-from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
-    *
 from fedot.core.operations.evaluation.operation_implementations.data_operations.categorical_encoders import \
-    OneHotEncodingImplementation, LabelEncodingImplementation
+    LabelEncodingImplementation, OneHotEncodingImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
@@ -41,12 +9,40 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_imbalanced_class import \
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
-    NonLinearClassFSImplementation, LinearClassFSImplementation
+    LinearClassFSImplementation, NonLinearClassFSImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
+    *
+from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
+    FedotKnnRegImplementation
+from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, RandomForestClassifier, \
+    RandomForestRegressor
+from sklearn.linear_model import (
+    Lasso as SklearnLassoReg,
+    LinearRegression as SklearnLinReg,
+    LogisticRegression as SklearnLogReg,
+    Ridge as SklearnRidgeReg,
+    SGDRegressor as SklearnSGD
+)
+from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from xgboost import XGBClassifier, XGBRegressor
+
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
+from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
+from fedot_ind.core.models.signal.signal_extractor import SignalExtractor
+from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
+from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
+from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
+from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
+from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 
 
 class TopologicalFeaturesImplementation:
@@ -79,7 +75,7 @@ class AtomizedModel(Enum):
         'dt': DecisionTreeClassifier,
         'rf': RandomForestClassifier,
         'mlp': MLPClassifier,
-        #'lgbm': LGBMClassifier
+        # 'lgbm': LGBMClassifier
 
     }
     FEDOT_PREPROC_MODEL = {
@@ -115,7 +111,7 @@ class AtomizedModel(Enum):
         'ridge': SklearnRidgeReg,
         'lasso': SklearnLassoReg,
         'sgdr': SklearnSGD,
-        #'lgbmreg': LGBMRegressor,
+        # 'lgbmreg': LGBMRegressor,
         'knnreg': FedotKnnRegImplementation
     }
     NEURAL_MODEL = {

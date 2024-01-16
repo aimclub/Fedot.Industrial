@@ -1,12 +1,13 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
+from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
-from fedot.core.data.multi_modal import MultiModalData
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
-class RAFensembler:
+class RAFEnsembler:
     def __init__(self, composing_params,
                  ensemble_type: str = 'random_automl_forest',
                  n_splits: int = None,
@@ -37,7 +38,8 @@ class RAFensembler:
             self.n_splits = round(train_data.features.shape[0]/self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
-        self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
+        self.current_pipeline = self.ensemble_method(
+            new_features, new_target, n_splits=self.n_splits)
 
     def predict(self, test_data):
         data_dict = {}

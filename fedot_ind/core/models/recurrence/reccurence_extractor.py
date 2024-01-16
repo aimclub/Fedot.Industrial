@@ -64,12 +64,15 @@ class RecurrenceExtractor(BaseExtractor):
         feature_df = specter.ts_to_recurrence_matrix()
 
         if not self.image_mode:
-            feature_df = self.extractor(recurrence_matrix=feature_df).quantification_analysis()
-            features = np.nan_to_num(np.array(list(feature_df.values())), posinf=0, neginf=0)
+            feature_df = self.extractor(
+                recurrence_matrix=feature_df).quantification_analysis()
+            features = np.nan_to_num(
+                np.array(list(feature_df.values())), posinf=0, neginf=0)
             col_names = {'feature_name': list(feature_df.keys())}
         else:
             features = feature_df
-            features = np.asarray(Image.fromarray(features, mode='L'))[:, :, None]
+            features = np.asarray(Image.fromarray(
+                features, mode='L'))[:, :, None]
             col_names = {'feature_name': None}
 
         predict = InputData(idx=np.arange(len(features)),
@@ -85,7 +88,8 @@ class RecurrenceExtractor(BaseExtractor):
         if len(ts.shape) == 1:
             aggregation_df = self._generate_features_from_ts(ts)
         else:
-            aggregation_df = self._get_feature_matrix(self._generate_features_from_ts, ts)
+            aggregation_df = self._get_feature_matrix(
+                self._generate_features_from_ts, ts)
 
         return aggregation_df
 
@@ -99,4 +103,3 @@ class RecurrenceExtractor(BaseExtractor):
         for reccurence_matrix in input_data:
             img = Image.fromarray(np.squeeze(reccurence_matrix), mode='L')
             img.show()
-

@@ -1,12 +1,12 @@
-from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
+from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import MultiDimPreprocessingStrategy, \
-    IndustrialCustomPreprocessingStrategy
-from fedot_ind.core.repository.model_repository import SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS, NEURAL_MODEL
 from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
+from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import IndustrialCustomPreprocessingStrategy, \
+    MultiDimPreprocessingStrategy
+from fedot_ind.core.repository.model_repository import NEURAL_MODEL, SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -16,7 +16,8 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
         if operation_type in self.__operations_by_types.keys():
             return self.__operations_by_types[operation_type]
         else:
-            raise ValueError(f'Impossible to obtain custom preprocessing strategy for {operation_type}')
+            raise ValueError(
+                f'Impossible to obtain custom preprocessing strategy for {operation_type}')
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
@@ -57,7 +58,8 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
         if operation_type in self.__operations_by_types.keys():
             return self.__operations_by_types[operation_type]
         else:
-            raise ValueError(f'Impossible to obtain custom preprocessing strategy for {operation_type}')
+            raise ValueError(
+                f'Impossible to obtain custom preprocessing strategy for {operation_type}')
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)

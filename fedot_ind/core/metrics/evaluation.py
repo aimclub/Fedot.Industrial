@@ -27,6 +27,7 @@ class PerformanceAnalyzer:
     """Class responsible for calculating metrics for predictions.
 
     """
+
     def __init__(self):
         self.logger = logging.getLogger('PerformanceAnalyzer')
 
@@ -93,7 +94,8 @@ class PerformanceAnalyzer:
                 score = round(score, 3)
                 result_metric.append(score)
             except Exception as err:
-                self.logger.info(f'Score cannot be calculated for {metric_name} metric')
+                self.logger.info(
+                    f'Score cannot be calculated for {metric_name} metric')
                 self.logger.info(err)
                 result_metric.append(0)
 

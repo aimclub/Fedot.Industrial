@@ -66,8 +66,10 @@ def get_object_detection_dataloaders(
     """
     train_ds = YOLODataset(path=dataset_path, transform=transform)
     val_ds = YOLODataset(path=dataset_path, transform=transform, train=False)
-    train_dl = DataLoader(train_ds, shuffle=True, collate_fn=lambda x: tuple(zip(*x)), **dataloader_params)
-    val_dl = DataLoader(val_ds, collate_fn=lambda x: tuple(zip(*x)), **dataloader_params)
+    train_dl = DataLoader(train_ds, shuffle=True, collate_fn=lambda x: tuple(
+        zip(*x)), **dataloader_params)
+    val_dl = DataLoader(val_ds, collate_fn=lambda x: tuple(
+        zip(*x)), **dataloader_params)
     idx_to_class = {idx: cls for idx, cls in enumerate(train_ds.classes)}
     return train_dl, val_dl, idx_to_class
 
@@ -142,36 +144,44 @@ class CVExperimenter:
         val_dl: Validation data loader.
 
     """
+
     def __init__(self, kwargs):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.task: str = kwargs.pop('task')
         self.path: str = kwargs.pop('output_folder')
         self.optim: Optional[StructureOptimization] = None
         if 'model' in kwargs.keys():
-            assert isinstance(kwargs['model'], torch.nn.Module), 'Model must be an instance of torch.nn.Module'
+            assert isinstance(
+                kwargs['model'], torch.nn.Module), 'Model must be an instance of torch.nn.Module'
         else:
-            assert 'num_classes' in kwargs.keys(), 'It is necessary to pass the number of classes or the model object'
+            assert 'num_classes' in kwargs.keys(
+            ), 'It is necessary to pass the number of classes or the model object'
 
             num_classes = kwargs.pop('num_classes')
 
             try:
-                kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=num_classes)
+                kwargs['model'] = CV_TASKS[self.task]['model'](
+                    num_classes=num_classes)
             except URLError:
                 # Fix for possible SSL error
                 import ssl
                 ssl._create_default_https_context = ssl._create_unverified_context
-                kwargs['model'] = CV_TASKS[self.task]['model'](num_classes=num_classes)
+                kwargs['model'] = CV_TASKS[self.task]['model'](
+                    num_classes=num_classes)
 
         if 'optimization' in kwargs.keys():
             optimization = kwargs.pop('optimization')
-            parameter_value_check('optimization', optimization, set(OPTIMIZATIONS.keys()))
+            parameter_value_check(
+                'optimization', optimization, set(OPTIMIZATIONS.keys()))
             opt_params = kwargs.pop('optimization_params', {})
             self.optim = OPTIMIZATIONS[optimization](**opt_params)
 
         if 'device' not in kwargs.keys():
-            kwargs['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            kwargs['device'] = torch.device(
+                'cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](**kwargs)
+        self.exp: NNExperimenter = CV_TASKS[self.task]['experimenter'](
+            **kwargs)
         self.val_dl: Optional[DataLoader] = None
         self.idx_to_class: Optional[Dict[int: str]] = None
         self.logger.info(f'{type(self.exp).__name__} initialised')
@@ -189,7 +199,8 @@ class CVExperimenter:
         self.logger.info('Dataset preparing')
         train_dl, val_dl, idx_to_class = CV_TASKS[self.task]['data'](
             dataset_path=dataset_path,
-            dataloader_params=kwargs.pop('dataloader_params', {'batch_size': 8, 'num_workers': 4}),
+            dataloader_params=kwargs.pop(
+                'dataloader_params', {'batch_size': 8, 'num_workers': 4}),
             transform=kwargs.pop('transform', ToTensor())
         )
         self.val_dl = val_dl
@@ -237,7 +248,8 @@ class CVExperimenter:
                 summary_path=os.path.join(self.path, 'summary'),
                 **ft_params
             )
-            self.optim.fit(exp=self.exp, params=fit_parameters, ft_params=ft_parameters)
+            self.optim.fit(exp=self.exp, params=fit_parameters,
+                           ft_params=ft_parameters)
 
         return self.exp.model
 
@@ -257,7 +269,8 @@ class CVExperimenter:
         )
         dataloader = DataLoader(
             dataset=dataset,
-            collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
+            collate_fn=(lambda x: tuple(zip(*x))
+                        ) if self.task == 'object_detection' else None,
             **kwargs
         )
         predictions = self.exp.predict(dataloader=dataloader)
@@ -279,7 +292,8 @@ class CVExperimenter:
         )
         dataloader = DataLoader(
             dataset=dataset,
-            collate_fn=(lambda x: tuple(zip(*x))) if self.task == 'object_detection' else None,
+            collate_fn=(lambda x: tuple(zip(*x))
+                        ) if self.task == 'object_detection' else None,
             **kwargs
         )
         predictions = self.exp.predict_proba(dataloader=dataloader)
@@ -295,7 +309,8 @@ class CVExperimenter:
         if self.val_dl is not None:
             return self.exp.val_loop(dataloader=self.val_dl, **kwargs)
         else:
-            raise AttributeError('No validation data. Call the fit method before.')
+            raise AttributeError(
+                'No validation data. Call the fit method before.')
 
     def load(self, path) -> None:
         """

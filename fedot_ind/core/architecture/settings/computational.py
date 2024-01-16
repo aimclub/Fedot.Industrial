@@ -1,22 +1,25 @@
 import torch
 from fastcore.basics import defaults
 
+
 class BackendMethods:
     def __init__(self, device_type: str = 'cpu'):
         self.backend = self.define_backend(device_type)
 
-    def define_backend(self,device_type: str = 'cpu'):
+    def define_backend(self, device_type: str = 'cpu'):
         if device_type == 'CUDA':
-            import cupy, cupyx.scipy.linalg
+            import cupy
+            import cupyx.scipy.linalg
             return cupy, cupyx.scipy.linalg
         else:
-            import numpy, scipy.linalg
+            import numpy
+            import scipy.linalg
             return numpy, scipy.linalg
 
+
 def _has_mps():
-    "Check if MPS is available - modified from fastai"
+    """Check if MPS is available - modified from fastai"""
     return False
-    # return nested_attr(torch, "backends.mps.is_available", noop)()
 
 
 backend_methods, backend_scipy = BackendMethods().backend
@@ -37,12 +40,14 @@ def global_imports(object_name: str,
         context_module_name: the context module name in the import
 
     example usage:
-    import os -> global_imports("os")
-    from fedot_ind.core.architecture.settings.computational import backend_methods as np -> global_imports("numpy", "np")
-    from collections import Counter ->
-        global_imports("Counter", None, "collections")
-    from google.cloud import storage ->
-        global_imports("storage", None, "google.cloud")
+        easy::
+            import os -> global_imports("os")
+            from fedot_ind.core.architecture.settings.computational
+            import backend_methods as np -> global_imports("numpy", "np")
+            from collections import Counter ->
+                global_imports("Counter", None, "collections")
+            from google.cloud import storage ->
+                global_imports("storage", None, "google.cloud")
 
     """
 
@@ -57,7 +62,9 @@ def global_imports(object_name: str,
 
 
 def default_device(device_type: str = 'CUDA'):
-    "Return or set default device; `use_cuda`: -1 - CUDA/mps if available; True - error if not available; False - CPU"
+    """Return or set default device; `use_cuda`: -1 - CUDA/mps if available;
+    True - error if not available; False - CPU
+    """
     if device_type == 'CUDA':
         device_type = defaults.use_cuda
     else:

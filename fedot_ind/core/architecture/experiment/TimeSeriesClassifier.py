@@ -67,12 +67,15 @@ class TimeSeriesClassifier:
 
         input_data = init_input_data(features, target)
         output_data = self.generator_runner.transform(input_data)
-        train_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
+        train_features = pd.DataFrame(
+            output_data.predict, columns=self.generator_runner.relevant_features)
 
-        self.train_features = self.datacheck.check_data(input_data=train_features, return_df=True)
+        self.train_features = self.datacheck.check_data(
+            input_data=train_features, return_df=True)
 
         if baseline_type is not None:
-            self.predictor = self._fit_baseline_model(self.train_features, target, baseline_type)
+            self.predictor = self._fit_baseline_model(
+                self.train_features, target, baseline_type)
         else:
             self.predictor = self._fit_model(self.train_features, target)
 
@@ -111,7 +114,8 @@ class TimeSeriesClassifier:
             Fitted Fedot pipeline with baseline model
 
         """
-        self.logger.info(f'Baseline model pipeline: scaling -> {baseline_type}. Fitting...')
+        self.logger.info(
+            f'Baseline model pipeline: scaling -> {baseline_type}. Fitting...')
         node_scaling = PrimaryNode('scaling')
         node_final = SecondaryNode(baseline_type,
                                    nodes_from=[node_scaling])
@@ -122,11 +126,13 @@ class TimeSeriesClassifier:
         return baseline_pipeline
 
     def predict(self, features: np.ndarray, **kwargs) -> np.ndarray:
-        self.prediction_label = self._predict_abstraction(test_features=features, mode='labels', **kwargs)
+        self.prediction_label = self._predict_abstraction(
+            test_features=features, mode='labels', **kwargs)
         return self.prediction_label
 
     def predict_proba(self, features: np.ndarray, **kwargs) -> np.ndarray:
-        self.prediction_proba = self._predict_abstraction(test_features=features, mode='probs', **kwargs)
+        self.prediction_proba = self._predict_abstraction(
+            test_features=features, mode='probs', **kwargs)
         return self.prediction_proba
 
     def _predict_abstraction(self,
@@ -137,18 +143,23 @@ class TimeSeriesClassifier:
         if self.test_features is None:
             input_data = init_input_data(test_features, kwargs.get('target'))
             output_data = self.generator_runner.transform(input_data)
-            test_features = pd.DataFrame(output_data.predict, columns=self.generator_runner.relevant_features)
-            self.test_features = self.datacheck.check_data(input_data=test_features, return_df=True)
+            test_features = pd.DataFrame(
+                output_data.predict, columns=self.generator_runner.relevant_features)
+            self.test_features = self.datacheck.check_data(
+                input_data=test_features, return_df=True)
 
         if isinstance(self.predictor, Pipeline):
-            self.input_test_data = init_input_data(self.test_features, kwargs.get('target'))
-            prediction_label = self.predictor.predict(self.input_test_data, output_mode=mode).predict
+            self.input_test_data = init_input_data(
+                self.test_features, kwargs.get('target'))
+            prediction_label = self.predictor.predict(
+                self.input_test_data, output_mode=mode).predict
             return prediction_label
         else:
             if mode == 'labels':
                 prediction_label = self.predictor.predict(self.test_features)
             else:
-                prediction_label = self.predictor.predict_proba(self.test_features)
+                prediction_label = self.predictor.predict_proba(
+                    self.test_features)
             return prediction_label
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]):

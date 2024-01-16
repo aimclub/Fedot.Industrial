@@ -110,13 +110,16 @@ def create_mean_exp(path: str) -> None:
     os.mkdir(os.path.join(path, 'mean'))
     for phase in phases:
         if phase.endswith('.csv'):
-            df = create_mean_df([os.path.join(path, exp, phase) for exp in exps])
+            df = create_mean_df([os.path.join(path, exp, phase)
+                                for exp in exps])
             df.to_csv(os.path.join(path, 'mean', phase))
         elif os.path.isdir(os.path.join(path, exps[0], phase)):
             os.mkdir(os.path.join(path, 'mean', phase))
-            train_df = create_mean_df([os.path.join(path, exp, phase, 'train.csv') for exp in exps])
+            train_df = create_mean_df(
+                [os.path.join(path, exp, phase, 'train.csv') for exp in exps])
             train_df.to_csv(os.path.join(path, 'mean', phase, 'train.csv'))
-            val_df = create_mean_df([os.path.join(path, exp, phase, 'val.csv') for exp in exps])
+            val_df = create_mean_df(
+                [os.path.join(path, exp, phase, 'val.csv') for exp in exps])
             val_df.to_csv(os.path.join(path, 'mean', phase, 'val.csv'))
 
 
@@ -134,8 +137,10 @@ def create_mean_df(paths: List[Union[str, Path]]) -> pd.DataFrame:
     data = [df.to_numpy()]
     for path in paths[1:]:
         tmp = pd.read_csv(path, index_col=0)
-        assert np.array_equal(df.index, tmp.index), f"{df.index} are not equal to {tmp.index} in {path}"
-        assert np.array_equal(df.columns, tmp.columns), f"{df.columns} are not equal to {tmp.columns} in {path}"
+        assert np.array_equal(
+            df.index, tmp.index), f"{df.index} are not equal to {tmp.index} in {path}"
+        assert np.array_equal(
+            df.columns, tmp.columns), f"{df.columns} are not equal to {tmp.columns} in {path}"
         data.append(tmp.to_numpy())
     data = np.array(data)
     mean = data.mean(axis=0)
@@ -169,9 +174,11 @@ def show_train_scores(
     """
     fig = plt.figure(figsize=figsize)
     for name, exp in exps.items():
-        exp_scores = pd.read_csv(os.path.join(exp, 'train/val.csv'), index_col=0)
+        exp_scores = pd.read_csv(os.path.join(
+            exp, 'train/val.csv'), index_col=0)
         r, g, b = random_color()
-        plt.plot(exp_scores.index, exp_scores[metric], label=name, color=(r, g, b))
+        plt.plot(exp_scores.index,
+                 exp_scores[metric], label=name, color=(r, g, b))
         if show_std:
             plt.fill_between(
                 exp_scores.index,
@@ -201,7 +208,8 @@ def compare_svd_results(
     result = {}
 
     for exp, path in svd_exps.items():
-        metrics_df = pd.read_csv(os.path.join(path, 'pruning.csv'), index_col=0)
+        metrics_df = pd.read_csv(os.path.join(
+            path, 'pruning.csv'), index_col=0)
         size_df = pd.read_csv(os.path.join(path, 'size.csv'), index_col=0)
         df = pd.DataFrame()
         df['size'] = metrics_df['size'] / size_df.loc['default', 'size'] * 100
@@ -216,7 +224,8 @@ def compare_svd_results(
                 idx = e_df[metric].idxmax()
                 df.loc[e, 'fine-tuned'] = e_df.loc[idx, metric] * factor
                 if f'{metric} std' in e_df.columns:
-                    df['fine-tuned std'] = e_df.loc[idx, f'{metric} std'] * factor
+                    df['fine-tuned std'] = e_df.loc[idx,
+                                                    f'{metric} std'] * factor
         result[exp] = df
     return result
 
@@ -255,7 +264,8 @@ def show_svd_results(
                 )
 
         if 'fine-tuned' in df.columns:
-            plt.plot(df['size'], df['fine-tuned'], label=f'{exp} fine-tuned', color=pair_color(r, g, b))
+            plt.plot(df['size'], df['fine-tuned'],
+                     label=f'{exp} fine-tuned', color=pair_color(r, g, b))
             if 'fine-tuned std' in df.columns:
                 plt.fill_between(
                     df['size'],
@@ -284,25 +294,29 @@ def compare_sfp_results(
     factor = 100 / get_best_metric(exp_path=baseline, metric=metric)
     df = pd.DataFrame()
     for exp, path in sfp_exps.items():
-        metric_df = pd.read_csv(os.path.join(path, 'train/val.csv'), index_col=0)
+        metric_df = pd.read_csv(os.path.join(
+            path, 'train/val.csv'), index_col=0)
         size_df = pd.read_csv(os.path.join(path, 'size.csv'), index_col=0)
         size_factor = 100 / size_df.loc['default', 'size']
         df.loc[exp, 'size'] = size_df.loc['pruned', 'size'] * size_factor
 
         if 'size std' in size_df.columns:
-            df.loc[exp, 'size std'] = size_df.loc['pruned', 'size std'] * size_factor
+            df.loc[exp, 'size std'] = size_df.loc['pruned',
+                                                  'size std'] * size_factor
 
         idx = metric_df[metric].idxmax()
         df.loc[exp, 'pruned'] = metric_df.loc[idx, metric] * factor
         if f'{metric} std' in metric_df.columns:
-            df.loc[exp, 'pruned std'] = metric_df.loc[idx, f'{metric} std'] * factor
+            df.loc[exp, 'pruned std'] = metric_df.loc[idx,
+                                                      f'{metric} std'] * factor
         ft_path = os.path.join(path, 'pruned/val.csv')
         if os.path.exists(ft_path):
             ft_df = pd.read_csv(ft_path, index_col=0)
             idx = ft_df[metric].idxmax()
             df.loc[exp, 'fine-tuned'] = ft_df.loc[idx, metric] * factor
             if f'{metric} std' in ft_df.columns:
-                df.loc[exp, 'fine-tuned std'] = ft_df.loc[idx, f'{metric} std'] * factor
+                df.loc[exp, 'fine-tuned std'] = ft_df.loc[idx,
+                                                          f'{metric} std'] * factor
     return df
 
 
@@ -340,8 +354,10 @@ def show_sfp_results(
             if 'pruned std' in sfp_exps.columns:
                 ax.add_patch(Rectangle(
                     xy=(
-                        sfp_exps.loc[exp, 'size'] - sfp_exps.loc[exp, 'size std'],
-                        sfp_exps.loc[exp, 'pruned'] - sfp_exps.loc[exp, 'pruned std'],
+                        sfp_exps.loc[exp, 'size'] -
+                        sfp_exps.loc[exp, 'size std'],
+                        sfp_exps.loc[exp, 'pruned'] -
+                        sfp_exps.loc[exp, 'pruned std'],
                     ),
                     width=sfp_exps.loc[exp, 'size std'] * 2,
                     height=sfp_exps.loc[exp, 'pruned std'] * 2,
@@ -359,8 +375,10 @@ def show_sfp_results(
             if 'fine-tuned std' in sfp_exps.columns:
                 ax.add_patch(Rectangle(
                     xy=(
-                        sfp_exps.loc[exp, 'size'] - sfp_exps.loc[exp, 'size std'],
-                        sfp_exps.loc[exp, 'fine-tuned'] - sfp_exps.loc[exp, 'fine-tuned std'],
+                        sfp_exps.loc[exp, 'size'] -
+                        sfp_exps.loc[exp, 'size std'],
+                        sfp_exps.loc[exp, 'fine-tuned'] -
+                        sfp_exps.loc[exp, 'fine-tuned std'],
                     ),
                     width=sfp_exps.loc[exp, 'size std'] * 2,
                     height=sfp_exps.loc[exp, 'fine-tuned std'] * 2,

@@ -32,7 +32,7 @@ class TimeSeriesGenerator:
         self.ts_types = {'sin': SinWave,
                          'random_walk': RandomWalk,
                          'auto_regression': AutoRegression,
-                                             'smooth_normal': SmoothNormal}
+                         'smooth_normal': SmoothNormal}
         self.params = params
 
     def __define_seed(self):
@@ -88,7 +88,8 @@ class SinWave(DefaultTimeSeries):
 
     def get_ts(self):
         time_index = np.arange(0, self.ts_length)
-        sine_wave = self.amplitude * np.sin(2 * np.pi / self.period * time_index)
+        sine_wave = self.amplitude * \
+            np.sin(2 * np.pi / self.period * time_index)
         noise = np.random.normal(0, 1, self.ts_length)
         return np.array(sine_wave + noise)
 
@@ -100,7 +101,8 @@ class RandomWalk(DefaultTimeSeries):
 
     def get_ts(self):
         time_index = pd.Series(np.arange(0, self.ts_length))
-        random_walk = pd.Series(np.cumsum(np.random.randn(self.ts_length)) + self.start_val, index=time_index)
+        random_walk = pd.Series(np.cumsum(np.random.randn(
+            self.ts_length)) + self.start_val, index=time_index)
         noise = np.random.normal(0, 1, self.ts_length)
         return np.array(random_walk + noise)
 
@@ -169,11 +171,13 @@ class SmoothNormal(DefaultTimeSeries):
         if window_size % 2 != 1 or window_size < 1:
             raise TypeError("window_size size must be a positive odd number")
         if window_size < order + 2:
-            raise TypeError("window_size is too small for the polynomials order")
+            raise TypeError(
+                "window_size is too small for the polynomials order")
         order_range = range(order + 1)
         half_window = (window_size - 1) // 2
         # precompute coefficients
-        b = np.mat([[k ** i for i in order_range] for k in range(-half_window, half_window + 1)])
+        b = np.mat([[k ** i for i in order_range]
+                   for k in range(-half_window, half_window + 1)])
         m = np.linalg.pinv(b).A[deriv] * rate ** deriv * factorial(deriv)
         # pad the signal at the extremes with
         # values taken from the signal itself

@@ -4,12 +4,13 @@ import os
 from abc import ABC
 from copy import deepcopy
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from aeon.benchmarking.results_loaders import *
+
 from benchmark.abstract_bench import AbstractBenchmark
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.metrics_implementation import Accuracy
 from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
 
@@ -25,7 +26,6 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # self._create_output_dir()
         self.experiment_setup = experiment_setup
         self.multi_TSC = MULTI_CLF_BENCH
         self.uni_TSC = UNI_CLF_BENCH

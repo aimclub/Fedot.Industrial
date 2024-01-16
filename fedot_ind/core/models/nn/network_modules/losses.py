@@ -1,9 +1,9 @@
-from typing import Optional, Union, Tuple
+from typing import Optional, Union
 
 import torch
-from torch import nn, Tensor
-from fastai.torch_core import Module
 import torch.nn.functional as F
+from fastai.torch_core import Module
+from torch import nn, Tensor
 
 from fedot_ind.core.architecture.settings.computational import default_device
 
@@ -65,7 +65,8 @@ class ExpWeightedLoss(nn.Module):
         # res = torch.sum(input ** 2, dim=0).reshape(self.n_t, -1)
         res = torch.mean(input, axis=0).reshape(self.n_t, -1)
         target = torch.mean(target, axis=0).reshape(self.n_t, -1)
-        m = torch.triu(torch.ones((self.n_t, self.n_t), dtype=res.dtype), diagonal=1).T.to(default_device())
+        m = torch.triu(torch.ones((self.n_t, self.n_t),
+                       dtype=res.dtype), diagonal=1).T.to(default_device())
         with torch.no_grad():
             w = torch.exp(- self.tol * (m @ res))
         loss = torch.mean(w * res)
@@ -86,7 +87,8 @@ class HuberLoss(nn.Module):
     """
 
     def __init__(self, reduction='mean', delta=1.0):
-        assert reduction in ['mean', 'sum', 'none'], "You must set reduction to 'mean', 'sum' or 'none'"
+        assert reduction in [
+            'mean', 'sum', 'none'], "You must set reduction to 'mean', 'sum' or 'none'"
         self.reduction, self.delta = reduction, delta
         super().__init__()
 
@@ -94,7 +96,8 @@ class HuberLoss(nn.Module):
         diff = input - target
         abs_diff = torch.abs(diff)
         mask = abs_diff < self.delta
-        loss = torch.cat([(.5 * diff[mask] ** 2), self.delta * (abs_diff[~mask] - (.5 * self.delta))])
+        loss = torch.cat([(.5 * diff[mask] ** 2), self.delta *
+                         (abs_diff[~mask] - (.5 * self.delta))])
         if self.reduction == 'mean':
             return loss.mean()
         elif self.reduction == 'sum':
@@ -105,7 +108,8 @@ class HuberLoss(nn.Module):
 
 class LogCoshLoss(nn.Module):
     def __init__(self, reduction='mean', delta=1.0):
-        assert reduction in ['mean', 'sum', 'none'], "You must set reduction to 'mean', 'sum' or 'none'"
+        assert reduction in [
+            'mean', 'sum', 'none'], "You must set reduction to 'mean', 'sum' or 'none'"
         self.reduction, self.delta = reduction, delta
         super().__init__()
 
@@ -147,7 +151,8 @@ class CenterLoss(Module):
             logits_dim = c_out
         self.c_out, self.logits_dim = c_out, logits_dim
         self.centers = nn.Parameter(torch.randn(c_out, logits_dim))
-        self.classes = nn.Parameter(torch.arange(c_out).long(), requires_grad=False)
+        self.classes = nn.Parameter(torch.arange(
+            c_out).long(), requires_grad=False)
 
     def forward(self, x, labels):
         """
@@ -157,7 +162,8 @@ class CenterLoss(Module):
         """
         bs = x.shape[0]
         distmat = torch.pow(x, 2).sum(dim=1, keepdim=True).expand(bs, self.c_out) + \
-                  torch.pow(self.centers, 2).sum(dim=1, keepdim=True).expand(self.c_out, bs).T
+            torch.pow(self.centers, 2).sum(
+                dim=1, keepdim=True).expand(self.c_out, bs).T
         distmat = torch.addmm(distmat, x, self.centers.T, beta=1, alpha=-2)
 
         labels = labels.unsqueeze(1).expand(bs, self.c_out)
@@ -178,7 +184,8 @@ class CenterPlusLoss(Module):
     def forward(self, x, labels):
         return self.loss(x, labels) + self.λ * self.centerloss(x, labels)
 
-    def __repr__(self): return f"CenterPlusLoss(loss={self.loss}, c_out={self.c_out}, λ={self.λ})"
+    def __repr__(
+        self): return f"CenterPlusLoss(loss={self.loss}, c_out={self.c_out}, λ={self.λ})"
 
 
 class FocalLoss(Module):

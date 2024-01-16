@@ -4,6 +4,7 @@ from multiprocessing import cpu_count
 
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
+
 from fedot_ind.core.models.nn.network_modules.losses import *
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *
@@ -18,11 +19,11 @@ class ComputationalConstant(Enum):
     CPU_NUMBERS = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
     GLOBAL_IMPORTS = {
         'numpy': 'np',
-                      'cupy': 'np',
-                      'torch': 'torch',
-                      'torch.nn': 'nn',
-                      'torch.nn.functional': 'F'
-                      }
+        'cupy': 'np',
+        'torch': 'torch',
+        'torch.nn': 'nn',
+        'torch.nn.functional': 'F'
+    }
     BATCH_SIZE_FOR_FEDOT_WORKER = 1000
     FEDOT_WORKER_NUM = 5
     FEDOT_WORKER_TIMEOUT_PARTITION = 2
@@ -85,7 +86,8 @@ class FeatureConstant(Enum):
 
     PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
                                                                  takens_embedding_delay=2,
-                                                                 homology_dimensions=(0, 1),
+                                                                 homology_dimensions=(
+                                                                     0, 1),
                                                                  parallel=False)
     DISCRETE_WAVELETS = pywt.wavelist(kind='discrete')
     CONTINUOUS_WAVELETS = pywt.wavelist(kind='continuous')
@@ -130,7 +132,7 @@ class ModelCompressionConstant(Enum):
     FORWARD_MODE = 'one_layer'
     HOER_LOSS = 0.1
     ORTOGONAL_LOSS = 10
-    MODELS_FROM_LENGHT = {
+    MODELS_FROM_LENGTH = {
         122: 'ResNet18',
         218: 'ResNet34',
         320: 'ResNet50',
@@ -351,7 +353,7 @@ DECOMPOSE_MODE = ModelCompressionConstant.DECOMPOSE_MODE.value
 FORWARD_MODE = ModelCompressionConstant.FORWARD_MODE.value
 HOER_LOSS = ModelCompressionConstant.HOER_LOSS.value
 ORTOGONAL_LOSS = ModelCompressionConstant.ORTOGONAL_LOSS.value
-MODELS_FROM_LENGHT = ModelCompressionConstant.MODELS_FROM_LENGHT.value
+MODELS_FROM_LENGTH = ModelCompressionConstant.MODELS_FROM_LENGTH.value
 
 CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
 MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value

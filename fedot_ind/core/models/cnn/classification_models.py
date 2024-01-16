@@ -5,35 +5,40 @@ from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet15
 def resnet18_one_channel(**kwargs) -> ResNet:
     """ResNet18 for one input channel"""
     model = resnet18(**kwargs)
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7,
+                            stride=2, padding=3, bias=False)
     return model
 
 
 def resnet34_one_channel(**kwargs) -> ResNet:
     """ResNet34 for one input channel"""
     model = resnet34(**kwargs)
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7,
+                            stride=2, padding=3, bias=False)
     return model
 
 
 def resnet50_one_channel(**kwargs) -> ResNet:
     """ResNet50 for one input channel"""
     model = resnet50(**kwargs)
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7,
+                            stride=2, padding=3, bias=False)
     return model
 
 
 def resnet101_one_channel(**kwargs) -> ResNet:
     """ResNet101 for one input channel"""
     model = resnet101(**kwargs)
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7,
+                            stride=2, padding=3, bias=False)
     return model
 
 
 def resnet152_one_channel(**kwargs) -> ResNet:
     """ResNet152 for one input channel"""
     model = resnet152(**kwargs)
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7,
+                            stride=2, padding=3, bias=False)
     return model
 
 

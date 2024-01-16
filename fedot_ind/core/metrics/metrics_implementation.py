@@ -28,9 +28,11 @@ class ParetoMetrics:
         for i, c in enumerate(costs):
             if is_efficient[i]:
                 if maximise:
-                    is_efficient[is_efficient] = np.any(costs[is_efficient] >= c, axis=1)  # Remove dominated points
+                    is_efficient[is_efficient] = np.any(
+                        costs[is_efficient] >= c, axis=1)  # Remove dominated points
                 else:
-                    is_efficient[is_efficient] = np.any(costs[is_efficient] <= c, axis=1)  # Remove dominated points
+                    is_efficient[is_efficient] = np.any(
+                        costs[is_efficient] <= c, axis=1)  # Remove dominated points
         return is_efficient
 
 
@@ -38,7 +40,8 @@ class QualityMetric:
     def __init__(self, target,
                  predicted_labels,
                  predicted_probs=None,
-                 metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                 metric_list: list = (
+                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         self.predicted_labels = np.array(predicted_labels).flatten()
@@ -113,7 +116,8 @@ class ROCAUC(QualityMetric):
             additional_params = {}
             prediction = self.predicted_labels
 
-        score = roc_auc_score(y_score=prediction, y_true=target, **additional_params)
+        score = roc_auc_score(y_score=prediction,
+                              y_true=target, **additional_params)
         score = round(score, 3)
 
         return score
@@ -130,7 +134,8 @@ class Precision(QualityMetric):
         else:
             additional_params = {}
 
-        score = precision_score(y_pred=prediction, y_true=target, **additional_params)
+        score = precision_score(
+            y_pred=prediction, y_true=target, **additional_params)
         score = round(score, 3)
         return score
 

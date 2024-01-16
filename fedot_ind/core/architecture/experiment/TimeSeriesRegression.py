@@ -24,7 +24,8 @@ class TimeSeriesRegression:
         self.use_cache = params.get('use_cache', False)
 
         self.logger = logging.getLogger('TimeSeriesClassifier')
-        self.pca = PCA(n_components=params.get('explained_variance', 0.9), svd_solver='full')
+        self.pca = PCA(n_components=params.get(
+            'explained_variance', 0.9), svd_solver='full')
 
         self.logger.info('TimeSeriesRegression solver initialised')
 
@@ -97,9 +98,10 @@ class TimeSeriesRegression:
         self.train_target = np.array([float(i) for i in target])
         self.train_input_data = self._init_input_data(features, target)
         extracted_train_features = self.generator_runner.transform(input_data=self.train_input_data,
-                                                         use_cache=self.use_cache)
+                                                                   use_cache=self.use_cache)
         train_size = extracted_train_features.features.shape
-        self.train_features = extracted_train_features.features.reshape(train_size[0], train_size[1] * train_size[2])
+        self.train_features = extracted_train_features.features.reshape(
+            train_size[0], train_size[1] * train_size[2])
 
         self.logger.info('Start applying PCA')
         self.pca_train_features = self.pca.fit_transform(self.train_features)
@@ -124,12 +126,14 @@ class TimeSeriesRegression:
         self.test_target = np.array([float(i) for i in target])
         self.test_input_data = self._init_input_data(features, target)
         extracted_test_features = self.generator_runner.transform(input_data=self.test_input_data,
-                                                             use_cache=self.use_cache)
+                                                                  use_cache=self.use_cache)
         test_size = extracted_test_features.features.shape
-        self.test_features = extracted_test_features.features.reshape(test_size[0], test_size[1] * test_size[2])
+        self.test_features = extracted_test_features.features.reshape(
+            test_size[0], test_size[1] * test_size[2])
 
         self.pca_test_features = self.pca.transform(self.test_features)
-        self.predicted_labels = self.predictor.predict(features=self.pca_test_features)
+        self.predicted_labels = self.predictor.predict(
+            features=self.pca_test_features)
 
         return self.predicted_labels
 

@@ -1,11 +1,10 @@
 from itertools import chain
 from typing import Optional
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from pandas import Index
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
@@ -46,19 +45,20 @@ class QuantileExtractor(BaseExtractor):
                                     'Stride': self.stride,
                                     'VarTh': self.var_threshold})
 
-
     def _concatenate_global_and_local_feature(self, global_features: InputData,
                                               window_stat_features: InputData) -> InputData:
 
         if type(window_stat_features.features[0]) is list:
-            window_stat_features.features = np.concatenate(window_stat_features.features, axis=0)
+            window_stat_features.features = np.concatenate(
+                window_stat_features.features, axis=0)
             window_stat_features.supplementary_data['feature_name'] = list(
                 chain(*window_stat_features.supplementary_data['feature_name']))
 
         window_stat_features.features = np.concatenate([global_features.features,
                                                         window_stat_features.features],
                                                        axis=0)
-        window_stat_features.features = np.nan_to_num(window_stat_features.features)
+        window_stat_features.features = np.nan_to_num(
+            window_stat_features.features)
 
         window_stat_features.supplementary_data['feature_name'] = list(
             chain(*[global_features.supplementary_data['feature_name'],
@@ -66,7 +66,8 @@ class QuantileExtractor(BaseExtractor):
         return window_stat_features
 
     def extract_stats_features(self, ts: np.array) -> InputData:
-        global_features = self.get_statistical_features(ts, add_global_features=True)
+        global_features = self.get_statistical_features(
+            ts, add_global_features=True)
         if self.window_size != 0:
             window_stat_features = self.apply_window_for_stat_feature(ts_data=ts,
                                                                       feature_generator=self.get_statistical_features,
@@ -81,6 +82,7 @@ class QuantileExtractor(BaseExtractor):
         if len(ts.shape) == 1:
             aggregation_df = self.extract_stats_features(ts)
         else:
-            aggregation_df = self._get_feature_matrix(self.extract_stats_features, ts)
+            aggregation_df = self._get_feature_matrix(
+                self.extract_stats_features, ts)
 
         return aggregation_df

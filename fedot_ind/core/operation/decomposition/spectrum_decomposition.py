@@ -43,8 +43,8 @@ class SpectrumDecomposer:
         if self.thr is None:
             beta = round(x[0].shape[0] / x[0].shape[1])
             self.thr = max(len(singular_value_hard_threshold(singular_values=x[1],
-                                          beta=beta,
-                                          threshold=None)),2)
+                                                             beta=beta,
+                                                             threshold=None)), 2)
         return ListMonad([x[0],
                           x[1][:self.thr],
                           x[2]])

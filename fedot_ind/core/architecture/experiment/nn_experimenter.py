@@ -79,7 +79,8 @@ class NNExperimenter(ABC):
         self.model = model
         self.device = torch.device(device)
         if weights is not None:
-            self.model.load_state_dict(torch.load(weights, map_location=self.device))
+            self.model.load_state_dict(torch.load(
+                weights, map_location=self.device))
         self.model.to(self.device)
         self.name = name if name is not None else type(model).__name__
         self.best_score = -1
@@ -105,15 +106,19 @@ class NNExperimenter(ABC):
             initial_validation: If ``True`` run validation loop before training.
 
         """
-        model_path = os.path.join(p.models_path, p.dataset_name, self.name, p.description, phase)
-        summary_path = os.path.join(p.summary_path, p.dataset_name, self.name, p.description, phase)
+        model_path = os.path.join(
+            p.models_path, p.dataset_name, self.name, p.description, phase)
+        summary_path = os.path.join(
+            p.summary_path, p.dataset_name, self.name, p.description, phase)
         writer = WriterComposer(summary_path, [TFWriter, CSVWriter])
         self.logger.info(f"{phase}: {self.name}, using device: {self.device}")
 
         if initial_validation:
-            init_scores = self.val_loop(dataloader=p.val_dl, class_metrics=p.class_metrics)
+            init_scores = self.val_loop(
+                dataloader=p.val_dl, class_metrics=p.class_metrics)
             writer.write_scores('val', init_scores, start_epoch)
-            self._save_model_sd_if_best(val_scores=init_scores, file_path=model_path)
+            self._save_model_sd_if_best(
+                val_scores=init_scores, file_path=model_path)
         start_epoch += 1
 
         optimizer = p.optimizer(self.model.parameters())
@@ -139,7 +144,8 @@ class NNExperimenter(ABC):
                     class_metrics=p.class_metrics
                 )
                 writer.write_scores('val', val_scores, epoch)
-                self._save_model_sd_if_best(val_scores=val_scores, file_path=model_path)
+                self._save_model_sd_if_best(
+                    val_scores=val_scores, file_path=model_path)
                 if isinstance(lr_scheduler, ReduceLROnPlateau):
                     lr_scheduler.step(val_scores[self.metric])
 
@@ -440,7 +446,8 @@ class ObjectDetectionExperimenter(NNExperimenter):
         """Implements the train forward method and returns loss."""
         assert self.model.training, "model must be in training mode"
         images = [image.to(self.device) for image in x]
-        targets = [{k: v.to(self.device) for k, v in target.items()} for target in y]
+        targets = [{k: v.to(self.device)
+                    for k, v in target.items()} for target in y]
         return self.model(images, targets)
 
     def _predict_on_batch(self, x: torch.Tensor, proba: bool) -> List:

@@ -35,7 +35,7 @@ def exact_dmd_decompose(X, Y, rank):
     Vx = Vx[:, :rank]
     # Project A onto the leading r principal components of X.
     Atilde = (Ux.T @ Y) @ Vx @ np.linalg.pinv(Sx)
-    A = lambda v: np.dot(a=Ux, b=np.dot(a=Atilde, b=np.dot(a=Ux.T, b=v)))
+    def A(v): return np.dot(a=Ux, b=np.dot(a=Atilde, b=np.dot(a=Ux.T, b=v)))
     # Diagonalise linear operator
     eigen_vals, eigen_vectors = np.linalg.eig(Atilde)
     eigen_vals = np.diag(eigen_vals)
@@ -55,7 +55,7 @@ def orthogonal_dmd_decompose(X, Y, rank):
     # The solution of A_proj is obtained by Schonemann A = Uyx,@ Vyx.T
     Uyx, _, Vyx = svd(Yproj @ Xproj.T)
     Aproj = Uyx @ Vyx.T
-    A = lambda x: np.dot(a=Ux, b=np.dot(a=Aproj, b=np.dot(a=Ux.T, b=x)))
+    def A(x): return np.dot(a=Ux, b=np.dot(a=Aproj, b=np.dot(a=Ux.T, b=x)))
     # Diagonalise unitary operator
     eVals, eVecs = np.linalg.eig(Aproj)
     eigen_vals = np.diag(eVals)
@@ -75,7 +75,8 @@ def symmetric_decompose(X, Y, rank):
     for i in range(rank):
         Yf[i, i] = np.real(C1[i, i]) / S[i]
         for j in range(i + 1, rank):
-            Yf[i, j] = (S[i] * np.conj(C1[j, i]) + S[j] * C1[i, j]) / (S[i] ** 2 + S[j] ** 2)
+            Yf[i, j] = (S[i] * np.conj(C1[j, i]) + S[j] *
+                        C1[i, j]) / (S[i] ** 2 + S[j] ** 2)
     Yf = Yf + Yf.T - np.diag(np.diag(np.real(Yf)))
     # elif method == 'skewsymmetric':
     #     for i in range(r):
@@ -83,7 +84,7 @@ def symmetric_decompose(X, Y, rank):
     #         for j in range(i + 1, r):
     #             Yf[i, j] = (-S[i, i] * np.conj(C1[j, i]) + S[j, j] * (C1[i, j])) / (S[i, i] ** 2 + S[j, j] ** 2)
     #     Yf = Yf - Yf.T - 1j * np.diag(np.diag(np.imag(Yf)))
-    A = lambda v: np.dot(Ux, np.dot(Yf, np.dot(Ux.T, v)))
+    def A(v): return np.dot(Ux, np.dot(Yf, np.dot(Ux.T, v)))
     return A
 
 
@@ -92,12 +93,15 @@ def hankel_decompose(X, Y, rank):
     # J = np.eye(nx)
     J = np.fliplr(np.eye(nx))
     # Define the left matrix
-    A = np.fft.fft(np.concatenate((np.eye(nx), np.zeros((nx, nx))), axis=1), axis=0) / np.sqrt(2 * nx)
+    A = np.fft.fft(np.concatenate(
+        (np.eye(nx), np.zeros((nx, nx))), axis=1), axis=0) / np.sqrt(2 * nx)
     # Define the right matrix
-    B = np.fft.fft(np.vstack((np.dot(J, X), np.zeros((nt, nx)))), axis=0) / np.sqrt(2 * nx)
+    B = np.fft.fft(np.vstack((np.dot(J, X), np.zeros((nt, nx)))),
+                   axis=0) / np.sqrt(2 * nx)
     BtB = B.T @ B
     # Fast computation of A * A
-    AAt = np.fft.ifft(np.fft.fft(np.concatenate((np.eye(nx), np.zeros((nx, nx))), axis=1)).T).T
+    AAt = np.fft.ifft(np.fft.fft(np.concatenate(
+        (np.eye(nx), np.zeros((nx, nx))), axis=1)).T).T
     # Construct the RHS of the linear system
     y = np.diag(np.dot(np.dot(AAt.T, np.conj(Y)), B))
     # Construct the matrix for the linear system

@@ -1,30 +1,29 @@
 import warnings
 from typing import Optional
-import torch.utils.data as data
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
 import pandas as pd
 import torch
+import torch.utils.data as data
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import TaskTypesEnum, TsForecastingParams, Task
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch import nn, optim
+from torch.optim import lr_scheduler
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.repository.constanst_repository import RMSE, MSE, SMAPE, EXPONENTIAL_WEIGHTED_LOSS
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.backbone import _PatchTST_backbone
-from fedot_ind.core.models.nn.network_modules.layers.special import SeriesDecomposition, \
-    EarlyStopping, adjust_learning_rate
+from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from torch.optim import lr_scheduler
-
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
+from fedot_ind.core.repository.constanst_repository import EXPONENTIAL_WEIGHTED_LOSS
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -48,9 +47,11 @@ class PatchTST(nn.Module):
                  affine=False,  # RevIN affine
                  individual=False,  # individual head
                  subtract_last=False,  # subtract_last
-                 activation="GELU",  # activation function of intermediate layer, relu or gelu.
+                 # activation function of intermediate layer, relu or gelu.
+                 activation="GELU",
                  norm='BatchNorm',  # type of normalization layer used in the encoder
-                 pre_norm=False,  # flag to indicate if normalization is applied as the first step in the sublayers
+                 # flag to indicate if normalization is applied as the first step in the sublayers
+                 pre_norm=False,
                  res_attention=True,  # flag to indicate if Residual MultiheadAttention should be used
                  store_attn=True,
                  preprocess_to_lagged=False  # can be used to visualize attention weights
@@ -127,8 +128,9 @@ class PatchTSTModel(BaseNeuralModel):
                          activation=self.activation).to(default_device())
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
         patch_pred_len = round(self.horizon / 4)
-        loss_fn = EXPONENTIAL_WEIGHTED_LOSS(time_steps=patch_pred_len, tolerance=0.3)
-        #loss_fn = RMSE()
+        loss_fn = EXPONENTIAL_WEIGHTED_LOSS(
+            time_steps=patch_pred_len, tolerance=0.3)
+        # loss_fn = RMSE()
         return model, loss_fn, optimizer
 
     def _fit_model(self, input_data: InputData, split_data: bool = True):
@@ -137,9 +139,11 @@ class PatchTSTModel(BaseNeuralModel):
             train_loader = self.__create_torch_loader(input_data)
         else:
             if self.patch_len is None:
-                dominant_window_size = WindowSizeSelector(method='dff').get_window_size(input_data.features)
+                dominant_window_size = WindowSizeSelector(
+                    method='dff').get_window_size(input_data.features)
                 self.patch_len = 2 * dominant_window_size
-                train_loader = self._prepare_data(input_data.features, self.patch_len, False)
+                train_loader = self._prepare_data(
+                    input_data.features, self.patch_len, False)
         self.test_patch_len = self.patch_len
         model, loss_fn, optimizer = self._init_model(input_data)
         model = self._train_loop(model, train_loader, loss_fn, optimizer)
@@ -156,7 +160,8 @@ class PatchTSTModel(BaseNeuralModel):
                 self.preprocess_to_lagged = True
 
         if self.preprocess_to_lagged:
-            self.seq_len = input_data.features.shape[0] + input_data.features.shape[1]
+            self.seq_len = input_data.features.shape[0] + \
+                input_data.features.shape[1]
         else:
             self.seq_len = input_data.features.shape[1]
         self.target = input_data.target
@@ -213,7 +218,8 @@ class PatchTSTModel(BaseNeuralModel):
                       validation_blocks: int = None):
         train_data = self.split_data(ts)
         if split_data:
-            train_data, val_data = train_test_data_setup(train_data, validation_blocks=validation_blocks)
+            train_data, val_data = train_test_data_setup(
+                train_data, validation_blocks=validation_blocks)
             _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
                                                                                                   self.horizon,
                                                                                                   patch_len)
@@ -253,14 +259,16 @@ class PatchTSTModel(BaseNeuralModel):
 
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y).float()
-                dec_inp = torch.cat([batch_y, dec_inp], dim=1).float().to(default_device())
+                dec_inp = torch.cat([batch_y, dec_inp],
+                                    dim=1).float().to(default_device())
                 outputs = model(batch_x)
                 loss = loss_fn(outputs, batch_y)
                 train_loss.append(loss.item())
                 loss.backward()
                 model.float()
                 optimizer.step()
-                adjust_learning_rate(optimizer, scheduler, epoch + 1, args, printout=False)
+                adjust_learning_rate(optimizer, scheduler,
+                                     epoch + 1, args, printout=False)
                 scheduler.step()
             train_loss = np.average(train_loss)
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
@@ -268,7 +276,8 @@ class PatchTSTModel(BaseNeuralModel):
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
+            print('Updating learning rate to {}'.format(
+                scheduler.get_last_lr()[0]))
 
         return model
 
@@ -282,7 +291,8 @@ class PatchTSTModel(BaseNeuralModel):
                     batch_y = batch_y.float().to(default_device())
                     # decoder input
                     dec_inp = torch.zeros_like(batch_y[:, :, :]).float()
-                    dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(default_device())
+                    dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(
+                        default_device())
                     # encoder - decoder
                     outputs.append(model(batch_x))
                 return torch.cat(outputs).cpu().numpy()
@@ -299,9 +309,11 @@ class PatchTSTModel(BaseNeuralModel):
             outputs = self.model(batch_x)
         else:
             if self.output_attention:
-                outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                outputs = self.model(batch_x, batch_x_mark,
+                                     dec_inp, batch_y_mark)[0]
             else:
-                outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                outputs = self.model(batch_x, batch_x_mark,
+                                     dec_inp, batch_y_mark)
         return outputs
 
     def predict(self,
@@ -313,7 +325,8 @@ class PatchTSTModel(BaseNeuralModel):
             y_pred.append(self._predict_loop(model, test_data))
         y_pred = np.array(y_pred)
         forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
-                                         stop=test_data.idx[-self.horizon] + y_pred.shape[1],
+                                         stop=test_data.idx[-self.horizon] +
+                                         y_pred.shape[1],
                                          step=1)
         predict = OutputData(
             idx=forecast_idx_predict,
@@ -352,13 +365,15 @@ class PatchTSTModel(BaseNeuralModel):
                                     window_size=self.test_patch_len).trajectory_matrix
             features = torch.from_numpy(DataConverter(data=features).
                                         convert_to_torch_format()).float().permute(2, 1, 0)
-            target = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float()
+            target = torch.from_numpy(DataConverter(
+                data=features).convert_to_torch_format()).float()
 
         else:
             features = test_data.features
             features = torch.from_numpy(DataConverter(data=features).
                                         convert_to_torch_format()).float()
-            target = torch.from_numpy(DataConverter(data=features).convert_to_torch_format()).float()
+            target = torch.from_numpy(DataConverter(
+                data=features).convert_to_torch_format()).float()
         test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
                                                   batch_size=self.batch_size, shuffle=False)
         return self._predict(model, test_loader)

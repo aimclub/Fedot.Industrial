@@ -36,4 +36,5 @@ class IndustrialDecompositionForForecastingStrategy(FedotTsForecastingStrategy):
         if operation_type in self.__operations_by_types.keys():
             return self.__operations_by_types[operation_type]
         else:
-            raise ValueError(f'Impossible to obtain custom preprocessing strategy for {operation_type}')
+            raise ValueError(
+                f'Impossible to obtain custom preprocessing strategy for {operation_type}')
