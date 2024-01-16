@@ -2,7 +2,6 @@ from typing import Sequence
 
 from golem.core.optimisers.genetic.gp_optimizer import EvoGraphOptimizer
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
-from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 from golem.core.optimisers.graph import OptGraph
 from golem.core.optimisers.objective import Objective
 from golem.core.optimisers.optimization_parameters import GraphRequirements
@@ -10,8 +9,6 @@ from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.core.optimisers.populational_optimizer import _try_unfit_graph
 
 from fedot_ind.core.repository.IndustrialDispatcher import IndustrialDispatcher
-from fedot_ind.core.repository.initializer_industrial_models import \
-    has_no_data_flow_conflicts_in_industrial_pipeline
 
 
 class IndustrialEvoOptimizer(EvoGraphOptimizer):

@@ -9,6 +9,7 @@ from fedot_ind.core.models.nn.network_modules.losses import *
 from fedot_ind.core.models.quantile.stat_features import *
 from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 
 def beta_thr(beta):
@@ -98,7 +99,12 @@ class FeatureConstant(Enum):
 
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
-
+    FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
+                  'regression': Task(TaskTypesEnum.regression)}
+    FEDOT_HEAD_ENSEMBLE = {'classification': 'logit',
+                           'regression': 'ridge'}
+    FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
+                               'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
         'rf',
         'logit',
@@ -337,6 +343,9 @@ SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
 EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
+FEDOT_HEAD_ENSEMBLE = FedotOperationConstant.FEDOT_HEAD_ENSEMBLE.value
+FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
+FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

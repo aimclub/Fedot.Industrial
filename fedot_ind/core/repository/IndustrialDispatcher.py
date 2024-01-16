@@ -1,11 +1,14 @@
+from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher
+
+from fedot_ind.core.architecture.abstraction.decorators import DaskServer
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+
 import logging
 import pathlib
 import timeit
 from datetime import datetime
 from typing import Optional, Tuple
-
 from golem.core.log import Log
-from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher
 from golem.core.optimisers.genetic.operators.operator import EvaluationOperator, PopulationT
 from golem.core.optimisers.graph import OptGraph
 from golem.core.optimisers.objective import ObjectiveFunction
@@ -13,10 +16,7 @@ from golem.core.optimisers.opt_history_objects.individual import GraphEvalResult
 from golem.core.optimisers.timer import Timer
 from golem.utilities.memory import MemoryAnalytics
 from golem.utilities.utilities import determine_n_jobs
-from joblib import Parallel, parallel_backend, wrap_non_picklable_objects
-
-from fedot_ind.core.architecture.abstraction.decorators import DaskServer
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from joblib import wrap_non_picklable_objects, Parallel, delayed, parallel_backend
 
 
 class IndustrialDispatcher(MultiprocessingDispatcher):
@@ -28,23 +28,20 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return self.evaluate_with_cache
 
     def evaluate_population(self, individuals: PopulationT) -> PopulationT:
-        individuals_to_evaluate, individuals_to_skip = self.split_individuals_to_evaluate(
-            individuals)
+        individuals_to_evaluate, individuals_to_skip = self.split_individuals_to_evaluate(individuals)
 
         # Evaluate individuals without valid fitness in parallel.
         n_jobs = determine_n_jobs(self._n_jobs, self.logger)
         client = DaskServer().client
-        parallel = Parallel(n_jobs=n_jobs, verbose=0,
-                            pre_dispatch='2 * n_jobs')
+        parallel = Parallel(n_jobs=n_jobs, verbose=0, pre_dispatch='2 * n_jobs')
 
-        with parallel_backend(backend='dask', n_jobs=n_jobs):
+        with parallel_backend(backend='dask', n_jobs=n_jobs, scatter=[individuals_to_evaluate]):
             evaluation_results = []
             for ind in individuals_to_evaluate:
                 y = self.industrial_evaluate_single(self, graph=ind.graph, uid_of_individual=ind.uid,
                                                     logs_initializer=Log().get_parameters())
                 evaluation_results.append(y)
-            individuals_evaluated = self.apply_evaluation_results(
-                individuals_to_evaluate, evaluation_results)
+            individuals_evaluated = self.apply_evaluation_results(individuals_to_evaluate, evaluation_results)
             # If there were no successful evals then try once again getting at least one,
             # even if time limit was reached
             successful_evals = individuals_evaluated + individuals_to_skip
@@ -56,8 +53,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                         evaluation_result = self.industrial_evaluate_single(self, graph=ind.graph,
                                                                             uid_of_individual=ind.uid,
                                                                             with_time_limit=False)
-                        successful_evals = self.apply_evaluation_results(
-                            [single_ind], [evaluation_result])
+                        successful_evals = self.apply_evaluation_results([single_ind], [evaluation_result])
                         if successful_evals:
                             break
                     except Exception:
