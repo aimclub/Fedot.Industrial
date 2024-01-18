@@ -1,4 +1,5 @@
 import pathlib
+from enum import Enum
 from random import sample, choice, random
 
 from fedot.core.composer.metrics import F1, Accuracy
