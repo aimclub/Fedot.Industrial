@@ -8,7 +8,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
 from sklearn.preprocessing import LabelEncoder
 
-from examples.example_utils import check_multivariate_data
+from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.repository.constanst_repository import MATRIX, MULTI_ARRAY
