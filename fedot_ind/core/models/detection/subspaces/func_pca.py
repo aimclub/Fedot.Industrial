@@ -65,15 +65,18 @@ class FunctionalPCA:
     ):
         """
         Compute the first n_components principal components and saves them.
+
         Args:
             X: The functional data object to be analysed.
-            y: Ignored.
+
         Returns:
             self
+
         References:
             .. [RS05-8-4-2] Ramsay, J., Silverman, B. W. (2005). Basis function
                 expansion of the functions. In *Functional Data Analysis*
                 (pp. 161-164). Springer.
+
         """
         X = self._delete_mean(X)
         if self.basis_function is not None:

@@ -8,6 +8,10 @@ from fastai.torch_core import Module
 from fastcore.basics import listify
 from torch import Tensor
 
+from fedot_ind.core.models.nn.network_modules.activation import pytorch_act_names, pytorch_acts
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Noop
+from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
+
 
 def correct_sizes(sizes):
     corrected_sizes = [s if s % 2 != 0 else s - 1 for s in sizes]

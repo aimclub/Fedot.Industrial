@@ -2,7 +2,6 @@ import logging
 from typing import List, Union
 from typing import Optional
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import InputData
@@ -13,9 +12,10 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.tuning.sequential import SequentialTuner
 
-from fedot_ind.api.utils.input_data import init_input_data
+from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.api.utils.saver_collections import ResultSaver
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 

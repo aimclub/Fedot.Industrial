@@ -2,6 +2,7 @@ import logging
 from typing import List, Union
 from typing import Optional
 
+from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.api.main import Fedot
@@ -10,7 +11,6 @@ from fedot.core.pipelines.node import PrimaryNode, SecondaryNode
 from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
-from fedot_ind.api.utils.input_data import init_input_data
 from fedot_ind.api.utils.saver_collections import ResultSaver
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
@@ -42,7 +42,7 @@ class TimeSeriesClassifier:
                                  generator_name=self.strategy,
                                  output_dir=self.output_folder)
         self.logger = logging.getLogger('TimeSeriesClassifier')
-        self.datacheck = DataCheck()
+        self.datacheck = DataCheck
 
         self.prediction_proba = None
         self.test_predict_hash = None
@@ -70,8 +70,7 @@ class TimeSeriesClassifier:
         train_features = pd.DataFrame(
             output_data.predict, columns=self.generator_runner.relevant_features)
 
-        self.train_features = self.datacheck.check_data(
-            input_data=train_features, return_df=True)
+        self.train_features = self.datacheck(task='classification', input_data=input_data).check_input_data()
 
         if baseline_type is not None:
             self.predictor = self._fit_baseline_model(
@@ -145,8 +144,7 @@ class TimeSeriesClassifier:
             output_data = self.generator_runner.transform(input_data)
             test_features = pd.DataFrame(
                 output_data.predict, columns=self.generator_runner.relevant_features)
-            self.test_features = self.datacheck.check_data(
-                input_data=test_features, return_df=True)
+            self.test_features = self.datacheck(task='classification', input_data=input_data)
 
         if isinstance(self.predictor, Pipeline):
             self.input_test_data = init_input_data(
