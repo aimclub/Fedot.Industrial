@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import optim
 
