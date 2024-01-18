@@ -82,6 +82,7 @@ class AbstractBenchmark(object):
         except Exception:
             print('No_visualisation')
         plt.close('all')
+        model.shutdown()
         return prediction.squeeze(), model.predict_data.target
 
     def finetune_loop(self, dataset, experiment_setup: dict = None):

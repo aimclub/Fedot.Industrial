@@ -8,6 +8,7 @@ from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
+from fedot_ind.core.architecture.abstraction.decorators import DaskServer
 from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -97,9 +98,15 @@ class FedotIndustrial(Fedot):
         del self.config_dict['backend']
 
     def __init_solver(self):
+        self.logger.info('Initialising Dask Server')
+        self.dask_client = DaskServer().client
         self.logger.info('Initialising solver')
         solver = Fedot(**self.config_dict)
         return solver
+
+    def shutdown(self):
+        self.dask_client.close()
+        del self.dask_client
 
     def _preprocessing_strategy(self, input_data):
         if self.preprocessing:

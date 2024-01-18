@@ -5,6 +5,7 @@ from distributed import Client, LocalCluster
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter, \
     CustomDatasetCLF, CustomDatasetTS
 
+from weakref import WeakValueDictionary
 
 def fedot_data_type(func):
     def decorated_func(self, *args):
@@ -87,25 +88,22 @@ def convert_to_input_data(func):
 
 
 class Singleton(type):
-    # Inherit from "type" in order to gain access to method __call__
-    def __init__(self, *args, **kwargs):
-        self.__instance = None  # Create a variable to store the object reference
-        super().__init__(*args, **kwargs)
+    _instances = WeakValueDictionary()
 
-    def __call__(self, *args, **kwargs):
-        if self.__instance is None:
-            # if the object has not already been created
-            self.__instance = super().__call__(*args,
-                                               **kwargs)  # Call the __init__ method of the subclass (Spam) and save the reference
-            return self.__instance
-        else:
-            # if object (Spam) reference already exists; return it
-            return self.__instance
-
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            # This variable declaration is required to force a
+            # strong reference on the instance.
+            instance = super(Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
 
 class DaskServer(metaclass=Singleton):
     def __init__(self):
         print('Creating Dask Server')
-        cluster = LocalCluster(processes=False)
+        cluster = LocalCluster(processes=False,
+                               n_workers=6,
+                               threads_per_worker=1,
+                               memory_limit='4GB')
         # connect client to your cluster
         self.client = Client(cluster)

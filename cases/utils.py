@@ -5,6 +5,7 @@ from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from examples.example_utils import init_input_data, calculate_regression_metric
@@ -15,16 +16,17 @@ from golem.core.tuning.simultaneous import SimultaneousTuner
 from fedot_ind.api.main import FedotIndustrial
 
 
-def evaluate_industrial_model(train_data, test_data, task: str = 'regression'):
+def evaluate_industrial_model(input_data,
+                              val_data,
+                              model_dict,
+                              task: str = 'regression'):
     metric_dict = {}
-    input_data = init_input_data(train_data[0], train_data[1], task=task)
-    val_data = init_input_data(test_data[0], test_data[1], task=task)
     for model in model_dict.keys():
         print(f'Current_model - {model}')
         pipeline = model_dict[model].build()
         pipeline.fit(input_data)
         features = pipeline.predict(val_data).predict
-        metric = calculate_regression_metric(test_target=test_data[1], labels=features)
+        metric = calculate_regression_metric(test_target=val_data.target, labels=features)
         metric_dict.update({model: metric})
     return metric_dict
 
@@ -43,7 +45,7 @@ def tuning_industrial_pipelines(pipeline, tuning_params, train_data):
     return pipeline
 
 
-def evaluate_automl(runs=5):
+def evaluate_automl(experiment_setup, train_data, test_data, runs=5):
     metric_dict = {}
     model_list = []
 
@@ -68,6 +70,7 @@ def evaluate_automl(runs=5):
 
         metric_dict.update({f'run_number - {run}': metric})
         model_list.append(model)
+        model.shutdown()
 
     return metric_dict, model_list
 
@@ -94,30 +97,15 @@ def ts_regression_setup():
         'regression_with_statistical_features': PipelineBuilder().add_node('quantile_extractor',
                                                                            params={'window_size': 0}).add_node('ridge')
     }
+    ml_task = 'regression'
+    available_opearations = default_industrial_availiable_operation(ml_task)
     experiment_setup = {'problem': 'regression',
                         'metric': 'rmse',
                         'timeout': 20,
                         'num_of_generations': 5,
                         'pop_size': 10,
                         'logging_level': 40,
-                        'available_operations':
-                            ['rfr',
-                             'ridge',
-                             'gbr',
-                             'sgdr',
-                             'linear',
-                             'xgbreg',
-                             'dtreg',
-                             'treg',
-                             'scaling',
-                             'normalization',
-                             'kernel_pca',
-                             'eigen_basis',
-                             'fourier_basis',
-                             'minirocket_extractor',
-                             'quantile_extractor',
-                             'signal_extractor'
-                             ],
+                        'available_operations':available_opearations,
                         'n_jobs': 4,
                         'industrial_preprocessing': True,
                         'initial_assumption': None,
@@ -149,6 +137,4 @@ def sota_compare(data_path, dataset_name, best_baseline, best_tuned, df_automl):
     df.loc['max', 'Fedot_Industrial_AutoML'] = df_automl['root_mean_squared_error:'].max()
     df.loc['average', 'Fedot_Industrial_AutoML'] = df_automl['root_mean_squared_error:'].mean()
     df = df.T
-    df.sort_values('min')['min']
-    df.sort_values('max')['max']
-    df.sort_values('average')['average']
+    return df

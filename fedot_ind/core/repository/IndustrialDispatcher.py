@@ -32,10 +32,12 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
 
         # Evaluate individuals without valid fitness in parallel.
         n_jobs = determine_n_jobs(self._n_jobs, self.logger)
-        client = DaskServer().client
         parallel = Parallel(n_jobs=n_jobs, verbose=0, pre_dispatch='2 * n_jobs')
 
-        with parallel_backend(backend='dask', n_jobs=n_jobs, scatter=[individuals_to_evaluate]):
+        with parallel_backend(backend='dask',
+                              n_jobs=n_jobs
+                              #,scatter=[individuals_to_evaluate]
+                              ):
             evaluation_results = []
             for ind in individuals_to_evaluate:
                 y = self.industrial_evaluate_single(self, graph=ind.graph, uid_of_individual=ind.uid,
