@@ -1,19 +1,22 @@
 import logging
 from pathlib import Path
+
 from fedot.api.main import Fedot
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
+
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
 from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
-from fedot_ind.core.repository.constanst_repository import FEDOT_WORKER_NUM, BATCH_SIZE_FOR_FEDOT_WORKER, \
+from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.tools.explain.explain import PointExplainer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
@@ -317,7 +320,31 @@ class FedotIndustrial(Fedot):
                 show_fitness=True, dpi=100)
 
     def explain(self, **kwargs):
-        raise NotImplementedError()
+        """ Explain model's prediction via time series points perturbation
+
+        Args:
+            samples: int, ``default=1``. Number of samples to explain.
+            window: int, ``default=5``. Window size for perturbation.
+            metric: str ``default='rmse'``. Distance metric for perturbation impact assessment.
+            threshold: int, ``default=90``. Threshold for perturbation impact assessment.
+            name: str, ``default='test'``. Name of the dataset to be placed on plot.
+
+        """
+        methods = {'point': PointExplainer,
+                   'shap': NotImplementedError,
+                   'lime': NotImplementedError}
+
+        explainer = methods[kwargs.get('method', 'point')](model=self.solver,
+                                                           features=self.predict_data.features,
+                                                           target=self.predict_data.target)
+        metric = kwargs.get('metric', 'rmse')
+        window = kwargs.get('window', 5)
+        samples = kwargs.get('samples', 1)
+        threshold = kwargs.get('threshold', 90)
+        name = kwargs.get('name', 'test')
+
+        explainer.explain(n_samples=samples, window=window, method=metric)
+        explainer.visual(threshold=threshold, name=name)
 
     def generate_ts(self, ts_config: dict):
         """
