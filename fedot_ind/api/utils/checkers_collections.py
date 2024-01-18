@@ -28,7 +28,8 @@ class DataCheck:
 
             if is_multivariate_data:
                 self.input_data = InputData(idx=np.arange(len(X)),
-                                            features=np.array(X.values.tolist()).astype(np.float),
+                                            features=np.array(
+                                                X.values.tolist()).astype(np.float),
                                             target=y.reshape(-1, 1),
                                             task=self.task_dict[self.task],
                                             data_type=DataTypesEnum.image)
@@ -42,14 +43,18 @@ class DataCheck:
             return
 
     def _check_input_data_features(self):
-        self.input_data.features = np.where(np.isnan(self.input_data.features), 0, self.input_data.features)
-        self.input_data.features = np.where(np.isinf(self.input_data.features), 0, self.input_data.features)
-        self.input_data.features = NumpyConverter(data=self.input_data.features).convert_to_torch_format()
+        self.input_data.features = np.where(
+            np.isnan(self.input_data.features), 0, self.input_data.features)
+        self.input_data.features = np.where(
+            np.isinf(self.input_data.features), 0, self.input_data.features)
+        self.input_data.features = NumpyConverter(
+            data=self.input_data.features).convert_to_torch_format()
 
     def _check_input_data_target(self):
         if type(self.input_data.target[0][0]) is np.str_ and self.task == 'classification':
             label_encoder = LabelEncoder()
-            self.input_data.target = label_encoder.fit_transform(self.input_data.target)
+            self.input_data.target = label_encoder.fit_transform(
+                self.input_data.target)
         elif type(self.input_data.target[0][0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 

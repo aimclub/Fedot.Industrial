@@ -76,7 +76,8 @@ class TimeSeriesClassifierPreset:
 
         """
         if self.branch_nodes is None:
-            self.branch_nodes = ['eigen_basis', 'fourier_basis', 'wavelet_basis']
+            self.branch_nodes = ['eigen_basis',
+                                 'fourier_basis', 'wavelet_basis']
 
         self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
 
@@ -140,13 +141,16 @@ class TimeSeriesClassifierPreset:
                                                               self.train_data)
             self.preprocessing_pipeline.fit(self.train_data)
             self.baseline_model = self.preprocessing_pipeline.nodes[0]
-            self.preprocessing_pipeline.update_node(self.baseline_model, PipelineNode('cat_features'))
+            self.preprocessing_pipeline.update_node(
+                self.baseline_model, PipelineNode('cat_features'))
             self.baseline_model.nodes_from = []
             # rf_node.unfit()
             self.preprocessing_pipeline.fit(self.train_data)
 
-            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
-            train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
+            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(
+                self.train_data)
+            train_data_preprocessed.predict = np.squeeze(
+                train_data_preprocessed.predict)
 
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
                                                 features=train_data_preprocessed.predict,
@@ -180,27 +184,33 @@ class TimeSeriesClassifierPreset:
         """
 
         test_data = self._init_input_data(features, target)
-        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(
+            test_data)
 
         if test_data.features.shape[0] == 1:
-            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
+            test_data_preprocessed.predict = np.squeeze(
+                test_data_preprocessed.predict).reshape(1, -1)
         else:
-            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+            test_data_preprocessed.predict = np.squeeze(
+                test_data_preprocessed.predict)
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,
                                            target=test_data_preprocessed.target,
                                            data_type=test_data_preprocessed.data_type,
                                            task=test_data_preprocessed.task)
 
-        self.prediction_label_baseline = self.baseline_model.predict(test_data_preprocessed).predict
+        self.prediction_label_baseline = self.baseline_model.predict(
+            test_data_preprocessed).predict
         self.prediction_label = self.predictor.predict(test_data_preprocessed)
 
         return self.prediction_label
 
     def predict_proba(self, features, target) -> dict:
         test_data = self._init_input_data(features, target)
-        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
-        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(
+            test_data)
+        test_data_preprocessed.predict = np.squeeze(
+            test_data_preprocessed.predict)
 
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,
@@ -208,8 +218,10 @@ class TimeSeriesClassifierPreset:
                                            data_type=test_data_preprocessed.data_type,
                                            task=test_data_preprocessed.task)
 
-        self.prediction_proba_baseline = self.baseline_model.predict(test_data_preprocessed, 'probs').predict
-        self.prediction_proba = self.predictor.predict_proba(test_data_preprocessed)
+        self.prediction_proba_baseline = self.baseline_model.predict(
+            test_data_preprocessed, 'probs').predict
+        self.prediction_proba = self.predictor.predict_proba(
+            test_data_preprocessed)
         return self.prediction_proba
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]) -> dict:

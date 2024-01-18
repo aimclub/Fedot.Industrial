@@ -1,4 +1,5 @@
 from numbers import Integral
+
 import torch.nn as nn
 from fastai.torch_core import Module
 
@@ -8,13 +9,13 @@ class Pad1d(nn.ConstantPad1d):
         super().__init__(padding, value)
 
 
-# @delegates(nn.Conv1d.__init__)
 class SameConv1d(Module):
-    "Conv1d with padding='same'"
+    """Conv1d with padding='same'"""
 
     def __init__(self, ni, nf, ks=3, stride=1, dilation=1, **kwargs):
         self.ks, self.stride, self.dilation = ks, stride, dilation
-        self.conv1d_same = nn.Conv1d(ni, nf, ks, stride=stride, dilation=dilation, **kwargs)
+        self.conv1d_same = nn.Conv1d(
+            ni, nf, ks, stride=stride, dilation=dilation, **kwargs)
         self.weight = self.conv1d_same.weight
         self.bias = self.conv1d_same.bias
         self.pad = Pad1d
@@ -35,14 +36,15 @@ class Chomp1d(nn.Module):
 
 
 def same_padding1d(seq_len, ks, stride=1, dilation=1):
-    "Same padding formula as used in Tensorflow"
+    """Same padding formula as used in Tensorflow"""
     p = (seq_len - 1) * stride + (ks - 1) * dilation + 1 - seq_len
     return p // 2, p - p // 2
 
 
 def same_padding2d(H, W, ks, stride=(1, 1), dilation=(1, 1)):
-    "Same padding formula as used in Tensorflow"
-    if isinstance(ks, Integral): ks = (ks, ks)
+    """Same padding formula as used in Tensorflow"""
+    if isinstance(ks, Integral):
+        ks = (ks, ks)
     if ks[0] == 1:
         p_h = 0
     else:
@@ -51,7 +53,7 @@ def same_padding2d(H, W, ks, stride=(1, 1), dilation=(1, 1)):
         p_w = 0
     else:
         p_w = (W - 1) * stride[1] + (ks[1] - 1) * dilation[1] + 1 - W
-    return (p_w // 2, p_w - p_w // 2, p_h // 2, p_h - p_h // 2)
+    return p_w // 2, p_w - p_w // 2, p_h // 2, p_h - p_h // 2
 
 
 class Pad2d(nn.ConstantPad2d):

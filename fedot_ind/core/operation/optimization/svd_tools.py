@@ -11,6 +11,7 @@ from torch.nn.modules.conv import Conv2d
 from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 from fedot_ind.core.repository.constanst_repository import FORWARD_MODE
 
+
 def energy_svd_pruning(conv: DecomposedConv2d, energy_threshold: float) -> None:
     """Prune the weight matrices to the energy_threshold (in-place).
     Args:
@@ -51,7 +52,8 @@ def decompose_module(
     """
     for name, module in model.named_children():
         if len(list(module.children())) > 0:
-            decompose_module(module, decomposing_mode=decomposing_mode, forward_mode=forward_mode)
+            decompose_module(
+                module, decomposing_mode=decomposing_mode, forward_mode=forward_mode)
 
         if isinstance(module, Conv2d):
             new_module = DecomposedConv2d(
@@ -91,6 +93,7 @@ def load_svd_state_dict(
         forward_mode: ``'one_layer'``, ``'two_layers'`` or ``'three_layers'`` forward pass calculation method.
     """
     state_dict = torch.load(state_dict_path, map_location='cpu')
-    decompose_module(model=model, decomposing_mode=decomposing_mode, forward_mode=forward_mode)
+    decompose_module(
+        model=model, decomposing_mode=decomposing_mode, forward_mode=forward_mode)
     _load_svd_params(model, state_dict)
     model.load_state_dict(state_dict)

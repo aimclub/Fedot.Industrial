@@ -2,8 +2,9 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
+
 from fedot.core.data.multi_modal import MultiModalData
+from fedot_ind.core.repository.constanst_repository import FEDOT_TASK, FEDOT_HEAD_ENSEMBLE, FEDOT_ATOMIZE_OPERATION
 
 
 class RAFensembler:
@@ -11,20 +12,16 @@ class RAFensembler:
                  ensemble_type: str = 'random_automl_forest',
                  n_splits: int = None,
                  batch_size: int = 1000):
-        problem_dict = {'regression': 'fedot_regr',
-                        'classification': 'fedot_cls'}
-        ensemble_dict = {'random_automl_forest': self._raf_ensemble
-                         }
-        task_dict = {'classification': Task(TaskTypesEnum.classification),
-                     'regression': Task(TaskTypesEnum.regression)}
-        head_dict = {'classification': 'logit',
-                     'regression': 'ridge'}
 
-        self.task = task_dict[composing_params['problem']]
-        self.atomized_automl = problem_dict[composing_params['problem']]
+        ensemble_dict = {'random_automl_forest': self._raf_ensemble}
+
+        self.task = FEDOT_TASK[composing_params['problem']]
+        self.atomized_automl = FEDOT_ATOMIZE_OPERATION[composing_params['problem']]
+        self.head = FEDOT_HEAD_ENSEMBLE[composing_params['problem']]
+
         self.ensemble_method = ensemble_dict[ensemble_type]
         self.atomized_automl_params = composing_params
-        self.head = head_dict[composing_params['problem']]
+
         self.batch_size = batch_size
         if n_splits is None:
             self.n_splits = n_splits
@@ -34,7 +31,7 @@ class RAFensembler:
 
     def fit(self, train_data):
         if self.n_splits is None:
-            self.n_splits = round(train_data.features.shape[0]/self.batch_size)
+            self.n_splits = round(train_data.features.shape[0] / self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
         self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)

@@ -1,22 +1,12 @@
-from functools import partial
-from numbers import Integral
-from typing import Optional
+from pathlib import Path
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
-from torch import Tensor
 import torch.nn as nn
-from torch.nn.utils import weight_norm, spectral_norm
-from torch.nn.init import normal_
 import torch.nn.functional as F
-
 from fastai.layers import *
-from fastai.losses import *
 from fastai.torch_core import Module
-
-from fastcore.meta import delegates
-from fastcore.basics import snake2camel
-from fastcore.test import test_eq
+from fastcore.basics import listify
+from torch import Tensor
 
 
 def correct_sizes(sizes):
@@ -30,9 +20,12 @@ def pass_through(X):
 
 def test_module_to_torchscript(
         m: torch.nn.Module,  # The PyTorch module to be tested.
-        inputs: Tensor,  # A tensor or tuple of tensors representing the inputs to the model.
-        trace: bool = True,  # If `True`, attempts to trace the model. Defaults to `True`.
-        script: bool = True,  # If `True`, attempts to script the model. Defaults to `True`.
+        # A tensor or tuple of tensors representing the inputs to the model.
+        inputs: Tensor,
+        # If `True`, attempts to trace the model. Defaults to `True`.
+        trace: bool = True,
+        # If `True`, attempts to script the model. Defaults to `True`.
+        script: bool = True,
         serialize: bool = True,
         # If `True`, saves and loads the traced/scripted module to ensure it can be serialized. Defaults to `True`.
         verbose: bool = True,
@@ -48,7 +41,8 @@ def test_module_to_torchscript(
 
     # Get the model's output
     output = m(*inputs) if inp_is_tuple else m(inputs)
-    output_shapes = output.shape if not isinstance(output, (tuple, list)) else [o.shape for o in output]
+    output_shapes = output.shape if not isinstance(output, (tuple, list)) else [
+        o.shape for o in output]
     if verbose:
         print(f"output.shape: {output_shapes}")
 
@@ -63,7 +57,8 @@ def test_module_to_torchscript(
                 torch.jit.save(traced_m, file_path)
                 traced_mod = torch.jit.load(file_path)
                 file_path.unlink()
-            traced_output = traced_m(*inputs) if inp_is_tuple else traced_m(inputs)
+            traced_output = traced_m(
+                *inputs) if inp_is_tuple else traced_m(inputs)
             torch.testing.assert_close(traced_output, output)
             if verbose:
                 print(f"...{m_name} has been successfully traced 😃\n")
@@ -85,7 +80,8 @@ def test_module_to_torchscript(
                 torch.jit.save(scripted_m, file_path)
                 scripted_mod = torch.jit.load(file_path)
                 file_path.unlink()
-            scripted_output = scripted_m(*inputs) if inp_is_tuple else scripted_m(inputs)
+            scripted_output = scripted_m(
+                *inputs) if inp_is_tuple else scripted_m(inputs)
             torch.testing.assert_close(scripted_output, output)
             if verbose:
                 print(f"...{m_name} has been successfully scripted 😃\n")
@@ -100,9 +96,11 @@ def test_module_to_torchscript(
 
 def init_lin_zero(m):
     if isinstance(m, (nn.Linear)):
-        if getattr(m, 'bias', None) is not None: nn.init.constant_(m.bias, 0)
+        if getattr(m, 'bias', None) is not None:
+            nn.init.constant_(m.bias, 0)
         nn.init.constant_(m.weight, 0)
-    for l in m.children(): init_lin_zero(l)
+    for l in m.children():
+        init_lin_zero(l)
 
 
 lin_zero_init = init_lin_zero
@@ -160,10 +158,12 @@ class DropPath(nn.Module):
         self.p = p
 
     def forward(self, x):
-        if self.p == 0. or not self.training: return x
+        if self.p == 0. or not self.training:
+            return x
         keep_prob = 1 - self.p
         shape = (x.shape[0],) + (1,) * (x.ndim - 1)
-        random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
+        random_tensor = keep_prob + \
+            torch.rand(shape, dtype=x.dtype, device=x.device)
         random_tensor.floor_()
         output = x.div(keep_prob) * random_tensor
         #         output = x.div(random_tensor.mean()) * random_tensor # divide by the actual mean to mantain the input mean?
@@ -201,15 +201,18 @@ class TimeDistributed(nn.Module):
             return self.module(x)
 
         # Squash samples and timesteps into a single axis
-        x_reshape = x.contiguous().view(-1, x.size(-1))  # (samples * timesteps, input_size)
+        # (samples * timesteps, input_size)
+        x_reshape = x.contiguous().view(-1, x.size(-1))
 
         y = self.module(x_reshape)
 
         # We have to reshape Y
         if self.batch_first:
-            y = y.contiguous().view(x.size(0), -1, y.size(-1))  # (samples, timesteps, output_size)
+            # (samples, timesteps, output_size)
+            y = y.contiguous().view(x.size(0), -1, y.size(-1))
         else:
-            y = y.view(-1, x.size(1), y.size(-1))  # (timesteps, samples, output_size)
+            # (timesteps, samples, output_size)
+            y = y.view(-1, x.size(1), y.size(-1))
 
         return y
 
@@ -223,7 +226,8 @@ class Temp_Scale(Module):
         self.log_softmax = dirichlet
 
     def forward(self, x):
-        if self.log_softmax: x = F.log_softmax(x, dim=-1)
+        if self.log_softmax:
+            x = F.log_softmax(x, dim=-1)
         return x.div(self.weight)
 
 
@@ -236,7 +240,8 @@ class Vector_Scale(Module):
         self.log_softmax = dirichlet
 
     def forward(self, x):
-        if self.log_softmax: x = F.log_softmax(x, dim=-1)
+        if self.log_softmax:
+            x = F.log_softmax(x, dim=-1)
         return x.mul(self.weight).add(self.bias)
 
 
@@ -252,7 +257,8 @@ class Matrix_Scale(Module):
         self.log_softmax = dirichlet
 
     def forward(self, x):
-        if self.log_softmax: x = F.log_softmax(x, dim=-1)
+        if self.log_softmax:
+            x = F.log_softmax(x, dim=-1)
         return self.ms(x)
 
 
@@ -331,7 +337,8 @@ class GaussianNoise(Module):
     def forward(self, x):
         if self.training and self.sigma not in [0, None]:
             scale = self.sigma * (x.detach() if self.is_relative_detach else x)
-            sampled_noise = torch.empty(x.size(), device=x.device).normal_() * scale
+            sampled_noise = torch.empty(
+                x.size(), device=x.device).normal_() * scale
             x = x + sampled_noise
         return x
 
@@ -349,7 +356,8 @@ class PositionwiseFeedForward(nn.Sequential):
 class TokenLayer(Module):
     def __init__(self, token=True): self.token = token
 
-    def forward(self, x): return x[..., 0] if self.token is not None else x.mean(-1)
+    def forward(self, x): return x[...,
+                                   0] if self.token is not None else x.mean(-1)
 
     def __repr__(self): return f"{self.__class__.__name__}()"
 
@@ -392,14 +400,16 @@ class MultiEmbedding(Module):
             cat_embed_dims = [emb_sz_rule(s) for s in cat_n_embeds]
         else:
             cat_embed_dims = listify(cat_embed_dims)
-            if len(cat_embed_dims) == 1: cat_embed_dims = cat_embed_dims * len(cat_n_embeds)
+            if len(cat_embed_dims) == 1:
+                cat_embed_dims = cat_embed_dims * len(cat_n_embeds)
             assert len(cat_embed_dims) == len(cat_n_embeds)
         if cat_pos:
             cat_pos = torch.as_tensor(listify(cat_pos))
         else:
             cat_pos = torch.arange(len(cat_n_embeds))
         self.register_buffer("cat_pos", cat_pos)
-        cont_pos = torch.tensor([p for p in torch.arange(c_in) if p not in self.cat_pos])
+        cont_pos = torch.tensor(
+            [p for p in torch.arange(c_in) if p not in self.cat_pos])
         self.register_buffer("cont_pos", cont_pos)
         self.cat_embed = nn.ModuleList([TSEmbedding(n, d, std=std, padding_idx=p) for n, d, p in
                                         zip(cat_n_embeds, cat_embed_dims, cat_padding_idxs)])
@@ -409,7 +419,8 @@ class MultiEmbedding(Module):
             x_cat, x_cont, *_ = x
         else:
             x_cat, x_cont = x[:, self.cat_pos], x[:, self.cont_pos]
-        x_cat = torch.cat([e(torch.round(x_cat[:, i]).long()).transpose(1, 2) for i, e in enumerate(self.cat_embed)], 1)
+        x_cat = torch.cat([e(torch.round(x_cat[:, i]).long()).transpose(
+            1, 2) for i, e in enumerate(self.cat_embed)], 1)
         return torch.cat([x_cat, x_cont], 1)
 
 # def build_ts_model(arch, c_in=None, c_out=None, seq_len=None, d=None, dls=None, device=None, verbose=False,

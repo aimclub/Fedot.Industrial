@@ -155,8 +155,10 @@ class SegmentationMetricCounter(MetricCounter):
             'dice': dice[1:][dice[1:] >= 0].mean().item()
         }
         if self.class_metrics:
-            scores.update({f'iou_for_class_{i}': s[s >= 0].mean().item() for i, s in enumerate(iou)})
-            scores.update({f'dice_for_class_{i}': s[s >= 0].mean().item() for i, s in enumerate(dice)})
+            scores.update(
+                {f'iou_for_class_{i}': s[s >= 0].mean().item() for i, s in enumerate(iou)})
+            scores.update(
+                {f'dice_for_class_{i}': s[s >= 0].mean().item() for i, s in enumerate(dice)})
         return scores
 
 
@@ -189,8 +191,10 @@ class ObjectDetectionMetricCounter(MetricCounter):
 
         scores = self.map.compute()
         if self.class_metrics:
-            scores.update({f'map_for_class_{i}': s for i, s in enumerate(scores['map_per_class'])})
-            scores.update({f'mar_100_for_class_{i}': s for i, s in enumerate(scores['mar_100_per_class'])})
+            scores.update({f'map_for_class_{i}': s for i,
+                          s in enumerate(scores['map_per_class'])})
+            scores.update({f'mar_100_for_class_{i}': s for i,
+                          s in enumerate(scores['mar_100_per_class'])})
         del scores['map_per_class']
         del scores['mar_100_per_class']
         return scores

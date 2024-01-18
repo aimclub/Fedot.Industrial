@@ -11,7 +11,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')
+IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp',
+                  '.pgm', '.tif', '.tiff', '.webp')
 
 
 class COCODataset(Dataset):
@@ -65,8 +66,10 @@ class COCODataset(Dataset):
                 labels = 1 if replace_to_binary else labels
                 samples[annotation['image_id']]['labels'].append(labels)
                 samples[annotation['image_id']]['boxes'].append(bbox)
-                samples[annotation['image_id']]['area'].append(annotation['area'])
-                samples[annotation['image_id']]['iscrowd'].append(annotation['iscrowd'])
+                samples[annotation['image_id']]['area'].append(
+                    annotation['area'])
+                samples[annotation['image_id']]['iscrowd'].append(
+                    annotation['iscrowd'])
 
         for sample in samples.values():
             if len(sample['labels']) > 0:
@@ -128,7 +131,8 @@ class YOLODataset(Dataset):
         self.transform = transform
         with open(path, 'r') as f:
             data = yaml.safe_load(f)
-        self.root = os.path.abspath(os.path.join(os.path.dirname(path), (data['train'] if train else data['val'])))
+        self.root = os.path.abspath(os.path.join(os.path.dirname(
+            path), (data['train'] if train else data['val'])))
         self.classes = ['background']
         self.classes.extend(['object'] if replace_to_binary else data['names'])
         self.binary = replace_to_binary
@@ -164,7 +168,8 @@ class YOLODataset(Dataset):
         c, h, w = image.shape
         boxes *= [w, h, w, h]
         area = boxes[:, 2] * boxes[:, 3]
-        boxes[:, :2] -= boxes[:, 2:] / 2  # x centre, y centre, w, h -> x1, y1, w, h
+        # x centre, y centre, w, h -> x1, y1, w, h
+        boxes[:, :2] -= boxes[:, 2:] / 2
         boxes[:, 2:] += boxes[:, :2]  # x1, y1, w, h -> x1, y1, x2, y2
 
         target = {

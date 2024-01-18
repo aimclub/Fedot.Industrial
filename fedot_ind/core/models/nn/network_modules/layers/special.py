@@ -1,20 +1,18 @@
 from typing import Optional
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 import torch.nn.functional as F
-from torch import nn, optim, Tensor
+from fastai.torch_core import Module
+from fastcore.meta import delegates
+from torch import nn, Tensor
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_torch_tensor
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.attention_layers import MultiHeadAttention
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, ConvBlock
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import BN1d, Concat, Add, Noop, Transpose
-from fastcore.meta import delegates
-
-from fastai.torch_core import Module
-
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Add, BN1d, Concat, Noop, Transpose
 from fedot_ind.core.repository.constanst_repository import PATIENCE_FOR_EARLY_STOP
 
 
@@ -35,7 +33,8 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model, path)
         elif score < self.best_score + self.delta:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            print(
+                f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -45,12 +44,13 @@ class EarlyStopping:
 
     def save_checkpoint(self, val_loss, model, path):
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            print(
+                f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), path + '/' + 'checkpoint.pth')
         self.val_loss_min = val_loss
 
 
-def adjust_learning_rate(optimizer, scheduler, epoch, learning_rate, printout=True, lradj = '3'):
+def adjust_learning_rate(optimizer, scheduler, epoch, learning_rate, printout=True, lradj='3'):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if lradj == 'type1':
         lr_adjust = {epoch: ['learning_rate'] * (0.5 ** ((epoch - 1) // 1))}
@@ -60,17 +60,22 @@ def adjust_learning_rate(optimizer, scheduler, epoch, learning_rate, printout=Tr
             10: 5e-7, 15: 1e-7, 20: 5e-8
         }
     elif lradj == 'type3':
-        lr_adjust = {epoch: learning_rate if epoch < 3 else learning_rate * (0.9 ** ((epoch - 3) // 1))}
+        lr_adjust = {epoch: learning_rate if epoch <
+                     3 else learning_rate * (0.9 ** ((epoch - 3) // 1))}
     elif lradj == 'constant':
-        lr_adjust = {epoch:learning_rate}
+        lr_adjust = {epoch: learning_rate}
     elif lradj == '3':
-        lr_adjust = {epoch: learning_rate if epoch < 10 else learning_rate * 0.1}
+        lr_adjust = {epoch: learning_rate if epoch <
+                     10 else learning_rate * 0.1}
     elif lradj == '4':
-        lr_adjust = {epoch: learning_rate if epoch < 15 else learning_rate * 0.1}
+        lr_adjust = {epoch: learning_rate if epoch <
+                     15 else learning_rate * 0.1}
     elif lradj == '5':
-        lr_adjust = {epoch: learning_rate if epoch < 25 else learning_rate * 0.1}
+        lr_adjust = {epoch: learning_rate if epoch <
+                     25 else learning_rate * 0.1}
     elif lradj == '6':
-        lr_adjust = {epoch: learning_rate if epoch < 5 else learning_rate * 0.1}
+        lr_adjust = {epoch: learning_rate if epoch <
+                     5 else learning_rate * 0.1}
     elif lradj == 'TST':
         lr_adjust = {epoch: scheduler.get_last_lr()[0]}
 
@@ -125,8 +130,10 @@ class SampaddingConv1D_BN(Module):
                  in_channels,
                  out_channels,
                  kernel_size):
-        self.padding = nn.ConstantPad1d((int((kernel_size - 1) / 2), int(kernel_size / 2)), 0)
-        self.conv1d = torch.nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size)
+        self.padding = nn.ConstantPad1d(
+            (int((kernel_size - 1) / 2), int(kernel_size / 2)), 0)
+        self.conv1d = torch.nn.Conv1d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size)
         self.batch_norm = nn.BatchNorm1d(num_features=out_channels)
 
     def forward(self, x):
@@ -177,7 +184,8 @@ class InceptionModule(Module):
         ks = [ks // (2 ** i) for i in range(3)]
         ks = [k if k % 2 != 0 else k - 1 for k in ks]  # ensure odd ks
         bottleneck = bottleneck if input_dim > 1 else False
-        self.bottleneck = Conv1d(input_dim, number_of_filters, 1, bias=False) if bottleneck else Noop
+        self.bottleneck = Conv1d(
+            input_dim, number_of_filters, 1, bias=False) if bottleneck else Noop
         self.convs = nn.ModuleList([Conv1d(number_of_filters if bottleneck else input_dim,
                                            number_of_filters, k, bias=False) for k in ks])
         self.maxconvpool = nn.Sequential(*[nn.MaxPool1d(3, stride=1, padding=1),
@@ -190,7 +198,8 @@ class InceptionModule(Module):
     def forward(self, x):
         input_tensor = x
         x = self.bottleneck(input_tensor)
-        x = self.concat([l(x.float()) for l in self.convs] + [self.maxconvpool(input_tensor.float())])
+        x = self.concat([l(x.float()) for l in self.convs] +
+                        [self.maxconvpool(input_tensor.float())])
         return self.activation(self.batch_norm(x))
 
 
@@ -209,8 +218,10 @@ class InceptionBlock(Module):
             self.inception.append(
                 InceptionModule(input_dim if d == 0 else number_of_filters * 4, number_of_filters, **kwargs))
             if self.residual and d % 3 == 2:
-                n_in, n_out = number_of_filters if d == 2 else number_of_filters * 4, number_of_filters * 4
-                self.shortcut.append(BN1d(n_in) if n_in == n_out else ConvBlock(n_in, n_out, 1, act=None))
+                n_in, n_out = number_of_filters if d == 2 else number_of_filters * \
+                    4, number_of_filters * 4
+                self.shortcut.append(
+                    BN1d(n_in) if n_in == n_out else ConvBlock(n_in, n_out, 1, act=None))
         self.add = Add()
         self.activation = get_activation_fn(activation)
 
@@ -221,7 +232,8 @@ class InceptionBlock(Module):
             x = self.inception[d](x)
             try:
                 if self.residual and d % 3 == 2:
-                    res = x = self.activation(self.add(x, self.shortcut[d // 3](res)))
+                    res = x = self.activation(
+                        self.add(x, self.shortcut[d // 3](res)))
             except Exception:
                 _ = 1
         return x
@@ -244,7 +256,8 @@ class _TSTiEncoderLayer(nn.Module):
         # Add & Norm
         self.dropout_attn = nn.Dropout(dropout)
         if "batch" in norm.lower():
-            self.norm_attn = nn.Sequential(Transpose(1, 2), nn.BatchNorm1d(d_model), Transpose(1, 2))
+            self.norm_attn = nn.Sequential(
+                Transpose(1, 2), nn.BatchNorm1d(d_model), Transpose(1, 2))
         else:
             self.norm_attn = nn.LayerNorm(d_model)
 
@@ -257,7 +270,8 @@ class _TSTiEncoderLayer(nn.Module):
         # Add & Norm
         self.dropout_ffn = nn.Dropout(dropout)
         if "batch" in norm.lower():
-            self.norm_ffn = nn.Sequential(Transpose(1, 2), nn.BatchNorm1d(d_model), Transpose(1, 2))
+            self.norm_ffn = nn.Sequential(
+                Transpose(1, 2), nn.BatchNorm1d(d_model), Transpose(1, 2))
         else:
             self.norm_ffn = nn.LayerNorm(d_model)
 
@@ -265,7 +279,6 @@ class _TSTiEncoderLayer(nn.Module):
         self.store_attn = store_attn
 
     def forward(self, src: Tensor, prev: Optional[Tensor] = None):
-
         """
         Args:
             src: [bs x q_len x d_model]
@@ -274,15 +287,16 @@ class _TSTiEncoderLayer(nn.Module):
         # Multi-Head attention sublayer
         if self.pre_norm:
             src = self.norm_attn(src)
-        ## Multi-Head attention
+        # Multi-Head attention
         if self.res_attention:
             src2, attn, scores = self.self_attn(src, src, src, prev)
         else:
             src2, attn = self.self_attn(src, src, src)
         if self.store_attn:
             self.attn = attn
-        ## Add & Norm
-        src = src + self.dropout_attn(src2)  # Add: residual connection with residual dropout
+        # Add & Norm
+        # Add: residual connection with residual dropout
+        src = src + self.dropout_attn(src2)
         if not self.pre_norm:
             src = self.norm_attn(src)
 
@@ -290,10 +304,11 @@ class _TSTiEncoderLayer(nn.Module):
         if self.pre_norm:
             src = self.norm_ffn(src)
 
-        ## Position-wise Feed-Forward
+        # Position-wise Feed-Forward
         src2 = self.ff(src)
-        ## Add & Norm
-        src = src + self.dropout_ffn(src2)  # Add: residual connection with residual dropout
+        # Add & Norm
+        # Add: residual connection with residual dropout
+        src = src + self.dropout_ffn(src2)
 
         if not self.pre_norm:
             src = self.norm_ffn(src)
@@ -316,7 +331,8 @@ class _TSTiEncoder(nn.Module):  # i means channel-independent
 
         # Input encoding
         q_len = patch_num
-        self.W_P = nn.Linear(patch_len, d_model)  # Eq 1: projection of feature vectors onto a d-dim vector space
+        # Eq 1: projection of feature vectors onto a d-dim vector space
+        self.W_P = nn.Linear(patch_len, d_model)
         self.seq_len = q_len
 
         # Positional encoding
@@ -350,11 +366,14 @@ class _TSTiEncoder(nn.Module):  # i means channel-independent
         try:
             pos_encooding = x + self.W_pos
         except Exception:
-            W_pos = torch.empty((x.shape[1], x.shape[2]), device=default_device())
+            W_pos = torch.empty(
+                (x.shape[1], x.shape[2]), device=default_device())
             nn.init.uniform_(W_pos, -0.02, 0.02)
             self.W_pos = nn.Parameter(W_pos)
-            pos_encooding = x + self.W_pos  # x: [bs * nvars x patch_num x d_model]
-        x = self.dropout(pos_encooding)  # x: [bs * nvars x patch_num x d_model]
+            # x: [bs * nvars x patch_num x d_model]
+            pos_encooding = x + self.W_pos
+        # x: [bs * nvars x patch_num x d_model]
+        x = self.dropout(pos_encooding)
         scores = None
 
         # Encoder
@@ -362,8 +381,10 @@ class _TSTiEncoder(nn.Module):  # i means channel-independent
             for mod in self.layers:
                 x, scores = mod(x, prev=scores)
         else:
-            for mod in self.layers: x = mod(x)
-        x = torch.reshape(x, (-1, n_vars, x.shape[-2], x.shape[-1]))  # x: [bs x nvars x patch_num x d_model]
+            for mod in self.layers:
+                x = mod(x)
+        # x: [bs x nvars x patch_num x d_model]
+        x = torch.reshape(x, (-1, n_vars, x.shape[-2], x.shape[-1]))
         x = x.permute(0, 1, 3, 2)  # x: [bs x nvars x d_model x patch_num]
 
         return x, scores
@@ -411,7 +432,8 @@ class RevIN(nn.Module):
             self.sub = x[..., -1].unsqueeze(-1).detach()
         else:
             self.sub = torch.mean(x, dim=-1, keepdim=True).detach()
-        self.std = torch.std(x, dim=-1, keepdim=True, unbiased=False).detach() + self.eps
+        self.std = torch.std(x, dim=-1, keepdim=True,
+                             unbiased=False).detach() + self.eps
         if self.affine:
             x = x.sub(self.sub)
             x = x.div(self.std)

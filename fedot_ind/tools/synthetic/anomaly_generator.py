@@ -56,7 +56,8 @@ class AnomalyGenerator:
             'dip': Dip,
             'peak': Peak}
 
-        self.anomaly_config = params.get('config', ValueError('config must be defined'))
+        self.anomaly_config = params.get(
+            'config', ValueError('config must be defined'))
         self.taken_slots = None
         self.overlap = None
 
@@ -109,13 +110,17 @@ class AnomalyGenerator:
                                     ValueError(f'min_anomaly_length must be defined for {anomaly_cls} type'))
 
             for i in range(n):
-                start_idx, end_idx = self.select_interval(max_length, min_length)
-                t_series = anomaly_obj(params).get(ts=t_series, interval=(start_idx, end_idx))
+                start_idx, end_idx = self.select_interval(
+                    max_length, min_length)
+                t_series = anomaly_obj(params).get(
+                    ts=t_series, interval=(start_idx, end_idx))
 
                 if anomaly_cls in anomaly_intervals_dict:
-                    anomaly_intervals_dict[anomaly_cls].append([start_idx, end_idx])
+                    anomaly_intervals_dict[anomaly_cls].append(
+                        [start_idx, end_idx])
                 else:
-                    anomaly_intervals_dict[anomaly_cls] = [[start_idx, end_idx]]
+                    anomaly_intervals_dict[anomaly_cls] = [
+                        [start_idx, end_idx]]
 
         if plot:
             self.plot_anomalies(initial_ts=initial_ts, modified_ts=t_series,
@@ -132,7 +137,8 @@ class AnomalyGenerator:
         ax.set_ylabel('Value')
 
         cmap = self.generate_colors(len(anomaly_intervals_dict.keys()))
-        color_dict = {cls: color for cls, color in zip(anomaly_intervals_dict.keys(), cmap)}
+        color_dict = {cls: color for cls, color in zip(
+            anomaly_intervals_dict.keys(), cmap)}
 
         legend_patches = [patches.Patch(color=color_dict[cls],
                                         label=cls) for cls in anomaly_intervals_dict.keys()]
@@ -140,12 +146,14 @@ class AnomalyGenerator:
         for anomaly_class, intervals in anomaly_intervals_dict.items():
             for interval in intervals:
                 start_idx, end_idx = interval
-                ax.axvspan(start_idx, end_idx, alpha=0.3, color=color_dict[anomaly_class])
+                ax.axvspan(start_idx, end_idx, alpha=0.3,
+                           color=color_dict[anomaly_class])
 
         # Put a legend to the right of the current axis
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), handles=set(legend_patches))
+        ax.legend(loc='center left', bbox_to_anchor=(
+            1, 0.5), handles=set(legend_patches))
         plt.show()
 
     def generate_colors(self, num_colors: int) -> list:
@@ -211,9 +219,9 @@ if __name__ == '__main__':
                                'min_anomaly_length': 5,
                                'max_anomaly_length': 10},
                       'decrease_dispersion': {'level': 70,
-                                                'number': 2,
-                                                'min_anomaly_length': 10,
-                                                'max_anomaly_length': 15},
+                                              'number': 2,
+                                              'min_anomaly_length': 10,
+                                              'max_anomaly_length': 15},
                       # 'increase_dispersion': {'level': 50,
                       #                         'number': 2,
                       #                         'min_anomaly_length': 10,

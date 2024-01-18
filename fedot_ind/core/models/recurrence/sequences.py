@@ -10,27 +10,39 @@ class RecurrenceFeatureExtractor:
     def quantification_analysis(self, MDL: int = 3, MVL: int = 3, MWVL: int = 2):
 
         n_vectors = self.recurrence_matrix.shape[0]
-        recurrence_rate = float(np.sum(self.recurrence_matrix)) / np.power(n_vectors, 2)
+        recurrence_rate = float(
+            np.sum(self.recurrence_matrix)) / np.power(n_vectors, 2)
 
-        diagonal_frequency_dist = self.calculate_diagonal_frequency(number_of_vectors=n_vectors)
-        vertical_frequency_dist = self.calculate_vertical_frequency(number_of_vectors=n_vectors, not_white=1)
+        diagonal_frequency_dist = self.calculate_diagonal_frequency(
+            number_of_vectors=n_vectors)
+        vertical_frequency_dist = self.calculate_vertical_frequency(
+            number_of_vectors=n_vectors, not_white=1)
         white_vertical_frequency_dist = self.calculate_vertical_frequency(number_of_vectors=n_vectors,
                                                                           not_white=0)
 
-        determinism = self.laminarity_or_determinism(MDL, n_vectors, diagonal_frequency_dist, lam=False)
-        laminarity = self.laminarity_or_determinism(MVL, n_vectors, vertical_frequency_dist, lam=True)
+        determinism = self.laminarity_or_determinism(
+            MDL, n_vectors, diagonal_frequency_dist, lam=False)
+        laminarity = self.laminarity_or_determinism(
+            MVL, n_vectors, vertical_frequency_dist, lam=True)
 
-        average_diagonal_line_length = self.average_line_length(MDL, n_vectors, diagonal_frequency_dist)
-        average_vertical_line_length = self.average_line_length(MVL, n_vectors, vertical_frequency_dist)
-        average_white_vertical_line_length = self.average_line_length(MWVL, n_vectors, white_vertical_frequency_dist)
+        average_diagonal_line_length = self.average_line_length(
+            MDL, n_vectors, diagonal_frequency_dist)
+        average_vertical_line_length = self.average_line_length(
+            MVL, n_vectors, vertical_frequency_dist)
+        average_white_vertical_line_length = self.average_line_length(
+            MWVL, n_vectors, white_vertical_frequency_dist)
 
-        longest_diagonal_line_length = self.longest_line_length(diagonal_frequency_dist, n_vectors, diag=True)
-        longest_vertical_line_length = self.longest_line_length(vertical_frequency_dist, n_vectors, diag=False)
+        longest_diagonal_line_length = self.longest_line_length(
+            diagonal_frequency_dist, n_vectors, diag=True)
+        longest_vertical_line_length = self.longest_line_length(
+            vertical_frequency_dist, n_vectors, diag=False)
         longest_white_vertical_line_length = self.longest_line_length(white_vertical_frequency_dist,
                                                                       n_vectors, diag=False)
 
-        entropy_diagonal_lines = self.entropy_lines(MDL, n_vectors, diagonal_frequency_dist, diag=True)
-        entropy_vertical_lines = self.entropy_lines(MVL, n_vectors, vertical_frequency_dist, diag=False)
+        entropy_diagonal_lines = self.entropy_lines(
+            MDL, n_vectors, diagonal_frequency_dist, diag=True)
+        entropy_vertical_lines = self.entropy_lines(
+            MVL, n_vectors, vertical_frequency_dist, diag=False)
         entropy_white_vertical_lines = self.entropy_lines(MWVL, n_vectors,
                                                           white_vertical_frequency_dist, diag=False)
 
@@ -96,14 +108,16 @@ class RecurrenceFeatureExtractor:
         for i in range(factor, number_of_vectors):
             if distribution[i] != 0:
                 entropy_lines += (distribution[i] / sum_frequency_distribution) * \
-                                 np.log(distribution[i] / sum_frequency_distribution)
+                    np.log(distribution[i] / sum_frequency_distribution)
         return -entropy_lines
 
     def laminarity_or_determinism(self, factor, number_of_vectors, distribution, lam: bool):
         if lam:
             number_of_vectors = number_of_vectors + 1
-        numerator = np.sum([i * distribution[i] for i in range(factor, number_of_vectors)])
-        denominator = np.sum([i * distribution[i] for i in range(1, number_of_vectors)])
+        numerator = np.sum([i * distribution[i]
+                           for i in range(factor, number_of_vectors)])
+        denominator = np.sum([i * distribution[i]
+                             for i in range(1, number_of_vectors)])
         return numerator / denominator
 
     def longest_line_length(self, frequency_distribution, number_of_vectors, diag: bool):
@@ -114,6 +128,8 @@ class RecurrenceFeatureExtractor:
         return longest_line_length
 
     def average_line_length(self, factor, number_of_vectors, distribution):
-        numerator = np.sum([i * distribution[i] for i in range(factor, number_of_vectors + 1)])
-        denominator = np.sum([distribution[i] for i in range(factor, number_of_vectors + 1)])
+        numerator = np.sum([i * distribution[i]
+                           for i in range(factor, number_of_vectors + 1)])
+        denominator = np.sum([distribution[i]
+                             for i in range(factor, number_of_vectors + 1)])
         return numerator / denominator

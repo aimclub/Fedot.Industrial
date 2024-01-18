@@ -5,6 +5,8 @@ from multiprocessing import cpu_count
 import numpy as np
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
+
+from fedot_ind.core.models.topological.topofeatures import *
 from torch import nn
 
 from fedot_ind.core.models.nn.network_modules.losses import RMSELoss, SMAPELoss, TweedieLoss, FocalLoss, CenterPlusLoss, \
@@ -18,6 +20,7 @@ from fedot_ind.core.models.topological.topofeatures import HolesNumberFeature, M
     SimultaneousAliveHolesFeature, AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature, \
     PersistenceDiagramsExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 
 def beta_thr(beta):
@@ -28,11 +31,11 @@ class ComputationalConstant(Enum):
     CPU_NUMBERS = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
     GLOBAL_IMPORTS = {
         'numpy': 'np',
-                      'cupy': 'np',
-                      'torch': 'torch',
-                      'torch.nn': 'nn',
-                      'torch.nn.functional': 'F'
-                      }
+        'cupy': 'np',
+        'torch': 'torch',
+        'torch.nn': 'nn',
+        'torch.nn.functional': 'F'
+    }
     BATCH_SIZE_FOR_FEDOT_WORKER = 1000
     FEDOT_WORKER_NUM = 5
     FEDOT_WORKER_TIMEOUT_PARTITION = 2
@@ -95,7 +98,8 @@ class FeatureConstant(Enum):
 
     PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
                                                                  takens_embedding_delay=2,
-                                                                 homology_dimensions=(0, 1),
+                                                                 homology_dimensions=(
+                                                                     0, 1),
                                                                  parallel=False)
     DISCRETE_WAVELETS = pywt.wavelist(kind='discrete')
     CONTINUOUS_WAVELETS = pywt.wavelist(kind='continuous')
@@ -106,7 +110,12 @@ class FeatureConstant(Enum):
 
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
-
+    FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
+                  'regression': Task(TaskTypesEnum.regression)}
+    FEDOT_HEAD_ENSEMBLE = {'classification': 'logit',
+                           'regression': 'ridge'}
+    FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
+                               'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
         'rf',
         'logit',
@@ -140,7 +149,7 @@ class ModelCompressionConstant(Enum):
     FORWARD_MODE = 'one_layer'
     HOER_LOSS = 0.1
     ORTOGONAL_LOSS = 10
-    MODELS_FROM_LENGHT = {
+    MODELS_FROM_LENGTH = {
         122: 'ResNet18',
         218: 'ResNet34',
         320: 'ResNet50',
@@ -345,6 +354,9 @@ SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
 EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
+FEDOT_HEAD_ENSEMBLE = FedotOperationConstant.FEDOT_HEAD_ENSEMBLE.value
+FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
+FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
@@ -361,7 +373,7 @@ DECOMPOSE_MODE = ModelCompressionConstant.DECOMPOSE_MODE.value
 FORWARD_MODE = ModelCompressionConstant.FORWARD_MODE.value
 HOER_LOSS = ModelCompressionConstant.HOER_LOSS.value
 ORTOGONAL_LOSS = ModelCompressionConstant.ORTOGONAL_LOSS.value
-MODELS_FROM_LENGHT = ModelCompressionConstant.MODELS_FROM_LENGHT.value
+MODELS_FROM_LENGTH = ModelCompressionConstant.MODELS_FROM_LENGTH.value
 
 CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
 MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value

@@ -1,18 +1,19 @@
 import warnings
 from copy import deepcopy
-from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy, \
-    convert_to_multivariate_model, is_multi_output_task
+
+from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy, \
+    is_multi_output_task
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
     *
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.operation_types_repository import OperationTypesRepository, get_operation_type_from_id
+from fedot.core.repository.operation_types_repository import get_operation_type_from_id, OperationTypesRepository
 from fedot.utilities.random import ImplementationRandomStateHandler
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
-from fedot_ind.core.repository.model_repository import INDUSTRIAL_CLF_PREPROC_MODEL, FEDOT_PREPROC_MODEL, \
-    INDUSTRIAL_PREPROC_MODEL
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
+from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, INDUSTRIAL_CLF_PREPROC_MODEL, \
+    INDUSTRIAL_PREPROC_MODEL
 
 
 class MultiDimPreprocessingStrategy(EvaluationStrategy):
@@ -37,7 +38,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def __operation_multidim_adapter(self, trained_operation, predict_data):
         if type(trained_operation) is list:
-            prediction = self._predict_for_ndim(predict_data, trained_operation)
+            prediction = self._predict_for_ndim(
+                predict_data, trained_operation)
         else:
             try:
                 prediction = trained_operation.transform(predict_data.features)
@@ -67,31 +69,36 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         if predict_data.task.task_type.value == 'regression':
             return trained_operation.predict(features).flatten()
         else:
-            is_multi_output_target = isinstance(trained_operation.classes_, list)
+            is_multi_output_target = isinstance(
+                trained_operation.classes_, list)
             # Check if target is multilabel (has 2 or more columns)
             if is_multi_output_target:
                 n_classes = len(trained_operation.classes_[0])
             else:
                 n_classes = len(trained_operation.classes_)
             if output_mode == 'labels':
-                prediction = trained_operation.predict(features).reshape(-1,1)
+                prediction = trained_operation.predict(features).reshape(-1, 1)
             elif output_mode in ['probs', 'full_probs', 'default']:
                 prediction = trained_operation.predict_proba(features)
                 if n_classes < 2:
-                    raise ValueError('Data set contain only 1 target class. Please reformat your data.')
+                    raise ValueError(
+                        'Data set contain only 1 target class. Please reformat your data.')
                 elif n_classes == 2 and output_mode != 'full_probs':
                     if is_multi_output_target:
-                        prediction = np.stack([pred[:, 1] for pred in prediction]).T
+                        prediction = np.stack([pred[:, 1]
+                                              for pred in prediction]).T
                     else:
                         prediction = prediction[:, 1]
             else:
-                raise ValueError(f'Output model {self.output_mode} is not supported')
+                raise ValueError(
+                    f'Output model {self.output_mode} is not supported')
 
             return prediction
 
     def _convert_input_data(self, train_data):
         if self.mode == 'one_dimensional':
-            new_shape = train_data.features.shape[0], train_data.features.shape[1] * train_data.features.shape[2]
+            new_shape = train_data.features.shape[0], train_data.features.shape[1] * \
+                train_data.features.shape[2]
             features = train_data.features.reshape(new_shape)
             input_data = InputData(idx=train_data.idx,
                                    features=features,
@@ -108,7 +115,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                     supplementary_data=train_data.supplementary_data) for features in
                           train_data.features.swapaxes(1, 0)]
         elif self.mode == 'multi_dimensional':
-            features = NumpyConverter(data=train_data.features).convert_to_torch_format()
+            features = NumpyConverter(
+                data=train_data.features).convert_to_torch_format()
             input_data = InputData(idx=train_data.idx,
                                    features=features,
                                    target=train_data.target,
@@ -150,7 +158,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def fit_one_sample(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        operation_implementation = self.operation_impl(**self.params_for_fit.to_dict())
+        operation_implementation = self.operation_impl(
+            **self.params_for_fit.to_dict())
 
         # If model doesn't support multi-output and current task is ts_forecasting
         current_task = train_data.task.task_type
@@ -167,7 +176,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 operation_implementation = convert_to_multivariate_model(operation_implementation,
                                                                          train_data)
             else:
-                operation_implementation.fit(train_data.features, train_data.target)
+                operation_implementation.fit(
+                    train_data.features, train_data.target)
         return operation_implementation
 
     def fit(self, train_data: InputData):
@@ -179,8 +189,10 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         elif self.mode == 'channel_independent':
             operation_implementation = self.operation_impl(self.params_for_fit)
             with ImplementationRandomStateHandler(implementation=operation_implementation):
-                trained_operation = [deepcopy(operation_implementation) for i in range(len(train_data))]
-                fitted_operation = [operation.fit(data) for operation, data in zip(trained_operation, train_data)]
+                trained_operation = [
+                    deepcopy(operation_implementation) for i in range(len(train_data))]
+                fitted_operation = [operation.fit(data) for operation, data in zip(
+                    trained_operation, train_data)]
                 operation_implementation = fitted_operation
             return operation_implementation
         else:
@@ -193,13 +205,17 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                                              predict_data=converted_predict_data,
                                                              output_mode=output_mode)
         elif self.mode == 'channel_independent':
-            prediction = self.__operation_multidim_adapter(trained_operation, converted_predict_data)
+            prediction = self.__operation_multidim_adapter(
+                trained_operation, converted_predict_data)
         elif self.mode == 'multi_dimensional':
             if 'predict_for_fit' in dir(trained_operation):
-                prediction = trained_operation.predict_for_fit(predict_data, output_mode)
+                prediction = trained_operation.predict_for_fit(
+                    predict_data, output_mode)
             else:
-                prediction = trained_operation.predict(predict_data, output_mode)
-        converted = self._convert_to_output(prediction, predict_data, predict_data.data_type, output_mode)
+                prediction = trained_operation.predict(
+                    predict_data, output_mode)
+        converted = self._convert_to_output(
+            prediction, predict_data, predict_data.data_type, output_mode)
         return converted
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
@@ -217,11 +233,13 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                                              predict_data=converted_predict_data,
                                                              output_mode=output_mode)
         elif self.mode == 'channel_independent':
-            prediction = self.__operation_multidim_adapter(trained_operation, converted_predict_data)
+            prediction = self.__operation_multidim_adapter(
+                trained_operation, converted_predict_data)
         elif self.mode == 'multi_dimensional':
             prediction = trained_operation.predict(predict_data, output_mode)
 
-        converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
+        converted = self._convert_to_output(
+            prediction, predict_data_copy, data_type, output_mode)
         return converted
 
 
@@ -249,7 +267,8 @@ class IndustrialCustomPreprocessingStrategy:
         if operation_type in self._operations_by_types:
             return self._operations_by_types[operation_type]
         else:
-            raise ValueError(f'Impossible to obtain {self.__class__} strategy for {operation_type}')
+            raise ValueError(
+                f'Impossible to obtain {self.__class__} strategy for {operation_type}')
 
     def fit(self, train_data: InputData):
         return self.multi_dim_dispatcher.fit(train_data)
@@ -273,7 +292,8 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
         if operation_type in self.__operations_by_types.keys():
             return self.__operations_by_types[operation_type]
         else:
-            raise ValueError(f'Impossible to obtain custom preprocessing strategy for {operation_type}')
+            raise ValueError(
+                f'Impossible to obtain custom preprocessing strategy for {operation_type}')
 
     def fit(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -284,12 +304,14 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
         prediction = trained_operation.transform(predict_data)
-        converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
+        converted = self.multi_dim_dispatcher._convert_to_output(
+            prediction, predict_data)
         return converted
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
         prediction = trained_operation.transform_for_fit(predict_data)
-        converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
+        converted = self.multi_dim_dispatcher._convert_to_output(
+            prediction, predict_data)
         return converted
 
 

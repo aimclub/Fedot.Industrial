@@ -41,7 +41,8 @@ class DataLoader:
         """
         dataset_name = self.dataset_name
 
-        data_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
+        data_path = os.path.join(
+            PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
 
         _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
                                                               data_path=data_path)
@@ -60,13 +61,16 @@ class DataLoader:
             url = f"http://www.timeseriesclassification.com/aeon-toolkit/{dataset_name}.zip"
             request.urlretrieve(url, download_path + filename)
             try:
-                zipfile.ZipFile(download_path + filename).extractall(temp_data_path + dataset_name)
+                zipfile.ZipFile(
+                    download_path + filename).extractall(temp_data_path + dataset_name)
             except zipfile.BadZipFile:
-                self.logger.error(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
+                self.logger.error(
+                    f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
                 return None, None
 
             self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
-            train_data, test_data = self.extract_data(dataset_name, temp_data_path)
+            train_data, test_data = self.extract_data(
+                dataset_name, temp_data_path)
 
             shutil.rmtree(cache_path)
             return train_data, test_data
@@ -78,30 +82,39 @@ class DataLoader:
         file_path = data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN'
         # If data unpacked as .tsv file
         if os.path.isfile(file_path + '.tsv'):
-            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_tsv(dataset_name, data_path)
+            self.logger.info(
+                f'Reading data from {data_path + "/" + dataset_name}')
+            x_train, y_train, x_test, y_test = self.read_tsv(
+                dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .txt file
         elif os.path.isfile(file_path + '.txt'):
-            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
+            self.logger.info(
+                f'Reading data from {data_path + "/" + dataset_name}')
+            x_train, y_train, x_test, y_test = self.read_txt_files(
+                dataset_name, data_path)
             is_multi = False
 
         # If data unpacked as .ts file
         elif os.path.isfile(file_path + '.ts'):
-            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
+            self.logger.info(
+                f'Reading data from {data_path + "/" + dataset_name}')
+            x_train, y_train, x_test, y_test = self.read_ts_files(
+                dataset_name, data_path)
             is_multi = True
 
         # If data unpacked as .arff file
         elif os.path.isfile(file_path + '.arff'):
-            self.logger.info(f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
+            self.logger.info(
+                f'Reading data from {data_path + "/" + dataset_name}')
+            x_train, y_train, x_test, y_test = self.read_arff_files(
+                dataset_name, data_path)
             is_multi = True
 
         else:
-            self.logger.error(f'Data not found in {data_path + "/" + dataset_name}')
+            self.logger.error(
+                f'Data not found in {data_path + "/" + dataset_name}')
             return None, None, None
         return is_multi, (x_train, y_train), (x_test, y_test)
 
@@ -166,13 +179,15 @@ class DataLoader:
                     if line.startswith("@problemname"):
                         # Check that the data has not started
                         if data_started:
-                            raise TsFileParseException("metadata must come before data")
+                            raise TsFileParseException(
+                                "metadata must come before data")
                         # Check that the associated value is valid
                         tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
-                            raise TsFileParseException("problemname tag requires an associated value")
+                            raise TsFileParseException(
+                                "problemname tag requires an associated value")
 
                         problem_name = line[len("@problemname") + 1:]
                         has_problem_name_tag = True
@@ -180,59 +195,68 @@ class DataLoader:
                     elif line.startswith("@timestamps"):
                         # Check that the data has not started
                         if data_started:
-                            raise TsFileParseException("metadata must come before data")
+                            raise TsFileParseException(
+                                "metadata must come before data")
 
                         # Check that the associated value is valid
                         tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len != 2:
-                            raise TsFileParseException("timestamps tag requires an associated Boolean value")
+                            raise TsFileParseException(
+                                "timestamps tag requires an associated Boolean value")
                         elif tokens[1] == "true":
                             timestamps = True
                         elif tokens[1] == "false":
                             timestamps = False
                         else:
-                            raise TsFileParseException("invalid timestamps value")
+                            raise TsFileParseException(
+                                "invalid timestamps value")
                         has_timestamps_tag = True
                         metadata_started = True
                     elif line.startswith("@univariate"):
                         # Check that the data has not started
                         if data_started:
-                            raise TsFileParseException("metadata must come before data")
+                            raise TsFileParseException(
+                                "metadata must come before data")
 
                         # Check that the associated value is valid
                         tokens = line.split(' ')
                         token_len = len(tokens)
                         if token_len != 2:
-                            raise TsFileParseException("univariate tag requires an associated Boolean value")
+                            raise TsFileParseException(
+                                "univariate tag requires an associated Boolean value")
                         elif tokens[1] == "true":
                             univariate = True
                         elif tokens[1] == "false":
                             univariate = False
                         else:
-                            raise TsFileParseException("invalid univariate value")
+                            raise TsFileParseException(
+                                "invalid univariate value")
 
                         has_univariate_tag = True
                         metadata_started = True
                     elif line.startswith("@classlabel"):
                         # Check that the data has not started
                         if data_started:
-                            raise TsFileParseException("metadata must come before data")
+                            raise TsFileParseException(
+                                "metadata must come before data")
 
                         # Check that the associated value is valid
                         tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
-                            raise TsFileParseException("classlabel tag requires an associated Boolean value")
+                            raise TsFileParseException(
+                                "classlabel tag requires an associated Boolean value")
 
                         if tokens[1] == "true":
                             class_labels = True
                         elif tokens[1] == "false":
                             class_labels = False
                         else:
-                            raise TsFileParseException("invalid classLabel value")
+                            raise TsFileParseException(
+                                "invalid classLabel value")
 
                         # Check if we have any associated class values
                         if token_len == 2 and class_labels:
@@ -240,26 +264,30 @@ class DataLoader:
                                 "if the classlabel tag is true then class values must be supplied")
 
                         has_class_labels_tag = True
-                        class_label_list = [token.strip() for token in tokens[2:]]
+                        class_label_list = [token.strip()
+                                            for token in tokens[2:]]
                         metadata_started = True
                     elif line.startswith("@targetlabel"):
                         # Check that the data has not started
                         if data_started:
-                            raise TsFileParseException("metadata must come before data")
+                            raise TsFileParseException(
+                                "metadata must come before data")
 
                         # Check that the associated value is valid
                         tokens = line.split(' ')
                         token_len = len(tokens)
 
                         if token_len == 1:
-                            raise TsFileParseException("targetlabel tag requires an associated Boolean value")
+                            raise TsFileParseException(
+                                "targetlabel tag requires an associated Boolean value")
 
                         if tokens[1] == "true":
                             target_labels = True
                         elif tokens[1] == "false":
                             target_labels = False
                         else:
-                            raise TsFileParseException("invalid targetLabel value")
+                            raise TsFileParseException(
+                                "invalid targetLabel value")
 
                         has_target_labels_tag = True
                         class_val_list = []
@@ -267,10 +295,12 @@ class DataLoader:
                     # Check if this line contains the start of data
                     elif line.startswith("@data"):
                         if line != "@data":
-                            raise TsFileParseException("data tag should not have an associated value")
+                            raise TsFileParseException(
+                                "data tag should not have an associated value")
 
                         if data_started and not metadata_started:
-                            raise TsFileParseException("metadata must come before data")
+                            raise TsFileParseException(
+                                "metadata must come before data")
                         else:
                             has_data_tag = True
                             data_started = True
@@ -278,14 +308,15 @@ class DataLoader:
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                                                          not has_univariate_tag or not has_target_labels_tag or \
-                                                          not has_data_tag
+                            not has_univariate_tag or not has_target_labels_tag or \
+                            not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
                             or not has_data_tag
                         if incomplete_regression_meta_data and incomplete_classification_meta_data:
-                            raise TsFileParseException("a full set of metadata has not been provided before the data")
+                            raise TsFileParseException(
+                                "a full set of metadata has not been provided before the data")
 
                         # Replace any missing values with the value specified
                         line = line.replace("?", replace_missing_vals_with)
@@ -318,7 +349,8 @@ class DataLoader:
                                         if len(instance_list) < (this_line_num_dimensions + 1):
                                             instance_list.append([])
 
-                                        instance_list[this_line_num_dimensions].append(pd.Series())
+                                        instance_list[this_line_num_dimensions].append(
+                                            pd.Series())
                                         this_line_num_dimensions += 1
 
                                         has_another_value = False
@@ -338,7 +370,8 @@ class DataLoader:
                                             #         "the class value '" + class_val + "' on line " + str(
                                             #             line_num + 1) + " is not valid")
 
-                                            class_val_list.append(float(class_val))
+                                            class_val_list.append(
+                                                float(class_val))
                                             char_num = line_len
 
                                             has_another_value = False
@@ -396,7 +429,8 @@ class DataLoader:
                                             # Get the numeric value for the tuple by reading from the end
                                             # of the tuple data backwards to the last comma
 
-                                            last_comma_index = tuple_data.rfind(',')
+                                            last_comma_index = tuple_data.rfind(
+                                                ',')
 
                                             if last_comma_index == -1:
                                                 raise TsFileParseException(
@@ -429,7 +463,8 @@ class DataLoader:
 
                                             if not timestamp_is_int:
                                                 try:
-                                                    timestamp = float(timestamp)
+                                                    timestamp = float(
+                                                        timestamp)
                                                     timestamp_is_float = True
                                                     timestamp_is_timestamp = False
                                                 except ValueError:
@@ -480,7 +515,8 @@ class DataLoader:
 
                                             # Store the values
 
-                                            timestamps_for_dimension += [timestamp]
+                                            timestamps_for_dimension += [
+                                                timestamp]
                                             values_for_dimension += [value]
 
                                             #  If this was our first tuple then we store the type of timestamp we had
@@ -532,7 +568,8 @@ class DataLoader:
                                     if len(instance_list) < (this_line_num_dimensions + 1):
                                         instance_list.append([])
 
-                                    instance_list[this_line_num_dimensions].append(pd.Series(dtype=np.float32))
+                                    instance_list[this_line_num_dimensions].append(
+                                        pd.Series(dtype=np.float32))
                                     this_line_num_dimensions += 1
                                     num_dimensions = this_line_num_dimensions
 
@@ -563,7 +600,8 @@ class DataLoader:
                                 if len(instance_list) < (this_line_num_dimensions + 1):
                                     instance_list.append([])
 
-                                instance_list[this_line_num_dimensions].append(pd.Series())
+                                instance_list[this_line_num_dimensions].append(
+                                    pd.Series())
                                 this_line_num_dimensions += 1
                                 num_dimensions = this_line_num_dimensions
 
@@ -578,7 +616,8 @@ class DataLoader:
                             # in those listed in the metadata
 
                             if target_labels and len(class_val_list) == 0:
-                                raise TsFileParseException("the cases have no associated class values")
+                                raise TsFileParseException(
+                                    "the cases have no associated class values")
                         else:
                             dimensions = line.split(":")
                             # If first row then note the number of dimensions (that must be the same for all cases)
@@ -610,8 +649,10 @@ class DataLoader:
 
                                     if dimension:
                                         data_series = dimension.split(",")
-                                        data_series = [float(i) for i in data_series]
-                                        instance_list[dim].append(pd.Series(data_series))
+                                        data_series = [float(i)
+                                                       for i in data_series]
+                                        instance_list[dim].append(
+                                            pd.Series(data_series))
                                     else:
                                         instance_list[dim].append(pd.Series())
                                 except Exception as ex:
@@ -619,7 +660,8 @@ class DataLoader:
 
                             if target_labels:
                                 try:
-                                    class_val_list.append(float(dimensions[num_dimensions].strip()))
+                                    class_val_list.append(
+                                        float(dimensions[num_dimensions].strip()))
                                 except Exception as ex:
                                     _ = 1
 
@@ -629,7 +671,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                                            and has_target_labels_tag and has_data_tag
+                and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag
@@ -637,9 +679,11 @@ class DataLoader:
             if metadata_started and not complete_regression_meta_data and not complete_classification_meta_data:
                 raise TsFileParseException("metadata incomplete")
             elif metadata_started and not data_started:
-                raise TsFileParseException("file contained metadata but no data")
+                raise TsFileParseException(
+                    "file contained metadata but no data")
             elif metadata_started and data_started and len(instance_list) == 0:
-                raise TsFileParseException("file contained metadata but no data")
+                raise TsFileParseException(
+                    "file contained metadata but no data")
 
             # Create a DataFrame from the data parsed above
             data = pd.DataFrame(dtype=np.float32)
@@ -703,8 +747,10 @@ class DataLoader:
         Returns:
             train and test data tuple
         """
-        data_train = np.genfromtxt(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt')
-        data_test = np.genfromtxt(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.txt')
+        data_train = np.genfromtxt(
+            temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt')
+        data_test = np.genfromtxt(
+            temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.txt')
         x_train, y_train = data_train[:, 1:], data_train[:, 0]
         x_test, y_test = data_test[:, 1:], data_test[:, 0]
         return x_train, y_train, x_test, y_test
@@ -730,8 +776,10 @@ class DataLoader:
         """Reads data from ``.arff`` file.
 
         """
-        train = loadarff(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.arff')
-        test = loadarff(temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.arff')
+        train = loadarff(temp_data_path + '/' + dataset_name +
+                         f'/{dataset_name}_TRAIN.arff')
+        test = loadarff(temp_data_path + '/' + dataset_name +
+                        f'/{dataset_name}_TEST.arff')
 
         data_train = np.asarray([train[0][name] for name in train[1].names()])
         x_train = data_train[:-1].T.astype('float64')
@@ -754,7 +802,8 @@ class DataLoader:
 
         """
         try:
-            is_multi, (x_train, y_train), (x_test, y_test) = self.read_train_test_files(data_path, dataset_name)
+            is_multi, (x_train, y_train), (x_test, y_test) = self.read_train_test_files(
+                data_path, dataset_name)
 
         except Exception as e:
             self.logger.error(f'Error while unpacking data: {e}')
@@ -769,7 +818,8 @@ class DataLoader:
             y_test = y_test.astype(str)
 
         # Save data to tsv files
-        new_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data', dataset_name)
+        new_path = os.path.join(
+            PROJECT_PATH, 'fedot_ind', 'data', dataset_name)
         os.makedirs(new_path, exist_ok=True)
 
         self.logger.info(f'Saving {dataset_name} data files')
@@ -777,11 +827,13 @@ class DataLoader:
             if not is_multi:
                 df = pd.DataFrame(x_train if subset == 'TRAIN' else x_test)
                 df.insert(0, 'class', y_train if subset == 'TRAIN' else y_test)
-                df.to_csv(os.path.join(new_path, f'{dataset_name}_{subset}.tsv'), sep='\t', index=False, header=False)
+                df.to_csv(os.path.join(
+                    new_path, f'{dataset_name}_{subset}.tsv'), sep='\t', index=False, header=False)
                 del df
 
             else:
-                old_path = os.path.join(data_path, dataset_name, f'{dataset_name}_{subset}.ts')
+                old_path = os.path.join(
+                    data_path, dataset_name, f'{dataset_name}_{subset}.ts')
                 shutil.move(old_path, new_path)
 
         if is_multi:

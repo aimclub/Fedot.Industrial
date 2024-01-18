@@ -1,19 +1,16 @@
-import math
 from typing import Optional, Union
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-from joblib import cpu_count, delayed, Parallel
+from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
-from fedot_ind.core.repository.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
+from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
+from fedot_ind.core.repository.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 
 
 class BasisDecompositionImplementation(IndustrialCachableOperationImplementation):
@@ -66,7 +63,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         pass
 
     def _get_1d_basis(self, input_data):
-        decompose = lambda signal: ListMonad(self._decompose_signal(signal))
+        def decompose(signal): return ListMonad(self._decompose_signal(signal))
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis
 
@@ -75,12 +72,15 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
         """
         features = DataConverter(data=input_data).convert_to_monad_data()
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
+        parallel = Parallel(n_jobs=self.n_processes,
+                            verbose=0, pre_dispatch="2*n_jobs")
+        v = parallel(delayed(self._transform_one_sample)(sample)
+                     for sample in features)
         predict = NumpyConverter(data=np.array(v)).convert_to_torch_format()
         return predict
 
     def _get_multidim_basis(self, input_data):
-        decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))
+        def decompose(multidim_signal): return ListMonad(
+            list(map(self._decompose_signal, multidim_signal)))
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis

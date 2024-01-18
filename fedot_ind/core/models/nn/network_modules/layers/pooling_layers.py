@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from fastai.layers import *
 from fastai.torch_core import Module
 
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Reshape, LinLnDrop, SoftMax, init_lin_zero
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import init_lin_zero, LinLnDrop, Reshape, SoftMax
 
 
 class PPV(Module):
@@ -31,7 +30,7 @@ class PPAuc(Module):
 
 
 class MaxPPVPool1d(Module):
-    "Drop-in replacement for AdaptiveConcatPool1d - multiplies nf by 2"
+    """Drop-in replacement for AdaptiveConcatPool1d - multiplies nf by 2"""
 
     def forward(self, x):
         _max = x.max(dim=-1).values
@@ -39,12 +38,13 @@ class MaxPPVPool1d(Module):
         return torch.cat((_max, _ppv), dim=-1).unsqueeze(2)
 
 
-# %% ../../nbs/029_models.layers.ipynb 53
 class AdaptiveWeightedAvgPool1d(Module):
-    '''Global Pooling layer that performs a weighted average along the temporal axis
+    """Global Pooling layer that performs a weighted average along the temporal axis
 
     It can be considered as a channel-wise form of local temporal attention. Inspired by the paper:
-    Hyun, J., Seong, H., & Kim, E. (2019). Universal Pooling--A New Pooling Method for Convolutional Neural Networks. arXiv preprint arXiv:1907.11440.'''
+    Hyun, J., Seong, H., & Kim, E. (2019). Universal Pooling--A New Pooling Method for Convolutional Neural Networks.
+    arXiv preprint arXiv:1907.11440.
+    """
 
     def __init__(self, n_in,
                  seq_len,
@@ -63,18 +63,19 @@ class AdaptiveWeightedAvgPool1d(Module):
                                     act=act if i < n_layers - 1 and n_layers > 1 else None))
         self.layers = layers
         self.softmax = SoftMax(-1)
-        if zero_init: init_lin_zero(self)
+        if zero_init:
+            init_lin_zero(self)
 
     def forward(self, x):
         wap = x
-        for l in self.layers: wap = l(wap)
+        for l in self.layers:
+            wap = l(wap)
         wap = self.softmax(wap)
         return torch.mul(x, wap).sum(-1)
 
 
-
 class GAP1d(Module):
-    "Global Adaptive Pooling + Flatten"
+    """Global Adaptive Pooling + Flatten"""
 
     def __init__(self, output_size=1):
         self.gap = nn.AdaptiveAvgPool1d(output_size)
@@ -142,7 +143,6 @@ def gwa_pool_head(n_in, output_dim, seq_len, batch_norm=True, fc_dropout=0.):
                          LinBnDrop(n_in, output_dim, p=fc_dropout, batch_norm=batch_norm))
 
 
-
 class AttentionalPool1d(Module):
     """Global Adaptive Pooling layer inspired by Attentional Pooling for Action Recognition https://arxiv.org/abs/1711.01467"""
 
@@ -153,7 +153,8 @@ class AttentionalPool1d(Module):
         self.conv2 = Conv1d(n_in, output_dim, 1)
 
     def forward(self, x):
-        if self.batch_norm is not None: x = self.batch_norm(x)
+        if self.batch_norm is not None:
+            x = self.batch_norm(x)
         return (self.conv1(x) @ self.conv2(x).transpose(1, 2)).transpose(1, 2)
 
 
@@ -169,8 +170,10 @@ def attentional_pool_head(n_in, output_dim, seq_len=None, batch_norm=True, **kwa
 class PoolingLayer(Module):
     def __init__(self, method='cls', seq_len=None, token=True, seq_last=True):
         method = method.lower()
-        assert method in ['cls', 'max', 'mean', 'max-mean', 'linear', 'conv1d', 'flatten']
-        if method == 'cls': assert token, 'you can only choose method=cls if a token exists'
+        assert method in ['cls', 'max', 'mean',
+                          'max-mean', 'linear', 'conv1d', 'flatten']
+        if method == 'cls':
+            assert token, 'you can only choose method=cls if a token exists'
         self.method = method
         self.token = token
         self.seq_last = seq_last

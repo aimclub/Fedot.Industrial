@@ -1,19 +1,17 @@
-import gc
 from typing import Optional
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-import torch
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.data_split import train_test_data_setup, _are_stratification_allowed
 
+import torch
+import torch.nn.functional as F
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.data_split import _are_stratification_allowed, train_test_data_setup
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from torch import nn, Tensor, optim
-import torch.nn.functional as F
+from torch import Tensor
 from torch.optim import lr_scheduler
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array, \
-    convert_to_torch_tensor, \
-    fedot_data_type, convert_inputdata_to_torch_dataset
+from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
+    convert_to_3d_torch_array, fedot_data_type
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 
@@ -48,7 +46,8 @@ class BaseNeuralModel:
         self.activation = params.get('activation', 'ReLU')
         self.learning_rate = 0.001
 
-        print(f'Epoch: {self.epochs}, Batch Size: {self.batch_size}, Activation_function: {self.activation}')
+        print(
+            f'Epoch: {self.epochs}, Batch Size: {self.batch_size}, Activation_function: {self.activation}')
 
     @convert_inputdata_to_torch_dataset
     def _create_dataset(self, ts: InputData):
@@ -58,7 +57,7 @@ class BaseNeuralModel:
         self.model = None
         return
 
-    def _evalute_num_of_epochs(self, ts):
+    def _evaluate_num_of_epochs(self, ts):
         min_num_epochs = min(100, round(ts.features.shape[0] * 1.5))
         if self.epochs is None:
             self.epochs = min_num_epochs
@@ -89,19 +88,22 @@ class BaseNeuralModel:
         stratify = _are_stratification_allowed(ts, 0.7)
 
         if split_data and stratify:
-            train_data, val_data = train_test_data_setup(ts, stratify=stratify, shuffle_flag=True, split_ratio=0.7)
+            train_data, val_data = train_test_data_setup(
+                ts, stratify=stratify, shuffle_flag=True, split_ratio=0.7)
             train_dataset = self._create_dataset(train_data)
             val_dataset = self._create_dataset(val_data)
         else:
             train_dataset = self._create_dataset(ts)
             val_dataset = None
 
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=self.batch_size, shuffle=True)
 
         if val_dataset is None:
             val_loader = val_dataset
         else:
-            val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True)
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset, batch_size=self.batch_size, shuffle=True)
 
         self.num_classes = train_dataset.classes
         self.label_encoder = train_dataset.label_encoder
@@ -114,7 +116,7 @@ class BaseNeuralModel:
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
         if val_loader is None:
-            print('Not enough class samples for valudation')
+            print('Not enough class samples for validation')
 
         for epoch in range(1, self.epochs + 1):
             training_loss = 0.0
@@ -143,17 +145,20 @@ class BaseNeuralModel:
                 print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,
                                                                  valid_loss))
             early_stopping(training_loss, self.model, './')
-            adjust_learning_rate(optimizer, scheduler, epoch + 1, self.learning_rate, printout=False)
+            adjust_learning_rate(optimizer, scheduler,
+                                 epoch + 1, self.learning_rate, printout=False)
             scheduler.step()
 
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
+            print('Updating learning rate to {}'.format(
+                scheduler.get_last_lr()[0]))
 
     @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
-        self._train_loop(*self._prepare_data(ts, split_data), *self._init_model(ts))
+        self._train_loop(*self._prepare_data(ts, split_data),
+                         *self._init_model(ts))
 
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):

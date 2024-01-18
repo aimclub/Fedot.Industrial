@@ -22,7 +22,8 @@ def sv_to_explained_variance_ratio(singular_values, rank):
         Number of singular values to use.
     """
     singular_values = [abs(x) for x in singular_values]
-    n_components = [x / sum(singular_values) * 100 for x in singular_values][:rank]
+    n_components = [x / sum(singular_values) *
+                    100 for x in singular_values][:rank]
     explained_variance = sum(n_components)
     n_components = rank
     return explained_variance, n_components
@@ -31,7 +32,7 @@ def sv_to_explained_variance_ratio(singular_values, rank):
 def singular_value_hard_threshold(singular_values,
                                   rank=None,
                                   beta=None,
-                                  threshold=SINGULAR_VALUE_MEDIAN_THR ) -> list:
+                                  threshold=SINGULAR_VALUE_MEDIAN_THR) -> list:
     """
     Calculate the hard threshold for the singular values.
 
@@ -72,7 +73,8 @@ def singular_value_hard_threshold(singular_values,
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
     if len(Sigma.shape) > 1:
-        multi_reconstruction = lambda x: reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)
+        def multi_reconstruction(x): return reconstruct_basis(
+            U=U, Sigma=x, VT=VT, ts_length=ts_length)
         TS_comps = list(map(multi_reconstruction, Sigma))
     else:
         rank = Sigma.shape[0]
@@ -80,6 +82,7 @@ def reconstruct_basis(U, Sigma, VT, ts_length):
         for i in range(rank):
             X_elem = Sigma[i] * np.outer(U[:, i], VT[i, :])
             X_rev = X_elem[::-1]
-            eigenvector = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+            eigenvector = [X_rev.diagonal(
+                j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
             TS_comps[:, i] = eigenvector
     return TS_comps

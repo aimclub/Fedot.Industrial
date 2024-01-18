@@ -1,7 +1,6 @@
 import os
 from typing import Optional
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation
@@ -9,7 +8,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.caching import DataCacher
 
 
@@ -75,11 +74,13 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                 predict = self._transform(input_data)
                 self.cacher.cache_data(hashed_info, predict)
 
-            predict = self._convert_to_output(input_data, predict, data_type=self.data_type)
+            predict = self._convert_to_output(
+                input_data, predict, data_type=self.data_type)
             return predict
         else:
             transformed_features = self._transform(input_data)
-            predict = self._convert_to_fedot_datatype(input_data, transformed_features)
+            predict = self._convert_to_fedot_datatype(
+                input_data, transformed_features)
             return predict
 
     def _transform(self, input_data):

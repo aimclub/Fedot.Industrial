@@ -55,9 +55,11 @@ class RankEnsemble(BaseEnsemble):
             Fitted Fedot pipeline with baseline model
 
         """
-        (_, _), (_, self.test_target) = DataLoader(self.dataset_name).load_data()
+        (_, _), (_, self.test_target) = DataLoader(
+            self.dataset_name).load_data()
 
-        model_rank_dict = self._create_models_rank_dict(self.proba_dict, self.metric_dict)
+        model_rank_dict = self._create_models_rank_dict(
+            self.proba_dict, self.metric_dict)
         self.best_base_results = self._sort_models(model_rank_dict)
 
         return self.__iterative_model_selection(self.proba_dict)
@@ -81,14 +83,16 @@ class RankEnsemble(BaseEnsemble):
         """
         model_rank = {}
         for model in metric_dict[self.dataset_name].keys():
-            self.logger.info(f'BASE RESULT FOR MODEL - {model}'.center(50, '-'))
+            self.logger.info(
+                f'BASE RESULT FOR MODEL - {model}'.center(50, '-'))
             if prediction_proba_dict[self.dataset_name][model].shape[1] == 1:
                 self.metric = 'roc_auc'
                 _type = 'binary'
             else:
                 self.metric = 'f1'
                 _type = 'multiclass'
-            self.logger.info(f'TYPE OF ML TASK - {_type}. Metric - {self.metric}'.center(50, '-'))
+            self.logger.info(
+                f'TYPE OF ML TASK - {_type}. Metric - {self.metric}'.center(50, '-'))
             current_metrics = metric_dict[self.dataset_name][model]
             if isinstance(current_metrics, pd.DataFrame):
                 current_metrics = current_metrics.loc[0].to_dict()
@@ -108,14 +112,17 @@ class RankEnsemble(BaseEnsemble):
 
         """
 
-        self.sorted_dict = dict(sorted(model_rank.items(), key=lambda x: x[1], reverse=True))
+        self.sorted_dict = dict(
+            sorted(model_rank.items(), key=lambda x: x[1], reverse=True))
         self.n_models = len(self.sorted_dict)
 
         best_base_model = list(self.sorted_dict)[0]
         best_metric = self.sorted_dict[best_base_model]
 
-        self.logger.info(f'CURRENT BEST METRIC - {best_metric}. MODEL - {best_base_model}'.center(50, '-'))
-        self.experiment_results.update({'Base_model': best_base_model, 'Base_metric': best_metric})
+        self.logger.info(
+            f'CURRENT BEST METRIC - {best_metric}. MODEL - {best_base_model}'.center(50, '-'))
+        self.experiment_results.update(
+            {'Base_model': best_base_model, 'Base_metric': best_metric})
         return {'Base_model': best_base_model, 'Base_metric': best_metric}
 
     def __iterative_model_selection(self, prediction_proba_dict):
@@ -131,27 +138,35 @@ class RankEnsemble(BaseEnsemble):
 
             modelling_results_top = {k: v for k, v in prediction_proba_dict[self.dataset_name].items() if
                                      k in list(self.sorted_dict.keys())[:top_K_models + 1]}
-            self.logger.info(f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models + 1} models')
+            self.logger.info(
+                f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models + 1} models')
 
-            ensemble_results = self.agg_ensemble(modelling_results=modelling_results_top, single_mode=True)
+            ensemble_results = self.agg_ensemble(
+                modelling_results=modelling_results_top, single_mode=True)
 
-            top_ensemble_dict = self.__select_best_ensemble_method(ensemble_results)
+            top_ensemble_dict = self.__select_best_ensemble_method(
+                ensemble_results)
 
             if len(top_ensemble_dict) == 0:
-                self.logger.info(f'No improvement accomplished for {list(modelling_results_top.keys())} combination')
+                self.logger.info(
+                    f'No improvement accomplished for {list(modelling_results_top.keys())} combination')
             else:
                 current_ensemble_method = list(top_ensemble_dict)[0]
                 best_ensemble_metric = top_ensemble_dict[current_ensemble_method]
-                model_combination = list(modelling_results_top)[:top_K_models + 1]
+                model_combination = list(modelling_results_top)[
+                    :top_K_models + 1]
                 self.logger.info(
                     f'Accomplished metric improvement by {current_ensemble_method}:'
                     f'New best metric – {best_ensemble_metric}'
                 )
 
                 if self.best_ensemble_metric > 0:
-                    self.experiment_results.update({'Ensemble_models': model_combination})
-                    self.experiment_results.update({'Ensemble_method': current_ensemble_method})
-                    self.experiment_results.update({'Best_ensemble_metric': best_ensemble_metric})
+                    self.experiment_results.update(
+                        {'Ensemble_models': model_combination})
+                    self.experiment_results.update(
+                        {'Ensemble_method': current_ensemble_method})
+                    self.experiment_results.update(
+                        {'Best_ensemble_metric': best_ensemble_metric})
         return self.experiment_results
 
     def __select_best_ensemble_method(self, ensemble_results: dict):
@@ -188,7 +203,8 @@ class RankEnsemble(BaseEnsemble):
                 ensemble_dict[generator] = {}
                 self.generator = generator
                 for launch in modelling_results[generator]:
-                    ensemble_dict[generator].update({launch: modelling_results[generator][launch]['metrics']})
+                    ensemble_dict[generator].update(
+                        {launch: modelling_results[generator][launch]['metrics']})
 
                 for strategy in self.ensemble_strategy:
                     ensemble_dict[generator].update({strategy: self._ensemble_by_method(modelling_results[generator],
@@ -196,8 +212,10 @@ class RankEnsemble(BaseEnsemble):
         return ensemble_dict
 
     def _ensemble_by_method(self, predictions, strategy):
-        transformed_predictions = self._check_predictions(predictions, strategy_name=strategy)
-        average_proba_predictions = self.ensemble_strategy_dict[strategy](transformed_predictions, axis=1)
+        transformed_predictions = self._check_predictions(
+            predictions, strategy_name=strategy)
+        average_proba_predictions = self.ensemble_strategy_dict[strategy](
+            transformed_predictions, axis=1)
 
         if average_proba_predictions.shape[1] == 1:
             average_proba_predictions = np.concatenate([average_proba_predictions, 1 - average_proba_predictions],
@@ -253,7 +271,8 @@ class RankEnsemble(BaseEnsemble):
                                 filter_col = ['Target', 'Preds']
                             else:
                                 filter_col = ['Target', 'Predicted_labels']
-                            proba_frame = proba_frame.loc[:, ~proba_frame.columns.isin(filter_col)]
+                            proba_frame = proba_frame.loc[:, ~proba_frame.columns.isin(
+                                filter_col)]
                             list_proba.append(proba_frame.values)
                 return np.array(list_proba).transpose((1, 0, 2))
             except Exception as error:

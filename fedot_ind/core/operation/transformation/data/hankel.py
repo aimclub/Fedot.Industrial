@@ -65,9 +65,11 @@ class HankelMatrix:
                     in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):
-        shape = (time_series.shape[0] - self.__window_length + 1, self.__window_length)
+        shape = (time_series.shape[0] -
+                 self.__window_length + 1, self.__window_length)
         strides = (time_series.strides[0],) + time_series.strides
-        rolled = np.lib.stride_tricks.as_strided(time_series, shape=shape, strides=strides)
+        rolled = np.lib.stride_tricks.as_strided(
+            time_series, shape=shape, strides=strides)
         return rolled[np.arange(0, shape[0], self.__strides)].T
 
     @property
@@ -108,7 +110,8 @@ def get_x_y_pairs(train, train_periods, prediction_periods):
     train_scaled = train.T
     r = train_scaled.shape[0] - train_periods - prediction_periods
     x_train = [train_scaled[i:i + train_periods] for i in range(r)]
-    y_train = [train_scaled[i + train_periods:i + train_periods + prediction_periods] for i in range(r)]
+    y_train = [train_scaled[i + train_periods:i +
+                            train_periods + prediction_periods] for i in range(r)]
 
     # -- use the stack function to convert the list of 1D tensors
     # into a 2D tensor where each element of the list is now a row

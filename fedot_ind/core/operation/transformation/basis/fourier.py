@@ -1,9 +1,8 @@
 from typing import Optional
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot.core.operations.operation_parameters import OperationParameters
-from pymonad.either import Either
 
-from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type
+from fedot.core.operations.operation_parameters import OperationParameters
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 
 
@@ -33,7 +32,8 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
 
     def _decompose_signal(self, input_data):
         fourier_coef = np.fft.rfft(input_data)
-        frequencies = np.fft.rfftfreq(input_data.size, d=2e-3 / input_data.size)
+        frequencies = np.fft.rfftfreq(
+            input_data.size, d=2e-3 / input_data.size)
 
         if self.threshold > frequencies[-1]:
             median_freq = round(len(frequencies) / 2)

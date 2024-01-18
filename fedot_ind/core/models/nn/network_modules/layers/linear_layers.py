@@ -1,24 +1,23 @@
-import math
 from functools import partial
 
 import torch
-from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
-
 from fastai.layers import *
 from fastai.torch_core import Module
-
 from fastcore.basics import snake2camel
+from torch import Tensor
 
 from fedot_ind.core.architecture.settings.computational import default_device
 
 
 def init_lin_zero(m):
-    if isinstance(m, (nn.Linear)):
-        if getattr(m, 'bias', None) is not None: nn.init.constant_(m.bias, 0)
+    if isinstance(m, nn.Linear):
+        if getattr(m, 'bias', None) is not None:
+            nn.init.constant_(m.bias, 0)
         nn.init.constant_(m.weight, 0)
-    for l in m.children(): init_lin_zero(l)
+    for l in m.children():
+        init_lin_zero(l)
 
 
 lin_zero_init = init_lin_zero
@@ -63,16 +62,19 @@ class LinLnDrop(nn.Sequential):
 
     def __init__(self, n_in, n_out, ln=True, p=0., act=None, lin_first=False):
         layers = [nn.LayerNorm(n_out if lin_first else n_in)] if ln else []
-        if p != 0: layers.append(nn.Dropout(p))
+        if p != 0:
+            layers.append(nn.Dropout(p))
         lin = [nn.Linear(n_in, n_out, bias=not ln)]
-        if act is not None: lin.append(act)
+        if act is not None:
+            lin.append(act)
         layers = lin + layers if lin_first else layers + lin
         super().__init__(*layers)
 
 
 # %% ../../nbs/029_models.layers.ipynb 35
 class LambdaPlus(Module):
-    def __init__(self, func, *args, **kwargs): self.func, self.args, self.kwargs = func, args, kwargs
+    def __init__(self, func, *args, **
+                 kwargs): self.func, self.args, self.kwargs = func, args, kwargs
 
     def forward(self, x): return self.func(x, *self.args, **self.kwargs)
 
@@ -109,11 +111,14 @@ class Concat(Module):
 
 
 class Unfold(Module):
-    def __init__(self, dim, size, step=1): self.dim, self.size, self.step = dim, size, step
+    def __init__(self, dim, size,
+                 step=1): self.dim, self.size, self.step = dim, size, step
 
-    def forward(self, x: Tensor) -> Tensor: return x.unfold(dimension=self.dim, size=self.size, step=self.step)
+    def forward(self, x: Tensor) -> Tensor: return x.unfold(dimension=self.dim,
+                                                            size=self.size, step=self.step)
 
-    def __repr__(self): return f"{self.__class__.__name__}(dim={self.dim}, size={self.size}, step={self.step})"
+    def __repr__(
+        self): return f"{self.__class__.__name__}(dim={self.dim}, size={self.size}, step={self.step})"
 
 
 class Permute(Module):
@@ -121,7 +126,8 @@ class Permute(Module):
 
     def forward(self, x: Tensor) -> Tensor: return x.permute(self.dims)
 
-    def __repr__(self): return f"{self.__class__.__name__}(dims={', '.join([str(d) for d in self.dims])})"
+    def __repr__(
+        self): return f"{self.__class__.__name__}(dims={', '.join([str(d) for d in self.dims])})"
 
 
 class Transpose(Module):
@@ -149,7 +155,8 @@ class View(Module):
             -1,) else \
             x.view(x.shape[0], *self.shape).contiguous()
 
-    def __repr__(self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
+    def __repr__(
+        self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
 
 
 class Reshape(Module):
@@ -159,15 +166,18 @@ class Reshape(Module):
         return x.reshape(x.shape[0], -1) if not self.shape else x.reshape(-1) if self.shape == (-1,) else x.reshape(
             x.shape[0], *self.shape)
 
-    def __repr__(self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
+    def __repr__(
+        self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
 
 
 class Max(Module):
-    def __init__(self, dim=None, keepdim=False): self.dim, self.keepdim = dim, keepdim
+    def __init__(self, dim=None,
+                 keepdim=False): self.dim, self.keepdim = dim, keepdim
 
     def forward(self, x): return x.max(self.dim, keepdim=self.keepdim)[0]
 
-    def __repr__(self): return f'{self.__class__.__name__}(dim={self.dim}, keepdim={self.keepdim})'
+    def __repr__(
+        self): return f'{self.__class__.__name__}(dim={self.dim}, keepdim={self.keepdim})'
 
 
 class LastStep(Module):
@@ -195,7 +205,8 @@ class Clamp(Module):
     def forward(self, x):
         return x.clamp(min=self.min, max=self.max)
 
-    def __repr__(self): return f'{self.__class__.__name__}(min={self.min}, max={self.max})'
+    def __repr__(
+        self): return f'{self.__class__.__name__}(min={self.min}, max={self.max})'
 
 
 class Clip(Module):
@@ -227,7 +238,8 @@ class AddCoords1d(Module):
 
     def forward(self, x):
         bs, _, seq_len = x.shape
-        cc = torch.linspace(-1, 1, x.shape[-1], device=x.device).repeat(bs, 1, 1)
+        cc = torch.linspace(-1, 1, x.shape[-1],
+                            device=x.device).repeat(bs, 1, 1)
         cc = (cc - cc.mean()) / cc.std()
         x = torch.cat([x, cc], dim=1)
         return x
@@ -246,9 +258,11 @@ class Flatten_Head(nn.Module):
         if individual:
             self.layers = nn.ModuleList()
             for i in range(self.n):
-                self.layers.append(nn.Sequential(nn.Flatten(start_dim=-2), nn.Linear(nf, pred_dim)))
+                self.layers.append(nn.Sequential(nn.Flatten(
+                    start_dim=-2), nn.Linear(nf, pred_dim)))
         else:
-            self.layer = nn.Sequential(nn.Flatten(start_dim=-2), nn.Linear(nf, pred_dim))
+            self.layer = nn.Sequential(nn.Flatten(
+                start_dim=-2), nn.Linear(nf, pred_dim))
 
     def forward(self, x: Tensor):
         """

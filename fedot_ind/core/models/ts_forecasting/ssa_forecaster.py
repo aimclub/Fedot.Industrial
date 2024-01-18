@@ -2,9 +2,9 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 try:
     import seaborn
-except:
+except ImportError:
     pass
-from typing import TypeVar, Optional
+from typing import Optional
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData, OutputData
@@ -71,18 +71,21 @@ class SSAForecasterImplementation(ModelImplementation):
             if input_data.features.shape[1] != 1:
                 self.preprocess_to_lagged = True
                 self._window_size = input_data.features.shape[1]
-                ts_length = input_data.features.shape[1] + input_data.features.shape[0] - 1
+                ts_length = input_data.features.shape[1] + \
+                    input_data.features.shape[0] - 1
                 ts_length = input_data.features.shape[1]
                 self._decomposer = SpectrumDecomposer(input_data.features,
                                                       ts_length)
 
         if self.preprocess_to_lagged:
-            self.seq_len = input_data.features.shape[0] + input_data.features.shape[1]
+            self.seq_len = input_data.features.shape[0] + \
+                input_data.features.shape[1]
         else:
             self.seq_len = input_data.features.shape[0]
             self.horizon = input_data.task.task_params.forecast_length
             input_data.features = input_data.features[-self.LAST_VALUES_THRESHOLD:]
-            trajectory_transformer = HankelMatrix(time_series=input_data.features, window_size=self._window_size)
+            trajectory_transformer = HankelMatrix(
+                time_series=input_data.features, window_size=self._window_size)
             input_data.features = trajectory_transformer.trajectory_matrix
             self._decomposer = SpectrumDecomposer(input_data.features,
                                                   trajectory_transformer.ts_length + self.horizon)
@@ -94,7 +97,8 @@ class SSAForecasterImplementation(ModelImplementation):
         U, s, VT = self._predict_loop(input_data)
         s_basis = s[:self._decomposer.thr]
 
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+        parallel = Parallel(n_jobs=self.n_processes,
+                            verbose=0, pre_dispatch="2*n_jobs")
         new_VT = np.array(
             parallel(delayed(self._predict_component)(sample, self.horizon) for sample in VT[:s_basis.shape[0]]))
         basis = self.reconstruct_basis(U, s_basis, new_VT).T
@@ -102,11 +106,12 @@ class SSAForecasterImplementation(ModelImplementation):
         summed_basis = np.array(basis).sum(axis=0)
         reconstructed_forecast = summed_basis[-self.horizon:]
         reconstructed_features = summed_basis[:-self.horizon]
-        error = input_data.features[-self.horizon:] - reconstructed_features[-self.horizon:]
+        error = input_data.features[-self.horizon:] - \
+            reconstructed_features[-self.horizon:]
 
         return reconstructed_forecast + error
 
-    def _predict_loop(self, input_data: InputData) -> OutputData:
+    def _predict_loop(self, input_data: InputData) -> tuple:
         U, s, VT = self.get_svd(input_data)
         return U, s, VT
 
@@ -122,14 +127,16 @@ class SSAForecasterImplementation(ModelImplementation):
     def predict_for_fit(self, input_data: InputData) -> OutputData:
         data = self.__preprocess_for_fedot(input_data).features
         if self.preprocess_to_lagged:
-            predict = [self.__predict_for_fit(ts.reshape(1, -1)) for ts in data]
+            predict = [self.__predict_for_fit(
+                ts.reshape(1, -1)) for ts in data]
             predict = np.array(predict)
         else:
             predict = self.__predict_for_fit(data)
         return predict
 
     def _predict_component(self, comp: np.array, forecast_length: int):
-        estimated_seasonal_length = WindowSizeSelector('hac').get_window_size(comp)
+        estimated_seasonal_length = WindowSizeSelector(
+            'hac').get_window_size(comp)
         model = PipelineBuilder().add_node('lagged', params={'window_size': estimated_seasonal_length}).add_node(
             'ridge').build()
         model.fit(comp)
@@ -138,7 +145,8 @@ class SSAForecasterImplementation(ModelImplementation):
         return np.concatenate([comp, forecast])
 
     def get_svd(self, data):
-        components = Either.insert(data).then(self._decomposer.svd).then(self._decomposer.threshold).value[0]
+        components = Either.insert(data).then(self._decomposer.svd).then(
+            self._decomposer.threshold).value[0]
         return components
 
     def reconstruct_basis(self, U, s, VT):

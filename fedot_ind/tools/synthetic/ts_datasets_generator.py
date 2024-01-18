@@ -27,6 +27,7 @@ class TimeSeriesDatasetsGenerator:
             train_data, test_data = generator.generate_data()
 
     """
+
     def __init__(self,
                  num_samples: int = 80,
                  max_ts_len: int = 50,
@@ -54,9 +55,12 @@ class TimeSeriesDatasetsGenerator:
         """
         if self.multivariate:
             n_classes = len(self.selected_classes)
-            features = self.create_features(self.num_samples * n_classes, self.max_ts_len, self.multivariate)
-            target = np.random.randint(0, n_classes, self.num_samples * n_classes)
-            X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=self.test_size, random_state=42, shuffle=True)
+            features = self.create_features(
+                self.num_samples * n_classes, self.max_ts_len, self.multivariate)
+            target = np.random.randint(
+                0, n_classes, self.num_samples * n_classes)
+            X_train, X_test, y_train, y_test = train_test_split(
+                features, target, test_size=self.test_size, random_state=42, shuffle=True)
             return (X_train, y_train), (X_test, y_test)
 
         ts_frame = pd.DataFrame()
@@ -71,9 +75,10 @@ class TimeSeriesDatasetsGenerator:
                 ts_frame = ts_frame.append(pd.DataFrame(ts).T)
                 labels = np.append(labels, label)
         ts_frame.reset_index(drop=True, inplace=True)
-        X_train, X_test, y_train, y_test = train_test_split(ts_frame, labels, test_size=self.test_size, random_state=42, shuffle=True)
+        X_train, X_test, y_train, y_test = train_test_split(
+            ts_frame, labels, test_size=self.test_size, random_state=42, shuffle=True)
         return (X_train, y_train), (X_test, y_test)
-    
+
     def create_features(self, n_samples, ts_length, multivariate):
         features = pd.DataFrame(np.random.random((n_samples, ts_length)))
         # TODO: add option to select dimentions

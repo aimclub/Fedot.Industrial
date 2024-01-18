@@ -31,7 +31,6 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # self._create_output_dir()
         self.experiment_setup = experiment_setup
         self.monash_regression = MULTI_REG_BENCH
         if custom_datasets is None:
@@ -104,6 +103,3 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
             pr = PipelineNode('ridge', nodes_from=[p.root_node for p in batch_pipelines])
             composed_pipeline = Pipeline(pr)
             composed_pipeline.show()
-
-            _ = 1
-        return

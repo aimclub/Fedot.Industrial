@@ -53,7 +53,8 @@ class TSTransformer:
         """ Splits data for train """
         method = self.split_methods.get(self.strategy, None)
         if method is None:
-            raise ValueError(f'Unknown strategy {self.strategy} for splitting time series.')
+            raise ValueError(
+                f'Unknown strategy {self.strategy} for splitting time series.')
         return method(**kwargs)
 
     def transform(self, series: np.array):
@@ -97,9 +98,12 @@ class TSTransformer:
         return features, target
 
     def get_features_and_target(self, series, classes, transformed_intervals, binarize) -> tuple:
-        target, features = self._split_by_intervals(series, classes, transformed_intervals)
-        non_anomaly_inters = self._get_non_anomaly_intervals(series, transformed_intervals)
-        target, features = self.balance_with_non_anomaly(series, target, features, non_anomaly_inters)
+        target, features = self._split_by_intervals(
+            series, classes, transformed_intervals)
+        non_anomaly_inters = self._get_non_anomaly_intervals(
+            series, transformed_intervals)
+        target, features = self.balance_with_non_anomaly(
+            series, target, features, non_anomaly_inters)
         if binarize:
             target = self._binarize_target(target)
         return np.array(features), np.array(target)
@@ -160,7 +164,7 @@ class TSTransformer:
         return new_intervals
 
     def _split_by_intervals(self, series: np.array, classes: list, transformed_intervals: list) -> Tuple[
-        List[str], List[list]]:
+            List[str], List[list]]:
         all_labels, all_ts = [], []
 
         for i, label in enumerate(classes):
@@ -184,16 +188,21 @@ class TSTransformer:
 
         for i, label in enumerate(classes):
             for interval_ in transformed_intervals[i]:
-                axes[1].axvspan(interval_[0], interval_[1], alpha=0.3, color='blue')
-                axes[1].text(interval_[0], 0.5, label, fontsize=12, rotation=90)
+                axes[1].axvspan(interval_[0], interval_[1],
+                                alpha=0.3, color='blue')
+                axes[1].text(interval_[0], 0.5, label,
+                             fontsize=12, rotation=90)
             for interval in intervals[i]:
-                axes[0].axvspan(interval[0], interval[1], alpha=0.3, color='red')
+                axes[0].axvspan(interval[0], interval[1],
+                                alpha=0.3, color='red')
                 axes[0].text(interval[0], 0.5, label, fontsize=12, rotation=90)
 
         if self.selected_non_anomaly_intervals is not None:
             for interval in self.selected_non_anomaly_intervals:
-                axes[2].axvspan(interval[0], interval[1], alpha=0.3, color='green')
-                axes[2].text(interval[0], 0.5, 'no_anomaly', fontsize=12, rotation=90)
+                axes[2].axvspan(interval[0], interval[1],
+                                alpha=0.3, color='green')
+                axes[2].text(interval[0], 0.5, 'no_anomaly',
+                             fontsize=12, rotation=90)
         plt.show()
 
     def _binarize_target(self, target):
@@ -222,7 +231,8 @@ class TSTransformer:
             # Exclude intervals that are too short
             if cropped_ts_len < anomaly_len:
                 continue
-            random_start_index = random.randint(random_inter[0], random_inter[0] + cropped_ts_len - anomaly_len)
+            random_start_index = random.randint(
+                random_inter[0], random_inter[0] + cropped_ts_len - anomaly_len)
             stop_index = random_start_index + anomaly_len
 
             # Check if this interval overlaps with another interval
@@ -238,7 +248,8 @@ class TSTransformer:
 
             non_anomaly_ts_list.append(non_anomaly_ts)
 
-            self.selected_non_anomaly_intervals.append([random_start_index, stop_index])
+            self.selected_non_anomaly_intervals.append(
+                [random_start_index, stop_index])
 
         if len(non_anomaly_ts_list) == 0:
             raise Exception('No non-anomaly intervals found')

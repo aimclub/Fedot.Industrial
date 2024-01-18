@@ -12,6 +12,7 @@ class Writer:
     Args:
         path: Path for recording metrics.
     """
+
     def __init__(self, path: Union[str, Path]) -> None:
         self.path = path
 
@@ -106,6 +107,7 @@ class WriterComposer(Writer):
         path: Path for recording metrics.
         writers: Types of used writers.
     """
+
     def __init__(self, path: Union[str, Path], writers: List[Type[Writer]]) -> None:
         super().__init__(path)
         self.writers = [writer(path=path) for writer in writers]

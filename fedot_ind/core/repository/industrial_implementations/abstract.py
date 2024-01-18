@@ -16,17 +16,21 @@ def preprocess_predicts(*args) -> List[np.array]:
 
         # And check image sizes
         img_wh = [predict.shape[1:3] for predict in reshaped_predicts]
-        invalid_sizes = len(set(img_wh)) > 1  # Can merge only images of the same size
+        # Can merge only images of the same size
+        invalid_sizes = len(set(img_wh)) > 1
         if invalid_sizes:
-            raise ValueError("Can't merge images of different sizes: " + str(img_wh))
+            raise ValueError(
+                "Can't merge images of different sizes: " + str(img_wh))
         return reshaped_predicts
 
 
 def merge_predicts(*args) -> np.array:
     predicts = args[1]
 
-    predicts = [NumpyConverter(data=prediction).convert_to_torch_format() for prediction in predicts]
-    sample_shape, channel_shape, elem_shape = [(x.shape[0], x.shape[1], x.shape[2]) for x in predicts][0]
+    predicts = [NumpyConverter(
+        data=prediction).convert_to_torch_format() for prediction in predicts]
+    sample_shape, channel_shape, elem_shape = [
+        (x.shape[0], x.shape[1], x.shape[2]) for x in predicts][0]
 
     sample_wise_concat = [x.shape[0] == sample_shape for x in predicts]
     chanel_concat = [x.shape[1] == channel_shape for x in predicts]
@@ -41,7 +45,8 @@ def merge_predicts(*args) -> np.array:
     elif sample_match and channel_match:
         return np.concatenate(predicts, axis=2)
     else:
-        prediction_2d = np.concatenate([x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
+        prediction_2d = np.concatenate(
+            [x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
         return prediction_2d.reshape(prediction_2d.shape[0], 1, prediction_2d.shape[1])
 
 
@@ -49,7 +54,8 @@ def predict_operation(self, fitted_operation, data: InputData, params: Optional[
                       output_mode: str = 'default', is_fit_stage: bool = False):
     is_main_target = data.supplementary_data.is_main_target
     data_flow_length = data.supplementary_data.data_flow_length
-    self._init(data.task, output_mode=output_mode, params=params, n_samples_data=data.features.shape[0])
+    self._init(data.task, output_mode=output_mode, params=params,
+               n_samples_data=data.features.shape[0])
 
     if is_fit_stage:
         prediction = self._eval_strategy.predict_for_fit(

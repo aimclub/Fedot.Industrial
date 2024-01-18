@@ -109,13 +109,15 @@ class TimeSeriesAnomalyDetectionPreset:
         if is_multivariate_data:
             input_data = InputData(idx=np.arange(len(features)),
                                    features=np.array(features.tolist()),
-                                   target=target.reshape(-1, 1) if target is not None else None,
+                                   target=target.reshape(-1,
+                                                         1) if target is not None else None,
                                    task=Task(TaskTypesEnum.classification),
                                    data_type=DataTypesEnum.image)
         else:
             input_data = InputData(idx=np.arange(len(features)),
                                    features=features.values,
-                                   target=np.ravel(target).reshape(-1, 1) if target is not None else None,
+                                   target=np.ravel(
+                                       target).reshape(-1, 1) if target is not None else None,
                                    task=Task(TaskTypesEnum.classification),
                                    data_type=DataTypesEnum.table)
 
@@ -127,7 +129,8 @@ class TimeSeriesAnomalyDetectionPreset:
 
         """
         if self.branch_nodes is None:
-            self.branch_nodes = ['eigen_basis', 'fourier_basis', 'wavelet_basis']
+            self.branch_nodes = ['eigen_basis',
+                                 'fourier_basis', 'wavelet_basis']
 
         self.extractors = ['quantile_extractor'] * len(self.branch_nodes)
 
@@ -190,8 +193,10 @@ class TimeSeriesAnomalyDetectionPreset:
             self.preprocessing_pipeline = self._tune_pipeline(self.predictor,
                                                               self.train_data)
             self.preprocessing_pipeline.fit(self.train_data)
-            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(self.train_data)
-            train_data_preprocessed.predict = np.squeeze(train_data_preprocessed.predict)
+            train_data_preprocessed = self.preprocessing_pipeline.root_node.predict(
+                self.train_data)
+            train_data_preprocessed.predict = np.squeeze(
+                train_data_preprocessed.predict)
 
             train_data_preprocessed = InputData(idx=train_data_preprocessed.idx,
                                                 features=train_data_preprocessed.predict,
@@ -222,12 +227,15 @@ class TimeSeriesAnomalyDetectionPreset:
         """
 
         test_data = self._init_input_data(features, is_fit_stage=False)
-        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(test_data)
+        test_data_preprocessed = self.preprocessing_pipeline.root_node.predict(
+            test_data)
 
         if test_data.features.shape[0] == 1:
-            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict).reshape(1, -1)
+            test_data_preprocessed.predict = np.squeeze(
+                test_data_preprocessed.predict).reshape(1, -1)
         else:
-            test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+            test_data_preprocessed.predict = np.squeeze(
+                test_data_preprocessed.predict)
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,
                                            target=test_data_preprocessed.target,
@@ -235,20 +243,24 @@ class TimeSeriesAnomalyDetectionPreset:
                                            task=test_data_preprocessed.task)
 
         self.prediction_label = self.auto_model.predict(test_data_preprocessed)
-        self.prediction_label = self.convert_to_point_prediction(self.prediction_label, features)
+        self.prediction_label = self.convert_to_point_prediction(
+            self.prediction_label, features)
         return self.prediction_label
 
     def predict_proba(self, features) -> np.array:
         test_data = self._init_input_data(features, is_fit_stage=False)
         test_data_preprocessed = self.preprocessing_pipeline.predict(test_data)
-        test_data_preprocessed.predict = np.squeeze(test_data_preprocessed.predict)
+        test_data_preprocessed.predict = np.squeeze(
+            test_data_preprocessed.predict)
         test_data_preprocessed = InputData(idx=test_data_preprocessed.idx,
                                            features=test_data_preprocessed.predict,
                                            target=test_data_preprocessed.target,
                                            data_type=test_data_preprocessed.data_type,
                                            task=test_data_preprocessed.task)
-        self.prediction_proba = self.auto_model.predict_proba(test_data_preprocessed)
-        self.prediction_proba = self.convert_to_point_prediction(self.prediction_proba, features, output_type='probs')
+        self.prediction_proba = self.auto_model.predict_proba(
+            test_data_preprocessed)
+        self.prediction_proba = self.convert_to_point_prediction(
+            self.prediction_proba, features, output_type='probs')
         return self.prediction_proba
 
     def get_metrics(self, target: Union[np.ndarray, pd.Series], metric_names: Union[str, List[str]]) -> dict:
@@ -287,7 +299,8 @@ class TimeSeriesAnomalyDetectionPreset:
         predicted = []
         for point in range(len(features)):
             if output_type == 'labels':
-                pred_for_point = prediction[point // self.splitter.freq_length].item()
+                pred_for_point = prediction[point //
+                                            self.splitter.freq_length].item()
             else:
                 pred_for_point = prediction[point // self.splitter.freq_length]
             predicted.append(pred_for_point)
@@ -311,8 +324,10 @@ class TimeSeriesAnomalyDetectionPreset:
         :param path: path to load pipelines
         """
         with IndustrialModels():
-            self.generator = Pipeline().load(Path(path, 'generator', '0_pipeline_saved', '0_pipeline_saved.json'))
-        self.predictor = Pipeline().load(Path(path, 'predictor', '0_pipeline_saved', '0_pipeline_saved.json'))
+            self.generator = Pipeline().load(
+                Path(path, 'generator', '0_pipeline_saved', '0_pipeline_saved.json'))
+        self.predictor = Pipeline().load(
+            Path(path, 'predictor', '0_pipeline_saved', '0_pipeline_saved.json'))
 
     def plot_prediction(self, series, true_anomalies):
         fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 7))
@@ -324,7 +339,8 @@ class TimeSeriesAnomalyDetectionPreset:
         ax[1].set_title('Predicted anomalies')
 
         unique_anomalies = np.unique(true_anomalies)
-        unique_anomalies = np.setdiff1d(unique_anomalies, np.array(['no_anomaly']))
+        unique_anomalies = np.setdiff1d(
+            unique_anomalies, np.array(['no_anomaly']))
 
         def generate_colors(num_colors):
             colormap = plt.cm.get_cmap('tab10')
@@ -346,7 +362,8 @@ class TimeSeriesAnomalyDetectionPreset:
                                facecolor=color_dict[anomaly_class], alpha=.4)
             ax[1].fill_between(np.arange(len(series)), np.min(series),
                                np.max(series),
-                               where=np.array(self.prediction_label) == anomaly_class,
+                               where=np.array(
+                                   self.prediction_label) == anomaly_class,
                                facecolor=color_dict[anomaly_class], alpha=.4)
 
         plt.legend(handles=set(legend_patches))

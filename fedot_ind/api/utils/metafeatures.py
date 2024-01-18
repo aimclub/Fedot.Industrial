@@ -10,9 +10,11 @@ class MetaFeaturesDetector:
         self.test_data = test_data
         self.dataset_name = dataset_name
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info(f'Initializing MetaFeaturesDetector for {dataset_name}')
+        self.logger.info(
+            f'Initializing MetaFeaturesDetector for {dataset_name}')
 
-        self.base_metafeatures = ['test_size', 'train_size', 'length', 'number_of_classes', 'type']
+        self.base_metafeatures = [
+            'test_size', 'train_size', 'length', 'number_of_classes', 'type']
         self.extra_metafeatures = []
 
     def get_base_metafeatures(self):
@@ -37,7 +39,8 @@ class MetaFeaturesDetector:
         pass
 
     def run(self):
-        self.logger.info(f'Running MetaFeaturesDetector for {self.dataset_name}')
+        self.logger.info(
+            f'Running MetaFeaturesDetector for {self.dataset_name}')
         base_metafeatures = self.get_base_metafeatures()
         return {**base_metafeatures}
         # extra_metafeatures = self.get_extra_metafeatures()

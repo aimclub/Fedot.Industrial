@@ -148,14 +148,15 @@ class SingularSpectrumTransformation:
 
     def _scale_ts(self, time_series: np.ndarray):
         time_series_scaled = MinMaxScaler(feature_range=(1, 2)) \
-                                 .fit_transform(time_series.reshape(-1, 1))[:, 0]
+            .fit_transform(time_series.reshape(-1, 1))[:, 0]
         return time_series_scaled
 
     def fit(self, train_features: np.ndarray) -> list:
         if len(train_features) > 1:
             list_of_history, list_of_current = [], []
             for time_series in train_features:
-                history_state, current_state = self._fit(train_features=time_series)
+                history_state, current_state = self._fit(
+                    train_features=time_series)
                 list_of_history.append(history_state)
                 list_of_current.append(current_state)
             return list_of_history, list_of_current
@@ -207,7 +208,7 @@ class SingularSpectrumTransformation:
                 residual_list.append(residual)
             return residual_list
         else:
-            return self._predict(test_features=test_features,target=target)
+            return self._predict(test_features=test_features, target=target)
 
     def _predict(self, test_features: HankelMatrix, target: HankelMatrix) -> list:
         """Core implementation of offline score calculation.
@@ -224,12 +225,13 @@ class SingularSpectrumTransformation:
         """
 
         if self.dynamic_mode:
-            dynamic_sst = lambda trajectory_data_tuple: self._sst_svd(trajectory_data_tuple[0].trajectory_matrix,
-                                                                      trajectory_data_tuple[1].trajectory_matrix)
+            def dynamic_sst(trajectory_data_tuple): return self._sst_svd(trajectory_data_tuple[0].trajectory_matrix,
+                                                                         trajectory_data_tuple[1].trajectory_matrix)
             trajectory_data_tuple = list(zip(test_features, target))
             score_list = list(map(dynamic_sst, trajectory_data_tuple))
         else:
-            static_sst = lambda x_history: self._sst_svd(self.model.trajectory_matrix, x_history.trajectory_matrix)
+            def static_sst(x_history): return self._sst_svd(
+                self.model.trajectory_matrix, x_history.trajectory_matrix)
             score_list = list(map(static_sst, test_features))
         residual = np.diff(score_list)
         return residual
@@ -247,6 +249,7 @@ class SingularSpectrumTransformation:
         """
         u_test, s_test, _ = np.linalg.svd(x_test, full_matrices=False)
         u_history, s_hist, _ = np.linalg.svd(x_history, full_matrices=False)
-        s_cov = u_test[:, :self.n_components].T @ u_history[:, :self.n_components]
+        s_cov = u_test[:, :self.n_components].T @ u_history[:,
+                                                            :self.n_components]
         u_cov, s, _ = np.linalg.svd(s_cov, full_matrices=False)
         return 1 - s[0]
