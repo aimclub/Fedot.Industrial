@@ -2,11 +2,21 @@ import math
 from enum import Enum
 from multiprocessing import cpu_count
 
+import numpy as np
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot_ind.core.models.nn.network_modules.losses import *
-from fedot_ind.core.models.quantile.stat_features import *
-from fedot_ind.core.models.topological.topofeatures import *
+from torch import nn
+
+from fedot_ind.core.models.nn.network_modules.losses import RMSELoss, SMAPELoss, TweedieLoss, FocalLoss, CenterPlusLoss, \
+    CenterLoss, MaskedLossWrapper, LogCoshLoss, HuberLoss, ExpWeightedLoss
+from fedot_ind.core.models.quantile.stat_features import q5, q25, q75, q95, skewness, kurtosis, n_peaks, slope, \
+    ben_corr, interquartile_range, energy, zero_crossing_rate, autocorrelation, shannon_entropy, ptp_amp, \
+    mean_ptp_distance, crest_factor, mean_ema, mean_moving_median, hjorth_mobility, hjorth_complexity, hurst_exponent, \
+    pfd
+from fedot_ind.core.models.topological.topofeatures import HolesNumberFeature, MaxHoleLifeTimeFeature, \
+    RelevantHolesNumber, AverageHoleLifetimeFeature, SumHoleLifetimeFeature, PersistenceEntropyFeature, \
+    SimultaneousAliveHolesFeature, AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature, \
+    PersistenceDiagramsExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
