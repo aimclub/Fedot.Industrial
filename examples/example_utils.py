@@ -1,19 +1,18 @@
 import random
 from pathlib import Path
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-from sklearn.metrics import f1_score, roc_auc_score
-from sklearn.preprocessing import LabelEncoder
-
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
     mean_squared_error, d2_absolute_error_score, \
-    median_absolute_error, r2_score, mean_squared_log_error
+    median_absolute_error, r2_score
+from sklearn.metrics import f1_score, roc_auc_score
+
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 ts_datasets = {
     'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4YearlyTest.csv'),
@@ -21,13 +20,6 @@ ts_datasets = {
     'm4_daily': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4DailyTest.csv'),
     'm4_monthly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4MonthlyTest.csv'),
     'm4_quarterly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4QuarterlyTest.csv')}
-
-
-def check_multivariate_data(data: pd.DataFrame) -> bool:
-    if isinstance(data.iloc[0, 0], pd.Series):
-        return True
-    else:
-        return False
 
 
 def evaluate_metric(target, prediction):
@@ -39,40 +31,6 @@ def evaluate_metric(target, prediction):
     except Exception:
         metric = f1_score(target, np.argmax(prediction, axis=1), average='weighted')
     return metric
-
-
-def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification') -> InputData:
-    is_multivariate_data = check_multivariate_data(X)
-    task_dict = {'classification': Task(TaskTypesEnum.classification),
-                 'regression': Task(TaskTypesEnum.regression)}
-    features = X.values
-
-    if type((y)[0]) is np.str_ and task == 'classification':
-        label_encoder = LabelEncoder()
-        y = label_encoder.fit_transform(y)
-    elif type((y)[0]) is np.str_ and task == 'regression':
-        y = y.astype(float)
-
-    if is_multivariate_data:
-        input_data = InputData(idx=np.arange(len(X)),
-                               features=np.array(features.tolist()).astype(np.float),
-                               target=y.reshape(-1, 1),
-                               task=task_dict[task],
-                               data_type=DataTypesEnum.image)
-    else:
-        input_data = InputData(idx=np.arange(len(X)),
-                               features=X.values,
-                               target=np.ravel(y).reshape(-1, 1),
-                               task=task_dict[task],
-                               data_type=DataTypesEnum.table)
-
-    if task == 'regression':
-        input_data.target = input_data.target.squeeze()
-    elif task == 'classification':
-        input_data.target[input_data.target == -1] = 0
-    input_data.features = np.where(np.isnan(input_data.features), 0, input_data.features)
-    input_data.features = np.where(np.isinf(input_data.features), 0, input_data.features)
-    return input_data
 
 
 def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
