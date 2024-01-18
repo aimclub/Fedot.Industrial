@@ -1,24 +1,22 @@
 import math
 from typing import Optional
 
-import pandas as pd
 import torch
 from fastai.layers import SigmoidRange
 from fastai.torch_core import Module
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from torch import nn, Tensor, optim
+from torch import nn, optim, Tensor
 
-from examples.example_utils import init_input_data, evaluate_metric
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.attention_layers import \
-    ScaledDotProductAttention, \
     MultiHeadAttention
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Transpose, Flatten
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Flatten, Transpose
 from fedot_ind.core.models.nn.network_modules.layers.padding_layers import Pad1d
-from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
+
 
 class _TSTEncoderLayer(Module):
     def __init__(self,
@@ -59,17 +57,19 @@ class _TSTEncoderLayer(Module):
 
     def forward(self, src: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         # Multi-Head attention sublayer
-        ## Multi-Head attention
+        # Multi-Head attention
         src2, attn = self.self_attn(src, src, src, mask=mask)
-        ## Add & Norm
-        src = src + self.dropout_attn(src2)  # Add: residual connection with residual dropout
+        # Add & Norm
+        # Add: residual connection with residual dropout
+        src = src + self.dropout_attn(src2)
         src = self.batchnorm_attn(src)  # Norm: batchnorm
 
         # Feed-forward sublayer
-        ## Position-wise Feed-Forward
+        # Position-wise Feed-Forward
         src2 = self.ff(src)
-        ## Add & Norm
-        src = src + self.dropout_ffn(src2)  # Add: residual connection with residual dropout
+        # Add & Norm
+        # Add: residual connection with residual dropout
+        src = src + self.dropout_ffn(src2)
         src = self.batchnorm_ffn(src)  # Norm: batchnorm
 
         return src
@@ -120,8 +120,9 @@ class TST(Module):
                  fc_dropout: float = 0.,
                  y_range: Optional[tuple] = None,
                  verbose: bool = False, **kwargs):
-        r"""TST (Time Series Transformer) is a Transformer that takes continuous time series as inputs.
+        """TST (Time Series Transformer) is a Transformer that takes continuous time series as inputs.
         As mentioned in the paper, the input must be standardized by_var based on the entire training set.
+
         Args:
             input_dim: the number of features (aka variables, dimensions, channels) in the time series dataset.
             output_dim: the number of target classes.
@@ -143,6 +144,7 @@ class TST(Module):
 
         Input shape:
             bs (batch size) x nvars (aka features, variables, dimensions, channels) x seq_len (aka time steps)
+
         """
         self.output_dim, self.seq_len = output_dim, seq_len
 
@@ -165,9 +167,11 @@ class TST(Module):
             t = torch.rand(1, 1, seq_len)
             q_len = nn.Conv1d(1, 1, **kwargs)(t).shape[-1]
             self.W_P = nn.Conv1d(input_dim, model_dim, **kwargs)  # Eq 2
-            print(f'Conv1d with kwargs={kwargs} applied to input to create input encodings\n', verbose)
+            print(
+                f'Conv1d with kwargs={kwargs} applied to input to create input encodings\n', verbose)
         else:
-            self.W_P = nn.Linear(input_dim, model_dim)  # Eq 1: projection of feature vectors onto a d-dim vector space
+            # Eq 1: projection of feature vectors onto a d-dim vector space
+            self.W_P = nn.Linear(input_dim, model_dim)
 
         # Positional encoding
         W_pos = torch.empty((q_len, model_dim), device=default_device())
@@ -219,10 +223,12 @@ class TST(Module):
         # Input encoding
         if self.new_q_len:
             u = self.W_P(x).transpose(2,
-                                      1)  # Eq 2        # u: [bs x model_dim x q_len] transposed to [bs x q_len x model_dim]
+                                      1)  # Eq 2
+            # u: [bs x model_dim x q_len] transposed to [bs x q_len x model_dim]
         else:
             u = self.W_P(x.transpose(2,
-                                     1))  # Eq 1                     # u: [bs x q_len x nvars] converted to [bs x q_len x model_dim]
+                                     1))  # Eq 1
+            # u: [bs x q_len x nvars] converted to [bs x q_len x model_dim]
 
         # Positional encoding
         u = self.dropout(u + self.W_pos)
@@ -277,18 +283,17 @@ class TSTModel(BaseNeuralModel):
 
 
 if __name__ == "__main__":
-    dataset_list = [
-        'Lightning2']
+    dataset_list = ['Lightning2']
     result_dict = {}
     pipeline_dict = {'omniscale_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50,
                                                                                         'batch_size': 32}),
 
-                     'quantile_rf_model': PipelineBuilder() \
-                         .add_node('quantile_extractor') \
-                         .add_node('rf'),
-                     'composed_model': PipelineBuilder() \
-                         .add_node('tst_model', params={'epochs': 50,
-                                                        'batch_size': 32}) \
-                         .add_node('quantile_extractor', branch_idx=1) \
-                         .add_node('rf', branch_idx=1) \
-                         .join_branches('logit')}
+                     'quantile_rf_model': PipelineBuilder()
+                     .add_node('quantile_extractor')
+                     .add_node('rf'),
+                     'composed_model': PipelineBuilder()
+                     .add_node('tst_model', params={'epochs': 50,
+                                                    'batch_size': 32})
+                     .add_node('quantile_extractor', branch_idx=1)
+                     .add_node('rf', branch_idx=1)
+                     .join_branches('logit')}

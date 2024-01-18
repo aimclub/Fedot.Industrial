@@ -2,11 +2,23 @@ import math
 from enum import Enum
 from multiprocessing import cpu_count
 
+import numpy as np
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot_ind.core.models.nn.network_modules.losses import *
-from fedot_ind.core.models.quantile.stat_features import *
+
 from fedot_ind.core.models.topological.topofeatures import *
+from torch import nn
+
+from fedot_ind.core.models.nn.network_modules.losses import RMSELoss, SMAPELoss, TweedieLoss, FocalLoss, CenterPlusLoss, \
+    CenterLoss, MaskedLossWrapper, LogCoshLoss, HuberLoss, ExpWeightedLoss
+from fedot_ind.core.models.quantile.stat_features import q5, q25, q75, q95, skewness, kurtosis, n_peaks, slope, \
+    ben_corr, interquartile_range, energy, zero_crossing_rate, autocorrelation, shannon_entropy, ptp_amp, \
+    mean_ptp_distance, crest_factor, mean_ema, mean_moving_median, hjorth_mobility, hjorth_complexity, hurst_exponent, \
+    pfd
+from fedot_ind.core.models.topological.topofeatures import HolesNumberFeature, MaxHoleLifeTimeFeature, \
+    RelevantHolesNumber, AverageHoleLifetimeFeature, SumHoleLifetimeFeature, PersistenceEntropyFeature, \
+    SimultaneousAliveHolesFeature, AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature, \
+    PersistenceDiagramsExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 
@@ -86,7 +98,8 @@ class FeatureConstant(Enum):
 
     PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
                                                                  takens_embedding_delay=2,
-                                                                 homology_dimensions=(0, 1),
+                                                                 homology_dimensions=(
+                                                                     0, 1),
                                                                  parallel=False)
     DISCRETE_WAVELETS = pywt.wavelist(kind='discrete')
     CONTINUOUS_WAVELETS = pywt.wavelist(kind='continuous')
@@ -136,7 +149,7 @@ class ModelCompressionConstant(Enum):
     FORWARD_MODE = 'one_layer'
     HOER_LOSS = 0.1
     ORTOGONAL_LOSS = 10
-    MODELS_FROM_LENGHT = {
+    MODELS_FROM_LENGTH = {
         122: 'ResNet18',
         218: 'ResNet34',
         320: 'ResNet50',
@@ -360,7 +373,7 @@ DECOMPOSE_MODE = ModelCompressionConstant.DECOMPOSE_MODE.value
 FORWARD_MODE = ModelCompressionConstant.FORWARD_MODE.value
 HOER_LOSS = ModelCompressionConstant.HOER_LOSS.value
 ORTOGONAL_LOSS = ModelCompressionConstant.ORTOGONAL_LOSS.value
-MODELS_FROM_LENGHT = ModelCompressionConstant.MODELS_FROM_LENGHT.value
+MODELS_FROM_LENGTH = ModelCompressionConstant.MODELS_FROM_LENGTH.value
 
 CROSS_ENTROPY = TorchLossesConstant.CROSS_ENTROPY.value
 MULTI_CLASS_CROSS_ENTROPY = TorchLossesConstant.MULTI_CLASS_CROSS_ENTROPY.value

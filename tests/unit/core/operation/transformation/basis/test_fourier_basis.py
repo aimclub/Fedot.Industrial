@@ -1,8 +1,8 @@
+from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 from fedot.core.data.data import OutputData
 
-from examples.example_utils import init_input_data
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 

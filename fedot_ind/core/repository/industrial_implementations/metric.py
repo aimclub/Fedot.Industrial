@@ -1,10 +1,10 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import from_maximised_metric
 from fedot.core.data.data import InputData, OutputData
 from sklearn.metrics import accuracy_score, f1_score
 
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
-@staticmethod
+
 @from_maximised_metric
 def metric_f1(reference: InputData, predicted: OutputData) -> float:
     n_classes = reference.num_classes
@@ -18,7 +18,8 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
         u, count = np.unique(np.ravel(reference.target), return_counts=True)
         count_sort_ind = np.argsort(count)
         pos_label = u[count_sort_ind[0]].item()
-        additional_params = {'average': binary_averaging_mode, 'pos_label': pos_label}
+        additional_params = {
+            'average': binary_averaging_mode, 'pos_label': pos_label}
     if predicted.predict.shape[1] > reference.target.shape[1]:
         predicted.predict = np.argmax(predicted.predict, axis=1)
     elif len(predicted.predict.shape) >= 2:
@@ -28,7 +29,6 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
                     **additional_params)
 
 
-@staticmethod
 @from_maximised_metric
 def metric_acc(reference: InputData, predicted: OutputData) -> float:
     try:

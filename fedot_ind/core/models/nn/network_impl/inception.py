@@ -1,17 +1,15 @@
 from typing import Optional
 
+from fastai.torch_core import Module
+from fastcore.meta import delegates
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.repository.constanst_repository import MULTI_CLASS_CROSS_ENTROPY, CROSS_ENTROPY, RMSE
-from fedot_ind.core.models.nn.network_modules.layers.special import InceptionModule, InceptionBlock
-from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
-
-from fastai.torch_core import Module
-from fastcore.meta import delegates
-
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
+from fedot_ind.core.models.nn.network_modules.layers.special import InceptionBlock, InceptionModule
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 
 
 @delegates(InceptionModule.__init__)
@@ -25,12 +23,13 @@ class InceptionTime(Module):
                  **kwargs):
         if number_of_filters is None:
             number_of_filters = nb_filters
-        self.inceptionblock = InceptionBlock(input_dim, number_of_filters, **kwargs)
+        self.inception_block = InceptionBlock(
+            input_dim, number_of_filters, **kwargs)
         self.gap = GAP1d(1)
         self.fc = nn.Linear(number_of_filters * 4, output_dim)
 
     def forward(self, x):
-        x = self.inceptionblock(x)
+        x = self.inception_block(x)
         x = self.gap(x)
         x = self.fc(x)
         return x
@@ -67,7 +66,7 @@ class InceptionTimeModel(BaseNeuralModel):
     def _init_model(self, ts):
         self.model = InceptionTime(input_dim=ts.features.shape[1],
                                    output_dim=self.num_classes).to(default_device())
-        self._evalute_num_of_epochs(ts)
+        self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         if ts.task.task_type == 'classification':
             if ts.num_classes == 2:

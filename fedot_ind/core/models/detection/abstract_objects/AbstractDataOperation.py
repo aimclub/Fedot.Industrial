@@ -21,5 +21,3 @@ class AbstractDataOperation:
     def _print_logs(self, log_message: str) -> None:
         if self.print_logs:
             print(f"---[{time_now()}] {self.name}: {log_message}")
-
-

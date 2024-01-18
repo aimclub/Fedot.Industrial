@@ -1,23 +1,20 @@
 from typing import Optional
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
+from fastai.callback.hook import *
 from fastai.layers import BatchNorm, LinBnDrop, SigmoidRange
+from fastai.torch_core import Module
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
 
-from fastai.torch_core import Module
-from fastai.callback.hook import *
-
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_torch_tensor, \
-    convert_inputdata_to_torch_dataset
+from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset
 from fedot_ind.core.architecture.postprocessing.visualisation.gradcam_vis import visualise_gradcam
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv2d, Conv1d
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Unsqueeze, Squeeze, Concat, Reshape
+from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, Conv2d
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Concat, Reshape, Squeeze, Unsqueeze
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GACP1d, GAP1d
-from fedot_ind.core.architecture.preprocessing.data_convertor import TensorConverter, FedotConverter
 
 
 def torch_slice_by_dim(t,
@@ -105,7 +102,8 @@ class XCM(Module):
         self.output_dim = output_dim
         self.seq_len = seq_len
         if custom_head:
-            self.head = custom_head(self.head_number_filters, output_dim, seq_len, **kwargs)
+            self.head = custom_head(
+                self.head_number_filters, output_dim, seq_len, **kwargs)
         else:
             self.head = create_head(self.head_number_filters, output_dim, seq_len, flatten=flatten,
                                     concat_pool=concat_pool,
@@ -137,7 +135,8 @@ class XCM(Module):
                     if preds.shape[0] == 1:
                         preds[0, y].backward()
                     else:
-                        if y.ndim == 1: y = y.reshape(-1, 1)
+                        if y.ndim == 1:
+                            y = y.reshape(-1, 1)
                         torch_slice_by_dim(preds, y).mean().backward()
         if len(modules) == 1:
             return h_act.stored[0].data, h_grad.stored[0][0].data
@@ -156,7 +155,8 @@ class XCM(Module):
             dim = (0, 2, 3) if A_k.ndim == 4 else (0, 2)
             w_ck = w_ck.mean(dim, keepdim=True)
             L_c = (w_ck * A_k).sum(1)
-            if apply_relu: L_c = nn.ReLU()(L_c)
+            if apply_relu:
+                L_c = nn.ReLU()(L_c)
             if L_c.ndim == 3:
                 return L_c.squeeze(0) if L_c.shape[0] == 1 else L_c
             else:
@@ -168,7 +168,8 @@ class XCM(Module):
             features = features[None, None]
         elif features.ndim == 2:
             features = features[None]
-        A_k, w_ck = self._get_acts_and_grads(model, modules, features, target, detach=detach, cpu=cpu)
+        A_k, w_ck = self._get_acts_and_grads(
+            model, modules, features, target, detach=detach, cpu=cpu)
         if type(A_k) is list:
             return [_get_attribution_map(A_k[i], w_ck[i]) for i in range(len(A_k))]
         else:
@@ -206,15 +207,19 @@ class XCM(Module):
                             **kwargs):
 
         att_maps = self.get_attribution_map(model=self,
-                                            modules=[self.conv2dblock, self.conv1dblock],
+                                            modules=[self.conv2dblock,
+                                                     self.conv1dblock],
                                             features=input_data.x,
                                             target=input_data.y,
                                             detach=detach,
                                             cpu=cpu,
                                             apply_relu=apply_relu)
-        att_maps[0] = (att_maps[0] - att_maps[0].min()) / (att_maps[0].max() - att_maps[0].min())
-        att_maps[1] = (att_maps[1] - att_maps[1].min()) / (att_maps[1].max() - att_maps[1].min())
-        visualise_gradcam(att_maps, input_data.supplementary_data, figsize, cmap, **kwargs)
+        att_maps[0] = (att_maps[0] - att_maps[0].min()) / \
+            (att_maps[0].max() - att_maps[0].min())
+        att_maps[1] = (att_maps[1] - att_maps[1].min()) / \
+            (att_maps[1].max() - att_maps[1].min())
+        visualise_gradcam(
+            att_maps, input_data.supplementary_data, figsize, cmap, **kwargs)
 
 
 class XCModel(BaseNeuralModel):

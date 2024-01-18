@@ -1,9 +1,10 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from distributed import Client, LocalCluster
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
-from distributed import Client, LocalCluster
-from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter, \
-    CustomDatasetCLF, CustomDatasetTS
+
+from fedot_ind.core.architecture.preprocessing.data_convertor import CustomDatasetCLF, CustomDatasetTS, DataConverter, \
+    TensorConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 from weakref import WeakValueDictionary
 
@@ -16,13 +17,11 @@ def fedot_data_type(func):
         if len(features.shape) < 4:
             try:
                 input_data_squeezed = np.squeeze(features, 3)
-            except Exception:
+            except ValueError:
                 input_data_squeezed = np.squeeze(features)
         else:
             input_data_squeezed = features
-
         return func(self, input_data_squeezed)
-
     return decorated_func
 
 

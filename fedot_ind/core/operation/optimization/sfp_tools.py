@@ -8,7 +8,7 @@ from torch.nn import Conv2d
 from torchvision.models import ResNet
 
 from fedot_ind.core.models.cnn.pruned_resnet import PRUNED_MODELS, PrunedResNet
-from fedot_ind.core.repository.constanst_repository import MODELS_FROM_LENGHT
+from fedot_ind.core.repository.constanst_repository import MODELS_FROM_LENGTH
 
 
 def percentage_filter_zeroing(conv: Conv2d, pruning_ratio: float) -> None:
@@ -186,7 +186,8 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tensor:
             )
             channels = filters
         elif key.startswith('bn'):
-            block[key] = _prune_batchnorm(bn=block[key], saving_channels=channels)
+            block[key] = _prune_batchnorm(
+                bn=block[key], saving_channels=channels)
     filters = _check_nonzero_filters(block[final_conv]['weight'])
     filters = _index_union(filters, downsample_channels)
     block[final_conv]['weight'] = _prune_filters(
@@ -195,7 +196,8 @@ def _prune_resnet_block(block: Dict, input_channels: Tensor) -> Tensor:
         saving_channels=channels,
     )
     channels = filters
-    block[final_bn] = _prune_batchnorm(bn=block[final_bn], saving_channels=channels)
+    block[final_bn] = _prune_batchnorm(
+        bn=block[final_bn], saving_channels=channels)
     block['indices'] = _indexes_of_tensor_values(channels, downsample_channels)
     return channels
 
@@ -221,7 +223,8 @@ def prune_resnet_state_dict(
 
     for layer in ['layer1', 'layer2', 'layer3', 'layer4']:
         for block in sd[layer].values():
-            channels = _prune_resnet_block(block=block, input_channels=channels)
+            channels = _prune_resnet_block(
+                block=block, input_channels=channels)
     sd['fc']['weight'] = sd['fc']['weight'][:, channels].clone()
     sd = _collect_sd(sd)
     return sd
@@ -258,7 +261,7 @@ def prune_resnet(model: ResNet) -> PrunedResNet:
         AssertionError if model is not Resnet.
     """
     assert isinstance(model, ResNet), "Supports only ResNet models"
-    model_type = MODELS_FROM_LENGHT[len(model.state_dict())]
+    model_type = MODELS_FROM_LENGTH[len(model.state_dict())]
     pruned_sd = prune_resnet_state_dict(model.state_dict())
     sizes = sizes_from_state_dict(pruned_sd)
     model = PRUNED_MODELS[model_type](sizes=sizes)
@@ -279,7 +282,8 @@ def load_sfp_resnet_model(
     """
     state_dict = torch.load(state_dict_path, map_location='cpu')
     sizes = sizes_from_state_dict(state_dict)
-    model_type = MODELS_FROM_LENGHT[len(list(filter((lambda x: not x.endswith('indices')), state_dict.keys())))]
+    model_type = MODELS_FROM_LENGTH[len(
+        list(filter((lambda x: not x.endswith('indices')), state_dict.keys())))]
     model = PRUNED_MODELS[model_type](sizes=sizes)
     model.load_state_dict(state_dict)
     return model

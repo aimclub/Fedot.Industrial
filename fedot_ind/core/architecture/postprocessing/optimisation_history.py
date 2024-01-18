@@ -1,11 +1,12 @@
-from copy import copy
-from typing import Dict, Type, Any
 import pickle
+from copy import copy
+from typing import Any, Dict, Type
+
 from golem.core.optimisers.opt_history_objects.individual import Individual
 from golem.core.optimisers.opt_history_objects.parent_operator import ParentOperator
 from golem.serializers import Serializer
-from golem.serializers.coders import parent_operator_from_json
 from golem.serializers.any_serialization import any_from_json
+from golem.serializers.coders import parent_operator_from_json
 
 
 class MySerializer(Serializer):
@@ -13,11 +14,11 @@ class MySerializer(Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Serializer.CODERS_BY_TYPE[ParentOperator][Serializer._from_json] = update_parent_operator
-        parent_operator_binding = copy(Serializer.CODERS_BY_TYPE[ParentOperator])
-        parent_operator_binding.update({Serializer._from_json: update_parent_operator})
+        parent_operator_binding = copy(
+            Serializer.CODERS_BY_TYPE[ParentOperator])
+        parent_operator_binding.update(
+            {Serializer._from_json: update_parent_operator})
         Serializer.CODERS_BY_TYPE[ParentOperator] = parent_operator_binding
-        # Serializer.CODERS_BY_TYPE[Individual][Serializer._from_json] = update_individual
         individual_binding = copy(Serializer.CODERS_BY_TYPE[Individual])
         individual_binding.update({Serializer._from_json: update_individual})
         Serializer.CODERS_BY_TYPE[Individual] = individual_binding
@@ -40,7 +41,8 @@ def update_individual(cls: Type[Individual], json_obj: Dict[str, Any]):
                 break
             operators.append(p_o.operators[0])
         parent_operator = deserialized.parent_operators[-1]
-        object.__setattr__(parent_operator, 'operators', tuple(reversed(operators)))
+        object.__setattr__(parent_operator, 'operators',
+                           tuple(reversed(operators)))
     else:
         parent_operator = None
     object.__setattr__(deserialized, 'parent_operator', parent_operator)
@@ -51,11 +53,11 @@ def update_individual(cls: Type[Individual], json_obj: Dict[str, Any]):
 class RenameUnpickler(pickle.Unpickler):
     def find_class(self, module: str, name: str):
         renamed_module = module
-        changed_import_list = ['fedot_ind.core.repository.initializer_industrial_models'
-                               ]
+        changed_import_list = [
+            'fedot_ind.core.repository.initializer_industrial_models']
         if module in changed_import_list:
-            renamed_module = module.replace("golem.core.utilities", "fedot_ind.core.repository.industrial_implementations.optimisation")
-
+            renamed_module = module.replace("golem.core.utilities",
+                                            "fedot_ind.core.repository.industrial_implementations.optimisation")
         return super(RenameUnpickler, self).find_class(renamed_module, name)
 
 

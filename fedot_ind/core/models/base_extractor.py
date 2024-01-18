@@ -10,13 +10,11 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 from tqdm import tqdm
 
-from examples.example_utils import init_input_data
-from fedot_ind.core.architecture.abstraction.decorators import fedot_data_type, remove_1_dim_axis, \
-    convert_to_input_data
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data, fedot_data_type, remove_1_dim_axis
 from fedot_ind.core.metrics.metrics_implementation import *
-from fedot_ind.core.repository.constanst_repository import STAT_METHODS_GLOBAL, STAT_METHODS
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot_ind.core.repository.constanst_repository import STAT_METHODS, STAT_METHODS_GLOBAL
 
 
 class BaseExtractor(IndustrialCachableOperationImplementation):
@@ -28,9 +26,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         super().__init__(params)
         self.current_window = None
         self.stride = None
-        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        self.n_processes = math.ceil(
+            cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
-        self.use_cache = params.get('use_cache', False) if params is not None else False
+        self.use_cache = params.get(
+            'use_cache', False) if params is not None else False
         self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
@@ -43,7 +43,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """For those cases when you need to use feature extractor as a stangalone object
         """
         input_data = init_input_data(x, y)
-        transformed_features = self.transform(input_data, use_cache=self.use_cache)
+        transformed_features = self.transform(
+            input_data, use_cache=self.use_cache)
         try:
             return pd.DataFrame(transformed_features.predict, columns=self.relevant_features)
         except ValueError:
@@ -56,8 +57,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         Method for feature generation for all series
         """
 
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        feature_matrix = parallel(delayed(self.generate_features_from_ts)(sample) for sample in tqdm(input_data))
+        parallel = Parallel(n_jobs=self.n_processes,
+                            verbose=0, pre_dispatch="2*n_jobs")
+        feature_matrix = parallel(delayed(self.generate_features_from_ts)(
+            sample) for sample in tqdm(input_data))
 
         if len(feature_matrix[0].features.shape) > 1:
             stacked_data = np.stack([ts.features for ts in feature_matrix])
@@ -85,7 +88,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     @convert_to_input_data
     def get_statistical_features(self,
                                  time_series: np.ndarray,
-                                 add_global_features: bool = False) -> InputData:
+                                 add_global_features: bool = False) -> tuple:
         """
         Method for creating baseline quantile features for a given time series.
 
@@ -116,7 +119,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     @convert_to_input_data
     def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,
-                                      window_size: int = None) -> InputData:
+                                      window_size: int = None) -> tuple:
 
         if window_size is None:
             # 10% of time series length by default
@@ -150,14 +153,16 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     @convert_to_input_data
     def _get_feature_matrix(self,
                             extraction_func: callable,
-                            ts: np.array) -> InputData:
+                            ts: np.array) -> tuple:
 
         multi_ts_stat_features = [extraction_func(x) for x in ts]
-        features = np.concatenate([component.features.reshape(1, -1) for component in multi_ts_stat_features], axis=0)
+        features = np.concatenate([component.features.reshape(
+            1, -1) for component in multi_ts_stat_features], axis=0)
 
         for index, component in enumerate(multi_ts_stat_features):
             component.supplementary_data['feature_name'] = [f'{x} for component {index}'
                                                             for x in component.supplementary_data['feature_name']]
-        names = list(chain(*[x.supplementary_data['feature_name'] for x in multi_ts_stat_features]))
+        names = list(chain(*[x.supplementary_data['feature_name']
+                     for x in multi_ts_stat_features]))
 
         return features, names

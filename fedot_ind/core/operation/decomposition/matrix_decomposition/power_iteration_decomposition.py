@@ -17,7 +17,8 @@ class RSVDDecomposition:
         # Polynom degree for power iteration procedure.
         self.poly_deg = 3
         # Create random matrix for projection/
-        self.random_projection = np.random.randn(tensor.shape[1], projection_rank)
+        self.random_projection = np.random.randn(
+            tensor.shape[1], projection_rank)
 
     def _compute_matrix_approximation(self, Ut, block, tensor, rank):
         Ut_ = Ut[:, :rank]
@@ -39,11 +40,13 @@ class RSVDDecomposition:
             return low_rank
         else:
             list_of_rank = list(range(1, low_rank + 1, 1))
-            reconstr_matrix = [self._compute_matrix_approximation(Ut, block, tensor, rank) for rank in list_of_rank]
+            reconstr_matrix = [self._compute_matrix_approximation(
+                Ut, block, tensor, rank) for rank in list_of_rank]
             fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro')/np.linalg.norm(tensor)*100)
                          for reconstr_m in reconstr_matrix]
             deriviate_of_error = abs(np.diff(fro_norms))
-            regularized_rank = len(deriviate_of_error[deriviate_of_error > 1]) + 1
+            regularized_rank = len(
+                deriviate_of_error[deriviate_of_error > 1]) + 1
         return regularized_rank
 
     def rsvd(self,
@@ -90,9 +93,11 @@ class RSVDDecomposition:
             # the eigenvalues but does not change the eigenvectors. Next, the resulting matrix is multiplied with the
             # original matrix ("overweighing" the column space) and then multiplied with a random matrix
             # in order to reduce the dimension and facilitate the procedure for "large" matrices.
-            sampled_tensor = np.linalg.matrix_power(AAT, self.poly_deg) @ tensor @ self.random_projection
+            sampled_tensor = np.linalg.matrix_power(
+                AAT, self.poly_deg) @ tensor @ self.random_projection
             # Fourth step. Orthogonalization of the resulting "sampled" matrix creates for us a basis of eigenvectors.
-            sampled_tensor_orto, _ = np.linalg.qr(sampled_tensor, mode='reduced')
+            sampled_tensor_orto, _ = np.linalg.qr(
+                sampled_tensor, mode='reduced')
             # Fifth step. Project initial Gramm matrix on new basis obtained from "sampled matrix".
             M = sampled_tensor_orto.T @ AAT @ sampled_tensor_orto
             # Six step. Classical svd decomposition with choosen type of spectrum thresholding
@@ -101,9 +106,11 @@ class RSVDDecomposition:
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)
             # Seven step. Compute matrix approximation and choose new low_rank
             if regularized_rank is None:
-                regularized_rank = self._matrix_approx_regularization(low_rank, Ut, sampled_tensor_orto, tensor)
+                regularized_rank = self._matrix_approx_regularization(
+                    low_rank, Ut, sampled_tensor_orto, tensor)
             # Eight step. Return matrix approximation.
-            reconstr_tensor = self._compute_matrix_approximation(Ut, sampled_tensor_orto, tensor, regularized_rank)
+            reconstr_tensor = self._compute_matrix_approximation(
+                Ut, sampled_tensor_orto, tensor, regularized_rank)
             U_, S_, V_ = np.linalg.svd(reconstr_tensor, full_matrices=False)
 
             return [U_, S_, V_]

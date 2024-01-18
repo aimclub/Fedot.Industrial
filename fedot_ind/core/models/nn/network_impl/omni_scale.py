@@ -1,16 +1,15 @@
+from typing import Optional
+
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import optim
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
+from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 from fedot_ind.core.models.nn.network_modules.layers.special import ParameterizedLayer
 from fedot_ind.core.models.nn.network_modules.other import *
-import torch.nn as nn
-
-from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
 
 
 class OmniScaleCNN(Module):
@@ -38,7 +37,8 @@ class OmniScaleCNN(Module):
         self.gap = GAP1d(1)
         out_put_channel_number = 0
         for final_layer_parameters in layer_parameter_list[-1]:
-            out_put_channel_number = out_put_channel_number + final_layer_parameters[1]
+            out_put_channel_number = out_put_channel_number + \
+                final_layer_parameters[1]
         self.hidden = nn.Linear(out_put_channel_number, output_dim)
         self.activation = get_activation_fn(activation)
 
@@ -58,7 +58,8 @@ class OmniScaleCNN(Module):
                                paramenter_layer,
                                in_channel,
                                prime_list):
-        out_channel_expect = max(1, int(paramenter_layer / (in_channel * sum(prime_list))))
+        out_channel_expect = max(
+            1, int(paramenter_layer / (in_channel * sum(prime_list))))
         return out_channel_expect
 
     def generate_layer_parameter_list(self,
@@ -69,8 +70,9 @@ class OmniScaleCNN(Module):
         prime_list = self.get_prime_number_in_a_range(start, end)
 
         layer_parameter_list = []
-        for paramenter_number_of_layer in layers:
-            out_channel = self.get_out_channel_number(paramenter_number_of_layer, input_dim, prime_list)
+        for parameter_number_of_layer in layers:
+            out_channel = self.get_out_channel_number(
+                parameter_number_of_layer, input_dim, prime_list)
 
             tuples_in_layer = []
             for prime in prime_list:
@@ -80,7 +82,8 @@ class OmniScaleCNN(Module):
             layer_parameter_list.append(tuples_in_layer)
 
         tuples_in_layer_last = []
-        first_out_channel = len(prime_list) * self.get_out_channel_number(layers[0], 1, prime_list)
+        first_out_channel = len(
+            prime_list) * self.get_out_channel_number(layers[0], 1, prime_list)
         tuples_in_layer_last.append((input_dim, first_out_channel, 1))
         tuples_in_layer_last.append((input_dim, first_out_channel, 2))
         layer_parameter_list.append(tuples_in_layer_last)
@@ -127,7 +130,7 @@ class OmniScaleModel(BaseNeuralModel):
                                   output_dim=self.num_classes,
                                   seq_len=ts.features.shape[2],
                                   activation=self.activation).to(default_device())
-        self._evalute_num_of_epochs(ts)
+        self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         if ts.num_classes == 2:
             loss_fn = CROSS_ENTROPY()

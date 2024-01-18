@@ -106,18 +106,23 @@ class SVDOptimization(StructureOptimization):
         """
         exp.name += self.description
         self.finetuning = False
-        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name, params.description))
-        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        writer = CSVWriter(os.path.join(params.summary_path,
+                           params.dataset_name, exp.name, params.description))
+        size = {'size': exp.size_of_model(
+        ), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
-        decompose_module(exp.model, self.decomposing_mode, forward_mode=self.forward_mode)
+        decompose_module(exp.model, self.decomposing_mode,
+                         forward_mode=self.forward_mode)
         exp.model.to(exp.device)
-        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        size = {'size': exp.size_of_model(
+        ), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='decomposed')
         self.logger.info(f"SVD decomposed size: {size['size']:.2f} Mb")
 
         exp.fit(p=params, model_losses=self.__loss)
-        self.optimize(exp=exp, params=params, ft_params=ft_params, writer=writer)
+        self.optimize(exp=exp, params=params,
+                      ft_params=ft_params, writer=writer)
 
     def optimize(
             self,
@@ -135,17 +140,20 @@ class SVDOptimization(StructureOptimization):
             writer: Object for recording metrics.
         """
         self.finetuning = True
-        models_path = os.path.join(params.models_path, params.dataset_name, exp.name, params.description)
+        models_path = os.path.join(
+            params.models_path, params.dataset_name, exp.name, params.description)
         exp.save_model(os.path.join(models_path, 'trained'), state_dict=False)
         for e in self.energy_thresholds:
             str_e = f'e_{e}'
-            exp.load_model(os.path.join(models_path, 'trained'), state_dict=False)
+            exp.load_model(os.path.join(
+                models_path, 'trained'), state_dict=False)
             exp._apply_function(
                 func=partial(energy_svd_pruning, energy_threshold=e),
                 condition=lambda x: isinstance(x, DecomposedConv2d)
             )
             exp.save_model(os.path.join(models_path, str_e))
-            scores = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+            scores = {'size': exp.size_of_model(
+            ), 'params': exp.number_of_model_params()}
             writer.write_scores(phase='size', scores=scores, x=str_e)
             scores.update(exp.val_loop(params.val_dl, params.class_metrics))
             writer.write_scores(phase='pruning', scores=scores, x=str_e)
@@ -206,7 +214,8 @@ class SFPOptimization(StructureOptimization):
 
     def __init__(
             self,
-            zeroing_fn: partial = partial(percentage_filter_zeroing, pruning_ratio=0.2),
+            zeroing_fn: partial = partial(
+                percentage_filter_zeroing, pruning_ratio=0.2),
             model_class: Type = ResNet,
             final_pruning_fn: Callable = prune_resnet,
             load_model_fn: Callable = load_sfp_resnet_model
@@ -236,7 +245,8 @@ class SFPOptimization(StructureOptimization):
             ft_params: An object containing fine-tuning parameters for optimized model.
         """
         exp.name += self.description
-        exp.fit(p=params, filter_pruning=dict(func=self.zeroing_fn, condition=lambda x: isinstance(x, torch.nn.Conv2d)))
+        exp.fit(p=params, filter_pruning=dict(func=self.zeroing_fn,
+                condition=lambda x: isinstance(x, torch.nn.Conv2d)))
         if isinstance(exp.model, self.model_class):
             self.final_pruning(exp=exp, params=params, ft_params=ft_params)
         else:
@@ -256,17 +266,21 @@ class SFPOptimization(StructureOptimization):
             params: An object containing training parameters.
             ft_params: An object containing fine-tuning parameters for optimized model.
         """
-        writer = CSVWriter(os.path.join(params.summary_path, params.dataset_name, exp.name, params.description))
-        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        writer = CSVWriter(os.path.join(params.summary_path,
+                           params.dataset_name, exp.name, params.description))
+        size = {'size': exp.size_of_model(
+        ), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='default')
         self.logger.info(f"Default size: {size['size']:.2f} Mb")
 
         exp.model = self.pruning_fn(model=exp.model)
         exp.model.to(exp.device)
         exp.save_model(
-            os.path.join(params.models_path, params.dataset_name, exp.name, params.description, 'pruned')
+            os.path.join(params.models_path, params.dataset_name,
+                         exp.name, params.description, 'pruned')
         )
-        size = {'size': exp.size_of_model(), 'params': exp.number_of_model_params()}
+        size = {'size': exp.size_of_model(
+        ), 'params': exp.number_of_model_params()}
         writer.write_scores(phase='size', scores=size, x='pruned')
         self.logger.info(f"Pruned size: {size['size']:.2f} Mb")
 
@@ -282,7 +296,8 @@ class SFPOptimization(StructureOptimization):
             state_dict_path: Path to state_dict file.
         """
         try:
-            exp.model = self.load_model_fn(model=exp.model, state_dict_path=state_dict_path)
+            exp.model = self.load_model_fn(
+                model=exp.model, state_dict_path=state_dict_path)
             self.logger.info("Model state dict loaded.")
         except Exception:
             self.logger.error(f'Loading function "{self.load_model_fn.__name__}"' +

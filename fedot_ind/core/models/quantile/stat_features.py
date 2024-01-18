@@ -92,11 +92,13 @@ def ben_corr(x):
 
     # retrieve first digit from data
     x = np.array(
-        [int(str(np.format_float_scientific(i))[:1]) for i in np.abs(np.nan_to_num(x))]
+        [int(str(np.format_float_scientific(i))[:1])
+         for i in np.abs(np.nan_to_num(x))]
     )
 
     # benford distribution
-    benford_distribution = np.array([np.log10(1 + 1 / n) for n in range(1, 10)])
+    benford_distribution = np.array(
+        [np.log10(1 + 1 / n) for n in range(1, 10)])
 
     data_distribution = np.array([(x == n).mean() for n in range(1, 10)])
 
@@ -143,6 +145,7 @@ def base_entropy(array: np.array) -> float:
     # Normalize the time series to sum up to 1
     normalized_series = array / np.sum(array)
     return entropy(normalized_series)
+
 
 def ptp_amp(array: np.array) -> float:
     """Returns the peak-to-peak amplitude of the time series.
@@ -234,7 +237,7 @@ def hurst_exponent(array):
     R_S = np.log(R_S)[1:]
     n = np.log(T)[1:]
     A = np.column_stack((n, np.ones(n.size)))
-    [m, c] = np.linalg.lstsq(A, R_S,rcond=None)[0]
+    [m, c] = np.linalg.lstsq(A, R_S, rcond=None)[0]
     H = m
     return H
 

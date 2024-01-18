@@ -1,11 +1,8 @@
 import math
 
-# import lime
-# import lime.lime_tabular
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-# import shap
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from tqdm import tqdm
@@ -13,13 +10,31 @@ from tqdm import tqdm
 from fedot_ind.tools.explain.distances import DistanceTypes
 
 
-class PointExplainer:
+class Explainer:
     def __init__(self, model, features, target):
-        self.picked_target = None
-        self.picked_feature = None
         self.model = model
         self.features = features
         self.target = target
+
+    def explain(self, **kwargs):
+        pass
+
+    @staticmethod
+    def predict_proba(model, features, target):
+        if hasattr(model, 'solver'):
+            model.solver.test_features = None
+            base_proba_ = model.predict_proba(
+                features=pd.DataFrame(features), target=target)
+        else:
+            base_proba_ = model.predict_proba(X=features)
+        return base_proba_
+
+
+class PointExplainer(Explainer):
+    def __init__(self, model, features, target):
+        super().__init__(model, features, target)
+        self.picked_target = None
+        self.picked_feature = None
 
         self.scaled_vector = None
         self.window_length = None
@@ -57,18 +72,21 @@ class PointExplainer:
         return pd.DataFrame(iv_scaled), window_length
 
     def get_vector(self, base_proba_, distance_func, model, n_parts, part_feature_, part_target_, window_length):
-        importance_vector_ = {cls: np.zeros(n_parts) for cls in np.unique(part_target_)}
+        importance_vector_ = {cls: np.zeros(
+            n_parts) for cls in np.unique(part_target_)}
         with tqdm(total=n_parts, desc='Processing points', unit='point') as pbar:
             for part in range(n_parts):
                 feature_ = part_feature_.copy().values
-                feature_ = self.replace_values(feature_, window_len=window_length, i=part)
+                feature_ = self.replace_values(
+                    feature_, window_len=window_length, i=part)
                 proba_new = self.predict_proba(model, feature_, part_target_)
 
                 distance_dict = {}
                 for idx, cls in enumerate(part_target_):
                     if cls not in distance_dict:
                         distance_dict[cls] = []
-                    distance_dict[cls].append(distance_func(base_proba_[idx], proba_new[idx]))
+                    distance_dict[cls].append(distance_func(
+                        base_proba_[idx], proba_new[idx]))
                 for cls in distance_dict:
                     importance_vector_[cls][part] = np.mean(distance_dict[cls])
                 pbar.update(1)
@@ -87,24 +105,17 @@ class PointExplainer:
         return features
 
     @staticmethod
-    def predict_proba(model, features, target):
-        if hasattr(model, 'solver'):
-            model.solver.test_features = None
-            base_proba_ = model.predict_proba(features=pd.DataFrame(features), target=target)
-        else:
-            base_proba_ = model.predict_proba(X=features)
-        return base_proba_
-
-    @staticmethod
     def select(features_, target_, n_samples_: int = 3):
         selected_df = pd.DataFrame()
         selected_target = np.array([])
         df = features_.copy()
         df['target'] = target_
         for class_label in np.unique(target_):
-            class_samples = df[df['target'] == class_label].sample(n=n_samples_, replace=False)
+            class_samples = df[df['target'] == class_label].sample(
+                n=n_samples_, replace=False)
             selected_df = pd.concat([selected_df, class_samples.iloc[:, :-1]])
-            selected_target = np.concatenate([selected_target, class_samples['target'].to_numpy()])
+            selected_target = np.concatenate(
+                [selected_target, class_samples['target'].to_numpy()])
 
         return selected_df, selected_target
 
@@ -113,18 +124,21 @@ class PointExplainer:
         vector_df = self.scaled_vector
         window = self.window_length
         # filter by threshold value for each class
-        threshold_ = {cls: np.percentile(vector_df[cls], thr) for cls in np.unique(target)}
+        threshold_ = {cls: np.percentile(
+            vector_df[cls], thr) for cls in np.unique(target)}
         importance_vector_filtered_ = {cls: np.where(vector_df[cls] > threshold_[cls], vector_df[cls], 0) for cls in
                                        np.unique(target)}
         vector_df = pd.DataFrame(importance_vector_filtered_)
         n_classes = len(np.unique(target))
-        fig, axs = plt.subplots(n_classes, 1, figsize=(10, 5 if n_classes < 6 else 5 * n_classes // 2))
+        fig, axs = plt.subplots(n_classes, 1, figsize=(
+            10, 5 if n_classes < 6 else 5 * n_classes // 2))
         fig.suptitle(f'Importance of points for {name} dataset')
 
         # Color bar definition
         cbar_ax = fig.add_axes([1, 0.3, 0.01, 0.5])
         cmap = plt.get_cmap('Reds')
-        norm = Normalize(vmin=vector_df.min().min(), vmax=vector_df.max().max())
+        norm = Normalize(vmin=vector_df.min().min(),
+                         vmax=vector_df.max().max())
 
         scal_map = ScalarMappable(norm=norm, cmap='Reds')
 
@@ -132,21 +146,24 @@ class PointExplainer:
             copy_vec = vector_df[cls].copy()
             if not window:
                 # every 10% of length
-                x_ticks = np.arange(0, len(feature.iloc[idx, :]), len(feature.iloc[idx, :]) // 10)
+                x_ticks = np.arange(0, len(feature.iloc[idx, :]), len(
+                    feature.iloc[idx, :]) // 10)
                 for dot_idx, dot in enumerate(copy_vec):
                     axs[idx].axvline(dot_idx, color=cmap(norm(dot)))
                     axs[idx].set_xticks(x_ticks)
 
             else:
                 # ticks with window step
-                x_ticks = [*np.arange(0, len(feature.iloc[idx, :]), window), len(feature.iloc[idx, :])]
+                x_ticks = [
+                    *np.arange(0, len(feature.iloc[idx, :]), window), len(feature.iloc[idx, :])]
                 for span_idx, dot in enumerate(copy_vec):
                     left = span_idx * window
                     right = span_idx * window + window if span_idx * window + window < len(feature.iloc[idx, :]) \
                         else len(feature.iloc[idx, :])
                     axs[idx].axvspan(left, right, color=cmap(norm(dot)))
                     top = axs[idx].get_ylim()[1]
-                    axs[idx].text(left, top, f'{dot:.2f}', fontsize=8, color='white')
+                    axs[idx].text(
+                        left, top, f'{dot:.2f}', fontsize=8, color='white')
                     axs[idx].set_xticks(x_ticks)
 
             mean_value = feature.iloc[idx, :].mean()
@@ -154,24 +171,11 @@ class PointExplainer:
                           label='mean')
             class_indexes = np.where(target == cls)[0]
             for class_idx in class_indexes:
-                axs[idx].plot(feature.iloc[class_idx, :], color='dodgerblue', label=f'class-{cls}')
-            axs[idx].text(len(feature.iloc[idx, :]) - 1, mean_value, f'mean={mean_value:.2f}', fontsize=10)
+                axs[idx].plot(feature.iloc[class_idx, :],
+                              color='dodgerblue', label=f'class-{cls}')
+            axs[idx].text(len(feature.iloc[idx, :]) - 1, mean_value,
+                          f'mean={mean_value:.2f}', fontsize=10)
             axs[idx].set_title(f'Class: {cls}')
         plt.colorbar(scal_map, cax=cbar_ax)
         plt.tight_layout()
         plt.show()
-
-
-# class ShapExplainer:
-#     def __init__(self, model, features, target, prediction):
-#         self.model = model
-#         self.features = features
-#         self.target = target
-#         self.prediction = prediction
-#
-#     def explain(self, n_samples: int = 5):
-#         X_test = self.features
-#
-#         explainer = shap.KernelExplainer(self.model.predict, X_test, n_samples=n_samples)
-#         shap_values = explainer.shap_values(X_test.iloc[:n_samples, :])
-#         shap.summary_plot(shap_values, X_test.iloc[:n_samples, :], plot_type="bar")

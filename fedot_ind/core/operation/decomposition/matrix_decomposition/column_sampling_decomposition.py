@@ -49,7 +49,8 @@ class CURDecomposition:
         for i in range(rank):
             X_elem = np.outer(C @ U[:, i], R[i, :])
             X_rev = X_elem[::-1]
-            eigenvector = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+            eigenvector = [X_rev.diagonal(
+                j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
             TS_comps[:, i] = eigenvector
         return TS_comps
 
@@ -73,8 +74,10 @@ class CURDecomposition:
         # selected_cols = np.argsort(col_probs)[-self.rank:]
         # selected_rows = np.argsort(row_probs)[-self.rank:]
 
-        row_scale_factors = 1 / np.sqrt(self.selection_rank * row_probs[selected_rows])
-        col_scale_factors = 1 / np.sqrt(self.selection_rank * col_probs[selected_cols])
+        row_scale_factors = 1 / \
+            np.sqrt(self.selection_rank * row_probs[selected_rows])
+        col_scale_factors = 1 / \
+            np.sqrt(self.selection_rank * col_probs[selected_cols])
 
         C_matrix = matrix[:, selected_cols] * col_scale_factors
         R_matrix = matrix[selected_rows, :] * row_scale_factors[:, np.newaxis]

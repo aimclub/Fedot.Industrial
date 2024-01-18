@@ -19,11 +19,12 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  graph_generation_params: GraphGenerationParams,
                  graph_optimizer_params: GPAlgorithmParameters):
 
-        #graph_optimizer_params.mutation_types.remove(MutationTypesEnum.single_drop)
-        #graph_generation_params.verifier._rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
-        #graph_generation_params.verifier._rules.remove(has_no_conflicts_with_data_flow)
+        # graph_optimizer_params.mutation_types.remove(MutationTypesEnum.single_drop)
+        # graph_generation_params.verifier._rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+        # graph_generation_params.verifier._rules.remove(has_no_conflicts_with_data_flow)
 
-        super().__init__(objective, initial_graphs, requirements, graph_generation_params, graph_optimizer_params)
+        super().__init__(objective, initial_graphs, requirements,
+                         graph_generation_params, graph_optimizer_params)
         self.eval_dispatcher = IndustrialDispatcher(adapter=graph_generation_params.adapter,
                                                     n_jobs=requirements.n_jobs,
                                                     graph_cleanup_fn=_try_unfit_graph,

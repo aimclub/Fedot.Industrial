@@ -4,6 +4,7 @@ from fedot.api.main import Fedot
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
+
 from fedot_ind.core.repository.constanst_repository import *
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 

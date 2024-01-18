@@ -8,10 +8,11 @@ class FileObject:
     This class contains all data that contains in one file - time series, lables,
     transformation params, anomalies list
     """
-    def __init__(self, 
-            test_data: List[float], 
-            filename: str
-        ) -> None:
+
+    def __init__(self,
+                 test_data: List[float],
+                 filename: str
+                 ) -> None:
         # test data
         self.test_data = test_data
         # all data from file in form of dictioary
@@ -22,7 +23,7 @@ class FileObject:
         self.data_length: int = None
         # filename and full path to file
         self.filename: str = filename
-        #self.filepath: str = filepath
+        # self.filepath: str = filepath
         # lables list(or dict???)
         self.lables: list = None
         self.elected_columns: List[str] = None
@@ -52,7 +53,7 @@ class FileObject:
             int: len of data
         """
         return len(self.test_data)
-    
+
     def get_lables_list(self, min_heavines: int = 0) -> list:
         if len(self.lables):
             temp_list = []
@@ -62,7 +63,7 @@ class FileObject:
             return temp_list
         else:
             return False
-    
+
     def get_lables_for_metrics(self, min_heavines: int = 0) -> List[int]:
         """
         Returns lables in suitable format for metrics: [0, 0, 0, 1, 1, 1, ..., 0]
@@ -81,14 +82,16 @@ class FileObject:
                 if predict[2] > min_heavines:
                     begin = predict[0]
                     end = predict[1]
-                    if begin < 0: begin = 0
-                    if end >= self.get_len_of_dataset(): end = self.get_len_of_dataset() - 1 
+                    if begin < 0:
+                        begin = 0
+                    if end >= self.get_len_of_dataset():
+                        end = self.get_len_of_dataset() - 1
                     for i in range(begin, end):
                         output_list[i] = 1
             return output_list
         else:
             return output_list
-    
+
     def get_all_predicts_list_by_type(self, type_numbers: List[int]) -> List[AnomalyZone]:
         """
         This method returns list of predicts by their class
@@ -102,7 +105,7 @@ class FileObject:
         """
         if not len(self.anomalies_list):
             return False
-        else: 
+        else:
             if -1 in type_numbers:
                 predictions_list = []
                 for predict in self.anomalies_list:
@@ -110,13 +113,12 @@ class FileObject:
             else:
                 predictions_list = []
                 for predict in self.anomalies_list:
-                    if predict.predicted_type in type_numbers: # and predict.heaviness >9: 
-                    #if predict.cluster_type == type_number: dataset_type predicted_type
+                    if predict.predicted_type in type_numbers:  # and predict.heaviness >9:
+                        # if predict.cluster_type == type_number: dataset_type predicted_type
                         predictions_list.append(predict)
             return predictions_list
 
-
-    def get_predict_for_metrics(self, classes: List[int] =[2, 3]) -> List[int]:
+    def get_predict_for_metrics(self, classes: List[int] = [2, 3]) -> List[int]:
         """
         Returns predicts in suitable format for metrics: [0, 0, 0, 1, 1, 1, ..., 0]
         arg <classes> sets classes of predicts that will be included into output
@@ -151,9 +153,9 @@ class FileObject:
                     self.anomalies_list[i].data[column] = \
                         self.time_series_data[column][
                             self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
-                            ]
+                    ]
             # Copy additional_min_ts
-            if self.additional_min_ts  is not None:
+            if self.additional_min_ts is not None:
                 self.anomalies_list[i].min_data = self.additional_min_ts[
                     self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
                 ]
@@ -166,26 +168,26 @@ class FileObject:
             if self.additional_distance_ts is not None:
                 self.anomalies_list[i].distance_data = \
                     self.additional_distance_ts[
-                            self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
-                        ]
+                    self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
+                ]
             if self.additional_average_absolute_deviation_max is not None:
-            # Copy average_absolute_deviation
+                # Copy average_absolute_deviation
                 self.anomalies_list[i].average_absolute_deviation = \
                     self.additional_average_absolute_deviation_max[
-                            self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
-                        ]
+                    self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
+                ]
             # Copy average_absolute_deviation_transformed
             if self.additional_transformed_average_absolute_deviation is not None:
                 self.anomalies_list[i].average_absolute_deviation_transformed = \
                     self.additional_transformed_average_absolute_deviation[
-                            self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
-                        ]
+                    self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
+                ]
 
             # Copy additional_mean_ts
             if self.additional_mean_ts is not None:
                 self.anomalies_list[i].additional_mean_ts = \
                     self.additional_mean_ts[
-                            self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
-                        ]
+                    self.anomalies_list[i].get_start():self.anomalies_list[i].get_end()
+                ]
             # Copy threshold
             self.anomalies_list[i].threshold = self.threshold

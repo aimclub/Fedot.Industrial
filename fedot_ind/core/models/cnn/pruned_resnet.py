@@ -17,14 +17,16 @@ class BasicBlock(nn.Module):
     ) -> None:
         super().__init__()
         norm_layer = nn.BatchNorm2d
-        self.conv1 = conv3x3(sizes['conv1'][1], sizes['conv1'][0], stride=stride)
+        self.conv1 = conv3x3(
+            sizes['conv1'][1], sizes['conv1'][0], stride=stride)
         self.bn1 = norm_layer(sizes['conv1'][0])
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0])
         self.bn2 = norm_layer(sizes['conv2'][0])
         self.downsample = downsample
         self.stride = stride
-        self.register_buffer('indices', torch.zeros(sizes['indices'], dtype=torch.int))
+        self.register_buffer('indices', torch.zeros(
+            sizes['indices'], dtype=torch.int))
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
@@ -59,14 +61,16 @@ class Bottleneck(nn.Module):
         norm_layer = nn.BatchNorm2d
         self.conv1 = conv1x1(sizes['conv1'][1], sizes['conv1'][0])
         self.bn1 = norm_layer(sizes['conv1'][0])
-        self.conv2 = conv3x3(sizes['conv2'][1], sizes['conv2'][0], stride=stride)
+        self.conv2 = conv3x3(
+            sizes['conv2'][1], sizes['conv2'][0], stride=stride)
         self.bn2 = norm_layer(sizes['conv2'][0])
         self.conv3 = conv1x1(sizes['conv3'][1], sizes['conv3'][0])
         self.bn3 = norm_layer(sizes['conv3'][0])
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
-        self.register_buffer('indices', torch.zeros(sizes['indices'], dtype=torch.int))
+        self.register_buffer('indices', torch.zeros(
+            sizes['indices'], dtype=torch.int))
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
@@ -100,6 +104,7 @@ class PrunedResNet(nn.Module):
         sizes: Sizes of layers.
         num_classes: Number of classes.
     """
+
     def __init__(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
@@ -108,7 +113,8 @@ class PrunedResNet(nn.Module):
     ) -> None:
         super().__init__()
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(sizes['conv1'][1], sizes['conv1'][0], kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(
+            sizes['conv1'][1], sizes['conv1'][0], kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(sizes['conv1'][0])
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -145,12 +151,13 @@ class PrunedResNet(nn.Module):
         downsample = None
         if 'downsample' in sizes.keys():
             downsample = nn.Sequential(
-                conv1x1(sizes['downsample'][1], sizes['downsample'][0], stride=stride),
+                conv1x1(sizes['downsample'][1],
+                        sizes['downsample'][0], stride=stride),
                 nn.BatchNorm2d(sizes['downsample'][0]),
             )
         layers = [
             block(
-                sizes = sizes[0],
+                sizes=sizes[0],
                 stride=stride,
                 downsample=downsample
             )

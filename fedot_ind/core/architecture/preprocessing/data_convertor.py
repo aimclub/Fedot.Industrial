@@ -1,22 +1,25 @@
 from functools import partial
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
 import pandas as pd
-from pymonad.list import ListMonad
-from sklearn.preprocessing import LabelEncoder
 import torch
 import torch.nn as nn
 from fedot.core.data.data import InputData
-from fedot.core.repository.tasks import TaskTypesEnum, Task
+from fedot.core.repository.tasks import Task, TaskTypesEnum
+from pymonad.list import ListMonad
+from sklearn.preprocessing import LabelEncoder
 
-from examples.example_utils import check_multivariate_data
+from fedot_ind.api.utils.data import check_multivariate_data
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.repository.constanst_repository import MULTI_ARRAY, MATRIX
+from fedot_ind.core.repository.constanst_repository import MATRIX, MULTI_ARRAY
 
 
 class CustomDatasetTS:
     def __init__(self, ts):
-        self.x = torch.from_numpy(DataConverter(data=ts.features).convert_to_torch_format()).float()
-        self.y = torch.from_numpy(DataConverter(data=ts.target).convert_to_torch_format()).float()
+        self.x = torch.from_numpy(DataConverter(
+            data=ts.features).convert_to_torch_format()).float()
+        self.y = torch.from_numpy(DataConverter(
+            data=ts.target).convert_to_torch_format()).float()
 
     def __getitem__(self, index):
         pass
@@ -50,7 +53,8 @@ class CustomDatasetCLF:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
                                                      num_classes=self.classes).to(default_device()).squeeze(1)
             except Exception:
-                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long()).to(default_device()).squeeze(1)
+                self.y = torch.nn.functional.one_hot(torch.from_numpy(
+                    ts.target).long()).to(default_device()).squeeze(1)
                 self.classes = self.y.shape[1]
         else:
             self.y = torch.from_numpy(ts.target).to(default_device()).float()
@@ -75,8 +79,7 @@ class FedotConverter:
         if isinstance(data, InputData):
             return data
         elif isinstance(data[0], (np.ndarray, pd.DataFrame)):
-            return self.__init_input_data(features=data[0],
-                                          target=data[1], )
+            return self.__init_input_data(features=data[0], target=data[1])
         else:
             try:
                 return torch.tensor(data)
@@ -93,8 +96,10 @@ class FedotConverter:
                      'regression': Task(TaskTypesEnum.regression)}
         if is_multivariate_data:
             input_data = InputData(idx=np.arange(len(features)),
-                                   features=np.array(features.values.tolist()).astype(np.float),
-                                   target=target.astype(np.float).reshape(-1, 1),
+                                   features=np.array(
+                                       features.values.tolist()).astype(np.float),
+                                   target=target.astype(
+                                       np.float).reshape(-1, 1),
                                    task=task_dict[task],
                                    data_type=MULTI_ARRAY)
         else:
@@ -127,7 +132,8 @@ class TensorConverter:
             return self.tensor_data
         elif self.tensor_data.ndim == 3:
             return self.tensor_data[0, 0]
-        if self.tensor_data.ndim == 2: return self.tensor_data[0]
+        if self.tensor_data.ndim == 2:
+            return self.tensor_data[0]
         assert False, f'Please, review input dimensions {self.tensor_data.ndim}'
 
     def convert_to_2d_tensor(self):
@@ -179,7 +185,8 @@ class NumpyConverter:
             return np.squeeze(self.numpy_data)
         elif self.numpy_data.ndim == 2:
             return self.numpy_data.flatten()
-        assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
+        assert False, print(
+            f'Please, review input dimensions {self.numpy_data.ndim}')
 
     def convert_to_2d_array(self):
         if self.numpy_data.ndim == 2:
@@ -188,7 +195,8 @@ class NumpyConverter:
             return self.numpy_data.reshape(1, -1)
         elif self.numpy_data.ndim == 3:
             return self.numpy_data[0]
-        assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
+        assert False, print(
+            f'Please, review input dimensions {self.numpy_data.ndim}')
 
     def convert_to_3d_array(self):
         if self.numpy_data.ndim == 3:
@@ -197,7 +205,8 @@ class NumpyConverter:
             return self.numpy_data[None, None]
         elif self.numpy_data.ndim == 2:
             return self.numpy_data[:, None]
-        assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
+        assert False, print(
+            f'Please, review input dimensions {self.numpy_data.ndim}')
 
     def convert_to_torch_format(self):
         if self.numpy_data.ndim == 3:
@@ -212,7 +221,8 @@ class NumpyConverter:
                                            self.numpy_data.shape[1])
         elif self.numpy_data.ndim > 3:
             return self.numpy_data.squeeze()
-        assert False, print(f'Please, review input dimensions {self.numpy_data.ndim}')
+        assert False, print(
+            f'Please, review input dimensions {self.numpy_data.ndim}')
 
 
 class DataConverter(TensorConverter, NumpyConverter):
@@ -280,19 +290,28 @@ class DataConverter(TensorConverter, NumpyConverter):
                       Warning)
 
     def convert_data_to_1d(self):
-        if self.data.ndim == 1: return self.data
-        if isinstance(self.data, np.ndarray): return self.convert_to_1d_array()
-        if isinstance(self.data, torch.Tensor): return self.convert_to_1d_tensor()
+        if self.data.ndim == 1:
+            return self.data
+        if isinstance(self.data, np.ndarray):
+            return self.convert_to_1d_array()
+        if isinstance(self.data, torch.Tensor):
+            return self.convert_to_1d_tensor()
 
     def convert_data_to_2d(self):
-        if self.data.ndim == 2: return self.data
-        if isinstance(self.data, np.ndarray): return self.convert_to_2d_array()
-        if isinstance(self.data, torch.Tensor): return self.convert_to_2d_tensor()
+        if self.data.ndim == 2:
+            return self.data
+        if isinstance(self.data, np.ndarray):
+            return self.convert_to_2d_array()
+        if isinstance(self.data, torch.Tensor):
+            return self.convert_to_2d_tensor()
 
     def convert_data_to_3d(self):
-        if self.data.ndim == 3: return self.data
-        if isinstance(self.data, (np.ndarray, pd.self.dataFrame)): return self.convert_to_3d_array()
-        if isinstance(self.data, torch.Tensor): return self.convert_to_3d_tensor()
+        if self.data.ndim == 3:
+            return self.data
+        if isinstance(self.data, (np.ndarray, pd.self.dataFrame)):
+            return self.convert_to_3d_array()
+        if isinstance(self.data, torch.Tensor):
+            return self.convert_to_3d_tensor()
 
     def convert_to_monad_data(self):
         if self.is_fedot_data:
@@ -311,7 +330,8 @@ class DataConverter(TensorConverter, NumpyConverter):
             features = self.data.features
         else:
             features = np.array(ListMonad(*self.data.values.tolist()).value)
-            features = np.array([series[~np.isnan(series)] for series in features])
+            features = np.array([series[~np.isnan(series)]
+                                for series in features])
         return features
 
 
@@ -351,11 +371,11 @@ class NeuralNetworkConverter:
 
     @property
     def has_bias(self):
-        return (hasattr(self.layer, 'bias') and self.layer.bias is not None)
+        return hasattr(self.layer, 'bias') and self.layer.bias is not None
 
     @property
     def has_weight(self):
-        return (hasattr(self.layer, 'weight'))
+        return hasattr(self.layer, 'weight')
 
     @property
     def has_weight_or_bias(self):

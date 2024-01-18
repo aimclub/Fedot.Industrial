@@ -118,13 +118,15 @@ class TopologicalTransformation:
         # plot_diagrams(diagrams)
 
         # normalize epsilon distance in diagrams so max is 1
-        diagrams = [np.array([dg for dg in diag if np.isfinite(dg).all()]) for diag in diagrams]
+        diagrams = [np.array([dg for dg in diag if np.isfinite(dg).all()])
+                    for diag in diagrams]
         diagrams = diagrams / max(
             [np.array([dg for dg in diag if np.isfinite(dg).all()]).max() for diag in diagrams if diag.shape[0] > 0])
 
         ep_ran_len = len(epsilon_range)
 
-        homology = {dimension: np.zeros(ep_ran_len).tolist() for dimension in range(max_simplex_dim + 1)}
+        homology = {dimension: np.zeros(ep_ran_len).tolist(
+        ) for dimension in range(max_simplex_dim + 1)}
 
         for dimension, diagram in enumerate(diagrams):
             if dimension <= max_simplex_dim and len(diagram) > 0:
@@ -158,7 +160,8 @@ class TopologicalTransformation:
 
     def time_series_rolling_betti_ripser(self, ts):
 
-        point_cloud = self.rolling_window(array=ts, window=self.__window_length)
+        point_cloud = self.rolling_window(
+            array=ts, window=self.__window_length)
         homology = self.time_series_to_persistent_cohomology_ripser(point_cloud,
                                                                     max_simplex_dim=self.max_simplex_dim)
         df_features = pd.DataFrame(data=homology)
@@ -171,5 +174,6 @@ class TopologicalTransformation:
         if window <= 0:
             raise ValueError("Window size must be a positive integer.")
         if window > len(array):
-            raise ValueError("Window size cannot exceed the length of the array.")
+            raise ValueError(
+                "Window size cannot exceed the length of the array.")
         return np.array([array[i:i + window] for i in range(len(array) - window + 1)])

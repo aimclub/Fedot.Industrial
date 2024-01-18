@@ -27,7 +27,8 @@ class piDMD:
     def fit(self, train_features, train_target):
         nx, nt = train_features.shape
         rank = min(nx, nt)
-        self.fitted_linear_operator, eigenvals, eigenvectors = self.method_dict[self.method](train_features, train_target, rank)
+        self.fitted_linear_operator, eigenvals, eigenvectors = self.method_dict[self.method](
+            train_features, train_target, rank)
         return self.fitted_linear_operator, eigenvals, eigenvectors
 
     def predict(self, test_features):

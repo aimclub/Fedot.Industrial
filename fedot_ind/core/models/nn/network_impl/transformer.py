@@ -7,7 +7,7 @@ from torch.nn.modules.transformer import TransformerEncoder, TransformerEncoderL
 
 from fedot_ind.core.architecture.settings.computational import default_device
 from .base_nn_model import BaseNeuralModel
-from ..network_modules.layers.linear_layers import Transpose, Max, Permute
+from ..network_modules.layers.linear_layers import Max, Permute, Transpose
 
 
 class TransformerModel(Module):
@@ -33,14 +33,16 @@ class TransformerModel(Module):
 
         Input shape:
             bs (batch size) x nvars (aka variables, dimensions, channels) x seq_len (aka time steps)
-            """
+
+        """
         self.permute = Permute(2, 0, 1)
         self.inlinear = nn.Linear(input_dim, d_model)
         self.relu = nn.ReLU()
         encoder_layer = TransformerEncoderLayer(d_model, n_head, dim_feedforward=d_ffn, dropout=dropout,
                                                 activation=activation)
         encoder_norm = nn.LayerNorm(d_model)
-        self.transformer_encoder = TransformerEncoder(encoder_layer, n_layers, norm=encoder_norm)
+        self.transformer_encoder = TransformerEncoder(
+            encoder_layer, n_layers, norm=encoder_norm)
         self.transpose = Transpose(1, 0)
         self.max = Max(1)
         self.outlinear = nn.Linear(d_model, output_dim)
@@ -50,7 +52,8 @@ class TransformerModel(Module):
         x = self.inlinear(x)  # seq_len x bs x nvars -> seq_len x bs x d_model
         x = self.relu(x)
         x = self.transformer_encoder(x)
-        x = self.transpose(x)  # seq_len x bs x d_model -> bs x seq_len x d_model
+        # seq_len x bs x d_model -> bs x seq_len x d_model
+        x = self.transpose(x)
         x = self.max(x)
         x = self.relu(x)
         x = self.outlinear(x)

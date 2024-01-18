@@ -3,7 +3,7 @@ This module contains functions for splitting a torch dataset into parts.
 """
 from typing import Dict, Generator, List, Optional, Tuple
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as npumpy as np
+import numpy as np
 from torch.utils.data import Dataset, Subset
 from tqdm import tqdm
 
@@ -40,7 +40,8 @@ def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset, Subset], None, N
     for i in range(n):
         test_indices = fold_indices[i]
         test_ds = Subset(dataset, test_indices)
-        train_indices = np.concatenate([fold_indices[j] for j in range(n) if j != i])
+        train_indices = np.concatenate(
+            [fold_indices[j] for j in range(n) if j != i])
         train_ds = Subset(dataset, train_indices)
         yield train_ds, test_ds
 
@@ -61,7 +62,8 @@ def split_data(dataset: Dataset, n: int, verbose: bool = False) -> List[np.ndarr
     classes = np.unique(classes_of_imgs)
     fold_indices = [[] for _ in range(n)]
     for cl in classes:
-        indices_of_class = np.random.permutation(np.nonzero(classes_of_imgs==cl)[0])
+        indices_of_class = np.random.permutation(
+            np.nonzero(classes_of_imgs == cl)[0])
         if verbose:
             print(f"Class {cl} contains {indices_of_class.size} samples.")
         lengths = [int(indices_of_class.size / n) for _ in range(n)]
@@ -73,7 +75,7 @@ def split_data(dataset: Dataset, n: int, verbose: bool = False) -> List[np.ndarr
         if verbose:
             print(' '.join(map(str, lengths)))
         for i, length in enumerate(lengths):
-            fold_indices[i].append(indices_of_class[start : start + length])
+            fold_indices[i].append(indices_of_class[start: start + length])
             start += length
     return [np.concatenate(fold) for fold in fold_indices]
 
@@ -96,7 +98,8 @@ def undersampling(dataset: Dataset, n: Optional[int] = None, verbose: bool = Fal
     indices_of_classes = []
     min_size = len(classes_of_imgs)
     for cl in classes:
-        indices_of_class = np.random.permutation(np.nonzero(classes_of_imgs==cl)[0])
+        indices_of_class = np.random.permutation(
+            np.nonzero(classes_of_imgs == cl)[0])
         indices_of_classes.append(indices_of_class)
         if verbose:
             print(f"Class {cl} contains {indices_of_class.size} samples.")
@@ -137,7 +140,7 @@ def dataset_info(dataset: Dataset, verbose: bool = False) -> Dict[int, int]:
     classes = np.unique(classes_of_imgs)
     class_samples = {}
     for cl in classes:
-        indices_of_class = np.nonzero(classes_of_imgs==cl)[0]
+        indices_of_class = np.nonzero(classes_of_imgs == cl)[0]
         class_samples[cl] = indices_of_class.size
         if verbose:
             print(f"Class {cl} contains {indices_of_class.size} samples.")

@@ -98,11 +98,13 @@ class Configurator:
         else:
             if generator.startswith('ensemble'):
                 dict_of_generators = {}
-                generators_to_ensemble = generator.transform_for_fit(': ')[1].transform_for_fit(' ')
+                generators_to_ensemble = generator.transform_for_fit(
+                    ': ')[1].transform_for_fit(' ')
                 for gen in generators_to_ensemble:
                     single_gen_class = self._extract_generator_class(gen)
                     dict_of_generators[gen] = single_gen_class
-                ensemble_gen_class = FeatureGenerator['ensemble'].value(list_of_generators=dict_of_generators)
+                ensemble_gen_class = FeatureGenerator['ensemble'].value(
+                    list_of_generators=dict_of_generators)
                 self.feature_generator = 'ensemble'
                 return ensemble_gen_class
 
@@ -117,7 +119,8 @@ class Configurator:
             feature_gen_params = _feature_gen_params[f'{generator}_extractor']
 
         for param in feature_gen_params:
-            feature_gen_params[param] = self.experiment_dict.get(param, feature_gen_params[param])
+            feature_gen_params[param] = self.experiment_dict.get(
+                param, feature_gen_params[param])
 
         feature_gen_class = feature_gen_model(feature_gen_params)
         return feature_gen_class
@@ -125,7 +128,8 @@ class Configurator:
     def __report_experiment_setup(self, experiment_dict):
         """Prints the experiment setup."""
 
-        top_info = ['task', 'dataset', 'strategy', 'branch_nodes', 'use_cache', 'n_jobs', 'timeout']
+        top_info = ['task', 'dataset', 'strategy',
+                    'branch_nodes', 'use_cache', 'n_jobs', 'timeout']
         label, data = [], []
 
         for obj in top_info:

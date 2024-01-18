@@ -19,6 +19,7 @@ Output
 """
 from typing import List, Type
 
+
 class ThresholdZonesDetector(AbstractDataOperation):
     """
     This detector cut ts up to demanded percentage of 0 in it and 
@@ -27,10 +28,11 @@ class ThresholdZonesDetector(AbstractDataOperation):
     Args:
         AbstractDetector (_type_): _description_
     """
-    def __init__(self, zero_percentage = 0.5,
-            ignore_first: bool = False,
-            ignore_last: bool = False,
-            detector_name: str = "Threshold Zones Detector"):
+
+    def __init__(self, zero_percentage=0.5,
+                 ignore_first: bool = False,
+                 ignore_last: bool = False,
+                 detector_name: str = "Threshold Zones Detector"):
         self.ignore_last: bool = ignore_last
         self.ignore_first: bool = ignore_first
         self.target_percentage: float = zero_percentage
@@ -45,8 +47,8 @@ class ThresholdZonesDetector(AbstractDataOperation):
     def load_data(self, file_object: FileObject) -> None:
         self._print_logs("Data read!")
         self.file_object: FileObject = file_object
-        #self.input_dict[DATA_BODY][ELECTED_DATA]
-        #self.lables = self.input_dict[DATA_BODY][RAW_LABLES]
+        # self.input_dict[DATA_BODY][ELECTED_DATA]
+        # self.lables = self.input_dict[DATA_BODY][RAW_LABLES]
 
     def run_operation(self) -> None:
         self._print_logs("Start detection...")
@@ -67,11 +69,11 @@ class ThresholdZonesDetector(AbstractDataOperation):
         """
         return time_series.count(0)/len(time_series)
 
-    def _vector_analysis(self) -> None:   
+    def _vector_analysis(self) -> None:
         self.output_predicts = []
         self.output_quantile_predicts = []
         self.output_quantile_predicts_for_show = []
-        
+
         self.target_error = 0.05
         self.low_thresh = self.target_percentage - self.target_error
         self.high_thresh = self.target_percentage + self.target_error
@@ -84,29 +86,31 @@ class ThresholdZonesDetector(AbstractDataOperation):
         temp_data_exp = self.file_object.test_data
 
         counter = 0
-        self._print_logs(f"Predict on {self.file_object.filename}, attempt to transform data to {self.target_percentage} of zero...")
+        self._print_logs(
+            f"Predict on {self.file_object.filename}, attempt to transform data to {self.target_percentage} of zero...")
 
         while True:
-            counter+=1
+            counter += 1
             temp_reshaped_data = Cut_data(temp_data_exp, current_thresh)
-            if self.low_thresh <= self.get_percentage_of_zero(temp_reshaped_data)<=self.high_thresh or counter >= 200:
+            if self.low_thresh <= self.get_percentage_of_zero(temp_reshaped_data) <= self.high_thresh or counter >= 200:
                 temp_data_exp = temp_reshaped_data
                 self.file_object.threshold = current_thresh
-                self._print_logs(f"Predict on {self.file_object.filename}, succes! Current threshold: {current_thresh}")
+                self._print_logs(
+                    f"Predict on {self.file_object.filename}, succes! Current threshold: {current_thresh}")
                 break
             else:
                 if self.get_percentage_of_zero(temp_reshaped_data) > self.target_percentage:
-                    current_thresh-=step
+                    current_thresh -= step
                 else:
-                    current_thresh+=step
+                    current_thresh += step
         self.file_object.additional_transformed_average_absolute_deviation = \
             temp_data_exp
 
-
-
-        areas_list, len_list, distances_list = self._get_areas_of_data(temp_data_exp)
+        areas_list, len_list, distances_list = self._get_areas_of_data(
+            temp_data_exp)
         ensambled_prediction: List[Type[AnomalyZone]] = []
-        self._print_logs(f"Predict on {self.file_object.filename}, filtering...")
+        self._print_logs(
+            f"Predict on {self.file_object.filename}, filtering...")
 
         if len(areas_list) and len(len_list) and len(distances_list):
             for area in areas_list:
@@ -118,13 +122,13 @@ class ThresholdZonesDetector(AbstractDataOperation):
         for j in range(self.file_object.get_len_of_dataset()):
             if self.file_object.additional_transformed_average_absolute_deviation[j] != 0:
                 self.file_object.additional_transformed_average_absolute_deviation[j] = \
-                    self.file_object.additional_transformed_average_absolute_deviation[j] - current_thresh
+                    self.file_object.additional_transformed_average_absolute_deviation[
+                        j] - current_thresh
         self.file_object.additional_transformed_average_absolute_deviation = \
-            NormalizeData(self.file_object.additional_transformed_average_absolute_deviation)
+            NormalizeData(
+                self.file_object.additional_transformed_average_absolute_deviation)
 
         self.file_object.copy_parts_of_datasets_in_anomaly_zones()
-
-
 
     def _get_areas_of_data(self, data: list):
         """
@@ -145,7 +149,6 @@ class ThresholdZonesDetector(AbstractDataOperation):
         start = 0
         end = 0
 
-        
         for i in range(len(data)):
             if state_of_scaning == 2:
                 if data[i] != 0:
@@ -158,7 +161,7 @@ class ThresholdZonesDetector(AbstractDataOperation):
                 continue
 
             if state_of_scaning == 1:
-                if data[i] == 0: 
+                if data[i] == 0:
                     state_of_scaning = 0
                     end = i
                     areas_list.append([start, end])
@@ -173,10 +176,10 @@ class ThresholdZonesDetector(AbstractDataOperation):
                     counter_for_areas += 1
 
                     area += data[i]
-                    max_dist = max(max_dist, data[i])  
+                    max_dist = max(max_dist, data[i])
                 continue
             if state_of_scaning == 0:
-                if data[i] != 0:  
+                if data[i] != 0:
                     start = i
                     state_of_scaning = 1
                     counter_for_areas = 1
@@ -200,7 +203,6 @@ class ThresholdZonesDetector(AbstractDataOperation):
             del areas_sizes_list[-1]
 
         return areas_list, len_list, max_list
-
 
     def _print_logs(self, log_message: str) -> None:
         if self.print_logs:
