@@ -1,11 +1,8 @@
 import math
 
-# import lime
-# import lime.lime_tabular
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-# import shap
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from tqdm import tqdm
@@ -13,13 +10,31 @@ from tqdm import tqdm
 from fedot_ind.tools.explain.distances import DistanceTypes
 
 
-class PointExplainer:
+class Explainer:
     def __init__(self, model, features, target):
-        self.picked_target = None
-        self.picked_feature = None
         self.model = model
         self.features = features
         self.target = target
+
+    def explain(self, **kwargs):
+        pass
+
+    @staticmethod
+    def predict_proba(model, features, target):
+        if hasattr(model, 'solver'):
+            model.solver.test_features = None
+            base_proba_ = model.predict_proba(
+                features=pd.DataFrame(features), target=target)
+        else:
+            base_proba_ = model.predict_proba(X=features)
+        return base_proba_
+
+
+class PointExplainer(Explainer):
+    def __init__(self, model, features, target):
+        super().__init__(model, features, target)
+        self.picked_target = None
+        self.picked_feature = None
 
         self.scaled_vector = None
         self.window_length = None
@@ -88,16 +103,6 @@ class PointExplainer:
                 mean_ts = ts.mean()
                 features[idx, i] = mean_ts
         return features
-
-    @staticmethod
-    def predict_proba(model, features, target):
-        if hasattr(model, 'solver'):
-            model.solver.test_features = None
-            base_proba_ = model.predict_proba(
-                features=pd.DataFrame(features), target=target)
-        else:
-            base_proba_ = model.predict_proba(X=features)
-        return base_proba_
 
     @staticmethod
     def select(features_, target_, n_samples_: int = 3):
@@ -174,18 +179,3 @@ class PointExplainer:
         plt.colorbar(scal_map, cax=cbar_ax)
         plt.tight_layout()
         plt.show()
-
-
-# class ShapExplainer:
-#     def __init__(self, model, features, target, prediction):
-#         self.model = model
-#         self.features = features
-#         self.target = target
-#         self.prediction = prediction
-#
-#     def explain(self, n_samples: int = 5):
-#         X_test = self.features
-#
-#         explainer = shap.KernelExplainer(self.model.predict, X_test, n_samples=n_samples)
-#         shap_values = explainer.shap_values(X_test.iloc[:n_samples, :])
-#         shap.summary_plot(shap_values, X_test.iloc[:n_samples, :], plot_type="bar")
