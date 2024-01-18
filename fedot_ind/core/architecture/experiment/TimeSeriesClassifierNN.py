@@ -7,7 +7,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
-from fedot_ind.core.models.nn.inception import InceptionTimeNetwork
+from fedot_ind.core.models.nn.inception_old import InceptionTimeNetwork
 
 TSCCLF_MODEL = {
     'inception_time': InceptionTimeNetwork
