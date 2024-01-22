@@ -102,7 +102,6 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-
         'topological_features': TopologicalFeaturesImplementation,
         # categorical encoding
         'one_hot_encoding': OneHotEncodingImplementation,
@@ -171,7 +170,11 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                           'classification': [
                               'isolation_forest_reg',
                               'tst_model',
-                              'xcm_model']}
+                              'xcm_model',
+                              'one_hot_encoding',
+                              'label_encoding',
+                              'isolation_forest_class',
+                          ]}
     available_operations = [x for x in available_operations if x not in excluded_operation[problem]]
     return available_operations
 

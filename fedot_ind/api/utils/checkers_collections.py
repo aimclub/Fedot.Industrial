@@ -1,5 +1,7 @@
 import logging
 
+import pandas as pd
+
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
@@ -24,6 +26,8 @@ class DataCheck:
 
         if type(self.input_data) is tuple:
             X, y = self.input_data[0], self.input_data[1]
+            if type(X) is not pd.DataFrame:
+                X = pd.DataFrame(X)
             is_multivariate_data = check_multivariate_data(X)
 
             if is_multivariate_data:

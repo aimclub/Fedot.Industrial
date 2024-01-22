@@ -5,7 +5,9 @@ from multiprocessing import cpu_count
 import numpy as np
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 
+from fedot_ind.core.metrics.metrics_implementation import calculate_regression_metric, calculate_classification_metric
 from fedot_ind.core.models.topological.topofeatures import *
 from torch import nn
 
@@ -112,8 +114,13 @@ class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
     FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
                   'regression': Task(TaskTypesEnum.regression)}
-    FEDOT_HEAD_ENSEMBLE = {'classification': 'logit',
-                           'regression': 'ridge'}
+
+    FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
+                         'classification': calculate_classification_metric}
+    FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
+                            'regression': RegressionMetricsEnum.RMSE}
+    FEDOT_HEAD_ENSEMBLE = {'regression': 'fedot_regr',
+                           'classification': 'fedot_cls'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
                                'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
@@ -357,6 +364,8 @@ EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
 FEDOT_HEAD_ENSEMBLE = FedotOperationConstant.FEDOT_HEAD_ENSEMBLE.value
 FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
 FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value
+FEDOT_GET_METRICS = FedotOperationConstant.FEDOT_GET_METRICS.value
+FEDOT_TUNING_METRICS = FedotOperationConstant.FEDOT_TUNING_METRICS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

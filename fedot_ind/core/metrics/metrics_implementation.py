@@ -1,5 +1,7 @@
 from typing import Union
-
+from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
+    mean_squared_error, d2_absolute_error_score, \
+    median_absolute_error, r2_score
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from sklearn.metrics import (accuracy_score, f1_score,
@@ -152,3 +154,29 @@ class Accuracy(QualityMetric):
         target = self.target
         prediction = self.predicted_labels
         return accuracy_score(y_true=target, y_pred=prediction)
+
+
+
+def calculate_regression_metric(test_target, labels):
+    test_target = test_target.astype(np.float)
+    metric_dict = {'r2_score:': r2_score(test_target, labels),
+                   'mean_squared_error:': mean_squared_error(test_target, labels),
+                   'root_mean_squared_error:': np.sqrt(mean_squared_error(test_target, labels)),
+                   'mean_absolute_error': mean_absolute_error(test_target, labels),
+                   'median_absolute_error': median_absolute_error(test_target, labels),
+                   'explained_variance_score': explained_variance_score(test_target, labels),
+                   'max_error': max_error(test_target, labels),
+                   'd2_absolute_error_score': d2_absolute_error_score(test_target, labels)
+                   }
+    df = pd.DataFrame.from_dict(metric_dict, orient='index')
+    return df
+
+
+def calculate_classification_metric(test_target, labels, probs):
+
+    metric_dict = {'accuracy:': Accuracy(test_target, labels, probs).metric(),
+                   'f1': F1(test_target, labels, probs).metric(),
+                   'roc_auc:': ROCAUC(test_target, labels, probs).metric()
+                   }
+    df = pd.DataFrame.from_dict(metric_dict, orient='index')
+    return df

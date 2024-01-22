@@ -23,8 +23,7 @@ class Explainer:
     def predict_proba(model, features, target):
         if hasattr(model, 'solver'):
             model.solver.test_features = None
-            base_proba_ = model.predict_proba(
-                features=pd.DataFrame(features), target=target)
+            base_proba_ = model.predict_proba(predict_data=(features, target))
         else:
             base_proba_ = model.predict_proba(X=features)
         return base_proba_
@@ -85,8 +84,9 @@ class PointExplainer(Explainer):
                 for idx, cls in enumerate(part_target_):
                     if cls not in distance_dict:
                         distance_dict[cls] = []
-                    distance_dict[cls].append(distance_func(
-                        base_proba_[idx], proba_new[idx]))
+                    distance = distance_func(
+                        np.array(base_proba_[idx]).ravel(), np.array(proba_new[idx]).ravel())
+                    distance_dict[cls].append(distance)
                 for cls in distance_dict:
                     importance_vector_[cls][part] = np.mean(distance_dict[cls])
                 pbar.update(1)

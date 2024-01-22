@@ -6,10 +6,10 @@ from fastcore.basics import defaults
 
 
 class BackendMethods:
-    def __init__(self, device_type: str = 'cpu'):
+    def __init__(self, device_type: str = 'CUDA'):
         self.backend = self.define_backend(device_type)
 
-    def define_backend(self, device_type: str = 'cpu'):
+    def define_backend(self, device_type: str = 'CUDA'):
         if device_type == 'CUDA':
             import cupy, cupyx.scipy.linalg
             return cupy, cupyx.scipy.linalg

@@ -6,11 +6,7 @@ from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
-    mean_squared_error, d2_absolute_error_score, \
-    median_absolute_error, r2_score
 from sklearn.metrics import f1_score, roc_auc_score
-
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
@@ -60,40 +56,3 @@ def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
     train_data, test_data = train_test_data_setup(train_input)
     return train_data, test_data, label
 
-
-def calculate_regression_metric(test_target, labels):
-    test_target = test_target.astype(np.float)
-    metric_dict = {'r2_score:': r2_score(test_target, labels),
-                   'mean_squared_error:': mean_squared_error(test_target, labels),
-                   'root_mean_squared_error:': np.sqrt(mean_squared_error(test_target, labels)),
-                   'mean_absolute_error': mean_absolute_error(test_target, labels),
-                   'median_absolute_error': median_absolute_error(test_target, labels),
-                   'explained_variance_score': explained_variance_score(test_target, labels),
-                   'max_error': max_error(test_target, labels),
-                   'd2_absolute_error_score': d2_absolute_error_score(test_target, labels)
-                   # 'root_mean_squared_log_error': mean_squared_log_error(test_target, labels, squared=False)
-                   }
-    df = pd.DataFrame.from_dict(metric_dict, orient='index')
-    return df
-
-# def visualise_and_save():
-#     for class_number in np.unique(train_data[1]):
-#         for basis_name, basis in zip(['basis_before_power_iterations', 'basis_after_power_iterations'],
-#                                      [basis_1d_raw, basis_1d_approx]):
-#             class_idx = np.where(train_data[1] == class_number)[0]
-#             class_slice = np.take(basis, class_idx, 0)
-#             pd.DataFrame(np.median(class_slice, axis=0)).T.plot()
-#             # plt.show()
-#             plt.savefig(f'{dataset_name}/{basis_name}_{class_number}_median_component.png', bbox_inches='tight')
-#             # plt.title(f'mean_{basis_name}_components_for_{class_number}_class')
-#     rank_distrib = pd.DataFrame([rank_distribution_befor, rank_distribution_after]).T
-#     rank_distrib.columns = ['HT_approach',
-#                             'Proposed_approach']
-#     rank_distrib.plot(kind='kde')
-#     # plt.show()
-#     rank_dispersion_ht = np.round(rank_distrib['HT_approach'].std(), 3)
-#     rank_dispersion_new = np.round(rank_distrib['Proposed_approach'].std(), 3)
-#     plt.savefig(f'{dataset_name}/rank_distrib. '
-#                 f'Classical_rank_{low_rank_befor}_std_{rank_dispersion_ht}.'
-#                 f'New_{low_rank_after}_std_{rank_dispersion_new}.png', bbox_inches='tight')
-#     rank_distrib['classes'] = train_data[1]
