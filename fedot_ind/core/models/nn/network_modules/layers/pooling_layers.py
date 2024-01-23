@@ -16,7 +16,8 @@ class PPV(Module):
     def forward(self, x):
         return torch.gt(x, 0).sum(dim=self.dim).float() / x.shape[self.dim]
 
-    def __repr__(self): return f'{self.__class__.__name__}(dim={self.dim})'
+    def __repr__(self):
+        return f'{self.__class__.__name__}(dim={self.dim})'
 
 
 class PPAuc(Module):
@@ -27,7 +28,8 @@ class PPAuc(Module):
         x = F.relu(x).sum(self.dim) / (abs(x).sum(self.dim) + 1e-8)
         return x
 
-    def __repr__(self): return f'{self.__class__.__name__}(dim={self.dim})'
+    def __repr__(self):
+        return f'{self.__class__.__name__}(dim={self.dim})'
 
 
 class MaxPPVPool1d(Module):
@@ -145,7 +147,8 @@ def gwa_pool_head(n_in, output_dim, seq_len, batch_norm=True, fc_dropout=0.):
 
 
 class AttentionalPool1d(Module):
-    """Global Adaptive Pooling layer inspired by Attentional Pooling for Action Recognition https://arxiv.org/abs/1711.01467"""
+    """Global Adaptive Pooling layer inspired by Attentional Pooling for Action
+    Recognition https://arxiv.org/abs/1711.01467"""
 
     def __init__(self, n_in, output_dim, batch_norm=False):
         store_attr()

@@ -68,6 +68,7 @@ class FedotIndustrial(Fedot):
         self.output_folder = kwargs.get('output_folder')
         self.preprocessing = kwargs.get('industrial_preprocessing', False)
         self.backend_method = kwargs.get('backend', 'cpu')
+
         if self.output_folder is None:
             self.output_folder = default_path_to_save_results
             Path(self.output_folder).mkdir(parents=True, exist_ok=True)
@@ -85,19 +86,21 @@ class FedotIndustrial(Fedot):
         )
         super(Fedot, self).__init__()
         self.logger = logging.getLogger('FedotIndustrialAPI')
+
+        self.predict_data = None
         self.config_dict = None
         self.ensemble_solver = None
         self.config_dict = kwargs
-        self.__init_experiment_setup(**kwargs)
+        self.__init_experiment_setup()
 
-    def __init_experiment_setup(self, **kwargs):
+    def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
         if 'industrial_preprocessing' in self.config_dict.keys():
             del self.config_dict['industrial_preprocessing']
         backend_method_current, backend_scipy_current = BackendMethods(self.backend_method).backend
         globals()['backend_methods'] = backend_method_current
         globals()['backend_scipy'] = backend_scipy_current
-        self.config_dict['available_operations'] = default_industrial_availiable_operation(kwargs['problem'])
+        self.config_dict['available_operations'] = default_industrial_availiable_operation(self.config_dict['problem'])
 
         self.config_dict['optimizer'] = IndustrialEvoOptimizer
 
@@ -175,7 +178,7 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict(self.predict_data) if type(self.solver) is Fedot else \
+        return self.solver.predict(self.predict_data, output_mode='labels') if type(self.solver) is Fedot else \
             self.solver.predict(self.predict_data, output_mode='labels').predict
 
     def predict_proba(self,
@@ -204,14 +207,12 @@ class FedotIndustrial(Fedot):
         Method to obtain prediction probabilities from trained Industrial model.
 
         Args:
-            test_features: raw test data
-
-        Returns:
-            the array with prediction probabilities
-            :param train_data:
-            :param tuning_params:
+            train_data: raw train data
+            tuning_params: dictionary with tuning parameters
+            mode: str, ``default='full'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
 
         """
+
         train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
         if tuning_params is None:
             tuning_params = {}
@@ -233,18 +234,6 @@ class FedotIndustrial(Fedot):
         self.solver.current_pipeline.fit(train_data)
 
     def get_metrics(self, target, labels, probs) -> dict:
-        """
-        Method to obtain Gets quality metrics
-
-        Args:
-            target: target values
-            metric_names: list of metric names desired to be calculated
-            **kwargs: additional parameters
-
-        Returns:
-            the dictionary with calculated metrics
-
-        """
         return FEDOT_GET_METRICS[self.config_dict['problem']](target, labels, probs)
 
     def save_predict(self, predicted_data, **kwargs) -> None:
@@ -338,6 +327,7 @@ class FedotIndustrial(Fedot):
     def generate_ts(self, ts_config: dict):
         """
         Method to generate synthetic time series
+
         Args:
             ts_config: dict with config for synthetic ts_data.
 
@@ -345,9 +335,7 @@ class FedotIndustrial(Fedot):
             synthetic time series data.
 
         """
-        ts_generator = TimeSeriesGenerator(ts_config)
-        t_series = ts_generator.get_ts()
-        return t_series
+        return TimeSeriesGenerator(ts_config).get_ts()
 
     def generate_anomaly_ts(self,
                             ts_data,
@@ -356,6 +344,7 @@ class FedotIndustrial(Fedot):
                             overlap: float = 0.1):
         """
         Method to generate anomaly time series
+
         Args:
             ts_data: either np.ndarray or dict with config for synthetic ts_data.
             anomaly_config: dict with config for anomaly generation
@@ -364,8 +353,6 @@ class FedotIndustrial(Fedot):
 
         Returns:
             returns initial time series data, modified time series data and dict with anomaly intervals.
-
-        Returns:
 
         """
 
@@ -379,14 +366,23 @@ class FedotIndustrial(Fedot):
     def split_ts(self, time_series,
                  anomaly_dict: dict,
                  binarize: bool = False,
-                 strategy: str = 'frequent',
-                 plot: bool = True):
+                 plot: bool = True) -> tuple:
+        """
+        Method to split time series with anomalies into features and target.
 
-        splitter = TSTransformer(time_series=time_series,
-                                 anomaly_dict=anomaly_dict,
-                                 strategy=strategy)
+        Args:
+            time_series (npp.array):
+            anomaly_dict (dict): dictionary with anomaly labels as keys and anomaly intervals as values.
+            binarize: if True, target will be binarized. Recommended for classification task if classes are imbalanced.
+            plot: if True, plot initial and modified time series data with rectangle spans of anomalies.
 
-        train_data, test_data = splitter.transform_for_fit(plot=plot,
-                                                           binarize=binarize)
+        Returns:
+            features (pd.DataFrame) and target (np.array).
 
-        return train_data, test_data
+        """
+
+        features, target = TSTransformer().transform_for_fit(plot=plot,
+                                                             binarize=binarize,
+                                                             series=time_series,
+                                                             anomaly_dict=anomaly_dict)
+        return features, target

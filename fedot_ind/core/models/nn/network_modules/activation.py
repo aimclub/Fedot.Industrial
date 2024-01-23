@@ -44,7 +44,8 @@ class SwishBeta(Module):
         self.sigmoid = torch.sigmoid
         self.beta = nn.Parameter(torch.Tensor(1).fill_(beta))
 
-    def forward(self, x): return x.mul(self.sigmoid(x * self.beta))
+    def forward(self, x):
+        return x.mul(self.sigmoid(x * self.beta))
 
 
 class SmeLU(nn.Module):

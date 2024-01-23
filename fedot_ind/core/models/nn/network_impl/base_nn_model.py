@@ -17,7 +17,7 @@ from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learn
 
 
 class BaseNeuralModel:
-    """Class responsible for InceptionTime model implementation.
+    """Class responsible for NN model implementation.
 
     Attributes:
         self.num_features: int, the number of features.

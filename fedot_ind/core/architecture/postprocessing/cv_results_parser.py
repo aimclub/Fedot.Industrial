@@ -1,12 +1,13 @@
 import os
-from typing import Dict, Union, Optional, List, Tuple, Callable
 from functools import wraps
 from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
+from matplotlib.patches import Rectangle
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 def savefig(func) -> Callable:

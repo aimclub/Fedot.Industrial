@@ -5,8 +5,8 @@ from pymonad.list import ListMonad
 from sklearn.preprocessing import MinMaxScaler
 
 from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
-from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
 
 class AbstractPipelines:
@@ -84,7 +84,7 @@ class AbstractPipelines:
                                                         generator_runner=feature_extractor)
         except Exception:
             classificator = None
-    # TODO:
+
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'scale': lambda time_series: pd.DataFrame(MinMaxScaler().fit_transform(
                                 time_series.to_numpy())),

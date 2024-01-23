@@ -6,14 +6,12 @@ from torch import optim
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
-from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 from fedot_ind.core.models.nn.network_modules.layers.special import ParameterizedLayer
 from fedot_ind.core.models.nn.network_modules.other import *
 from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY
 
 
 class OmniScaleCNN(Module):
-
     def __init__(self,
                  input_dim,
                  output_dim,
@@ -119,6 +117,14 @@ class OmniScaleModel(BaseNeuralModel):
                    target = pipeline.predict(val_data).predict
                    metric = evaluate_metric(target=test_data[1], prediction=target)
 
+       References:
+            @article{tang2020omni,
+            title={Omni-Scale CNNs: a simple and effective kernel size configuration for time series classification},
+            author={Tang, Wensi and Long, Guodong and Liu, Lu and Zhou, Tianyi and Blumenstein, Michael and Jiang, Jing},
+            journal={arXiv preprint arXiv:2002.10061},
+            year={2020}
+            }
+            Original paper: https://arxiv.org/pdf/2002.10061.pdf
        """
 
     def __init__(self, params: Optional[OperationParameters] = {}):

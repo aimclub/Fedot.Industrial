@@ -19,6 +19,7 @@ def train_test_split(dataset: Dataset, p: float = 0.2) -> Tuple[Subset, Subset]:
     Returns:
         A tuple ``(train_ds, test_ds)``, where train_ds and test_ds
             are subsets.
+
     """
     n = int(1./p)
     return next(k_fold(dataset=dataset, n=n))
@@ -35,6 +36,7 @@ def k_fold(dataset: Dataset, n: int) -> Generator[Tuple[Subset, Subset], None, N
     Yields:
         A tuple ``(train_ds, test_ds)``, where train_ds and test_ds
             are subsets.
+
     """
     fold_indices = split_data(dataset, n)
     for i in range(n):
@@ -57,6 +59,7 @@ def split_data(dataset: Dataset, n: int, verbose: bool = False) -> List[np.ndarr
 
     Returns:
         A list of indices for each part.
+
     """
     classes_of_imgs = _extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
@@ -92,6 +95,7 @@ def undersampling(dataset: Dataset, n: Optional[int] = None, verbose: bool = Fal
 
     Returns:
         Balanced subset.
+
     """
     classes_of_imgs = _extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
@@ -117,6 +121,7 @@ def _extract_classes(dataset: Dataset) -> np.ndarray:
 
     Args:
         dataset: Torch dataset object.
+
     """
     classes_of_imgs = []
     for i in tqdm(range(len(dataset)), desc='prepare dataset'):
@@ -135,6 +140,7 @@ def dataset_info(dataset: Dataset, verbose: bool = False) -> Dict[int, int]:
 
     Returns:
         Dictionary `{class_id: number_of_samples}`.
+
     """
     classes_of_imgs = _extract_classes(dataset)
     classes = np.unique(classes_of_imgs)
@@ -156,6 +162,7 @@ def get_dataset_mean_std(dataset: Dataset) -> Tuple[Tuple, Tuple]:
 
     Returns:
           Tuple(mean, std)
+
     """
     shape = dataset.__getitem__(0)[0].shape
     one_channel = len(shape) == 2

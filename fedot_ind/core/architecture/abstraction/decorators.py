@@ -8,6 +8,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 
 from weakref import WeakValueDictionary
 
+
 def fedot_data_type(func):
     def decorated_func(self, *args):
         if type(args[0]) is not InputData:
@@ -22,6 +23,7 @@ def fedot_data_type(func):
         else:
             input_data_squeezed = features
         return func(self, input_data_squeezed)
+
     return decorated_func
 
 
@@ -96,6 +98,7 @@ class Singleton(type):
             instance = super(Singleton, cls).__call__(*args, **kwargs)
             cls._instances[cls] = instance
         return cls._instances[cls]
+
 
 class DaskServer(metaclass=Singleton):
     def __init__(self):

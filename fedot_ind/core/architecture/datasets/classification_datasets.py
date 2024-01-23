@@ -2,9 +2,10 @@
 
 from typing import Tuple
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from torch.utils.data import Dataset
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class NumpyImageDataset(Dataset):
@@ -32,6 +33,7 @@ class NumpyImageDataset(Dataset):
         Returns:
             A tuple ``(image, target)``, where image is image tensor,
                 and target is integer.
+
         """
         return self.images[idx], self.targets[idx]
 

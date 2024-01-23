@@ -3,11 +3,11 @@ from copy import deepcopy
 from functools import partial
 from math import log
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from numpy import dot, eye, zeros
 from sklearn.preprocessing import MinMaxScaler
 
 from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.detection.probalistic.sigma import MerweScaledSigmaPoints
 from fedot_ind.core.operation.transformation.data.hankel import get_x_y_pairs
 
@@ -37,7 +37,7 @@ def reshape_z(z, dim_z, ndim):
 class AbstractKalmanFilter:
     def __init__(self, model_hyperparams: dict):
         self.model_hyperparams = model_hyperparams
-        # Only computed only if requested via property
+        # Only computed if requested via property
         self._log_likelihood = log(sys.float_info.min)
         self._likelihood = sys.float_info.min
         self._mahalanobis = None

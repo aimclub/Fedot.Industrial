@@ -23,19 +23,24 @@ def pass_through(X):
 
 
 def test_module_to_torchscript(
-        m: torch.nn.Module,  # The PyTorch module to be tested.
-        # A tensor or tuple of tensors representing the inputs to the model.
+        m: torch.nn.Module,
         inputs: Tensor,
-        # If `True`, attempts to trace the model. Defaults to `True`.
         trace: bool = True,
-        # If `True`, attempts to script the model. Defaults to `True`.
         script: bool = True,
         serialize: bool = True,
-        # If `True`, saves and loads the traced/scripted module to ensure it can be serialized. Defaults to `True`.
         verbose: bool = True,
-        # If `True`, prints detailed information about the tracing and scripting process. Defaults to `True`.
 ):
-    "Tests if a PyTorch module can be correctly traced or scripted and serialized"
+    """Tests if a PyTorch module can be correctly traced or scripted and serialized
+
+    Args:
+        m (torch.nn.Module): The PyTorch module to be tested.
+        inputs (Tensor): A tensor or tuple of tensors representing the inputs to the model.
+        trace (bool, optional): If `True`, attempts to trace the model. Defaults to `True`.
+        script (bool, optional): If `True`, attempts to script the model. Defaults to `True`.
+        serialize (bool, optional): If `True`, saves and loads the traced/scripted module to ensure it can be serialized. Defaults to `True`.
+        verbose (bool, optional): If `True`, prints detailed information about the tracing and scripting process. Defaults to `True`.
+
+    """
 
     m = m.eval()
     m_name = m.__class__.__name__
@@ -99,7 +104,7 @@ def test_module_to_torchscript(
 
 
 def init_lin_zero(m):
-    if isinstance(m, (nn.Linear)):
+    if isinstance(m, nn.Linear):
         if getattr(m, 'bias', None) is not None:
             nn.init.constant_(m.bias, 0)
         nn.init.constant_(m.weight, 0)
@@ -175,7 +180,7 @@ class DropPath(nn.Module):
 
 
 class Sharpen(Module):
-    "This is used to increase confidence in predictions - MixMatch paper"
+    """This is used to increase confidence in predictions - MixMatch paper"""
 
     def __init__(self, T=.5): self.T = T
 
@@ -222,7 +227,8 @@ class TimeDistributed(nn.Module):
 
 
 class Temp_Scale(Module):
-    "Used to perform Temperature Scaling (dirichlet=False) or Single-parameter Dirichlet calibration (dirichlet=True)"
+    """Used to perform Temperature Scaling (dirichlet=False) or Single-parameter Dirichlet calibration
+    (dirichlet=True)"""
 
     def __init__(self, temp=1., dirichlet=False):
         self.weight = nn.Parameter(Tensor(temp))
@@ -235,8 +241,8 @@ class Temp_Scale(Module):
         return x.div(self.weight)
 
 
-class Vector_Scale(Module):
-    "Used to perform Vector Scaling (dirichlet=False) or Diagonal Dirichlet calibration (dirichlet=True)"
+class VectorScale(Module):
+    """Used to perform Vector Scaling (dirichlet=False) or Diagonal Dirichlet calibration (dirichlet=True)"""
 
     def __init__(self, n_classes=1, dirichlet=False):
         self.weight = nn.Parameter(torch.ones(n_classes))
@@ -249,8 +255,8 @@ class Vector_Scale(Module):
         return x.mul(self.weight).add(self.bias)
 
 
-class Matrix_Scale(Module):
-    "Used to perform Matrix Scaling (dirichlet=False) or Dirichlet calibration (dirichlet=True)"
+class MatrixScale(Module):
+    """Used to perform Matrix Scaling (dirichlet=False) or Dirichlet calibration (dirichlet=True)"""
 
     def __init__(self, n_classes=1, dirichlet=False):
         self.ms = nn.Linear(n_classes, n_classes)
@@ -272,21 +278,21 @@ def get_calibrator(calibrator=None, n_classes=1, **kwargs):
     elif calibrator.lower() == 'temp':
         return Temp_Scale(dirichlet=False, **kwargs)
     elif calibrator.lower() == 'vector':
-        return Vector_Scale(n_classes=n_classes, dirichlet=False, **kwargs)
+        return VectorScale(n_classes=n_classes, dirichlet=False, **kwargs)
     elif calibrator.lower() == 'matrix':
-        return Matrix_Scale(n_classes=n_classes, dirichlet=False, **kwargs)
+        return MatrixScale(n_classes=n_classes, dirichlet=False, **kwargs)
     elif calibrator.lower() == 'dtemp':
         return Temp_Scale(dirichlet=True, **kwargs)
     elif calibrator.lower() == 'dvector':
-        return Vector_Scale(n_classes=n_classes, dirichlet=True, **kwargs)
+        return VectorScale(n_classes=n_classes, dirichlet=True, **kwargs)
     elif calibrator.lower() == 'dmatrix':
-        return Matrix_Scale(n_classes=n_classes, dirichlet=True, **kwargs)
+        return MatrixScale(n_classes=n_classes, dirichlet=True, **kwargs)
     else:
         assert False, f'please, select a correct calibrator instead of {calibrator}'
 
 
 class LogitAdjustmentLayer(Module):
-    "Logit Adjustment for imbalanced datasets"
+    """Logit Adjustment for imbalanced datasets"""
 
     def __init__(self, class_priors):
         self.class_priors = class_priors
@@ -327,7 +333,7 @@ class GaussianNoise(Module):
     Args:
         sigma (float, optional): relative standard deviation used to generate the
             noise. Relative means that it will be multiplied by the magnitude of
-            the value your are adding the noise to. This means that sigma can be
+            the value yours are adding the noise to. This means that sigma can be
             the same regardless of the scale of the vector.
         is_relative_detach (bool, optional): whether to detach the variable before
             computing the scale of the noise. If `False` then the scale of the noise
@@ -358,29 +364,31 @@ class PositionwiseFeedForward(nn.Sequential):
 
 
 class TokenLayer(Module):
-    def __init__(self, token=True): self.token = token
+    def __init__(self, token=True):
+        self.token = token
 
-    def forward(self, x): return x[...,
-                                   0] if self.token is not None else x.mean(-1)
+    def forward(self, x):
+        return x[..., 0] if self.token is not None else x.mean(-1)
 
-    def __repr__(self): return f"{self.__class__.__name__}()"
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"
 
 
 class LSTMOutput(Module):
-    def forward(self, x): return x[0]
+    def forward(self, x):
+        return x[0]
 
-    def __repr__(self): return f'{self.__class__.__name__}()'
+    def __repr__(self):
+        return f'{self.__class__.__name__}()'
 
 
-# %% ../../nbs/029_models.layers.ipynb 129
 def emb_sz_rule(n_cat):
-    "Rule of thumb to pick embedding size corresponding to `n_cat` (original from fastai)"
+    """Rule of thumb to pick embedding size corresponding to `n_cat` (original from fastai)"""
     return min(600, round(1.6 * n_cat ** 0.56))
 
 
-# %% ../../nbs/029_models.layers.ipynb 131
 class TSEmbedding(nn.Embedding):
-    "Embedding layer with truncated normal initialization adapted from fastai"
+    """Embedding layer with truncated normal initialization adapted from fastai"""
 
     def __init__(self, ni, nf, std=0.01, padding_idx=None):
         super().__init__(ni, nf)
@@ -389,7 +397,6 @@ class TSEmbedding(nn.Embedding):
             nn.init.zeros_(self.weight.data[padding_idx])
 
 
-# %% ../../nbs/029_models.layers.ipynb 132
 class MultiEmbedding(Module):
     def __init__(self, c_in, n_cat_embeds, cat_embed_dims=None, cat_pos=None, std=0.01, cat_padding_idxs=None):
         cat_n_embeds = listify(n_cat_embeds)

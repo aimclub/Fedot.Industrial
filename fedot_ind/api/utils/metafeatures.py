@@ -4,6 +4,21 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 
 
 class MetaFeaturesDetector:
+    """Class for detecting metafeatures of the dataset.
+
+    Args:
+        train_data: Training data in tuple format (X, y).
+        test_data: Test data in tuple
+
+    Attributes:
+        train_data: Training data in tuple format (X, y).
+        test_data: Test data in tuple
+        dataset_name: Name of the dataset.
+        logger (logging.Logger): Logger instance for logging messages.
+        base_metafeatures (list): List of base metafeatures.
+        extra_metafeatures (list): List of extra metafeatures.
+
+    """
 
     def __init__(self, train_data, test_data, dataset_name):
         self.train_data = train_data
@@ -43,5 +58,3 @@ class MetaFeaturesDetector:
             f'Running MetaFeaturesDetector for {self.dataset_name}')
         base_metafeatures = self.get_base_metafeatures()
         return {**base_metafeatures}
-        # extra_metafeatures = self.get_extra_metafeatures()
-        # return {**base_metafeatures, **extra_metafeatures}

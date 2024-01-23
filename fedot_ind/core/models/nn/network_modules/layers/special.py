@@ -88,7 +88,7 @@ def adjust_learning_rate(optimizer, scheduler, epoch, learning_rate, printout=Tr
 
 
 class MovingAverage(nn.Module):
-    "Moving average block to highlight the trend of time series"
+    """Moving average block to highlight the trend of time series"""
 
     def __init__(self,
                  kernel_size: int,  # the size of the window
@@ -144,8 +144,7 @@ class SampaddingConv1D_BN(Module):
 
 
 class ParameterizedLayer(Module):
-    """
-    formerly build_layer_with_layer_parameter
+    """Formerly build_layer_with_layer_parameter
     """
 
     def __init__(self, layer_parameters):
@@ -164,7 +163,6 @@ class ParameterizedLayer(Module):
             self.conv_list.append(conv)
 
     def forward(self, x):
-
         conv_result_list = []
         for conv in self.conv_list:
             conv_result = conv(x)

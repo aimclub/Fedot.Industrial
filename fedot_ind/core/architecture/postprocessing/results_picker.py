@@ -156,7 +156,6 @@ class ResultsPicker:
         for f in os.listdir(path):
             if os.path.isfile(path + '/' + f) and not f.startswith('.'):
                 path_list.append(f)
-
         return path_list
 
     def find_best_launch(self, launch_folders):
@@ -180,19 +179,9 @@ class ResultsPicker:
         return launch
 
     def get_datasets_info(self):
-
         table = pd.read_json(DS_INFO_PATH)
-
         table = table.drop([col for col in table.columns if len(
             col) == 1] + ['Dataset_id'], axis=1)
         table.columns = list(map(str.lower, table.columns))
         table.type = table.type.str.lower()
-
         return table
-
-
-# Example of usage:
-if __name__ == '__main__':
-    parser = ResultsPicker()
-    results_table = parser.run(get_metrics_df=True, add_info=True)
-    results_table.to_csv('results_4.csv', index=False)

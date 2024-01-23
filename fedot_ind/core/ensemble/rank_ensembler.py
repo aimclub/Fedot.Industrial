@@ -9,20 +9,19 @@ from fedot_ind.core.ensemble.base_ensembler import BaseEnsemble
 
 
 class RankEnsemble(BaseEnsemble):
-    """Class responsible for the results of ensemble models
-    by ranking them and recursively adding them to the final composite model.
+    """Class responsible for the results of ensemble models by ranking them and 
+    recursively adding them to the final composite model.
 
     Args:
         dataset_name: name of dataset
         proba_dict: dictionary with prediction probabilities
         metric_dict: dictionary with metrics
 
-    Attributes:
-
     """
 
     def __init__(self, dataset_name: str, proba_dict, metric_dict):
         super().__init__(dataset_name=dataset_name)
+        self.best_base_results = None
         self.proba_dict = proba_dict
         self.metric_dict = metric_dict
 
@@ -38,7 +37,6 @@ class RankEnsemble(BaseEnsemble):
                                        'ProductEnsemble': np.prod}
 
         self.ensemble_strategy = self.ensemble_strategy_dict.keys()
-
         self.strategy_exclude_list = ['WeightedEnsemble']
 
     def ensemble(self) -> dict:

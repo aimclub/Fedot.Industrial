@@ -4,7 +4,7 @@ from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
 
 if __name__ == "__main__":
-    dataset_name = 'Libras'
+    dataset_name = 'Epilepsy'
     industrial = FedotIndustrial(problem='classification',
                                  metric='f1',
                                  timeout=1,
@@ -17,7 +17,5 @@ if __name__ == "__main__":
 
     labels = industrial.predict(test_data)
 
-    #industrial.finetune(train_data)
+    # industrial.finetune(train_data)
     print(classification_report(test_data[1], labels, digits=4))
-    industrial.predict(test_data)
-

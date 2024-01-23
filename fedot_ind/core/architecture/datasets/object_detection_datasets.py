@@ -1,15 +1,16 @@
 """This module contains classes for object detection task based on torch dataset."""
 
-import os
 import json
-import yaml
-from typing import Tuple, Callable, Dict
+import os
+from typing import Callable, Dict, Tuple
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
+import yaml
 from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp',
                   '.pgm', '.tif', '.tiff', '.webp')
@@ -26,6 +27,7 @@ class COCODataset(Dataset):
         fix_zero_class: If ``True`` add 1 for each class label
             (0 represents always the background class).
         replace_to_binary: If ``True`` set label 1 for any class.
+
     """
 
     def __init__(
@@ -85,6 +87,7 @@ class COCODataset(Dataset):
             A tuple ``(image, targets)``, where image is image tensor,
                 and targets is dict with keys: ``'boxes'``, ``'labels'``,
                 ``'image_id'``, ``'area'``, ``'iscrowd'``.
+
         """
         sample = self.samples[idx]
         image = Image.open(sample['image']).convert('RGB')
@@ -118,6 +121,7 @@ class YOLODataset(Dataset):
             transformed version.
         train: If True, creates dataset from training set, otherwise creates from test set.
         replace_to_binary: If ``True`` set label 1 for any class.
+
     """
 
     def __init__(
@@ -157,6 +161,7 @@ class YOLODataset(Dataset):
             A tuple ``(image, targets)``, where image is image tensor,
                 and targets is dict with keys: ``'boxes'``, ``'labels'``,
                 ``'image_id'``, ``'area'``, ``'iscrowd'``.
+
         """
         sample = self.samples[idx]
         image = Image.open(sample['image']).convert('RGB')

@@ -4,7 +4,6 @@ from typing import Dict, List, Union
 from typing import Optional
 
 import matplotlib.patches as mpatches
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.data.data import InputData
@@ -19,6 +18,7 @@ from matplotlib import pyplot as plt
 
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 from fedot_ind.api.utils.saver_collections import ResultSaver
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -95,8 +95,7 @@ class TimeSeriesAnomalyDetectionPreset:
 
         """
         if is_fit_stage:
-            self.splitter = TSTransformer(
-                strategy='frequent')
+            self.splitter = TSTransformer()
             features, target = self.splitter.transform_for_fit(series=series,
                                                                anomaly_dict=anomaly_dict,
                                                                plot=False,

@@ -1,9 +1,10 @@
-from typing import Dict, Optional, Union, List, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import cv2
 import matplotlib.pyplot as plt
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 _PALETTE = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255), (128, 0, 0),
             (0, 128, 0), (128, 0, 128), (0, 128, 128), (0, 0,
@@ -38,6 +39,7 @@ def draw_sample_with_bboxes(
 
     Returns:
         `matplotlib.pyplot.Figure` of the image with bounding boxes.
+
     """
     assert prediction is not None or target is not None, "At least one parameter from 'target' and 'prediction' must not be None"
 
@@ -114,6 +116,7 @@ def draw_sample_with_masks(
 
     Returns:
         `matplotlib.pyplot.Figure` of the image with masks.
+
     """
     assert prediction is not None or target is not None, "At least one parameter from 'target' and 'prediction' must not be None"
 

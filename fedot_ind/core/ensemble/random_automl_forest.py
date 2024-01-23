@@ -1,18 +1,28 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
+from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-from fedot.core.data.multi_modal import MultiModalData
-from fedot_ind.core.repository.constanst_repository import FEDOT_TASK, FEDOT_HEAD_ENSEMBLE, FEDOT_ATOMIZE_OPERATION
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.repository.constanst_repository import FEDOT_ATOMIZE_OPERATION, FEDOT_HEAD_ENSEMBLE, FEDOT_TASK
 
 
 class RAFensembler:
+    """Class for ensemble of random automl forest
+
+    Args:
+        composing_params: dict with parameters for ensemble
+        ensemble_type: type of ensemble
+        n_splits: number of splits for ensemble
+        batch_size: size of batch for ensemble
+
+    """
     def __init__(self, composing_params,
                  ensemble_type: str = 'random_automl_forest',
                  n_splits: int = None,
                  batch_size: int = 1000):
 
+        self.current_pipeline = None
         ensemble_dict = {'random_automl_forest': self._raf_ensemble}
 
         self.task = FEDOT_TASK[composing_params['problem']]
