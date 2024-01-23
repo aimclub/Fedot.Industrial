@@ -97,9 +97,9 @@ class FedotConverter:
         if is_multivariate_data:
             input_data = InputData(idx=np.arange(len(features)),
                                    features=np.array(
-                                       features.values.tolist()).astype(np.float),
+                                       features.values.tolist()).astype(float),
                                    target=target.astype(
-                                       np.float).reshape(-1, 1),
+                                       float).reshape(-1, 1),
                                    task=task_dict[task],
                                    data_type=MULTI_ARRAY)
         else:

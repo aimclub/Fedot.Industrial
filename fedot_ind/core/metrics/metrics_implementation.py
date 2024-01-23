@@ -158,7 +158,7 @@ class Accuracy(QualityMetric):
 
 
 def calculate_regression_metric(test_target, labels):
-    test_target = test_target.astype(np.float)
+    test_target = test_target.astype(float)
     metric_dict = {'r2_score:': r2_score(test_target, labels),
                    'mean_squared_error:': mean_squared_error(test_target, labels),
                    'root_mean_squared_error:': np.sqrt(mean_squared_error(test_target, labels)),

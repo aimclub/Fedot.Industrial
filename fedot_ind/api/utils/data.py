@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
@@ -13,35 +15,35 @@ def check_multivariate_data(data: pd.DataFrame) -> bool:
         return False
 
 
-def init_input_data(X: pd.DataFrame, y: np.ndarray, task: str = 'classification') -> InputData:
+def init_input_data(X: pd.DataFrame, y: Optional[np.ndarray], task: str = 'classification') -> InputData:
     is_multivariate_data = check_multivariate_data(X)
     task_dict = {'classification': Task(TaskTypesEnum.classification),
                  'regression': Task(TaskTypesEnum.regression)}
     features = X.values
 
-    if type((y)[0]) is np.str_ and task == 'classification':
+    if y is not None and type((y)[0]) is np.str_ and task == 'classification':
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(y)
-    elif type((y)[0]) is np.str_ and task == 'regression':
+    elif y is not None and type((y)[0]) is np.str_ and task == 'regression':
         y = y.astype(float)
 
     if is_multivariate_data:
         input_data = InputData(idx=np.arange(len(X)),
-                               features=np.array(features.tolist()).astype(np.float),
-                               target=y.reshape(-1, 1),
+                               features=np.array(features.tolist()).astype(float),
+                               target=y.reshape(-1, 1) if y is not None else y,
                                task=task_dict[task],
                                data_type=DataTypesEnum.image)
     else:
         input_data = InputData(idx=np.arange(len(X)),
                                features=X.values,
-                               target=np.ravel(y).reshape(-1, 1),
+                               target=np.ravel(y).reshape(-1, 1) if y is not None else y,
                                task=task_dict[task],
                                data_type=DataTypesEnum.table)
-
-    if task == 'regression':
-        input_data.target = input_data.target.squeeze()
-    elif task == 'classification':
-        input_data.target[input_data.target == -1] = 0
+    if input_data.target is not None:
+        if task == 'regression':
+            input_data.target = input_data.target.squeeze()
+        elif task == 'classification':
+            input_data.target[input_data.target == -1] = 0
     input_data.features = np.where(np.isnan(input_data.features), 0, input_data.features)
     input_data.features = np.where(np.isinf(input_data.features), 0, input_data.features)
     return input_data

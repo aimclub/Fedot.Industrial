@@ -33,7 +33,7 @@ class DataCheck:
             if is_multivariate_data:
                 self.input_data = InputData(idx=np.arange(len(X)),
                                             features=np.array(
-                                                X.values.tolist()).astype(np.float),
+                                                X.values.tolist()).astype(float),
                                             target=y.reshape(-1, 1),
                                             task=self.task_dict[self.task],
                                             data_type=DataTypesEnum.image)

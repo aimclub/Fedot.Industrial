@@ -4,6 +4,7 @@ from multiprocessing import cpu_count
 
 import numpy as np
 import pywt
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 
@@ -148,6 +149,9 @@ class FedotOperationConstant(Enum):
                                 'knnreg',
                                 'kernel_pca',
                                 'isolation_forest_reg']
+
+    FEDOT_ASSUMPTIONS= {'classification': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
+                  'regression': PipelineBuilder().add_node('quantile_extractor').add_node('rf')}
 
 
 class ModelCompressionConstant(Enum):
@@ -366,6 +370,7 @@ FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
 FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value
 FEDOT_GET_METRICS = FedotOperationConstant.FEDOT_GET_METRICS.value
 FEDOT_TUNING_METRICS = FedotOperationConstant.FEDOT_TUNING_METRICS.value
+FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

@@ -4,7 +4,9 @@ from pathlib import Path
 from fedot.api.main import Fedot
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
+from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
@@ -13,10 +15,12 @@ from fedot_ind.core.architecture.abstraction.decorators import DaskServer
 from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
+from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, FEDOT_HEAD_ENSEMBLE, \
-    FEDOT_ATOMIZE_OPERATION
+    FEDOT_ATOMIZE_OPERATION, FEDOT_ASSUMPTIONS
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
@@ -79,7 +83,6 @@ class FedotIndustrial(Fedot):
                 logging.StreamHandler()
             ]
         )
-
         super(Fedot, self).__init__()
         self.logger = logging.getLogger('FedotIndustrialAPI')
         self.config_dict = None
@@ -94,6 +97,9 @@ class FedotIndustrial(Fedot):
         backend_method_current, backend_scipy_current = BackendMethods(self.backend_method).backend
         globals()['backend_methods'] = backend_method_current
         globals()['backend_scipy'] = backend_scipy_current
+        self.config_dict['available_operations'] = default_industrial_availiable_operation(kwargs['problem'])
+
+        self.config_dict['optimizer'] = IndustrialEvoOptimizer
 
     def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
@@ -105,7 +111,9 @@ class FedotIndustrial(Fedot):
             self.dask_client = DaskServer().client
             self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
             self.logger.info('Initialising solver')
+            self.config_dict['initial_assumption'] = FEDOT_ASSUMPTIONS[self.config_dict['problem']].build()
             solver = Fedot(**self.config_dict)
+            self.repo = IndustrialModels().setup_repository()
         return solver
 
     def shutdown(self):
@@ -190,7 +198,7 @@ class FedotIndustrial(Fedot):
 
     def finetune(self,
                  train_data,
-                 tuning_params,
+                 tuning_params=None,
                  mode: str = 'full'):
         """
         Method to obtain prediction probabilities from trained Industrial model.
@@ -205,44 +213,24 @@ class FedotIndustrial(Fedot):
 
         """
         train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
+        if tuning_params is None:
+            tuning_params = {}
         metric = FEDOT_TUNING_METRICS[self.config_dict['problem']]
-        tuning_method = SimultaneousTuner
-
-        if mode == 'head':
-            batch_pipelines = [automl_branch for automl_branch in self.current_pipeline.nodes if
-                               automl_branch.name in FEDOT_ATOMIZE_OPERATION.values()]
-
-            pr = PipelineNode(operation_type=FEDOT_HEAD_ENSEMBLE[self.config_dict['problem']],
-                              nodes_from=batch_pipelines,
-                              content={'params': self.config_dict,
-                                       'name': FEDOT_HEAD_ENSEMBLE[self.config_dict['problem']]})
-            composed_pipeline = Pipeline(pr)
-            composed_pipeline.fit(train_data)
-            self.current_pipeline = composed_pipeline
-        else:
-            pipeline_tuner = TunerBuilder(train_data.task) \
-                .with_tuner(tuning_method) \
-                .with_metric(metric) \
-                .with_timeout(tuning_params['tuning_timeout']) \
-                .with_early_stopping_rounds(tuning_params['tuning_early_stop']) \
-                .with_iterations(tuning_params['tuning_iterations']) \
-                .build(train_data)
-            self.current_pipeline = pipeline_tuner.tune(self.current_pipeline)
-            self.current_pipeline.fit(train_data)
-
-    def finetune_predict(self, test_data):
-        """
-        Method to obtain prediction probabilities from trained Industrial model.
-
-        Args:
-            test_features: raw test data
-
-        Returns:
-            the array with prediction probabilities
-
-        """
-        self.predict_data = DataCheck(input_data=test_data, task=self.config_dict['problem']).check_input_data()
-        return self.current_pipeline.predict(self.predict_data, 'labels').predict
+        pipeline_tuner = TunerBuilder(train_data.task) \
+            .with_tuner(SimultaneousTuner) \
+            .with_metric(metric) \
+            .with_timeout(tuning_params.get('tuning_timeout', 2)) \
+            .with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 5)) \
+            .with_iterations(tuning_params.get('tuning_iterations', 10)) \
+            .build(train_data)
+        if mode == 'full':
+            batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
+                               automl_branch.name in FEDOT_HEAD_ENSEMBLE]
+            for b_pipeline in batch_pipelines:
+                b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(b_pipeline.fitted_operation.current_pipeline)
+                b_pipeline.fitted_operation.current_pipeline.fit(train_data)
+        pipeline_tuner.tune(self.solver.current_pipeline)
+        self.solver.current_pipeline.fit(train_data)
 
     def get_metrics(self, target, labels, probs) -> dict:
         """
@@ -402,4 +390,3 @@ class FedotIndustrial(Fedot):
                                                            binarize=binarize)
 
         return train_data, test_data
-

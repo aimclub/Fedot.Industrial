@@ -194,9 +194,9 @@ from numpy.random import default_rng
 #                     df[col] = df[col].astype(np.int64)
 #
 #             else:
-#                 if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
-#                     df[col] = df[col].astype(np.float16)
-#                 elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+#                 if c_min > np.finfo(float16).min and c_max < np.finfo(float16).max:
+#                     df[col] = df[col].astype(float16)
+#                 elif c_min > np.finfo(float32).min and c_max < np.finfo(float32).max:
 #                     df[col] = df[col].astype(np.float32)
 #                 else:
 #                     pass

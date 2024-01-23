@@ -10,7 +10,7 @@ class BackendMethods:
         self.backend = self.define_backend(device_type)
 
     def define_backend(self, device_type: str = 'CUDA'):
-        if device_type == 'CUDA':
+        if device_type == 'CUDA_':
             import cupy, cupyx.scipy.linalg
             return cupy, cupyx.scipy.linalg
         else:
