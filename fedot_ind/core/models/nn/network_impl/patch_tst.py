@@ -81,7 +81,13 @@ class PatchTST(nn.Module):
 
 
 class PatchTSTModel(BaseNeuralModel):
-    """Class responsible for InceptionTime model implementation.
+    """Class responsible for PatchTST model implementation.
+    The PatchTST model was proposed in `A Time Series is Worth 64 Words: Long-term Forecasting
+    with Transformers by Yuqi Nie, Nam H. Nguyen, Phanwadee Sinthong and Jayant Kalagnanam.`
+
+    At a high level the model vectorizes time series into patches of a given size and
+    encodes the resulting sequence of vectors via a Transformer that then outputs the
+    prediction length forecast via an appropriate head.
 
     Attributes:
         self.num_features: int, the number of features.
@@ -101,6 +107,16 @@ class PatchTSTModel(BaseNeuralModel):
                 pipeline.fit(input_data)
                 target = pipeline.predict(val_data).predict
                 metric = evaluate_metric(target=test_data[1], prediction=target)
+
+    References:
+        @article{nie2022time,
+        title={A time series is worth 64 words: Long-term forecasting with transformers},
+        author={Nie, Yuqi and Nguyen, Nam H and Sinthong, Phanwadee and Kalagnanam, Jayant},
+        journal={arXiv preprint arXiv:2211.14730},
+        year={2022}
+        }
+
+        Original paper: https://arxiv.org/pdf/2211.14730.pdf
 
     """
 

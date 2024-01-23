@@ -3,12 +3,13 @@ for passing it to the prediction method of computer vision models.
 """
 
 import os
-from typing import Tuple, Callable
+from typing import Callable, Tuple
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp",
                   ".pgm", ".tif", ".tiff", ".webp")
@@ -19,6 +20,7 @@ class PredictionNumpyDataset(Dataset):
 
     Args:
         images: Numpy matrix of images.
+
     """
 
     def __init__(
@@ -36,6 +38,7 @@ class PredictionNumpyDataset(Dataset):
         Returns:
             A tuple ``(image, id)``, where image is image tensor,
                 and id is integer.
+
         """
         return self.images[idx], idx
 
@@ -51,6 +54,7 @@ class PredictionFolderDataset(Dataset):
         image_folder: Path to image folder.
         transform: A function/transform that takes in an PIL image and returns a
             transformed version.
+
     """
 
     def __init__(
@@ -75,6 +79,7 @@ class PredictionFolderDataset(Dataset):
         Returns:
             A tuple ``(image, id)``, where image is image tensor,
                 and id is file name.
+
         """
 
         image = Image.open(os.path.join(

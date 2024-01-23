@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch import Tensor
 
-from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Flatten_Head
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import FlattenHead
 from fedot_ind.core.models.nn.network_modules.layers.special import _TSTiEncoder, RevIN
 
 
@@ -21,7 +21,7 @@ class _PatchTST_backbone(nn.Module):
         self.revin_layer = RevIN(
             input_dim, affine=affine, subtract_last=subtract_last)
 
-        # # Patching
+        # Patching
         self.patch_len = patch_len
         self.stride = stride
         self.padding_patch = padding_patch
@@ -45,7 +45,7 @@ class _PatchTST_backbone(nn.Module):
         self.head_nf = d_model * patch_num
         self.n_vars = input_dim
         self.individual = individual
-        self.head = Flatten_Head(
+        self.head = FlattenHead(
             self.individual, self.n_vars, self.head_nf, pred_dim)
 
     def forward(self, z: Tensor):
@@ -53,7 +53,6 @@ class _PatchTST_backbone(nn.Module):
         Args:
             z: [batch_size x input_dim x seq_len]
         """
-
         # norm
         if self.revin:
             z = self.revin_layer(z, torch.tensor(True, dtype=torch.bool))

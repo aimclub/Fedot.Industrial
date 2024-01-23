@@ -6,23 +6,21 @@ import numpy as np
 import pywt
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
-
-from fedot_ind.core.metrics.metrics_implementation import calculate_regression_metric, calculate_classification_metric
-from fedot_ind.core.models.topological.topofeatures import *
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 from torch import nn
 
-from fedot_ind.core.models.nn.network_modules.losses import RMSELoss, SMAPELoss, TweedieLoss, FocalLoss, CenterPlusLoss, \
-    CenterLoss, MaskedLossWrapper, LogCoshLoss, HuberLoss, ExpWeightedLoss
-from fedot_ind.core.models.quantile.stat_features import q5, q25, q75, q95, skewness, kurtosis, n_peaks, slope, \
-    ben_corr, interquartile_range, energy, zero_crossing_rate, autocorrelation, shannon_entropy, ptp_amp, \
-    mean_ptp_distance, crest_factor, mean_ema, mean_moving_median, hjorth_mobility, hjorth_complexity, hurst_exponent, \
-    pfd
-from fedot_ind.core.models.topological.topofeatures import HolesNumberFeature, MaxHoleLifeTimeFeature, \
-    RelevantHolesNumber, AverageHoleLifetimeFeature, SumHoleLifetimeFeature, PersistenceEntropyFeature, \
-    SimultaneousAliveHolesFeature, AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, RadiusAtMaxBNFeature, \
-    PersistenceDiagramsExtractor
+from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
+from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
+    HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
+from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
+    hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
+    mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
+from fedot_ind.core.models.topological.topofeatures import *
+from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
+    AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
+    PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
+    SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 
 def beta_thr(beta):

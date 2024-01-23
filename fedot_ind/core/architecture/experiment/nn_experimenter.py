@@ -2,21 +2,21 @@
 import logging
 import os
 import shutil
-from functools import partial
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Type, Union
-from abc import ABC, abstractmethod
 
 import torch
 from torch.nn.functional import softmax
+from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau, LRScheduler
 from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.writers import CSVWriter, TFWriter, WriterComposer
 from fedot_ind.core.architecture.abstraction.сheckers import parameter_value_check
-from fedot_ind.core.metrics.cv_metrics import MetricCounter, ClassificationMetricCounter, LossesAverager, \
+from fedot_ind.core.metrics.cv_metrics import ClassificationMetricCounter, LossesAverager, MetricCounter, \
     ObjectDetectionMetricCounter, SegmentationMetricCounter
 
 

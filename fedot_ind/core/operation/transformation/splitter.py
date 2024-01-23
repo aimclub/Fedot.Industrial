@@ -3,17 +3,14 @@ import random
 from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class TSTransformer:
     """
     Class for transformation single time series based on anomaly dictionary.
-
-    Args:
-        strategy: strategy for splitting time series. Available strategies: 'frequent'.
-
 
     Attributes:
         selected_non_anomaly_intervals: list of non-anomaly intervals which were selected for splitting.
@@ -33,45 +30,31 @@ class TSTransformer:
 
         Split time series into train and test parts::
             from fedot_ind.core.operation.transformation.splitter import TSSplitter
-            splitter = TSSplitter(strategy='frequent')
+            splitter = TSSplitter()
             train, test = splitter.transform_for_fit(series=ts, anomaly_dict=anomaly_d_uni, plot=False, binarize=True)
 
     """
 
-    def __init__(self, strategy: str = 'frequent'):
-
-        self.strategy = strategy
+    def __init__(self):
         self.selected_non_anomaly_intervals = []
-        self.split_methods = {'frequent': self._frequent_strategy,
-                              'unique': self._unique_strategy}
         self.freq_length = None
 
     def __check_multivariate(self, time_series: np.ndarray):
         return isinstance(time_series, list) or (len(time_series.shape) > 1 and time_series.shape[1] > 1)
-
-    def transform_for_fit(self, **kwargs):
-        """ Splits data for train """
-        method = self.split_methods.get(self.strategy, None)
-        if method is None:
-            raise ValueError(
-                f'Unknown strategy {self.strategy} for splitting time series.')
-        return method(**kwargs)
 
     def transform(self, series: np.array):
         """ Split test data on subsequences"""
 
         return self._transform_test(series)
 
-    def _unique_strategy(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
-                         binarize: bool = False) -> tuple:
-        raise NotImplementedError
-
-    def _frequent_strategy(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
-                           binarize: bool = False) -> tuple:
+    def transform_for_fit(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
+                          binarize: bool = False) -> tuple:
         """
         Method for splitting time series into train and test parts based on most frequent anomaly length.
 
         Args:
+            anomaly_dict: dictionary with anomaly labels as keys and anomaly intervals as values.
+            series: time series to split.
             plot: if True, plot time series with anomaly intervals.
             binarize: if True, target will be binarized. Recommended for classification task if classes are imbalanced.
 
@@ -163,8 +146,9 @@ class TSTransformer:
             new_intervals.append(new_class_intervals)
         return new_intervals
 
-    def _split_by_intervals(self, series: np.array, classes: list, transformed_intervals: list) -> Tuple[
-            List[str], List[list]]:
+    def _split_by_intervals(self, series: np.array,
+                            classes: list,
+                            transformed_intervals: list) -> Tuple[List[str], List[list]]:
         all_labels, all_ts = [], []
 
         for i, label in enumerate(classes):

@@ -156,7 +156,6 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=target, y_pred=prediction)
 
 
-
 def calculate_regression_metric(test_target, labels):
     test_target = test_target.astype(np.float)
     metric_dict = {'r2_score:': r2_score(test_target, labels),

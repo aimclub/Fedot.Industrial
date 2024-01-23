@@ -12,7 +12,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 class ScaledDotProductAttention(Module):
     """Scaled Dot-Product Attention module (Attention is all you need by Vaswani et al., 2017) with optional residual
     attention from previous layer (Realformer: Transformer likes residual attention by He et al, 2020) and locality
-    self sttention (Vision Transformer for Small-Size Datasets by Lee et al, 2021)
+    self attention (Vision Transformer for Small-Size Datasets by Lee et al, 2021)
 
     """
 
@@ -27,18 +27,20 @@ class ScaledDotProductAttention(Module):
     def forward(self, q: Tensor, k: Tensor, v: Tensor, prev: Optional[Tensor] = None,
                 key_padding_mask: Optional[Tensor] = None, attn_mask: Optional[Tensor] = None):
         """
-        Input shape:
-            q               : [bs x n_heads x max_q_len x d_k]
-            k               : [bs x n_heads x d_k x seq_len]
-            v               : [bs x n_heads x seq_len x d_v]
-            prev            : [bs x n_heads x q_len x seq_len]
-            key_padding_mask: [bs x seq_len]
-            attn_mask       : [1 x seq_len x seq_len]
+        Method for forward pass of scaled dot-product attention.
 
-        Output shape:
-            output:  [bs x n_heads x q_len x d_v]
-            attn   : [bs x n_heads x q_len x seq_len]
-            scores : [bs x n_heads x q_len x seq_len]
+        Args:
+            q: [bs x n_heads x max_q_len x d_k]
+            k: [bs x n_heads x d_k x seq_len]
+            v: [bs x n_heads x seq_len x d_v]
+            prev: [bs x n_heads x q_len x seq_len]
+            key_padding_mask: [bs x seq_len]
+            attn_mask: [1 x seq_len x seq_len]
+
+        Returns:
+            output: [bs x n_heads x max_q_len x d_v]
+            attn: [bs x n_heads x max_q_len x seq_len]
+            scores: [bs x n_heads x max_q_len x seq_len]
 
         """
 
@@ -91,10 +93,17 @@ class MultiHeadAttention(Module):
                  lsa=False):
         """Multi Head Attention Layer
 
-        Input shape:
-            Q:       [batch_size (bs) x max_q_len x d_model]
-            K, V:    [batch_size (bs) x q_len x d_model]
-            mask:    [q_len x q_len]
+        Args:
+            d_model: model dimensionality
+            n_heads: number of heads
+            d_k: dimensionality of K and Q
+            d_v: dimensionality of V
+            res_attention: whether to use residual attention from previous layer
+            attn_dropout: dropout for attention weights
+            proj_dropout: dropout for output
+            qkv_bias: whether to use bias for q, k, v projections
+            lsa: whether to use learnable scale for attention scores
+
         """
 
         if d_k is None:

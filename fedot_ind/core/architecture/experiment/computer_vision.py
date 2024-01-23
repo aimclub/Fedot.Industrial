@@ -1,13 +1,13 @@
 """This module contains the class and functions for integrating the computer vision module into the framework API."""
-import os
-from typing import Callable, Dict, Optional, Tuple
-from functools import partial
 import logging
+import os
+from functools import partial
+from typing import Callable, Dict, Optional, Tuple
 from urllib.error import URLError
 
 import torch
-from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet18
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large

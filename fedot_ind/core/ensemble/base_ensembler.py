@@ -6,9 +6,12 @@ dict_of_win_list = dict
 
 
 class BaseEnsemble:
-    """
-    Abstract class responsible for models ensemble
-        :param models_dict: dict that consists of 'feature_generator_method': model_class pairs
+    """Abstract class responsible for models ensemble
+
+    Args:
+        dataset_name: name of dataset
+        feature_generator_dict: dict with feature generators
+
     """
 
     def __init__(self, dataset_name: str = None,

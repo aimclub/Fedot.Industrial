@@ -16,15 +16,24 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 class MiniRocketFeatures(nn.Module):
     """This is a Pytorch implementation of MiniRocket developed by Malcolm McLean and Ignacio Oguiza
 
-    MiniRocket paper citation:
-    @article{dempster_etal_2020,
-      author  = {Dempster, Angus and Schmidt, Daniel F and Webb, Geoffrey I},
-      title   = {{MINIROCKET}: A Very Fast (Almost) Deterministic Transform for Time Series Classification},
-      year    = {2020},
-      journal = {arXiv:2012.08791}
-    }
-    Original paper: https://arxiv.org/abs/2012.08791
-    Original code:  https://github.com/angus924/minirocket"""
+    Args:
+        input_dim (int): Number of input time series.
+        seq_len (int): Length of input time series.
+        num_features (int): Number of features to generate.
+        max_dilations_per_kernel (int): Maximum number of dilations per kernel.
+        random_state (int): Random state.
+
+    References:
+        @article{dempster_etal_2020,
+          author  = {Dempster, Angus and Schmidt, Daniel F and Webb, Geoffrey I},
+          title   = {{MINIROCKET}: A Very Fast (Almost) Deterministic Transform for Time Series Classification},
+          year    = {2020},
+          journal = {arXiv:2012.08791}
+        }
+        Original paper: https://arxiv.org/abs/2012.08791
+        Original code:  https://github.com/angus924/minirocket
+
+    """
 
     kernel_size, num_kernels, fitting = 9, 84, False
 

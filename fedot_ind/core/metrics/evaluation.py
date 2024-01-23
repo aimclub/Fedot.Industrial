@@ -36,7 +36,7 @@ class PerformanceAnalyzer:
         if task_type == 'classification':
             return ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
         elif task_type == 'regression':
-            return ['rmse', 'r2']
+            return ['rmse', 'r2', 'mae', 'mse', 'mape']
         else:
             return None
 

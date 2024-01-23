@@ -43,7 +43,7 @@ class ExpWeightedLoss(nn.Module):
         super().__init__()
 
     def forward(self,
-                input: Tensor,
+                input_: Tensor,
                 target: Tensor) -> torch.Tensor:
         """ Computes causal loss, which is calculated with weights matrix:
         W = exp(-tol*(Loss_i)) where Loss_i is sum of the L2 loss from 0
@@ -51,19 +51,15 @@ class ExpWeightedLoss(nn.Module):
         of the DE independent parameter is time.
 
         Args:
-            operator (torch.Tensor): operator calc-n result.
-            For more details to eval module -> operator_compute().
-            bval (torch.Tensor): calculated values of boundary conditions.
-            true_bval (torch.Tensor): true values of boundary conditions.
-            lambda_op (torch.Tensor): regularization parameter for operator term in loss.
-            lambda_bound (torch.Tensor): regularization parameter for boundary term in loss.
+            input_ (torch.Tensor): predicted values.
+            target (torch.Tensor): target values.
 
         Returns:
             loss (torch.Tensor): loss.
             loss_normalized (torch.Tensor): loss, where regularization parameters are 1.
         """
         # res = torch.sum(input ** 2, dim=0).reshape(self.n_t, -1)
-        res = torch.mean(input, axis=0).reshape(self.n_t, -1)
+        res = torch.mean(input_, axis=0).reshape(self.n_t, -1)
         target = torch.mean(target, axis=0).reshape(self.n_t, -1)
         m = torch.triu(torch.ones((self.n_t, self.n_t),
                        dtype=res.dtype), diagonal=1).T.to(default_device())
@@ -136,8 +132,8 @@ class MaskedLossWrapper(Module):
 
 
 class CenterLoss(Module):
-    r"""
-    Code in Pytorch has been slightly modified from: https://github.com/KaiyangZhou/pytorch-center-loss/blob/master/center_loss.py
+    """Code in Pytorch has been slightly modified from:
+    https://github.com/KaiyangZhou/pytorch-center-loss/blob/master/center_loss.py
     Based on paper: Wen et al. A Discriminative Feature Learning Approach for Deep Face Recognition. ECCV 2016.
 
     Args:

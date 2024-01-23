@@ -1,8 +1,5 @@
-from itertools import chain
-
 import torch
 from fastcore.basics import defaults
-
 
 
 class BackendMethods:
@@ -30,24 +27,22 @@ backend_methods, backend_scipy = BackendMethods().backend
 def global_imports(object_name: str,
                    short_name: str = None,
                    context_module_name: str = None):
-    """import from local function as global import
-
-    Use this statement to import inside a function,
-    but effective as import at the top of the module.
+    """Imports from local function as global import. Use this statement to import inside
+    a function, but effective as import at the top of the module.
 
     Args:
-        object_name: the object name want to import,
-                     could be module or function
+        object_name: the object name want to import, could be module or function
         short_name: the short name for the import
         context_module_name: the context module name in the import
 
-    example usage:
-    import os -> global_imports("os")
-    from fedot_ind.core.architecture.settings.computational import backend_methods as np -> global_imports("numpy", "np")
-    from collections import Counter ->
-        global_imports("Counter", None, "collections")
-    from google.cloud import storage ->
-        global_imports("storage", None, "google.cloud")
+    Examples:
+        Do this::
+            import os -> global_imports("os")
+            from fedot_ind.core.architecture.settings.computational import backend_methods as np -> global_imports("numpy", "np")
+            from collections import Counter ->
+                global_imports("Counter", None, "collections")
+            from google.cloud import storage ->
+                global_imports("storage", None, "google.cloud")
 
     """
 
@@ -62,7 +57,15 @@ def global_imports(object_name: str,
 
 
 def default_device(device_type: str = 'CUDA'):
-    "Return or set default device; `use_cuda`: -1 - CUDA/mps if available; True - error if not available; False - CPU"
+    """Return or set default device. Modified from fastai.
+
+    Args:
+        device_type: 'CUDA' or 'CPU' or None (default: 'CUDA'). If None, use CUDA if available, else CPU.
+
+    Returns:
+        torch.device: The default device: CUDA if available, else CPU.
+
+    """
     if device_type == 'CUDA':
         device_type = defaults.use_cuda
     else:

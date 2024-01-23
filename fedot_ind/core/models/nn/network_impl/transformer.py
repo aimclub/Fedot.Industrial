@@ -10,7 +10,7 @@ from .base_nn_model import BaseNeuralModel
 from ..network_modules.layers.linear_layers import Max, Permute, Transpose
 
 
-class TransformerModel(Module):
+class TransformerModule(Module):
     def __init__(self,
                  input_dim,
                  output_dim,
@@ -25,11 +25,11 @@ class TransformerModel(Module):
             input_dim: the number of features (aka variables, dimensions, channels) in the time series dataset
             output_dim: the number of target classes
             d_model: total dimension of the model.
-            nhead:  parallel attention heads.
+            n_head: parallel attention layers.
             d_ffn: the dimension of the feedforward network model.
             dropout: a Dropout layer on attn_output_weights.
             activation: the activation function of intermediate layer, relu or gelu.
-            num_layers: the number of sub-encoder-layers in the encoder.
+            n_layers: the number of sub-encoder-layers in the encoder.
 
         Input shape:
             bs (batch size) x nvars (aka variables, dimensions, channels) x seq_len (aka time steps)
@@ -61,7 +61,7 @@ class TransformerModel(Module):
 
 
 class TransformerModel(BaseNeuralModel):
-    """Class responsible for InceptionTime model implementation.
+    """Class responsible for Transformer model implementation.
 
        Attributes:
            self.num_features: int, the number of features.
@@ -76,7 +76,7 @@ class TransformerModel(BaseNeuralModel):
                input_data = init_input_data(train_data[0], train_data[1])
                val_data = init_input_data(test_data[0], test_data[1])
                with IndustrialModels():
-                   pipeline = PipelineBuilder().add_node('inception_model', params={'epochs': 100,
+                   pipeline = PipelineBuilder().add_node('tst_model', params={'epochs': 100,
                                                                                     'batch_size': 10}).build()
                    pipeline.fit(input_data)
                    target = pipeline.predict(val_data).predict
@@ -90,8 +90,8 @@ class TransformerModel(BaseNeuralModel):
         self.batch_size = params.get('batch_size', 20)
 
     def _init_model(self, ts):
-        self.model = TransformerModel(input_dim=ts.features.shape[1],
-                                      output_dim=self.num_classes).to(default_device())
+        self.model = TransformerModule(input_dim=ts.features.shape[1],
+                                       output_dim=self.num_classes).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         loss_fn = nn.CrossEntropyLoss()
         return loss_fn, optimizer

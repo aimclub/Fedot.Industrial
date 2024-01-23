@@ -11,6 +11,7 @@ class Writer:
 
     Args:
         path: Path for recording metrics.
+
     """
 
     def __init__(self, path: Union[str, Path]) -> None:
@@ -28,6 +29,7 @@ class Writer:
             phase: Experiment phase for grouping records, e.g. 'train'.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
+
         """
         raise NotImplementedError
 
@@ -41,6 +43,7 @@ class TFWriter(Writer):
 
     Args:
         path: Path for recording metrics.
+
     """
 
     def __init__(self, path: Union[str, Path]) -> None:
@@ -59,6 +62,7 @@ class TFWriter(Writer):
             phase: Experiment phase for grouping records, e.g. 'train'.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
+
         """
         for key, score in scores.items():
             self.writer.add_scalar(f"{phase}/{key}", score, x)
@@ -69,10 +73,11 @@ class TFWriter(Writer):
 
 
 class CSVWriter(Writer):
-    """Сlass for writing metrics using Pandas .
+    """Сlass for writing metrics using Pandas.
 
     Args:
         path: Path for recording metrics.
+
     """
 
     def __init__(self, path: Union[str, Path]):
@@ -91,6 +96,7 @@ class CSVWriter(Writer):
             phase: Experiment phase for grouping records, used as csv filename.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
+
         """
         data = pd.DataFrame(data=scores, index=[x])
         path = os.path.join(self.path, f'{phase}.csv')
@@ -106,6 +112,7 @@ class WriterComposer(Writer):
     Args:
         path: Path for recording metrics.
         writers: Types of used writers.
+
     """
 
     def __init__(self, path: Union[str, Path], writers: List[Type[Writer]]) -> None:
@@ -124,6 +131,7 @@ class WriterComposer(Writer):
             phase: Experiment phase for grouping records, used as csv filename.
             scores: Dictionary {metric_name: value}.
             x: The independent variable.
+
         """
         for writer in self.writers:
             writer.write_scores(phase=phase, scores=scores, x=x)
