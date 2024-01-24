@@ -16,7 +16,9 @@ if __name__ == "__main__":
     model = industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
-    # probas = industrial.predict_proba(test_data)
-
+    probs = industrial.predict_proba(test_data)
+    metrics = industrial.get_metrics(target=test_data[1],
+                                     rounding_order=3,
+                                     metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
     # industrial.finetune(train_data)
     print(classification_report(test_data[1], labels, digits=4))

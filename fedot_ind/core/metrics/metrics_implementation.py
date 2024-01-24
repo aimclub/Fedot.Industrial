@@ -1,20 +1,17 @@
 from typing import Union
-from sklearn.metrics import explained_variance_score, max_error, mean_absolute_error, \
-    mean_squared_error, d2_absolute_error_score, \
-    median_absolute_error, r2_score
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
 import pandas as pd
 from sklearn.metrics import (accuracy_score, f1_score,
                              log_loss, mean_absolute_error,
                              mean_absolute_percentage_error,
                              mean_squared_error, mean_squared_log_error,
                              precision_score, r2_score, roc_auc_score)
+from sklearn.metrics import d2_absolute_error_score, explained_variance_score, max_error, median_absolute_error
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class ParetoMetrics:
-    def __init__(self):
-        pass
-
     def pareto_metric_list(self, costs: Union[list, np.ndarray], maximise: bool = True) -> np.ndarray:
         """ Calculates the pareto front for a list of costs.
 
@@ -43,7 +40,7 @@ class QualityMetric:
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
-                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                         'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         self.predicted_labels = np.array(predicted_labels).flatten()
@@ -77,16 +74,13 @@ class MAPE(QualityMetric):
 
 class F1(QualityMetric):
     def metric(self) -> float:
-        target = self.target
-        prediction = self.predicted_labels
-        self.default_value = 0.0
-        n_classes = len(np.unique(target))
-        n_classes_pred = len(np.unique(prediction))
+        n_classes = len(np.unique(self.target))
+        n_classes_pred = len(np.unique(self.predicted_labels))
         try:
             if n_classes > 2 or n_classes_pred > 2:
-                return f1_score(y_true=target, y_pred=prediction, average='weighted')
+                return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='weighted')
             else:
-                return f1_score(y_true=target, y_pred=prediction, average='binary')
+                return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='binary')
         except ValueError:
             return self.default_value
 
@@ -105,7 +99,6 @@ class ROCAUC(QualityMetric):
     def metric(self) -> float:
         n_classes = len(np.unique(self.target))
 
-        self.default_value = 0.5
         if n_classes > 2:
             target = pd.get_dummies(self.target)
             additional_params = {'multi_class': 'ovr', 'average': 'macro'}
@@ -127,55 +120,66 @@ class ROCAUC(QualityMetric):
 
 class Precision(QualityMetric):
     def metric(self) -> float:
-        target = self.target
-        prediction = self.predicted_labels
-
-        n_classes = np.unique(target)
+        n_classes = np.unique(self.target)
         if n_classes.shape[0] >= 2:
             additional_params = {'average': 'macro'}
         else:
             additional_params = {}
 
         score = precision_score(
-            y_pred=prediction, y_true=target, **additional_params)
+            y_pred=self.predicted_labels, y_true=self.target, **additional_params)
         score = round(score, 3)
         return score
 
 
 class Logloss(QualityMetric):
     def metric(self) -> float:
-        target = self.target
-        prediction = self.predicted_probs
-        return log_loss(y_true=target, y_pred=prediction)
+        return log_loss(y_true=self.target, y_pred=self.predicted_probs)
 
 
 class Accuracy(QualityMetric):
     def metric(self) -> float:
-        target = self.target
-        prediction = self.predicted_labels
-        return accuracy_score(y_true=target, y_pred=prediction)
+        return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
-def calculate_regression_metric(test_target, labels):
-    test_target = test_target.astype(float)
-    metric_dict = {'r2_score:': r2_score(test_target, labels),
-                   'mean_squared_error:': mean_squared_error(test_target, labels),
-                   'root_mean_squared_error:': np.sqrt(mean_squared_error(test_target, labels)),
-                   'mean_absolute_error': mean_absolute_error(test_target, labels),
-                   'median_absolute_error': median_absolute_error(test_target, labels),
-                   'explained_variance_score': explained_variance_score(test_target, labels),
-                   'max_error': max_error(test_target, labels),
-                   'd2_absolute_error_score': d2_absolute_error_score(test_target, labels)
-                   }
-    df = pd.DataFrame.from_dict(metric_dict, orient='index')
-    return df
+def calculate_regression_metric(target,
+                                labels,
+                                rounding_order=3,
+                                metric_names=('r2', 'rmse', 'mae')):
+    target = target.astype(float)
+
+    def rmse(y_true, y_pred):
+        return np.sqrt(mean_squared_error(y_true, y_pred))
+
+    metric_dict = {'r2': r2_score,
+                   'mse': mean_squared_error,
+                   'rmse': rmse,
+                   'mae': mean_absolute_error,
+                   'msle': mean_squared_log_error,
+                   'mape': mean_absolute_percentage_error,
+                   'median_absolute_error': median_absolute_error,
+                   'explained_variance_score': explained_variance_score,
+                   'max_error': max_error,
+                   'd2_absolute_error_score': d2_absolute_error_score}
+
+    df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
+                       if name in metric_names},
+                      index=[0])
+    return df.round(rounding_order)
 
 
-def calculate_classification_metric(test_target, labels, probs):
+def calculate_classification_metric(target,
+                                    labels,
+                                    probs,
+                                    rounding_order=3,
+                                    metric_names=('f1', 'roc_auc', 'accuracy')):
+    metric_dict = {'accuracy': Accuracy,
+                   'f1': F1,
+                   'roc_auc': ROCAUC,
+                   'precision': Precision,
+                   'logloss': Logloss}
 
-    metric_dict = {'accuracy:': Accuracy(test_target, labels, probs).metric(),
-                   'f1': F1(test_target, labels, probs).metric(),
-                   'roc_auc:': ROCAUC(test_target, labels, probs).metric()
-                   }
-    df = pd.DataFrame.from_dict(metric_dict, orient='index')
-    return df
+    df = pd.DataFrame({name: func(target, labels, probs).metric() for name, func in metric_dict.items()
+                       if name in metric_names},
+                      index=[0])
+    return df.round(rounding_order)
