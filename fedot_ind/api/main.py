@@ -178,8 +178,8 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict(self.predict_data) if type(self.solver) is Fedot else \
-            self.solver.predict(self.predict_data, output_mode='labels').predict
+        predict = self.solver.predict(self.predict_data)
+        return predict if isinstance(self.solver, Fedot) else predict.predict
 
     def predict_proba(self,
                       predict_data,
@@ -196,42 +196,43 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict_proba(self.predict_data) if type(self.solver) is Fedot else \
-            self.solver.predict(self.predict_data, output_mode='probs').predict
+        proba = self.solver.predict_proba(self.predict_data)
+        return proba if isinstance(self.solver, Fedot) else proba.predict_proba
+
 
     def finetune(self,
-                 train_data,
-                 tuning_params=None,
-                 mode: str = 'full'):
-        """
-        Method to obtain prediction probabilities from trained Industrial model.
+                     train_data,
+                     tuning_params=None,
+                     mode: str = 'full'):
+            """
+            Method to obtain prediction probabilities from trained Industrial model.
 
-        Args:
-            train_data: raw train data
-            tuning_params: dictionary with tuning parameters
-            mode: str, ``default='full'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
+            Args:
+                train_data: raw train data
+                tuning_params: dictionary with tuning parameters
+                mode: str, ``default='full'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
 
-        """
+            """
 
-        train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
-        if tuning_params is None:
-            tuning_params = {}
-        metric = FEDOT_TUNING_METRICS[self.config_dict['problem']]
-        pipeline_tuner = TunerBuilder(train_data.task) \
-            .with_tuner(SimultaneousTuner) \
-            .with_metric(metric) \
-            .with_timeout(tuning_params.get('tuning_timeout', 2)) \
-            .with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 5)) \
-            .with_iterations(tuning_params.get('tuning_iterations', 10)) \
-            .build(train_data)
-        if mode == 'full':
-            batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
-                               automl_branch.name in FEDOT_HEAD_ENSEMBLE]
-            for b_pipeline in batch_pipelines:
-                b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(b_pipeline.fitted_operation.current_pipeline)
-                b_pipeline.fitted_operation.current_pipeline.fit(train_data)
-        pipeline_tuner.tune(self.solver.current_pipeline)
-        self.solver.current_pipeline.fit(train_data)
+            train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
+            if tuning_params is None:
+                tuning_params = {}
+            metric = FEDOT_TUNING_METRICS[self.config_dict['problem']]
+            pipeline_tuner = TunerBuilder(train_data.task) \
+                .with_tuner(SimultaneousTuner) \
+                .with_metric(metric) \
+                .with_timeout(tuning_params.get('tuning_timeout', 2)) \
+                .with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 5)) \
+                .with_iterations(tuning_params.get('tuning_iterations', 10)) \
+                .build(train_data)
+            if mode == 'full':
+                batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
+                                   automl_branch.name in FEDOT_HEAD_ENSEMBLE]
+                for b_pipeline in batch_pipelines:
+                    b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(b_pipeline.fitted_operation.current_pipeline)
+                    b_pipeline.fitted_operation.current_pipeline.fit(train_data)
+            pipeline_tuner.tune(self.solver.current_pipeline)
+            self.solver.current_pipeline.fit(train_data)
 
     def get_metrics(self, target, labels, probs) -> dict:
         return FEDOT_GET_METRICS[self.config_dict['problem']](target, labels, probs)
