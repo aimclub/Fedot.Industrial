@@ -178,8 +178,8 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict(self.predict_data, output_mode='labels') if type(self.solver) is Fedot else \
-            self.solver.predict(self.predict_data, output_mode='labels').predict
+        predict = self.solver.predict(self.predict_data)
+        return predict if isinstance(self.solver, Fedot) else predict.predict
 
     def predict_proba(self,
                       predict_data,
@@ -196,8 +196,8 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict_proba(self.predict_data) if type(self.solver) is Fedot else \
-            self.solver.predict(self.predict_data, output_mode='probs').predict
+        proba = self.solver.predict_proba(self.predict_data)
+        return proba if isinstance(self.solver, Fedot) else proba.predict_proba
 
     def finetune(self,
                  train_data,
