@@ -178,7 +178,7 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict(self.predict_data, output_mode='labels') if type(self.solver) is Fedot else \
+        return self.solver.predict(self.predict_data) if type(self.solver) is Fedot else \
             self.solver.predict(self.predict_data, output_mode='labels').predict
 
     def predict_proba(self,

@@ -7,7 +7,7 @@ if __name__ == "__main__":
     dataset_name = 'Epilepsy'
     industrial = FedotIndustrial(problem='classification',
                                  metric='f1',
-                                 timeout=1,
+                                 timeout=5,
                                  n_jobs=2,
                                  logging_level=20)
 

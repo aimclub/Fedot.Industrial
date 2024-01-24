@@ -148,8 +148,8 @@ class FedotOperationConstant(Enum):
                                 'kernel_pca',
                                 'isolation_forest_reg']
 
-    FEDOT_ASSUMPTIONS= {'classification': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
-                  'regression': PipelineBuilder().add_node('quantile_extractor').add_node('rf')}
+    FEDOT_ASSUMPTIONS = {'classification': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
+                         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg')}
 
 
 class ModelCompressionConstant(Enum):

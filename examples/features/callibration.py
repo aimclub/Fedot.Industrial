@@ -1,12 +1,8 @@
 import numpy as np
-from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.pipelines.pipeline import Pipeline
-from matplotlib import pyplot as plt
-from sklearn import metrics
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
-
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.tools.loader import DataLoader
@@ -35,7 +31,7 @@ if __name__ == "__main__":
     dataset_name = 'Libras'
     industrial = FedotIndustrial(problem='classification',
                                  metric='f1',
-                                 timeout=30,
+                                 timeout=2,
                                  n_jobs=2,
                                  logging_level=20)
 
