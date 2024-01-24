@@ -16,6 +16,7 @@ if __name__ == "__main__":
     model = industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
+    # probas = industrial.predict_proba(test_data)
 
     # industrial.finetune(train_data)
     print(classification_report(test_data[1], labels, digits=4))
