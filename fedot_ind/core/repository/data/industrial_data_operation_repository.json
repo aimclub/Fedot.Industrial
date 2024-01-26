@@ -190,15 +190,6 @@
         "basis"
       ]
     },
-    "topological_extractor": {
-      "meta": "industrial_preprocessing",
-      "presets": [
-        "fast_train","best_quality","ts"
-      ],
-      "tags": [
-        "extractor"
-      ]
-    },
     "quantile_extractor": {
       "meta": "industrial_preprocessing",
       "presets": [

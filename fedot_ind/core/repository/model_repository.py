@@ -53,6 +53,9 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     NonLinearClassFSImplementation, LinearClassFSImplementation
+from fedot.core.operations.evaluation.operation_implementations.\
+    data_operations.topological.fast_topological_extractor import \
+    FastTopologicalFeaturesImplementation
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
@@ -66,7 +69,8 @@ TEMPORARY_EXCLUDED = {
     },
     'FEDOT_PREPROC_MODEL': {'pca': PCAImplementation,
                             'fast_ica': FastICAImplementation,
-                            'poly_features': PolyFeaturesImplementation
+                            'poly_features': PolyFeaturesImplementation,
+                            'topological_extractor': TopologicalExtractor,
                             },
     'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
                                  'dimension_reduction': FeatureFilter},
@@ -113,7 +117,7 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        'topological_features': TopologicalFeaturesImplementation,
+        'topological_features': FastTopologicalFeaturesImplementation,
         # categorical encoding
         'one_hot_encoding': OneHotEncodingImplementation,
         'label_encoding': LabelEncodingImplementation
@@ -124,7 +128,7 @@ class AtomizedModel(Enum):
         'wavelet_basis': WaveletBasisImplementation,
         'fourier_basis': FourierBasisImplementation,
         # feature extraction algorithm
-        'topological_extractor': TopologicalExtractor,
+
         'quantile_extractor': QuantileExtractor,
         'signal_extractor': SignalExtractor,
         'recurrence_extractor': RecurrenceExtractor,

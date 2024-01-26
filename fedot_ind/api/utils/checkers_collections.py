@@ -40,6 +40,27 @@ class DataCheck:
         self.task = task
         self.task_dict = FEDOT_TASK
 
+    def __check_features_and_target(self, X, y):
+        multi_features = type(X) is np.ndarray and len(X.shape) > 2
+        multi_target = len(y.shape) > 1 and y.shape[1] > 2
+
+        if multi_features:
+            is_multivariate_data = True
+            features = X
+        elif type(X) is not pd.DataFrame:
+            X = pd.DataFrame(X)
+            is_multivariate_data = check_multivariate_data(X)
+            features = np.array(X.values.tolist()).astype(np.float)
+
+        if multi_target:
+            target = y
+        elif multi_features and not multi_target:
+            target = y.reshape(-1, 1)
+        else:
+            target = np.ravel(y).reshape(-1, 1)
+
+        return features, is_multivariate_data, target
+
     def _init_input_data(self) -> None:
         """Initializes the `input_data` attribute based on its type.
 
@@ -54,30 +75,24 @@ class DataCheck:
         is_multivariate_data = False
         if isinstance(self.input_data, tuple):
             X, y = self.input_data[0], self.input_data[1]
-            if type(X) is np.ndarray and len(X.shape) > 2:
-                is_multivariate_data = True
-                features = X
-            elif type(X) is not pd.DataFrame:
-                X = pd.DataFrame(X)
-                is_multivariate_data = check_multivariate_data(X)
-                features = np.array(X.values.tolist()).astype(np.float)
+            features, is_multivariate_data, target = self.__check_features_and_target(X, y)
 
         if is_multivariate_data:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=features,
-                                        target=y.reshape(-1, 1),
+                                        target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
         elif self.task == 'ts_forecasting':
             if type(self.input_data) is pd.DataFrame:
                 features_array = np.array(self.input_data.values)
             self.input_data = InputData.from_numpy_time_series(features_array=features_array)
-            #self.input_data.data_type = DataTypesEnum.image
+            # self.input_data.data_type = DataTypesEnum.image
 
         else:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=X.values,
-                                        target=np.ravel(y).reshape(-1, 1),
+                                        target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
 
@@ -101,7 +116,8 @@ class DataCheck:
         - Converts features to torch format using NumpyConverter.
 
         """
-        if self.input_data.target is not None and type(self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
+        if self.input_data.target is not None and type(
+                self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
         if self.task == 'regression':

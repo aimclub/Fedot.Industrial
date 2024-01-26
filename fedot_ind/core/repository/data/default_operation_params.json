@@ -180,11 +180,6 @@
     "wavelet": "mexh",
     "n_components": 2
   },
-  "topological_extractor": {
-    "max_te_dimension": 5,
-    "max_te_time_delay": 2,
-    "stride": 1
-  },
   "ssa_forecaster": {
     "window_size_method": "hac"
   },
@@ -227,5 +222,11 @@
     "grouping_level": 0.4,
     "fourier_approximation": "exact",
     "explained_dispersion": 0.9
+  },
+  "topological_features": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
   }
 }
