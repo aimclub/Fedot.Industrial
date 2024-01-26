@@ -225,6 +225,10 @@ class TensorConverter:
 class NumpyConverter:
     def __init__(self, data):
         self.numpy_data = self.convert_to_array(data)
+        self.numpy_data = np.where(
+            np.isnan(self.numpy_data), 0, self.numpy_data)
+        self.numpy_data = np.where(
+            np.isinf(self.numpy_data), 0, self.numpy_data)
 
     def convert_to_array(self, data):
         if isinstance(data, np.ndarray):

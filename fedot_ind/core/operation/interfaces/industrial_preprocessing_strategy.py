@@ -39,14 +39,17 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         return converted_data
 
     def __operation_multidim_adapter(self, trained_operation, predict_data):
-        if type(trained_operation) is list:
-            prediction = self._predict_for_ndim(
-                predict_data, trained_operation)
-        else:
-            try:
-                prediction = trained_operation.transform(predict_data.features)
-            except Exception:
+        model_impl = trained_operation[0]
+        list_container = type(trained_operation) is not list
+
+        if list_container:
+            fedot_data_type = len(signature(model_impl.transform).parameters) == 1
+            if fedot_data_type:
                 prediction = trained_operation.transform(predict_data)
+            else:
+                prediction = trained_operation.transform(predict_data.features)
+        else:
+            prediction = self._predict_for_ndim(predict_data, trained_operation)
         return prediction
 
     def _convert_to_output(self,
@@ -101,39 +104,42 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         return FedotConverter(train_data).convert_to_industrial_composing_format(convertion)
 
     def _predict_for_ndim(self, predict_data, trained_operation):
-        if type(predict_data) is not list:
-            test_data = [InputData(idx=predict_data.idx,
-                                   features=features,
-                                   target=predict_data.target,
-                                   task=predict_data.task,
-                                   data_type=predict_data.data_type,
-                                   supplementary_data=predict_data.supplementary_data) for features in
-                         predict_data.features.swapaxes(1, 0)]
-        else:
-            test_data = predict_data
+        model_impl = trained_operation[0]
+        transform_method = 'transform' in dir(model_impl)
+        predict_method = 'predict' in dir(model_impl)
+        input_data_check = 'predict' in vars(model_impl)
+        fedot_data_type = False
+        list_container = type(predict_data) is not list
+        if transform_method:
+            fedot_data_type = len(signature(model_impl.transform).parameters) == 1
 
-        if 'predict' in vars(trained_operation[0]):
+        test_data = [InputData(idx=predict_data.idx,
+                               features=features,
+                               target=predict_data.target,
+                               task=predict_data.task,
+                               data_type=predict_data.data_type,
+                               supplementary_data=predict_data.supplementary_data) for features in
+                     predict_data.features.swapaxes(1, 0)] if list_container else predict_data
+
+        if input_data_check:
             prediction = trained_operation[0]
-            predict = np.concatenate(list(operation.predict for operation in trained_operation))
-            target = np.concatenate(list(operation.target for operation in trained_operation))
-            prediction.predict = predict
-            prediction.target = target
+            prediction.predict = np.concatenate(list(operation.predict for operation in trained_operation))
+            prediction.target = np.concatenate(list(operation.target for operation in trained_operation))
         else:
-            if str(signature(trained_operation[0].predict)) == '(input_data)':
+            if transform_method and fedot_data_type:
+                if fedot_data_type:
+                    prediction = list(
+                        operation.transform(data) for operation, data in zip(trained_operation, test_data))
+                    prediction = [pred.predict if type(pred) is not np.ndarray else pred for pred in prediction]
+                else:
+                    prediction = list(
+                        operation.transform(data.features) for operation, data in zip(trained_operation, test_data))
+            elif predict_method:
                 prediction = list(
-                    operation.transform(data).predict for operation, data in zip(trained_operation, test_data))
-            else:
-                prediction = list(
-                    operation.transform(data.features) for operation, data in zip(trained_operation, test_data))
+                    operation.transform(data) for operation, data in zip(trained_operation, test_data))
+                prediction = [pred.predict for pred in prediction if type(pred) is not np.array]
 
-            try:
-                prediction = np.hstack(prediction)
-            except Exception:
-                min_dim = min([x.shape[1] for x in prediction])
-                prediction = [x[:, :min_dim] for x in prediction]
-                prediction = np.stack(prediction).swapaxes(0, 1).squeeze()
-
-            prediction = NumpyConverter(data=prediction).convert_to_torch_format()
+            prediction = NumpyConverter(data=np.hstack(prediction)).convert_to_torch_format()
         return prediction
 
     def _custom_fit(self, train_data):
@@ -172,21 +178,22 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def fit(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
+        list_container = type(train_data) is list
 
         if self.mode == 'one_dimensional':
             return self.fit_one_sample(train_data)
         elif self.mode == 'channel_independent':
             operation_implementation = self.operation_impl(self.params_for_fit)
+            fit_method = 'fit' in dir(operation_implementation)
             with ImplementationRandomStateHandler(implementation=operation_implementation):
-
-                if type(train_data) is list:
+                if list_container:
                     trained_operation = [
                         deepcopy(operation_implementation) for i in range(len(train_data))]
                 else:
                     trained_operation = [deepcopy(operation_implementation)]
                     train_data = [train_data]
 
-                if 'fit' in vars(operation_implementation):
+                if fit_method:
                     fitted_operation = [operation.fit(data) for operation, data in zip(
                         trained_operation, train_data)]
                 else:

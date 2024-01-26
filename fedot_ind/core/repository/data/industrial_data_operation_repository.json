@@ -218,12 +218,12 @@
       ]
     },
       "topological_features": {
-        "meta": "classification_preprocessing",
+        "meta": "custom_preprocessing",
         "presets": [
-          "ts"
+          "fast_train"
         ],
         "tags": [
-          "non_applicable_for_ts"
+          "extractor"
         ]},
     "minirocket_extractor": {
       "meta": "industrial_preprocessing",
