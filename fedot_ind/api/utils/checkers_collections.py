@@ -101,11 +101,7 @@ class DataCheck:
         - Converts features to torch format using NumpyConverter.
 
         """
-        if type(self.input_data.target[0][0]) is np.str_ and self.task == 'classification':
-            label_encoder = LabelEncoder()
-            self.input_data.target = label_encoder.fit_transform(
-                self.input_data.target)
-        elif type(self.input_data.target[0][0]) is np.str_ and self.task == 'regression':
+        if self.input_data.target is not None and type(self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
         if self.task == 'regression':

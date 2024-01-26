@@ -21,7 +21,7 @@ def _has_mps():
     # return nested_attr(torch, "backends.mps.is_available", noop)()
 
 
-backend_methods, backend_scipy = BackendMethods().backend
+backend_methods, backend_scipy = BackendMethods('cpu').backend
 
 
 def global_imports(object_name: str,

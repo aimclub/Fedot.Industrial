@@ -1,12 +1,11 @@
 import logging
+import warnings
 from pathlib import Path
 
+import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.metrics_repository import ClassificationMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
@@ -24,7 +23,6 @@ from fedot_ind.core.repository.model_repository import default_industrial_availi
 from fedot_ind.tools.explain.explain import PointExplainer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -87,6 +85,9 @@ class FedotIndustrial(Fedot):
         super(Fedot, self).__init__()
         self.logger = logging.getLogger('FedotIndustrialAPI')
 
+        self.solver = None
+        self.predicted_labels = None
+        self.predicted_probs = None
         self.predict_data = None
         self.config_dict = None
         self.ensemble_solver = None
@@ -180,8 +181,9 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict(self.predict_data) if type(self.solver) is Fedot else \
-            self.solver.predict(self.predict_data, output_mode='labels').predict
+        predict = self.solver.predict(self.predict_data)
+        self.predicted_labels = predict if isinstance(self.solver, Fedot) else predict.predict
+        return self.predicted_labels
 
     def predict_proba(self,
                       predict_data,
@@ -198,22 +200,23 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict_proba(self.predict_data) if type(self.solver) is Fedot else \
-            self.solver.predict(self.predict_data, output_mode='probs').predict
+        probs = self.solver.predict_proba(self.predict_data)
+        self.predicted_probs = probs if isinstance(self.solver, Fedot) else probs.predict_proba
+        return self.predicted_probs
 
     def finetune(self,
                  train_data,
                  tuning_params=None,
                  mode: str = 'full'):
         """
-        Method to obtain prediction probabilities from trained Industrial model.
+            Method to obtain prediction probabilities from trained Industrial model.
 
-        Args:
-            train_data: raw train data
-            tuning_params: dictionary with tuning parameters
-            mode: str, ``default='full'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
+            Args:
+                train_data: raw train data
+                tuning_params: dictionary with tuning parameters
+                mode: str, ``default='full'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
 
-        """
+            """
 
         train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
         if tuning_params is None:
@@ -236,8 +239,32 @@ class FedotIndustrial(Fedot):
         pipeline_tuner.tune(self.solver.current_pipeline)
         self.solver.current_pipeline.fit(train_data)
 
-    def get_metrics(self, target, labels, probs) -> dict:
-        return FEDOT_GET_METRICS[self.config_dict['problem']](target, labels, probs)
+    def get_metrics(self, target=None,
+                    metric_names=None,
+                    rounding_order=3,
+                    **kwargs) -> pd.DataFrame:
+        """
+        Method to calculate metrics for Industrial model.
+
+        Available metrics for classification task: 'f1', 'accuracy', 'precision', 'roc_auc', 'log_loss'.
+
+        Available metrics for regression task: 'r2', 'rmse', 'mse', 'mae', 'median_absolute_error',
+        'explained_variance_score', 'max_error', 'd2_absolute_error_score', 'msle', 'mape'.
+
+        Args:
+            target (np.ndarray): target values
+            metric_names (list): list of metric names
+            rounding_order (int): rounding order for metrics
+
+        Returns:
+            pandas DataFrame with calculated metrics
+
+        """
+        return FEDOT_GET_METRICS[self.config_dict['problem']](target=target,
+                                                              metric_names=metric_names,
+                                                              rounding_order=rounding_order,
+                                                              labels=self.predicted_labels,
+                                                              probs=self.predicted_probs)
 
     def save_predict(self, predicted_data, **kwargs) -> None:
         """

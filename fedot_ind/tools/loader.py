@@ -136,7 +136,10 @@ class DataLoader:
         if shuffle:
             shuffled_idx = np.arange(x_train.shape[0])
             np.random.shuffle(shuffled_idx)
-            x_train = x_train.iloc[shuffled_idx, :]
+            if isinstance(x_train, pd.DataFrame):
+                x_train = x_train.iloc[shuffled_idx, :]
+            else:
+                x_train = x_train[shuffled_idx, :]
             y_train = y_train[shuffled_idx]
         return is_multi, (x_train, y_train), (x_test, y_test)
 

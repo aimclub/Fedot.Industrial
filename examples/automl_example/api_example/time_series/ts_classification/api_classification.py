@@ -7,7 +7,7 @@ if __name__ == "__main__":
     dataset_name = 'Epilepsy'
     industrial = FedotIndustrial(problem='classification',
                                  metric='f1',
-                                 timeout=1,
+                                 timeout=5,
                                  n_jobs=2,
                                  logging_level=20)
 
@@ -16,6 +16,9 @@ if __name__ == "__main__":
     model = industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
-
+    probs = industrial.predict_proba(test_data)
+    metrics = industrial.get_metrics(target=test_data[1],
+                                     rounding_order=3,
+                                     metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
     # industrial.finetune(train_data)
     print(classification_report(test_data[1], labels, digits=4))

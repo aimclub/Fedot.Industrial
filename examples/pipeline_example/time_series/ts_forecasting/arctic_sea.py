@@ -1,15 +1,16 @@
 from pathlib import Path
 
 import matplotlib
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
-
-from fedot.api.main import Fedot
-from fedot.core.repository.tasks import TsForecastingParams
+from fedot.core.data.data import InputData
+from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.tasks import TsForecastingParams, Task, TaskTypesEnum
 from matplotlib import pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 matplotlib.use('TKagg')
 
@@ -18,34 +19,37 @@ PATH = Path(PROJECT_PATH, 'examples', 'data', 'ices_areas_ts.csv')
 
 time_series_df = pd.read_csv(PATH).iloc[:, 1:]
 target_series = time_series_df['Карское'].values
-train_data = {}
-feature_cols = list(time_series_df.columns)
-for col in time_series_df:
-    current_ts = time_series_df[col].values[:-horizon]
-    train_data.update({str(col): current_ts})
 
-# Configure AutoML
-#del train_data['Карское']
+input_data = InputData.from_numpy_time_series(target_series, task=Task(TaskTypesEnum.ts_forecasting,
+                                                                       task_params=TsForecastingParams(
+                                                                           forecast_length=horizon)))
+train_data, test_data = train_test_data_setup(input_data)
 
-task_parameters = TsForecastingParams(forecast_length=horizon)
-model = Fedot(problem='ts_forecasting', task_params=task_parameters)
-obtained_pipeline = model.fit(features=train_data,
-                              target=target_series[:-horizon])
+pipeline_based = PipelineBuilder().add_node('lagged').add_node('rfr').build()
+pipeline_based.fit(train_data)
 
-obtained_pipeline.show()
+topological_pipeline = PipelineBuilder().add_node('lagged').add_node('topological_features') \
+    .add_node('lagged', branch_idx=2).join_branches('rfr').build()
+topological_pipeline.fit(train_data)
 
-# Use historical value to make forecast
-forecast = model.forecast(train_data)
-forecast[forecast<0] = 0
-real_target = target_series[-horizon:]
+forecast_base = np.ravel(pipeline_based.predict(test_data).predict)
+forecast_topo = np.ravel(topological_pipeline.predict(test_data).predict)
 
-plt.plot(target_series, label='real data')
-plt.plot(np.arange(len(target_series) - horizon, len(target_series)), forecast, label='forecast')
+forecast_base[forecast_base < 0] = 0
+forecast_topo[forecast_topo < 0] = 0
+
+plt.plot(input_data.features, label='real data')
+plt.plot(np.arange(len(target_series) - horizon, len(target_series)), forecast_base, label='forecast base')
+plt.plot(np.arange(len(target_series) - horizon, len(target_series)), forecast_topo, label='forecast topo')
 
 plt.grid()
 plt.legend()
 plt.show()
 
-print(mean_squared_error(real_target, forecast, squared=False))
-print(mean_absolute_percentage_error(real_target, forecast))
-_ = 1
+print('base')
+print(mean_squared_error(test_data.target, forecast_base, squared=False))
+print(mean_absolute_percentage_error(test_data.target+1000, forecast_base+1000))
+
+print('topo')
+print(mean_squared_error(test_data.target, forecast_topo, squared=False))
+print(mean_absolute_percentage_error(test_data.target+1000, forecast_topo+1000))
