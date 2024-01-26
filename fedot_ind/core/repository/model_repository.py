@@ -6,23 +6,19 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
     FedotKnnRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
-    ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
-    TsSmoothingImplementation, SparseLaggedTransformationImplementation, CutImplementation, \
-    NumericalDerivativeFilterImplementation
+    GaussianFilterImplementation, LaggedTransformationImplementation, \
+    TsSmoothingImplementation, SparseLaggedTransformationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
-    ARIMAImplementation, STLForecastARIMAImplementation
+    STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
     CGRUImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.naive import \
-    RepeatLastValueImplementation, NaiveAverageForecastImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.poly import \
-    PolyfitImplementation
+    RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models. \
     ts_implementations.statsmodels import AutoRegImplementation, GLMImplementation, ExpSmoothingImplementation
-from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.ensemble import AdaBoostRegressor, RandomForestClassifier, GradientBoostingRegressor, ExtraTreesRegressor, \
-    RandomForestRegressor
+    RandomForestRegressor, ExtraTreesClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from xgboost import XGBRegressor, XGBClassifier

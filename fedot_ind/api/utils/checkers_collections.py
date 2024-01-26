@@ -33,8 +33,8 @@ class DataCheck:
     """
 
     def __init__(self,
-                 input_data: Union[tuple, InputData],
-                 task: str):
+                 input_data: Union[tuple, InputData] = None,
+                 task: str = None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.input_data = input_data
         self.task = task
@@ -108,6 +108,9 @@ class DataCheck:
             self.input_data.target = self.input_data.target.squeeze()
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
+
+    def check_available_operations(self, available_operations):
+        pass
 
     def check_input_data(self) -> InputData:
         """Checks and preprocesses the input data for Fedot AutoML.
