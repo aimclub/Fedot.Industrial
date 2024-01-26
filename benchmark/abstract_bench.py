@@ -58,18 +58,7 @@ class AbstractBenchmark(object):
         matplotlib.use('TkAgg')
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
         experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset}'
-
-        if 'tuning_params' in experiment_setup.keys():
-            del experiment_setup['tuning_params']
-
-        if 'industrial_preprocessing' in experiment_setup.keys():
-            ind_preproc = experiment_setup['industrial_preprocessing']
-            del experiment_setup['industrial_preprocessing']
-        else:
-            ind_preproc = True
-
         model = FedotIndustrial(**experiment_setup)
-        model.preprocessing = ind_preproc
         model.fit(train_data)
         prediction = model.predict(test_data)
         model.save_best_model()

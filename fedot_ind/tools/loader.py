@@ -5,13 +5,15 @@ import urllib.request as request
 import zipfile
 from pathlib import Path
 
+from datasetsforecast.m3 import M3
+from datasetsforecast.m4 import M4
+from datasetsforecast.m5 import M5
 import chardet
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 from tqdm import tqdm
-
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 
@@ -32,6 +34,19 @@ class DataLoader:
         self.logger = logging.getLogger('DataLoader')
         self.dataset_name = dataset_name
         self.folder = folder
+        self.forecast_data_source = {'M3': M3.load,
+                                     'M4': M4.load,
+                                     'M5': M5.load
+                                     }
+
+    def load_forecast_data(self):
+        benchmark_name, dataset_name, id_name = self.dataset_name.split('_')
+        ts_df, exog_df, stat_df = self.forecast_data_source[benchmark_name](directory='data',
+                                                                            group=dataset_name)
+        ts_df = ts_df[ts_df['unique_id'] == id_name]
+        del ts_df['unique_id']
+        ts_df = ts_df.set_index('ds')
+        return ts_df, (exog_df, stat_df)
 
     def load_data(self, shuffle=True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
@@ -39,8 +54,8 @@ class DataLoader:
         Returns:
             tuple: train and test data
         """
-        dataset_name = self.dataset_name
 
+        dataset_name = self.dataset_name
         data_path = os.path.join(
             PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
 

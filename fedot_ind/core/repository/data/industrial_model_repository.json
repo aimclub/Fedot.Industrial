@@ -96,8 +96,8 @@
       "input_type": "[DataTypesEnum.ts]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.time_series",
-        "FedotTsForecastingStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "IndustrialSkLearnForecastingStrategy"
       ],
       "tags": [
         "time_series"

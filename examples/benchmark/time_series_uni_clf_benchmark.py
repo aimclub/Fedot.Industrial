@@ -27,17 +27,7 @@ experiment_setup = {'problem': ml_task,
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
                              custom_datasets=[
-                                 #'FordA',
-                                 'HandOutlines',
-                                 'NonInvasiveFetalECGThorax2',
-                                 'NonInvasiveFetalECGThorax1',
-                                 'HouseTwenty',
-                                 'OliveOil',
-                                 'Beef',
-                                 'Phoneme',
-                                 'Plane',
-                                 'FacesUCR',
-                                 'FreezerSmallTrain',
+                                 'Beef'
                              ],
                              use_small_datasets=True)
     benchmark.run()

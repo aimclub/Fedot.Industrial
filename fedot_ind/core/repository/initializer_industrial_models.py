@@ -3,7 +3,9 @@ import pathlib
 from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 from fedot.core.composer.metrics import F1, Accuracy
-from fedot.core.data.merge.data_merger import ImageDataMerger
+from fedot.core.data.merge.data_merger import ImageDataMerger, TSDataMerger
+from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
+    LaggedImplementation, TsSmoothingImplementation
 from fedot.core.operations.operation import Operation
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.verification import class_rules
@@ -12,7 +14,8 @@ from golem.core.optimisers.genetic.operators.crossover import Crossover
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.industrial_implementations.abstract import merge_predicts, preprocess_predicts, \
-    predict_for_fit, predict, predict_operation
+    predict_for_fit, predict, predict_operation, postprocess_predicts, update_column_types, transform_lagged, \
+    transform_lagged_for_fit, transform_smoothing
 from fedot_ind.core.repository.industrial_implementations.metric import metric_f1, metric_acc
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
     MutationStrengthEnumIndustrial, has_no_data_flow_conflicts_in_industrial_pipeline, _crossover_by_type
@@ -64,7 +67,11 @@ class IndustrialModels:
         setattr(Operation, "_predict", predict_operation)
         setattr(Operation, "predict", predict)
         setattr(Operation, "predict_for_fit", predict_for_fit)
-
+        setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
+        setattr(LaggedImplementation, '_update_column_types', update_column_types)
+        setattr(LaggedImplementation, 'transform', transform_lagged)
+        setattr(LaggedImplementation, 'transform_for_fit', transform_lagged_for_fit)
+        setattr(TsSmoothingImplementation,'transform',transform_smoothing)
         # class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository

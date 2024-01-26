@@ -18,7 +18,7 @@ from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, FEDOT_HEAD_ENSEMBLE, \
-    FEDOT_ATOMIZE_OPERATION, FEDOT_ASSUMPTIONS
+    FEDOT_ATOMIZE_OPERATION, FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer
@@ -68,7 +68,7 @@ class FedotIndustrial(Fedot):
         self.output_folder = kwargs.get('output_folder')
         self.preprocessing = kwargs.get('industrial_preprocessing', False)
         self.backend_method = kwargs.get('backend', 'cpu')
-
+        self.RAF_workers = kwargs.get('RAF_workers', None)
         if self.output_folder is None:
             self.output_folder = default_path_to_save_results
             Path(self.output_folder).mkdir(parents=True, exist_ok=True)
@@ -95,8 +95,8 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
-        if 'industrial_preprocessing' in self.config_dict.keys():
-            del self.config_dict['industrial_preprocessing']
+        industrial_params = [param for param in self.config_dict.keys() if param not in list(FEDOT_API_PARAMS.keys())]
+        [self.config_dict.pop(x, None) for x in industrial_params]
         backend_method_current, backend_scipy_current = BackendMethods(self.backend_method).backend
         globals()['backend_methods'] = backend_method_current
         globals()['backend_scipy'] = backend_scipy_current
@@ -126,11 +126,13 @@ class FedotIndustrial(Fedot):
     def _preprocessing_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
             self.logger.info('RAF algorithm was applied')
-            batch_size = round(input_data.features.shape[0] / FEDOT_WORKER_NUM)
+            batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
+                                                                                  is not None else FEDOT_WORKER_NUM)
             batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
             self.config_dict['timeout'] = batch_timeout
-            self.logger.info(f'Batch_size - {batch_size}. Number of batches - 5')
-            self.ensemble_solver = RAFensembler(composing_params=self.config_dict, batch_size=batch_size)
+            self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
+            self.ensemble_solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
+                                                batch_size=batch_size)
             self.logger.info(f'Number of AutoMl models in ensemble - {self.ensemble_solver.n_splits}')
             self.ensemble_solver.fit(input_data)
             self.solver = self.ensemble_solver
@@ -178,7 +180,7 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        return self.solver.predict(self.predict_data, output_mode='labels') if type(self.solver) is Fedot else \
+        return self.solver.predict(self.predict_data) if type(self.solver) is Fedot else \
             self.solver.predict(self.predict_data, output_mode='labels').predict
 
     def predict_proba(self,
@@ -228,7 +230,8 @@ class FedotIndustrial(Fedot):
             batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
                                automl_branch.name in FEDOT_HEAD_ENSEMBLE]
             for b_pipeline in batch_pipelines:
-                b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(b_pipeline.fitted_operation.current_pipeline)
+                b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(
+                    b_pipeline.fitted_operation.current_pipeline)
                 b_pipeline.fitted_operation.current_pipeline.fit(train_data)
         pipeline_tuner.tune(self.solver.current_pipeline)
         self.solver.current_pipeline.fit(train_data)

@@ -6,7 +6,8 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import IndustrialCustomPreprocessingStrategy, \
     MultiDimPreprocessingStrategy
-from fedot_ind.core.repository.model_repository import NEURAL_MODEL, SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS
+from fedot_ind.core.repository.model_repository import NEURAL_MODEL, SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS, \
+    FORECASTING_MODELS
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -73,15 +74,19 @@ class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy)
         self.operation_impl = self._convert_to_operation(operation_type)
         self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
                                                                   operation_type,
+                                                                  params,
                                                                   mode='one_dimensional')
 
     def fit(self, train_data: InputData):
+        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode=output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode=output_mode)
 
 
@@ -101,9 +106,27 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         super().__init__(operation_type, params)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
+
+
+class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
+    """ Strategy for applying regression algorithms from Sklearn library """
+    _operations_by_types = FORECASTING_MODELS
+
+    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+        super().__init__(operation_type, params)
+
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
+
+    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
 
 

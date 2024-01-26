@@ -4,24 +4,28 @@ import os
 from abc import ABC
 from copy import deepcopy
 
+import matplotlib
 import pandas as pd
 from aeon.benchmarking.results_loaders import *
+from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
+from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.metrics.metrics_implementation import Accuracy
+from fedot_ind.core.metrics.metrics_implementation import Accuracy, RMSE
 from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
+from fedot_ind.tools.loader import DataLoader
 
 
-class BenchmarkTSC(AbstractBenchmark, ABC):
+class BenchmarkTSF(AbstractBenchmark, ABC):
     def __init__(self,
                  experiment_setup: dict = None,
                  custom_datasets: list = None,
                  use_small_datasets: bool = False):
 
-        super(BenchmarkTSC, self).__init__(
+        super(BenchmarkTSF, self).__init__(
             output_dir='./tser/benchmark_results')
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -38,12 +42,31 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             self.custom_datasets = custom_datasets
 
         if use_small_datasets:
-            self.path_to_result = '/benchmark/results/time_series_uni_clf_comparasion.csv'
-            self.path_to_save = '/benchmark/results/ts_uni_classification'
+            self.path_to_result = '/benchmark/results/time_series_uni_forecats_comparasion.csv'
+            self.path_to_save = '/benchmark/results/ts_uni_forecasting'
         else:
-            self.path_to_result = '/benchmark/results/time_series_multi_clf_comparasion.csv'
-            self.path_to_save = '/benchmark/results/ts_multi_classification'
+            self.path_to_result = '/benchmark/results/time_series_multi_forecast_comparasion.csv'
+            self.path_to_save = '/benchmark/results/ts_multi_forecasting'
         self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
+
+    def evaluate_loop(self, dataset, experiment_setup: dict = None):
+        matplotlib.use('TkAgg')
+        train_data, test_data = DataLoader(dataset_name=dataset).load_forecast_data()
+        experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset}'
+        model = FedotIndustrial(**experiment_setup)
+        model.fit(train_data)
+        prediction = model.predict(test_data)
+        model.save_best_model()
+        try:
+            model.solver.current_pipeline.save(path=experiment_setup['output_folder'])
+            model.save_optimization_history()
+            model.plot_operation_distribution(mode='each')
+            model.plot_fitness_by_generation()
+        except Exception:
+            print('No_visualisation')
+        plt.close('all')
+        model.shutdown()
+        return prediction.squeeze(), model.predict_data.target
 
     def run(self):
         self.logger.info('Benchmark test started')
@@ -53,10 +76,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             try:
                 experiment_setup = deepcopy(self.experiment_setup)
                 prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
-                try:
-                    metric = Accuracy(target, prediction).metric()
-                except Exception as exxx:
-                    metric = Accuracy(target, np.argmax(prediction, axis=1)).metric()
+                metric = RMSE(target, prediction).metric()
                 metric_dict.update({dataset_name: metric})
                 basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
                 dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',

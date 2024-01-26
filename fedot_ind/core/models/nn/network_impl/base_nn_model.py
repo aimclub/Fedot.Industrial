@@ -176,7 +176,12 @@ class BaseNeuralModel:
         self.target = input_data.target
         self.task_type = input_data.task
         self._fit_model(input_data)
-        torch.cuda.empty_cache()
+        torch.save(self.model.state_dict(), f"model.pt")
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+        device = torch.device('cpu')
+        self.model.load_state_dict(torch.load(f"model.pt", map_location=device))
+
 
     @fedot_data_type
     def predict(self,

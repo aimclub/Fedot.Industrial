@@ -3,7 +3,7 @@ from functools import partial
 import pandas as pd
 import torch
 import torch.nn as nn
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
 from sklearn.preprocessing import LabelEncoder
@@ -78,8 +78,12 @@ class FedotConverter:
     def convert_to_input_data(self, data):
         if isinstance(data, InputData):
             return data
+        elif isinstance(data, OutputData):
+            return data
         elif isinstance(data[0], (np.ndarray, pd.DataFrame)):
             return self.__init_input_data(features=data[0], target=data[1])
+        elif isinstance(data, list):
+            return data[0]
         else:
             try:
                 return torch.tensor(data)
@@ -108,6 +112,69 @@ class FedotConverter:
                                    target=np.ravel(target).reshape(-1, 1),
                                    task=task_dict[task],
                                    data_type=MATRIX)
+        return input_data
+
+    def convert_to_output_data(self,
+                               prediction,
+                               predict_data,
+                               output_data_type):
+        if type(prediction) is OutputData:
+            output_data = prediction
+        else:
+            output_data = OutputData(idx=predict_data.idx,
+                                     features=predict_data.features,
+                                     predict=prediction,
+                                     task=predict_data.task,
+                                     target=predict_data.target,
+                                     data_type=output_data_type,
+                                     supplementary_data=predict_data.supplementary_data)
+        return output_data
+
+    def unwrap_list_to_output(self):
+        data_type = self.input_data.data_type
+        predict_data_copy = self.input_data
+        return data_type, predict_data_copy
+
+    def convert_input_to_output(self):
+        return OutputData(idx=self.input_data.idx,
+                          features=self.input_data.features,
+                          task=self.input_data.task,
+                          data_type=self.input_data.data_type,
+                          target=self.input_data.target,
+                          predict=self.input_data.features)
+
+    def convert_to_industrial_composing_format(self, mode):
+        try:
+            if mode == 'one_dimensional':
+                new_features, new_target = [
+                    array.reshape(array.shape[0], array.shape[1] * array.shape[2])
+                    if array is not None and len(array.shape) > 2 else array
+                    for array in [self.input_data.features, self.input_data.target]]
+                input_data = InputData(idx=self.input_data.idx,
+                                       features=new_features,
+                                       target=new_target,
+                                       task=self.input_data.task,
+                                       data_type=self.input_data.data_type,
+                                       supplementary_data=self.input_data.supplementary_data)
+            elif mode == 'channel_independent':
+                input_data = [InputData(idx=self.input_data.idx,
+                                        features=features,
+                                        target=self.input_data.target,
+                                        task=self.input_data.task,
+                                        data_type=self.input_data.data_type,
+                                        supplementary_data=self.input_data.supplementary_data) for features in
+                              self.input_data.features.swapaxes(1, 0)]
+            elif mode == 'multi_dimensional':
+                features = NumpyConverter(
+                    data=self.input_data.features).convert_to_torch_format()
+                input_data = InputData(idx=self.input_data.idx,
+                                       features=features,
+                                       target=self.input_data.target,
+                                       task=self.input_data.task,
+                                       data_type=self.input_data.data_type,
+                                       supplementary_data=self.input_data.supplementary_data)
+        except Exception:
+            _ = 1
         return input_data
 
 
@@ -215,14 +282,25 @@ class NumpyConverter:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            1)
+        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1:
+            return self.numpy_data.reshape(self.numpy_data.shape[1],
+                                           1,
+                                           self.numpy_data.shape[0])
         elif self.numpy_data.ndim == 2:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            self.numpy_data.shape[1])
+
         elif self.numpy_data.ndim > 3:
             return self.numpy_data.squeeze()
         assert False, print(
             f'Please, review input dimensions {self.numpy_data.ndim}')
+
+    def convert_to_ts_format(self):
+        if self.numpy_data.ndim > 1:
+            return self.numpy_data.squeeze()
+        else:
+            return self.numpy_data
 
 
 class DataConverter(TensorConverter, NumpyConverter):
@@ -331,7 +409,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         else:
             features = np.array(ListMonad(*self.data.values.tolist()).value)
             features = np.array([series[~np.isnan(series)]
-                                for series in features])
+                                 for series in features])
         return features
 
 

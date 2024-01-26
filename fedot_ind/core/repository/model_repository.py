@@ -5,7 +5,21 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
     FedotKnnRegImplementation
-
+from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
+    ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
+    TsSmoothingImplementation, SparseLaggedTransformationImplementation, CutImplementation, \
+    NumericalDerivativeFilterImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
+    ARIMAImplementation, STLForecastARIMAImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
+    CGRUImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.naive import \
+    RepeatLastValueImplementation, NaiveAverageForecastImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.poly import \
+    PolyfitImplementation
+from fedot.core.operations.evaluation.operation_implementations.models. \
+    ts_implementations.statsmodels import AutoRegImplementation, GLMImplementation, ExpSmoothingImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.ensemble import AdaBoostRegressor, RandomForestClassifier, GradientBoostingRegressor, ExtraTreesRegressor, \
     RandomForestRegressor
@@ -24,6 +38,7 @@ from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtr
 from fedot_ind.core.models.signal.signal_extractor import SignalExtractor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
+from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 
@@ -137,6 +152,26 @@ class AtomizedModel(Enum):
         'knnreg': FedotKnnRegImplementation,
         'dtreg': DecisionTreeRegressor
     }
+
+    FORECASTING_MODELS = {
+        # boosting models (bid datasets)
+        'ar': AutoRegImplementation,
+        'stl_arima': STLForecastARIMAImplementation,
+        'ets': ExpSmoothingImplementation,
+        'cgru': CGRUImplementation,
+        'glm': GLMImplementation,
+        'locf': RepeatLastValueImplementation,
+        'ssa_forecaster': SSAForecasterImplementation
+    }
+
+    FORECASTING_PREPROC = {
+        'lagged': LaggedTransformationImplementation,
+        'sparse_lagged': SparseLaggedTransformationImplementation,
+        'smoothing': TsSmoothingImplementation,
+        #'exog_ts': ExogDataTransformationImplementation,
+        'gaussian_filter': GaussianFilterImplementation
+    }
+
     NEURAL_MODEL = {
         # fundamental models
         'inception_model': InceptionTimeModel,
@@ -148,14 +183,22 @@ class AtomizedModel(Enum):
         'xcm_model': XCModel
     }
 
+
 def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
-                      'forecastiong': SKLEARN_REG_MODELS.keys(),
+                      'ts_forecasting': FORECASTING_MODELS.keys(),
                       'classification': SKLEARN_CLF_MODELS.keys()}
-    available_operations = [operation_dict[problem],
-                            NEURAL_MODEL.keys(),
-                            INDUSTRIAL_PREPROC_MODEL.keys(),
-                            FEDOT_PREPROC_MODEL.keys()]
+
+    if problem == 'ts_forecasting':
+        available_operations = [operation_dict[problem],
+                                FORECASTING_PREPROC.keys(),
+                                SKLEARN_REG_MODELS.keys()
+                                ]
+    else:
+        available_operations = [operation_dict[problem],
+                                NEURAL_MODEL.keys(),
+                                INDUSTRIAL_PREPROC_MODEL.keys(),
+                                FEDOT_PREPROC_MODEL.keys()]
 
     available_operations = list(chain(*[list(x) for x in available_operations]))
     excluded_operation = {'regression': ['one_hot_encoding',
@@ -163,13 +206,23 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                          'isolation_forest_class',
                                          'tst_model',
                                          'xcm_model',
-                                         'resnet_model'],
-                          'forecasting': ['one_hot_encoding',
-                                          'label_encoding',
-                                          'isolation_forest_class'],
+                                         'resnet_model'
+                                         ],
+                          'ts_forecasting': [
+                              'one_hot_encoding',
+                              'label_encoding',
+                              'isolation_forest_class'
+                              'xgbreg',
+                              'sgdr',
+                              'treg',
+                              'knnreg',
+                              'ssa_forecaster',
+                              'dtreg'
+                          ],
                           'classification': [
                               'isolation_forest_reg',
                               'tst_model',
+                              'resnet_model',
                               'xcm_model',
                               'one_hot_encoding',
                               'label_encoding',
@@ -178,9 +231,12 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     available_operations = [x for x in available_operations if x not in excluded_operation[problem]]
     return available_operations
 
+
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
 SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
+FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
+FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value

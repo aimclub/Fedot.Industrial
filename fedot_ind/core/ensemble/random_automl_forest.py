@@ -2,7 +2,7 @@ from fedot.core.data.data import InputData
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-
+from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold, train_test_split
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_ATOMIZE_OPERATION, FEDOT_HEAD_ENSEMBLE, FEDOT_TASK
 
@@ -17,6 +17,7 @@ class RAFensembler:
         batch_size: size of batch for ensemble
 
     """
+
     def __init__(self, composing_params,
                  ensemble_type: str = 'random_automl_forest',
                  n_splits: int = None,
@@ -24,7 +25,7 @@ class RAFensembler:
 
         self.current_pipeline = None
         ensemble_dict = {'random_automl_forest': self._raf_ensemble}
-
+        self.problem = composing_params['problem']
         self.task = FEDOT_TASK[composing_params['problem']]
         self.atomized_automl = FEDOT_ATOMIZE_OPERATION[composing_params['problem']]
         self.head = FEDOT_HEAD_ENSEMBLE[composing_params['problem']]
@@ -37,7 +38,6 @@ class RAFensembler:
             self.n_splits = n_splits
         else:
             self.n_splits = n_splits
-        del self.atomized_automl_params['available_operations']
 
     def fit(self, train_data):
         if self.n_splits is None:
@@ -46,12 +46,12 @@ class RAFensembler:
         new_target = np.array_split(train_data.target, self.n_splits)
         self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
 
-    def predict(self, test_data):
+    def predict(self, test_data, output_mode: str = 'labels'):
         data_dict = {}
         for i in range(self.n_splits):
             data_dict.update({f'data_source_img/{i}': test_data})
         test_multimodal = MultiModalData(data_dict)
-        return self.current_pipeline.predict(test_multimodal).predict
+        return self.current_pipeline.predict(test_multimodal, output_mode).predict
 
     def _raf_ensemble(self, features, target, n_splits):
         raf_ensemble = PipelineBuilder()
@@ -69,6 +69,7 @@ class RAFensembler:
                 branch_idx=i)
             data_dict.update({f'data_source_img/{i}': train_fold})
         train_multimodal = MultiModalData(data_dict)
-        raf_ensemble = raf_ensemble.join_branches(self.head).build()
+        raf_ensemble = raf_ensemble.join_branches(self.head,
+                                                  params=self.atomized_automl_params).build()
         raf_ensemble.fit(input_data=train_multimodal)
         return raf_ensemble

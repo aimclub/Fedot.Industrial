@@ -1,5 +1,6 @@
 import warnings
 from copy import deepcopy
+from inspect import signature
 
 from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy, \
     is_multi_output_task
@@ -10,15 +11,16 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import get_operation_type_from_id, OperationTypesRepository
 from fedot.utilities.random import ImplementationRandomStateHandler
 
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, FedotConverter
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
 from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, INDUSTRIAL_CLF_PREPROC_MODEL, \
-    INDUSTRIAL_PREPROC_MODEL
+    INDUSTRIAL_PREPROC_MODEL, FORECASTING_PREPROC
 
 
 class MultiDimPreprocessingStrategy(EvaluationStrategy):
     def __init__(self, operation_impl,
-                 operation_type: str, params: Optional[OperationParameters] = None,
+                 operation_type: str,
+                 params: Optional[OperationParameters] = None,
                  mode: str = 'one_dimensional'):
         self.operation_impl = operation_impl
         super().__init__(operation_type, params)
@@ -52,22 +54,18 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                            predict_data: InputData,
                            output_data_type: DataTypesEnum = DataTypesEnum.table,
                            output_mode: str = 'default') -> OutputData:
-        if type(prediction) is OutputData:
-            converted = prediction
-        else:
-            converted = OutputData(idx=predict_data.idx,
-                                   features=predict_data.features,
-                                   predict=prediction,
-                                   task=predict_data.task,
-                                   target=predict_data.target,
-                                   data_type=output_data_type,
-                                   supplementary_data=predict_data.supplementary_data)
-        return converted
+
+        return FedotConverter(data=predict_data).convert_to_output_data(prediction,
+                                                                        predict_data,
+                                                                        output_data_type)
 
     def _sklearn_compatible_prediction(self, trained_operation, predict_data, output_mode: str = 'probs'):
         features = predict_data.features
-        if predict_data.task.task_type.value == 'regression':
-            return trained_operation.predict(features).flatten()
+        if predict_data.task.task_type.value in ['regression', 'ts_forecasting']:
+            if str(signature(trained_operation.predict)) == '(input_data)':
+                return trained_operation.predict(predict_data).predict
+            else:
+                return trained_operation.predict(features).flatten()
         else:
             is_multi_output_target = isinstance(
                 trained_operation.classes_, list)
@@ -86,7 +84,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 elif n_classes == 2 and output_mode != 'full_probs':
                     if is_multi_output_target:
                         prediction = np.stack([pred[:, 1]
-                                              for pred in prediction]).T
+                                               for pred in prediction]).T
                     else:
                         prediction = prediction[:, 1]
             else:
@@ -95,35 +93,12 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
             return prediction
 
-    def _convert_input_data(self, train_data):
-        if self.mode == 'one_dimensional':
-            new_shape = train_data.features.shape[0], train_data.features.shape[1] * \
-                train_data.features.shape[2]
-            features = train_data.features.reshape(new_shape)
-            input_data = InputData(idx=train_data.idx,
-                                   features=features,
-                                   target=train_data.target,
-                                   task=train_data.task,
-                                   data_type=train_data.data_type,
-                                   supplementary_data=train_data.supplementary_data)
-        elif self.mode == 'channel_independent':
-            input_data = [InputData(idx=train_data.idx,
-                                    features=features,
-                                    target=train_data.target,
-                                    task=train_data.task,
-                                    data_type=train_data.data_type,
-                                    supplementary_data=train_data.supplementary_data) for features in
-                          train_data.features.swapaxes(1, 0)]
-        elif self.mode == 'multi_dimensional':
-            features = NumpyConverter(
-                data=train_data.features).convert_to_torch_format()
-            input_data = InputData(idx=train_data.idx,
-                                   features=features,
-                                   target=train_data.target,
-                                   task=train_data.task,
-                                   data_type=train_data.data_type,
-                                   supplementary_data=train_data.supplementary_data)
-        return input_data
+    def _convert_input_data(self, train_data, mode: str = None):
+        if mode is not None:
+            convertion = mode
+        else:
+            convertion = self.mode
+        return FedotConverter(train_data).convert_to_industrial_composing_format(convertion)
 
     def _predict_for_ndim(self, predict_data, trained_operation):
         if type(predict_data) is not list:
@@ -136,19 +111,29 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                          predict_data.features.swapaxes(1, 0)]
         else:
             test_data = predict_data
-        try:
-            prediction = list(
-                operation.transform(data).predict for operation, data in zip(trained_operation, test_data))
-        except Exception:
-            prediction = list(
-                operation.transform(data.features) for operation, data in zip(trained_operation, test_data))
-        try:
-            prediction = np.hstack(prediction)
-        except Exception:
-            min_dim = min([x.shape[1] for x in prediction])
-            prediction = [x[:, :min_dim] for x in prediction]
-            prediction = np.stack(prediction).swapaxes(0, 1).squeeze()
-        prediction = NumpyConverter(data=prediction).convert_to_torch_format()
+
+        if 'predict' in vars(trained_operation[0]):
+            prediction = trained_operation[0]
+            predict = np.concatenate(list(operation.predict for operation in trained_operation))
+            target = np.concatenate(list(operation.target for operation in trained_operation))
+            prediction.predict = predict
+            prediction.target = target
+        else:
+            if str(signature(trained_operation[0].predict)) == '(input_data)':
+                prediction = list(
+                    operation.transform(data).predict for operation, data in zip(trained_operation, test_data))
+            else:
+                prediction = list(
+                    operation.transform(data.features) for operation, data in zip(trained_operation, test_data))
+
+            try:
+                prediction = np.hstack(prediction)
+            except Exception:
+                min_dim = min([x.shape[1] for x in prediction])
+                prediction = [x[:, :min_dim] for x in prediction]
+                prediction = np.stack(prediction).swapaxes(0, 1).squeeze()
+
+            prediction = NumpyConverter(data=prediction).convert_to_torch_format()
         return prediction
 
     def _custom_fit(self, train_data):
@@ -158,8 +143,10 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def fit_one_sample(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        operation_implementation = self.operation_impl(
-            **self.params_for_fit.to_dict())
+        if len(signature(self.operation_impl).parameters) > 1:
+            operation_implementation = self.operation_impl(**self.params_for_fit.to_dict())
+        else:
+            operation_implementation = self.operation_impl(self.params_for_fit)
 
         # If model doesn't support multi-output and current task is ts_forecasting
         current_task = train_data.task.task_type
@@ -176,37 +163,50 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 operation_implementation = convert_to_multivariate_model(operation_implementation,
                                                                          train_data)
             else:
-                operation_implementation.fit(
-                    train_data.features, train_data.target)
+                sig = signature(operation_implementation.fit).parameters
+                if len(sig) > 1:
+                    operation_implementation.fit(train_data.features, train_data.target)
+                else:
+                    operation_implementation.fit(train_data)
         return operation_implementation
 
     def fit(self, train_data: InputData):
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        train_data = self._convert_input_data(train_data)
 
         if self.mode == 'one_dimensional':
             return self.fit_one_sample(train_data)
         elif self.mode == 'channel_independent':
             operation_implementation = self.operation_impl(self.params_for_fit)
             with ImplementationRandomStateHandler(implementation=operation_implementation):
-                trained_operation = [
-                    deepcopy(operation_implementation) for i in range(len(train_data))]
-                fitted_operation = [operation.fit(data) for operation, data in zip(
-                    trained_operation, train_data)]
+
+                if type(train_data) is list:
+                    trained_operation = [
+                        deepcopy(operation_implementation) for i in range(len(train_data))]
+                else:
+                    trained_operation = [deepcopy(operation_implementation)]
+                    train_data = [train_data]
+
+                if 'fit' in vars(operation_implementation):
+                    fitted_operation = [operation.fit(data) for operation, data in zip(
+                        trained_operation, train_data)]
+                else:
+                    fitted_operation = [operation.transform_for_fit(data) for operation, data in zip(
+                        trained_operation, train_data)]
+
                 operation_implementation = fitted_operation
             return operation_implementation
         else:
             return self._custom_fit(train_data)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        converted_predict_data = self._convert_input_data(predict_data)
+        data_type, predict_data_copy = FedotConverter(predict_data).unwrap_list_to_output()
         if self.mode == 'one_dimensional':
             prediction = self._sklearn_compatible_prediction(trained_operation=trained_operation,
-                                                             predict_data=converted_predict_data,
+                                                             predict_data=predict_data,
                                                              output_mode=output_mode)
         elif self.mode == 'channel_independent':
             prediction = self.__operation_multidim_adapter(
-                trained_operation, converted_predict_data)
+                trained_operation, predict_data)
         elif self.mode == 'multi_dimensional':
             if 'predict_for_fit' in dir(trained_operation):
                 prediction = trained_operation.predict_for_fit(
@@ -214,32 +214,22 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             else:
                 prediction = trained_operation.predict(
                     predict_data, output_mode)
-        converted = self._convert_to_output(
-            prediction, predict_data, predict_data.data_type, output_mode)
+        converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        converted_predict_data = self._convert_input_data(predict_data)
-
-        if type(predict_data) is list:
-            data_type = predict_data[0].data_type
-            predict_data_copy = predict_data[0]
-        else:
-            data_type = predict_data.data_type
-            predict_data_copy = predict_data
-
+        data_type, predict_data_copy = FedotConverter(predict_data).unwrap_list_to_output()
         if self.mode == 'one_dimensional':
             prediction = self._sklearn_compatible_prediction(trained_operation=trained_operation,
-                                                             predict_data=converted_predict_data,
+                                                             predict_data=predict_data,
                                                              output_mode=output_mode)
         elif self.mode == 'channel_independent':
             prediction = self.__operation_multidim_adapter(
-                trained_operation, converted_predict_data)
+                trained_operation, predict_data)
         elif self.mode == 'multi_dimensional':
             prediction = trained_operation.predict(predict_data, output_mode)
 
-        converted = self._convert_to_output(
-            prediction, predict_data_copy, data_type, output_mode)
+        converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
 
@@ -248,10 +238,12 @@ class IndustrialCustomPreprocessingStrategy:
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
+        params = IndustrialOperationParameters().from_params(operation_type, params) if params \
+            else IndustrialOperationParameters().from_operation_type(operation_type)
         self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
                                                                   operation_type,
+                                                                  params=params,
                                                                   mode='channel_independent')
-        self.params_for_fit = params or OperationParameters()
         self.operation_id = operation_type
         self.output_mode = False
 
@@ -271,26 +263,31 @@ class IndustrialCustomPreprocessingStrategy:
                 f'Impossible to obtain {self.__class__} strategy for {operation_type}')
 
     def fit(self, train_data: InputData):
+        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default'):
-        return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode=output_mode)
+        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        return self.multi_dim_dispatcher.predict(trained_operation, converted_predict_data, output_mode=output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode=output_mode)
+        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, converted_predict_data,
+                                                         output_mode=output_mode)
 
 
 class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
-    __operations_by_types = INDUSTRIAL_PREPROC_MODEL
+    _operations_by_types = INDUSTRIAL_PREPROC_MODEL
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         params = IndustrialOperationParameters().from_params(operation_type, params) if params \
             else IndustrialOperationParameters().from_operation_type(operation_type)
         super().__init__(operation_type, params)
+        self.params_for_fit = self.multi_dim_dispatcher.params_for_fit
 
     def _convert_to_operation(self, operation_type: str):
-        if operation_type in self.__operations_by_types.keys():
-            return self.__operations_by_types[operation_type]
+        if operation_type in self._operations_by_types.keys():
+            return self._operations_by_types[operation_type]
         else:
             raise ValueError(
                 f'Impossible to obtain custom preprocessing strategy for {operation_type}')
@@ -315,6 +312,32 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
         return converted
 
 
+class IndustrialForecastingPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
+    _operations_by_types = FORECASTING_PREPROC
+
+    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+        params = IndustrialOperationParameters().from_params(operation_type, params) if params \
+            else IndustrialOperationParameters().from_operation_type(operation_type)
+        super().__init__(operation_type, params)
+
+    def fit(self, train_data: InputData):
+        train_data = self.multi_dim_dispatcher._convert_input_data(train_data, mode='one_dimensional')
+        return self.multi_dim_dispatcher.fit(train_data)
+
+    def predict(self, trained_operation,
+                predict_data: InputData,
+                output_mode: str = 'default'):
+        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode='one_dimensional')
+        return self.multi_dim_dispatcher.predict(trained_operation, converted_predict_data, output_mode=output_mode)
+
+    def predict_for_fit(self, trained_operation,
+                        predict_data: InputData,
+                        output_mode: str = 'default') -> OutputData:
+        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode='one_dimensional')
+        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, converted_predict_data,
+                                                         output_mode=output_mode)
+
+
 class IndustrialClassificationPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
     _operations_by_types = INDUSTRIAL_CLF_PREPROC_MODEL
 
@@ -334,12 +357,10 @@ class IndustrialDataSourceStrategy(IndustrialCustomPreprocessingStrategy):
         return object()
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        return OutputData(idx=predict_data.idx, features=predict_data.features, task=predict_data.task,
-                          data_type=predict_data.data_type, target=predict_data.target, predict=predict_data.features)
+        return FedotConverter(predict_data).convert_input_to_output()
 
     def _convert_to_operation(self, operation_type: str):
         return object()
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        return OutputData(idx=predict_data.idx, features=predict_data.features, task=predict_data.task,
-                          data_type=predict_data.data_type, target=predict_data.target, predict=predict_data.features)
+        return FedotConverter(predict_data).convert_input_to_output()

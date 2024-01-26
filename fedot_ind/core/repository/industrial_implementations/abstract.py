@@ -1,10 +1,118 @@
+from copy import copy
 from typing import List, Iterable, Union, Optional
+
+import pandas as pd
+from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
+    transform_features_and_target_into_lagged
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.preprocessing.data_types import TYPE_TO_ID
+
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.data.array_utilities import atleast_4d
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
+
+
+def postprocess_predicts(self, merged_predicts: np.array) -> np.array:
+    """ Post-process merged predictions (e.g. reshape). """
+    return merged_predicts
+
+
+def transform_lagged(self, input_data: InputData):
+    train_data = copy(input_data)
+    forecast_length = train_data.task.task_params.forecast_length
+
+    # Correct window size parameter
+    self._check_and_correct_window_size(train_data.features, forecast_length)
+    window_size = self.window_size
+
+    new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(train_data,
+                                                                                      forecast_length,
+                                                                                      window_size)
+
+    # Update target for Input Data
+    train_data.target = new_target
+    train_data.idx = new_idx
+    output_data = self._convert_to_output(train_data,
+                                          transformed_cols,
+                                          data_type=DataTypesEnum.image)
+    return output_data
+
+
+def transform_smoothing(self, input_data: InputData) -> OutputData:
+    """Method for smoothing time series
+
+    Args:
+        input_data: data with features, target and ids to process
+
+    Returns:
+        output data with smoothed time series
+    """
+
+    source_ts = input_data.features
+    if input_data.data_type == DataTypesEnum.multi_ts:
+        full_smoothed_ts = []
+        for ts_n in range(source_ts.shape[1]):
+            ts = pd.Series(source_ts[:, ts_n])
+            smoothed_ts = self._apply_smoothing_to_series(ts)
+            full_smoothed_ts.append(smoothed_ts)
+        output_data = self._convert_to_output(input_data,
+                                              np.array(full_smoothed_ts).T,
+                                              data_type=input_data.data_type)
+    else:
+        source_ts = pd.Series(input_data.features.flatten())
+        smoothed_ts = np.ravel(self._apply_smoothing_to_series(source_ts))
+        output_data = self._convert_to_output(input_data,
+                                              smoothed_ts,
+                                              data_type=input_data.data_type)
+
+    return output_data
+
+
+def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
+    """Method for transformation of time series to lagged form for fit stage
+
+    Args:
+        input_data: data with features, target and ids to process
+
+    Returns:
+        output data with transformed features table
+    """
+    new_input_data = copy(input_data)
+    forecast_length = new_input_data.task.task_params.forecast_length
+
+    # Correct window size parameter
+    self._check_and_correct_window_size(new_input_data.features, forecast_length)
+    window_size = self.window_size
+    new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
+        input_data,
+        forecast_length,
+        window_size)
+
+    # Update target for Input Data
+    new_input_data.target = new_target
+    new_input_data.idx = new_idx
+    output_data = self._convert_to_output(new_input_data,
+                                          transformed_cols,
+                                          data_type=DataTypesEnum.image)
+    return output_data
+
+
+def update_column_types(self, output_data: OutputData):
+    """Update column types after lagged transformation. All features becomes ``float``
+    """
+
+    _, features_n_cols, _ = output_data.predict.shape
+    feature_type_ids = np.array([TYPE_TO_ID[float]] * features_n_cols)
+    col_type_ids = {'features': feature_type_ids}
+
+    if output_data.target is not None and len(output_data.target.shape) > 1:
+        _, target_n_cols = output_data.target.shape
+        target_type_ids = np.array([TYPE_TO_ID[float]] * target_n_cols)
+        col_type_ids['target'] = target_type_ids
+    output_data.supplementary_data.col_type_ids = col_type_ids
 
 
 def preprocess_predicts(*args) -> List[np.array]:

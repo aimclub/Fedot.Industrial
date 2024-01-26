@@ -22,6 +22,7 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
 
 def beta_thr(beta):
@@ -112,8 +113,43 @@ class FeatureConstant(Enum):
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
     FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
-                  'regression': Task(TaskTypesEnum.regression)}
-
+                  'regression': Task(TaskTypesEnum.regression),
+                  'ts_forecasting': Task(TaskTypesEnum.ts_forecasting,
+                                         TsForecastingParams(forecast_length=1))}
+    FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
+                                                        task_params=None,
+                                                        timeout=None,
+                                                        n_jobs=-1,
+                                                        logging_level=50,
+                                                        seed=42,
+                                                        parallelization_mode='populational',
+                                                        show_progress=True,
+                                                        max_depth=6,
+                                                        max_arity=3,
+                                                        pop_size=20,
+                                                        num_of_generations=None,
+                                                        keep_n_best=1,
+                                                        available_operations=None,
+                                                        metric=None,
+                                                        cv_folds=2,
+                                                        genetic_scheme=None,
+                                                        early_stopping_iterations=None,
+                                                        early_stopping_timeout=10,
+                                                        optimizer=None,
+                                                        collect_intermediate_metric=False,
+                                                        max_pipeline_fit_time=None,
+                                                        initial_assumption=None,
+                                                        preset=None,
+                                                        use_pipelines_cache=True,
+                                                        use_preprocessing_cache=True,
+                                                        use_input_preprocessing=True,
+                                                        use_auto_preprocessing=False,
+                                                        use_meta_rules=False,
+                                                        cache_dir=None,
+                                                        keep_history=True,
+                                                        history_dir=None,
+                                                        with_tuning=True
+                                                        )
     FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
                          'classification': calculate_classification_metric}
     FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
@@ -148,8 +184,9 @@ class FedotOperationConstant(Enum):
                                 'kernel_pca',
                                 'isolation_forest_reg']
 
-    FEDOT_ASSUMPTIONS= {'classification': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
-                  'regression': PipelineBuilder().add_node('quantile_extractor').add_node('rf')}
+    FEDOT_ASSUMPTIONS = {'classification': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
+                         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
+                         'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')}
 
 
 class ModelCompressionConstant(Enum):
@@ -369,6 +406,7 @@ FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value
 FEDOT_GET_METRICS = FedotOperationConstant.FEDOT_GET_METRICS.value
 FEDOT_TUNING_METRICS = FedotOperationConstant.FEDOT_TUNING_METRICS.value
 FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
+FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
