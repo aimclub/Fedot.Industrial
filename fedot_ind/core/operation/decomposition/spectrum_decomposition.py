@@ -41,10 +41,7 @@ class SpectrumDecomposer:
 
     def threshold(self, x):
         if self.thr is None:
-            beta = round(x[0].shape[0] / x[0].shape[1])
-            self.thr = max(len(singular_value_hard_threshold(singular_values=x[1],
-                                                             beta=beta,
-                                                             threshold=None)), 2)
+            self.thr = len([x for x in x[1] if x > 0.1])
         return ListMonad([x[0],
                           x[1][:self.thr],
                           x[2]])

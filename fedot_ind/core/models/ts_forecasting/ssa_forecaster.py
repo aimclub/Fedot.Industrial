@@ -156,9 +156,9 @@ class SSAForecasterImplementation(ModelImplementation):
         model_by_channel = {}
 
         model = PipelineBuilder().add_node('gaussian_filter').add_node('ar')
-
+        #model = PipelineBuilder().add_node('ar')
         for index, ts_comp in enumerate(ts_channels):
-            comp.features = ts_comp.reshape(1, -1)
+            comp.features = ts_comp
             component_model = model.build()
             component_model.fit(comp)
             forecast = component_model.predict(comp, forecast_length)
