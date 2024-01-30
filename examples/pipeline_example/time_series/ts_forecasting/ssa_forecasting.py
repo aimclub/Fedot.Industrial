@@ -1,10 +1,11 @@
 import matplotlib
+
+from fedot_ind.tools.example_utils import get_ts_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import smape
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from examples.example_utils import get_ts_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 import matplotlib.pyplot as plt
 
@@ -41,12 +42,14 @@ if __name__ == '__main__':
     baseline_prediction = np.ravel(baseline.predict(test_data).predict)
     with IndustrialModels():
         for model in model_dict.keys():
+            repo = IndustrialModels().setup_repository()
             pipeline = model_dict[model].build()
             pipeline.fit(train_data)
-            model_prediction = np.ravel(pipeline.predict(test_data).predict)
+            model_prediction = pipeline.predict(test_data).predict
             plot_metrics_and_prediction(test_data,
                                         train_data,
                                         model_prediction,
                                         baseline_prediction,
                                         model,
                                         dataset_name)
+            _ = 1

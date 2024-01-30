@@ -11,11 +11,11 @@ from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 ts_datasets = {
-    'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4YearlyTest.csv'),
-    'm4_weekly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4WeeklyTest.csv'),
-    'm4_daily': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4DailyTest.csv'),
-    'm4_monthly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4MonthlyTest.csv'),
-    'm4_quarterly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4QuarterlyTest.csv')}
+    'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Yearly.csv'),
+    'm4_weekly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Weekly.csv'),
+    'm4_daily': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Daily.csv'),
+    'm4_monthly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Monthly.csv'),
+    'm4_quarterly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Quarterly.csv')}
 
 
 def evaluate_metric(target, prediction):

@@ -51,8 +51,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         except ValueError:
             return pd.DataFrame(transformed_features.predict)
 
-    @fedot_data_type
-    @remove_1_dim_axis
     def _transform(self, input_data: InputData) -> np.array:
         """
         Method for feature generation for all series
@@ -61,7 +59,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         parallel = Parallel(n_jobs=self.n_processes,
                             verbose=0, pre_dispatch="2*n_jobs")
         feature_matrix = parallel(delayed(self.generate_features_from_ts)(
-            sample) for sample in tqdm(input_data))
+            sample) for sample in tqdm(input_data.features))
 
         if len(feature_matrix[0].features.shape) > 1:
             stacked_data = np.stack([ts.features for ts in feature_matrix])

@@ -18,17 +18,17 @@ class HankelMatrix:
 
         self.__time_series = self.__time_series.squeeze()
         self.__convert_ts_to_array()
-        self.__window_length = window_size - 1
+
         self.__strides = strides
         if len(self.__time_series.shape) > 1:
             self.__ts_length = self.__time_series[0].size
         else:
             self.__ts_length = self.__time_series.size
 
-        if self.__window_length is None:
+        if window_size is None:
             self.__window_length = round(self.__ts_length * 0.35)
         else:
-            self.__window_length = round(self.__window_length)
+            self.__window_length = round(window_size - 1)
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()
@@ -54,14 +54,16 @@ class HankelMatrix:
         if self.__strides > 1:
             return self.__strided_trajectory_matrix(self.__time_series)
         else:
-            return backend_scipy.hankel(self.__time_series[:self.__window_length + 1], self.__time_series[self.__window_length:])
+            return backend_scipy.hankel(self.__time_series[:self.__window_length + 1],
+                                        self.__time_series[self.__window_length:])
 
     def __get_2d_trajectory_matrix(self):
         if self.__strides > 1:
             return [self.__strided_trajectory_matrix(time_series) for time_series
                     in self.__time_series]
         else:
-            return [backend_scipy.hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
+            return [backend_scipy.hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for
+                    time_series
                     in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):
@@ -111,7 +113,7 @@ def get_x_y_pairs(train, train_periods, prediction_periods):
     r = train_scaled.shape[0] - train_periods - prediction_periods
     x_train = [train_scaled[i:i + train_periods] for i in range(r)]
     y_train = [train_scaled[i + train_periods:i +
-                            train_periods + prediction_periods] for i in range(r)]
+                                              train_periods + prediction_periods] for i in range(r)]
 
     # -- use the stack function to convert the list of 1D tensors
     # into a 2D tensor where each element of the list is now a row

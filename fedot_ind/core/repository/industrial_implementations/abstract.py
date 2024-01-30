@@ -80,6 +80,7 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     Returns:
         output data with transformed features table
     """
+    input_data.features = input_data.features.squeeze()
     new_input_data = copy(input_data)
     forecast_length = new_input_data.task.task_params.forecast_length
 

@@ -7,7 +7,7 @@ from fedot.core.operations.evaluation.operation_implementations.models.knn impor
     FedotKnnRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     GaussianFilterImplementation, LaggedTransformationImplementation, \
-    TsSmoothingImplementation, SparseLaggedTransformationImplementation
+    TsSmoothingImplementation, SparseLaggedTransformationImplementation, ExogDataTransformationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
@@ -71,9 +71,13 @@ TEMPORARY_EXCLUDED = {
                             'fast_ica': FastICAImplementation,
                             'poly_features': PolyFeaturesImplementation,
                             'topological_extractor': TopologicalExtractor,
+                            'exog_ts': ExogDataTransformationImplementation
                             },
     'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
-                                 'dimension_reduction': FeatureFilter},
+                                 'dimension_reduction': FeatureFilter,
+                                 'signal_extractor': SignalExtractor,
+                                 'recurrence_extractor': RecurrenceExtractor
+                                 },
     'SKLEARN_REG_MODELS': {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
@@ -130,8 +134,6 @@ class AtomizedModel(Enum):
         # feature extraction algorithm
 
         'quantile_extractor': QuantileExtractor,
-        'signal_extractor': SignalExtractor,
-        'recurrence_extractor': RecurrenceExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
         # isolation_forest forest
@@ -168,7 +170,6 @@ class AtomizedModel(Enum):
         'lagged': LaggedTransformationImplementation,
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
-        #'exog_ts': ExogDataTransformationImplementation,
         'gaussian_filter': GaussianFilterImplementation
     }
 

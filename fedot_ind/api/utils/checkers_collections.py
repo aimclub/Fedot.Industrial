@@ -2,14 +2,8 @@ import logging
 from typing import Union
 
 import pandas as pd
-from fedot.core.data.data_split import train_test_data_setup
-
-from fedot_ind.api.utils.data import check_multivariate_data
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
-from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
@@ -41,16 +35,17 @@ class DataCheck:
         self.task_dict = FEDOT_TASK
 
     def __check_features_and_target(self, X, y):
-        multi_features = type(X) is np.ndarray and len(X.shape) > 2
+
+        if type(X) is not pd.DataFrame:
+            X = pd.DataFrame(X)
+
+        multi_features = check_multivariate_data(X)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
         if multi_features:
-            is_multivariate_data = True
-            features = X
-        elif type(X) is not pd.DataFrame:
-            X = pd.DataFrame(X)
-            is_multivariate_data = check_multivariate_data(X)
             features = np.array(X.values.tolist()).astype(np.float)
+        else:
+            features = X
 
         if multi_target:
             target = y
@@ -59,7 +54,7 @@ class DataCheck:
         else:
             target = np.ravel(y).reshape(-1, 1)
 
-        return features, is_multivariate_data, target
+        return features, multi_features, target
 
     def _init_input_data(self) -> None:
         """Initializes the `input_data` attribute based on its type.
