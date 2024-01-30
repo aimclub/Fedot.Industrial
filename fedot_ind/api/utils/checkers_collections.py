@@ -4,6 +4,7 @@ from typing import Union
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
+from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
@@ -115,6 +116,9 @@ class DataCheck:
                 self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
+        if type(self.input_data.target[0][0]) is np.str_ and self.task == 'classification':
+            label_encoder = LabelEncoder()
+            self.input_data.target = label_encoder.fit_transform(self.input_data.target)
         if self.task == 'regression':
             self.input_data.target = self.input_data.target.squeeze()
         elif self.task == 'classification':

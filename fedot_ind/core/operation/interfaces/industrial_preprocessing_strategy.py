@@ -78,13 +78,14 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                                                               self.mode)
 
         # create list of InputData, where each InputData correspond to each channel
-        test_data = [InputData(idx=predict_data.idx,
-                               features=features,
-                               target=predict_data.target,
-                               task=predict_data.task,
-                               data_type=predict_data.data_type,
-                               supplementary_data=predict_data.supplementary_data) for features in
-                     predict_data.features.swapaxes(1, 0)]
+        test_data = predict_data if type(predict_data) is list else \
+            [InputData(idx=predict_data.idx,
+                       features=features,
+                       target=predict_data.target,
+                       task=predict_data.task,
+                       data_type=predict_data.data_type,
+                       supplementary_data=predict_data.supplementary_data) for features in
+             predict_data.features.swapaxes(1, 0)]
 
         # check model methods and method input type
 
@@ -133,15 +134,14 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
     def fit(self, train_data: InputData):
         # init operation_impl model abstraction
-        operation_implementation = self.operation_impl(self.params_for_fit)
+        try:
+            operation_implementation = self.operation_impl(**self.params_for_fit.to_dict())
+        except Exception:
+            operation_implementation = self.operation_impl(self.params_for_fit)
         # Create model and data condition checker
         self.operation_condition = ConditionConverter(train_data, operation_implementation, self.mode)
         # If model is classical sklearn model we use one_dimensional mode
         if self.operation_condition.is_one_dim_operation:
-            try:
-                operation_implementation = self.operation_impl(**self.params_for_fit.to_dict())
-            except Exception:
-                operation_implementation = self.operation_impl(self.params_for_fit)
             return self.fit_one_sample(operation_implementation, train_data)
         # Elif model is could be use for each dimension(channel) independently we use channel_independent mode
         elif self.operation_condition.is_channel_independent_operation:
@@ -152,10 +152,10 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
             # Check if model have both or just one method (fit and transform_for_fit). For some model one of this method
             # could be not finished to use right now.
-            if self.operation_condition.have_fit_method and not self.operation_condition.have_transform_method:
+            if self.operation_condition.have_fit_method:
                 operation_implementation = [operation.fit(data) for operation, data in zip(
                     trained_operation, train_data)]
-            else:
+            elif not self.operation_condition.have_fit_method and self.operation_condition.have_transform_method:
                 operation_implementation = [operation.transform_for_fit(data) for operation, data in zip(
                     trained_operation, train_data)]
             return operation_implementation

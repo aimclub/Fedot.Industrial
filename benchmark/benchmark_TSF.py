@@ -57,13 +57,9 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         model.fit(train_data)
         prediction = model.predict(test_data)
         model.save_best_model()
-        try:
-            model.solver.current_pipeline.save(path=experiment_setup['output_folder'])
-            model.save_optimization_history()
-            model.plot_operation_distribution(mode='each')
-            model.plot_fitness_by_generation()
-        except Exception:
-            print('No_visualisation')
+        model.save_optimization_history()
+        model.plot_operation_distribution(mode='each')
+        model.plot_fitness_by_generation()
         plt.close('all')
         model.shutdown()
         return prediction.squeeze(), model.predict_data.target

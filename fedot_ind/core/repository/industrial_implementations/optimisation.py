@@ -1,3 +1,4 @@
+import itertools
 from copy import deepcopy
 from itertools import chain
 from math import ceil
@@ -28,7 +29,7 @@ from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
 
-from fedot_ind.core.repository.model_repository import AtomizedModel
+from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -45,6 +46,10 @@ class IndustrialMutations:
                                            *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.NEURAL_MODEL.value.keys())]
+        self.excluded = [list(TEMPORARY_EXCLUDED[x].keys()) for x in TEMPORARY_EXCLUDED.keys()]
+        self.excluded = (list(itertools.chain(*self.excluded)))
+        self.industrial_data_operations = [operation for operation in self.industrial_data_operations if operation
+                                           not in self.excluded]
 
     def transform_to_pipeline_node(self, node):
         return self.node_adapter._transform_to_pipeline_node(node)

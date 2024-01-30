@@ -38,6 +38,8 @@ def metric_acc(reference: InputData, predicted: OutputData) -> float:
             else:
                 predicted.predict = predicted.predict.squeeze()
                 reference.target = reference.target.squeeze()
+        elif len(predicted.predict.shape) <= 2 and predicted.predict.dtype.name in ['float', 'float64']:
+            predicted.predict = np.round(predicted.predict)
 
         return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
     except Exception:
