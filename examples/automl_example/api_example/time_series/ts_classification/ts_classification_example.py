@@ -1,5 +1,3 @@
-from sklearn.metrics import classification_report
-
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
 
@@ -21,4 +19,4 @@ if __name__ == "__main__":
                                      rounding_order=3,
                                      metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
     # industrial.finetune(train_data)
-    print(classification_report(test_data[1], labels, digits=4))
+    print(metrics)

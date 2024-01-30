@@ -138,6 +138,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 prediction = list(
                     operation.transform(data) for operation, data in zip(trained_operation, test_data))
                 prediction = [pred.predict for pred in prediction if type(pred) is not np.array]
+            else:
+                print(1)
 
             prediction = NumpyConverter(data=np.hstack(prediction)).convert_to_torch_format()
         return prediction

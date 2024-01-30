@@ -6,7 +6,6 @@ from math import log
 from numpy import dot, eye, zeros
 from sklearn.preprocessing import MinMaxScaler
 
-from fedot_ind.core.architecture.experiment.TimeSeriesClassifier import TimeSeriesClassifier
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.detection.probalistic.sigma import MerweScaledSigmaPoints
 from fedot_ind.core.operation.transformation.data.hankel import get_x_y_pairs

@@ -119,12 +119,12 @@ def get_industrial_search_space(self):
 
             'penalty': {
                 'hyperopt-dist': hp.choice,
-                'sampling-scope': [['l1', 'l2', 'elasticnet']],
+                'sampling-scope': [['l1', 'l2']],
                 'type': 'categorical'},
 
             'solver': {
                 'hyperopt-dist': hp.choice,
-                'sampling-scope': [['lbfgs', 'newton-cg', 'newton-cholesky', 'saga']],
+                'sampling-scope': [['liblinear']],
                 'type': 'categorical'}
         },
         'rf': {

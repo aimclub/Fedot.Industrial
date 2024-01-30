@@ -40,21 +40,21 @@ class DataCheck:
         self.task = task
         self.task_dict = FEDOT_TASK
 
+# TODO refactor this
     def __check_features_and_target(self, X, y):
-        multi_features = type(X) is np.ndarray and len(X.shape) > 2
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
-        if multi_features:
-            is_multivariate_data = True
-            features = X
-        elif type(X) is not pd.DataFrame:
-            X = pd.DataFrame(X)
-            is_multivariate_data = check_multivariate_data(X)
+        if type(X) is pd.DataFrame:
             features = np.array(X.values.tolist()).astype(np.float)
+        else:
+            features = X.astype(np.float)
+        is_multivariate_data = len(features.shape) > 2
 
+        if type(y) is pd.DataFrame or type(y) is pd.Series:
+            y = y.values
         if multi_target:
             target = y
-        elif multi_features and not multi_target:
+        elif is_multivariate_data and not multi_target:
             target = y.reshape(-1, 1)
         else:
             target = np.ravel(y).reshape(-1, 1)
@@ -91,7 +91,7 @@ class DataCheck:
 
         else:
             self.input_data = InputData(idx=np.arange(len(X)),
-                                        features=X.values,
+                                        features=X,
                                         target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
