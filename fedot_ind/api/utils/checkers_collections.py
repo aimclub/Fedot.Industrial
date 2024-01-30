@@ -37,14 +37,11 @@ class DataCheck:
 
     def __check_features_and_target(self, X, y):
 
-        if type(X) is not pd.DataFrame:
-            X = pd.DataFrame(X)
-
-        multi_features = check_multivariate_data(X)
+        multi_features, X = check_multivariate_data(X)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
         if multi_features:
-            features = np.array(X.values.tolist()).astype(np.float)
+            features = np.array(X.tolist()).astype(np.float)
         else:
             features = X
 
