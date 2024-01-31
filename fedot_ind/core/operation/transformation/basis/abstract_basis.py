@@ -45,7 +45,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """
         pass
 
-    def _decompose_signal(self, signal) -> list:
+    def _decompose_signal(self, signal) -> np.array:
         pass
 
     def evaluate_derivative(self, order: int = 1):

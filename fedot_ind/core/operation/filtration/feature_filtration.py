@@ -33,8 +33,8 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         if operation.task.task_params is None:
             operation_name = operation.task.task_params
         else:
-            operation_name = operation.task.task_params.feature_filter if 'feature_filter' \
-                                                                          in operation.task.task_params else operation.task.task_params
+            operation_name = operation.task.task_params.feature_filter \
+                if 'feature_filter' in operation.task.task_params else operation.task.task_params
         if operation_name is None:
             return operation.features
         elif operation_name in self.method_dict.keys():
@@ -137,13 +137,6 @@ class FeatureSpaceReducer:
 
         features = self._drop_stable_features(features, var_threshold)
         features_new = self._drop_correlated_features(corr_threshold, features)
-
-        final_feature_space_size = features_new.shape[1]
-
-        if init_feature_space_size != final_feature_space_size:
-            self.logger.info(
-                f'Feature space reduced from {init_feature_space_size} to {final_feature_space_size}')
-
         return features_new
 
     def _drop_correlated_features(self, corr_threshold, features):
@@ -191,7 +184,7 @@ class FeatureSpaceReducer:
 class VarianceSelector:
     """
     Class that accepts a dictionary as input, the keys of which are the names of models and the values are arrays
-    of data in the np.array format.The class implements an algorithm to determine the "best" set of features and the
+    of data in the np.ndarray format.The class implements an algorithm to determine the "best" set of features and the
     best model in the dictionary.
     """
 

@@ -4,26 +4,19 @@ from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_MEDIAN
 
 
 def sv_to_explained_variance_ratio(singular_values, rank):
-    """
-    Calculate the explained variance ratio of the singular values.
+    """Calculate the explained variance ratio of the singular values.
 
-    Parameters
-    ----------
-    singular_values : array-like, shape (n_components,)
-        Singular values.
-    rank : int
-        Number of singular values to use.
+    Args:
+        singular_values (array-like, shape (n_components,)): Singular values.
+        rank (int): Number of singular values to use.
 
-    Returns
-    -------
-    explained_variance : float
-        Explained variance ratio.
-    n_components : int
-        Number of singular values to use.
+    Returns:
+        explained_variance (int): Explained variance percent.
+        n_components (int): Number of singular values to use.
+
     """
     singular_values = [abs(x) for x in singular_values]
-    n_components = [x / sum(singular_values) *
-                    100 for x in singular_values][:rank]
+    n_components = [x / sum(singular_values) * 100 for x in singular_values][:rank]
     explained_variance = sum(n_components)
     n_components = rank
     return explained_variance, n_components
@@ -33,22 +26,17 @@ def singular_value_hard_threshold(singular_values,
                                   rank=None,
                                   beta=None,
                                   threshold=SINGULAR_VALUE_MEDIAN_THR) -> list:
-    """
-    Calculate the hard threshold for the singular values.
+    """Calculate the hard threshold for the singular values.
 
-    Parameters
-    ----------
-    singular_values : array-like, shape (n_components,)
-        Singular values.
-    rank : int
-        Number of singular values to use.
-    threshold : float
-        Threshold value.
+    Args:
+        singular_values (array-like, shape (n_components,)): Singular values.
+        rank (int): Number of singular values to use.
+        beta (float): Beta value.
+        threshold (float): Threshold value.
 
-    Returns
-    -------
-    adjusted_rank : int
-        Adjusted rank.
+    Returns:
+        adjusted singular values array (array-like, shape (n_components,)): Adjusted array of singular values.
+
     """
     if rank is not None:
         return singular_values[:rank]
