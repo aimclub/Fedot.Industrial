@@ -20,7 +20,7 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
         pos_label = u[count_sort_ind[0]].item()
         additional_params = {
             'average': binary_averaging_mode, 'pos_label': pos_label}
-    if predicted.predict.shape[1] > reference.target.shape[0]:
+    if len(predicted.predict.shape) > 1:
         predicted.predict = np.argmax(predicted.predict, axis=1)
     elif len(predicted.predict.shape) >= 2:
         predicted.predict = predicted.predict.squeeze()
@@ -32,12 +32,14 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
 @from_maximised_metric
 def metric_acc(reference: InputData, predicted: OutputData) -> float:
     try:
-        if len(predicted.predict.shape) > 2:
-            if len(reference.target.shape) < 2 < len(predicted.predict.shape):
+        if len(predicted.predict.shape) >= 2:
+            if len(reference.target.shape) <= 2 <= len(predicted.predict.shape):
                 predicted.predict = np.argmax(predicted.predict, axis=1)
             else:
                 predicted.predict = predicted.predict.squeeze()
                 reference.target = reference.target.squeeze()
+        elif len(predicted.predict.shape) <= 2 and predicted.predict.dtype.name in ['float', 'float64']:
+            predicted.predict = np.round(predicted.predict)
 
         return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
     except Exception:

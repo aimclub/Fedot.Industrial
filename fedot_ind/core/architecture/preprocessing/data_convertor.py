@@ -1,4 +1,5 @@
 from functools import partial
+from inspect import signature
 
 import pandas as pd
 import torch
@@ -120,6 +121,19 @@ class FedotConverter:
                                output_data_type):
         if type(prediction) is OutputData:
             output_data = prediction
+        elif type(prediction) is list:
+            output_data = prediction[0]
+            target = NumpyConverter(
+                data=np.concatenate([p.target for p in prediction], axis=0)).convert_to_torch_format()
+            predict = NumpyConverter(
+                data=np.concatenate([p.predict for p in prediction], axis=0)).convert_to_torch_format()
+            output_data = OutputData(idx=predict_data.idx,
+                                     features=predict_data.features,
+                                     predict=predict,
+                                     task=predict_data.task,
+                                     target=target,
+                                     data_type=output_data_type,
+                                     supplementary_data=predict_data.supplementary_data)
         else:
             output_data = OutputData(idx=predict_data.idx,
                                      features=predict_data.features,
@@ -144,37 +158,37 @@ class FedotConverter:
                           predict=self.input_data.features)
 
     def convert_to_industrial_composing_format(self, mode):
-        try:
-            if mode == 'one_dimensional':
-                new_features, new_target = [
-                    array.reshape(array.shape[0], array.shape[1] * array.shape[2])
-                    if array is not None and len(array.shape) > 2 else array
-                    for array in [self.input_data.features, self.input_data.target]]
-                input_data = InputData(idx=self.input_data.idx,
-                                       features=new_features,
-                                       target=new_target,
-                                       task=self.input_data.task,
-                                       data_type=self.input_data.data_type,
-                                       supplementary_data=self.input_data.supplementary_data)
-            elif mode == 'channel_independent':
-                input_data = [InputData(idx=self.input_data.idx,
-                                        features=features,
-                                        target=self.input_data.target,
-                                        task=self.input_data.task,
-                                        data_type=self.input_data.data_type,
-                                        supplementary_data=self.input_data.supplementary_data) for features in
-                              self.input_data.features.swapaxes(1, 0)]
-            elif mode == 'multi_dimensional':
-                features = NumpyConverter(
-                    data=self.input_data.features).convert_to_torch_format()
-                input_data = InputData(idx=self.input_data.idx,
-                                       features=features,
-                                       target=self.input_data.target,
-                                       task=self.input_data.task,
-                                       data_type=self.input_data.data_type,
-                                       supplementary_data=self.input_data.supplementary_data)
-        except Exception:
-            _ = 1
+        if mode == 'one_dimensional':
+            new_features, new_target = [
+                array.reshape(array.shape[0], array.shape[1] * array.shape[2])
+                if array is not None and len(array.shape) > 2 else array
+                for array in [self.input_data.features, self.input_data.target]]
+            input_data = InputData(idx=self.input_data.idx,
+                                   features=new_features,
+                                   target=new_target,
+                                   task=self.input_data.task,
+                                   data_type=self.input_data.data_type,
+                                   supplementary_data=self.input_data.supplementary_data)
+        elif mode == 'channel_independent':
+            feats = self.input_data.features if self.input_data.features.shape[0] == 1 else \
+                self.input_data.features.swapaxes(1, 0)
+            input_data = [InputData(idx=self.input_data.idx,
+                                    features=features,
+                                    target=self.input_data.target,
+                                    task=self.input_data.task,
+                                    data_type=self.input_data.data_type,
+                                    supplementary_data=self.input_data.supplementary_data) for features in
+                          feats]
+        elif mode == 'multi_dimensional':
+            features = NumpyConverter(
+                data=self.input_data.features).convert_to_torch_format()
+            input_data = InputData(idx=self.input_data.idx,
+                                   features=features,
+                                   target=self.input_data.target,
+                                   task=self.input_data.task,
+                                   data_type=self.input_data.data_type,
+                                   supplementary_data=self.input_data.supplementary_data)
+
         return input_data
 
 
@@ -286,14 +300,16 @@ class NumpyConverter:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            1)
-        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1:
-            return self.numpy_data.reshape(self.numpy_data.shape[1],
-                                           1,
-                                           self.numpy_data.shape[0])
-        elif self.numpy_data.ndim == 2:
+        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] != 1:
+            # add 1 channel
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            self.numpy_data.shape[1])
+        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1:
+            # add transpose data to (features, channel = 1 , sample = 1)
+            return self.numpy_data.reshape(self.numpy_data.shape[1],
+                                           1,
+                                           self.numpy_data.shape[0])
 
         elif self.numpy_data.ndim > 3:
             return self.numpy_data.squeeze()
@@ -305,6 +321,93 @@ class NumpyConverter:
             return self.numpy_data.squeeze()
         else:
             return self.numpy_data
+
+
+class ConditionConverter:
+    def __init__(self, train_data, operation_implementation, mode):
+        self.train_data = train_data
+        self.operation_implementation = operation_implementation
+        self.mode = mode
+
+    @property
+    def have_transform_method(self):
+        return 'transform' in dir(self.operation_implementation)
+
+    @property
+    def have_fit_method(self):
+        return 'fit' in dir(self.operation_implementation)
+
+    @property
+    def have_predict_method(self):
+        return 'predict' in dir(self.operation_implementation)
+
+    @property
+    def have_predict_for_fit_method(self):
+        return 'predict_for_fit' in dir(self.operation_implementation)
+
+    @property
+    def is_one_dim_operation(self):
+        return self.mode == 'one_dimensional'
+
+    @property
+    def is_channel_independent_operation(self):
+        return self.mode == 'channel_independent'
+
+    @property
+    def is_multi_dimensional_operation(self):
+        return self.mode == 'multi_dimensional'
+
+    @property
+    def is_list_container(self):
+        return type(self.train_data) is list
+
+    @property
+    def is_list_container(self):
+        return type(self.train_data) is list
+
+    @property
+    def is_operation_is_list_container(self):
+        return type(self.operation_implementation) is list
+
+    @property
+    def have_predict_atr(self):
+        return 'predict' in vars(self.operation_implementation[0]) if self.is_operation_is_list_container else False
+    @property
+    def is_fit_input_fedot(self):
+        return str(list(signature(self.operation_implementation.fit).parameters.keys())[0]) == 'input_data'
+
+    @property
+    def is_transform_input_fedot(self):
+        return str(list(signature(self.operation_implementation.transform).parameters.keys())[0]) == 'input_data'
+
+    @property
+    def is_predict_input_fedot(self):
+        return str(list(signature(self.operation_implementation.predict).parameters.keys())[0]) == 'input_data'
+
+    @property
+    def is_regression_of_forecasting_task(self):
+        return self.train_data.task.task_type.value in ['regression', 'ts_forecasting']
+
+    @property
+    def is_multi_output_target(self):
+        return isinstance(self.operation_implementation.classes_, list)
+
+    def output_mode_converter(self, output_mode, n_classes):
+        return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1) if output_mode == 'labels' \
+            else self.probs_prediction_converter(output_mode, n_classes)
+
+    def probs_prediction_converter(self, output_mode, n_classes):
+        prediction = self.operation_implementation.predict_proba(self.train_data.features)
+        if n_classes < 2:
+            raise ValueError(
+                'Data set contain only 1 target class. Please reformat your data.')
+        elif n_classes == 2 and output_mode != 'full_probs':
+            if self.is_multi_output_target:
+                prediction = np.stack([pred[:, 1]
+                                       for pred in prediction]).T
+            else:
+                prediction = prediction[:, 1]
+        return prediction
 
 
 class DataConverter(TensorConverter, NumpyConverter):

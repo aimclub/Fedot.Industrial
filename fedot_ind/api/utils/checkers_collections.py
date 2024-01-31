@@ -2,13 +2,8 @@ import logging
 from typing import Union
 
 import pandas as pd
-from fedot.core.data.data_split import train_test_data_setup
-
-from fedot_ind.api.utils.data import check_multivariate_data
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
 from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
@@ -40,7 +35,7 @@ class DataCheck:
         self.task = task
         self.task_dict = FEDOT_TASK
 
-# TODO refactor this
+    # TODO refactor this
     def __check_features_and_target(self, X, y):
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
@@ -120,7 +115,8 @@ class DataCheck:
                 self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
-        if self.task == 'regression':
+
+        elif self.task == 'regression':
             self.input_data.target = self.input_data.target.squeeze()
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0

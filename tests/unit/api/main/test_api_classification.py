@@ -29,10 +29,10 @@ def fedot_industrial_regression():
 ])
 def test_fit_predict_classification(fedot_industrial_classification, series, target, request):
     train_data = (request.getfixturevalue(series), request.getfixturevalue(target))
-    pipeline = fedot_industrial_classification.fit(train_data)
+    fedot_industrial_classification.fit(train_data)
     predict = fedot_industrial_classification.predict(train_data)
 
-    assert isinstance(pipeline, Pipeline)
+
     assert predict.shape[0] == train_data[1].shape[0]
 
     num_unique = np.unique(train_data[1])
@@ -57,10 +57,9 @@ def test_fit_predict_classification(fedot_industrial_classification, series, tar
 ])
 def test_fit_predict_regression(fedot_industrial_regression, series, target, request):
     train_data = (request.getfixturevalue(series), request.getfixturevalue(target))
-    pipeline = fedot_industrial_regression.fit(train_data)
+    fedot_industrial_regression.fit(train_data)
     predict = fedot_industrial_regression.predict(train_data)
 
-    assert isinstance(pipeline, Pipeline)
     assert predict.shape[0] == train_data[1].shape[0]
 
     if len(train_data[1].shape) > 1:

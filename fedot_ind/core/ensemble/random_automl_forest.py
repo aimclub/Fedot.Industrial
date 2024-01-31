@@ -1,5 +1,6 @@
 from fedot.core.data.data import InputData
 from fedot.core.data.multi_modal import MultiModalData
+from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold, train_test_split
@@ -45,6 +46,16 @@ class RAFensembler:
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
         self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
+        batch_pipe = [automl_branch.fitted_operation.model.current_pipeline.root_node for automl_branch in
+                      self.current_pipeline.nodes if
+                      automl_branch.name in FEDOT_HEAD_ENSEMBLE.values()]
+        head = batch_pipe[-1]
+        main = batch_pipe[:-1]
+        for p in head.nodes_from:
+            if len(p.nodes_from) == 0:
+                p.nodes_from = main
+        composed = Pipeline(head)
+        self.current_pipeline = composed
 
     def predict(self, test_data, output_mode: str = 'labels'):
         data_dict = {}

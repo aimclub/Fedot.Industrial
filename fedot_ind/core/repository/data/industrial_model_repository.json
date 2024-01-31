@@ -217,7 +217,7 @@
 
   "operations": {
      "ssa_forecaster": {
-      "meta": "industrial_decomposition_for_forecasting",
+      "meta": "ts_model",
       "presets": ["best_quality", "ts"],
       "tags": [
         "decomposition"

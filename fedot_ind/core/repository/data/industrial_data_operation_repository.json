@@ -199,24 +199,6 @@
         "extractor"
       ]
     },
-    "signal_extractor": {
-      "meta": "industrial_preprocessing",
-      "presets": [
-        "fast_train"
-      ],
-      "tags": [
-        "basis"
-      ]
-    },
-    "recurrence_extractor": {
-      "meta": "industrial_preprocessing",
-      "presets": [
-        "fast_train"
-      ],
-      "tags": [
-        "extractor"
-      ]
-    },
       "topological_features": {
         "meta": "custom_preprocessing",
         "presets": [

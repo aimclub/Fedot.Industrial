@@ -1,5 +1,6 @@
 import logging
 import warnings
+from copy import deepcopy
 from pathlib import Path
 
 import pandas as pd
@@ -63,7 +64,7 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
-        self.output_folder = kwargs.get('output_folder')
+        self.output_folder = kwargs.get('output_folder', None)
         self.preprocessing = kwargs.get('industrial_preprocessing', False)
         self.backend_method = kwargs.get('backend', 'cpu')
         self.RAF_workers = kwargs.get('RAF_workers', None)
@@ -95,6 +96,8 @@ class FedotIndustrial(Fedot):
                                                               default_industrial_availiable_operation(
                                                                   self.config_dict['problem']))
         self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
+        self.config_dict['initial_assumption'] = kwargs.get('initial_assumption',
+                                                            FEDOT_ASSUMPTIONS[self.config_dict['problem']])
         self.__init_experiment_setup()
 
     def __init_experiment_setup(self):
@@ -108,6 +111,7 @@ class FedotIndustrial(Fedot):
     def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
+        self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
         if type(self.config_dict['available_operations']) is not list:
             solver = self.config_dict['available_operations'].build()
         else:
@@ -115,9 +119,7 @@ class FedotIndustrial(Fedot):
             self.dask_client = DaskServer().client
             self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
             self.logger.info('Initialising solver')
-            self.config_dict['initial_assumption'] = FEDOT_ASSUMPTIONS[self.config_dict['problem']].build()
             solver = Fedot(**self.config_dict)
-            self.repo = IndustrialModels().setup_repository()
         return solver
 
     def shutdown(self):
@@ -126,15 +128,18 @@ class FedotIndustrial(Fedot):
 
     def _preprocessing_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
-            self.logger.info('RAF algorithm was applied')
-            batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-                                                                                  is not None else FEDOT_WORKER_NUM)
-            batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
-            self.config_dict['timeout'] = batch_timeout
-            self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
-            self.solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
-                                       batch_size=batch_size)
-            self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
+            self._batch_strategy(input_data)
+
+    def _batch_strategy(self, input_data):
+        self.logger.info('RAF algorithm was applied')
+        batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
+                                                                              is not None else FEDOT_WORKER_NUM)
+        batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
+        self.config_dict['timeout'] = batch_timeout
+        self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
+        self.solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
+                                   batch_size=batch_size)
+        self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
 
     def fit(self,
             input_data,
@@ -152,12 +157,12 @@ class FedotIndustrial(Fedot):
             :class:`Pipeline` object.
 
         """
-
-        input_data = DataCheck(input_data=input_data, task=self.config_dict['problem']).check_input_data()
+        self.train_data = deepcopy(input_data)  # we do not want to make inplace changes
+        self.train_data = DataCheck(input_data=self.train_data, task=self.config_dict['problem']).check_input_data()
         self.solver = self.__init_solver()
         if self.preprocessing:
-            self._preprocessing_strategy(input_data)
-        return self.solver.fit(input_data)
+            self._preprocessing_strategy(self.train_data)
+        self.solver.fit(self.train_data)
 
     def predict(self,
                 predict_data,
@@ -173,9 +178,11 @@ class FedotIndustrial(Fedot):
             :param predict_data:
 
         """
-        self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        predict = self.solver.predict(self.predict_data)
-        self.predicted_labels = predict if isinstance(self.solver, Fedot) else predict.predict
+        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
+        self.predict_data = DataCheck(input_data=self.predict_data, task=self.config_dict['problem']).check_input_data()
+        predict = self.solver.predict(self.predict_data) if isinstance(self.solver, Fedot) \
+            else self.solver.predict(self.predict_data, 'labels').predict
+        self.predicted_labels = predict
         return self.predicted_labels
 
     def predict_proba(self,
@@ -193,8 +200,9 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        probs = self.solver.predict_proba(self.predict_data)
-        self.predicted_probs = probs if isinstance(self.solver, Fedot) else probs.predict_proba
+        probs = self.solver.predict_proba(self.predict_data) if isinstance(self.solver, Fedot) \
+            else self.solver.predict(self.predict_data, 'probs')
+        self.predicted_probs = probs
         return self.predicted_probs
 
     def finetune(self,
@@ -293,18 +301,17 @@ class FedotIndustrial(Fedot):
             path (str): path to the model
 
         """
-        self.current_pipeline = Pipeline(use_input_preprocessing=self.solver.params.get('use_input_preprocessing'))
-        self.current_pipeline.load(path)
+        self.repo = IndustrialModels().setup_repository()
+        self.solver = Pipeline()
+        self.solver.load(path)
 
     def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""
         self.solver.history.save(f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
-        try:
-            return self.solver.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
-        except Exception:
-            return self.current_pipeline.show(save_path=f'{self.output_folder}/best_model.png')
+        return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
+                                                 is_datetime_in_path=True)
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""

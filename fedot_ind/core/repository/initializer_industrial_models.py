@@ -60,18 +60,22 @@ class IndustrialModels:
         setattr(ApiParamsRepository, "_get_default_mutations",
                 _get_default_industrial_mutations)
         setattr(Crossover, '_crossover_by_type', _crossover_by_type)
+
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
-        setattr(F1, "metric", metric_f1)
-        setattr(Accuracy, "metric", metric_acc)
         setattr(Operation, "_predict", predict_operation)
         setattr(Operation, "predict", predict)
         setattr(Operation, "predict_for_fit", predict_for_fit)
         setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
+
+        #setattr(F1, "metric", metric_f1)
+        #setattr(Accuracy, "metric", metric_acc)
+
         setattr(LaggedImplementation, '_update_column_types', update_column_types)
         setattr(LaggedImplementation, 'transform', transform_lagged)
         setattr(LaggedImplementation, 'transform_for_fit', transform_lagged_for_fit)
-        setattr(TsSmoothingImplementation,'transform',transform_smoothing)
+        setattr(TsSmoothingImplementation, 'transform', transform_smoothing)
+
         # class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository

@@ -7,7 +7,7 @@ from fedot.core.operations.evaluation.operation_implementations.models.knn impor
     FedotKnnRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     GaussianFilterImplementation, LaggedTransformationImplementation, \
-    TsSmoothingImplementation, SparseLaggedTransformationImplementation
+    TsSmoothingImplementation, SparseLaggedTransformationImplementation, ExogDataTransformationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
@@ -53,7 +53,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     NonLinearClassFSImplementation, LinearClassFSImplementation
-from fedot.core.operations.evaluation.operation_implementations.\
+from fedot.core.operations.evaluation.operation_implementations. \
     data_operations.topological.fast_topological_extractor import \
     FastTopologicalFeaturesImplementation
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
@@ -71,9 +71,19 @@ TEMPORARY_EXCLUDED = {
                             'fast_ica': FastICAImplementation,
                             'poly_features': PolyFeaturesImplementation,
                             'topological_extractor': TopologicalExtractor,
+                            'exog_ts': ExogDataTransformationImplementation,
+                            # categorical encoding
+                            'one_hot_encoding': OneHotEncodingImplementation,
+                            'label_encoding': LabelEncodingImplementation
                             },
     'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
-                                 'dimension_reduction': FeatureFilter},
+                                 'dimension_reduction': FeatureFilter,
+                                 'signal_extractor': SignalExtractor,
+                                 'recurrence_extractor': RecurrenceExtractor,
+                                 # isolation_forest forest
+                                 'isolation_forest_class': IsolationForestClassImplementation,
+                                 'isolation_forest_reg': IsolationForestRegImplementation,
+                                 },
     'SKLEARN_REG_MODELS': {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
@@ -84,7 +94,15 @@ TEMPORARY_EXCLUDED = {
     'SKLEARN_CLF_MODELS': {'bernb': SklearnBernoulliNB,
                            'multinb': SklearnMultinomialNB,
                            # 'lgbm': LGBMClassifier
-                           }}
+                           }
+    ,
+    'NEURAL_MODELS': {'resnet_model': ResNetModel,
+                      # transformer models
+                      'tst_model': TSTModel,
+                      # explainable models
+                      'xcm_model': XCModel
+                      }
+}
 
 
 class AtomizedModel(Enum):
@@ -100,7 +118,7 @@ class AtomizedModel(Enum):
         'xgboost': XGBClassifier,
         # solo linear models
         'logit': SklearnLogReg,
-        'knn': FedotKnnClassImplementation,
+        #'knn': FedotKnnClassImplementation,
         # solo tree models
         'dt': DecisionTreeClassifier,
         # ensemble tree models
@@ -118,9 +136,7 @@ class AtomizedModel(Enum):
         'kernel_pca': KernelPCAImplementation,
         # feature generation
         'topological_features': FastTopologicalFeaturesImplementation,
-        # categorical encoding
-        'one_hot_encoding': OneHotEncodingImplementation,
-        'label_encoding': LabelEncodingImplementation
+
     }
     INDUSTRIAL_PREPROC_MODEL = {
         # data projection onto different basis
@@ -130,8 +146,6 @@ class AtomizedModel(Enum):
         # feature extraction algorithm
 
         'quantile_extractor': QuantileExtractor,
-        'signal_extractor': SignalExtractor,
-        'recurrence_extractor': RecurrenceExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
         # isolation_forest forest
@@ -168,7 +182,6 @@ class AtomizedModel(Enum):
         'lagged': LaggedTransformationImplementation,
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
-        #'exog_ts': ExogDataTransformationImplementation,
         'gaussian_filter': GaussianFilterImplementation
     }
 
@@ -206,7 +219,9 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                          'isolation_forest_class',
                                          'tst_model',
                                          'xcm_model',
-                                         'resnet_model'
+                                         'resnet_model',
+                                         'signal_extractor',
+                                         'recurrence_extractor'
                                          ],
                           'ts_forecasting': [
                               'one_hot_encoding',
@@ -216,7 +231,6 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'sgdr',
                               'treg',
                               'knnreg',
-                              'ssa_forecaster',
                               'dtreg'
                           ],
                           'classification': [
@@ -227,6 +241,8 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'one_hot_encoding',
                               'label_encoding',
                               'isolation_forest_class',
+                              'signal_extractor',
+                              'recurrence_extractor'
                           ]}
     available_operations = [x for x in available_operations if x not in excluded_operation[problem]]
     return available_operations
