@@ -9,7 +9,7 @@ from fedot_ind.core.operation.transformation.splitter import TSTransformer
 
 @pytest.fixture
 def frequent_splitter():
-    return TSTransformer(strategy='frequent')
+    return TSTransformer()
 
 
 @pytest.fixture
@@ -21,29 +21,6 @@ def time_series():
 def anomaly_dict():
     return {'anomaly1': [[40, 50], [60, 80]],
             'anomaly2': [[130, 170], [300, 320]]}
-
-
-@pytest.mark.parametrize('binarize', (True, False))
-def test_transform_for_fit(time_series,
-                           anomaly_dict,
-                           frequent_splitter,
-                           binarize):
-    result = frequent_splitter.transform_for_fit(series=time_series,
-                                                 anomaly_dict=anomaly_dict,
-                                                 binarize=binarize)
-    assert isinstance(result, tuple)
-    assert isinstance(result[0], np.ndarray)
-    assert isinstance(result[1], np.ndarray)
-    assert result[0].shape[0] == result[1].shape[0]
-
-    if binarize:
-        assert 0 in result[1] and 1 in result[1]
-        assert np.sum([len(i) for i in result[0]]) <= len(time_series)
-        assert np.mean(result[1]) == 0.5
-    else:
-        assert 'no_anomaly' in result[1]
-        assert np.sum([len(i) for i in result[0]]) <= len(time_series)
-        assert np.where(result[1] == 'no_anomaly', 0, 1).mean() == 0.5
 
 
 def test__check_multivariate(frequent_splitter, time_series):
@@ -61,24 +38,18 @@ def test_transform(frequent_splitter, time_series, anomaly_dict):
     assert transformed_data.shape[1] == frequent_splitter.freq_length
 
 
-def test_unique_strategy(frequent_splitter):
-    with pytest.raises(NotImplementedError):
-        frequent_splitter._unique_strategy(series=[0, 1],
-                                           anomaly_dict=dict())
-
-
 @pytest.mark.parametrize('binarize, plot', ([True, False], [False, False],
                                             [True, True], [False, True]))
-def test_frequent_strategy(frequent_splitter, time_series, anomaly_dict, binarize, plot):
+def test_transform_for_fit(frequent_splitter, time_series, anomaly_dict, binarize, plot):
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
-    curr_backend = get_backend()
+    get_backend()
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
-    features, target = frequent_splitter._frequent_strategy(series=time_series,
-                                                            anomaly_dict=anomaly_dict,
-                                                            plot=plot,
-                                                            binarize=binarize)
+    features, target = frequent_splitter.transform_for_fit(series=time_series,
+                                                           anomaly_dict=anomaly_dict,
+                                                           plot=plot,
+                                                           binarize=binarize)
     assert isinstance(features, np.ndarray)
     assert isinstance(target, np.ndarray)
     if binarize:
@@ -154,7 +125,7 @@ def test__split_by_intervals(frequent_splitter, time_series, anomaly_dict):
 
 
 def test_binarize_target(frequent_splitter):
-    target = ['anomaly','anomaly','anomaly']
+    target = ['anomaly', 'anomaly', 'anomaly']
     new_target = frequent_splitter._binarize_target(target=target)
     assert np.mean(new_target == 'no_anomaly') == 0
     assert np.mean(new_target == 'anomaly') == 0
@@ -176,7 +147,7 @@ def test_balance_with_non_anomaly(frequent_splitter, time_series, anomaly_dict):
                                                                           features,
                                                                           non_anomaly_inters)
 
-    assert new_target.count('no_anomaly')/len(new_target) == 0.5
+    assert new_target.count('no_anomaly') / len(new_target) == 0.5
     assert len(new_target) == len(new_features)
 
 

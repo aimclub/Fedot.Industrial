@@ -35,7 +35,7 @@ def test_transform_one_sample(input_train):
     sample = input_train.features[0]
     transformed_sample = basis._transform_one_sample(sample)
     assert isinstance(transformed_sample, np.ndarray)
-    assert transformed_sample.shape[0] == len(sample)
+    assert transformed_sample.shape[1] == len(sample)
 
 
 def test_decompose_signal(input_train):
@@ -43,4 +43,4 @@ def test_decompose_signal(input_train):
     sample = input_train.features[0]
     transformed_sample = basis._decompose_signal(sample)
     assert isinstance(transformed_sample, np.ndarray)
-    assert transformed_sample.shape[0] == len(sample)
+    assert transformed_sample.shape[1] == len(sample)

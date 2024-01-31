@@ -18,8 +18,10 @@ def check_multivariate_data(data: pd.DataFrame) -> bool:
     Returns:
         bool: True if the DataFrame contains multivariate data (nested columns), False otherwise.
     """
-
-    return isinstance(data.iloc[0, 0], pd.Series)
+    if type(data) is not pd.DataFrame:
+        return len(data.shape) > 2, data
+    else:
+        return isinstance(data.iloc[0, 0], pd.Series), data.values
 
 
 def init_input_data(X: pd.DataFrame,

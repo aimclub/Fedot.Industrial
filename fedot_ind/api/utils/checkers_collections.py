@@ -35,26 +35,26 @@ class DataCheck:
         self.task = task
         self.task_dict = FEDOT_TASK
 
-    # TODO refactor this
     def __check_features_and_target(self, X, y):
+
+        multi_features, X = check_multivariate_data(X)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
-        if type(X) is pd.DataFrame:
-            features = np.array(X.values.tolist()).astype(np.float)
+        if multi_features:
+            features = np.array(X.tolist()).astype(np.float)
         else:
-            features = X.astype(np.float)
-        is_multivariate_data = len(features.shape) > 2
+            features = X
 
         if type(y) is pd.DataFrame or type(y) is pd.Series:
             y = y.values
         if multi_target:
             target = y
-        elif is_multivariate_data and not multi_target:
+        elif multi_features and not multi_target:
             target = y.reshape(-1, 1)
         else:
             target = np.ravel(y).reshape(-1, 1)
 
-        return features, is_multivariate_data, target
+        return features, multi_features, target
 
     def _init_input_data(self) -> None:
         """Initializes the `input_data` attribute based on its type.

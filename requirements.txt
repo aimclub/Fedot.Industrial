@@ -2,6 +2,7 @@ fedot @ https://github.com/nccr-itmo/FEDOT/archive/master.zip
 
 # workaround for macos
 catboost==1.1.1; sys_platform == 'darwin'
+cupy; sys_platform != 'darwin'
 
 giotto_tda==0.6.0
 hyperopt==0.2.7
@@ -21,9 +22,10 @@ PyYAML==6.0.1
 
 fastcore
 fastai
-cupy
+
 distributed
 statsmodels
+datasetsforecast
 
 ripser==0.6.4
 

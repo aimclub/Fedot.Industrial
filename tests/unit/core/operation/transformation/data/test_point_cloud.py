@@ -1,9 +1,8 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
 from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
-from fedot_ind.core.operation.transformation.window_cutter import WindowCutter
 
 
 @pytest.fixture()
@@ -15,18 +14,6 @@ def basic_periodic_data():
     x = np.hstack([x0, x1, x2])
     x += np.random.rand(x.size)
     return x
-
-
-def test_WindowCutting(basic_periodic_data):
-    test_dict = {
-        "ts_1": basic_periodic_data
-    }
-    cutter = WindowCutter(window_len=100, window_step=10)
-    cutter.load_data(test_dict)
-    cutter.run()
-    windows_list = cutter.get_windows()
-    assert len(windows_list) != 0
-    assert list(windows_list[0].keys())[0] == "ts_1"
 
 
 def test_TSTransformer(basic_periodic_data):

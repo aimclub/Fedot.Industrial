@@ -155,9 +155,15 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             if self.operation_condition.have_fit_method:
                 operation_implementation = [operation.fit(data) for operation, data in zip(
                     trained_operation, train_data)]
-            elif not self.operation_condition.have_fit_method and self.operation_condition.have_transform_method:
+                fit_method_is_not_implemented = operation_implementation[0] is None
+            elif self.operation_condition.have_transform_method:
                 operation_implementation = [operation.transform_for_fit(data) for operation, data in zip(
                     trained_operation, train_data)]
+
+            if fit_method_is_not_implemented:
+                operation_implementation = [operation.transform_for_fit(data) for operation, data in zip(
+                    trained_operation, train_data)]
+
             return operation_implementation
         else:
             return self._custom_fit(train_data)

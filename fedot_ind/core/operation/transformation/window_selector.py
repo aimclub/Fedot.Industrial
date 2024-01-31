@@ -64,14 +64,15 @@ class WindowSizeSelector:
         self.length_ts = None
 
     def apply(self, time_series: Union[pd.DataFrame, np.array], average: str = 'median') -> int:
-        """Method to run WSS class over selected time series in parallel mode via joblib
+        """Method to run WSS class over bunch of time series.
 
         Args:
-            time_series: time series to study
+            time_series: square array of time series to study
             average: 'mean' or 'median' to average window size over all time series
 
         Returns:
-            window_size_selected: value which has been chosen as appropriate window size
+            value which has been chosen as appropriate window size
+
         """
         methods = {'mean': np.mean, 'median': np.median}
         assert average in methods.keys(
