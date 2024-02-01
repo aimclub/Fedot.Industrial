@@ -63,6 +63,7 @@ class DataLoader:
                                                               data_path=data_path,
                                                               shuffle=shuffle)
 
+
         if train_data is None:
             self.logger.info(f'Downloading...')
 
@@ -132,6 +133,8 @@ class DataLoader:
             self.logger.error(
                 f'Data not found in {data_path + "/" + dataset_name}')
             return None, None, None
+
+        y_train, y_test = convert_type(y_train, y_test)
 
         if shuffle:
             shuffled_idx = np.arange(x_train.shape[0])
@@ -835,12 +838,7 @@ class DataLoader:
             return None, None
 
         # Conversion of target values to int or str
-        try:
-            y_train = y_train.astype('int64')
-            y_test = y_test.astype('int64')
-        except ValueError:
-            y_train = y_train.astype(str)
-            y_test = y_test.astype(str)
+        y_train, y_test = convert_type(y_train, y_test)
 
         # Save data to tsv files
         new_path = os.path.join(
@@ -865,3 +863,14 @@ class DataLoader:
             return (x_train, y_train), (x_test, y_test)
         else:
             return (pd.DataFrame(x_train), y_train), (pd.DataFrame(x_test), y_test)
+
+
+def convert_type(y_train, y_test):
+    # Conversion of target values to int or str
+    try:
+        y_train = y_train.astype('float')
+        y_test = y_test.astype('float')
+    except ValueError:
+        y_train = y_train.astype(str)
+        y_test = y_test.astype(str)
+    return y_train, y_test

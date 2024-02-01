@@ -65,7 +65,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         else:
             n_classes = len(trained_operation.classes_[0]) if self.operation_condition.is_multi_output_target \
                 else len(trained_operation.classes_)
-            prediction = self.operation_condition.probs_prediction_converter(output_mode, n_classes)
+            prediction = self.operation_condition.output_mode_converter(output_mode, n_classes)
             return prediction
 
     def _convert_input_data(self, train_data, mode: str = None):

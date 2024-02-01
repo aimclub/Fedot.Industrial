@@ -20,7 +20,7 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
         pos_label = u[count_sort_ind[0]].item()
         additional_params = {
             'average': binary_averaging_mode, 'pos_label': pos_label}
-    if predicted.predict.shape[1] > reference.target.shape[0]:
+    if len(predicted.predict.shape) > 1:
         predicted.predict = np.argmax(predicted.predict, axis=1)
     elif len(predicted.predict.shape) >= 2:
         predicted.predict = predicted.predict.squeeze()

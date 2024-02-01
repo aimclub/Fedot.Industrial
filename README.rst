@@ -127,15 +127,26 @@ Fedot.Ind предоставляет высокоуровневый API, кот�
 - Метод ``FedotIndustrial.get_metrics()`` оценивает качество прогнозов с использованием выбранных метрик.
 
 В качестве источников входных данных можно использовать массивы NumPy или
-объекты DataFrame из библиотеки Pandas. В данном случае, `x_train`,
-`y_train` и `x_test` представлены в виде объектов `numpy.ndarray()`:
+объекты DataFrame из библиотеки Pandas. В данном случае, ``x_train / x_test`` и ``y_train / y_test`` – ``pandas.DataFrame()`` и ``numpy.ndarray`` соответственно:
 
 .. code-block:: python
 
-    model = Fedot(task='ts_classification', timeout=5, strategy='quantile', n_jobs=-1, window_mode=True, window_size=20)
-    model.fit(features=x_train, target=y_train)
-    prediction = model.predict(features=x_test)
-    metrics = model.get_metrics(target=y_test)
+    dataset_name = 'Epilepsy'
+    industrial = FedotIndustrial(problem='classification',
+                                 metric='f1',
+                                 timeout=5,
+                                 n_jobs=2,
+                                 logging_level=20)
+
+    train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+
+    model = industrial.fit(train_data)
+
+    labels = industrial.predict(test_data)
+    probs = industrial.predict_proba(test_data)
+    metrics = industrial.get_metrics(target=test_data[1],
+                                     rounding_order=3,
+                                     metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
 
 Больше информации об использовании API доступно в `соответствующей секции <https://fedotindustrial.readthedocs.io/en/latest/API/index.html>`__ документации.
 

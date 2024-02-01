@@ -54,6 +54,14 @@ class QualityMetric:
     def metric(self) -> float:
         pass
 
+    @staticmethod
+    def _get_least_frequent_val(array: np.ndarray):
+        """ Returns the least frequent value in a flattened numpy array. """
+        unique_vals, count = np.unique(np.ravel(array), return_counts=True)
+        least_frequent_idx = np.argmin(count)
+        least_frequent_val = unique_vals[least_frequent_idx]
+        return least_frequent_val
+
 
 class RMSE(QualityMetric):
     def metric(self) -> float:
@@ -76,14 +84,17 @@ class MAPE(QualityMetric):
 
 
 class F1(QualityMetric):
+    output_mode = 'labels'
     def metric(self) -> float:
         n_classes = len(np.unique(self.target))
         n_classes_pred = len(np.unique(self.predicted_labels))
+
         try:
             if n_classes > 2 or n_classes_pred > 2:
                 return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='weighted')
             else:
-                return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='binary')
+                pos_label = QualityMetric._get_least_frequent_val(self.target)
+                return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='binary', pos_label=pos_label)
         except ValueError:
             return self.default_value
 
@@ -112,16 +123,17 @@ class ROCAUC(QualityMetric):
         else:
             target = self.target
             additional_params = {}
-            prediction = self.predicted_labels
+            prediction = self.predicted_probs
 
         score = roc_auc_score(y_score=prediction,
-                              y_true=target, **additional_params)
+                              y_true=target, labels=np.unique(target), **additional_params)
         score = round(score, 3)
 
         return score
 
 
 class Precision(QualityMetric):
+    output_mode = 'labels'
     def metric(self) -> float:
         n_classes = np.unique(self.target)
         if n_classes.shape[0] >= 2:
@@ -141,6 +153,7 @@ class Logloss(QualityMetric):
 
 
 class Accuracy(QualityMetric):
+    output_mode = 'labels'
     def metric(self) -> float:
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 

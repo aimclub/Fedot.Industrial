@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from fedot_ind.core.operation.transformation.FeatureSpaceReducer import FeatureSpaceReducer
+from fedot_ind.core.operation.filtration.feature_filtration import FeatureSpaceReducer
 
 N_FEATURES = 10
 N_SAMPLES = 10

@@ -1,12 +1,11 @@
-# -*- coding: utf-8 -*-
 from typing import Optional
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 import tensorly as tl
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
 
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
     singular_value_hard_threshold

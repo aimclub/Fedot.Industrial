@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -140,15 +141,18 @@ class FedotIndustrial(Fedot):
         return self.predict_for_head_ensemble
     def _preprocessing_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
-            self.logger.info('RAF algorithm was applied')
-            batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-                                                                                  is not None else FEDOT_WORKER_NUM)
-            batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
-            self.config_dict['timeout'] = batch_timeout
-            self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
-            self.solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
-                                       batch_size=batch_size)
-            self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
+            self._batch_strategy(input_data)
+
+    def _batch_strategy(self, input_data):
+        self.logger.info('RAF algorithm was applied')
+        batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
+                                                                              is not None else FEDOT_WORKER_NUM)
+        batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
+        self.config_dict['timeout'] = batch_timeout
+        self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
+        self.solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
+                                   batch_size=batch_size)
+        self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
 
     def fit(self,
             input_data,
@@ -166,12 +170,12 @@ class FedotIndustrial(Fedot):
             :class:`Pipeline` object.
 
         """
-
-        input_data = DataCheck(input_data=input_data, task=self.config_dict['problem']).check_input_data()
+        self.train_data = deepcopy(input_data)  # we do not want to make inplace changes
+        self.train_data = DataCheck(input_data=self.train_data, task=self.config_dict['problem']).check_input_data()
         self.solver = self.__init_solver()
         if self.preprocessing:
-            self._preprocessing_strategy(input_data)
-        self.solver.fit(input_data)
+            self._preprocessing_strategy(self.train_data)
+        self.solver.fit(self.train_data)
 
     def predict(self,
                 predict_data,
@@ -187,7 +191,8 @@ class FedotIndustrial(Fedot):
             :param predict_data:
 
         """
-        self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
+        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
+        self.predict_data = DataCheck(input_data=self.predict_data, task=self.config_dict['problem']).check_input_data()
         if isinstance(self.solver, Fedot):
             predict = self.solver.predict(self.predict_data)
         elif isinstance(self.solver, list):

@@ -45,6 +45,8 @@ class DataCheck:
         else:
             features = X
 
+        if type(y) is pd.DataFrame or type(y) is pd.Series:
+            y = y.values
         if multi_target:
             target = y
         elif multi_features and not multi_target:
@@ -84,7 +86,7 @@ class DataCheck:
 
         else:
             self.input_data = InputData(idx=np.arange(len(X)),
-                                        features=X.values,
+                                        features=X,
                                         target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
@@ -113,10 +115,8 @@ class DataCheck:
                 self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
-        if type(self.input_data.target[0][0]) is np.str_ and self.task == 'classification':
-            label_encoder = LabelEncoder()
-            self.input_data.target = label_encoder.fit_transform(self.input_data.target)
-        if self.task == 'regression':
+
+        elif self.task == 'regression':
             self.input_data.target = self.input_data.target.squeeze()
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0

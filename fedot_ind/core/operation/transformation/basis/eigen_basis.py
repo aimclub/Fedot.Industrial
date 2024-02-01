@@ -83,10 +83,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         """
         features = DataConverter(data=input_data).convert_to_monad_data()
         features = NumpyConverter(data=features).convert_to_torch_format()
-        def tensor_decomposition(x): return ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation \
-            else self._channel_decompose(x)
-        basis = np.array(Either.insert(features).then(
-            tensor_decomposition).value[0])
+
+        def tensor_decomposition(x):
+            return ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation else self._channel_decompose(x)
+
+        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
         predict = self._convert_basis_to_predict(basis, input_data)
         return predict
 
@@ -103,6 +104,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         def svd(x): return ListMonad(self.svd_estimator.rsvd(tensor=x,
                                                              approximation=self.low_rank_approximation,
                                                              regularized_rank=self.SV_threshold))
+
         basis = Either.insert(data).then(svd).then(
             threshold).then(data_driven_basis).value[0]
         return np.swapaxes(basis, 1, 0)
@@ -137,18 +139,14 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def get_threshold(self, data) -> int:
         svd_numbers = []
-        with tqdm(total=len(data), desc='SVD estimation') as pbar:
-            for dimension in range(data.shape[1]):
-                dimension_rank = []
-                for signal in data[:, dimension, :]:
-                    dimension_rank.append(
-                        self._transform_one_sample(signal, svd_flag=True))
-                    pbar.update(1)
-                svd_numbers.append(stats.mode(dimension_rank).mode)
-        try:
-            return stats.mode(svd_numbers).mode[0]
-        except Exception:
-            return stats.mode(svd_numbers).mode
+        mode_func = lambda x: max(set(x), key=x.count)
+        for dimension in range(data.shape[1]):
+            dimension_rank = []
+            for signal in data[:, dimension, :]:
+                dimension_rank.append(
+                    self._transform_one_sample(signal, svd_flag=True))
+            svd_numbers.append(mode_func(dimension_rank))
+        return mode_func(svd_numbers)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(
@@ -164,6 +162,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
     def estimate_singular_values(self, data):
         def svd(x): return ListMonad(self.svd_estimator.rsvd(
             tensor=x, approximation=self.low_rank_approximation))
+
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
         rank = len(spectrum)
