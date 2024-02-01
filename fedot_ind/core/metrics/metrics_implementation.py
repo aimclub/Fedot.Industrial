@@ -43,7 +43,10 @@ class QualityMetric:
                          'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
-        self.predicted_labels = np.array(predicted_labels).flatten()
+        if len(predicted_labels.shape) >= 2:
+            self.predicted_labels = np.argmax(predicted_labels, axis=1)
+        else:
+            self.predicted_labels = np.array(predicted_labels).flatten()
         self.target = np.array(target).flatten()
         self.metric_list = metric_list
         self.default_value = default_value
@@ -183,3 +186,36 @@ def calculate_classification_metric(target,
                        if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
+
+
+import pandas.api.types
+
+
+def kl_divergence(solution: pd.DataFrame,
+                  submission: pd.DataFrame,
+                  epsilon: float = 0.001,
+                  micro_average: bool = False,
+                  sample_weights: pd.Series = None):
+    # Overwrite solution for convenience
+    for col in solution.columns:
+        # Prevent issue with populating int columns with floats
+        if not pandas.api.types.is_float_dtype(solution[col]):
+            solution[col] = solution[col].astype(float)
+
+        # Clip both the min and max following Kaggle conventions for related metrics like log loss
+        # Clipping the max avoids cases where the loss would be infinite or undefined, clipping the min
+        # prevents users from playing games with the 20th decimal place of predictions.
+        submission[col] = np.clip(submission[col], epsilon, 1 - epsilon)
+
+        y_nonzero_indices = solution[col] != 0
+        solution[col] = solution[col].astype(float)
+        solution.loc[y_nonzero_indices, col] = solution.loc[y_nonzero_indices, col] * np.log(
+            solution.loc[y_nonzero_indices, col] / submission.loc[y_nonzero_indices, col])
+        # Set the loss equal to zero where y_true equals zero following the scipy convention:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.rel_entr.html#scipy.special.rel_entr
+        solution.loc[~y_nonzero_indices, col] = 0
+
+    if micro_average:
+        return np.average(solution.sum(axis=1), weights=sample_weights)
+    else:
+        return np.average(solution.mean())

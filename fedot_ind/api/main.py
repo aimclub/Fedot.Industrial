@@ -1,10 +1,13 @@
 import logging
+import os
 import warnings
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
@@ -125,6 +128,16 @@ class FedotIndustrial(Fedot):
         self.dask_client.close()
         del self.dask_client
 
+    def _predict_raf_ensemble(self):
+        self.predict_for_ensemble_branch = [x.predict(self.predict_data).predict for x in self.solver[1:]]
+        n_samples, n_channels, n_classes = self.predict_for_ensemble_branch[0].shape[0], \
+                                           len(self.predict_for_ensemble_branch), \
+                                           self.predict_for_ensemble_branch[0].shape[1]
+        input_for_head = np.hstack(self.predict_for_ensemble_branch).reshape(n_samples, n_channels, n_classes)
+        self.predict_data.features = input_for_head
+        self.predict_for_head_ensemble = self.solver[0].predict(self.predict_data).predict
+        self.predicted_probs = self.predict_for_head_ensemble
+        return self.predict_for_head_ensemble
     def _preprocessing_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
             self.logger.info('RAF algorithm was applied')
@@ -175,8 +188,12 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        predict = self.solver.predict(self.predict_data) if isinstance(self.solver, Fedot) \
-            else self.solver.predict(self.predict_data, 'labels').predict
+        if isinstance(self.solver, Fedot):
+            predict = self.solver.predict(self.predict_data)
+        elif isinstance(self.solver, list):
+            predict = self._predict_raf_ensemble()
+        else:
+            predict = self.solver.predict(self.predict_data, 'labels').predict
         self.predicted_labels = predict
         return self.predicted_labels
 
@@ -195,9 +212,13 @@ class FedotIndustrial(Fedot):
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
-        probs = self.solver.predict_proba(self.predict_data) if isinstance(self.solver, Fedot) \
-            else self.solver.predict(self.predict_data, 'probs')
-        self.predicted_probs = probs
+        if isinstance(self.solver, Fedot):
+            predict = self.solver.predict_proba(self.predict_data)
+        elif isinstance(self.solver, list):
+            return self.predicted_probs if self.predicted_probs is not None else self._predict_raf_ensemble()
+        else:
+            predict = self.solver.predict(self.predict_data, 'probs').predict
+        self.predicted_probs = predict
         return self.predicted_probs
 
     def finetune(self,
@@ -236,7 +257,7 @@ class FedotIndustrial(Fedot):
         self.solver.current_pipeline.fit(train_data)
 
     def get_metrics(self, target=None,
-                    metric_names=None,
+                    metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),
                     rounding_order=3,
                     **kwargs) -> pd.DataFrame:
         """
@@ -297,14 +318,25 @@ class FedotIndustrial(Fedot):
 
         """
         self.repo = IndustrialModels().setup_repository()
-        self.solver = Pipeline()
-        self.solver.load(path)
+
+        dir_list = os.listdir(path)
+        if len(dir_list) > 1:
+            self.solver = []
+            for p in dir_list:
+                self.solver.append(Pipeline().load(f'{path}/{p}/0_pipeline_saved'))
+        else:
+            self.solver = Pipeline().load(path)
 
     def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""
         self.solver.history.save(f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
+        if not isinstance(self.solver, Fedot):
+            for idx, p in enumerate(self.solver.ensemble_branches):
+                Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
+            Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
+
         return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
                                                  is_datetime_in_path=True)
 

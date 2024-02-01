@@ -40,29 +40,28 @@ class RAFensembler:
         else:
             self.n_splits = n_splits
 
+    def _decompose_pipeline(self):
+        batch_pipe = [automl_branch.fitted_operation.model.current_pipeline.root_node for automl_branch in
+                      self.current_pipeline.nodes if
+                      automl_branch.name in FEDOT_HEAD_ENSEMBLE.values()]
+        self.ensemble_branches = batch_pipe[:-1]
+        self.ensemble_head = batch_pipe[-1]
+        for p in self.ensemble_head.nodes_from:
+            if len(p.nodes_from) == 0:
+                p.nodes_from = self.ensemble_branches
+        composed = Pipeline(self.ensemble_head)
+        self.current_pipeline = composed
+
     def fit(self, train_data):
         if self.n_splits is None:
             self.n_splits = round(train_data.features.shape[0] / self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
         self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
-        batch_pipe = [automl_branch.fitted_operation.model.current_pipeline.root_node for automl_branch in
-                      self.current_pipeline.nodes if
-                      automl_branch.name in FEDOT_HEAD_ENSEMBLE.values()]
-        head = batch_pipe[-1]
-        main = batch_pipe[:-1]
-        for p in head.nodes_from:
-            if len(p.nodes_from) == 0:
-                p.nodes_from = main
-        composed = Pipeline(head)
-        self.current_pipeline = composed
+        self._decompose_pipeline()
 
     def predict(self, test_data, output_mode: str = 'labels'):
-        data_dict = {}
-        for i in range(self.n_splits):
-            data_dict.update({f'data_source_img/{i}': test_data})
-        test_multimodal = MultiModalData(data_dict)
-        return self.current_pipeline.predict(test_multimodal, output_mode).predict
+        return self.current_pipeline.predict(test_data, output_mode).predict
 
     def _raf_ensemble(self, features, target, n_splits):
         raf_ensemble = PipelineBuilder()

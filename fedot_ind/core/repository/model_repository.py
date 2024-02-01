@@ -88,12 +88,11 @@ TEMPORARY_EXCLUDED = {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
         'adareg': AdaBoostRegressor,
-        'linear': SklearnLinReg,
-        # 'lgbmreg': LGBMRegressor,
+        'linear': SklearnLinReg
     },
     'SKLEARN_CLF_MODELS': {'bernb': SklearnBernoulliNB,
                            'multinb': SklearnMultinomialNB,
-                           # 'lgbm': LGBMClassifier
+                           'knn': FedotKnnClassImplementation
                            }
     ,
     'NEURAL_MODELS': {'resnet_model': ResNetModel,
@@ -118,7 +117,6 @@ class AtomizedModel(Enum):
         'xgboost': XGBClassifier,
         # solo linear models
         'logit': SklearnLogReg,
-        'knn': FedotKnnClassImplementation,
         # solo tree models
         'dt': DecisionTreeClassifier,
         # ensemble tree models
