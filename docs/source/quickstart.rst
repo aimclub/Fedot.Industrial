@@ -27,7 +27,10 @@ In the case below, ``x_train``, ``y_train`` and ``x_test`` are ``numpy.ndarray()
 
 .. code-block:: python
 
-    model = Fedot(task='ts_classification', timeout=5, strategy='quantile', n_jobs=-1, window_mode=True, window_size=20)
+    model = Fedot(problem='classification',
+                  metric='f1',
+                  timeout=5)
+
     model.fit(features=x_train, target=y_train)
     prediction = model.predict(features=x_test)
     metrics = model.get_metrics(target=y_test)

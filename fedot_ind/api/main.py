@@ -45,9 +45,7 @@ class FedotIndustrial(Fedot):
             from fedot_ind.tools.loader import DataLoader
 
 
-            industrial = FedotIndustrial(task='ts_classification',
-                                         dataset='ItalyPowerDemand',
-                                         strategy='topological',
+            industrial = FedotIndustrial(problem='ts_classification',
                                          use_cache=False,
                                          timeout=15,
                                          n_jobs=2,
@@ -155,19 +153,14 @@ class FedotIndustrial(Fedot):
         self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
 
     def fit(self,
-            input_data,
-            **kwargs) -> Pipeline:
+            input_data: tuple,
+            **kwargs):
         """
         Method for training Industrial model.
 
         Args:
-            train_features: raw train data
-            train_target: target values
+            input_data: tuple with train_features and train_target
             **kwargs: additional parameters
-
-        Returns:
-            :param input_data:
-            :class:`Pipeline` object.
 
         """
         self.train_data = deepcopy(input_data)  # we do not want to make inplace changes
@@ -178,17 +171,16 @@ class FedotIndustrial(Fedot):
         self.solver.fit(self.train_data)
 
     def predict(self,
-                predict_data,
+                predict_data: tuple,
                 **kwargs):
         """
         Method to obtain prediction labels from trained Industrial model.
 
         Args:
-            test_features: raw test data
+            predict_data: tuple with test_features and test_target
 
         Returns:
             the array with prediction values
-            :param predict_data:
 
         """
         self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
@@ -203,17 +195,16 @@ class FedotIndustrial(Fedot):
         return self.predicted_labels
 
     def predict_proba(self,
-                      predict_data,
+                      predict_data: tuple,
                       **kwargs):
         """
         Method to obtain prediction probabilities from trained Industrial model.
 
         Args:
-            test_features: raw test data
+            predict_data: tuple with test_features and test_target
 
         Returns:
             the array with prediction probabilities
-            :param predict_data:
 
         """
         self.predict_data = DataCheck(input_data=predict_data, task=self.config_dict['problem']).check_input_data()
@@ -307,7 +298,7 @@ class FedotIndustrial(Fedot):
         Method to save metrics locally in csv format
 
         Args:
-            metrics: dictionary with calculated metrics
+            **kwargs: dictionary with metrics
 
         Returns:
             None
