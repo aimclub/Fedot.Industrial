@@ -8,8 +8,11 @@ class BackendMethods:
 
     def define_backend(self, device_type: str = 'cpu'):
         if device_type == 'CUDA':
-            import cupy, cupyx.scipy.linalg
-            return cupy, cupyx.scipy.linalg
+            # TODO:
+            import numpy, scipy.linalg
+            return numpy, scipy.linalg
+            # import cupy, cupyx.scipy.linalg
+            # return cupy, cupyx.scipy.linalg
         else:
             import numpy, scipy.linalg
             return numpy, scipy.linalg

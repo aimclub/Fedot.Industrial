@@ -8,7 +8,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum
 from sklearn.preprocessing import LabelEncoder
 
 
-def check_multivariate_data(data: pd.DataFrame) -> bool:
+def check_multivariate_data(data: pd.DataFrame) -> tuple:
     """
     Checks if the provided pandas DataFrame contains multivariate data.
 
@@ -40,20 +40,19 @@ def init_input_data(X: pd.DataFrame,
 
     """
 
-    is_multivariate_data = check_multivariate_data(X)
+    is_multivariate_data, features = check_multivariate_data(X)
     task_dict = {'classification': Task(TaskTypesEnum.classification),
                  'regression': Task(TaskTypesEnum.regression)}
-    features = X.values
 
-    if y is not None and type((y)[0]) is np.str_ and task == 'classification':
+    if y is not None and type(y[0]) is np.str_ and task == 'classification':
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(y)
-    elif y is not None and type((y)[0]) is np.str_ and task == 'regression':
+    elif y is not None and type(y[0]) is np.str_ and task == 'regression':
         y = y.astype(float)
 
     data_type = DataTypesEnum.image if is_multivariate_data else DataTypesEnum.table
     input_data = InputData(idx=np.arange(len(X)),
-                           features=np.array(features.tolist()).astype(np.float),
+                           features=np.array(features.tolist()).astype(float),
                            target=y.reshape(-1, 1) if y is not None else y,
                            task=task_dict[task],
                            data_type=data_type)

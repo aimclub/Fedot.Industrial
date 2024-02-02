@@ -363,16 +363,13 @@ class ConditionConverter:
         return type(self.train_data) is list
 
     @property
-    def is_list_container(self):
-        return type(self.train_data) is list
-
-    @property
     def is_operation_is_list_container(self):
         return type(self.operation_implementation) is list
 
     @property
     def have_predict_atr(self):
         return 'predict' in vars(self.operation_implementation[0]) if self.is_operation_is_list_container else False
+
     @property
     def is_fit_input_fedot(self):
         return str(list(signature(self.operation_implementation.fit).parameters.keys())[0]) == 'input_data'
