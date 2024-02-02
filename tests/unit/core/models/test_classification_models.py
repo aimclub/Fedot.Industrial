@@ -1,4 +1,5 @@
-from fedot_ind.core.models.cnn.classification_models import *
+from fedot_ind.core.models.nn.network_impl.resnet import resnet18_one_channel, ResNet, resnet34_one_channel, \
+    resnet50_one_channel, resnet101_one_channel, resnet152_one_channel, CLF_MODELS_ONE_CHANNEL, CLF_MODELS
 
 
 def test_resnet18_one_channel():

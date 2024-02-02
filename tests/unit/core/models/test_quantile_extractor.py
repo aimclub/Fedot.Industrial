@@ -1,17 +1,18 @@
 import math
 
+from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 import pytest
 from fedot.core.data.data import OutputData
 
-from fedot_ind.api.utils.input_data import init_input_data
+
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
+from fedot_ind.core.repository.constanst_repository import STAT_METHODS_GLOBAL, STAT_METHODS
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-from fedot_ind.core.models.quantile.stat_methods import stat_methods, stat_methods_global
 
 
-FEATURES = list(stat_methods.keys()) + list(stat_methods_global.keys())
+FEATURES = list(STAT_METHODS.keys()) + list(STAT_METHODS_GLOBAL.keys())
 
 
 def dataset(n_classes):
