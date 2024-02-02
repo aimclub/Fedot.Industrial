@@ -188,8 +188,8 @@ if __name__ == "__main__":
         model.load('./automl/raf_ensemble')
 
     # obtain predictions
-    #prediction = model.predict(input_data_train)
-    #metric_train = model.get_metrics(input_data_train[1])
+    # prediction = model.predict(input_data_train)
+    # metric_train = model.get_metrics(input_data_train[1])
     pred_test = model.predict(input_data_test)
     metric_test = model.get_metrics(input_data_test[1])
     sub_df = pd.DataFrame(target_probs[1], columns=list(TARS.keys()))
