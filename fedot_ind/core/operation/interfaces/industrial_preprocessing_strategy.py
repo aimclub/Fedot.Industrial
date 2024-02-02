@@ -11,10 +11,10 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import get_operation_type_from_id, OperationTypesRepository
 from fedot.utilities.random import ImplementationRandomStateHandler
 
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, FedotConverter, ConditionConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionConverter, FedotConverter, NumpyConverter
 from fedot_ind.core.repository.IndustrialOperationParameters import IndustrialOperationParameters
-from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, INDUSTRIAL_CLF_PREPROC_MODEL, \
-    INDUSTRIAL_PREPROC_MODEL, FORECASTING_PREPROC
+from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, FORECASTING_PREPROC, \
+    INDUSTRIAL_CLF_PREPROC_MODEL, INDUSTRIAL_PREPROC_MODEL
 
 
 class MultiDimPreprocessingStrategy(EvaluationStrategy):
@@ -143,7 +143,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # If model is classical sklearn model we use one_dimensional mode
         if self.operation_condition.is_one_dim_operation:
             return self.fit_one_sample(operation_implementation, train_data)
-        # Elif model is could be use for each dimension(channel) independently we use channel_independent mode
+        # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         elif self.operation_condition.is_channel_independent_operation:
             # Create independent copy of model for each channel
             trained_operation = [deepcopy(operation_implementation) if self.operation_condition.is_list_container
