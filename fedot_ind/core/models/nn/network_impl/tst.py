@@ -27,7 +27,7 @@ class _TSTEncoderLayer(Module):
                  d_v: Optional[int] = None,
                  d_ff: int = 256,
                  dropout: float = 0.1,
-                 activation: str = "gelu"):
+                 activation: str = "GELU"):
         assert model_dim // number_heads, f"model_dim ({model_dim}) must be divisible by number_heads ({number_heads})"
         if d_k is None:
             d_k = model_dim // number_heads
@@ -84,7 +84,7 @@ class _TSTEncoder(Module):
                  d_v=None,
                  d_ff=None,
                  dropout=0.1,
-                 activation='gelu',
+                 activation='GELU',
                  n_layers=1):
         self.layers = nn.ModuleList(
             [_TSTEncoderLayer(q_len,
@@ -116,7 +116,7 @@ class TST(Module):
                  d_v: Optional[int] = None,
                  d_ff: int = 256,
                  dropout: float = 0.1,
-                 activation: str = "gelu",
+                 activation: str = "GELU",
                  fc_dropout: float = 0.,
                  y_range: Optional[tuple] = None,
                  verbose: bool = False, **kwargs):
@@ -204,7 +204,7 @@ class TST(Module):
     def create_head(self,
                     number_of_filters,
                     output_dim,
-                    activation="gelu",
+                    activation="GELU",
                     fc_dropout=0.,
                     y_range=None,
                     **kwargs):

@@ -1,10 +1,9 @@
-from typing import Union
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from ripser import Rips, ripser
 from scipy import sparse
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot.core.data.data import InputData, OutputData
 
 
 class TopologicalTransformation:

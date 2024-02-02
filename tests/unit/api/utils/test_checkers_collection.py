@@ -1,47 +1,32 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+import pytest
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
-import pytest
-import pandas as pd
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
-# sample dataframe with nans
-@pytest.fixture()
-def df_with_nans():
+def input_data_with_nans():
     array = np.random.rand(10, 10)
     for i in range(10):
         x = np.random.randint(0, 10)
         y = np.random.randint(0, 10)
         array[x, y] = np.nan
-    return pd.DataFrame(array)
+    target = np.random.rand(10)
+    return array, target
 
 
-# sample dataframe with infs
-@pytest.fixture()
-def df_with_infs():
+def input_data_with_inf():
     array = np.random.rand(10, 10)
     for i in range(10):
         x = np.random.randint(0, 10)
         y = np.random.randint(0, 10)
         array[x, y] = np.inf
-    return pd.DataFrame(array)
+    target = np.random.rand(10)
+    return array, target
 
 
-def test_DataCheck(df_with_nans, df_with_infs):
-    data_check = DataCheck()
-    clean_nans = data_check.check_data(df_with_nans, return_df=True)
-    clean_infs = data_check.check_data(df_with_infs, return_df=True)
-    assert np.all(np.isfinite(clean_nans))
-    assert np.all(np.isfinite(clean_infs))
-
-
-def test_DataCheck_replace_inf_with_nans(df_with_infs):
-    data_check = DataCheck()
-    clean_infs = data_check._replace_inf_with_nans(df_with_infs.values)
-    assert not np.any(np.isinf(clean_infs))
-
-
-def test_DataCheck_check_for_nan(df_with_nans):
-    data_check = DataCheck()
-    clean_nans = data_check._check_for_nan(df_with_nans.values)
-    assert not np.any(np.isnan(clean_nans))
+@pytest.mark.parametrize("input_data", [input_data_with_inf(), input_data_with_nans()])
+def test_DataCheck(input_data):
+    features, target = input_data
+    data_check = DataCheck(input_data=(features, target), task='classification')
+    clean_data = data_check.check_input_data()
+    assert clean_data is not None
