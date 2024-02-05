@@ -44,11 +44,7 @@ class CustomDatasetCLF:
                 ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
-            if type(min(ts.target)[0]) is np.str_:
-                self.label_encoder = LabelEncoder()
-                ts.target = self.label_encoder.fit_transform(ts.target)
-            else:
-                self.label_encoder = None
+
 
             try:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),

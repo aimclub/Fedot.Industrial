@@ -195,8 +195,11 @@ def hjorth_complexity(array):
     # Calculate the total power of the time series
     TP = np.sum(np.power(array, 2)) / len(array)
     # Calculate the fourth central moment of the first-order differential sequence
-    M4 = sum([(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in range(1, len(diff_sequence))]) / len(
-        diff_sequence)
+    try:
+        M4 = sum([(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in range(1, len(diff_sequence))]) / len(
+            diff_sequence)
+    except Exception:
+        M4 = 1
     # Calculate Hjorth complexity
     complexity = np.sqrt((M4 * TP) / (M2 * M2))
     # complexity = (M4 * TP) / (M2 * M2)

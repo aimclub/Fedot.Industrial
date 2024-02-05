@@ -72,6 +72,10 @@ class DataCheck:
             X, y = self.input_data[0], self.input_data[1]
             features, is_multivariate_data, target = self.__check_features_and_target(X, y)
 
+        if y is not None and type(y[0]) is np.str_ and self.task == 'classification':
+            label_encoder = LabelEncoder()
+            target = label_encoder.fit_transform(target)
+
         if is_multivariate_data:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=features,
@@ -120,6 +124,7 @@ class DataCheck:
             self.input_data.target = self.input_data.target.squeeze()
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
+
 
     def check_available_operations(self, available_operations):
         pass

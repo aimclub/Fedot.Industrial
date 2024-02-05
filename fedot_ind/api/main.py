@@ -139,6 +139,7 @@ class FedotIndustrial(Fedot):
         self.predict_for_head_ensemble = self.solver[0].predict(self.predict_data).predict
         self.predicted_probs = self.predict_for_head_ensemble
         return self.predict_for_head_ensemble
+
     def _preprocessing_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
             self._batch_strategy(input_data)

@@ -50,20 +50,14 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         basic_results = self.load_local_basic_results()
         metric_dict = {}
         for dataset_name in self.custom_datasets:
-            try:
-                experiment_setup = deepcopy(self.experiment_setup)
-                prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
-                try:
-                    metric = Accuracy(target, prediction).metric()
-                except Exception as exxx:
-                    metric = Accuracy(target, np.argmax(prediction, axis=1)).metric()
-                metric_dict.update({dataset_name: metric})
-                basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                            'metrics_report.csv')
-                basic_results.to_csv(dataset_path)
-            except Exception as ex:
-                 print(f'Skip dataset.{ex}')
+            experiment_setup = deepcopy(self.experiment_setup)
+            prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
+            metric = Accuracy(target, prediction).metric()
+            metric_dict.update({dataset_name: metric})
+            basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
+            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                        'metrics_report.csv')
+            basic_results.to_csv(dataset_path)
             gc.collect()
         basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
