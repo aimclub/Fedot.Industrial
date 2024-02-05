@@ -40,7 +40,7 @@ class PointExplainer(Explainer):
 
     def explain(self, n_samples: int = 1, window: int = 5, method: str = 'rmse'):
         self.picked_feature, self.picked_target = self.select(self.features,
-                                                              self.target,
+                                                              self.target.flatten(),
                                                               n_samples_=n_samples)
         self.scaled_vector, self.window_length = self.importance(window=window,
                                                                  method=method)
@@ -108,6 +108,8 @@ class PointExplainer(Explainer):
     def select(features_, target_, n_samples_: int = 3):
         selected_df = pd.DataFrame()
         selected_target = np.array([])
+        if not isinstance(features_, pd.DataFrame):
+            features_ = pd.DataFrame(features_)
         df = features_.copy()
         df['target'] = target_
         for class_label in np.unique(target_):

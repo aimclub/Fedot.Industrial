@@ -31,32 +31,6 @@ class PerformanceAnalyzer:
     def __init__(self):
         self.logger = logging.getLogger('PerformanceAnalyzer')
 
-    @staticmethod
-    def problem_and_metric_for_dataset(task_type: str) -> Union[List, None]:
-        if task_type == 'classification':
-            return ['f1', 'roc_auc', 'accuracy', 'logloss', 'precision']
-        elif task_type == 'regression':
-            return ['rmse', 'r2', 'mae', 'mse', 'mape']
-        else:
-            return None
-
-    @staticmethod
-    def check_target(target, predictions):
-        if type(target) is not np.ndarray:
-            target = np.array(target)
-        if type(target[0]) is str:
-            enc = preprocessing.LabelEncoder().fit(target)
-            converted_target = np.array(enc.transform(target))
-            converted_predictions = np.array(enc.transform(predictions))
-        else:
-            converted_target = target
-            converted_predictions = predictions
-
-        if converted_target.dtype == object:
-            converted_target = [int(x) for x in converted_target]
-
-        return converted_target, converted_predictions
-
     def calculate_metrics(self,
                           target: Union[np.ndarray, List],
                           predicted_labels: Union[np.ndarray, list] = None,

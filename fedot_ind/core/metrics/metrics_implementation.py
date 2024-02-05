@@ -85,6 +85,7 @@ class MAPE(QualityMetric):
 
 class F1(QualityMetric):
     output_mode = 'labels'
+
     def metric(self) -> float:
         n_classes = len(np.unique(self.target))
         n_classes_pred = len(np.unique(self.predicted_labels))
@@ -134,6 +135,7 @@ class ROCAUC(QualityMetric):
 
 class Precision(QualityMetric):
     output_mode = 'labels'
+
     def metric(self) -> float:
         n_classes = np.unique(self.target)
         if n_classes.shape[0] >= 2:
@@ -154,6 +156,7 @@ class Logloss(QualityMetric):
 
 class Accuracy(QualityMetric):
     output_mode = 'labels'
+
     def metric(self) -> float:
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 

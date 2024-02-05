@@ -1,5 +1,8 @@
+import warnings
+
 import numpy as np
 import pytest
+from matplotlib import get_backend, pyplot as plt
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
@@ -63,8 +66,9 @@ def test_fit_predict_classification(fedot_industrial_classification, data):
 
     num_unique = np.unique(data[1])
     predict_proba = fedot_industrial_classification.predict_proba(data)
+    metrics = fedot_industrial_classification.get_metrics(target=data[1])
     assert predict_proba.shape[0] == data[1].shape[0]
-
+    assert metrics is not None
     if len(num_unique) > 2:
         assert predict_proba.shape[1] == len(num_unique)
     else:
@@ -119,3 +123,26 @@ def test_generate_anomaly_ts(fedot_industrial_classification, ts_config, anomaly
         for interval in synth_inters[anomaly_type]:
             ts_range = range(len(init_synth_ts))
             assert interval[0] in ts_range and interval[1] in ts_range
+
+
+def test_finetune(fedot_industrial_classification):
+    industrial = fedot_industrial_classification
+    data = univariate_clf_data()
+    industrial.fit(data)
+    industrial.finetune(data)
+    assert industrial.solver is not None
+
+
+def test_plot_methods(fedot_industrial_classification):
+    industrial = fedot_industrial_classification
+    data = univariate_clf_data()
+    industrial.fit(data)
+    labels = industrial.predict(data)
+    probs = industrial.predict_proba(data)
+
+    # switch to non-Gui, preventing plots being displayed
+    # suppress UserWarning that agg cannot show plots
+    curr_backend = get_backend()
+    plt.switch_backend("Agg")
+    warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
+    fedot_industrial_classification.explain()

@@ -130,8 +130,8 @@ class FedotIndustrial(Fedot):
     def _predict_raf_ensemble(self):
         self.predict_for_ensemble_branch = [x.predict(self.predict_data).predict for x in self.solver[1:]]
         n_samples, n_channels, n_classes = self.predict_for_ensemble_branch[0].shape[0], \
-                                           len(self.predict_for_ensemble_branch), \
-                                           self.predict_for_ensemble_branch[0].shape[1]
+            len(self.predict_for_ensemble_branch), \
+            self.predict_for_ensemble_branch[0].shape[1]
         input_for_head = np.hstack(self.predict_for_ensemble_branch).reshape(n_samples, n_channels, n_classes)
         self.predict_data.features = input_for_head
         self.predict_for_head_ensemble = self.solver[0].predict(self.predict_data).predict
@@ -366,8 +366,8 @@ class FedotIndustrial(Fedot):
                    'shap': NotImplementedError,
                    'lime': NotImplementedError}
 
-        explainer = methods[kwargs.get('method', 'point')](model=self.solver,
-                                                           features=self.predict_data.features,
+        explainer = methods[kwargs.get('method', 'point')](model=self,
+                                                           features=self.predict_data.features.squeeze(),
                                                            target=self.predict_data.target)
         metric = kwargs.get('metric', 'rmse')
         window = kwargs.get('window', 5)

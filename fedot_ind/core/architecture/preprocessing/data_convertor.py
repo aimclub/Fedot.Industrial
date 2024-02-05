@@ -7,7 +7,6 @@ import torch.nn as nn
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
-from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -44,7 +43,6 @@ class CustomDatasetCLF:
                 ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
-
 
             try:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
