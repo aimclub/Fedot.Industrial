@@ -36,12 +36,11 @@ class DataCheck:
         self.task_dict = FEDOT_TASK
 
     def __check_features_and_target(self, X, y):
-
         multi_features, X = check_multivariate_data(X)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
         if multi_features:
-            features = np.array(X.tolist()).astype(np.float)
+            features = np.array(X.tolist()).astype(float)
         else:
             features = X
 
@@ -118,7 +117,6 @@ class DataCheck:
         if self.input_data.target is not None and type(
                 self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
-
 
         elif self.task == 'regression':
             self.input_data.target = self.input_data.target.squeeze()

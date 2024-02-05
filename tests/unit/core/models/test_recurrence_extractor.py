@@ -1,13 +1,9 @@
-import json
-
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 import pytest
 from fedot.core.data.data import InputData, OutputData
 
-
-from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
+from fedot_ind.api.utils.data import init_input_data
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
@@ -22,9 +18,8 @@ def dataset(binary):
 
 @pytest.fixture
 def default_params():
-    with open(PATH_TO_DEFAULT_PARAMS, 'r') as f:
-        default_params = json.load(f)
-    return default_params['recurrence_extractor']
+    return {'window_size': 10,
+            'stride': 1}
 
 
 @pytest.fixture

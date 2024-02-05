@@ -80,7 +80,7 @@
 
 
 Fedot.Ind is a automated machine learning framework designed to solve industrial problems related
-to time series forecasting, classification, regression, and anomaly detection. It is based on
+to time series forecasting, classification, and regression. It is based on
 the `AutoML framework FEDOT`_ and utilizes its functionality to build and tune pipelines.
 
 

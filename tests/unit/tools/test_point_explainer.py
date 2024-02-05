@@ -36,19 +36,13 @@ def model(data):
                             'lgbm',
                             'pca']
 
-    stat_model = FI(task='ts_classification',
+    stat_model = FI(problem='classification',
                     dataset='dataset',
-                    strategy='quantile',
-                    use_cache=False,
                     timeout=0.1,
                     n_jobs=-1,
-                    logging_level=50,
-                    available_operations=available_operations)
+                    logging_level=50)
     x_train, y_train, x_test, y_test = data
-    stat_model.fit(features=x_train, target=y_train)
-    # stat_labels = stat_model.predict(features=x_test, target=y_test)
-    # stat_probs = stat_model.predict_proba(features=x_test, target=y_test)
-    stat_model.get_metrics(target=y_test, metric_names=['roc_auc'])
+    stat_model.fit((x_train, y_train))
     return stat_model, x_test, y_test
 
 

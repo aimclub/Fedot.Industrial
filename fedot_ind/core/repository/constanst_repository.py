@@ -7,7 +7,7 @@ import pywt
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch import nn
 
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
@@ -22,7 +22,6 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
 
 def beta_thr(beta):

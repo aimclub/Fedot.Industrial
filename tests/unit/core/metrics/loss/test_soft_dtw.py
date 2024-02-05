@@ -1,6 +1,6 @@
-import pytest
-import torch
 import numpy as np
+import pytest
+
 from fedot_ind.core.metrics.loss.soft_dtw import SoftDTWLoss
 
 

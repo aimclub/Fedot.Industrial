@@ -1,16 +1,12 @@
-import math
-
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 import pytest
 from fedot.core.data.data import OutputData
 
-
+from fedot_ind.api.utils.data import init_input_data
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.repository.constanst_repository import STAT_METHODS_GLOBAL, STAT_METHODS
+from fedot_ind.core.repository.constanst_repository import STAT_METHODS, STAT_METHODS_GLOBAL
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-
 
 FEATURES = list(STAT_METHODS.keys()) + list(STAT_METHODS_GLOBAL.keys())
 
@@ -18,7 +14,7 @@ FEATURES = list(STAT_METHODS.keys()) + list(STAT_METHODS_GLOBAL.keys())
 def dataset(n_classes):
     (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
                                                                        max_ts_len=50,
-                                                                       n_classes=n_classes,
+                                                                       binary=True,
                                                                        test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 

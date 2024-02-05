@@ -1,9 +1,10 @@
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 NUM_SAMPLES = 50
 SERIES_LENGTH = 20
+
 
 @pytest.fixture
 def univariate_time_series_np():
@@ -29,9 +30,11 @@ def multivariate_time_series_df():
 def uni_classification_labels_np():
     return np.random.randint(0, 2, size=NUM_SAMPLES)
 
+
 @pytest.fixture
 def multi_classification_labels_np():
     return np.random.randint(0, 3, size=NUM_SAMPLES)
+
 
 @pytest.fixture
 def uni_classification_labels_df():
@@ -51,6 +54,7 @@ def regression_target_np():
 @pytest.fixture
 def regression_target_df():
     return pd.Series(np.random.randn(NUM_SAMPLES))
+
 
 @pytest.fixture
 def regression_multi_target_np():
