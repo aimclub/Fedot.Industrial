@@ -155,10 +155,12 @@ class BaseNeuralModel:
             print('Updating learning rate to {}'.format(
                 scheduler.get_last_lr()[0]))
 
+    @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
         self._train_loop(*self._prepare_data(ts, split_data),
                          *self._init_model(ts))
 
+    @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
         x_test = Tensor(x_test).to(default_device())
