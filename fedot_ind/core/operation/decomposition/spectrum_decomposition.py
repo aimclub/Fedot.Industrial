@@ -1,12 +1,11 @@
-# -*- coding: utf-8 -*-
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 import tensorly as tl
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
 
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
     singular_value_hard_threshold
@@ -40,6 +39,8 @@ class SpectrumDecomposer:
                                                  regularized_rank=self.thr))
 
     def threshold(self, x):
+        if self.thr is None:
+            self.thr = len([x for x in x[1] if x > 0.1])
         return ListMonad([x[0],
                           x[1][:self.thr],
                           x[2]])

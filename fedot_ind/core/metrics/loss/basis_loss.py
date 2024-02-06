@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -20,7 +20,9 @@ def basis_approximation_metric(derivation_coef: np.array,
     # polynom_metric = exponent_of_coef * self.mse
 
     # Basic approach where metric = regulizer*der_coef+metric_val
-    polynom_metric = regularization_coef * normalized_derivative_coef + normalized_metric_values
-    best_aprox_polynom_index = np.where(polynom_metric == min(polynom_metric))[0][0]
+    polynom_metric = regularization_coef * \
+        normalized_derivative_coef + normalized_metric_values
+    best_aprox_polynom_index = np.where(
+        polynom_metric == min(polynom_metric))[0][0]
 
     return best_aprox_polynom_index

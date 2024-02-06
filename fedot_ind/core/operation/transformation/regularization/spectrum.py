@@ -1,47 +1,42 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
+from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
 
 
 def sv_to_explained_variance_ratio(singular_values, rank):
-    """
-    Calculate the explained variance ratio of the singular values.
+    """Calculate the explained variance ratio of the singular values.
 
-    Parameters
-    ----------
-    singular_values : array-like, shape (n_components,)
-        Singular values.
-    rank : int
-        Number of singular values to use.
+    Args:
+        singular_values (array-like, shape (n_components,)): Singular values.
+        rank (int): Number of singular values to use.
 
-    Returns
-    -------
-    explained_variance : float
-        Explained variance ratio.
-    n_components : int
-        Number of singular values to use.
+    Returns:
+        explained_variance (int): Explained variance percent.
+        n_components (int): Number of singular values to use.
+
     """
+    singular_values = [abs(x) for x in singular_values]
     n_components = [x / sum(singular_values) * 100 for x in singular_values][:rank]
     explained_variance = sum(n_components)
     n_components = rank
     return explained_variance, n_components
 
 
-def singular_value_hard_threshold(singular_values, rank=None, beta=None, threshold=2.58) -> list:
-    """
-    Calculate the hard threshold for the singular values.
+def singular_value_hard_threshold(singular_values,
+                                  rank=None,
+                                  beta=None,
+                                  threshold=SINGULAR_VALUE_MEDIAN_THR) -> list:
+    """Calculate the hard threshold for the singular values.
 
-    Parameters
-    ----------
-    singular_values : array-like, shape (n_components,)
-        Singular values.
-    rank : int
-        Number of singular values to use.
-    threshold : float
-        Threshold value.
+    Args:
+        singular_values (array-like, shape (n_components,)): Singular values.
+        rank (int): Number of singular values to use.
+        beta (float): Beta value.
+        threshold (float): Threshold value.
 
-    Returns
-    -------
-    adjusted_rank : int
-        Adjusted rank.
+    Returns:
+        adjusted singular values array (array-like, shape (n_components,)): Adjusted array of singular values.
+
     """
     if rank is not None:
         return singular_values[:rank]
@@ -53,7 +48,7 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
         median_sv = np.median(singular_values[:rank])
         # Find the adjusted rank
         if threshold is None:
-            threshold = 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
+            threshold = SINGULAR_VALUE_BETA_THR(beta)
         sv_threshold = threshold * median_sv
         # Find the threshold value
         adjusted_rank = np.sum(singular_values >= sv_threshold)
@@ -66,7 +61,8 @@ def singular_value_hard_threshold(singular_values, rank=None, beta=None, thresho
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
     if len(Sigma.shape) > 1:
-        multi_reconstruction = lambda x: reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)
+        def multi_reconstruction(x): return reconstruct_basis(
+            U=U, Sigma=x, VT=VT, ts_length=ts_length)
         TS_comps = list(map(multi_reconstruction, Sigma))
     else:
         rank = Sigma.shape[0]
@@ -74,6 +70,7 @@ def reconstruct_basis(U, Sigma, VT, ts_length):
         for i in range(rank):
             X_elem = Sigma[i] * np.outer(U[:, i], VT[i, :])
             X_rev = X_elem[::-1]
-            eigenvector = [X_rev.diagonal(j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+            eigenvector = [X_rev.diagonal(
+                j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
             TS_comps[:, i] = eigenvector
     return TS_comps

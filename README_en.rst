@@ -80,7 +80,7 @@
 
 
 Fedot.Ind is a automated machine learning framework designed to solve industrial problems related
-to time series forecasting, classification, regression, and anomaly detection. It is based on
+to time series forecasting, classification, and regression. It is based on
 the `AutoML framework FEDOT`_ and utilizes its functionality to build and tune pipelines.
 
 
@@ -125,14 +125,26 @@ It provides a fit/predict interface:
 - ``FedotIndustrial.get_metrics()`` estimates the quality of predictions using selected metrics.
 
 NumPy arrays or Pandas DataFrames can be used as sources of input data.
-In the case below, ``x_train``, ``y_train`` and ``x_test`` are ``numpy.ndarray()``:
+In the case below, ``x_train / x_test``, ``y_train / y_test`` are ``pandas.DataFrame()`` and ``numpy.ndarray`` respectively:
 
 .. code-block:: python
 
-    model = Fedot(task='ts_classification', timeout=5, strategy='quantile', n_jobs=-1, window_mode=True, window_size=20)
-    model.fit(features=x_train, target=y_train)
-    prediction = model.predict(features=x_test)
-    metrics = model.get_metrics(target=y_test)
+    dataset_name = 'Epilepsy'
+    industrial = FedotIndustrial(problem='classification',
+                                 metric='f1',
+                                 timeout=5,
+                                 n_jobs=2,
+                                 logging_level=20)
+
+    train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+
+    model = industrial.fit(train_data)
+
+    labels = industrial.predict(test_data)
+    probs = industrial.predict_proba(test_data)
+    metrics = industrial.get_metrics(target=test_data[1],
+                                     rounding_order=3,
+                                     metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
 
 More information about the API is available in the `documentation <https://fedotindustrial.readthedocs.io/en/latest/API/index.html>`__ section.
 

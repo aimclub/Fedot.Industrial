@@ -156,7 +156,6 @@ class ResultsPicker:
         for f in os.listdir(path):
             if os.path.isfile(path + '/' + f) and not f.startswith('.'):
                 path_list.append(f)
-
         return path_list
 
     def find_best_launch(self, launch_folders):
@@ -164,32 +163,25 @@ class ResultsPicker:
         launch = 1
         for _dir in self.list_dirs(launch_folders):
             if len(_dir) == 1:
-                metric_path = os.path.join(launch_folders, str(_dir), 'test_results', 'metrics.csv')
+                metric_path = os.path.join(launch_folders, str(
+                    _dir), 'test_results', 'metrics.csv')
                 metrics = pd.read_csv(metric_path, index_col=0)
                 if 'index' in metrics.columns:
                     del metrics['index']
                     metrics = metrics.T
                     metrics = metrics.rename(columns=metrics.iloc[0])
                     metrics = metrics[1:]
-                metric_sum = metrics['roc_auc'].values[0] + metrics['f1'].values[0]
+                metric_sum = metrics['roc_auc'].values[0] + \
+                    metrics['f1'].values[0]
                 if metric_sum > best_metric:
                     best_metric = metric_sum
                     launch = _dir
         return launch
 
     def get_datasets_info(self):
-
         table = pd.read_json(DS_INFO_PATH)
-
-        table = table.drop([col for col in table.columns if len(col) == 1] + ['Dataset_id'], axis=1)
+        table = table.drop([col for col in table.columns if len(
+            col) == 1] + ['Dataset_id'], axis=1)
         table.columns = list(map(str.lower, table.columns))
         table.type = table.type.str.lower()
-
         return table
-
-
-# Example of usage:
-if __name__ == '__main__':
-    parser = ResultsPicker()
-    results_table = parser.run(get_metrics_df=True, add_info=True)
-    results_table.to_csv('results_4.csv', index=False)

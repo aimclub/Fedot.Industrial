@@ -1,8 +1,8 @@
 from typing import Union
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
-from scipy.linalg import hankel
+from fedot_ind.core.architecture.settings.computational import backend_scipy
 
 
 class HankelMatrix:
@@ -15,18 +15,20 @@ class HankelMatrix:
                  window_size: int = None,
                  strides: int = 1):
         self.__time_series = time_series
+
+        self.__time_series = self.__time_series.squeeze()
         self.__convert_ts_to_array()
-        self.__window_length = window_size
+
         self.__strides = strides
         if len(self.__time_series.shape) > 1:
             self.__ts_length = self.__time_series[0].size
         else:
             self.__ts_length = self.__time_series.size
 
-        if self.__window_length is None:
+        if window_size is None:
             self.__window_length = round(self.__ts_length * 0.35)
         else:
-            self.__window_length = round(self.__window_length)
+            self.__window_length = round(window_size - 1)
         self.__subseq_length = self.__ts_length - self.__window_length + 1
 
         self.__check_windows_length()
@@ -48,23 +50,28 @@ class HankelMatrix:
             self.__time_series = self.__time_series
 
     def __get_1d_trajectory_matrix(self):
+
         if self.__strides > 1:
             return self.__strided_trajectory_matrix(self.__time_series)
         else:
-            return hankel(self.__time_series[:self.__window_length + 1], self.__time_series[self.__window_length:])
+            return backend_scipy.hankel(self.__time_series[:self.__window_length + 1],
+                                        self.__time_series[self.__window_length:])
 
     def __get_2d_trajectory_matrix(self):
         if self.__strides > 1:
             return [self.__strided_trajectory_matrix(time_series) for time_series
                     in self.__time_series]
         else:
-            return [hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for time_series
+            return [backend_scipy.hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for
+                    time_series
                     in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):
-        shape = (time_series.shape[0] - self.__window_length + 1, self.__window_length)
+        shape = (time_series.shape[0] -
+                 self.__window_length + 1, self.__window_length)
         strides = (time_series.strides[0],) + time_series.strides
-        rolled = np.lib.stride_tricks.as_strided(time_series, shape=shape, strides=strides)
+        rolled = np.lib.stride_tricks.as_strided(
+            time_series, shape=shape, strides=strides)
         return rolled[np.arange(0, shape[0], self.__strides)].T
 
     @property
@@ -105,7 +112,8 @@ def get_x_y_pairs(train, train_periods, prediction_periods):
     train_scaled = train.T
     r = train_scaled.shape[0] - train_periods - prediction_periods
     x_train = [train_scaled[i:i + train_periods] for i in range(r)]
-    y_train = [train_scaled[i + train_periods:i + train_periods + prediction_periods] for i in range(r)]
+    y_train = [train_scaled[i + train_periods:i +
+                                              train_periods + prediction_periods] for i in range(r)]
 
     # -- use the stack function to convert the list of 1D tensors
     # into a 2D tensor where each element of the list is now a row

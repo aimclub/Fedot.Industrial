@@ -18,7 +18,8 @@ class ClassificationPipelines(AbstractPipelines):
 
     def get_feature_generator(self, **kwargs):
         lambda_func_dict = kwargs['steps']
-        lambda_func_dict['concatenate_features'] = lambda x: list_of_features.append(x)
+        lambda_func_dict['concatenate_features'] = lambda x: list_of_features.append(
+            x)
         input_data = kwargs['input_data']
         list_of_features = []
 
@@ -32,7 +33,8 @@ class ClassificationPipelines(AbstractPipelines):
             pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']). \
                 map(lambda_func_dict['extract_features']). \
                 then(lambda_func_dict['concatenate_features']). \
-                insert(self._get_feature_matrix(list_of_features=list_of_features, mode='1D'))
+                insert(self._get_feature_matrix(
+                    list_of_features=list_of_features, mode='1D'))
 
         elif kwargs['pipeline_type'] == 'DataDrivenMultiTSC':
             pipeline = Right(input_data).then(lambda_func_dict['create_list_of_ts']).map(
@@ -43,32 +45,39 @@ class ClassificationPipelines(AbstractPipelines):
         return pipeline
 
     def __ts_data_driven_pipeline(self, **kwargs):
-        feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = EigenBasisImplementation(kwargs['data_driven_hyperparams'])
+        feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(
+            **kwargs)
+        data_basis = EigenBasisImplementation(
+            kwargs['data_driven_hyperparams'])
         n_components = kwargs['data_driven_hyperparams']['n_components']
         lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None \
             else data_basis._transform(x)
         lambda_func_dict['reduce_basis'] = lambda x: x[:data_basis.min_rank, :] if n_components \
-                                                                                   is None else x[:n_components, :]
+            is None else x[:n_components, :]
         train_feature_generator_module = self.get_feature_generator(input_data=self.train_features,
                                                                     steps=lambda_func_dict,
                                                                     pipeline_type='DataDrivenTSC')
-        classificator_module = train_feature_generator_module.then(lambda_func_dict['fit_model'])
+        classificator_module = train_feature_generator_module.then(
+            lambda_func_dict['fit_model'])
 
         test_feature_generator_module = self.get_feature_generator(input_data=self.test_features,
                                                                    steps=lambda_func_dict,
                                                                    pipeline_type='DataDrivenTSC')
-        prediction = test_feature_generator_module.then(lambda_func_dict['predict'])
+        prediction = test_feature_generator_module.then(
+            lambda_func_dict['predict'])
         classificator.feature_generator = partial(self.get_feature_generator, steps=lambda_func_dict,
                                                   pipeline_type='DataDrivenTSC')
         self.basis = data_basis.basis
         return classificator, prediction.value[0]
 
     def __multits_data_driven_pipeline(self, ensemble: str = 'Multi', **kwargs):
-        feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
-        data_basis = EigenBasisImplementation(kwargs['data_driven_hyperparams'])
+        feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(
+            **kwargs)
+        data_basis = EigenBasisImplementation(
+            kwargs['data_driven_hyperparams'])
 
-        lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(x)
+        lambda_func_dict['transform_to_basis'] = lambda x: self.basis if self.basis is not None else data_basis.fit(
+            x)
         lambda_func_dict['reduce_basis'] = lambda list_of_components: ListMonad(
             [component[:, 0] if component.shape[1] == 1 else
              component[:, rank]
@@ -79,8 +88,8 @@ class ClassificationPipelines(AbstractPipelines):
 
         if ensemble == 'MultiEnsemble':
             lambda_func_dict['fit_model'] = lambda feature_by_each_component: ListMonad({str(index):
-                classificator.fit(
-                    train_features=feature_set, train_target=self.train_target) for index, feature_set in
+                                                                                         classificator.fit(
+                train_features=feature_set, train_target=self.train_target) for index, feature_set in
                 enumerate(feature_by_each_component)})
             lambda_func_dict['predict'] = lambda feature_by_each_component: ListMonad(
                 {index: {'predicted_labels': classificator.predict(features=feature_set),
@@ -93,13 +102,15 @@ class ClassificationPipelines(AbstractPipelines):
                                                                     pipeline_type='DataDrivenMultiTSC',
                                                                     ensemble=ensemble)
 
-        classificator_module = train_feature_generator_module.then(lambda_func_dict['fit_model'])
+        classificator_module = train_feature_generator_module.then(
+            lambda_func_dict['fit_model'])
 
         test_feature_generator_module = self.get_feature_generator(input_data=self.test_features,
                                                                    steps=lambda_func_dict,
                                                                    pipeline_type='DataDrivenMultiTSC',
                                                                    ensemble=ensemble)
-        prediction = test_feature_generator_module.then(lambda_func_dict['predict'])
+        prediction = test_feature_generator_module.then(
+            lambda_func_dict['predict'])
         classificator.feature_generator = partial(self.get_feature_generator, steps=lambda_func_dict,
                                                   pipeline_type='DataDrivenMultiTSC')
         self.basis = data_basis.basis
@@ -110,17 +121,20 @@ class ClassificationPipelines(AbstractPipelines):
         pass
 
     def __specified_fg_pipeline(self, **kwargs):
-        feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(**kwargs)
+        feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(
+            **kwargs)
 
         train_feature_generator_module = self.get_feature_generator(input_data=self.train_features,
                                                                     steps=lambda_func_dict,
                                                                     pipeline_type='SpecifiedFeatureGeneratorTSC')
-        classificator_module = train_feature_generator_module.then(lambda_func_dict['fit_model'])
+        classificator_module = train_feature_generator_module.then(
+            lambda_func_dict['fit_model'])
 
         test_feature_generator_module = self.get_feature_generator(input_data=self.test_features,
                                                                    steps=lambda_func_dict,
                                                                    pipeline_type='SpecifiedFeatureGeneratorTSC')
-        prediction = test_feature_generator_module.then(lambda_func_dict['predict'])
+        prediction = test_feature_generator_module.then(
+            lambda_func_dict['predict'])
         classificator.feature_generator = partial(self.get_feature_generator, steps=lambda_func_dict,
                                                   pipeline_type='SpecifiedFeatureGeneratorTSC')
         return classificator, prediction.value[0]
@@ -139,7 +153,8 @@ if __name__ == "__main__":
         'n_jobs': 2
     }
 
-    pipeline = ClassificationPipelines(train_data=train_data, test_data=test_data).__call__('DataDrivenMultiTSC')
+    pipeline = ClassificationPipelines(
+        train_data=train_data, test_data=test_data).__call__('DataDrivenMultiTSC')
     pipeline(feature_generator_type='quantile',
              model_hyperparams=model_hyperparams,
              feature_hyperparams=None,

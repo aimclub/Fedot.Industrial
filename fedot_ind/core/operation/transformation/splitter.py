@@ -3,17 +3,14 @@ import random
 from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class TSTransformer:
     """
     Class for transformation single time series based on anomaly dictionary.
-
-    Args:
-        strategy: strategy for splitting time series. Available strategies: 'frequent'.
-
 
     Attributes:
         selected_non_anomaly_intervals: list of non-anomaly intervals which were selected for splitting.
@@ -33,44 +30,31 @@ class TSTransformer:
 
         Split time series into train and test parts::
             from fedot_ind.core.operation.transformation.splitter import TSSplitter
-            splitter = TSSplitter(strategy='frequent')
+            splitter = TSSplitter()
             train, test = splitter.transform_for_fit(series=ts, anomaly_dict=anomaly_d_uni, plot=False, binarize=True)
 
     """
 
-    def __init__(self, strategy: str = 'frequent'):
-
-        self.strategy = strategy
+    def __init__(self):
         self.selected_non_anomaly_intervals = []
-        self.split_methods = {'frequent': self._frequent_strategy,
-                              'unique': self._unique_strategy}
         self.freq_length = None
 
     def __check_multivariate(self, time_series: np.ndarray):
         return isinstance(time_series, list) or (len(time_series.shape) > 1 and time_series.shape[1] > 1)
-
-    def transform_for_fit(self, **kwargs):
-        """ Splits data for train """
-        method = self.split_methods.get(self.strategy, None)
-        if method is None:
-            raise ValueError(f'Unknown strategy {self.strategy} for splitting time series.')
-        return method(**kwargs)
 
     def transform(self, series: np.array):
         """ Split test data on subsequences"""
 
         return self._transform_test(series)
 
-    def _unique_strategy(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
-                         binarize: bool = False) -> tuple:
-        raise NotImplementedError
-
-    def _frequent_strategy(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
-                           binarize: bool = False) -> tuple:
+    def transform_for_fit(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
+                          binarize: bool = False) -> tuple:
         """
         Method for splitting time series into train and test parts based on most frequent anomaly length.
 
         Args:
+            anomaly_dict: dictionary with anomaly labels as keys and anomaly intervals as values.
+            series: time series to split.
             plot: if True, plot time series with anomaly intervals.
             binarize: if True, target will be binarized. Recommended for classification task if classes are imbalanced.
 
@@ -97,9 +81,12 @@ class TSTransformer:
         return features, target
 
     def get_features_and_target(self, series, classes, transformed_intervals, binarize) -> tuple:
-        target, features = self._split_by_intervals(series, classes, transformed_intervals)
-        non_anomaly_inters = self._get_non_anomaly_intervals(series, transformed_intervals)
-        target, features = self.balance_with_non_anomaly(series, target, features, non_anomaly_inters)
+        target, features = self._split_by_intervals(
+            series, classes, transformed_intervals)
+        non_anomaly_inters = self._get_non_anomaly_intervals(
+            series, transformed_intervals)
+        target, features = self.balance_with_non_anomaly(
+            series, target, features, non_anomaly_inters)
         if binarize:
             target = self._binarize_target(target)
         return np.array(features), np.array(target)
@@ -159,8 +146,9 @@ class TSTransformer:
             new_intervals.append(new_class_intervals)
         return new_intervals
 
-    def _split_by_intervals(self, series: np.array, classes: list, transformed_intervals: list) -> Tuple[
-        List[str], List[list]]:
+    def _split_by_intervals(self, series: np.array,
+                            classes: list,
+                            transformed_intervals: list) -> Tuple[List[str], List[list]]:
         all_labels, all_ts = [], []
 
         for i, label in enumerate(classes):
@@ -184,16 +172,21 @@ class TSTransformer:
 
         for i, label in enumerate(classes):
             for interval_ in transformed_intervals[i]:
-                axes[1].axvspan(interval_[0], interval_[1], alpha=0.3, color='blue')
-                axes[1].text(interval_[0], 0.5, label, fontsize=12, rotation=90)
+                axes[1].axvspan(interval_[0], interval_[1],
+                                alpha=0.3, color='blue')
+                axes[1].text(interval_[0], 0.5, label,
+                             fontsize=12, rotation=90)
             for interval in intervals[i]:
-                axes[0].axvspan(interval[0], interval[1], alpha=0.3, color='red')
+                axes[0].axvspan(interval[0], interval[1],
+                                alpha=0.3, color='red')
                 axes[0].text(interval[0], 0.5, label, fontsize=12, rotation=90)
 
         if self.selected_non_anomaly_intervals is not None:
             for interval in self.selected_non_anomaly_intervals:
-                axes[2].axvspan(interval[0], interval[1], alpha=0.3, color='green')
-                axes[2].text(interval[0], 0.5, 'no_anomaly', fontsize=12, rotation=90)
+                axes[2].axvspan(interval[0], interval[1],
+                                alpha=0.3, color='green')
+                axes[2].text(interval[0], 0.5, 'no_anomaly',
+                             fontsize=12, rotation=90)
         plt.show()
 
     def _binarize_target(self, target):
@@ -222,7 +215,8 @@ class TSTransformer:
             # Exclude intervals that are too short
             if cropped_ts_len < anomaly_len:
                 continue
-            random_start_index = random.randint(random_inter[0], random_inter[0] + cropped_ts_len - anomaly_len)
+            random_start_index = random.randint(
+                random_inter[0], random_inter[0] + cropped_ts_len - anomaly_len)
             stop_index = random_start_index + anomaly_len
 
             # Check if this interval overlaps with another interval
@@ -238,7 +232,8 @@ class TSTransformer:
 
             non_anomaly_ts_list.append(non_anomaly_ts)
 
-            self.selected_non_anomaly_intervals.append([random_start_index, stop_index])
+            self.selected_non_anomaly_intervals.append(
+                [random_start_index, stop_index])
 
         if len(non_anomaly_ts_list) == 0:
             raise Exception('No non-anomaly intervals found')

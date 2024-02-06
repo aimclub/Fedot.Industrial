@@ -2,7 +2,6 @@ import sys
 from functools import partial
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -11,30 +10,14 @@ from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
 
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
-    AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
-    PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
-    SimultaneousAliveHolesFeature, SumHoleLifetimeFeature, TopologicalFeaturesExtractor
+from fedot_ind.core.models.topological.topofeatures import PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
 from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
+from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, \
+    PERSISTENCE_DIAGRAM_FEATURES
 
 sys.setrecursionlimit(1000000000)
-
-PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
-                                'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
-                                'RelevantHolesNumber': RelevantHolesNumber(),
-                                'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
-                                'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
-                                'PersistenceEntropyFeature': PersistenceEntropyFeature(),
-                                'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
-                                'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
-                                'BettiNumbersSumFeature': BettiNumbersSumFeature(),
-                                'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
-
-PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
-                                                             takens_embedding_delay=2,
-                                                             homology_dimensions=(0, 1),
-                                                             parallel=False)
 
 
 class TopologicalExtractor(BaseExtractor):
@@ -71,13 +54,15 @@ class TopologicalExtractor(BaseExtractor):
             persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
         self.data_transformer = None
 
-    def __evaluate_persistence_params(self, ts_data: np.array) -> InputData:
+    def __evaluate_persistence_params(self, ts_data: np.array):
         if self.feature_extractor is None:
-            te_dimension, te_time_delay = self.get_embedding_params_from_batch(ts_data=ts_data)
+            te_dimension, te_time_delay = self.get_embedding_params_from_batch(
+                ts_data=ts_data)
 
             persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
                                                                          takens_embedding_delay=te_time_delay,
-                                                                         homology_dimensions=(0, 1, 2),
+                                                                         homology_dimensions=(
+                                                                             0, 1, 2),
                                                                          parallel=True)
 
             self.feature_extractor = TopologicalFeaturesExtractor(
@@ -91,7 +76,8 @@ class TopologicalExtractor(BaseExtractor):
                 persistence_params=persistence_params,
                 window_length=round(ts_data.shape[0] * 0.01 * self.window_size))
 
-        point_cloud = self.data_transformer.time_series_to_point_cloud(input_data=ts_data)
+        point_cloud = self.data_transformer.time_series_to_point_cloud(
+            input_data=ts_data)
         topological_features = self.feature_extractor.transform(point_cloud)
         topological_features = InputData(idx=np.arange(len(topological_features.values)),
                                          features=topological_features.values,
@@ -108,7 +94,8 @@ class TopologicalExtractor(BaseExtractor):
             self.__evaluate_persistence_params(ts)
 
         if len(ts.shape) == 1:
-            aggregation_df = self._generate_features_from_ts(ts, persistence_params)
+            aggregation_df = self._generate_features_from_ts(
+                ts, persistence_params)
         else:
             aggregation_df = self._get_feature_matrix(partial(self._generate_features_from_ts,
                                                               persistence_params=persistence_params), ts)
@@ -140,7 +127,8 @@ class TopologicalExtractor(BaseExtractor):
                       desc='Time series processed: ',
                       unit='ts', colour='black'):
             ts_data = pd.DataFrame(ts_data)
-            single_time_series = ts_data.sample(1, replace=False, axis=0).squeeze()
+            single_time_series = ts_data.sample(
+                1, replace=False, axis=0).squeeze()
             delay, dim = takens_embedding_optimal_parameters(X=single_time_series,
                                                              max_time_delay=1,
                                                              max_dimension=5,

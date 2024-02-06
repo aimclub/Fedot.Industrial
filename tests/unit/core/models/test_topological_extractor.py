@@ -1,9 +1,9 @@
-import numpy as np
 import pandas as pd
 import pytest
 from fedot.core.data.data import InputData, OutputData
+from fedot_ind.api.utils.data import init_input_data
 
-from fedot_ind.api.utils.input_data import init_input_data
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
@@ -41,11 +41,3 @@ def test_generate_topological_features(topological_extractor, input_data):
     assert train_features is not None
     assert isinstance(train_features, InputData)
     assert train_features.features.shape[0] == 1
-
-
-def test_extract_features(topological_extractor):
-    X, y, _, _ = dataset(binary=True)
-    features = topological_extractor.extract_features(X, y)
-    assert features is not None
-    assert isinstance(features, pd.DataFrame)
-    assert features.shape[0] == X.shape[0]

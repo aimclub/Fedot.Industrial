@@ -1,16 +1,16 @@
-import math
 from typing import Optional, Union
 
-import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-from joblib import cpu_count, delayed, Parallel
+from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 
+from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
+from fedot_ind.core.repository.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 
 
 class BasisDecompositionImplementation(IndustrialCachableOperationImplementation):
@@ -20,16 +20,21 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+        self.n_processes = CPU_NUMBERS
         self.n_components = params.get('n_components', 2)
         self.basis = None
-        self.data_type = DataTypesEnum.image
+        self.data_type = MULTI_ARRAY
         self.min_rank = 1
 
         self.logging_params = {'jobs': self.n_processes}
 
     def _get_basis(self, data):
-        basis = Either.insert(data).then(self._get_1d_basis if type(data) != list else self._get_multidim_basis).value
+
+        if type(data) is list or all([type(data) is np.ndarray and len(data.shape) > 1]):
+            func = self._get_multidim_basis
+        else:
+            func = self._get_1d_basis
+        basis = Either.insert(data).then(func).value
         return basis
 
     def fit(self, data):
@@ -40,7 +45,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """
         pass
 
-    def _decompose_signal(self, signal) -> list:
+    def _decompose_signal(self, signal) -> np.array:
         pass
 
     def evaluate_derivative(self, order: int = 1):
@@ -58,7 +63,7 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         pass
 
     def _get_1d_basis(self, input_data):
-        decompose = lambda signal: ListMonad(self._decompose_signal(signal))
+        def decompose(signal): return ListMonad(self._decompose_signal(signal))
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis
 
@@ -66,19 +71,16 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         """Method for transforming all samples
 
         """
-        if type(input_data) is InputData:
-            features = np.array(ListMonad(*input_data.features.tolist()).value)
-        else:
-            features = np.array(ListMonad(*input_data.values.tolist()).value)
-        features = np.array([series[~np.isnan(series)] for series in features])
-
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        v = parallel(delayed(self._transform_one_sample)(sample) for sample in features)
-
-        predict = np.array(v)
+        features = DataConverter(data=input_data).convert_to_monad_data()
+        parallel = Parallel(n_jobs=self.n_processes,
+                            verbose=0, pre_dispatch="2*n_jobs")
+        v = parallel(delayed(self._transform_one_sample)(sample)
+                     for sample in features)
+        predict = NumpyConverter(data=np.array(v)).convert_to_torch_format()
         return predict
 
     def _get_multidim_basis(self, input_data):
-        decompose = lambda multidim_signal: ListMonad(list(map(self._decompose_signal, multidim_signal)))
+        def decompose(multidim_signal): return ListMonad(
+            list(map(self._decompose_signal, multidim_signal)))
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis

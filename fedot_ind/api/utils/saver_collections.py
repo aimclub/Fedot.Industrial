@@ -10,7 +10,8 @@ class ResultSaver:
     def __init__(self, dataset_name: str, generator_name: str, output_dir: str = None):
         if generator_name is None:
             generator_name = 'without_generator'
-        self.path = self.__init_save_path(dataset_name, generator_name, output_dir)
+        self.path = self.__init_save_path(
+            dataset_name, generator_name, output_dir)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.save_method_dict = {'labels': self.save_labels,
                                  'probs': self.save_probs,
@@ -32,7 +33,8 @@ class ResultSaver:
         try:
             self.save_method_dict[prediction_type](predicted_data)
         except Exception:
-            self.logger.error(f'Can not save {prediction_type} type to {self.path}')
+            self.logger.error(
+                f'Can not save {prediction_type} type to {self.path}')
 
     def save_labels(self, label_data):
         df = pd.DataFrame(label_data, dtype=int)

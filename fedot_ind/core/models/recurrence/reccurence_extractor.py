@@ -1,5 +1,6 @@
 from typing import Optional
 
+from PIL import Image
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -42,10 +43,10 @@ class RecurrenceExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.image_mode = False
         self.window_size = params.get('window_size', 0)
         self.stride = params.get('stride', 1)
         self.rec_metric = params.get('rec_metric', 'cosine')
+        self.image_mode = params.get('image_mode', False)
         self.rec_metric = 'cosine'  # TODO add threshold for other metrics
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor
@@ -63,26 +64,42 @@ class RecurrenceExtractor(BaseExtractor):
         feature_df = specter.ts_to_recurrence_matrix()
 
         if not self.image_mode:
-            feature_df = self.extractor(recurrence_matrix=feature_df).quantification_analysis()
+            feature_df = self.extractor(
+                recurrence_matrix=feature_df).quantification_analysis()
+            features = np.nan_to_num(
+                np.array(list(feature_df.values())), posinf=0, neginf=0)
+            col_names = {'feature_name': list(feature_df.keys())}
+        else:
+            features = feature_df
+            features = np.asarray(Image.fromarray(
+                features, mode='L'))[:, :, None]
+            col_names = {'feature_name': None}
 
-        features = np.nan_to_num(np.array(list(feature_df.values())), posinf=0, neginf=0)
-        recurrence_features = InputData(idx=np.arange(len(features)),
-                                        features=features,
-                                        target='no_target',
-                                        task='no_task',
-                                        data_type=DataTypesEnum.table,
-                                        supplementary_data={'feature_name': list(feature_df.keys())})
-        return recurrence_features
+        predict = InputData(idx=np.arange(len(features)),
+                            features=features,
+                            target='no_target',
+                            task='no_task',
+                            data_type=DataTypesEnum.table,
+                            supplementary_data=col_names)
+        return predict
 
     def generate_recurrence_features(self, ts: np.array) -> InputData:
 
         if len(ts.shape) == 1:
             aggregation_df = self._generate_features_from_ts(ts)
         else:
-            aggregation_df = self._get_feature_matrix(self._generate_features_from_ts, ts)
+            aggregation_df = self._get_feature_matrix(
+                self._generate_features_from_ts, ts)
 
         return aggregation_df
 
     def generate_features_from_ts(self, ts_data: np.array,
                                   dataset_name: str = None):
         return self.generate_recurrence_features(ts=ts_data)
+
+    def explain(self, input_data: InputData = None):
+        if input_data is None:
+            input_data = self.predict
+        for reccurence_matrix in input_data:
+            img = Image.fromarray(np.squeeze(reccurence_matrix), mode='L')
+            img.show()

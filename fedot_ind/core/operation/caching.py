@@ -2,7 +2,7 @@ import hashlib
 import os
 import timeit
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 import logging
 
@@ -50,7 +50,8 @@ class DataCacher:
         # key += data.__str__().encode('utf8')
         # hsh = hashlib.md5(key).hexdigest()[:10]
 
-        key_info = ''.join([repr(arg) for arg in kwargs.values()]).encode('utf8')
+        key_info = ''.join([repr(arg)
+                           for arg in kwargs.values()]).encode('utf8')
         key_data = data.__str__()
 
         key = key_info + key_data.encode('utf8')
@@ -73,7 +74,8 @@ class DataCacher:
             self.logger.info('Cache not found')
             raise FileNotFoundError(f'File {file_path} was not found')
         elapsed_time = round(timeit.default_timer() - start, 5)
-        print(f'{self.data_type} of {type(data)} type is loaded from cache in {elapsed_time} sec')
+        print(
+            f'{self.data_type} of {type(data)} type is loaded from cache in {elapsed_time} sec')
         return data
 
     def cache_data(self, hashed_info: str, data: pd.DataFrame):

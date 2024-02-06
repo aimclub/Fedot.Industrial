@@ -1,7 +1,7 @@
 import math
 from typing import Union
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from scipy.signal import find_peaks
 from statsmodels.tsa.stattools import acf
@@ -64,17 +64,19 @@ class WindowSizeSelector:
         self.length_ts = None
 
     def apply(self, time_series: Union[pd.DataFrame, np.array], average: str = 'median') -> int:
-        """Method to run WSS class over selected time series in parallel mode via joblib
+        """Method to run WSS class over bunch of time series.
 
         Args:
-            time_series: time series to study
+            time_series: square array of time series to study
             average: 'mean' or 'median' to average window size over all time series
 
         Returns:
-            window_size_selected: value which has been chosen as appropriate window size
+            value which has been chosen as appropriate window size
+
         """
         methods = {'mean': np.mean, 'median': np.median}
-        assert average in methods.keys(), 'Hyperparameters error: `average` should be mean or median'
+        assert average in methods.keys(
+        ), 'Hyperparameters error: `average` should be mean or median'
 
         if isinstance(time_series, pd.DataFrame):
             time_series = time_series.values
@@ -96,10 +98,13 @@ class WindowSizeSelector:
             time_series = np.array(time_series[0])
         self.length_ts = len(time_series)
 
-        self.window_max = int(round(self.length_ts * self.window_range[1] / 100))  # in real values
-        self.window_min = int(round(self.length_ts * self.window_range[0] / 100))  # in real values
+        self.window_max = int(
+            round(self.length_ts * self.window_range[1] / 100))  # in real values
+        self.window_min = int(
+            round(self.length_ts * self.window_range[0] / 100))  # in real values
 
-        window_size_selected = self.dict_methods[self.wss_algorithm](time_series=time_series)
+        window_size_selected = self.dict_methods[self.wss_algorithm](
+            time_series=time_series)
         return round(window_size_selected * 100 / self.length_ts)  # in %
 
     def dominant_fourier_frequency(self, time_series: np.array) -> int:
@@ -111,7 +116,7 @@ class WindowSizeSelector:
         """
         fourier = np.fft.fft(time_series)
         freq = np.fft.fftfreq(time_series.shape[0], 1)
-
+        l = int(len(freq) // 2)
         magnitudes, window_sizes = [], []
 
         for coef, freq in zip(fourier, freq):
@@ -134,10 +139,12 @@ class WindowSizeSelector:
         acf_values = acf(time_series, fft=True, nlags=int(ts_len / 2))
 
         peaks, _ = find_peaks(acf_values)
-        peaks = peaks[np.logical_and(peaks >= self.window_min, peaks < self.window_max)]
+        peaks = peaks[np.logical_and(
+            peaks >= self.window_min, peaks < self.window_max)]
         corrs = acf_values[peaks]
 
-        if peaks.shape[0] == 0:  # if there is no peaks in range (window_min, window_max) return window_min
+        # if there is no peaks in range (window_min, window_max) return window_min
+        if peaks.shape[0] == 0:
             return self.window_min
         return peaks[np.argmax(corrs)]
 
@@ -158,10 +165,12 @@ class WindowSizeSelector:
 
         for i, w in enumerate(window_sizes):
             moving_avg = all_averages[i][:len(all_averages[-1])]
-            movingAvgResidual = np.log(abs(moving_avg - (moving_avg).mean()).sum())
+            movingAvgResidual = np.log(
+                abs(moving_avg - (moving_avg).mean()).sum())
             movingAvgResiduals.append(movingAvgResidual)
 
-        b = (np.diff(np.sign(np.diff(movingAvgResiduals))) > 0).nonzero()[0] + 1  # local min
+        b = (np.diff(np.sign(np.diff(movingAvgResiduals)))
+             > 0).nonzero()[0] + 1  # local min
 
         if len(b) == 0:
             return self.window_min
@@ -185,7 +194,8 @@ class WindowSizeSelector:
         that maximizes the similarity between subsequences of the time series.
         """
         # lbound = self.window_min
-        time_series = (time_series - time_series.min()) / (time_series.max() - time_series.min())
+        time_series = (time_series - time_series.min()) / \
+            (time_series.max() - time_series.min())
 
         ts_mean = np.mean(time_series)
         ts_std = np.std(time_series)
@@ -193,8 +203,10 @@ class WindowSizeSelector:
 
         stats = (ts_mean, ts_std, ts_min_max)
 
-        max_score = self.suss_score(time_series=time_series, window_size=1, stats=stats)
-        min_score = self.suss_score(time_series=time_series, window_size=time_series.shape[0] - 1, stats=stats)
+        max_score = self.suss_score(
+            time_series=time_series, window_size=1, stats=stats)
+        min_score = self.suss_score(
+            time_series=time_series, window_size=time_series.shape[0] - 1, stats=stats)
 
         exp = 0
 
@@ -206,7 +218,8 @@ class WindowSizeSelector:
                 exp += 1
                 continue
 
-            score = 1 - (self.suss_score(time_series, window_size, stats) - min_score) / (max_score - min_score)
+            score = 1 - (self.suss_score(time_series, window_size,
+                         stats) - min_score) / (max_score - min_score)
 
             if score > threshold:
                 break
@@ -218,7 +231,8 @@ class WindowSizeSelector:
         # binary search (to find window size in interval)
         while lbound <= ubound:
             window_size = int((lbound + ubound) / 2)
-            score = 1 - (self.suss_score(time_series, window_size, stats) - min_score) / (max_score - min_score)
+            score = 1 - (self.suss_score(time_series, window_size,
+                         stats) - min_score) / (max_score - min_score)
 
             if score < threshold:
                 lbound = window_size + 1

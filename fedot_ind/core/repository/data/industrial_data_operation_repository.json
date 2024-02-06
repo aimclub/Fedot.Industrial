@@ -7,8 +7,8 @@
 			],
 			"forbidden_node_types": "[]",
 			"strategies": [
-				"fedot.core.operations.evaluation.data_source",
-				"DataSourceStrategy"
+				"fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+				"IndustrialDataSourceStrategy"
 			],
 			"tags": [
 				"non-default", "data_source"
@@ -24,13 +24,13 @@
 			],
 			"forbidden_node_types": "[]",
 			"strategies": [
-				"fedot.core.operations.evaluation.common_preprocessing",
-				"FedotPreprocessingStrategy"
+				"fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+				"IndustrialCustomPreprocessingStrategy"
 			],
 			"tags": [
 				"sklearn"
 			],
-			"description": "Implementations of the preprocessing from scikit-learn framework"
+			"description": "Implementations of the preprocessing from scikit-learn framework upg"
 		},
 		"sklearn_categorical": {
 			"tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression, TaskTypesEnum.clustering]",
@@ -47,7 +47,7 @@
 			"output_type": "[DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.common_preprocessing", "FedotPreprocessingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialCustomPreprocessingStrategy"],
 			"tags": ["sklearn"],
 			"description": "Implementations of the dimensionality transformation operations (e.g. PCA) from scikit-learn framework"},
 		"regression_preprocessing": {
@@ -56,7 +56,7 @@
 			"output_type": "[DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.regression", "FedotRegressionPreprocessingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialClassificationPreprocessingStrategy"],
 			"tags": ["sklearn"],
 			"description": "Implementations of the feature selection operations and robust data filtering from scikit-learn framework for regression task"},
 		"classification_preprocessing": {
@@ -65,7 +65,7 @@
 			"output_type": "[DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.classification", "FedotClassificationPreprocessingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialClassificationPreprocessingStrategy"],
 			"tags": ["sklearn"],
 			"description": "Implementations of the feature selection operations and robust data filtering from scikit-learn framework for classification task"},
 		"custom_time_series_transformation": {
@@ -74,7 +74,7 @@
 			"output_type": "[DataTypesEnum.ts, DataTypesEnum.table]",
 			"accepted_node_types": ["any"],
 			"forbidden_node_types": "[]",
-			"strategies": ["fedot.core.operations.evaluation.time_series", "FedotTsTransformingStrategy"],
+			"strategies": ["fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy", "IndustrialForecastingPreprocessingStrategy"],
 			"tags": ["time_series"],
 			"description": "Preprocessing for converting uni-variate time-series into table form or transform it"},
 		"text_preprocessing": {
@@ -130,8 +130,24 @@
 			"tasks": "[TaskTypesEnum.classification]"
 		},
     "industrial_preprocessing": {
-      "tasks": "[TaskTypesEnum.classification]",
-      "input_type": "[DataTypesEnum.image]",
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialPreprocessingStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of industrial preprocessing operations"
+    },
+    "industrial_preprocessing_forecasting": {
+      "tasks": "[TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
       "accepted_node_types": [
         "any"
@@ -174,15 +190,6 @@
         "basis"
       ]
     },
-    "topological_extractor": {
-      "meta": "industrial_preprocessing",
-      "presets": [
-        "fast_train"
-      ],
-      "tags": [
-        "extractor"
-      ]
-    },
     "quantile_extractor": {
       "meta": "industrial_preprocessing",
       "presets": [
@@ -192,7 +199,15 @@
         "extractor"
       ]
     },
-    "signal_extractor": {
+      "topological_features": {
+        "meta": "custom_preprocessing",
+        "presets": [
+          "fast_train"
+        ],
+        "tags": [
+          "extractor"
+        ]},
+    "minirocket_extractor": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
@@ -201,7 +216,7 @@
         "extractor"
       ]
     },
-    "recurrence_extractor": {
+    "dimension_reduction": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
@@ -261,7 +276,7 @@
 		"pca": {
 			"meta": "dimension_transformation",
 			"presets": ["fast_train", "ts", "*tree"],
-			"tags": ["linear", "dimensionality_transforming", "correct_params", "non_applicable_for_ts",
+			"tags": ["linear", "dimensionality_transforming", "non_applicable_for_ts",
 				"feature_reduction"]
 		},
 		"kernel_pca": {
@@ -270,7 +285,6 @@
 			"tags": [
 				"non_linear",
 				"dimensionality_transforming",
-				"correct_params",
 				"non_applicable_for_ts",
 				"non-default",
 				"feature_reduction"
@@ -341,7 +355,6 @@
 				"affects_target",
 				"dimensionality_transforming",
 				"non_lagged",
-				"correct_params",
 				"ts_to_table"
 			],
 			"input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
@@ -353,7 +366,6 @@
 				"affects_target",
 				"dimensionality_transforming",
 				"non_lagged",
-				"correct_params",
 				"ts_to_table"
 			],
 			"input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
@@ -384,7 +396,6 @@
 			"tags": [
 				"differential",
 				"non_lagged",
-				"correct_params",
 				"ts_to_ts"
 			],
 			"input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
@@ -395,7 +406,6 @@
 			"tags": [
 				"simple",
 				"cutting",
-				"correct_params",
 				"non_lagged",
 				"ts_to_ts"
 			],

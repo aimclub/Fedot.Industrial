@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from numpy import array, eye, zeros
 from scipy.linalg import block_diag, cholesky
 
@@ -134,7 +134,8 @@ class MerweScaledSigmaPoints:
         c = .5 / (n + lambda_)
         self.Wc = np.full(2 * n + 1, c)
         self.Wm = np.full(2 * n + 1, c)
-        self.Wc[0] = lambda_ / (n + lambda_) + (1 - self.alpha ** 2 + self.beta)
+        self.Wc[0] = lambda_ / (n + lambda_) + \
+            (1 - self.alpha ** 2 + self.beta)
         self.Wm[0] = lambda_ / (n + lambda_)
 
 
@@ -372,13 +373,15 @@ class SimplexSigmaPoints(object):
         U = self.sqrt(P)
 
         lambda_ = n / (n + 1)
-        Istar = np.array([[-1 / np.sqrt(2 * lambda_), 1 / np.sqrt(2 * lambda_)]])
+        Istar = np.array(
+            [[-1 / np.sqrt(2 * lambda_), 1 / np.sqrt(2 * lambda_)]])
 
         for d in range(2, n + 1):
             row = np.ones((1, Istar.shape[1] + 1)) * 1. / np.sqrt(
                 lambda_ * d * (d + 1))  # pylint: disable=unsubscriptable-object
             row[0, -1] = -d / np.sqrt(lambda_ * d * (d + 1))
-            Istar = np.r_[np.c_[Istar, np.zeros((Istar.shape[0]))], row]  # pylint: disable=unsubscriptable-object
+            Istar = np.r_[np.c_[Istar, np.zeros(
+                (Istar.shape[0]))], row]  # pylint: disable=unsubscriptable-object
 
         I = np.sqrt(n) * Istar
         scaled_unitary = (U.T).dot(I)

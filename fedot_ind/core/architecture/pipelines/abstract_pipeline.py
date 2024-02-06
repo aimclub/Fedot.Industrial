@@ -5,8 +5,8 @@ from pymonad.list import ListMonad
 from sklearn.preprocessing import MinMaxScaler
 
 from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
-from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 from fedot_ind.core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel
+from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
 
 class AbstractPipelines:
@@ -19,7 +19,8 @@ class AbstractPipelines:
 
         self.basis_dict = {i.name: i.value for i in BasisTransformations}
         self.model_dict = {i.name: i.value for i in MlModel}
-        self.feature_generator_dict = {i.name: i.value for i in FeatureGenerator}
+        self.feature_generator_dict = {
+            i.name: i.value for i in FeatureGenerator}
 
         self.generators_with_matrix_input = ['topological',
                                              'wavelet',
@@ -56,10 +57,12 @@ class AbstractPipelines:
             for ts in list_of_features:
                 list_of_windows = []
                 for step in range(0, ts.shape[1], kwargs['window_length']):
-                    list_of_windows.append(ts[:, step:step + kwargs['window_length']])
+                    list_of_windows.append(
+                        ts[:, step:step + kwargs['window_length']])
                 feature_matrix.append(list_of_windows)
         else:
-            feature_matrix = pd.concat([pd.concat(feature_set, axis=1) for feature_set in list_of_features], axis=0)
+            feature_matrix = pd.concat(
+                [pd.concat(feature_set, axis=1) for feature_set in list_of_features], axis=0)
         return feature_matrix
 
     def _init_pipeline_nodes(self, model_type: str = 'tsc', **kwargs):
@@ -81,7 +84,7 @@ class AbstractPipelines:
                                                         generator_runner=feature_extractor)
         except Exception:
             classificator = None
-    # TODO:
+
         lambda_func_dict = {'create_list_of_ts': lambda x: ListMonad(*x.values.tolist()),
                             'scale': lambda time_series: pd.DataFrame(MinMaxScaler().fit_transform(
                                 time_series.to_numpy())),

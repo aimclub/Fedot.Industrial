@@ -9,8 +9,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.classification",
-        "FedotClassificationStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy",
+        "IndustrialClassificationPreprocessingStrategy"
       ],
       "tags": [
         "ml",
@@ -27,8 +27,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.regression",
-        "FedotRegressionStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "IndustrialCustomRegressionStrategy"
       ],
       "tags": [
         "ml",
@@ -45,8 +45,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.classification",
-        "SkLearnClassificationStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "IndustrialSkLearnClassificationStrategy"
       ],
       "tags": [
         "ml",
@@ -81,8 +81,8 @@
       "input_type": "[DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.regression",
-        "SkLearnRegressionStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "IndustrialSkLearnRegressionStrategy"
       ],
       "tags": [
         "ml",
@@ -96,8 +96,8 @@
       "input_type": "[DataTypesEnum.ts]",
       "output_type": "[DataTypesEnum.table]",
       "strategies": [
-        "fedot.core.operations.evaluation.time_series",
-        "FedotTsForecastingStrategy"
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "IndustrialSkLearnForecastingStrategy"
       ],
       "tags": [
         "time_series"
@@ -142,12 +142,60 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.models.automl.fedot_evaluation_strategy",
+        "fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy",
         "FedotAutoMLClassificationStrategy"
       ],
       "tags": [
       ],
       "description": "Implementations of fedot automl classification strategy"
+    },
+    "fedot_NN_classification": {
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "FedotNNClassificationStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of fedot NN classification strategy"
+    },
+    "fedot_NN_regression": {
+      "tasks": "[TaskTypesEnum.regression]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "FedotNNRegressionStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of fedot NN regression strategy"
+    },
+    "fedot_NN_forecasting": {
+      "tasks": "[TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.table]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "FedotNNTimeSeriesStrategy"
+      ],
+      "tags": ["time_series"
+      ],
+      "description": "Implementations of fedot NN forecasting strategy"
     },
     "fedot_automl_regression": {
       "tasks": "[TaskTypesEnum.regression]",
@@ -158,7 +206,7 @@
       ],
       "forbidden_node_types": "[]",
       "strategies": [
-        "fedot_ind.core.models.automl.fedot_evaluation_strategy",
+        "fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy",
         "FedotAutoMLRegressionStrategy"
       ],
       "tags": [
@@ -169,10 +217,8 @@
 
   "operations": {
      "ssa_forecaster": {
-      "meta": "industrial_decomposition_for_forecasting",
-      "presets": [
-        "fast_train"
-      ],
+      "meta": "ts_model",
+      "presets": ["best_quality", "ts"],
       "tags": [
         "decomposition"
       ]
@@ -180,7 +226,7 @@
      "fedot_cls": {
       "meta": "fedot_automl_classification",
       "presets": [
-        "best_quality"
+        "auto"
       ],
       "tags": [
         "automl"
@@ -189,11 +235,61 @@
     "fedot_regr": {
       "meta": "fedot_automl_regression",
       "presets": [
+        "auto"
+      ],
+      "tags": [
+        "automl"
+      ]
+    },
+    "inception_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "omniscale_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "tst_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "resnet_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
         "best_quality"
       ],
       "tags": [
         "automl"
       ]
+    },
+    "xcm_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+        "automl"
+      ]
+    },
+    "patch_tst_model": {
+      "meta": "fedot_NN_forecasting",
+      "presets": ["fast_train", "best_quality", "ts"],
+      "tags": [
+        "deep", "ts_model"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
     },
     "adareg": {
       "meta": "sklearn_regr",
@@ -294,7 +390,7 @@
       "tags": ["linear"]
     },
     "knn": {
-      "meta": "custom_class",
+      "meta": "sklearn_class",
       "presets": ["fast_train"],
       "tags": [
         "simple",
@@ -307,7 +403,6 @@
       "presets": ["fast_train", "ts"],
       "tags": [
         "simple",
-        "correct_params",
         "non_linear"
       ]
     },

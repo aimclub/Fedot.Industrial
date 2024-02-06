@@ -1,7 +1,6 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from scipy.linalg import solve_triangular
 from sklearn.decomposition import PCA
-from fedot_ind.core.operation.filtration.quantile_filtration import quantile_filter
 # from core.operation.transformation.regularization.lp_reg import compute_penalty_matrix
 
 
@@ -65,15 +64,18 @@ class FunctionalPCA:
     ):
         """
         Compute the first n_components principal components and saves them.
+
         Args:
             X: The functional data object to be analysed.
-            y: Ignored.
+
         Returns:
             self
+
         References:
             .. [RS05-8-4-2] Ramsay, J., Silverman, B. W. (2005). Basis function
                 expansion of the functions. In *Functional Data Analysis*
                 (pp. 161-164). Springer.
+
         """
         X = self._delete_mean(X)
         if self.basis_function is not None:
@@ -185,7 +187,8 @@ class FunctionalPCA:
         if type(test_features) == list:
             list_of_projection, list_of_outliers = [], []
             for window_slice in test_features:
-                current_projection, current_outlier = self._predict(window_slice.T, threshold)
+                current_projection, current_outlier = self._predict(
+                    window_slice.T, threshold)
                 list_of_projection.append(current_projection)
                 list_of_outliers.append(current_outlier)
             return list_of_projection, list_of_outliers
@@ -195,7 +198,8 @@ class FunctionalPCA:
     def _predict(self, test_features, threshold: float = 0.90):
         projection = self.transform(test_features)
         recover = self.inverse_transform(projection)
-        outlier_idx = quantile_filter(input_data=test_features, predicted_data=recover)
+        outlier_idx = quantile_filter(
+            input_data=test_features, predicted_data=recover)
         return recover, outlier_idx
 
     def fit_transform(

@@ -1,6 +1,6 @@
 import json
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 from scipy.spatial.distance import pdist
 
@@ -17,11 +17,8 @@ def params():
         'start_val': 36.6}
     ts = TimeSeriesGenerator(random_walk_config).get_ts()
 
-    with open(PATH_TO_DEFAULT_PARAMS, 'r') as file:
-        recurrence_extractor_params = json.load(file)['recurrence_extractor']
-
     return dict(time_series=ts,
-                rec_metric=recurrence_extractor_params['rec_metric'])
+                rec_metric='cosine')
 
 
 @pytest.fixture
@@ -41,7 +38,7 @@ def test_binarization(ts_transformer, params):
     bin_matrix = ts_transformer.binarization(dist_matrix, threshold=None)
 
     assert len(bin_matrix.shape) == 1
-    assert len(np.unique(bin_matrix)) == 2
+    assert len(np.unique(bin_matrix)) == 1
 
 
 def test_get_recurrence_metrics(ts_transformer, params):

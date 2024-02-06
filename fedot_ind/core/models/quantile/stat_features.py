@@ -1,6 +1,6 @@
 import warnings
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from scipy.signal import find_peaks
 from scipy.stats import entropy, linregress
@@ -92,11 +92,13 @@ def ben_corr(x):
 
     # retrieve first digit from data
     x = np.array(
-        [int(str(np.format_float_scientific(i))[:1]) for i in np.abs(np.nan_to_num(x))]
+        [int(str(np.format_float_scientific(i))[:1])
+         for i in np.abs(np.nan_to_num(x))]
     )
 
     # benford distribution
-    benford_distribution = np.array([np.log10(1 + 1 / n) for n in range(1, 10)])
+    benford_distribution = np.array(
+        [np.log10(1 + 1 / n) for n in range(1, 10)])
 
     data_distribution = np.array([(x == n).mean() for n in range(1, 10)])
 
@@ -143,6 +145,7 @@ def base_entropy(array: np.array) -> float:
     # Normalize the time series to sum up to 1
     normalized_series = array / np.sum(array)
     return entropy(normalized_series)
+
 
 def ptp_amp(array: np.array) -> float:
     """Returns the peak-to-peak amplitude of the time series.
@@ -192,8 +195,11 @@ def hjorth_complexity(array):
     # Calculate the total power of the time series
     TP = np.sum(np.power(array, 2)) / len(array)
     # Calculate the fourth central moment of the first-order differential sequence
-    M4 = sum([(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in range(1, len(diff_sequence))]) / len(
-        diff_sequence)
+    try:
+        M4 = sum([(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in range(1, len(diff_sequence))]) / len(
+            diff_sequence)
+    except Exception:
+        M4 = 1
     # Calculate Hjorth complexity
     complexity = np.sqrt((M4 * TP) / (M2 * M2))
     # complexity = (M4 * TP) / (M2 * M2)
@@ -234,7 +240,7 @@ def hurst_exponent(array):
     R_S = np.log(R_S)[1:]
     n = np.log(T)[1:]
     A = np.column_stack((n, np.ones(n.size)))
-    [m, c] = np.linalg.lstsq(A, R_S,rcond=None)[0]
+    [m, c] = np.linalg.lstsq(A, R_S, rcond=None)[0]
     H = m
     return H
 

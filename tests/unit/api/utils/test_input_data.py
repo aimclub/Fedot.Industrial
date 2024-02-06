@@ -1,8 +1,9 @@
 import pytest
 
-from fedot_ind.api.utils.input_data import init_input_data
 import numpy as np
 import pandas as pd
+
+from fedot_ind.api.utils.data import init_input_data
 
 
 @pytest.fixture

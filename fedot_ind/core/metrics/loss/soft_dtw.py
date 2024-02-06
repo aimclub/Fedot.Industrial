@@ -1,4 +1,4 @@
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 from sklearn.metrics.pairwise import euclidean_distances
 
@@ -53,7 +53,8 @@ class SoftDTWLoss:
         for i in range(1, size_X + 1):
             for j in range(1, size_Y + 1):
                 smin, P[i, j, 0], P[i, j, 1], P[i, j, 2] = \
-                    self._soft_min_argmin(V[i - 1, j], V[i - 1, j - 1], V[i, j - 1], gamma=gamma)
+                    self._soft_min_argmin(
+                        V[i - 1, j], V[i - 1, j - 1], V[i, j - 1], gamma=gamma)
 
                 # The cost matrix C is indexed starting from 0.
                 V[i, j] = cost_matrix[i - 1, j - 1] + smin

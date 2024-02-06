@@ -5,24 +5,23 @@ from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 
+from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
+
 
 class FedotClassificationImplementation(ModelImplementation):
-    AVAILABLE_OPERATIONS = ['rf',
-                            'logit',
-                            'scaling',
-                            'normalization',
-                            'pca',
-                            'catboost',
-                            'svc',
-                            'knn',
-                            'fast_ica',
-                            'kernel_pca',
-                            'isolation_forest_class']
+    """Implementation of Fedot as classification pipeline node for AutoML.
+
+    """
+    AVAILABLE_OPERATIONS = default_industrial_availiable_operation('classification')
 
     def __init__(self, params: Optional[OperationParameters] = None):
         if not params:
             params = OperationParameters()
-        self.model = Fedot(problem='classification', available_operations=self.AVAILABLE_OPERATIONS, **params.to_dict())
+        else:
+            params = params.to_dict()
+        if 'available_operations' not in params.keys():
+            params.update({'available_operations': self.AVAILABLE_OPERATIONS})
+        self.model = Fedot(**params)
         super(FedotClassificationImplementation, self).__init__()
 
     def fit(self, input_data: InputData):
@@ -34,28 +33,19 @@ class FedotClassificationImplementation(ModelImplementation):
 
 
 class FedotRegressionImplementation(ModelImplementation):
-    AVAILABLE_OPERATIONS = ['rfr',
-                            'ridge',
-                            'scaling',
-                            'normalization',
-                            'pca',
-                            'catboostreg',
-                            'xgbreg',
-                            'svr',
-                            'dtreg',
-                            'treg',
-                            'knnreg',
-                            'fast_ica',
-                            'kernel_pca',
-                            'isolation_forest_reg',
-                            'rfe_lin_reg',
-                            'rfe_non_lin_reg']
+    """Implementation of Fedot as regression pipeline node for AutoML.
+
+    """
+    AVAILABLE_OPERATIONS = default_industrial_availiable_operation('regression')
 
     def __init__(self, params: Optional[OperationParameters] = None):
         if not params:
             params = OperationParameters()
-        self.model = Fedot(problem='regression', available_operations=self.AVAILABLE_OPERATIONS,
-                           **params.to_dict())
+        else:
+            params = params.to_dict()
+        if 'available_operations' not in params.keys():
+            params.update({'available_operations': self.AVAILABLE_OPERATIONS})
+        self.model = Fedot(**params)
         super(FedotRegressionImplementation, self).__init__()
 
     def fit(self, input_data: InputData):

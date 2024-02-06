@@ -1,12 +1,15 @@
-import numpy as np
+import matplotlib
+
+from fedot_ind.tools.example_utils import get_ts_data
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import smape
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from matplotlib import pyplot as plt
 
-from examples.example_utils import get_ts_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+import matplotlib.pyplot as plt
 
+matplotlib.use('TkAgg')
 
 def plot_metrics_and_prediction(test_data: InputData,
                                 train_data: InputData,
@@ -23,8 +26,8 @@ def plot_metrics_and_prediction(test_data: InputData,
     plt.legend()
     plt.show()
 
-    print(f"SSA smape: {smape(test_data.target, model_prediction)}")
-    print(f"no SSA smape: {smape(test_data.target, baseline_prediction)}")
+    print(f"model smape: {smape(test_data.target, model_prediction)}")
+    print(f"baseline smape: {smape(test_data.target, baseline_prediction)}")
 
 
 model_dict = {'ssa_forecasting': PipelineBuilder().add_node('ssa_forecaster'),
@@ -39,12 +42,14 @@ if __name__ == '__main__':
     baseline_prediction = np.ravel(baseline.predict(test_data).predict)
     with IndustrialModels():
         for model in model_dict.keys():
+            repo = IndustrialModels().setup_repository()
             pipeline = model_dict[model].build()
             pipeline.fit(train_data)
-            model_prediction = np.ravel(pipeline.predict(test_data).predict)
+            model_prediction = pipeline.predict(test_data).predict
             plot_metrics_and_prediction(test_data,
                                         train_data,
                                         model_prediction,
                                         baseline_prediction,
                                         model,
                                         dataset_name)
+            _ = 1
