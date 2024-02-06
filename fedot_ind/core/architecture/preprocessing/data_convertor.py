@@ -5,8 +5,10 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from fedot.core.data.data import InputData, OutputData
+from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
+from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -43,6 +45,11 @@ class CustomDatasetCLF:
                 ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
+            if type(min(ts.target)[0]) is np.str_:
+                self.label_encoder = LabelEncoder()
+                ts.target = self.label_encoder.fit_transform(ts.target)
+            else:
+                self.label_encoder = None
 
             try:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
@@ -181,7 +188,7 @@ class FedotConverter:
                                    features=features,
                                    target=self.input_data.target,
                                    task=self.input_data.task,
-                                   data_type=self.input_data.data_type,
+                                   data_type=DataTypesEnum.image,
                                    supplementary_data=self.input_data.supplementary_data)
 
         return input_data

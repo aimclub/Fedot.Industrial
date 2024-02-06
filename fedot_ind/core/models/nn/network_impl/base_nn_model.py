@@ -41,7 +41,7 @@ class BaseNeuralModel:
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', None)
-        self.epochs = params.get('epochs', None)
+        self.epochs = params.get('epochs', 30)
         self.batch_size = params.get('batch_size', 16)
         self.activation = params.get('activation', 'ReLU')
         self.learning_rate = 0.001
@@ -108,6 +108,16 @@ class BaseNeuralModel:
         self.num_classes = train_dataset.classes
         self.label_encoder = train_dataset.label_encoder
         return train_loader, val_loader
+
+    def _save_and_clear_cache(self):
+        prefix = f'model_{self.__repr__()}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pt'
+        torch.save(self.model.state_dict(), prefix)
+        del self.model
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+        self.model = self.model_for_inference.to(torch.device('cpu'))
+        self.model.load_state_dict(torch.load(prefix, map_location=torch.device('cpu')))
+
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
         early_stopping = EarlyStopping()
@@ -176,12 +186,7 @@ class BaseNeuralModel:
         self.target = input_data.target
         self.task_type = input_data.task
         self._fit_model(input_data)
-        torch.save(self.model.state_dict(), f"model.pt")
-        with torch.no_grad():
-            torch.cuda.empty_cache()
-        device = torch.device('cpu')
-        self.model.load_state_dict(torch.load(f"model.pt", map_location=device))
-
+        self._save_and_clear_cache()
 
     @fedot_data_type
     def predict(self,

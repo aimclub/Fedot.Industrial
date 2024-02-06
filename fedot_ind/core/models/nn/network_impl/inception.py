@@ -63,9 +63,13 @@ class InceptionTimeModel(BaseNeuralModel):
         super().__init__(params)
         self.num_classes = params.get('num_classes', 1)
 
+    def __repr__(self):
+        return "InceptionNN"
     def _init_model(self, ts):
         self.model = InceptionTime(input_dim=ts.features.shape[1],
                                    output_dim=self.num_classes).to(default_device())
+        self.model_for_inference = InceptionTime(input_dim=ts.features.shape[1],
+                                                 output_dim=self.num_classes)
         self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         if ts.task.task_type == 'classification':

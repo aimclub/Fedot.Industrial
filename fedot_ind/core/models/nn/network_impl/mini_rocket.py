@@ -300,6 +300,10 @@ class MiniRocketExtractor(BaseExtractor):
     def __repr__(self):
         return 'LargeFeatureSpace'
 
+    def _save_and_clear_cache(self, model_list):
+        del model_list
+        with torch.no_grad():
+            torch.cuda.empty_cache()
     def _generate_features_from_ts(self, ts: np.array, mode: str = 'multivariate'):
 
         if ts.shape[1] > 1 and mode == 'chanel_independent':
@@ -331,7 +335,7 @@ class MiniRocketExtractor(BaseExtractor):
                                          task=self.task,
                                          predict=minirocket_features,
                                          data_type=DataTypesEnum.image)
-        torch.cuda.empty_cache()
+        self._save_and_clear_cache(model_list)
         return minirocket_features
 
     def generate_minirocket_features(self, ts: np.array) -> InputData:

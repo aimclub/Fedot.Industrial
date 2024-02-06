@@ -36,7 +36,7 @@ class OmniScaleCNN(Module):
         out_put_channel_number = 0
         for final_layer_parameters in layer_parameter_list[-1]:
             out_put_channel_number = out_put_channel_number + \
-                final_layer_parameters[1]
+                                     final_layer_parameters[1]
         self.hidden = nn.Linear(out_put_channel_number, output_dim)
         self.activation = get_activation_fn(activation)
 
@@ -131,12 +131,18 @@ class OmniScaleModel(BaseNeuralModel):
         super().__init__(params)
         self.num_classes = params.get('num_classes', 1)
 
+    def __repr__(self):
+        return "OmniNN"
+
     def _init_model(self, ts):
         self.model = OmniScaleCNN(input_dim=ts.features.shape[1],
                                   output_dim=self.num_classes,
                                   seq_len=ts.features.shape[2],
                                   activation=self.activation).to(default_device())
-        self._evaluate_num_of_epochs(ts)
+        self.model_for_inference = OmniScaleCNN(input_dim=ts.features.shape[1],
+                                                output_dim=self.num_classes,
+                                                seq_len=ts.features.shape[2],
+                                                activation=self.activation)
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         if ts.num_classes == 2:
             loss_fn = CROSS_ENTROPY()
