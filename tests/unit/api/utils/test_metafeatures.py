@@ -23,7 +23,8 @@ def test_get_base_metafeatures(dataset):
     detector = MetaFeaturesDetector(train_data, test_data, 'test_dataset')
     train_features_dict = detector.get_base_metafeatures()
     assert train_features_dict is not None
-    assert all([feature in detector.base_metafeatures for feature in train_features_dict.keys()])
+    assert all(
+        [feature in detector.base_metafeatures for feature in train_features_dict.keys()])
 
 
 def test_get_extra_metafeatures(dataset):

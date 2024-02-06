@@ -39,8 +39,10 @@ forecast_base[forecast_base < 0] = 0
 forecast_topo[forecast_topo < 0] = 0
 
 plt.plot(input_data.features, label='real data')
-plt.plot(np.arange(len(target_series) - horizon, len(target_series)), forecast_base, label='forecast base')
-plt.plot(np.arange(len(target_series) - horizon, len(target_series)), forecast_topo, label='forecast topo')
+plt.plot(np.arange(len(target_series) - horizon, len(target_series)),
+         forecast_base, label='forecast base')
+plt.plot(np.arange(len(target_series) - horizon, len(target_series)),
+         forecast_topo, label='forecast topo')
 
 plt.grid()
 plt.legend()

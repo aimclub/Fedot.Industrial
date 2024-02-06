@@ -81,7 +81,8 @@ class TimeSeriesDatasetsGenerator:
                           'length': self.max_ts_len}
                 ts_gen = TimeSeriesGenerator(params)
                 ts = ts_gen.get_ts()
-                ts_frame = pd.concat([ts_frame,pd.DataFrame(ts).T], ignore_index=True)
+                ts_frame = pd.concat(
+                    [ts_frame, pd.DataFrame(ts).T], ignore_index=True)
                 labels = np.append(labels, label)
         ts_frame.reset_index(drop=True, inplace=True)
         X_train, X_test, y_train, y_test = train_test_split(

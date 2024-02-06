@@ -33,9 +33,11 @@ def test_api_code_scenario(branch_nodes):
 
     model = industrial.fit(features=train_data[0], target=train_data[1])
     labels = industrial.predict(features=test_data[0], target=test_data[1])
-    probs = industrial.predict_proba(features=test_data[0], target=test_data[1])
+    probs = industrial.predict_proba(
+        features=test_data[0], target=test_data[1])
 
-    metrics = industrial.get_metrics(target=test_data[1], metric_names=['f1', 'roc_auc', 'accuracy'])
+    metrics = industrial.get_metrics(target=test_data[1], metric_names=[
+                                     'f1', 'roc_auc', 'accuracy'])
 
     assert model is not None
     assert type(labels) is np.ndarray

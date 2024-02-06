@@ -53,12 +53,14 @@ for rank in range(n_best):
     feature_dict.update({fg_names[rank]: (test_best, test_best)})
 
 for model_name, feature in feature_dict.items():
-    industrial = Fedot(metric='roc_auc', timeout=5, problem='classification', n_jobs=6)
+    industrial = Fedot(metric='roc_auc', timeout=5,
+                       problem='classification', n_jobs=6)
 
     model = industrial.fit(feature[0], train_target)
     labels = industrial.predict(feature[1])
     proba_dict.update({model_name: industrial.predict_proba(feature[1])})
-    metric_dict.update({model_name: industrial.get_metrics(test_target, metric_names=['roc_auc', 'f1', 'accuracy'])})
+    metric_dict.update({model_name: industrial.get_metrics(
+        test_target, metric_names=['roc_auc', 'f1', 'accuracy'])})
 rank_ensembler = RankEnsemble(dataset_name=dataset_name,
                               proba_dict={dataset_name: proba_dict},
                               metric_dict={dataset_name: metric_dict})

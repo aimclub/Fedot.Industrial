@@ -20,8 +20,10 @@ DATASETS_PATH = os.path.abspath(PROJECT_PATH + '/tests/data/datasets')
 @pytest.fixture()
 def prepare_classification(tmp_path):
     transform = Compose([ToTensor(), Resize((256, 256))])
-    train_ds = ImageFolder(root=os.path.join(DATASETS_PATH, 'Agricultural/train'), transform=transform)
-    val_ds = ImageFolder(root=os.path.join(DATASETS_PATH, 'Agricultural/train'), transform=transform)
+    train_ds = ImageFolder(root=os.path.join(
+        DATASETS_PATH, 'Agricultural/train'), transform=transform)
+    val_ds = ImageFolder(root=os.path.join(
+        DATASETS_PATH, 'Agricultural/train'), transform=transform)
     exp_params = {
         'model': resnet18(num_classes=3),
         'device': 'cpu'
@@ -71,9 +73,12 @@ def test_classification_experimenter(prepare_classification):
     exp_params, fit_params, tmp_path = prepare_classification
     experimenter = ClassificationExperimenter(**exp_params)
     experimenter.fit(p=fit_params)
-    assert os.path.exists(tmp_path.joinpath('models/Agricultural/ResNet/train.sd.pt'))
-    assert os.path.exists(tmp_path.joinpath('summary/Agricultural/ResNet/train/train.csv'))
-    assert os.path.exists(tmp_path.joinpath('summary/Agricultural/ResNet/train/val.csv'))
+    assert os.path.exists(tmp_path.joinpath(
+        'models/Agricultural/ResNet/train.sd.pt'))
+    assert os.path.exists(tmp_path.joinpath(
+        'summary/Agricultural/ResNet/train/train.csv'))
+    assert os.path.exists(tmp_path.joinpath(
+        'summary/Agricultural/ResNet/train/val.csv'))
     classification_predict(experimenter)
 
 

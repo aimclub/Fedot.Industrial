@@ -57,7 +57,8 @@ class AbstractBenchmark(object):
     def evaluate_loop(self, dataset, experiment_setup: dict = None):
         matplotlib.use('TkAgg')
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-        experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset}'
+        experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
+            f'/{dataset}'
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(test_data)
@@ -71,11 +72,13 @@ class AbstractBenchmark(object):
 
     def finetune_loop(self, dataset, experiment_setup: dict = None):
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-        experiment_setup['output_folder'] = experiment_setup['output_folder'] + f'/{dataset}'
+        experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
+            f'/{dataset}'
         tuning_params = experiment_setup['tuning_params']
         del experiment_setup['tuning_params']
         model = FedotIndustrial(**experiment_setup)
-        model.load(path=experiment_setup['output_folder'] + '/0_pipeline_saved')
+        model.load(
+            path=experiment_setup['output_folder'] + '/0_pipeline_saved')
         model.finetune(train_data, tuning_params=tuning_params)
         prediction = model.finetune_predict(test_data)
         return prediction, model.predict_data.target

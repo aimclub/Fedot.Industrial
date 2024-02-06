@@ -55,8 +55,8 @@ def fedot_industrial_regression():
 
 
 @pytest.mark.parametrize("data", (
-        univariate_clf_data(),
-        multivariate_clf_data()
+    univariate_clf_data(),
+    multivariate_clf_data()
 ))
 def test_fit_predict_classification(fedot_industrial_classification, data):
     fedot_industrial_classification.fit(data)
@@ -76,8 +76,8 @@ def test_fit_predict_classification(fedot_industrial_classification, data):
 
 
 @pytest.mark.parametrize("data", (
-        univariate_regression_data(),
-        multivariate_regression_data()
+    univariate_regression_data(),
+    multivariate_regression_data()
 ))
 def test_fit_predict_regression(fedot_industrial_regression, data):
     fedot_industrial_regression.fit(data)

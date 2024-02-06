@@ -46,7 +46,8 @@ class IndustrialMutations:
                                            *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.NEURAL_MODEL.value.keys())]
-        self.excluded = [list(TEMPORARY_EXCLUDED[x].keys()) for x in TEMPORARY_EXCLUDED.keys()]
+        self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
+                         for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
         self.industrial_data_operations = [operation for operation in self.industrial_data_operations if operation
                                            not in self.excluded]

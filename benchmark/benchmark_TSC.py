@@ -43,7 +43,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         else:
             self.path_to_result = '/benchmark/results/time_series_multi_clf_comparasion.csv'
             self.path_to_save = '/benchmark/results/ts_multi_classification'
-        self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
+        self.results_picker = ResultsPicker(
+            path=os.path.abspath(self.output_dir))
 
     def run(self):
         self.logger.info('Benchmark test started')
@@ -51,7 +52,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         metric_dict = {}
         for dataset_name in self.custom_datasets:
             experiment_setup = deepcopy(self.experiment_setup)
-            prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
+            prediction, target = self.evaluate_loop(
+                dataset_name, experiment_setup)
             metric = Accuracy(target, prediction).metric()
             metric_dict.update({dataset_name: metric})
             basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
@@ -59,7 +61,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                                         'metrics_report.csv')
             basic_results.to_csv(dataset_path)
             gc.collect()
-        basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
+        basic_path = os.path.join(
+            self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
 
@@ -67,16 +70,20 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
             try:
-                composed_model_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/0_pipeline_saved'
+                composed_model_path = PROJECT_PATH + self.path_to_save + \
+                    f'/{dataset_name}' + '/0_pipeline_saved'
                 if os.path.isdir(composed_model_path):
-                    self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+                    self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                        self.path_to_save
                     experiment_setup = deepcopy(self.experiment_setup)
-                    prediction, target = self.finetune_loop(dataset_name, experiment_setup)
+                    prediction, target = self.finetune_loop(
+                        dataset_name, experiment_setup)
                     metric = Accuracy(target, prediction).metric()
                     dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
                                                 'metrics_report.csv')
                     fedot_results = pd.read_csv(dataset_path, index_col=0)
-                    fedot_results.loc[dataset_name, 'Fedot_Industrial_finetuned'] = metric
+                    fedot_results.loc[dataset_name,
+                                      'Fedot_Industrial_finetuned'] = metric
 
                     fedot_results.to_csv(dataset_path)
                 else:
@@ -95,7 +102,8 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                 results = results.dropna(axis=0, how='all')
             except Exception:
                 results = self.load_web_results()
-            self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+            self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                self.path_to_save
             return results
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
@@ -104,13 +112,15 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         _ = []
         names = []
         for dataset_name in self.custom_datasets:
-            model_result_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/metrics_report.csv'
+            model_result_path = PROJECT_PATH + self.path_to_save + \
+                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
-                metrics = df.loc[dataset_name, 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                metrics = df.loc[dataset_name,
+                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_resutls = np.stack(_, axis=1).T
@@ -123,6 +133,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
     def load_web_results(self):
         sota_estimators = get_available_estimators()
-        sota_results = get_estimator_results(estimators=sota_estimators['classification'].values.tolist())
+        sota_results = get_estimator_results(
+            estimators=sota_estimators['classification'].values.tolist())
         sota_results_df = pd.DataFrame(sota_results)
         return sota_results_df

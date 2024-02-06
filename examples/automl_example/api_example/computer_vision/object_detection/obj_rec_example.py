@@ -26,11 +26,14 @@ def run_industrial_model(model_type: str = 'basic'):
         yaml.dump(config, f)
 
     fed = model_dict[model_type]
-    trained_model = fed.fit(dataset_path=os.path.join(DATASETS_PATH, 'warp.yaml'), dataset_name='WaRP', )
+    trained_model = fed.fit(dataset_path=os.path.join(
+        DATASETS_PATH, 'warp.yaml'), dataset_name='WaRP', )
     predict = fed.predict(data_path=os.path.join(DATASETS_PATH, 'test/images'))
-    predict_proba = fed.predict_proba(data_path=os.path.join(DATASETS_PATH, 'test/images'))
+    predict_proba = fed.predict_proba(
+        data_path=os.path.join(DATASETS_PATH, 'test/images'))
     image = random.choice(list(predict.keys()))
-    fig = draw_sample_with_bboxes(image=image, target=predict[image], prediction=predict_proba[image], threshold=0.2)
+    fig = draw_sample_with_bboxes(
+        image=image, target=predict[image], prediction=predict_proba[image], threshold=0.2)
 
     return trained_model
 

@@ -51,7 +51,8 @@ datasets_bad_f1 = [
 if __name__ == "__main__":
     OperationTypesRepository = IndustrialModels().setup_repository()
     for dataset_name in datasets_bad_f1:
-        train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+        train_data, test_data = DataLoader(
+            dataset_name=dataset_name).load_data()
         input_data = init_input_data(train_data[0], train_data[1])
         val_data = init_input_data(test_data[0], test_data[1])
         for model in model_dict.keys():

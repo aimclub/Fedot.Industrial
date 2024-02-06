@@ -9,12 +9,14 @@ class BackendMethods:
     def define_backend(self, device_type: str = 'cpu'):
         if device_type == 'CUDA':
             # TODO:
-            import numpy, scipy.linalg
+            import numpy
+            import scipy.linalg
             return numpy, scipy.linalg
             # import cupy, cupyx.scipy.linalg
             # return cupy, cupyx.scipy.linalg
         else:
-            import numpy, scipy.linalg
+            import numpy
+            import scipy.linalg
             return numpy, scipy.linalg
 
 
@@ -84,5 +86,3 @@ def default_device(device_type: str = 'CUDA'):
             return torch.device(torch.cuda.current_device())
         if _has_mps():
             return torch.device("mps")
-
-

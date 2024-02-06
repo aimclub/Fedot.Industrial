@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import torch
@@ -116,8 +117,9 @@ class BaseNeuralModel:
         with torch.no_grad():
             torch.cuda.empty_cache()
         self.model = self.model_for_inference.to(torch.device('cpu'))
-        self.model.load_state_dict(torch.load(prefix, map_location=torch.device('cpu')))
-
+        self.model.load_state_dict(torch.load(
+            prefix, map_location=torch.device('cpu')))
+        os.remove(prefix)
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
         early_stopping = EarlyStopping()

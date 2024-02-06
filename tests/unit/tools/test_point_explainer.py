@@ -61,5 +61,6 @@ def test_explain(data, model, distance, window):
     explainer.visual(threshold=0, name='Custom' + '_' + distance)
 
     ts_len = X_test.shape[1]
-    expected_n_parts = math.ceil(ts_len / (window * ts_len // 100)) if window != 0 else ts_len
+    expected_n_parts = math.ceil(
+        ts_len / (window * ts_len // 100)) if window != 0 else ts_len
     assert explainer.scaled_vector.shape[0] == expected_n_parts

@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 matplotlib.use('TkAgg')
 
+
 def plot_metrics_and_prediction(test_data: InputData,
                                 train_data: InputData,
                                 model_prediction: np.array,
@@ -35,7 +36,8 @@ model_dict = {'ssa_forecasting': PipelineBuilder().add_node('ssa_forecaster'),
 forecast_length = 13
 
 if __name__ == '__main__':
-    train_data, test_data, dataset_name = get_ts_data('m4_monthly', forecast_length)
+    train_data, test_data, dataset_name = get_ts_data(
+        'm4_monthly', forecast_length)
     baseline = model_dict['baseline'].build()
     del model_dict['baseline']
     baseline.fit(train_data)

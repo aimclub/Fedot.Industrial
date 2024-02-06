@@ -6,25 +6,26 @@ from fedot_ind.tools.loader import DataLoader
 
 if __name__ == "__main__":
     dataset_list = [
-                    'Lightning2',
-                    'EOGVerticalSignal']
+        'Lightning2',
+        'EOGVerticalSignal']
     result_dict = {}
     pipeline_dict = {'inception_model': PipelineBuilder().add_node('inception_model', params={'epochs': 100,
                                                                                               'batch_size': 10}),
 
-                     'quantile_rf_model': PipelineBuilder() \
-                         .add_node('quantile_extractor') \
-                         .add_node('rf'),
-                     'composed_model': PipelineBuilder() \
-                         .add_node('inception_model', params={'epochs': 100,
-                                                              'batch_size': 10}) \
-                         .add_node('quantile_extractor', branch_idx=1) \
-                         .add_node('rf', branch_idx=1) \
-                         .join_branches('logit')}
+                     'quantile_rf_model': PipelineBuilder()
+                     .add_node('quantile_extractor')
+                     .add_node('rf'),
+                     'composed_model': PipelineBuilder()
+                     .add_node('inception_model', params={'epochs': 100,
+                                                          'batch_size': 10})
+                     .add_node('quantile_extractor', branch_idx=1)
+                     .add_node('rf', branch_idx=1)
+                     .join_branches('logit')}
 
     for dataset in dataset_list:
         try:
-            train_data, test_data = DataLoader(dataset_name=dataset).load_data()
+            train_data, test_data = DataLoader(
+                dataset_name=dataset).load_data()
             input_data = init_input_data(train_data[0], train_data[1])
             val_data = init_input_data(test_data[0], test_data[1])
             metric_dict = {}
@@ -33,7 +34,8 @@ if __name__ == "__main__":
                     pipeline = pipeline_dict[model].build()
                     pipeline.fit(input_data)
                     target = pipeline.predict(val_data).predict
-                    metric = evaluate_metric(target=test_data[1], prediction=target)
+                    metric = evaluate_metric(
+                        target=test_data[1], prediction=target)
                 metric_dict.update({model: metric})
             result_dict.update({dataset: metric_dict})
         except Exception:

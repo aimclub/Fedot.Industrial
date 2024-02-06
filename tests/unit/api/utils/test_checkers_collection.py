@@ -27,6 +27,7 @@ def input_data_with_inf():
 @pytest.mark.parametrize("input_data", [input_data_with_inf(), input_data_with_nans()])
 def test_DataCheck(input_data):
     features, target = input_data
-    data_check = DataCheck(input_data=(features, target), task='classification')
+    data_check = DataCheck(input_data=(
+        features, target), task='classification')
     clean_data = data_check.check_input_data()
     assert clean_data is not None

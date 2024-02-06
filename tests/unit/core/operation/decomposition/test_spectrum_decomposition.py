@@ -8,7 +8,8 @@ class TestSpectrumDecomposer:
 
     def test_constructor_valid_types(self):
         for data_type in supported_types:
-            data = np.random.rand(10, 5) if data_type == np.ndarray else [np.random.rand(10, 5)]
+            data = np.random.rand(10, 5) if data_type == np.ndarray else [
+                np.random.rand(10, 5)]
             ts_length = 10
             decomposer = SpectrumDecomposer(data, ts_length)
             assert decomposer.ts_length == ts_length
@@ -33,7 +34,8 @@ class TestSpectrumDecomposer:
         data = np.random.rand(10, 5)
         decomposer = SpectrumDecomposer(data, 10)
         result = decomposer.svd(data)
-        decomposer.beta = round(result.value[0][0].shape[0] / result.value[0][0].shape[1])
+        decomposer.beta = round(
+            result.value[0][0].shape[0] / result.value[0][0].shape[1])
         result = decomposer.multi_threshold(result.value[0])
         assert isinstance(result.value, list)
         assert len(result.value[0]) == 3

@@ -11,7 +11,8 @@ TS_COMPS = np.random.rand(TS_LENGTH, N_COMPONENTS)
 
 
 def test_weighted_inner_product():
-    result = weighted_inner_product(SAMPLE_DATA, SAMPLE_DATA, WINDOW_LENGTH, TS_LENGTH)
+    result = weighted_inner_product(
+        SAMPLE_DATA, SAMPLE_DATA, WINDOW_LENGTH, TS_LENGTH)
     assert isinstance(result, float)
 
 
@@ -22,7 +23,8 @@ def test_calculate_matrix_norms():
 
 def test_calculate_corr_matrix():
     result, components = calculate_corr_matrix(ts_comps=TS_COMPS,
-                                               f_wnorms=calculate_matrix_norms(TS_COMPS, WINDOW_LENGTH, TS_LENGTH),
+                                               f_wnorms=calculate_matrix_norms(
+                                                   TS_COMPS, WINDOW_LENGTH, TS_LENGTH),
                                                window_length=WINDOW_LENGTH,
                                                ts_length=TS_LENGTH)
     assert isinstance(result, np.ndarray)

@@ -304,6 +304,7 @@ class MiniRocketExtractor(BaseExtractor):
         del model_list
         with torch.no_grad():
             torch.cuda.empty_cache()
+
     def _generate_features_from_ts(self, ts: np.array, mode: str = 'multivariate'):
 
         if ts.shape[1] > 1 and mode == 'chanel_independent':

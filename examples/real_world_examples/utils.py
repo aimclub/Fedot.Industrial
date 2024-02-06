@@ -26,13 +26,15 @@ def evaluate_industrial_model(input_data,
         pipeline = model_dict[model].build()
         pipeline.fit(input_data)
         features = pipeline.predict(val_data).predict
-        metric = calculate_regression_metric(test_target=val_data.target, labels=features)
+        metric = calculate_regression_metric(
+            test_target=val_data.target, labels=features)
         metric_dict.update({model: metric})
     return metric_dict
 
 
 def tuning_industrial_pipelines(pipeline, tuning_params, train_data):
-    input_data = init_input_data(train_data[0], train_data[1], task=tuning_params['task'])
+    input_data = init_input_data(
+        train_data[0], train_data[1], task=tuning_params['task'])
     tuning_method = SimultaneousTuner
     pipeline_tuner = TunerBuilder(input_data.task) \
         .with_tuner(tuning_method) \
@@ -64,7 +66,8 @@ def evaluate_automl(experiment_setup, train_data, test_data, runs=5):
         model.fit(train_data)
         prediction = model.predict(test_data)
 
-        metric = calculate_regression_metric(test_target=test_data[1], labels=prediction)
+        metric = calculate_regression_metric(
+            test_target=test_data[1], labels=prediction)
         metric = metric.T
         metric.columns = metric.columns.values
 
@@ -80,10 +83,12 @@ def finetune(tuning_params, model_dict, train_data, test_data, val_data, input_d
     for model in model_dict.keys():
         print(f'Current_model - {model}')
         pipeline = model_dict[model].build()
-        tuned_pipeline = tuning_industrial_pipelines(pipeline, tuning_params, train_data)
+        tuned_pipeline = tuning_industrial_pipelines(
+            pipeline, tuning_params, train_data)
         tuned_pipeline.fit(input_data)
         features = tuned_pipeline.predict(val_data).predict
-        metric = calculate_regression_metric(test_target=test_data[1], labels=features)
+        metric = calculate_regression_metric(
+            test_target=test_data[1], labels=features)
         metric = metric.T
         metric.columns = metric.columns.values
         metric['model_params'] = metric['model_params'] = str(
@@ -105,7 +110,7 @@ def ts_regression_setup():
                         'num_of_generations': 5,
                         'pop_size': 10,
                         'logging_level': 40,
-                        'available_operations':available_opearations,
+                        'available_operations': available_opearations,
                         'n_jobs': 4,
                         'industrial_preprocessing': True,
                         'initial_assumption': None,

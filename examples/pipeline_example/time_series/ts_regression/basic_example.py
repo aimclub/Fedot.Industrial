@@ -11,22 +11,22 @@ model_dict = {
                                                                        params={'window_size': 5}).add_node('ridge'),
     'regression_pca_with_statistical_features': PipelineBuilder().add_node('quantile_extractor',
                                                                            params={'window_size': 5})
-                                                                 .add_node('pca', params={'n_components': 0.9})
-                                                                 .add_node('ridge'),
+    .add_node('pca', params={'n_components': 0.9})
+    .add_node('ridge'),
     'regression_with_reccurence_features': PipelineBuilder().add_node('recurrence_extractor',
                                                                       params={'window_size': 20}).add_node('ridge'),
     'regression_pca_with_reccurence_features': PipelineBuilder().add_node('recurrence_extractor',
                                                                           params={'window_size': 20})
-                                                                .add_node('pca', params={'n_components': 0.9})
-                                                                .add_node('ridge'),
+    .add_node('pca', params={'n_components': 0.9})
+    .add_node('ridge'),
     'regression_with_topological_features': PipelineBuilder().add_node('topological_extractor',
                                                                        params={'window_size': 20})
-                                                             .add_node('pca', params={'n_components': 0.9})
-                                                             .add_node('ridge'),
+    .add_node('pca', params={'n_components': 0.9})
+    .add_node('ridge'),
     'regression_pca_with_topological_features': PipelineBuilder().add_node('topological_extractor',
                                                                            params={'window_size': 20})
-                                                                 .add_node('pca', params={'n_components': 0.9})
-                                                                 .add_node('ridge')
+    .add_node('pca', params={'n_components': 0.9})
+    .add_node('ridge')
 }
 metric_dict = {}
 
@@ -68,10 +68,13 @@ if __name__ == "__main__":
             data_path=data_path)
         for model in model_dict.keys():
             pipeline = model_dict[model].build()
-            input_data = init_input_data(train_data[0], train_data[1], task='regression')
-            val_data = init_input_data(test_data[0], test_data[1], task='regression')
+            input_data = init_input_data(
+                train_data[0], train_data[1], task='regression')
+            val_data = init_input_data(
+                test_data[0], test_data[1], task='regression')
             pipeline.fit(input_data)
             features = pipeline.predict(val_data).predict
-            metric = calculate_regression_metric(test_target=test_data[1], labels=features)
+            metric = calculate_regression_metric(
+                test_target=test_data[1], labels=features)
             metric_dict.update({model: metric})
     print(metric_dict)

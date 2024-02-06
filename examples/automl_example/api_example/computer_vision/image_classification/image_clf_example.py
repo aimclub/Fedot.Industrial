@@ -14,6 +14,7 @@ model_dict = {'basic': FedotIndustrial(task=TASK, num_classes=NUM_CLASSES),
               'advanced': FedotIndustrial(task=TASK, num_classes=NUM_CLASSES, optimization='svd',
                                           optimization_params={'energy_thresholds': [0.99]})}
 
+
 def run_industrial_model(model_type: str = 'basic'):
     fed = model_dict[model_type]
 

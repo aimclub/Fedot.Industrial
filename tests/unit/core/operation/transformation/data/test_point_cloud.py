@@ -38,4 +38,5 @@ def test_TopologicalTransformation_time_series_to_point_cloud(basic_periodic_dat
         max_simplex_dim=1,
         epsilon=3,
         window_length=400)
-    assert len(topological_transformer.time_series_to_point_cloud(basic_periodic_data)) != 0
+    assert len(topological_transformer.time_series_to_point_cloud(
+        basic_periodic_data)) != 0

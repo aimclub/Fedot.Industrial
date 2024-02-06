@@ -16,7 +16,8 @@ def sv_to_explained_variance_ratio(singular_values, rank):
 
     """
     singular_values = [abs(x) for x in singular_values]
-    n_components = [x / sum(singular_values) * 100 for x in singular_values][:rank]
+    n_components = [x / sum(singular_values) *
+                    100 for x in singular_values][:rank]
     explained_variance = sum(n_components)
     n_components = rank
     return explained_variance, n_components

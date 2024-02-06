@@ -90,8 +90,7 @@ TEMPORARY_EXCLUDED = {
     'SKLEARN_CLF_MODELS': {'bernb': SklearnBernoulliNB,
                            'multinb': SklearnMultinomialNB,
                            'knn': FedotKnnClassImplementation
-                           }
-    ,
+                           },
     'NEURAL_MODELS': {'resnet_model': ResNetModel,
                       # transformer models
                       'tst_model': TSTModel,
@@ -208,7 +207,8 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                 INDUSTRIAL_PREPROC_MODEL.keys(),
                                 FEDOT_PREPROC_MODEL.keys()]
 
-    available_operations = list(chain(*[list(x) for x in available_operations]))
+    available_operations = list(
+        chain(*[list(x) for x in available_operations]))
     excluded_operation = {'regression': ['one_hot_encoding',
                                          'label_encoding',
                                          'isolation_forest_class',
@@ -227,8 +227,8 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'treg',
                               'knnreg',
                               'dtreg'
-                          ],
-                          'classification': [
+    ],
+        'classification': [
                               'isolation_forest_reg',
                               'tst_model',
                               'resnet_model',
@@ -238,8 +238,9 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'isolation_forest_class',
                               'signal_extractor',
                               'recurrence_extractor'
-                          ]}
-    available_operations = [x for x in available_operations if x not in excluded_operation[problem]]
+    ]}
+    available_operations = [
+        x for x in available_operations if x not in excluded_operation[problem]]
     return available_operations
 
 
