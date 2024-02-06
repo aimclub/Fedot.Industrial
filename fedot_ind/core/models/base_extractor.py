@@ -11,7 +11,7 @@ from joblib import delayed, Parallel
 from tqdm import tqdm
 
 from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data, fedot_data_type, remove_1_dim_axis
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix

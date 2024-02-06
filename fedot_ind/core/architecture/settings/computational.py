@@ -41,7 +41,8 @@ def global_imports(object_name: str,
     Examples:
         Do this::
             import os -> global_imports("os")
-            from fedot_ind.core.architecture.settings.computational import backend_methods as np -> global_imports("numpy", "np")
+            from fedot_ind.core.architecture.settings.computational import backend_methods
+            as np -> global_imports("numpy", "np")
             from collections import Counter ->
                 global_imports("Counter", None, "collections")
             from google.cloud import storage ->
@@ -83,4 +84,5 @@ def default_device(device_type: str = 'CUDA'):
             return torch.device(torch.cuda.current_device())
         if _has_mps():
             return torch.device("mps")
+
 
