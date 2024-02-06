@@ -173,7 +173,7 @@ class BaseNeuralModel:
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        x_test = Tensor(x_test).to(default_device())
+        x_test = Tensor(x_test).to(default_device('cpu'))
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)
 

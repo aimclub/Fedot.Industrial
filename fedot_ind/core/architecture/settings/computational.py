@@ -71,8 +71,10 @@ def default_device(device_type: str = 'CUDA'):
     """
     if device_type == 'CUDA':
         device_type = defaults.use_cuda
-    else:
+    elif device_type == 'cpu':
         defaults.use_cuda = False
+        return torch.device("cpu")
+
     if device_type is None:
         if torch.cuda.is_available() or _has_mps():
             device_type = True
@@ -81,4 +83,4 @@ def default_device(device_type: str = 'CUDA'):
             return torch.device(torch.cuda.current_device())
         if _has_mps():
             return torch.device("mps")
-    return torch.device("cpu")
+

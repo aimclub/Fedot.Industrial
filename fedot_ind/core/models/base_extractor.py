@@ -26,7 +26,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.current_window = None
-        self.stride = None
+        self.stride = 3
         self.n_processes = math.ceil(
             cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
@@ -131,7 +131,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         features = []
         names = []
         window_size = max(window_size, 5)
-        self.stride = 3
 
         if self.stride > 1:
             trajectory_transformer = HankelMatrix(time_series=ts_data,

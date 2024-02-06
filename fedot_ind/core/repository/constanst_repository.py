@@ -50,18 +50,17 @@ class DataTypeConstant(Enum):
 
 
 class FeatureConstant(Enum):
-    STAT_METHODS = {'mean_': np.mean,
-                    'median_': np.median,
-                    'std_': np.std,
-                    'max_': np.max,
-                    'min_': np.min,
-                    'q5_': q5,
-                    'q25_': q25,
-                    'q75_': q75,
-                    'q95_': q95,
-                    # 'sum_': np.sum,
-                    # 'dif_': diff
-                    }
+    STAT_METHODS = {
+        'mean_': np.mean,
+        'median_': np.median,
+        'std_': np.std,
+        'max_': np.max,
+        'min_': np.min,
+        'q5_': q5,
+        'q25_': q25,
+        'q75_': q75,
+        'q95_': q95
+    }
 
     STAT_METHODS_GLOBAL = {
         'skewness_': skewness,
@@ -73,7 +72,6 @@ class FeatureConstant(Enum):
         'energy_': energy,
         'cross_rate_': zero_crossing_rate,
         'autocorrelation_': autocorrelation,
-        # 'base_entropy_': base_entropy,
         'shannon_entropy_': shannon_entropy,
         'ptp_amplitude_': ptp_amp,
         'mean_ptp_distance_': mean_ptp_distance,
@@ -83,7 +81,7 @@ class FeatureConstant(Enum):
         'hjorth_mobility_': hjorth_mobility,
         'hjorth_complexity_': hjorth_complexity,
         'hurst_exponent_': hurst_exponent,
-        'petrosian_fractal_dimension_': pfd,
+        'petrosian_fractal_dimension_': pfd
     }
 
     PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
@@ -168,7 +166,6 @@ class FedotOperationConstant(Enum):
         'multinb',
         'dt',
         'mlp',
-        # 'lgbm',
         'kernel_pca',
         'isolation_forest_class']
 
@@ -183,9 +180,11 @@ class FedotOperationConstant(Enum):
                                 'kernel_pca',
                                 'isolation_forest_reg']
 
-    FEDOT_ASSUMPTIONS = {'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
-                         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-                         'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')}
+    FEDOT_ASSUMPTIONS = {
+        'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
+        'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
+        'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')
+    }
 
 
 class ModelCompressionConstant(Enum):
