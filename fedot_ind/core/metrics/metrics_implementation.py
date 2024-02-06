@@ -165,7 +165,8 @@ class Accuracy(QualityMetric):
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
-                                metric_names=('r2', 'rmse', 'mae')):
+                                metric_names=('r2', 'rmse', 'mae'),
+                                **kwargs):
     target = target.astype(float)
 
     def rmse(y_true, y_pred):
