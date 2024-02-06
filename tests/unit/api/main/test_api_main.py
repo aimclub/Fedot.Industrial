@@ -148,4 +148,4 @@ def test_plot_methods(fedot_industrial_classification):
     fedot_industrial_classification.explain()
 
 
-def test__batch_strategy()
+# def test__batch_strategy()
