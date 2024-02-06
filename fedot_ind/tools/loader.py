@@ -5,16 +5,17 @@ import urllib.request as request
 import zipfile
 from pathlib import Path
 
+import chardet
+import pandas as pd
 from datasetsforecast.m3 import M3
 from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
-import chardet
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-import pandas as pd
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 from tqdm import tqdm
+
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class DataLoader:
