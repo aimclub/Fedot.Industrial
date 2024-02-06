@@ -37,8 +37,8 @@ def test_binarization(ts_transformer, params):
                         X=params['time_series'].reshape(-1, 1))
     bin_matrix = ts_transformer.binarization(dist_matrix, threshold=None)
 
-    assert len(bin_matrix.shape) == 1
-    assert len(np.unique(bin_matrix)) == 1
+    assert len(bin_matrix.shape) == 2
+    assert len(np.unique(bin_matrix)) == 2
 
 
 def test_get_recurrence_metrics(ts_transformer, params):
