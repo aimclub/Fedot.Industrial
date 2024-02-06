@@ -25,7 +25,8 @@ def evaluate_metric(target, prediction):
         else:
             metric = roc_auc_score(target, prediction, average='weighted')
     except Exception:
-        metric = f1_score(target, np.argmax(prediction, axis=1), average='weighted')
+        metric = f1_score(target, np.argmax(
+            prediction, axis=1), average='weighted')
     return metric
 
 
@@ -55,4 +56,3 @@ def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
                             data_type=DataTypesEnum.ts)
     train_data, test_data = train_test_data_setup(train_input)
     return train_data, test_data, label
-

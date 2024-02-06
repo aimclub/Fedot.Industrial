@@ -11,7 +11,7 @@ from joblib import delayed, Parallel
 from tqdm import tqdm
 
 from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data, fedot_data_type, remove_1_dim_axis
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -26,7 +26,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.current_window = None
-        self.stride = None
+        self.stride = 3
         self.n_processes = math.ceil(
             cpu_count() * 0.7) if cpu_count() > 1 else 1
         self.data_type = DataTypesEnum.table
@@ -112,7 +112,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 features.append(method[1](time_series))
                 names.append(method[0])
             except Exception as ex:
-                print(f'Error on statistical feature extraction - {method[0]}. Reason - {ex}')
+                print(
+                    f'Error on statistical feature extraction - {method[0]}. Reason - {ex}')
                 features.append(0)
                 names.append(method[0])
         return features, names
@@ -131,7 +132,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         features = []
         names = []
         window_size = max(window_size, 5)
-        self.stride = 3
 
         if self.stride > 1:
             trajectory_transformer = HankelMatrix(time_series=ts_data,

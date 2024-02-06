@@ -69,7 +69,8 @@ class DataCheck:
         is_multivariate_data = False
         if isinstance(self.input_data, tuple):
             X, y = self.input_data[0], self.input_data[1]
-            features, is_multivariate_data, target = self.__check_features_and_target(X, y)
+            features, is_multivariate_data, target = self.__check_features_and_target(
+                X, y)
 
         if y is not None and type(y[0]) is np.str_ and self.task == 'classification':
             label_encoder = LabelEncoder()
@@ -84,7 +85,8 @@ class DataCheck:
         elif self.task == 'ts_forecasting':
             if type(self.input_data) is pd.DataFrame:
                 features_array = np.array(self.input_data.values)
-            self.input_data = InputData.from_numpy_time_series(features_array=features_array)
+            self.input_data = InputData.from_numpy_time_series(
+                features_array=features_array)
             # self.input_data.data_type = DataTypesEnum.image
 
         else:
@@ -105,7 +107,8 @@ class DataCheck:
             np.isnan(self.input_data.features), 0, self.input_data.features)
         self.input_data.features = np.where(
             np.isinf(self.input_data.features), 0, self.input_data.features)
-        self.input_data.features = NumpyConverter(data=self.input_data.features).convert_to_torch_format()
+        self.input_data.features = NumpyConverter(
+            data=self.input_data.features).convert_to_torch_format()
 
     def _check_input_data_target(self):
         """Checks and preprocesses the features in the input data.
@@ -122,7 +125,6 @@ class DataCheck:
             self.input_data.target = self.input_data.target.squeeze()
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
-
 
     def check_available_operations(self, available_operations):
         pass

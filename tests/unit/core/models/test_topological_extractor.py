@@ -37,7 +37,8 @@ def test_transform(topological_extractor, input_data):
 
 def test_generate_topological_features(topological_extractor, input_data):
     sample = input_data.features[0]
-    train_features = topological_extractor.generate_topological_features(sample)
+    train_features = topological_extractor.generate_topological_features(
+        sample)
     assert train_features is not None
     assert isinstance(train_features, InputData)
     assert train_features.features.shape[0] == 1

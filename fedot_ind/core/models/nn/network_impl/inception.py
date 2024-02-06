@@ -65,6 +65,7 @@ class InceptionTimeModel(BaseNeuralModel):
 
     def __repr__(self):
         return "InceptionNN"
+
     def _init_model(self, ts):
         self.model = InceptionTime(input_dim=ts.features.shape[1],
                                    output_dim=self.num_classes).to(default_device())

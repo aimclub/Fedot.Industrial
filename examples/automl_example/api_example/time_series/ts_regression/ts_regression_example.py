@@ -17,5 +17,7 @@ if __name__ == "__main__":
     y_predicted = industrial.predict(test_data)
 
     print('Metrics:')
-    print(f'RMSE: {round(mean_squared_error(test_data[1], y_predicted, squared=False), 3)}')
-    print(f'MAPE: {round(mean_absolute_percentage_error(test_data[1], y_predicted), 3)}')
+    print(
+        f'RMSE: {round(mean_squared_error(test_data[1], y_predicted, squared=False), 3)}')
+    print(
+        f'MAPE: {round(mean_absolute_percentage_error(test_data[1], y_predicted), 3)}')

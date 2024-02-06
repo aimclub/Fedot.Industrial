@@ -24,7 +24,8 @@ def anomaly_dict():
 
 
 def test__check_multivariate(frequent_splitter, time_series):
-    univariate = frequent_splitter._TSTransformer__check_multivariate(time_series)
+    univariate = frequent_splitter._TSTransformer__check_multivariate(
+        time_series)
     multivariate = frequent_splitter._TSTransformer__check_multivariate(np.array([time_series,
                                                                                   time_series]))
     assert univariate is False
@@ -82,7 +83,8 @@ def test_get_features_and_target(frequent_splitter,
 
 
 def test__get_anomaly_intervals(frequent_splitter, anomaly_dict):
-    labels, label_intervals = frequent_splitter._get_anomaly_intervals(anomaly_dict=anomaly_dict)
+    labels, label_intervals = frequent_splitter._get_anomaly_intervals(
+        anomaly_dict=anomaly_dict)
     assert isinstance(labels, list)
     assert isinstance(label_intervals, list)
 

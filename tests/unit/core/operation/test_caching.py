@@ -12,7 +12,8 @@ class TestDataCacher(unittest.TestCase):
 
     def setUp(self):
         self.cache_folder = os.path.join(PROJECT_PATH, 'cache')
-        self.data_cacher = DataCacher(data_type_prefix='data', cache_folder=self.cache_folder)
+        self.data_cacher = DataCacher(
+            data_type_prefix='data', cache_folder=self.cache_folder)
         self.data = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
 
     def test_hash_info(self):
@@ -25,7 +26,8 @@ class TestDataCacher(unittest.TestCase):
     def test_cache_data(self):
         hashed_info = self.data_cacher.hash_info(name='data', data=self.data)
         self.data_cacher.cache_data(hashed_info, self.data)
-        cache_file = os.path.join(self.data_cacher.cache_folder, hashed_info + '.npy')
+        cache_file = os.path.join(
+            self.data_cacher.cache_folder, hashed_info + '.npy')
 
         self.assertTrue(os.path.isfile(cache_file))
 

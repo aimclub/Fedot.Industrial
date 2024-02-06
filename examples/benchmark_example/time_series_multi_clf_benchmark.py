@@ -7,7 +7,7 @@ experiment_setup = {'problem': 'classification',
                     'pop_size': 10,
                     'logging_level': 10,
                     'RAF_workers': 4,
-                    'n_jobs': 4,
+                    'n_jobs': 2,
                     'industrial_preprocessing': True,
                     'max_pipeline_fit_time': 25,
                     'with_tuning': False,
@@ -17,14 +17,14 @@ experiment_setup = {'problem': 'classification',
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
                              custom_datasets=[
-                                 #'SelfRegulationSCP1',
-                                # 'Handwriting',
-                                 #'MotorImagery',
-                                # 'EthanolConcentration',
-                                 'PhonemeSpectra',
-                                 #'DuckDuckGeese',
+                                 # 'SelfRegulationSCP1',
+                                 # 'Handwriting',
+                                 # 'MotorImagery',
+                                 # 'EthanolConcentration',
+                                 # 'PhonemeSpectra',
+                                 # 'DuckDuckGeese',
                                  'ERing',
-                                 #'PEMS - SF'
+                                 # 'PEMS - SF'
                              ],
                              use_small_datasets=False)
     benchmark.run()

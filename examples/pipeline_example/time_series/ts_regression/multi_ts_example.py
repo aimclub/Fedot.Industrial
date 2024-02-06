@@ -40,8 +40,10 @@ def init_input(X, y):
                            target=y.reshape(-1, 1),
                            task=Task(TaskTypesEnum.classification),
                            data_type=DataTypesEnum.image)
-    input_data.features = np.where(np.isnan(input_data.features), 0, input_data.features)
-    input_data.features = np.where(np.isinf(input_data.features), 0, input_data.features)
+    input_data.features = np.where(
+        np.isnan(input_data.features), 0, input_data.features)
+    input_data.features = np.where(
+        np.isinf(input_data.features), 0, input_data.features)
     return input_data
 
 
@@ -81,7 +83,8 @@ def prepare_features(dataset_name,
                       svd_solver='full')
             train_features = pca.fit_transform(train_features)
             test_features = pca.transform(test_features)
-        train_features_list.append(train_features), test_features_list.append(test_features)
+        train_features_list.append(
+            train_features), test_features_list.append(test_features)
 
     return train_features_list, train_target, test_features_list, test_target
 
@@ -178,7 +181,8 @@ if __name__ == "__main__":
             concatenate_test = test_features[0]
 
         for train, test in zip(train_features, test_features):
-            metric_df_baseline = evaluate_baseline(train, train_target, test, test_target)
+            metric_df_baseline = evaluate_baseline(
+                train, train_target, test, test_target)
             print(metric_df_baseline)
         metric_df_baseline.to_csv(f'./{dataset_name}/baseline_metrics.csv')
 
@@ -189,7 +193,8 @@ if __name__ == "__main__":
                               early_stopping_timeout=30,
                               logging_level=20,
                               n_jobs=6)
-            model = predictor.fit(features=concatenate_train, target=train_target)
+            model = predictor.fit(
+                features=concatenate_train, target=train_target)
             labels = predictor.predict(features=concatenate_test)
             metric_df = calculate_metric(test_target, labels)
             metric_df.to_csv(f'./{dataset_name}/metrics_run_{run}.csv')
@@ -197,6 +202,7 @@ if __name__ == "__main__":
             pipeline.show(f'./{dataset_name}/pipeline_structure_{run}.png')
             predictor.history.save(f'./{dataset_name}/history_run_{run}.json')
             path_to_save = f'./{dataset_name}/saved_pipelines_run_{run}'
-            pipeline.save(path=path_to_save, create_subdir=True, is_datetime_in_path=True)
+            pipeline.save(path=path_to_save, create_subdir=True,
+                          is_datetime_in_path=True)
 
     _ = 1

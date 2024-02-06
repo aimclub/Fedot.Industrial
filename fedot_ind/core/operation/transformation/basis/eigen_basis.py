@@ -87,7 +87,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         def tensor_decomposition(x):
             return ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation else self._channel_decompose(x)
 
-        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
+        basis = np.array(Either.insert(features).then(
+            tensor_decomposition).value[0])
         predict = self._convert_basis_to_predict(basis, input_data)
         return predict
 
@@ -139,7 +140,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def get_threshold(self, data) -> int:
         svd_numbers = []
-        mode_func = lambda x: max(set(x), key=x.count)
+        def mode_func(x): return max(set(x), key=x.count)
         for dimension in range(data.shape[1]):
             dimension_rank = []
             for signal in data[:, dimension, :]:

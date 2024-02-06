@@ -28,4 +28,5 @@ def test_invalid_parameter_value_check(invalid_data):
     parameter, value, valid_values = invalid_data
     with pytest.raises(ValueError) as execution_info:
         parameter_value_check(parameter, value, valid_values)
-    assert str(execution_info.value) == f"{parameter} must be one of {valid_values}, but got {parameter}='{value}'"
+    assert str(
+        execution_info.value) == f"{parameter} must be one of {valid_values}, but got {parameter}='{value}'"

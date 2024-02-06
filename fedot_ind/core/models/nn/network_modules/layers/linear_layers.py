@@ -71,7 +71,7 @@ class LinLnDrop(nn.Sequential):
 
 class LambdaPlus(Module):
     def __init__(self, func, *args, **
-    kwargs): self.func, self.args, self.kwargs = func, args, kwargs
+                 kwargs): self.func, self.args, self.kwargs = func, args, kwargs
 
     def forward(self, x):
         return self.func(x, *self.args, **self.kwargs)
@@ -168,7 +168,7 @@ class View(Module):
             x.view(x.shape[0], *self.shape).contiguous()
 
     def __repr__(
-            self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
+        self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
 
 
 class Reshape(Module):

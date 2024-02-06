@@ -30,11 +30,14 @@ FREQS = [1, 2, 4, 8, 16][::-1]
 
 # path to data
 EEG_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/train_eegs/'
-EEG_PATH_TEST = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test_eegs/'
+EEG_PATH_TEST = PROJECT_PATH + \
+    '/data/hms-harmful-brain-activity-classification/test_eegs/'
 TRAIN_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/train.csv'
 TEST_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
-EEG_PATH_SAVE = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/eeg.npy'
-EEG_PATH_SAVE_TEST = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/eeg_test.npy'
+EEG_PATH_SAVE = PROJECT_PATH + \
+    '/data/hms-harmful-brain-activity-classification/eeg.npy'
+EEG_PATH_SAVE_TEST = PROJECT_PATH + \
+    '/data/hms-harmful-brain-activity-classification/eeg_test.npy'
 
 # industrial experiment params
 label_encoder = LabelEncoder()
@@ -90,7 +93,8 @@ def eeg_from_parquet(parquet_path, display=False):
         data[:, j] = x
 
         if display:
-            if j != 0: offset += x.max()
+            if j != 0:
+                offset += x.max()
             plt.plot(range(10_000), x - offset, label=col)
             offset -= x.min()
 
@@ -108,15 +112,18 @@ def load_eeg(EEG_PATH, CREATE_EEGS, EEG_IDS, df_target, EGG_PATH_SAVE):
     all_eegs = {}
     if CREATE_EEGS:
         for i, eeg_id in enumerate(EEG_IDS):
-            if (i % 100 == 0) & (i != 0): print(i, ', ', end='')
+            if (i % 100 == 0) & (i != 0):
+                print(i, ', ', end='')
 
             # SAVE EEG TO PYTHON DICTIONARY OF NUMPY ARRAYS
-            data = eeg_from_parquet(f'{EEG_PATH}{eeg_id}.parquet', display=False)
+            data = eeg_from_parquet(
+                f'{EEG_PATH}{eeg_id}.parquet', display=False)
             all_eegs[eeg_id] = data
 
             if i == DISPLAY:
                 if CREATE_EEGS:
-                    print(f'Processing {df_target.eeg_id.nunique()} eeg parquets... ', end='')
+                    print(
+                        f'Processing {df_target.eeg_id.nunique()} eeg parquets... ', end='')
                 else:
                     print(f'Reading {len(EEG_IDS)} eeg NumPys from disk.')
                     break
@@ -151,11 +158,13 @@ def load_and_preproc_target(TRAIN_PATH):
 def load_and_preproc_eeg(all_eegs, target_df, window_size=20):
     ts_train = [butter_lowpass_filter(x) for x in all_eegs.values()]
     id = list(all_eegs.keys())
-    train_features = np.concatenate(ts_train).reshape(len(id), ts_train[0].shape[1], ts_train[0].shape[0])
+    train_features = np.concatenate(ts_train).reshape(
+        len(id), ts_train[0].shape[1], ts_train[0].shape[0])
 
     target_labels = []
     for eeg_id in list(all_eegs.keys()):
-        target_labels.append(target_df[target_df['eeg_id'] == eeg_id]['target'].values[0])
+        target_labels.append(
+            target_df[target_df['eeg_id'] == eeg_id]['target'].values[0])
 
     train_target = label_encoder.fit_transform(target_labels)
     target_df['target'] = train_target
@@ -175,8 +184,10 @@ if __name__ == "__main__":
 
     # load and preproc data
     target_df_train, EEG_IDS_train = load_and_preproc_target(TRAIN_PATH)
-    all_eegs_train = load_eeg(EEG_PATH, False, EEG_IDS_train, target_df_train, EEG_PATH_SAVE)
-    input_data_train, input_data_test, target_probs = load_and_preproc_eeg(all_eegs_train, target_df_train)
+    all_eegs_train = load_eeg(
+        EEG_PATH, False, EEG_IDS_train, target_df_train, EEG_PATH_SAVE)
+    input_data_train, input_data_test, target_probs = load_and_preproc_eeg(
+        all_eegs_train, target_df_train)
     model = FedotIndustrial(**experiment_setup)
     gc.collect()
 

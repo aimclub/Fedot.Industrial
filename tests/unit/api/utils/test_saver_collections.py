@@ -29,9 +29,12 @@ def sample_results():
 def test_init_result_saver(path):
     dataset_name = 'name'
     generator_name = 'generator'
-    saver = ResultSaver(dataset_name=dataset_name, generator_name=generator_name, output_dir=path)
-    ds_folder = os.path.abspath(os.path.join(saver.output_dir, generator_name, dataset_name))
-    gen_folder = os.path.abspath(os.path.join(saver.output_dir, generator_name))
+    saver = ResultSaver(dataset_name=dataset_name,
+                        generator_name=generator_name, output_dir=path)
+    ds_folder = os.path.abspath(os.path.join(
+        saver.output_dir, generator_name, dataset_name))
+    gen_folder = os.path.abspath(
+        os.path.join(saver.output_dir, generator_name))
 
     assert os.path.abspath(saver.output_dir) == os.path.abspath(path)
     assert os.path.isdir(saver.output_dir)
@@ -49,10 +52,13 @@ def test_save(prediction_type, sample_results):
     dataset_name = 'name'
     generator_name = 'generator'
     output_dir = './results'
-    expected_file_path = os.path.join(output_dir, generator_name, dataset_name, f'{prediction_type}.csv')
+    expected_file_path = os.path.join(
+        output_dir, generator_name, dataset_name, f'{prediction_type}.csv')
 
-    saver = ResultSaver(dataset_name=dataset_name, generator_name=generator_name, output_dir=output_dir)
-    saver.save(predicted_data=results[prediction_type], prediction_type=prediction_type)
+    saver = ResultSaver(dataset_name=dataset_name,
+                        generator_name=generator_name, output_dir=output_dir)
+    saver.save(
+        predicted_data=results[prediction_type], prediction_type=prediction_type)
 
     assert os.path.isfile(expected_file_path)
     saved_data = pd.read_csv(expected_file_path, index_col=0)

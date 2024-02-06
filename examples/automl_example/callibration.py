@@ -36,7 +36,8 @@ if __name__ == "__main__":
                                  logging_level=20)
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
-    X_train, X_val, y_train, y_val = train_test_split(train_data[0], train_data[1], test_size=0.2)
+    X_train, X_val, y_train, y_val = train_test_split(
+        train_data[0], train_data[1], test_size=0.2)
     train_data_for_calibration = (X_train, y_train)
     val_data = (X_val, y_val)
 
@@ -49,14 +50,18 @@ if __name__ == "__main__":
     from sklearn.calibration import CalibratedClassifierCV
 
     model_sklearn = SklearnCompatibleClassifier(model)
-    model_sklearn.fit(train_data_for_calibration[0], train_data_for_calibration[1])
-    cal_clf = CalibratedClassifierCV(model_sklearn, method="sigmoid", cv="prefit")
+    model_sklearn.fit(
+        train_data_for_calibration[0], train_data_for_calibration[1])
+    cal_clf = CalibratedClassifierCV(
+        model_sklearn, method="sigmoid", cv="prefit")
     cal_clf.fit(val_data[0], val_data[1])
     # calibrated prediction
     calibrated_proba = cal_clf.predict_proba(test_data[0])
 
     print('base')
-    print(classification_report(test_data[1], model_sklearn.classes_[np.argmax(proba, axis=1)]))
+    print(classification_report(
+        test_data[1], model_sklearn.classes_[np.argmax(proba, axis=1)]))
     print()
     print('calibrated')
-    print(classification_report(test_data[1], model_sklearn.classes_[np.argmax(calibrated_proba, axis=1)]))
+    print(classification_report(test_data[1], model_sklearn.classes_[
+          np.argmax(calibrated_proba, axis=1)]))

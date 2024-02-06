@@ -6,7 +6,8 @@ import pandas as pd
 from fedot_ind.tools.loader import DataLoader
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
-ds_path = os.path.join(PROJECT_PATH, 'examples', 'data', 'ItalyPowerDemand_fake')
+ds_path = os.path.join(PROJECT_PATH, 'examples',
+                       'data', 'ItalyPowerDemand_fake')
 
 
 def test_init_loader():
@@ -47,16 +48,20 @@ def test__load_from_tsfile_to_dataframe():
     ds_name = 'name'
     path = '.'
     loader = DataLoader(dataset_name=ds_name, folder=path)
-    full_path = os.path.join(PROJECT_PATH, 'examples/data/BitcoinSentiment/BitcoinSentiment_TEST.ts')
-    x, y = loader._load_from_tsfile_to_dataframe(full_file_path_and_name=full_path, return_separate_X_and_y=True)
+    full_path = os.path.join(
+        PROJECT_PATH, 'examples/data/BitcoinSentiment/BitcoinSentiment_TEST.ts')
+    x, y = loader._load_from_tsfile_to_dataframe(
+        full_file_path_and_name=full_path, return_separate_X_and_y=True)
 
 
 def test__load_from_tsfile_to_dataframe_with_timestamps():
     ds_name = 'name'
     path = '.'
     loader = DataLoader(dataset_name=ds_name, folder=path)
-    full_path = os.path.join(PROJECT_PATH, 'examples/data/AppliancesEnergy/AppliancesEnergy_TEST.ts')
-    x, y = loader._load_from_tsfile_to_dataframe(full_file_path_and_name=full_path, return_separate_X_and_y=True)
+    full_path = os.path.join(
+        PROJECT_PATH, 'examples/data/AppliancesEnergy/AppliancesEnergy_TEST.ts')
+    x, y = loader._load_from_tsfile_to_dataframe(
+        full_file_path_and_name=full_path, return_separate_X_and_y=True)
 
     assert isinstance(x, pd.DataFrame)
     assert isinstance(y, np.ndarray)

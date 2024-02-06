@@ -29,7 +29,8 @@ def run(mode, params):
         'two_layers': DecomposedConv2d(base_conv, mode, forward_mode='two_layers'),
         'three_layers': DecomposedConv2d(base_conv, mode, forward_mode='three_layers')
     }
-    x = torch.rand((random.randint(1, 16), params['in_channels'], random.randint(28, 1000), random.randint(28, 1000)))
+    x = torch.rand((random.randint(1, 16), params['in_channels'], random.randint(
+        28, 1000), random.randint(28, 1000)))
     y_true = base_conv(x)
     for name, dconv in dconvs.items():
         y = dconv(x)

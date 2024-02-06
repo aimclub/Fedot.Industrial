@@ -68,12 +68,14 @@ class IndustrialModels:
         setattr(Operation, "predict_for_fit", predict_for_fit)
         setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
 
-        #setattr(F1, "metric", metric_f1)
-        #setattr(Accuracy, "metric", metric_acc)
+        # setattr(F1, "metric", metric_f1)
+        # setattr(Accuracy, "metric", metric_acc)
 
-        setattr(LaggedImplementation, '_update_column_types', update_column_types)
+        setattr(LaggedImplementation,
+                '_update_column_types', update_column_types)
         setattr(LaggedImplementation, 'transform', transform_lagged)
-        setattr(LaggedImplementation, 'transform_for_fit', transform_lagged_for_fit)
+        setattr(LaggedImplementation, 'transform_for_fit',
+                transform_lagged_for_fit)
         setattr(TsSmoothingImplementation, 'transform', transform_smoothing)
 
         # class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)

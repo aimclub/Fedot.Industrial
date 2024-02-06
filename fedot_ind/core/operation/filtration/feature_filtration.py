@@ -177,7 +177,8 @@ class FeatureSpaceReducer:
         if self.window_size is None or self.window_size > ts.shape[0] / 2:
             self.logger.info(
                 'Window size is not defined or too big (> ts_length/2)')
-            self.window_size, _ = WindowSizeSelector(time_series=ts).get_window_size()
+            self.window_size, _ = WindowSizeSelector(
+                time_series=ts).get_window_size()
             self.logger.info(f'Window size was set to {self.window_size}')
 
 
@@ -213,7 +214,8 @@ class VarianceSelector:
             score = sum(filtered_score)
             self.principal_components.update(
                 {model_name: pca.components_[:, :len(filtered_score)]})
-            self.model_scores.update({model_name: (score, len(filtered_score))})
+            self.model_scores.update(
+                {model_name: (score, len(filtered_score))})
             if score > best_score:
                 best_score = score
                 best_model = model_name

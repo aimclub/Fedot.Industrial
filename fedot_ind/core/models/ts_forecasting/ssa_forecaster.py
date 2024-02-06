@@ -72,14 +72,14 @@ class SSAForecasterImplementation(ModelImplementation):
                 self.preprocess_to_lagged = True
                 self._window_size = features.shape[1]
                 ts_length = features.shape[1] + \
-                            features.shape[0] - 1
+                    features.shape[0] - 1
                 ts_length = features.shape[1]
                 self._decomposer = SpectrumDecomposer(features,
                                                       ts_length)
 
         if self.preprocess_to_lagged:
             self.seq_len = features.shape[0] + \
-                           features.shape[1]
+                features.shape[1]
         else:
             self.seq_len = features.shape[0]
             features = features[-self.LAST_VALUES_THRESHOLD:]
@@ -111,7 +111,7 @@ class SSAForecasterImplementation(ModelImplementation):
         reconstructed_features = summed_basis[:-self.horizon]
 
         error = input_data.features[-self.horizon:] - \
-                reconstructed_features[-self.horizon:]
+            reconstructed_features[-self.horizon:]
         prediction = reconstructed_forecast + error
         predict_data = FedotConverter(input_data).convert_to_output_data(prediction=prediction,
                                                                          predict_data=input_data,
@@ -140,7 +140,8 @@ class SSAForecasterImplementation(ModelImplementation):
 
         data = self.__preprocess_for_fedot(features)
         if self.preprocess_to_lagged:
-            predict = [self.__predict_for_fit(ts.reshape(1, -1)) for ts in data]
+            predict = [self.__predict_for_fit(
+                ts.reshape(1, -1)) for ts in data]
             predict = np.array(predict)
         else:
             predict = self.__predict_for_fit(data)
@@ -156,7 +157,7 @@ class SSAForecasterImplementation(ModelImplementation):
         model_by_channel = {}
 
         model = PipelineBuilder().add_node('gaussian_filter').add_node('ar')
-        #model = PipelineBuilder().add_node('ar')
+        # model = PipelineBuilder().add_node('ar')
         for index, ts_comp in enumerate(ts_channels):
             comp.features = ts_comp
             component_model = model.build()

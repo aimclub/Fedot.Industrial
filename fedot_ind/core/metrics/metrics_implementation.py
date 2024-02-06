@@ -1,3 +1,4 @@
+import pandas.api.types
 from typing import Union
 
 import pandas as pd
@@ -40,7 +41,7 @@ class QualityMetric:
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
-                         'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         if len(predicted_labels.shape) >= 2:
@@ -202,9 +203,6 @@ def calculate_classification_metric(target,
                        if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
-
-
-import pandas.api.types
 
 
 def kl_divergence(solution: pd.DataFrame,

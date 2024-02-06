@@ -54,10 +54,12 @@ class RAFensembler:
 
     def fit(self, train_data):
         if self.n_splits is None:
-            self.n_splits = round(train_data.features.shape[0] / self.batch_size)
+            self.n_splits = round(
+                train_data.features.shape[0] / self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
-        self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
+        self.current_pipeline = self.ensemble_method(
+            new_features, new_target, n_splits=self.n_splits)
         self._decompose_pipeline()
 
     def predict(self, test_data, output_mode: str = 'labels'):

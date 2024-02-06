@@ -29,14 +29,16 @@ def singular_values_rank_threshold_beta():
 
 def test_sv_to_explained_variance_ratio(singular_values_rank_threshold_beta):
     singular_values, rank, _, _ = singular_values_rank_threshold_beta
-    explained_variance, n_components = sv_to_explained_variance_ratio(singular_values, rank)
+    explained_variance, n_components = sv_to_explained_variance_ratio(
+        singular_values, rank)
     assert 0 < explained_variance < 100
     assert n_components == 3
 
 
 def test_singular_value_hard_threshold(singular_values_rank_threshold_beta):
     singular_values, rank, beta, threshold = singular_values_rank_threshold_beta
-    adjusted_sv = singular_value_hard_threshold(singular_values, rank, beta, threshold)
+    adjusted_sv = singular_value_hard_threshold(
+        singular_values, rank, beta, threshold)
     assert len(adjusted_sv) == 3
 
 

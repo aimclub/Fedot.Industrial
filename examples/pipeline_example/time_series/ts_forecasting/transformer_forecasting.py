@@ -18,8 +18,10 @@ if __name__ == '__main__':
                                                       forecast_length,
                                                       m4_id='D1101')
 
-    patch_len = WindowSizeSelector(method='dff').get_window_size(train_data.features)
-    window_length_heuristic = round(train_data.features.shape[0] / 100 * window_size_percentage)
+    patch_len = WindowSizeSelector(
+        method='dff').get_window_size(train_data.features)
+    window_length_heuristic = round(
+        train_data.features.shape[0] / 100 * window_size_percentage)
     window_length_hac = patch_len * 3
     window_length = max(window_length_hac, window_length_heuristic)
     OperationTypesRepository = IndustrialModels().setup_repository()
@@ -43,7 +45,7 @@ if __name__ == '__main__':
     baseline.fit(train_data)
     baseline_prediction = np.ravel(baseline.predict(test_data).predict)
     error_pipeline = PipelineBuilder().add_node('lagged').add_node('ssa_forecaster').add_node('ts_naive_average',
-                                                                                               branch_idx=1).join_branches('lasso').build()
+                                                                                              branch_idx=1).join_branches('lasso').build()
     for model in model_dict.keys():
         pipeline = model_dict[model].build()
         pipeline.fit(train_data)
@@ -55,14 +57,15 @@ if __name__ == '__main__':
                           'ssa_forecaster',
                           'patch_tst_model',
                           'ar',
-                          #'ridge',
+                          # 'ridge',
                           'ts_naive_average',
                           'stl_arima',
                           'lagged',
                           'arima',
                           'lasso'
                       ],
-                      task_params=TsForecastingParams(forecast_length=forecast_length),
+                      task_params=TsForecastingParams(
+                          forecast_length=forecast_length),
                       timeout=180
                       )
         preds = pipeline.predict(test_data)

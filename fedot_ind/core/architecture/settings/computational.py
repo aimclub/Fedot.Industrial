@@ -9,12 +9,14 @@ class BackendMethods:
     def define_backend(self, device_type: str = 'cpu'):
         if device_type == 'CUDA':
             # TODO:
-            import numpy, scipy.linalg
+            import numpy
+            import scipy.linalg
             return numpy, scipy.linalg
             # import cupy, cupyx.scipy.linalg
             # return cupy, cupyx.scipy.linalg
         else:
-            import numpy, scipy.linalg
+            import numpy
+            import scipy.linalg
             return numpy, scipy.linalg
 
 
@@ -41,7 +43,8 @@ def global_imports(object_name: str,
     Examples:
         Do this::
             import os -> global_imports("os")
-            from fedot_ind.core.architecture.settings.computational import backend_methods as np -> global_imports("numpy", "np")
+            from fedot_ind.core.architecture.settings.computational import backend_methods
+            as np -> global_imports("numpy", "np")
             from collections import Counter ->
                 global_imports("Counter", None, "collections")
             from google.cloud import storage ->
@@ -71,8 +74,10 @@ def default_device(device_type: str = 'CUDA'):
     """
     if device_type == 'CUDA':
         device_type = defaults.use_cuda
-    else:
+    elif device_type == 'cpu':
         defaults.use_cuda = False
+        return torch.device("cpu")
+
     if device_type is None:
         if torch.cuda.is_available() or _has_mps():
             device_type = True
@@ -81,4 +86,3 @@ def default_device(device_type: str = 'CUDA'):
             return torch.device(torch.cuda.current_device())
         if _has_mps():
             return torch.device("mps")
-    return torch.device("cpu")

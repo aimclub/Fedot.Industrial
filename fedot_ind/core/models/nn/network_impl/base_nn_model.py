@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import torch
@@ -116,8 +117,9 @@ class BaseNeuralModel:
         with torch.no_grad():
             torch.cuda.empty_cache()
         self.model = self.model_for_inference.to(torch.device('cpu'))
-        self.model.load_state_dict(torch.load(prefix, map_location=torch.device('cpu')))
-
+        self.model.load_state_dict(torch.load(
+            prefix, map_location=torch.device('cpu')))
+        os.remove(prefix)
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
         early_stopping = EarlyStopping()
@@ -173,7 +175,7 @@ class BaseNeuralModel:
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        x_test = Tensor(x_test).to(default_device())
+        x_test = Tensor(x_test).to(default_device('cpu'))
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)
 

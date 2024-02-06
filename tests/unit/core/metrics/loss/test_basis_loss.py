@@ -21,7 +21,8 @@ def test_basis_approximation_metric_with_default_regularization(sample_data):
 
 def test_basis_approximation_metric_with_custom_regularization(sample_data):
     derivation_coef, metric_values = sample_data
-    result = basis_approximation_metric(derivation_coef, metric_values, regularization_coef=0.5)
+    result = basis_approximation_metric(
+        derivation_coef, metric_values, regularization_coef=0.5)
     assert isinstance(result, np.int64)
     assert result >= 0
     assert result < len(derivation_coef)
@@ -37,7 +38,8 @@ def test_basis_approximation_metric_with_large_input():
     # Test with large input data (performance test)
     derivation_coef_large = np.random.rand(1000, 1000)
     metric_values_large = np.random.rand(1000)
-    result = basis_approximation_metric(derivation_coef_large, metric_values_large)
+    result = basis_approximation_metric(
+        derivation_coef_large, metric_values_large)
     assert isinstance(result, np.int64)
     assert result >= 0
     assert result < len(derivation_coef_large)

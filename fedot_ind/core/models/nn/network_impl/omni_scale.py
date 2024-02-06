@@ -36,7 +36,7 @@ class OmniScaleCNN(Module):
         out_put_channel_number = 0
         for final_layer_parameters in layer_parameter_list[-1]:
             out_put_channel_number = out_put_channel_number + \
-                                     final_layer_parameters[1]
+                final_layer_parameters[1]
         self.hidden = nn.Linear(out_put_channel_number, output_dim)
         self.activation = get_activation_fn(activation)
 

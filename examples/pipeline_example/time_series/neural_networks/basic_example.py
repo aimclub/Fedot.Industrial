@@ -14,7 +14,8 @@ def create_ensemble(fitted_model,
                     head_model: str = 'logit'):
     composed_pipeline = Pipeline(PipelineNode(head_model,
                                               nodes_from=[
-                                                  PipelineNode(AtomizedModel(fitted_model[nested_pipeline]))
+                                                  PipelineNode(AtomizedModel(
+                                                      fitted_model[nested_pipeline]))
                                                   for nested_pipeline in fitted_model]))
     return composed_pipeline
 
@@ -43,10 +44,10 @@ if __name__ == "__main__":
         # #                                       'model_name': 'ResNet50'}),
         'rocket_model': PipelineBuilder().add_node('minirocket_extractor', params={'num_features': 20000}).add_node(
             'feature_filter_model', params={'explained_dispersion': 0.9}) \
-            .add_node('fedot_cls', params={'timeout': 10}),
+        .add_node('fedot_cls', params={'timeout': 10}),
         'quantile_rf_model': PipelineBuilder() \
-            .add_node('quantile_extractor') \
-            .add_node('rf')
+        .add_node('quantile_extractor') \
+        .add_node('rf')
     }
     fitted_model = {}
     result_dict = {}
@@ -62,16 +63,19 @@ if __name__ == "__main__":
                 pipeline = pipeline_dict[model].build()
                 pipeline.fit(input_data)
                 target = pipeline.predict(val_data).predict
-                metric = evaluate_metric(target=test_data[1], prediction=target)
+                metric = evaluate_metric(
+                    target=test_data[1], prediction=target)
             metric_dict.update({model: metric})
             fitted_model.update({model: pipeline})
 
         with IndustrialModels():
             for head_model in ensemble_head:
-                composed_model = create_ensemble(fitted_model, head_model=head_model)
+                composed_model = create_ensemble(
+                    fitted_model, head_model=head_model)
                 composed_model.fit(input_data)
                 target = composed_model.predict(val_data).predict
-                metric = evaluate_metric(target=test_data[1], prediction=target)
+                metric = evaluate_metric(
+                    target=test_data[1], prediction=target)
                 metric_dict.update({f'composed_pipeline_{head_model}': metric})
 
         result_dict.update({dataset: metric_dict})

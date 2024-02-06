@@ -12,7 +12,8 @@ class FedotClassificationImplementation(ModelImplementation):
     """Implementation of Fedot as classification pipeline node for AutoML.
 
     """
-    AVAILABLE_OPERATIONS = default_industrial_availiable_operation('classification')
+    AVAILABLE_OPERATIONS = default_industrial_availiable_operation(
+        'classification')
 
     def __init__(self, params: Optional[OperationParameters] = None):
         if not params:
@@ -36,7 +37,8 @@ class FedotRegressionImplementation(ModelImplementation):
     """Implementation of Fedot as regression pipeline node for AutoML.
 
     """
-    AVAILABLE_OPERATIONS = default_industrial_availiable_operation('regression')
+    AVAILABLE_OPERATIONS = default_industrial_availiable_operation(
+        'regression')
 
     def __init__(self, params: Optional[OperationParameters] = None):
         if not params:

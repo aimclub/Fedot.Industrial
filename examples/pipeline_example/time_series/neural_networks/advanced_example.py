@@ -16,15 +16,15 @@ if __name__ == "__main__":
     ]
 
     pipeline_dict = {
-        'recurrence_image_model': PipelineBuilder().add_node('recurrence_extractor', params={'image_mode': True}) \
-            .add_node('resnet_model', params={'epochs': EPOCHS,
-                                              'batch_size': BATCH_SIZE,
-                                              'model_name': 'ResNet18one'}),
+        'recurrence_image_model': PipelineBuilder().add_node('recurrence_extractor', params={'image_mode': True})
+        .add_node('resnet_model', params={'epochs': EPOCHS,
+                                          'batch_size': BATCH_SIZE,
+                                          'model_name': 'ResNet18one'}),
         'eigen_xcm_model': PipelineBuilder().add_node(
             'eigen_basis', params={'window_size': 10,
                                    'low_rank_approximation': True}).add_node('xcm_model', params={
-            'epochs': EPOCHS,
-            'batch_size': BATCH_SIZE}),
+                                       'epochs': EPOCHS,
+                                       'batch_size': BATCH_SIZE}),
         'xcm_model': PipelineBuilder().add_node('xcm_model', params={'epochs': EPOCHS,
                                                                      'batch_size': BATCH_SIZE})
     }
@@ -44,7 +44,8 @@ if __name__ == "__main__":
                 target = pipeline.predict(val_data).predict
                 pipeline.nodes[1].fitted_operation.explain(val_data)
                 pipeline.nodes[0].fitted_operation.model.explain(val_data)
-                metric = evaluate_metric(target=test_data[1], prediction=target)
+                metric = evaluate_metric(
+                    target=test_data[1], prediction=target)
             metric_dict.update({model: metric})
             fitted_model.update({model: pipeline})
 

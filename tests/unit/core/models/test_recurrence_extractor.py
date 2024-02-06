@@ -61,4 +61,3 @@ def test_extract_features(recurrence_extractor):
     train_features = recurrence_extractor.extract_features(X, y)
     assert train_features is not None
     assert isinstance(train_features, pd.DataFrame)
-

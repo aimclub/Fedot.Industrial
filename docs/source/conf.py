@@ -10,11 +10,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+from sphinx.builders.html import StandaloneHTMLBuilder
 import os
 import datetime
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
-from sphinx.builders.html import StandaloneHTMLBuilder
 
 # -- Project information -----------------------------------------------------
 
@@ -105,5 +105,3 @@ autoclass_content = 'class'
 autodoc_typehints = 'signature'
 autodoc_typehints_format = 'short'
 autodoc_mock_imports = ['objgraph', 'memory_profiler', 'gprof2dot', 'snakeviz']
-
-
