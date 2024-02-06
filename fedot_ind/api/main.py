@@ -3,12 +3,12 @@ import os
 import warnings
 from copy import deepcopy
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
@@ -19,9 +19,9 @@ from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
-from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, FEDOT_HEAD_ENSEMBLE, \
-    FEDOT_ATOMIZE_OPERATION, FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS
+from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_API_PARAMS, \
+    FEDOT_ASSUMPTIONS, FEDOT_GET_METRICS, FEDOT_HEAD_ENSEMBLE, FEDOT_TUNING_METRICS, FEDOT_WORKER_NUM, \
+    FEDOT_WORKER_TIMEOUT_PARTITION
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer
@@ -253,14 +253,15 @@ class FedotIndustrial(Fedot):
         pipeline_tuner.tune(self.solver.current_pipeline)
         self.solver.current_pipeline.fit(train_data)
 
-    def get_metrics(self, target=None,
+    def get_metrics(self,
+                    target: Union[list, np.array] = None,
                     metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),
                     rounding_order=3,
                     **kwargs) -> pd.DataFrame:
         """
         Method to calculate metrics for Industrial model.
 
-        Available metrics for classification task: 'f1', 'accuracy', 'precision', 'roc_auc', 'log_loss'.
+        Available metrics for classification task: 'f1', 'accuracy', 'precision', 'roc_auc', 'logloss'.
 
         Available metrics for regression task: 'r2', 'rmse', 'mse', 'mae', 'median_absolute_error',
         'explained_variance_score', 'max_error', 'd2_absolute_error_score', 'msle', 'mape'.
