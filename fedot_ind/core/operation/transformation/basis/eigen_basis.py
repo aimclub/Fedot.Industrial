@@ -7,9 +7,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from scipy import stats
 from tensorly.decomposition import parafac
-from tqdm import tqdm
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
