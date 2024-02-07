@@ -1,4 +1,3 @@
-import pandas.api.types
 from typing import Union
 
 import pandas as pd
@@ -40,8 +39,7 @@ class QualityMetric:
     def __init__(self, target,
                  predicted_labels,
                  predicted_probs=None,
-                 metric_list: list = (
-                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                 metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         if len(predicted_labels.shape) >= 2:
@@ -214,7 +212,7 @@ def kl_divergence(solution: pd.DataFrame,
     # Overwrite solution for convenience
     for col in solution.columns:
         # Prevent issue with populating int columns with floats
-        if not pandas.api.types.is_float_dtype(solution[col]):
+        if not pd.api.types.is_float_dtype(solution[col]):
             solution[col] = solution[col].astype(float)
 
         # Clip both the min and max following Kaggle conventions for related metrics like log loss

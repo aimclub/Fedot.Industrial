@@ -3,6 +3,8 @@ import math
 from itertools import chain
 from multiprocessing import cpu_count
 from typing import Optional
+import pandas as pd
+import numpy as np
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -91,6 +93,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         Method for creating baseline quantile features for a given time series.
 
         Args:
+            add_global_features: if True, global features are added to the feature set
             time_series: time series for which features are generated
 
         Returns:
