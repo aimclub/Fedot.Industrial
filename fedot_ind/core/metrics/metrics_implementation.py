@@ -39,8 +39,7 @@ class QualityMetric:
     def __init__(self, target,
                  predicted_labels,
                  predicted_probs=None,
-                 metric_list: list = (
-                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                 metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         if len(predicted_labels.shape) >= 2:
