@@ -7,16 +7,36 @@ MKLpy==0.6
 PyMonad==2.4.0
 PyWavelets==1.4.1
 
-fastcore
-fastai
-distributed
-datasetsforecast
+fastcore~=1.5.29
+fastai~=2.7.14
+distributed~=2024.1.1
+datasetsforecast~=0.0.8
 
 tensorly==0.8.1
-torch==2.0.0
+torch~=2.2.0
 torchmetrics==0.11.4
-torchvision==0.15.1
+torchvision~=0.17.0
 tensorboard>=2.12.0
 statsforecast==1.5.0
 
-chardet
+chardet~=5.2.0
+sphinx~=7.2.6
+numpy~=1.24.4
+pytest~=8.0.0
+matplotlib~=3.8.2
+pandas~=1.5.3
+fedot~=0.7.3
+scipy~=1.12.0
+typing~=3.7.4.3
+scikit-learn~=1.2.2
+PyYAML~=6.0.1
+setuptools~=60.2.0
+pillow~=10.2.0
+tqdm~=4.65.2
+seaborn~=0.13.2
+joblib~=1.3.2
+hyperopt~=0.2.7
+ripser~=0.6.4
+statsmodels~=0.14.1
+xgboost~=2.0.3
+sktime~=0.16.1

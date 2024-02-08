@@ -69,6 +69,10 @@ class FedotIndustrial(Fedot):
         self.preprocessing = kwargs.get('industrial_preprocessing', False)
         self.backend_method = kwargs.get('backend', 'cpu')
         self.RAF_workers = kwargs.get('RAF_workers', None)
+        self.path_to_composition_results = kwargs.get('history_dir', None)
+        prefix = './composition_results' if self.path_to_composition_results is None \
+            else self.path_to_composition_results
+        Path(prefix).mkdir(parents=True, exist_ok=True)
 
         if self.output_folder is None:
             self.output_folder = default_path_to_save_results
@@ -93,9 +97,11 @@ class FedotIndustrial(Fedot):
         self.predicted_probs = None
         self.predict_data = None
         self.config_dict = kwargs
+        self.config_dict['history_dir'] = prefix
         self.config_dict['available_operations'] = kwargs.get('available_operations',
                                                               default_industrial_availiable_operation(
                                                                   self.config_dict['problem']))
+
         self.config_dict['optimizer'] = kwargs.get(
             'optimizer', IndustrialEvoOptimizer)
         self.config_dict['initial_assumption'] = kwargs.get('initial_assumption',
@@ -176,8 +182,10 @@ class FedotIndustrial(Fedot):
         """
         self.train_data = deepcopy(
             input_data)  # we do not want to make inplace changes
-        self.train_data = DataCheck(
-            input_data=self.train_data, task=self.config_dict['problem']).check_input_data()
+        input_preproc = DataCheck(
+            input_data=self.train_data, task=self.config_dict['problem'])
+        self.train_data = input_preproc.check_input_data()
+        self.target_encoder = input_preproc.get_target_encoder()
         self.solver = self.__init_solver()
         if self.preprocessing:
             self._preprocessing_strategy(self.train_data)
@@ -205,8 +213,8 @@ class FedotIndustrial(Fedot):
         elif isinstance(self.solver, list):
             predict = self._predict_raf_ensemble()
         else:
-            predict = self.solver.predict(self.predict_data, 'labels').predict
-        self.predicted_labels = predict
+            predict = self.solver.predict(self.predict_data, 'labels')
+        self.predicted_labels = predict if self.target_encoder is None else self.target_encoder.transform(predict)
         return self.predicted_labels
 
     def predict_proba(self,
@@ -229,7 +237,7 @@ class FedotIndustrial(Fedot):
         elif isinstance(self.solver, list):
             return self.predicted_probs if self.predicted_probs is not None else self._predict_raf_ensemble()
         else:
-            predict = self.solver.predict(self.predict_data, 'probs').predict
+            predict = self.solver.predict(self.predict_data, 'probs')
         self.predicted_probs = predict
         return self.predicted_probs
 

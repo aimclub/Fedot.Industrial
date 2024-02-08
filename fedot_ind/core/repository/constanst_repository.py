@@ -39,7 +39,7 @@ class ComputationalConstant(Enum):
     }
     BATCH_SIZE_FOR_FEDOT_WORKER = 1000
     FEDOT_WORKER_NUM = 5
-    FEDOT_WORKER_TIMEOUT_PARTITION = 2
+    FEDOT_WORKER_TIMEOUT_PARTITION = 4
     PATIENCE_FOR_EARLY_STOP = 15
 
 
@@ -184,6 +184,11 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
         'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')
+    }
+
+    FEDOT_ENSEMBLE_ASSUMPTIONS = {
+        'classification': PipelineBuilder().add_node('logit'),
+        'regression': PipelineBuilder().add_node('treg')
     }
 
 
@@ -405,6 +410,7 @@ FEDOT_GET_METRICS = FedotOperationConstant.FEDOT_GET_METRICS.value
 FEDOT_TUNING_METRICS = FedotOperationConstant.FEDOT_TUNING_METRICS.value
 FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
+FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

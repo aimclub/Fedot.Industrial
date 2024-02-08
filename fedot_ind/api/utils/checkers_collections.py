@@ -34,6 +34,7 @@ class DataCheck:
         self.input_data = input_data
         self.task = task
         self.task_dict = FEDOT_TASK
+        self.label_encoder = None
 
     def __check_features_and_target(self, X, y):
         multi_features, X = check_multivariate_data(X)
@@ -72,9 +73,11 @@ class DataCheck:
             features, is_multivariate_data, target = self.__check_features_and_target(
                 X, y)
 
-        if y is not None and type(y[0]) is np.str_ and self.task == 'classification':
-            label_encoder = LabelEncoder()
-            target = label_encoder.fit_transform(target)
+        if self.label_encoder is None and type(y[0]) is np.str_ and self.task == 'classification':
+            self.label_encoder = LabelEncoder()
+            target = self.label_encoder.fit_transform(target)
+        else:
+            self.label_encoder = self.label_encoder
 
         if is_multivariate_data:
             self.input_data = InputData(idx=np.arange(len(X)),
@@ -146,3 +149,6 @@ class DataCheck:
         self._check_input_data_features()
         self._check_input_data_target()
         return self.input_data
+
+    def get_target_encoder(self):
+        return self.label_encoder
