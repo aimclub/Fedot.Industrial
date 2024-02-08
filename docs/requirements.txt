@@ -1,3 +1,6 @@
+fedot
+torch
+datasetsforecast
 sphinx
 sphinx_rtd_theme
 autodocsumm
