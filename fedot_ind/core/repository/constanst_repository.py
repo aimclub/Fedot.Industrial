@@ -160,25 +160,19 @@ class FedotOperationConstant(Enum):
         'logit',
         'scaling',
         'normalization',
-        'pca',
-        'knn',
         'xgboost',
-        'multinb',
         'dt',
         'mlp',
-        'kernel_pca',
-        'isolation_forest_class']
+        'kernel_pca']
 
-    AVAILABLE_REG_OPERATIONS = ['rfr',
+    AVAILABLE_REG_OPERATIONS = [
                                 'scaling',
                                 'normalization',
-                                'pca',
                                 'xgbreg',
                                 'dtreg',
                                 'treg',
-                                'knnreg',
-                                'kernel_pca',
-                                'isolation_forest_reg']
+                                'kernel_pca'
+                                ]
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),

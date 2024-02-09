@@ -85,7 +85,8 @@ TEMPORARY_EXCLUDED = {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
         'adareg': AdaBoostRegressor,
-        'linear': SklearnLinReg
+        'linear': SklearnLinReg,
+        'knnreg': FedotKnnRegImplementation,
     },
     'SKLEARN_CLF_MODELS': {'bernb': SklearnBernoulliNB,
                            'multinb': SklearnMultinomialNB,
@@ -157,7 +158,6 @@ class AtomizedModel(Enum):
         'ridge': SklearnRidgeReg,
         'lasso': SklearnLassoReg,
         # solo tree models (small datasets)
-        'knnreg': FedotKnnRegImplementation,
         'dtreg': DecisionTreeRegressor
     }
 
@@ -237,6 +237,7 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'label_encoding',
                               'isolation_forest_class',
                               'signal_extractor',
+                               'knnreg',
                               'recurrence_extractor'
     ]}
     available_operations = [

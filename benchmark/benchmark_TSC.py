@@ -5,7 +5,6 @@ from abc import ABC
 from copy import deepcopy
 
 import pandas as pd
-from aeon.benchmarking.results_loaders import *
 
 from benchmark.abstract_bench import AbstractBenchmark
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
@@ -130,10 +129,3 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         df = df.join(df_res)
         df = df.fillna(0)
         return df
-
-    def load_web_results(self):
-        sota_estimators = get_available_estimators()
-        sota_results = get_estimator_results(
-            estimators=sota_estimators['classification'].values.tolist())
-        sota_results_df = pd.DataFrame(sota_results)
-        return sota_results_df
