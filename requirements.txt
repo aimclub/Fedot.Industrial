@@ -9,7 +9,7 @@ PyWavelets==1.4.1
 
 fastcore~=1.5.29
 fastai~=2.7.14
-distributed~=2024.1.1
+distributed~=2023.1.0
 datasetsforecast~=0.0.8
 
 tensorly==0.8.1
