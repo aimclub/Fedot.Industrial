@@ -1,5 +1,6 @@
 import math
 from enum import Enum
+from functools import partial
 from multiprocessing import cpu_count
 
 import numpy as np
@@ -9,7 +10,8 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch import nn
-
+from golem.core.tuning.simultaneous import SimultaneousTuner
+from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
@@ -151,6 +153,8 @@ class FedotOperationConstant(Enum):
                          'classification': calculate_classification_metric}
     FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
                             'regression': RegressionMetricsEnum.RMSE}
+    FEDOT_TUNER_STRATEGY = {'sequential': partial(SequentialTuner, inverse_node_order=True),
+                            'simultaneous': SimultaneousTuner}
     FEDOT_HEAD_ENSEMBLE = {'regression': 'fedot_regr',
                            'classification': 'fedot_cls'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
@@ -166,13 +170,13 @@ class FedotOperationConstant(Enum):
         'kernel_pca']
 
     AVAILABLE_REG_OPERATIONS = [
-                                'scaling',
-                                'normalization',
-                                'xgbreg',
-                                'dtreg',
-                                'treg',
-                                'kernel_pca'
-                                ]
+        'scaling',
+        'normalization',
+        'xgbreg',
+        'dtreg',
+        'treg',
+        'kernel_pca'
+    ]
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
@@ -405,6 +409,7 @@ FEDOT_TUNING_METRICS = FedotOperationConstant.FEDOT_TUNING_METRICS.value
 FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
+FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
