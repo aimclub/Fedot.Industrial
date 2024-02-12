@@ -169,6 +169,12 @@
     "window_mode": false,
     "var_threshold": 0.01
   },
+  "recurrence_extractor": {
+    "window_size": 20,
+    "window_mode": true,
+    "min_signal_ratio": 0.5,
+    "max_signal_ratio": 0.75,
+    "rec_metric": "euclidean"},
   "ssa_forecaster": {
     "window_size_method": "hac"
   },

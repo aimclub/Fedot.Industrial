@@ -76,7 +76,6 @@ TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
                                  'dimension_reduction': FeatureFilter,
                                  # 'signal_extractor': SignalExtractor,
-                                 'recurrence_extractor': RecurrenceExtractor,
                                  # isolation_forest forest
                                  'isolation_forest_class': IsolationForestClassImplementation,
                                  'isolation_forest_reg': IsolationForestRegImplementation,
@@ -139,7 +138,7 @@ class AtomizedModel(Enum):
         'wavelet_basis': WaveletBasisImplementation,
         'fourier_basis': FourierBasisImplementation,
         # feature extraction algorithm
-
+        'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,

@@ -61,23 +61,27 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         def decompose(signal): return ListMonad(self._decompose_signal(signal))
 
         def threshold(Monoid): return ListMonad([Monoid[0][
-            :self.n_components],
-            Monoid[1]])
+                                                 :self.n_components],
+                                                 Monoid[1]])
 
         basis = Either.insert(data).then(decompose).then(threshold).value[0]
         basis = np.concatenate(basis)
         return basis
 
     def _get_multidim_basis(self, data):
-        def decompose(multidim_signal): return ListMonad(
-            list(map(self._decompose_signal, multidim_signal)))
+        def decompose(multidim_signal):
+            return ListMonad(
+                list(map(self._decompose_signal, multidim_signal)))
 
-        def select_level(Monoid): return [Monoid[0][
-            :self.n_components, :],
-            Monoid[1]]
+        def select_level(Monoid):
+            high_freq = Monoid[0]
+            low_freq = Monoid[1]
+            return [high_freq[:self.n_components, :]
+                    if len(high_freq.shape) > 1 else high_freq, low_freq]
 
-        def threshold(decomposed_signal): return list(
-            map(select_level, decomposed_signal))
+        def threshold(decomposed_signal):
+            return list(
+                map(select_level, decomposed_signal))
 
         basis = Either.insert(data).then(decompose).then(threshold).value
         return np.concatenate([np.concatenate(x) for x in basis])
