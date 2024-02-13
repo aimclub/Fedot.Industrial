@@ -1,8 +1,11 @@
 from copy import deepcopy
 
+import pandas as pd
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, FedotConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import FedotConverter
+from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis
 
 try:
     import seaborn
@@ -15,10 +18,6 @@ from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
-
-from fedot_ind.core.operation.decomposition.spectrum_decomposition import SpectrumDecomposer
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 
 
 class SSAForecasterImplementation(ModelImplementation):
@@ -49,70 +48,45 @@ class SSAForecasterImplementation(ModelImplementation):
                 print(prediction)
 
     """
-    LAST_VALUES_THRESHOLD = 100
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-
         self.window_size_method = params.get('window_size_method')
-        self.n_processes = 1
-        self._SV_threshold = None
+        self.history_lookback = params.get('history_lookback', 100)
+        self.low_rank_approximation = params.get('low_rank_approximation', False)
         self._decomposer = None
+        self._rank_thr = None
         self._window_size = None
         self.horizon = None
         self.preprocess_to_lagged = False
 
-    def __preprocess_for_fedot(self, features):
-        features = np.squeeze(features)
-
-        if len(features.shape) == 1:
-            self.preprocess_to_lagged = False
-        else:
-            if features.shape[1] != 1:
-                self.preprocess_to_lagged = True
-                self._window_size = features.shape[1]
-                ts_length = features.shape[1] + \
-                    features.shape[0] - 1
-                ts_length = features.shape[1]
-                self._decomposer = SpectrumDecomposer(features,
-                                                      ts_length)
-
-        if self.preprocess_to_lagged:
-            self.seq_len = features.shape[0] + \
-                features.shape[1]
-        else:
-            self.seq_len = features.shape[0]
-            features = features[-self.LAST_VALUES_THRESHOLD:]
-            trajectory_transformer = HankelMatrix(
-                time_series=features, window_size=self._window_size)
-            features = trajectory_transformer.trajectory_matrix
-            self._decomposer = SpectrumDecomposer(features,
-                                                  trajectory_transformer.ts_length)
-
-        return features
-
     def predict(self, input_data: InputData) -> OutputData:
-        features = input_data.features
-        trajectory_matrix = self.__preprocess_for_fedot(features)
-        U, s, VT = self._predict_loop(trajectory_matrix)
-        s_basis = s[:self._decomposer.thr]
-        current_dynamics = VT[:self._decomposer.thr]
+        hankel_matrix = HankelMatrix(time_series=input_data.features,
+                                     window_size=self._decomposer.window_size).trajectory_matrix
+        U, s, VT = np.linalg.svd(hankel_matrix)
+        n_components = list(range(self._rank_thr))
+        PCT = np.concatenate([U[:, 0].reshape(1, -1), np.array([np.sum([U[:, i], U[:, i + 1]], axis=0)
+                                                                for i in n_components if i != 0 and i % 2 != 0])]).T
+        current_dynamics = np.concatenate([VT[0, :].reshape(1, -1), np.array([np.sum([VT[i, :], VT[i + 1, :]], axis=0)
+                                                                              for i in n_components if
+                                                                              i != 0 and i % 2 != 0])])
         forecast_by_channel, model_by_channel = self._predict_channel(input_data,
                                                                       current_dynamics,
                                                                       self.horizon)
 
         forecasted_dynamics = np.concatenate([current_dynamics,
                                               np.vstack(list(forecast_by_channel.values()))], axis=1)
-        self._decomposer.ts_length = self._decomposer.ts_length + self.horizon
-        basis = self.reconstruct_basis(U, s_basis, forecasted_dynamics).T
+        basis = reconstruct_basis(U=PCT,
+                                  Sigma=s[:PCT.shape[1]],
+                                  VT=forecasted_dynamics,
+                                  ts_length=input_data.features.shape[0] + self.horizon)
 
-        summed_basis = np.array(basis).sum(axis=0)
+        summed_basis = np.array(basis).sum(axis=1)
         reconstructed_forecast = summed_basis[-self.horizon:]
         reconstructed_features = summed_basis[:-self.horizon]
 
-        error = input_data.features[-self.horizon:] - \
-            reconstructed_features[-self.horizon:]
-        prediction = reconstructed_forecast + error
+        #error = input_data.features.ravel() - reconstructed_features
+        prediction = reconstructed_forecast
         predict_data = FedotConverter(input_data).convert_to_output_data(prediction=prediction,
                                                                          predict_data=input_data,
                                                                          output_data_type=input_data.data_type)
@@ -126,29 +100,25 @@ class SSAForecasterImplementation(ModelImplementation):
         pass
 
     def __predict_for_fit(self, ts):
-        U, s, VT = self._predict_loop(ts)
-        basis = self.reconstruct_basis(U, s, VT).T
-        reconstructed_features = np.array(basis).sum(axis=0)
+        basis = self._decomposer.transform(ts)
+        self._rank_thr = basis.predict.shape[0]
+        components_correlation = np.concatenate([basis.predict[0, :].reshape(1, -1), np.array([np.sum(
+            [basis.predict[i, :], basis.predict[i + 1, :]], axis=0) for i in range(basis.predict.shape[0]) if i != 0
+                                                                                                              and i % 2 != 0])])
+
+        reconstructed_features = np.array(components_correlation).sum(axis=0)
         return reconstructed_features
 
     def predict_for_fit(self, input_data: InputData) -> OutputData:
-        features = input_data.features
-        self.target = input_data.target
-        self.task_type = input_data.task
         if self.horizon is None:
             self.horizon = input_data.task.task_params.forecast_length
-
-        data = self.__preprocess_for_fedot(features)
-        if self.preprocess_to_lagged:
-            predict = [self.__predict_for_fit(
-                ts.reshape(1, -1)) for ts in data]
-            predict = np.array(predict)
-        else:
-            predict = self.__predict_for_fit(data)
+        input_data.features = input_data.features[-self.history_lookback:].squeeze()
+        self._decomposer = EigenBasisImplementation({'low_rank_approximation': self.low_rank_approximation,
+                                                     'rank_regularization': 'explained_dispersion'})
+        predict = self.__predict_for_fit(input_data)
         return predict
 
     def _predict_channel(self, input_data: InputData, component_dynamics, forecast_length: int):
-
         comp = deepcopy(input_data)
         comp.features = component_dynamics
         comp.idx = np.arange(component_dynamics.shape[1])

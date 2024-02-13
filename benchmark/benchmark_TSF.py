@@ -6,7 +6,6 @@ from copy import deepcopy
 
 import matplotlib
 import pandas as pd
-from aeon.benchmarking.results_loaders import *
 from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
@@ -52,99 +51,75 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
 
     def evaluate_loop(self, dataset, experiment_setup: dict = None):
         matplotlib.use('TkAgg')
-        train_data, test_data = DataLoader(
-            dataset_name=dataset).load_forecast_data()
-        experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
-            f'/{dataset}'
+        train_data, test_data = DataLoader(dataset_name=dataset).load_forecast_data()
+        target = train_data.iloc[-experiment_setup['task_params'].forecast_length:, :].values.ravel()
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
-        prediction = model.predict(test_data)
-        model.save_best_model()
-        model.save_optimization_history()
-        model.plot_operation_distribution(mode='each')
-        model.plot_fitness_by_generation()
+        prediction = model.predict(train_data)
         plt.close('all')
-        model.shutdown()
-        return prediction.squeeze(), model.predict_data.target
+        return prediction, target
 
     def run(self):
         self.logger.info('Benchmark test started')
-        basic_results = self.load_local_basic_results()
+        # basic_results = self.load_local_basic_results()
         metric_dict = {}
         for dataset_name in self.custom_datasets:
-            try:
-                experiment_setup = deepcopy(self.experiment_setup)
-                prediction, target = self.evaluate_loop(
-                    dataset_name, experiment_setup)
-                metric = RMSE(target, prediction).metric()
-                metric_dict.update({dataset_name: metric})
-                basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                            'metrics_report.csv')
-                basic_results.to_csv(dataset_path)
-            except Exception as ex:
-                print(f'Skip dataset.{ex}')
+            experiment_setup = deepcopy(self.experiment_setup)
+            prediction, target = self.evaluate_loop(dataset_name, experiment_setup)
+            metric = RMSE(target, prediction).metric()
+            pd.DataFrame([prediction, target]).T.plot()
+            metric_dict.update({dataset_name: metric})
+            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                        'metrics_report.csv')
             gc.collect()
-        basic_path = os.path.join(
-            self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
-        basic_results.to_csv(basic_path)
+        basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         self.logger.info("Benchmark test finished")
 
     def finetune(self):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
-            try:
-                composed_model_path = PROJECT_PATH + self.path_to_save + \
-                    f'/{dataset_name}' + '/0_pipeline_saved'
-                if os.path.isdir(composed_model_path):
-                    self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                        self.path_to_save
-                    experiment_setup = deepcopy(self.experiment_setup)
-                    prediction, target = self.finetune_loop(
-                        dataset_name, experiment_setup)
-                    metric = Accuracy(target, prediction).metric()
-                    dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                                'metrics_report.csv')
-                    fedot_results = pd.read_csv(dataset_path, index_col=0)
-                    fedot_results.loc[dataset_name,
-                                      'Fedot_Industrial_finetuned'] = metric
+            composed_model_path = PROJECT_PATH + self.path_to_save + \
+                                  f'/{dataset_name}' + '/0_pipeline_saved'
+            if os.path.isdir(composed_model_path):
+                self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                                                         self.path_to_save
+                experiment_setup = deepcopy(self.experiment_setup)
+                prediction, target = self.finetune_loop(
+                    dataset_name, experiment_setup)
+                metric = RMSE(target, prediction).metric()
+                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                            'metrics_report.csv')
+                fedot_results = pd.read_csv(dataset_path, index_col=0)
+                fedot_results.loc[dataset_name,
+                                  'Fedot_Industrial_finetuned'] = metric
 
-                    fedot_results.to_csv(dataset_path)
-                else:
-                    print(f"No composed model for dataset - {dataset_name}")
-            except Exception:
-                print('Skip dataset')
+                fedot_results.to_csv(dataset_path)
+            else:
+                print(f"No composed model for dataset - {dataset_name}")
             gc.collect()
         self.logger.info("Benchmark finetune finished")
 
     def load_local_basic_results(self, path: str = None):
-        if path is None:
-            path = PROJECT_PATH + self.path_to_result
-            try:
-                results = pd.read_csv(path, sep=',', index_col=0)
-                results = results.dropna(axis=1, how='all')
-                results = results.dropna(axis=0, how='all')
-            except Exception:
-                results = self.load_web_results()
-            self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                self.path_to_save
-            return results
-        else:
-            return self.results_picker.run(get_metrics_df=True, add_info=True)
+        path = PROJECT_PATH + self.path_to_result
+        results = pd.read_csv(path, sep=',', index_col=0)
+        results = results.dropna(axis=1, how='all')
+        results = results.dropna(axis=0, how='all')
+        self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+        return results
 
     def create_report(self):
         _ = []
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.path_to_save + \
-                f'/{dataset_name}' + '/metrics_report.csv'
+                                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_resutls = np.stack(_, axis=1).T
@@ -154,10 +129,3 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         df = df.join(df_res)
         df = df.fillna(0)
         return df
-
-    def load_web_results(self):
-        sota_estimators = get_available_estimators()
-        sota_results = get_estimator_results(
-            estimators=sota_estimators['classification'].values.tolist())
-        sota_results_df = pd.DataFrame(sota_results)
-        return sota_results_df

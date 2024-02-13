@@ -181,7 +181,7 @@ class FedotOperationConstant(Enum):
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')
+        'ts_forecasting': PipelineBuilder().add_node('ssa_forecaster')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {

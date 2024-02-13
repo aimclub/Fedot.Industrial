@@ -176,7 +176,8 @@
     "max_signal_ratio": 0.75,
     "rec_metric": "euclidean"},
   "ssa_forecaster": {
-    "window_size_method": "hac"
+    "window_size_method": "hac",
+    "history_lookback": 30
   },
   "fedot_cls": {
     "timeout": 10,

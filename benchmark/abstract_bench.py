@@ -72,17 +72,12 @@ class AbstractBenchmark(object):
         model.shutdown()
         return prediction.squeeze(), model.predict_data.target
 
-    def finetune_loop(self, dataset, experiment_setup: dict = None):
+    def finetune_loop(self, dataset, experiment_setup, composed_model_path):
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-        experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
-            f'/{dataset}'
-        tuning_params = experiment_setup['tuning_params']
-        del experiment_setup['tuning_params']
         model = FedotIndustrial(**experiment_setup)
-        model.load(
-            path=experiment_setup['output_folder'] + '/0_pipeline_saved')
-        model.finetune(train_data, tuning_params=tuning_params)
-        prediction = model.finetune_predict(test_data)
+        model.load(path=composed_model_path)
+        model.finetune(train_data)
+        prediction = model.predict(test_data)
         return prediction, model.predict_data.target
 
     def collect_results(self, output_dir):

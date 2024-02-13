@@ -138,7 +138,10 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                loss = loss_fn(output, targets.float())
+                try:
+                    loss = loss_fn(output, targets.float())
+                except Exception:
+                    loss = loss_fn(output.squeeze(1), targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
@@ -151,7 +154,10 @@ class BaseNeuralModel:
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
-                    loss = loss_fn(output, targets.float())
+                    try:
+                        loss = loss_fn(output, targets.float())
+                    except Exception:
+                        loss = loss_fn(output.squeeze(1), targets.float())
                     valid_loss += loss.data.item() * inputs.size(0)
                 valid_loss /= len(val_loader.dataset)
                 print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,

@@ -29,8 +29,8 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
     RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation, GLMImplementation
-from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, RandomForestClassifier, \
-    RandomForestRegressor
+from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
+    RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
     LinearRegression as SklearnLinReg,

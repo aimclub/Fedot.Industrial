@@ -68,27 +68,28 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
     def finetune(self):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
-            try:
-                composed_model_path = PROJECT_PATH + self.path_to_save + \
-                    f'/{dataset_name}' + '/0_pipeline_saved'
-                if os.path.isdir(composed_model_path):
-                    self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                        self.path_to_save
-                    experiment_setup = deepcopy(self.experiment_setup)
-                    prediction, target = self.finetune_loop(
-                        dataset_name, experiment_setup)
-                    metric = Accuracy(target, prediction).metric()
-                    dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                                'metrics_report.csv')
-                    fedot_results = pd.read_csv(dataset_path, index_col=0)
-                    fedot_results.loc[dataset_name,
-                                      'Fedot_Industrial_finetuned'] = metric
+            path_to_results = PROJECT_PATH + self.path_to_save + f'/{dataset_name}'
+            _ = [x for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')][0]
+            path_to_model = f'/{_}'
+            composed_model_path = PROJECT_PATH + self.path_to_save + \
+                                  f'/{dataset_name}' + path_to_model
+            if os.path.isdir(composed_model_path):
+                self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                                                         self.path_to_save
+                experiment_setup = deepcopy(self.experiment_setup)
+                prediction, target = self.finetune_loop(
+                    dataset_name, experiment_setup, composed_model_path)
+                metric = Accuracy(target, prediction.ravel()).metric()
+                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                            'metrics_report.csv')
+                fedot_results = pd.read_csv(dataset_path, index_col=0)
+                fedot_results.loc[dataset_name,
+                                  'Fedot_Industrial_finetuned'] = metric
 
-                    fedot_results.to_csv(dataset_path)
-                else:
-                    print(f"No composed model for dataset - {dataset_name}")
-            except Exception:
-                print('Skip dataset')
+                fedot_results.to_csv(dataset_path)
+            else:
+                print(f"No composed model for dataset - {dataset_name}")
+
             gc.collect()
         self.logger.info("Benchmark finetune finished")
 
@@ -102,7 +103,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             except Exception:
                 results = self.load_web_results()
             self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                self.path_to_save
+                                                     self.path_to_save
             return results
         else:
             return self.results_picker.run(get_metrics_df=True, add_info=True)
@@ -112,14 +113,14 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.path_to_save + \
-                f'/{dataset_name}' + '/metrics_report.csv'
+                                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_resutls = np.stack(_, axis=1).T
