@@ -103,7 +103,7 @@ class NBeats:
                 )
 
 
-class _NBeatsStack:
+class _NBeatsStack(nn.Module):
     def __init__(
             self,
             n_blocks,
@@ -120,7 +120,7 @@ class _NBeatsStack:
         pass
 
 
-class _NBeatsBlock:
+class _NBeatsBlock(nn.Module):
     """
     N-BEATS block which takes a basis function as an argument.
     """
@@ -140,16 +140,23 @@ class _NBeatsBlock:
         # TODO: conditional creation of a block layers based on Generic | Interpretable architectures
         pass
 
-
-class _GenericBasis(nn.Module):
+class _GenericBasis(_NBeatsBlock):
     """
     Generic basis function.
     The generic architecture does not rely on TS-specific knowledge.
     Set g^b_l and g^f_l to be a linear projection of the previous layer output.
     """
 
-    # TODO:
-    pass
+    def __init__(self, expansion_coefficient_dim, input_chunk_length, target_length):
+        self.backcast_g = nn.Linear(expansion_coefficient_dim, input_chunk_length)
+        self.forecast_g = nn.Linear(expansion_coefficient_dim, target_length)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        theta_backcast, theta_forecast = super().forward(x)
+        backcast = self.backcast_g(self.relu(theta_backcast))
+        forecast = self.forecast_g(self.relu(theta_forecast))
+        return backcast, forecast
 
 
 class _TrendBasis(nn.Module):
