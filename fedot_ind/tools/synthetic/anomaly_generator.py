@@ -2,9 +2,9 @@ from typing import Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.tools.synthetic.anomalies import AddNoise, DecreaseDispersion, Dip, IncreaseDispersion, Peak, \
     ShiftTrendDOWN, \
     ShiftTrendUP

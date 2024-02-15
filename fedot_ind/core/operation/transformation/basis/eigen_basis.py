@@ -7,9 +7,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from scipy import stats
 from tensorly.decomposition import parafac
-from tqdm import tqdm
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -95,18 +93,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return predict
 
     def _get_1d_basis(self, data):
-        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(Monoid[0],
-                                                                          Monoid[1],
-                                                                          Monoid[2],
-                                                                          ts_length=self.ts_length))
+        def data_driven_basis(Monoid):
+            return ListMonad(reconstruct_basis(Monoid[0],
+                                               Monoid[1],
+                                               Monoid[2],
+                                               ts_length=self.ts_length))
 
-        def threshold(Monoid): return ListMonad([Monoid[0],
-                                                 Monoid[1][:self.SV_threshold],
-                                                 Monoid[2]])
+        def threshold(Monoid):
+            return ListMonad([Monoid[0],
+                              Monoid[1][:self.SV_threshold],
+                              Monoid[2]])
 
-        def svd(x): return ListMonad(self.svd_estimator.rsvd(tensor=x,
-                                                             approximation=self.low_rank_approximation,
-                                                             regularized_rank=self.SV_threshold))
+        def svd(x):
+            return ListMonad(self.svd_estimator.rsvd(tensor=x,
+                                                     approximation=self.low_rank_approximation,
+                                                     regularized_rank=self.SV_threshold))
 
         basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
         return np.swapaxes(basis, 1, 0)

@@ -171,8 +171,6 @@ Useful tutorials and examples can be found in the `examples`_ folder.
      - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
    * - Anomaly detection
      - soon will be available
-   * - Computer vision
-     - `Classification <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/image_classification/image_clf_example.py>`_, `Object detection <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/api_example/computer_vision/object_detection/obj_rec_example.py>`_
    * - Model ensemble
      - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
 

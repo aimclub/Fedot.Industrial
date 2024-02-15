@@ -5,17 +5,18 @@ import urllib.request as request
 import zipfile
 from pathlib import Path
 
+import chardet
+import pandas as pd
 from datasetsforecast.m3 import M3
 from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
-import chardet
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-import pandas as pd
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 from tqdm import tqdm
+
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.constanst_repository import M4_PREFIX
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class DataLoader:
@@ -645,7 +646,8 @@ class DataLoader:
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
                                 raise TsFileParseException("line " + str(
                                     line_num + 1) +
-                                                           " does not have the same number of dimensions as the previous line of data")
+                                                           "does not have the same number of dimensions as the "
+                                                           "previous line of data")
 
                             # Check if we should have class values, and if so that they are contained
                             # in those listed in the metadata

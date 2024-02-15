@@ -1,9 +1,9 @@
 import pandas as pd
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from examples.example_utils import evaluate_metric
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.tools.example_utils import evaluate_metric
 from fedot_ind.tools.loader import DataLoader
 
 if __name__ == "__main__":

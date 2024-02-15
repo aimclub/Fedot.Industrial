@@ -267,32 +267,38 @@ class FedotIndustrial(Fedot):
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
 
-    def get_metrics(self, target=None,
+    def get_metrics(self,
+                    target: Union[list, np.array] = None,
                     metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),
-                    rounding_order=3,
+                    rounding_order: int = 3,
                     **kwargs) -> pd.DataFrame:
         """
         Method to calculate metrics for Industrial model.
 
-        Available metrics for classification task: 'f1', 'accuracy', 'precision', 'roc_auc', 'log_loss'.
+        Available metrics for classification task: 'f1', 'accuracy', 'precision', 'roc_auc', 'logloss'.
 
         Available metrics for regression task: 'r2', 'rmse', 'mse', 'mae', 'median_absolute_error',
         'explained_variance_score', 'max_error', 'd2_absolute_error_score', 'msle', 'mape'.
 
         Args:
-            target (np.ndarray): target values
-            metric_names (list): list of metric names
-            rounding_order (int): rounding order for metrics
+            target: target values
+            metric_names: list of metric names
+            rounding_order: rounding order for metrics
 
         Returns:
             pandas DataFrame with calculated metrics
 
         """
-        return FEDOT_GET_METRICS[self.config_dict['problem']](target=target,
-                                                              metric_names=metric_names,
-                                                              rounding_order=rounding_order,
-                                                              labels=self.predicted_labels,
-                                                              probs=self.predicted_probs)
+        problem = self.config_dict['problem']
+        if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
+            self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
+
+        valid_shape = target.shape
+        return FEDOT_GET_METRICS[problem](target=target.flatten(),
+                                          metric_names=metric_names,
+                                          rounding_order=rounding_order,
+                                          labels=self.predicted_labels.reshape(valid_shape),
+                                          probs=self.predicted_probs)
 
     def save_predict(self, predicted_data, **kwargs) -> None:
         """

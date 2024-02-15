@@ -1,4 +1,3 @@
-import pandas.api.types
 from typing import Union
 
 import pandas as pd
@@ -172,7 +171,8 @@ class Accuracy(QualityMetric):
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
-                                metric_names=('r2', 'rmse', 'mae')):
+                                metric_names=('r2', 'rmse', 'mae'),
+                                **kwargs):
     target = target.astype(float)
 
     def rmse(y_true, y_pred):
@@ -220,7 +220,7 @@ def kl_divergence(solution: pd.DataFrame,
     # Overwrite solution for convenience
     for col in solution.columns:
         # Prevent issue with populating int columns with floats
-        if not pandas.api.types.is_float_dtype(solution[col]):
+        if not pd.api.types.is_float_dtype(solution[col]):
             solution[col] = solution[col].astype(float)
 
         # Clip both the min and max following Kaggle conventions for related metrics like log loss

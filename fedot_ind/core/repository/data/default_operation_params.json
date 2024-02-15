@@ -174,7 +174,8 @@
     "window_mode": true,
     "min_signal_ratio": 0.5,
     "max_signal_ratio": 0.75,
-    "rec_metric": "euclidean"},
+    "rec_metric": "euclidean",
+    "image_mode": false},
   "ssa_forecaster": {
     "window_size_method": "hac",
     "history_lookback": 30
