@@ -66,10 +66,11 @@ class SSAForecasterImplementation(ModelImplementation):
         self.history_lookback = max(params.get('history_lookback', 0), 100)
         self.low_rank_approximation = params.get('low_rank_approximation', False)
         self.tuning_params = params.get('tuning_params', tuning_params)
-        self.component_model = params.get('component_model', 'ar')
+        self.component_model = params.get('component_model', 'topological')
         self.mode = params.get('mode', 'channel_independent')
         self.component_model = component_mode_dict[self.component_model]
         self.trend_model = PipelineBuilder().add_node('lagged').add_node('ridge')
+        self.trend_model = self.component_model
         self._decomposer = None
         self._rank_thr = None
         self._window_size = None

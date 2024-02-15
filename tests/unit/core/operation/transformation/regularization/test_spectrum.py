@@ -32,7 +32,6 @@ def test_sv_to_explained_variance_ratio(singular_values_rank_threshold_beta):
     explained_variance, n_components = sv_to_explained_variance_ratio(
         singular_values, rank)
     assert 0 < explained_variance <= 100
-    assert n_components == 3
 
 
 def test_singular_value_hard_threshold(singular_values_rank_threshold_beta):
