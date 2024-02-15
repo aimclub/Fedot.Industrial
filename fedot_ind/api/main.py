@@ -3,6 +3,7 @@ import os
 import warnings
 from copy import deepcopy
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
