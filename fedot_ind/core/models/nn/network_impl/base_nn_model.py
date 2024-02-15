@@ -1,6 +1,7 @@
 import copy
 import os
 
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from fedot.core.data.data import InputData, OutputData
@@ -125,7 +126,7 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                loss = loss_fn(output, targets.float())
+                loss = loss_fn()(output, targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)

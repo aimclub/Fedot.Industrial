@@ -123,6 +123,9 @@ class ResNetModel(BaseNeuralModel):
         self.model_name = params.get('model_name', 'ResNet18')
 
     def _init_model(self, ts):
+        self.model_for_inference = ResNet(input_dim=ts.features.shape[1],
+                                          output_dim=self.num_classes,
+                                          model_name=self.model_name)
 
         self.model = ResNet(input_dim=ts.features.shape[1],
                             output_dim=self.num_classes,
