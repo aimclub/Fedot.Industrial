@@ -13,8 +13,28 @@ from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.data import InputData, OutputData
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
+from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
+
+from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 
 
+def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
+    pipeline_tuner = TunerBuilder(train_data.task) \
+        .with_tuner(tuning_params['tuner']) \
+        .with_metric(tuning_params['metric']) \
+        .with_timeout(tuning_params.get('tuning_timeout', 10)) \
+        .with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 15)) \
+        .with_iterations(tuning_params.get('tuning_iterations', 100)) \
+        .build(train_data)
+    if mode == 'full':
+        batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
+                           automl_branch.name in FEDOT_HEAD_ENSEMBLE]
+        for b_pipeline in batch_pipelines:
+            b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(
+                b_pipeline.fitted_operation.current_pipeline)
+            b_pipeline.fitted_operation.current_pipeline.fit(train_data)
+    pipeline_tuner.tune(model_to_tune)
+    return pipeline_tuner, model_to_tune
 def postprocess_predicts(self, merged_predicts: np.array) -> np.array:
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts

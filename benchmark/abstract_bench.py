@@ -59,28 +59,25 @@ class AbstractBenchmark(object):
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
         experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
             f'/{dataset}'
+        experiment_setup['history_dir'] = './composition_results' + \
+            f'/{dataset}'
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(test_data)
         model.save_best_model()
         model.save_optimization_history()
-        model.plot_operation_distribution(mode='each')
-        model.plot_fitness_by_generation()
+        # model.plot_operation_distribution(mode='each')
+        # model.plot_fitness_by_generation()
         plt.close('all')
         model.shutdown()
         return prediction.squeeze(), model.predict_data.target
 
-    def finetune_loop(self, dataset, experiment_setup: dict = None):
+    def finetune_loop(self, dataset, experiment_setup, composed_model_path):
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-        experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
-            f'/{dataset}'
-        tuning_params = experiment_setup['tuning_params']
-        del experiment_setup['tuning_params']
         model = FedotIndustrial(**experiment_setup)
-        model.load(
-            path=experiment_setup['output_folder'] + '/0_pipeline_saved')
-        model.finetune(train_data, tuning_params=tuning_params)
-        prediction = model.finetune_predict(test_data)
+        model.load(path=composed_model_path)
+        model.finetune(train_data)
+        prediction = model.predict(test_data)
         return prediction, model.predict_data.target
 
     def collect_results(self, output_dir):

@@ -2,13 +2,13 @@ from benchmark.benchmark_TSC import BenchmarkTSC
 
 experiment_setup = {'problem': 'classification',
                     'metric': 'accuracy',
-                    'timeout': 60,
+                    'timeout': 100,
                     'num_of_generations': 15,
-                    'pop_size': 10,
+                    'pop_size': 50,
                     'logging_level': 10,
                     'RAF_workers': 4,
                     'n_jobs': 2,
-                    'industrial_preprocessing': True,
+                    'industrial_preprocessing': False,
                     'max_pipeline_fit_time': 25,
                     'with_tuning': False,
                     'early_stopping_iterations': 5,
@@ -17,14 +17,14 @@ experiment_setup = {'problem': 'classification',
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
                              custom_datasets=[
-                                 # 'SelfRegulationSCP1',
-                                 # 'Handwriting',
-                                 # 'MotorImagery',
-                                 # 'EthanolConcentration',
-                                 # 'PhonemeSpectra',
-                                 # 'DuckDuckGeese',
-                                 'ERing',
-                                 # 'PEMS - SF'
+                                 # 'ERing',
+                                 # 'AtrialFibrillation',
+                                 # 'SelfRegulationSCP2',
+                                 'StandWalkJump',
+                                 'Handwriting',
+                                 'PenDigits',
+                                 'RacketSports',
+                                 'Heartbeat'
                              ],
                              use_small_datasets=False)
     benchmark.run()
