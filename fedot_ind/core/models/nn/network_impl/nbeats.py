@@ -1,5 +1,6 @@
 from typing import Optional
 
+import torch
 from torch import nn
 from torch import optim
 
@@ -54,17 +55,21 @@ class NBeats:
     """
 
     def __init__(self,
-                 input_dim,
-                 output_dim,
-                 is_generic_architecture,
-                 n_stacks,  # : int
-                 n_blocks,  # : int
-                 n_layers,  # : int
-                 layer_size,
-                 expansion_coefficient_dim,
-                 trend_polynomial_degree,
-                 dropout=0.1,
-                 activation="relu",
+                 input_dim: int,
+                 output_dim: int,
+                 is_generic_architecture: bool,
+                 n_stacks: int,
+                 n_blocks: int,
+                 n_layers: int,
+                 layer_size: int,
+                 n_trend_blocks: int,
+                 n_trend_layers: int,
+                 trend_layer_size: int,
+                 degree_of_polynomial: int,
+                 n_seasonality_blocks: int,
+                 n_seasonality_layers: int,
+                 seasonality_layer_size: int,
+                 n_of_harmonics: int,
                  ):
         """
         Args:
@@ -78,46 +83,87 @@ class NBeats:
             n_blocks: the number of blocks making up every stack.
             n_layers: the number of fully connected layers preceding the final forking layers in each block of every stack.
             layer_size: Determines the number of neurons that make up each fully connected layer in each block of every stack.
-            expansion_coefficient_dim: dimensionality of the waveform generator parameters
-                Used if `is_generic_architecture` is set to `True`
-            trend_polynomial_degree: used as waveform generator in trend stacks
-                Used if `is_generic_architecture` is set to `False`.
+            n_trend_blocks:
+                Used if `is_generic_architecture` is set to `False`
+            n_trend_layers:
+                Used if `is_generic_architecture` is set to `False`
+            degree_of_polynomial:
+                Used if `is_generic_architecture` is set to `False`
+            n_seasonality_blocks
+                Used if `is_generic_architecture` is set to `False`
+            n_seasonality_layers
+                Used if `is_generic_architecture` is set to `False`
+            seasonality_layer_size:
+                Used if `is_generic_architecture` is set to `False`
+            n_of_harmonics:
+                Used if `is_generic_architecture` is set to `False`
             dropout: probability to be used in fully connected layers.
             activation: the activation function of intermediate layer, relu or gelu.
         """
 
-        # self.input_chunk_length_multi = self.input_chunk_length * input_dim
-        # self.target_length = self.output_chunk_length * input_dim
+        self.stacks_list = list()
+        self.stack = None
 
         if is_generic_architecture:
-            self.stacks_list = list()
-            # TODO: conditional creation of a Stack based on Generic | Interpretable architectures
-            for i in range(n_stacks):
-                self.stacks_list.append(
-                    _NBeatsStack(
-                        n_blocks,
-                        n_layers,
-                        layer_size[i],
-                        expansion_coefficient_dim,
-                    )
-                )
+            self.stack = _NBeatsStack(
+                input_dim=input_dim,
+                output_dim=output_dim,
+                is_generic_architecture=is_generic_architecture,
+                n_blocks=n_blocks,
+                n_layers=n_layers,
+                layer_size=layer_size,
+            )
+        else:
+            # The overall interpretable architecture consists of twostacks:
+            # the trend stack is followed by the seasonality stack
+            # TODO think how to refactor
+            self.stack = _NBeatsStack(
+                input_dim=input_dim,
+                output_dim=output_dim,
+                is_generic_architecture=is_generic_architecture,
+                n_trend_blocks=n_trend_blocks,
+                n_trend_layers=n_trend_layers,
+                trend_layer_size=trend_layer_size,
+                degree_of_polynomial=degree_of_polynomial,
+                n_seasonality_blocks=n_seasonality_blocks,
+                n_seasonality_layers=n_seasonality_layers,
+                seasonality_layer_size=seasonality_layer_size,
+                n_of_harmonics=n_of_harmonics,
+            )
+
+        for i in range(n_stacks):
+            self.stacks_list.append(self.stack)
 
 
 class _NBeatsStack(nn.Module):
     def __init__(
             self,
-            n_blocks,
-            n_layers,
-            layer_size,
-            expansion_coefficient_dim,
-            input_chunk_length,
-            is_generic_architecture,
-            batch_norm,
-            dropout,
-            activation,
+            input_dim: int,
+            output_dim: int,
+            is_generic_architecture: bool,
+            n_blocks: int,
+            n_layers: int,
+            layer_size: int,
+            n_trend_blocks: int,
+            n_trend_layers: int,
+            trend_layer_size: int,
+            degree_of_polynomial: int,
+            n_seasonality_blocks: int,
+            n_seasonality_layers: int,
+            seasonality_layer_size: int,
+            num_of_harmonics: int,
     ):
-        # TODO: conditional creation of a block based on Generic | Interpretable architectures
-        pass
+        self.block_list = list()
+        self.block = None
+
+        if is_generic_architecture:
+            self.block = _NBeatsBlock(
+            )
+        else:
+
+            self.block = _NBeatsBlock(
+            )
+
 
 
 class _NBeatsBlock(nn.Module):
@@ -127,18 +173,28 @@ class _NBeatsBlock(nn.Module):
 
     def __init__(
             self,
+            input_size,
+            output_dim,
+            is_generic_architecture,
             n_layers,
             layer_size,
-            expansion_coefficient_dim,
-            input_chunk_length,
-            target_length,
-            is_generic_architecture,
-            batch_norm,
-            dropout,
-            activation,
+            degree_of_polynomial: int,
+            n_seasonality_blocks: int,
+            n_seasonality_layers: int,
+            seasonality_layer_size: int,
+            num_of_harmonics: int,
     ):
         # TODO: conditional creation of a block layers based on Generic | Interpretable architectures
-        pass
+
+        self.layers = None
+
+        if is_generic_architecture:
+            self.layers = _GenericBasis(
+                input_size=input_size,
+                theta_size=input_size + output_dim,
+            )
+        else:
+
 
 class _GenericBasis(_NBeatsBlock):
     """
@@ -147,19 +203,16 @@ class _GenericBasis(_NBeatsBlock):
     Set g^b_l and g^f_l to be a linear projection of the previous layer output.
     """
 
-    def __init__(self, expansion_coefficient_dim, input_chunk_length, target_length):
-        self.backcast_g = nn.Linear(expansion_coefficient_dim, input_chunk_length)
-        self.forecast_g = nn.Linear(expansion_coefficient_dim, target_length)
-        self.relu = nn.ReLU()
+    def __init__(self, backcast_size: int, forecast_size: int):
+        super().__init__()
+        self.backcast_size = backcast_size
+        self.forecast_size = forecast_size
 
-    def forward(self, x):
-        theta_backcast, theta_forecast = super().forward(x)
-        backcast = self.backcast_g(self.relu(theta_backcast))
-        forecast = self.forecast_g(self.relu(theta_forecast))
-        return backcast, forecast
+    def forward(self, theta: torch.Tensor):
+        return theta[:, :self.backcast_size], theta[:, -self.forecast_size:]
 
 
-class _TrendBasis(nn.Module):
+class _TrendBasis(_NBeatsBlock):
     """
     Polynomial function to model trend.
     Trend model. A typical characteristic of trend is that most of the time it is a monotonic function,
@@ -170,7 +223,7 @@ class _TrendBasis(nn.Module):
     pass
 
 
-class _SeasonalityBasis(nn.Module):
+class _SeasonalityBasis(_NBeatsBlock):
     """
     Harmonic functions to model seasonality.
     Seasonality model. Typical characteristic of seasonality is that it is a regular, cyclical, recurring fluctuation.
