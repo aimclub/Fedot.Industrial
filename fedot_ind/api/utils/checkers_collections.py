@@ -74,12 +74,14 @@ class DataCheck:
             X, y = self.input_data[0], self.input_data[1]
             features, is_multivariate_data, target = self.__check_features_and_target(X, y)
 
-        if self.label_encoder is None and self.task == 'classification':
-            if type(y[0]) is np.str_:
+        if self.label_encoder is None:
+            if self.task == 'classification' and type(y[0]) is np.str_:
                 self.label_encoder = LabelEncoder()
-                target = self.label_encoder.fit_transform(target)
-            else:
-                self.label_encoder = self.label_encoder
+                self.label_encoder.fit(target)
+                target = self.label_encoder.transform(target)
+        else:
+            target = self.label_encoder.transform(target)
+
         if is_multivariate_data:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=features,

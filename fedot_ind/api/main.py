@@ -209,7 +209,11 @@ class FedotIndustrial(Fedot):
             predict = self.solver.predict(self.predict_data, 'labels').predict
             if self.config_dict['problem'] == 'classification' and self.predict_data.target.min() - predict.min() != 0:
                 predict = predict + (self.predict_data.target.min() - predict.min())
-        self.predicted_labels = predict if self.target_encoder is None else self.target_encoder.transform(predict)
+        if self.target_encoder is not None:
+            self.predicted_labels = self.target_encoder.inverse_transform(predict)
+            self.predict_data.target = self.target_encoder.inverse_transform(self.predict_data.target)
+        else:
+            self.predicted_labels = predict
         return self.predicted_labels
 
     def predict_proba(self,
