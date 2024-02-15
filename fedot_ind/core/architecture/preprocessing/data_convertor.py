@@ -296,6 +296,14 @@ class NumpyConverter:
         assert False, print(
             f'Please, review input dimensions {self.numpy_data.ndim}')
 
+    def convert_to_4d_torch_format(self):
+        if self.numpy_data.ndim == 4:
+            return self.numpy_data
+        return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                       1,
+                                       self.numpy_data.shape[1],
+                                       self.numpy_data.shape[2])
+
     def convert_to_torch_format(self):
         if self.numpy_data.ndim == 3:
             return self.numpy_data

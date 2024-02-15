@@ -18,6 +18,8 @@ torchvision
 statsforecast==1.5.0
 
 chardet
+fedot
+torch
 sphinx
 sphinx_rtd_theme
 autodocsumm

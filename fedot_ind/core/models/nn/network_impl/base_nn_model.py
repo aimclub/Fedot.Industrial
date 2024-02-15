@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from fedot.core.data.data import InputData, OutputData
@@ -11,7 +12,7 @@ from torch import Tensor
 from torch.optim import lr_scheduler
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
-    convert_to_3d_torch_array, fedot_data_type
+    convert_to_4d_torch_array, fedot_data_type
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
@@ -32,8 +33,7 @@ class BaseNeuralModel:
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
             with IndustrialModels():
-                pipeline = PipelineBuilder().add_node('minirocket_features').add_node(
-                    'rf').build()
+                pipeline = PipelineBuilder().add_node('resnet_model').add_node('rf').build()
                 input_data = init_input_data(train_data[0], train_data[1])
                 pipeline.fit(input_data)
                 features = pipeline.predict(input_data)
@@ -42,21 +42,19 @@ class BaseNeuralModel:
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', None)
-        self.epochs = params.get('epochs', 30)
+        self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 16)
         self.activation = params.get('activation', 'ReLU')
         self.learning_rate = 0.001
 
-        print(
-            f'Epoch: {self.epochs}, Batch Size: {self.batch_size}, Activation_function: {self.activation}')
+        self.label_encoder = None
 
     @convert_inputdata_to_torch_dataset
     def _create_dataset(self, ts: InputData):
         return ts
 
-    def _init_model(self, ts):
-        self.model = None
-        return
+    def _init_model(self, ts) -> tuple:
+        NotImplementedError()
 
     def _evaluate_num_of_epochs(self, ts):
         min_num_epochs = min(100, round(ts.features.shape[0] * 1.5))
@@ -65,7 +63,7 @@ class BaseNeuralModel:
         else:
             self.epochs = max(min_num_epochs, self.epochs)
 
-    def _convert_predict(self, pred, output_mode):
+    def _convert_predict(self, pred, output_mode: str = 'labels'):
         pred = F.softmax(pred, dim=1)
 
         if output_mode == 'labels':
@@ -116,7 +114,7 @@ class BaseNeuralModel:
         del self.model
         with torch.no_grad():
             torch.cuda.empty_cache()
-        self.model = self.model_for_inference.to(torch.device('cpu'))
+        self.model = self.model_for_inference.model.to(torch.device('cpu'))
         self.model.load_state_dict(torch.load(
             prefix, map_location=torch.device('cpu')))
         os.remove(prefix)
@@ -138,7 +136,7 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                loss = loss_fn(output, targets.float())
+                loss = loss_fn()(output, targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
@@ -151,7 +149,7 @@ class BaseNeuralModel:
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
-                    loss = loss_fn(output, targets.float())
+                    loss = loss_fn()(output, targets.float())
                     valid_loss += loss.data.item() * inputs.size(0)
                 valid_loss /= len(val_loader.dataset)
                 print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,
@@ -167,12 +165,22 @@ class BaseNeuralModel:
             print('Updating learning rate to {}'.format(
                 scheduler.get_last_lr()[0]))
 
-    @convert_to_3d_torch_array
+    @convert_to_4d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
-        self._train_loop(*self._prepare_data(ts, split_data),
-                         *self._init_model(ts))
 
-    @convert_to_3d_torch_array
+        if ts.task.task_type.value == 'classification':
+            ts.target = pd.get_dummies(ts.target.flatten()).values
+        loss_fn, optimizer = self._init_model(ts)
+        train_loader, val_loader = self._prepare_data(ts, split_data)
+
+        self._train_loop(
+            train_loader=train_loader,
+            val_loader=val_loader,
+            loss_fn=loss_fn,
+            optimizer=optimizer
+        )
+
+    @convert_to_4d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
         x_test = Tensor(x_test).to(default_device('cpu'))

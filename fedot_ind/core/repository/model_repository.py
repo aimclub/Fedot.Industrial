@@ -29,8 +29,8 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
     RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation, GLMImplementation
-from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, RandomForestClassifier, \
-    RandomForestRegressor
+from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
+    RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
     LinearRegression as SklearnLinReg,
@@ -76,7 +76,6 @@ TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
                                  'dimension_reduction': FeatureFilter,
                                  # 'signal_extractor': SignalExtractor,
-                                 'recurrence_extractor': RecurrenceExtractor,
                                  # isolation_forest forest
                                  'isolation_forest_class': IsolationForestClassImplementation,
                                  'isolation_forest_reg': IsolationForestRegImplementation,
@@ -85,7 +84,8 @@ TEMPORARY_EXCLUDED = {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
         'adareg': AdaBoostRegressor,
-        'linear': SklearnLinReg
+        'linear': SklearnLinReg,
+        'knnreg': FedotKnnRegImplementation,
     },
     'SKLEARN_CLF_MODELS': {'bernb': SklearnBernoulliNB,
                            'multinb': SklearnMultinomialNB,
@@ -138,7 +138,7 @@ class AtomizedModel(Enum):
         'wavelet_basis': WaveletBasisImplementation,
         'fourier_basis': FourierBasisImplementation,
         # feature extraction algorithm
-
+        'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
@@ -157,7 +157,6 @@ class AtomizedModel(Enum):
         'ridge': SklearnRidgeReg,
         'lasso': SklearnLassoReg,
         # solo tree models (small datasets)
-        'knnreg': FedotKnnRegImplementation,
         'dtreg': DecisionTreeRegressor
     }
 
@@ -237,6 +236,7 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'label_encoding',
                               'isolation_forest_class',
                               'signal_extractor',
+                               'knnreg',
                               'recurrence_extractor'
     ]}
     available_operations = [

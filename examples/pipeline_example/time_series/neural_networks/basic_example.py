@@ -2,9 +2,9 @@ import pandas as pd
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from examples.example_utils import evaluate_metric
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.tools.example_utils import evaluate_metric
 from fedot_ind.tools.loader import DataLoader
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.operations.atomized_model import AtomizedModel
