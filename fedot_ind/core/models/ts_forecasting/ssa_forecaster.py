@@ -104,6 +104,7 @@ class SSAForecasterImplementation(ModelImplementation):
         return current_dynamics
 
     def predict(self, input_data: InputData) -> OutputData:
+        input_data.features = input_data.features[-self.history_lookback:].squeeze()
         hankel_matrix = HankelMatrix(time_series=input_data.features,
                                      window_size=self._decomposer.window_size).trajectory_matrix
         U, s, VT = np.linalg.svd(hankel_matrix)
@@ -159,9 +160,11 @@ class SSAForecasterImplementation(ModelImplementation):
     def predict_for_fit(self, input_data: InputData) -> OutputData:
         if self.horizon is None:
             self.horizon = input_data.task.task_params.forecast_length
+
         if input_data.features.shape[0] > self.history_lookback:
-            self.history_lookback = round(input_data.features.shape[0] * 0.2) \
-                if self.history_lookback == 0 else self.history_lookback
+            if self.history_lookback == 0:
+                self.history_lookback = round(input_data.features.shape[0] * 0.2)
+            self.history_lookback = min(round(input_data.features.shape[0] * 0.2), 1000)
             input_data.features = input_data.features[-self.history_lookback:].squeeze()
         else:
             self.history_lookback = None

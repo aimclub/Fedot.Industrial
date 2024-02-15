@@ -1,6 +1,6 @@
 import matplotlib
+from examples.simple.time_series_forecasting.api_forecasting import get_ts_data
 
-from fedot_ind.tools.example_utils import get_ts_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import smape
 from fedot.core.data.data import InputData
