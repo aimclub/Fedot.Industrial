@@ -20,6 +20,7 @@ from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimiz
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, FEDOT_HEAD_ENSEMBLE, \
     FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS, FEDOT_TUNER_STRATEGY
+from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer
@@ -253,33 +254,18 @@ class FedotIndustrial(Fedot):
 
             """
 
-        train_data = DataCheck(
-            input_data=train_data, task=self.config_dict['problem']).check_input_data()
-        if tuning_params is None:
-            tuning_params = {}
+        train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
+        tuning_params = {} if tuning_params is None else tuning_params
         tuned_metric = 0
-        metric = FEDOT_TUNING_METRICS[self.config_dict['problem']]
+        tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
         for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-            tuned_copy = deepcopy(self.solver)
-            pipeline_tuner = TunerBuilder(train_data.task) \
-                .with_tuner(tuner_type) \
-                .with_metric(metric) \
-                .with_cv_folds(tuning_params.get('cv_folds', 3)) \
-                .with_timeout(tuning_params.get('tuning_timeout', 10)) \
-                .with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 15)) \
-                .with_iterations(tuning_params.get('tuning_iterations', 100)) \
-                .build(train_data)
-            if mode == 'full':
-                batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
-                                   automl_branch.name in FEDOT_HEAD_ENSEMBLE]
-                for b_pipeline in batch_pipelines:
-                    b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(
-                        b_pipeline.fitted_operation.current_pipeline)
-                    b_pipeline.fitted_operation.current_pipeline.fit(train_data)
-            pipeline_tuner.tune(tuned_copy)
+            model_to_tune = deepcopy(self.solver.current_pipeline) if isinstance(self.solver,Fedot) \
+                else deepcopy(self.solver)
+            tuning_params['tuner'] = tuner_type
+            pipeline_tuner, model_to_tune = build_tuner(self, model_to_tune, tuning_params, train_data, mode)
             if abs(pipeline_tuner.obtained_metric) > tuned_metric:
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
-                self.solver = tuned_copy
+                self.solver = model_to_tune
 
     def get_metrics(self, target=None,
                     metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),

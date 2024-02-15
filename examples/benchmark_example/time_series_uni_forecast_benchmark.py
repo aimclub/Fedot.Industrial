@@ -1,12 +1,9 @@
-from fedot.core.repository.tasks import TsForecastingParams
 from benchmark.benchmark_TSF import BenchmarkTSF
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
+from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH
 
 ml_task = 'ts_forecasting'
-available_operations = default_industrial_availiable_operation(ml_task)
 experiment_setup = {'problem': ml_task,
                     'metric': 'rmse',
-                    'task_params': TsForecastingParams(forecast_length=14),
                     'timeout': 60,
                     'num_of_generations': 10,
                     'pop_size': 10,
@@ -19,5 +16,5 @@ experiment_setup = {'problem': ml_task,
 
 if __name__ == "__main__":
     benchmark = BenchmarkTSF(experiment_setup=experiment_setup,
-                             custom_datasets=['M3_Monthly_M10'])
+                             custom_datasets=M4_FORECASTING_BENCH)
     benchmark.run()

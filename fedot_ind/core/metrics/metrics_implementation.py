@@ -41,7 +41,7 @@ class QualityMetric:
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
-                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                         'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         if len(predicted_labels.shape) >= 2:
@@ -67,6 +67,13 @@ class QualityMetric:
 class RMSE(QualityMetric):
     def metric(self) -> float:
         return mean_squared_error(y_true=self.target, y_pred=self.predicted_labels, squared=False)
+
+
+class SMAPE(QualityMetric):
+    def metric(self):
+        return 1 / len(self.predicted_labels) * \
+               np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
+                                                                         + np.abs(self.target)) * 100)
 
 
 class MSE(QualityMetric):
