@@ -167,9 +167,6 @@ class BaseNeuralModel:
 
     @convert_to_4d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
-
-        if ts.task.task_type.value == 'classification':
-            ts.target = pd.get_dummies(ts.target.flatten()).values
         loss_fn, optimizer = self._init_model(ts)
         train_loader, val_loader = self._prepare_data(ts, split_data)
 

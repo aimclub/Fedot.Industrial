@@ -142,6 +142,9 @@ class ResNetModel(BaseNeuralModel):
             loss_fn = RMSE
         return loss_fn, optimizer
 
+    def __repr__(self):
+        return self.model_name
+
     def _prepare_data(self, ts, split_data: bool = True):
 
         train_data, val_data = train_test_data_setup(

@@ -33,7 +33,7 @@ class CustomDatasetTS:
 class CustomDatasetCLF:
     def __init__(self, ts):
         self.x = torch.from_numpy(ts.features).to(default_device()).float()
-        if ts.task.task_type == 'classification':
+        if ts.task.task_type.value == 'classification':
             label_1 = max(ts.class_labels)
             label_0 = min(ts.class_labels)
             self.classes = ts.num_classes
