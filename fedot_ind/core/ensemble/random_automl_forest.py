@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from fedot.core.data.data import InputData
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline import Pipeline
@@ -5,7 +7,9 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold, train_test_split
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.repository.constanst_repository import FEDOT_ATOMIZE_OPERATION, FEDOT_HEAD_ENSEMBLE, FEDOT_TASK
+from fedot_ind.core.repository.constanst_repository import FEDOT_ATOMIZE_OPERATION, FEDOT_HEAD_ENSEMBLE, FEDOT_TASK, \
+    FEDOT_ENSEMBLE_ASSUMPTIONS
+from fedot_ind.core.repository.model_repository import SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS
 
 
 class RAFensembler:
@@ -81,7 +85,13 @@ class RAFensembler:
                 branch_idx=i)
             data_dict.update({f'data_source_img/{i}': train_fold})
         train_multimodal = MultiModalData(data_dict)
+        head_automl_params = deepcopy(self.atomized_automl_params)
+        head_automl_params['available_operations'] = [operation for operation
+                                                      in head_automl_params['available_operations']
+                                                      if operation in list(SKLEARN_CLF_MODELS.keys())
+                                                      or operation in list(SKLEARN_REG_MODELS.keys())]
+        head_automl_params['initial_assumption'] = FEDOT_ENSEMBLE_ASSUMPTIONS[self.atomized_automl_params['problem']].build()
         raf_ensemble = raf_ensemble.join_branches(self.head,
-                                                  params=self.atomized_automl_params).build()
+                                                  params=head_automl_params).build()
         raf_ensemble.fit(input_data=train_multimodal)
         return raf_ensemble

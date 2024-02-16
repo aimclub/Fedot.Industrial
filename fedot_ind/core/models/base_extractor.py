@@ -3,12 +3,13 @@ import math
 from itertools import chain
 from multiprocessing import cpu_count
 from typing import Optional
+import pandas as pd
+import numpy as np
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
-from tqdm import tqdm
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
@@ -59,7 +60,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         parallel = Parallel(n_jobs=self.n_processes,
                             verbose=0, pre_dispatch="2*n_jobs")
         feature_matrix = parallel(delayed(self.generate_features_from_ts)(
-            sample) for sample in tqdm(input_data.features))
+            sample) for sample in input_data.features)
 
         if len(feature_matrix[0].features.shape) > 1:
             stacked_data = np.stack([ts.features for ts in feature_matrix])
@@ -92,6 +93,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         Method for creating baseline quantile features for a given time series.
 
         Args:
+            add_global_features: if True, global features are added to the feature set
             time_series: time series for which features are generated
 
         Returns:

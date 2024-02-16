@@ -7,9 +7,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
-from scipy import stats
 from tensorly.decomposition import parafac
-from tqdm import tqdm
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -39,6 +37,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         self.low_rank_approximation = params.get(
             'low_rank_approximation', True)
         self.tensor_approximation = params.get('tensor_approximation', False)
+        self.rank_regularization = params.get(
+            'rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = []
         self.SV_threshold = None
@@ -48,16 +48,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return 'EigenBasisImplementation'
 
     def _channel_decompose(self, features):
+        number_of_dim = list(range(features.shape[1]))
         predict = []
         if self.SV_threshold is None:
             self.SV_threshold = max(self.get_threshold(data=features), 2)
             self.logging_params.update({'SV_thr': self.SV_threshold})
-        for dimension in range(features.shape[1]):
-            parallel = Parallel(n_jobs=self.n_processes,
-                                verbose=0, pre_dispatch="2*n_jobs")
-            v = parallel(delayed(self._transform_one_sample)(sample)
-                         for sample in features[:, dimension, :])
-            predict.append(np.array(v) if len(v) > 1 else v[0])
+
+        if len(number_of_dim) == 1:
+            predict.append(self._transform_one_sample(features[:, 0, :]))
+        else:
+            for dimension in number_of_dim:
+                parallel = Parallel(n_jobs=self.n_processes,
+                                    verbose=0, pre_dispatch="2*n_jobs")
+                v = parallel(delayed(self._transform_one_sample)(sample)
+                             for sample in features[:, dimension, :])
+                predict.append(np.array(v) if len(v) > 1 else v[0])
         return predict
 
     def _convert_basis_to_predict(self, basis, input_data):
@@ -93,18 +98,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return predict
 
     def _get_1d_basis(self, data):
-        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(Monoid[0],
-                                                                          Monoid[1],
-                                                                          Monoid[2],
-                                                                          ts_length=self.ts_length))
+        def data_driven_basis(Monoid):
+            return ListMonad(reconstruct_basis(Monoid[0],
+                                               Monoid[1],
+                                               Monoid[2],
+                                               ts_length=self.ts_length))
 
-        def threshold(Monoid): return ListMonad([Monoid[0],
-                                                 Monoid[1][:self.SV_threshold],
-                                                 Monoid[2]])
+        def threshold(Monoid):
+            return ListMonad([Monoid[0],
+                              Monoid[1][:self.SV_threshold],
+                              Monoid[2]])
 
-        def svd(x): return ListMonad(self.svd_estimator.rsvd(tensor=x,
-                                                             approximation=self.low_rank_approximation,
-                                                             regularized_rank=self.SV_threshold))
+        def svd(x):
+            return ListMonad(self.svd_estimator.rsvd(tensor=x,
+                                                     approximation=self.low_rank_approximation,
+                                                     regularized_rank=self.SV_threshold))
 
         basis = Either.insert(data).then(svd).then(
             threshold).then(data_driven_basis).value[0]
@@ -140,14 +148,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def get_threshold(self, data) -> int:
         svd_numbers = []
-        def mode_func(x): return max(set(x), key=x.count)
-        for dimension in range(data.shape[1]):
-            dimension_rank = []
-            for signal in data[:, dimension, :]:
-                dimension_rank.append(
-                    self._transform_one_sample(signal, svd_flag=True))
+
+        def mode_func(x):
+            return max(set(x), key=x.count)
+
+        number_of_dim = list(range(data.shape[1]))
+        if len(number_of_dim) == 1:
+            return self._transform_one_sample(data[:, 0, :], svd_flag=True)
+        else:
+            for dimension in number_of_dim:
+                dimension_rank = []
+                for signal in data[:, dimension, :]:
+                    dimension_rank.append(
+                        self._transform_one_sample(signal, svd_flag=True))
             svd_numbers.append(mode_func(dimension_rank))
-        return mode_func(svd_numbers)
+            return mode_func(svd_numbers)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(
@@ -162,12 +177,14 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def estimate_singular_values(self, data):
         def svd(x): return ListMonad(self.svd_estimator.rsvd(
-            tensor=x, approximation=self.low_rank_approximation))
+            tensor=x,
+            approximation=self.low_rank_approximation,
+            reg_type=self.rank_regularization))
 
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
         rank = len(spectrum)
         self.explained_dispersion.append(
-            [round(x / sum(spectrum) * 100) for x in spectrum][:rank])
+            [round(x / sum(spectrum) * 100) for x in spectrum])
         # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
         return rank

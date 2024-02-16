@@ -146,3 +146,6 @@ def test_plot_methods(fedot_industrial_classification):
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     fedot_industrial_classification.explain()
+
+
+# def test__batch_strategy()

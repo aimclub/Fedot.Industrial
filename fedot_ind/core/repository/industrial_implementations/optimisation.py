@@ -28,7 +28,6 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
-
 from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED
 
 

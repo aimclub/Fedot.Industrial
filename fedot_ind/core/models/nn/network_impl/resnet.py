@@ -3,23 +3,25 @@ from typing import Optional
 import torch
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.operation_parameters import OperationParameters
+from torch import nn
 from torch import optim, Tensor
+from torchvision.models import ResNet, resnet101, resnet152, resnet18, resnet34, resnet50
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
-
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
-
-from torch import nn
-from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152, ResNet
 
 
 def resnet18_one_channel(**kwargs) -> ResNet:
     """ResNet18 for one input channel"""
     model = resnet18(**kwargs)
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7,
-                            stride=2, padding=3, bias=False)
+    model.conv1 = nn.Conv2d(in_channels=1,
+                            out_channels=64,
+                            kernel_size=7,
+                            stride=2,
+                            padding=3,
+                            bias=False)
     return model
 
 
@@ -81,7 +83,7 @@ class ResNet:
     def __init__(self,
                  input_dim,
                  output_dim,
-                 model_name):
+                 model_name: str = 'ResNet18one'):
         model_list = {**CLF_MODELS, **CLF_MODELS_ONE_CHANNEL}
         self.model = model_list[model_name](num_classes=output_dim)
 
@@ -116,18 +118,22 @@ class ResNetModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
+        super().__init__(params)
         self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 32)
-        self.model_name = params.get('model_name', 'ResNet18')
+        self.batch_size = params.get('batch_size', 1)
+        self.model_name = params.get('model_name', 'ResNet18one')
 
     def _init_model(self, ts):
+        self.model_for_inference = ResNet(input_dim=ts.features.shape[1],
+                                          output_dim=self.num_classes,
+                                          model_name=self.model_name)
 
         self.model = ResNet(input_dim=ts.features.shape[1],
                             output_dim=self.num_classes,
                             model_name=self.model_name)
         self.model = self.model.model
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        if ts.task.task_type == 'classification':
+        if ts.task.task_type.value == 'classification':
             if ts.num_classes == 2:
                 loss_fn = CROSS_ENTROPY
             else:
@@ -136,22 +142,24 @@ class ResNetModel(BaseNeuralModel):
             loss_fn = RMSE
         return loss_fn, optimizer
 
+    def __repr__(self):
+        return self.model_name
+
     def _prepare_data(self, ts, split_data: bool = True):
+
         train_data, val_data = train_test_data_setup(
             ts, shuffle_flag=True, split_ratio=0.7)
         train_dataset = self._create_dataset(train_data)
-        # train_dataset.x = train_dataset.x.permute(0, 3, 1, 2)
         val_dataset = self._create_dataset(val_data)
-        # val_dataset.x = val_dataset.x.permute(0, 3, 1, 2)
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(
             val_dataset, batch_size=self.batch_size, shuffle=True)
         return train_loader, val_loader
 
-    @convert_to_3d_torch_array
+    @convert_to_4d_torch_array
     def _predict_model(self, x_test):
         self.model.eval()
-        x_test = Tensor(x_test).permute(0, 3, 1, 2).to(default_device())
+        x_test = Tensor(x_test).to(default_device())
         pred = self.model(x_test)
         return self._convert_predict(pred)

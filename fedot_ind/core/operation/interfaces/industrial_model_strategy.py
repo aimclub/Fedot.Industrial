@@ -27,6 +27,7 @@ class FedotNNClassificationStrategy(EvaluationStrategy):
         self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
                                                                   operation_type,
                                                                   mode='multi_dimensional')
+        self.multi_dim_dispatcher.params_for_fit = params
 
     def fit(self, train_data: InputData):
         return self.multi_dim_dispatcher.fit(train_data)
@@ -48,7 +49,7 @@ class FedotNNRegressionStrategy(FedotNNClassificationStrategy):
         self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
                                                                   operation_type,
                                                                   mode='multi_dimensional')
-
+        self.multi_dim_dispatcher.params_for_fit = params
 
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
     __operations_by_types = {

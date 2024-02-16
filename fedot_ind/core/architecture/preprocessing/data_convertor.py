@@ -33,7 +33,7 @@ class CustomDatasetTS:
 class CustomDatasetCLF:
     def __init__(self, ts):
         self.x = torch.from_numpy(ts.features).to(default_device()).float()
-        if ts.task.task_type == 'classification':
+        if ts.task.task_type.value == 'classification':
             label_1 = max(ts.class_labels)
             label_0 = min(ts.class_labels)
             self.classes = ts.num_classes
@@ -171,10 +171,12 @@ class FedotConverter:
                                    data_type=self.input_data.data_type,
                                    supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
-            flat_input = self.input_data.features.shape[0] == 1 or len(
-                self.input_data.features.shape) == 1
-            feats = self.input_data.features if flat_input else \
-                self.input_data.features.swapaxes(1, 0)
+            if len(self.input_data.features.shape) == 1:
+                self.input_data.features = self.input_data.features.reshape(
+                    1, -1)
+            flat_input = self.input_data.features.shape[0] == 1
+            feats = self.input_data.features if flat_input else self.input_data.features.swapaxes(
+                1, 0)
             input_data = [InputData(idx=self.input_data.idx,
                                     features=features,
                                     target=self.input_data.target,
@@ -295,6 +297,14 @@ class NumpyConverter:
             return self.numpy_data[:, None]
         assert False, print(
             f'Please, review input dimensions {self.numpy_data.ndim}')
+
+    def convert_to_4d_torch_format(self):
+        if self.numpy_data.ndim == 4:
+            return self.numpy_data
+        return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                       1,
+                                       self.numpy_data.shape[1],
+                                       self.numpy_data.shape[2])
 
     def convert_to_torch_format(self):
         if self.numpy_data.ndim == 3:

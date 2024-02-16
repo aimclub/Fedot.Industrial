@@ -29,11 +29,14 @@ class DataCheck:
 
     def __init__(self,
                  input_data: Union[tuple, InputData] = None,
-                 task: str = None):
+                 task: str = None,
+                 task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.input_data = input_data
         self.task = task
+        self.task_params = task_params
         self.task_dict = FEDOT_TASK
+        self.label_encoder = None
 
     def __check_features_and_target(self, X, y):
         multi_features, X = check_multivariate_data(X)
@@ -72,9 +75,13 @@ class DataCheck:
             features, is_multivariate_data, target = self.__check_features_and_target(
                 X, y)
 
-        if y is not None and type(y[0]) is np.str_ and self.task == 'classification':
-            label_encoder = LabelEncoder()
-            target = label_encoder.fit_transform(target)
+        if self.label_encoder is None:
+            if self.task == 'classification' and type(y[0]) is np.str_:
+                self.label_encoder = LabelEncoder()
+                self.label_encoder.fit(target)
+                target = self.label_encoder.transform(target)
+        else:
+            target = self.label_encoder.transform(target)
 
         if is_multivariate_data:
             self.input_data = InputData(idx=np.arange(len(X)),
@@ -85,10 +92,11 @@ class DataCheck:
         elif self.task == 'ts_forecasting':
             if type(self.input_data) is pd.DataFrame:
                 features_array = np.array(self.input_data.values)
+            ts_task = self.task_dict[self.task]
+            ts_task.task_params = self.task_params
             self.input_data = InputData.from_numpy_time_series(
-                features_array=features_array)
-            # self.input_data.data_type = DataTypesEnum.image
-
+                features_array=features_array,
+                task=ts_task)
         else:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=X,
@@ -146,3 +154,6 @@ class DataCheck:
         self._check_input_data_features()
         self._check_input_data_target()
         return self.input_data
+
+    def get_target_encoder(self):
+        return self.label_encoder

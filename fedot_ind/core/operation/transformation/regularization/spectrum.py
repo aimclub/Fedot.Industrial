@@ -3,7 +3,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
 
 
-def sv_to_explained_variance_ratio(singular_values, rank):
+def sv_to_explained_variance_ratio(singular_values, dispersion_by_component):
     """Calculate the explained variance ratio of the singular values.
 
     Args:
@@ -16,10 +16,10 @@ def sv_to_explained_variance_ratio(singular_values, rank):
 
     """
     singular_values = [abs(x) for x in singular_values]
-    n_components = [x / sum(singular_values) *
-                    100 for x in singular_values][:rank]
+    n_components = [x / sum(singular_values) * 100 for x in singular_values]
+    n_components = [x for x in n_components if x > dispersion_by_component]
     explained_variance = sum(n_components)
-    n_components = rank
+    n_components = len(n_components)
     return explained_variance, n_components
 
 
