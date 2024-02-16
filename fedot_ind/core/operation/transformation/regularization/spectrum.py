@@ -17,7 +17,7 @@ def sv_to_explained_variance_ratio(singular_values, dispersion_by_component):
     """
     singular_values = [abs(x) for x in singular_values]
     n_components = [x / sum(singular_values) * 100 for x in singular_values]
-    n_components = [x for x in n_components if x>dispersion_by_component]
+    n_components = [x for x in n_components if x > dispersion_by_component]
     explained_variance = sum(n_components)
     n_components = len(n_components)
     return explained_variance, n_components

@@ -180,16 +180,19 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             return self._custom_fit(train_data)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        data_type, predict_data_copy = FedotConverter(predict_data).unwrap_list_to_output()
+        data_type, predict_data_copy = FedotConverter(
+            predict_data).unwrap_list_to_output()
         # Create data condition checker
-        self.operation_condition = ConditionConverter(predict_data, trained_operation, self.mode)
+        self.operation_condition = ConditionConverter(
+            predict_data, trained_operation, self.mode)
 
         if self.operation_condition.is_one_dim_operation:
             if self.operation_condition.have_predict_for_fit_method:
                 # try except because some model implementation  have a different logic in predict
                 # and predict for fit methods and it leads to errors
                 try:
-                    prediction = trained_operation.predict_for_fit(predict_data)
+                    prediction = trained_operation.predict_for_fit(
+                        predict_data)
                 except Exception:
                     prediction = self._sklearn_compatible_prediction(trained_operation=trained_operation,
                                                                      predict_data=predict_data,

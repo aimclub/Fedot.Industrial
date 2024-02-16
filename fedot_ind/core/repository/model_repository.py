@@ -236,7 +236,7 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'label_encoding',
                               'isolation_forest_class',
                               'signal_extractor',
-                               'knnreg',
+        'knnreg',
                               'recurrence_extractor'
     ]}
     available_operations = [

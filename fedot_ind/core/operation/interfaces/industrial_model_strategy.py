@@ -82,11 +82,13 @@ class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy)
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode=output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode=output_mode)
 
 
@@ -106,11 +108,13 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         super().__init__(operation_type, params)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
 
 

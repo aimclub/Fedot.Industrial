@@ -378,7 +378,8 @@ class BenchmarkDatasets(Enum):
                             'Y7134', 'Y7490', 'Y7503',
                             'Y7642', 'Y7690', 'Y7692', 'Y7942', 'Y7943', 'Y7967']
     M4_FORECASTING_LENGTH = {'D': 14, 'W': 13, 'M': 18, 'Q': 8, 'Y': 6}
-    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly', 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
+    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly',
+                 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
     UNI_CLF_BENCH = [
         "ACSF1",
         "Adiac",

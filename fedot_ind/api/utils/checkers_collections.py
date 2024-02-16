@@ -72,7 +72,8 @@ class DataCheck:
         is_multivariate_data = False
         if isinstance(self.input_data, tuple):
             X, y = self.input_data[0], self.input_data[1]
-            features, is_multivariate_data, target = self.__check_features_and_target(X, y)
+            features, is_multivariate_data, target = self.__check_features_and_target(
+                X, y)
 
         if self.label_encoder is None:
             if self.task == 'classification' and type(y[0]) is np.str_:
