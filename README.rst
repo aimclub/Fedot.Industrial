@@ -177,6 +177,152 @@ Fedot.Ind предоставляет высокоуровневый API, кот�
      - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
 
 
+Бенчмаркинг
+============
+
+Классификация одномерных временных рядов
+-----------------------------------------
+
+Бенчмаркинг проводился на выборке из 112/144 датасетов из архива `UCR`..
+
+.. list-table::
+   :widths: 100 30 30 30 30
+
+   * - Алгоритм
+     - Top-1
+     - Top-3
+     - Top-5
+     - Top-Half
+   * - **Fedot_Industrial**
+     - 17.0
+     - 23.0
+     - 26.0
+     - 38
+   * - HC2
+     - 16.0
+     - 55.0
+     - 77.0
+     - 88
+   * - FreshPRINCE
+     - 15.0
+     - 22.0
+     - 32.0
+     - 48
+   * - InceptionT
+     - 14.0
+     - 32.0
+     - 54.0
+     - 69
+   * - Hydra-MR
+     - 13.0
+     - 48.0
+     - 69.0
+     - 77
+   * - RDST
+     - 7.0
+     - 21.0
+     - 50.0
+     - 73
+   * - RSTSF
+     - 6.0
+     - 19.0
+     - 35.0
+     - 65
+   * - WEASEL_D
+     - 4.0
+     - 20.0
+     - 36.0
+     - 59
+   * - TS-CHIEF
+     - 3.0
+     - 11.0
+     - 21.0
+     - 30
+   * - HIVE-COTE v1.0
+     - 2.0
+     - 9.0
+     - 18.0
+     - 27
+   * - PF
+     - 2.0
+     - 9.0
+     - 27.0
+     - 40
+
+
+Классификация многомерных временных рядов
+------------------------------------------
+
+Бенчмаркинг проводился на следубщей выборке датасетов:
+BasicMotions, Cricket, LSST, FingerMovements, HandMovementDirection, NATOPS, PenDigits, RacketSports, Heartbeat, AtrialFibrillation, SelfRegulationSCP2
+
+.. list-table::
+   :widths: 100 30
+
+   * - Алгоритм
+     - Средний ранг
+   * - HC2
+     - 5.038462
+   * - ROCKET
+     - 6.480769
+   * - Arsenal
+     - 7.615385
+   * - **Fedot_Industrial**
+     - 7.711538
+   * - DrCIF
+     - 7.711538
+   * - CIF
+     - 8.519231
+   * - MUSE
+     - 8.700000
+   * - HC1
+     - 9.211538
+   * - TDE
+     - 9.730769
+   * - ResNet
+     - 10.346154
+   * - mrseql
+     - 10.625000
+
+
+Регрессия временных рядов
+--------------------------
+
+Бенчмаркинг проводился на следующих датасетах:
+HouseholdPowerConsumption1, AppliancesEnergy, HouseholdPowerConsumption2, IEEEPPG, FloodModeling1, BeijingPM25Quality, BenzeneConcentration, FloodModeling3, BeijingPM10Quality, FloodModeling2, AustraliaRainfall
+
+
+.. list-table::
+   :widths: 100 30
+
+   * - Алгоритм
+     - Средний ранг
+   * - FreshPRINCE
+     - 6.014286
+   * - DrCIF
+     - 6.785714
+   * - **Fedot_Industrial**
+     - 8.114286
+   * - InceptionT
+     - 8.957143
+   * - RotF
+     - 9.414286
+   * - RIST
+     - 9.785714
+   * - TSF
+     - 9.928571
+   * - RandF
+     - 10.285714
+   * - MultiROCKET
+     - 10.557143
+   * - ResNet
+     - 11.171429
+   * - SingleInception
+     - 11.571429
+
+
+
+
 Применение на реальных данных
 ==============================
 
