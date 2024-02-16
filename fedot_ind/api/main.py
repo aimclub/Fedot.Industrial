@@ -3,12 +3,12 @@ import os
 import warnings
 from copy import deepcopy
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
@@ -17,9 +17,9 @@ from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
-from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, FEDOT_HEAD_ENSEMBLE, \
-    FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS, FEDOT_TUNER_STRATEGY
+from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_API_PARAMS, \
+    FEDOT_ASSUMPTIONS, FEDOT_GET_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TUNING_METRICS, FEDOT_WORKER_NUM, \
+    FEDOT_WORKER_TIMEOUT_PARTITION
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
@@ -136,8 +136,8 @@ class FedotIndustrial(Fedot):
     def _predict_raf_ensemble(self):
         self.predict_for_ensemble_branch = [x.predict(self.predict_data).predict for x in self.solver[1:]]
         n_samples, n_channels, n_classes = self.predict_for_ensemble_branch[0].shape[0], \
-                                           len(self.predict_for_ensemble_branch), \
-                                           self.predict_for_ensemble_branch[0].shape[1]
+            len(self.predict_for_ensemble_branch), \
+            self.predict_for_ensemble_branch[0].shape[1]
         input_for_head = np.hstack(self.predict_for_ensemble_branch).reshape(n_samples, n_channels, n_classes)
         self.predict_data.features = input_for_head
         self.predict_for_head_ensemble = self.solver[0].predict(self.predict_data).predict
@@ -150,8 +150,8 @@ class FedotIndustrial(Fedot):
 
     def _batch_strategy(self, input_data):
         self.logger.info('RAF algorithm was applied')
-        batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-                                                                              is not None else FEDOT_WORKER_NUM)
+        batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers is not None
+                           else FEDOT_WORKER_NUM)
         batch_timeout = round(
             self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
         self.config_dict['timeout'] = batch_timeout
@@ -259,7 +259,7 @@ class FedotIndustrial(Fedot):
         tuned_metric = 0
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
         for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-            model_to_tune = deepcopy(self.solver.current_pipeline) if isinstance(self.solver,Fedot) \
+            model_to_tune = deepcopy(self.solver.current_pipeline) if isinstance(self.solver, Fedot) \
                 else deepcopy(self.solver)
             tuning_params['tuner'] = tuner_type
             pipeline_tuner, model_to_tune = build_tuner(self, model_to_tune, tuning_params, train_data, mode)
