@@ -65,13 +65,16 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
+
         # init Fedot and Industrial hyperparams and path to results
         self.output_folder = kwargs.get('output_folder', None)
         self.preprocessing = kwargs.get('industrial_preprocessing', False)
         self.backend_method = kwargs.get('backend', 'cpu')
         self.RAF_workers = kwargs.get('RAF_workers', None)
         self.task_params = kwargs.get('task_params', None)
+        self.model_params = kwargs.get('model_params', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
+
         # create dirs with results
         prefix = './composition_results' if self.path_to_composition_results is None else \
             self.path_to_composition_results
@@ -119,11 +122,12 @@ class FedotIndustrial(Fedot):
     def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
-        self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
         if self.config_dict['problem'] == 'ts_forecasting':
-            solver = self.config_dict['initial_assumption']
+            solver = self.config_dict['initial_assumption'].build()
+            solver.root_node.parameters = self.model_params
         else:
             self.logger.info('Initialising Dask Server')
+            self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
             self.dask_client = DaskServer().client
             self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
             self.logger.info('Initialising solver')
