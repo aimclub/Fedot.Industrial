@@ -262,27 +262,27 @@ BasicMotions, Cricket, LSST, FingerMovements, HandMovementDirection, NATOPS, Pen
    * - Алгоритм
      - Средний ранг
    * - HC2
-     - 5.038462
+     - 5.038
    * - ROCKET
-     - 6.480769
+     - 6.481
    * - Arsenal
-     - 7.615385
+     - 7.615
    * - **Fedot_Industrial**
-     - 7.711538
+     - 7.712
    * - DrCIF
-     - 7.711538
+     - 7.712
    * - CIF
-     - 8.519231
+     - 8.519
    * - MUSE
-     - 8.700000
+     - 8.700
    * - HC1
-     - 9.211538
+     - 9.212
    * - TDE
-     - 9.730769
+     - 9.731
    * - ResNet
-     - 10.346154
+     - 10.346
    * - mrseql
-     - 10.625000
+     - 10.625
 
 
 Регрессия временных рядов
@@ -298,27 +298,27 @@ HouseholdPowerConsumption1, AppliancesEnergy, HouseholdPowerConsumption2, IEEEPP
    * - Алгоритм
      - Средний ранг
    * - FreshPRINCE
-     - 6.014286
+     - 6.014
    * - DrCIF
-     - 6.785714
+     - 6.786
    * - **Fedot_Industrial**
-     - 8.114286
+     - 8.114
    * - InceptionT
-     - 8.957143
+     - 8.957
    * - RotF
-     - 9.414286
+     - 9.414
    * - RIST
-     - 9.785714
+     - 9.786
    * - TSF
-     - 9.928571
+     - 9.929
    * - RandF
-     - 10.285714
+     - 10.286
    * - MultiROCKET
-     - 10.557143
+     - 10.557
    * - ResNet
-     - 11.171429
+     - 11.171
    * - SingleInception
-     - 11.571429
+     - 11.571
 
 
 
