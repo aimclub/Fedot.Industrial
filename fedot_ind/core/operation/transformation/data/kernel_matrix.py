@@ -20,10 +20,18 @@ class TSTransformer:
         distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.T)
         distance_matrix = np.ones(
             shape=distance_matrix.shape[0]) - distance_matrix
-        distance_matrix = self.binarization(
+        # distance_matrix = self.binarization(
+        #     distance_matrix, threshold=threshold)
+        distance_matrix = self.colorization(
             distance_matrix, threshold=threshold)
         self.recurrence_matrix = squareform(distance_matrix)
         return self.recurrence_matrix
+
+    def colorization(self, distance_matrix, threshold):
+        """Instead of binarization, we colorize the distance matrix by scaling the values to [0, 255]"""
+        distance_matrix = (distance_matrix - distance_matrix.min()) / \
+            (distance_matrix.max() - distance_matrix.min()) * 255
+        return np.round(distance_matrix)
 
     def binarization(self, distance_matrix, threshold):
         best_threshold_flag = False
