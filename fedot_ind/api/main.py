@@ -377,14 +377,17 @@ class FedotIndustrial(Fedot):
             f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
-        if not isinstance(self.solver, Fedot):
+        if isinstance(self.solver, Fedot):
+            return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
+                                                     is_datetime_in_path=True)
+        elif isinstance(self.solver, Pipeline):
+            return self.solver.save(path=self.output_folder, create_subdir=True,
+                                                     is_datetime_in_path=True)
+        else:
             for idx, p in enumerate(self.solver.ensemble_branches):
-                Pipeline(p).save(
-                    f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
-            Pipeline(self.solver.ensemble_head).save(
-                f'./raf_ensemble/ensemble_head', create_subdir=True)
-        return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
-                                                 is_datetime_in_path=True)
+                Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
+            Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
+
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""

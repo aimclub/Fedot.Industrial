@@ -154,7 +154,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         number_of_dim = list(range(data.shape[1]))
         if len(number_of_dim) == 1:
-            return self._transform_one_sample(data[:, 0, :], svd_flag=True)
+            svd_numbers = [self._transform_one_sample(signal, svd_flag=True) for signal in data[:, 0, :]]
         else:
             for dimension in number_of_dim:
                 dimension_rank = []
@@ -162,7 +162,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                     dimension_rank.append(
                         self._transform_one_sample(signal, svd_flag=True))
             svd_numbers.append(mode_func(dimension_rank))
-            return mode_func(svd_numbers)
+        return mode_func(svd_numbers)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         trajectory_transformer = HankelMatrix(

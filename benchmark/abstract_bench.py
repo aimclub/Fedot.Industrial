@@ -78,7 +78,7 @@ class AbstractBenchmark(object):
         model.load(path=composed_model_path)
         model.finetune(train_data)
         prediction = model.predict(test_data)
-        return prediction, model.predict_data.target
+        return prediction, model
 
     def collect_results(self, output_dir):
         """Collect the results of the benchmark.
