@@ -37,8 +37,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         self.low_rank_approximation = params.get(
             'low_rank_approximation', True)
         self.tensor_approximation = params.get('tensor_approximation', False)
-        self.rank_regularization = params.get(
-            'rank_regularization', 'hard_thresholding')
+        self.rank_regularization = params.get('rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = []
         self.SV_threshold = None
@@ -177,15 +176,17 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             return self._get_1d_basis(data)
 
     def estimate_singular_values(self, data):
-        def svd(x): return ListMonad(self.svd_estimator.rsvd(
-            tensor=x,
-            approximation=self.low_rank_approximation,
-            reg_type=self.rank_regularization))
+        def svd(x):
+            reg_type = self.rank_regularization if hasattr(self, 'rank_regularization') else \
+                'hard_thresholding'
+            return ListMonad(self.svd_estimator.rsvd(
+                tensor=x,
+                approximation=self.low_rank_approximation,
+                reg_type=reg_type))
 
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
         rank = len(spectrum)
         self.explained_dispersion.append(
             [round(x / sum(spectrum) * 100) for x in spectrum])
-        # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
         return rank

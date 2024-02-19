@@ -160,7 +160,8 @@
   },
   "eigen_basis": {
     "window_size": 25,
-    "sv_selector": "median"
+    "sv_selector": "median",
+    "rank_regularization": "hard_thresholding"
   },
   "wavelet_basis": {
     "wavelet": "mexh",

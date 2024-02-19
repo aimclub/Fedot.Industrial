@@ -517,6 +517,8 @@ class DataConverter(TensorConverter, NumpyConverter):
 
         if len(features.shape) == 2 and features.shape[1] == 1:
             features = features.reshape(1, -1)
+        elif len(features.shape) == 1:
+            features = features.reshape(1, 1, -1)
         elif len(features.shape) == 3 and features.shape[1] == 1:
             features = features.squeeze()
         return features

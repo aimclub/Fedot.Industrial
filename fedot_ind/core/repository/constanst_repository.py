@@ -9,6 +9,8 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from golem.core.tuning.iopt_tuner import IOptTuner
+from golem.core.tuning.optuna_tuner import OptunaTuner
 from torch import nn
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
@@ -154,7 +156,9 @@ class FedotOperationConstant(Enum):
     FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
                             'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {'sequential': partial(SequentialTuner, inverse_node_order=True),
-                            'simultaneous': SimultaneousTuner}
+                            'simultaneous': SimultaneousTuner,
+                            'IOptTuner': IOptTuner,
+                            'optuna': OptunaTuner}
     FEDOT_HEAD_ENSEMBLE = {'regression': 'fedot_regr',
                            'classification': 'fedot_cls'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
