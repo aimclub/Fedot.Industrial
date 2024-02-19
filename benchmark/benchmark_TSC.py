@@ -1,6 +1,7 @@
 import gc
 import logging
 import os
+import shutil
 from abc import ABC
 from copy import deepcopy
 
@@ -67,30 +68,51 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
 
     def finetune(self):
         self.logger.info('Benchmark finetune started')
+        dataset_result = {}
         for dataset_name in self.custom_datasets:
             path_to_results = PROJECT_PATH + self.path_to_save + f'/{dataset_name}'
-            _ = [x for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')][0]
-            path_to_model = f'/{_}'
-            composed_model_path = PROJECT_PATH + self.path_to_save + \
-                                  f'/{dataset_name}' + path_to_model
-            if os.path.isdir(composed_model_path):
-                self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                         self.path_to_save
-                experiment_setup = deepcopy(self.experiment_setup)
-                prediction, target = self.finetune_loop(
-                    dataset_name, experiment_setup, composed_model_path)
-                metric = Accuracy(target, prediction.ravel()).metric()
-                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                            'metrics_report.csv')
-                fedot_results = pd.read_csv(dataset_path, index_col=0)
-                fedot_results.loc[dataset_name,
-                                  'Fedot_Industrial_finetuned'] = metric
-
+            composed_model_path = [path_to_results + f'/{x}' for x in os.listdir(path_to_results)
+                                   if x.__contains__('pipeline_saved')]
+            metric_result = {}
+            for p in composed_model_path:
+                if os.path.isdir(p):
+                    try:
+                        self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                                                                 self.path_to_save
+                        experiment_setup = deepcopy(self.experiment_setup)
+                        prediction, model = self.finetune_loop(
+                            dataset_name, experiment_setup, p)
+                        metric_result.update({p:
+                                                  {'metric': Accuracy(model.predict_data.target,
+                                                                      prediction.ravel()).metric(),
+                                                   'tuned_model': model}})
+                    except ModuleNotFoundError as ex:
+                        print(f'{ex}.OLD VERSION OF PIPELINE. DELETE DIRECTORY')
+                        if len(composed_model_path) != 1:
+                            print(f'OLD VERSION OF PIPELINE. DELETE DIRECTORY')
+                            shutil.rmtree(p)
+                        else:
+                            print(f'OLD VERSION OF PIPELINE. IT IS A LAST SAVED MODEL')
+                else:
+                    print(f"No composed model for dataset - {dataset_name}")
+            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
+                                        'metrics_report.csv')
+            fedot_results = pd.read_csv(dataset_path, index_col=0)
+            if len(metric_result) != 0:
+                best_metric = 0
+                for _ in metric_result.keys():
+                    if best_metric == 0:
+                        best_metric, best_model, path = metric_result[_]['metric'], metric_result[_]['tuned_model'], _
+                    elif metric_result[_]['metric'] > best_metric:
+                        best_metric, best_model, path = metric_result[_]['metric'], metric_result[_]['tuned_model'], _
+                fedot_results.loc[dataset_name, 'Fedot_Industrial_finetuned'] = best_metric
+                best_model.output_folder = f'{_}_tuned'
+                best_model.save_best_model()
                 fedot_results.to_csv(dataset_path)
             else:
-                print(f"No composed model for dataset - {dataset_name}")
-
+                fedot_results.to_csv(dataset_path)
             gc.collect()
+            dataset_result.update({dataset_name:metric_result})
         self.logger.info("Benchmark finetune finished")
 
     def load_local_basic_results(self, path: str = None):

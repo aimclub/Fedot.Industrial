@@ -1,15 +1,21 @@
 {
   "rf": {
-    "n_jobs": 1
+    "criterion":"gini",
+    "max_features":0.9,
+    "min_samples_split":5,
+    "min_samples_leaf":5,
+    "bootstrap":false
   },
   "mlp":{
-
     "max_iter":300,
     "activation":"relu",
     "solver":"adam"
   },
   "rfr": {
-    "n_jobs": 1
+    "max_features":0.9,
+    "min_samples_split":5,
+    "min_samples_leaf":5,
+    "bootstrap":false
   },
   "xgboost": {
     "eval_metric": "mlogloss",
@@ -154,7 +160,8 @@
   },
   "eigen_basis": {
     "window_size": 25,
-    "sv_selector": "median"
+    "sv_selector": "median",
+    "rank_regularization": "hard_thresholding"
   },
   "wavelet_basis": {
     "wavelet": "mexh",
