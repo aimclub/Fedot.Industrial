@@ -55,7 +55,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         if len(number_of_dim) == 1:
-            predict.append(self._transform_one_sample(features[:, 0, :]))
+            predict = [self._transform_one_sample(signal) for signal in features[:, 0, :]]
+            predict = [[np.array(v) if len(v) > 1 else v[0] for v in predict]]
         else:
             for dimension in number_of_dim:
                 parallel = Parallel(n_jobs=self.n_processes,
