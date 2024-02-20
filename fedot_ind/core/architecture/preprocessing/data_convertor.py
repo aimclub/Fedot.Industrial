@@ -300,7 +300,11 @@ class NumpyConverter:
 
     def convert_to_4d_torch_format(self):
         if self.numpy_data.ndim == 4:
-            return self.numpy_data
+            if self.numpy_data.shape[1] in range(1, 5):
+                # because image.shape[1] could be maximum RGB(a) channels
+                return self.numpy_data
+            else:
+                return self.numpy_data.swapaxes(1, 3)
         return self.numpy_data.reshape(self.numpy_data.shape[0],
                                        1,
                                        self.numpy_data.shape[1],
