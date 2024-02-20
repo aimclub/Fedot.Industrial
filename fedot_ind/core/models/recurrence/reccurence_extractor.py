@@ -61,16 +61,16 @@ class RecurrenceExtractor(BaseExtractor):
 
         specter = self.transformer(time_series=ts,
                                    rec_metric=self.rec_metric)
-        feature_df = specter.ts_to_recurrence_matrix()
 
         if not self.image_mode:
+            feature_df = specter.ts_to_recurrence_matrix()
             feature_df = self.extractor(
                 recurrence_matrix=feature_df).quantification_analysis()
             features = np.nan_to_num(
                 np.array(list(feature_df.values())), posinf=0, neginf=0)
             col_names = {'feature_name': list(feature_df.keys())}
         else:
-            features = feature_df
+            features = specter.ts_to_3d_recurrence_matrix()
             col_names = {'feature_name': None}
 
         predict = InputData(idx=np.arange(len(features)),
