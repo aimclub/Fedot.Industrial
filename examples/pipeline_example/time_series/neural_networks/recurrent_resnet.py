@@ -16,7 +16,7 @@ if __name__ == "__main__":
     metric_dict = {'accuracy': accuracy_score, 'f1': f1_score, 'roc_auc': roc_auc_score}
     with IndustrialModels():
         pipeline = PipelineBuilder().add_node('recurrence_extractor', params={'window_size': 15,
-                                                                              'stride': 2,
+                                                                              'stride': 1,
                                                                               'image_mode': True}) \
             .add_node('resnet_model', params={'epochs': 10}) \
             .build()
