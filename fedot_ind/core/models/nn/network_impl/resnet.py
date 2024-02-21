@@ -1,7 +1,6 @@
 from typing import Optional
 
 import torch
-from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn
 from torch import optim, Tensor
@@ -119,18 +118,18 @@ class ResNetModel(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
-        self.epochs = params.get('epochs', 20)
+        self.epochs = params.get('epochs', 25)
         self.batch_size = params.get('batch_size', 64)
-        self.model_name = params.get('model_name', 'ResNet152')
+        self.model_name = params.get('model_name', 'ResNet18')
 
     def _init_model(self, ts):
-        self.model_for_inference = ResNet(input_dim=ts.features.shape[1],
-                                          output_dim=self.num_classes,
-                                          model_name=self.model_name)
 
         self.model = ResNet(input_dim=ts.features.shape[1],
                             output_dim=self.num_classes,
                             model_name=self.model_name)
+        self.model_for_inference = ResNet(input_dim=ts.features.shape[1],
+                                          output_dim=self.num_classes,
+                                          model_name=self.model_name).model
         self.model = self.model.model
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         if ts.task.task_type.value == 'classification':
@@ -141,21 +140,6 @@ class ResNetModel(BaseNeuralModel):
         else:
             loss_fn = RMSE
         return loss_fn, optimizer
-
-    def __repr__(self):
-        return self.model_name
-
-    def _prepare_data(self, ts, split_data: bool = True):
-
-        train_data, val_data = train_test_data_setup(
-            ts, shuffle_flag=True, split_ratio=0.7)
-        train_dataset = self._create_dataset(train_data)
-        val_dataset = self._create_dataset(val_data)
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True)
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset, batch_size=self.batch_size, shuffle=True)
-        return train_loader, val_loader
 
     @convert_to_4d_torch_array
     def _predict_model(self, x_test):
