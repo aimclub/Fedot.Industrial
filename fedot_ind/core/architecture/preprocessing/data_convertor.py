@@ -172,11 +172,9 @@ class FedotConverter:
                                    supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
             if len(self.input_data.features.shape) == 1:
-                self.input_data.features = self.input_data.features.reshape(
-                    1, -1)
+                self.input_data.features = self.input_data.features.reshape(1, -1)
             flat_input = self.input_data.features.shape[0] == 1
-            feats = self.input_data.features if flat_input else self.input_data.features.swapaxes(
-                1, 0)
+            feats = self.input_data.features if flat_input else self.input_data.features.swapaxes(1, 0)
             input_data = [InputData(idx=self.input_data.idx,
                                     features=features,
                                     target=self.input_data.target,

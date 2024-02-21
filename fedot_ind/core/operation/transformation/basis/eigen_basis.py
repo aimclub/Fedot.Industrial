@@ -34,8 +34,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = params.get('window_size', 20)
-        self.low_rank_approximation = params.get(
-            'low_rank_approximation', True)
+        self.low_rank_approximation = params.get('low_rank_approximation', True)
         self.tensor_approximation = params.get('tensor_approximation', False)
         self.rank_regularization = params.get('rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
@@ -54,14 +53,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         if len(number_of_dim) == 1:
-            predict = [self._transform_one_sample(signal) for signal in features[:, 0, :]]
-            predict = [[np.array(v) if len(v) > 1 else v[0] for v in predict]]
+            predict.append(self._transform_one_sample(features[:, 0, :]))
         else:
             for dimension in number_of_dim:
-                parallel = Parallel(n_jobs=self.n_processes,
-                                    verbose=0, pre_dispatch="2*n_jobs")
-                v = parallel(delayed(self._transform_one_sample)(sample)
-                             for sample in features[:, dimension, :])
+                parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
+                v = parallel(delayed(self._transform_one_sample)(sample) for sample in features[:, dimension, :])
                 predict.append(np.array(v) if len(v) > 1 else v[0])
         return predict
 
@@ -92,8 +88,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         def tensor_decomposition(x):
             return ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation else self._channel_decompose(x)
 
-        basis = np.array(Either.insert(features).then(
-            tensor_decomposition).value[0])
+        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
         predict = self._convert_basis_to_predict(basis, input_data)
         return predict
 
@@ -114,8 +109,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                                                      approximation=self.low_rank_approximation,
                                                      regularized_rank=self.SV_threshold))
 
-        basis = Either.insert(data).then(svd).then(
-            threshold).then(data_driven_basis).value[0]
+        basis = Either.insert(data).then(svd).then(threshold).then(data_driven_basis).value[0]
         return np.swapaxes(basis, 1, 0)
 
     def _get_multidim_basis(self, data):
@@ -154,19 +148,17 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         number_of_dim = list(range(data.shape[1]))
         if len(number_of_dim) == 1:
-            svd_numbers = [self._transform_one_sample(signal, svd_flag=True) for signal in data[:, 0, :]]
+            return self._transform_one_sample(data[:, 0, :], svd_flag=True)
         else:
             for dimension in number_of_dim:
                 dimension_rank = []
                 for signal in data[:, dimension, :]:
-                    dimension_rank.append(
-                        self._transform_one_sample(signal, svd_flag=True))
+                    dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
             svd_numbers.append(mode_func(dimension_rank))
-        return mode_func(svd_numbers)
+            return mode_func(svd_numbers)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
-        trajectory_transformer = HankelMatrix(
-            time_series=series, window_size=self.window_size)
+        trajectory_transformer = HankelMatrix(time_series=series, window_size=self.window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
         rank = self.estimate_singular_values(data)
@@ -176,17 +168,14 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             return self._get_1d_basis(data)
 
     def estimate_singular_values(self, data):
-        def svd(x):
-            reg_type = self.rank_regularization if hasattr(self, 'rank_regularization') else \
-                'hard_thresholding'
-            return ListMonad(self.svd_estimator.rsvd(
-                tensor=x,
-                approximation=self.low_rank_approximation,
-                reg_type=reg_type))
+        def svd(x): return ListMonad(self.svd_estimator.rsvd(
+            tensor=x,
+            approximation=self.low_rank_approximation,
+            reg_type=self.rank_regularization))
 
         basis = Either.insert(data).then(svd).value[0]
         spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
         rank = len(spectrum)
-        self.explained_dispersion.append(
-            [round(x / sum(spectrum) * 100) for x in spectrum])
+        self.explained_dispersion.append([round(x / sum(spectrum) * 100) for x in spectrum])
+        # self.left_approx_sv, self.right_approx_sv = basis[0], basis[2]
         return rank

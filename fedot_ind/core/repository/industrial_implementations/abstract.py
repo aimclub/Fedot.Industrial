@@ -36,8 +36,6 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
     model_to_tune = pipeline_tuner.tune(model_to_tune)
     model_to_tune.fit(train_data)
     return pipeline_tuner, model_to_tune
-
-
 def postprocess_predicts(self, merged_predicts: np.array) -> np.array:
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts
