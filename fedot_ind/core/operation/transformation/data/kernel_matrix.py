@@ -34,12 +34,6 @@ class TSTransformer:
         self.recurrence_matrix = np.stack(dimensions, axis=2)
         return self.recurrence_matrix
 
-    @staticmethod
-    def show(matrix):
-        import matplotlib.pyplot as plt
-        plt.imshow(matrix)
-        plt.show()
-
     def colorise(self, distance_matrix):
         """Instead of binarisation, we colorize the distance matrix by scaling the values to [0, 255].
         Also convert the matrix to uint8 type – this is the format that PIL uses to display images.

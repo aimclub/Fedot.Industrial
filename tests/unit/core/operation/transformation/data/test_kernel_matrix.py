@@ -32,13 +32,28 @@ def test_ts_to_recurrence_matrix(ts_transformer, params):
     assert matrix.shape[0] == params['time_series'].shape[0]
 
 
-# def test_binarization(ts_transformer, params):
-#     dist_matrix = pdist(metric=ts_transformer.rec_metric,
-#                         X=params['time_series'].reshape(-1, 1))
-#     bin_matrix = ts_transformer.binarization(dist_matrix, threshold=None)
-#
-#     assert len(bin_matrix.shape) == 2
-#     assert len(np.unique(bin_matrix)) == 2
+def test_ts_to_3d_recurrence_matrix(ts_transformer, params):
+    matrix = ts_transformer.ts_to_3d_recurrence_matrix()
+    assert matrix.shape[0] == matrix.shape[1]
+    assert matrix.shape[0] == params['time_series'].shape[0]
+    assert matrix.shape[2] == 3
+
+
+def test_colorise(ts_transformer, params):
+    dist_matrix = pdist(metric=ts_transformer.rec_metric,
+                        X=params['time_series'].reshape(-1, 1))
+    color_matrix = ts_transformer.colorise(dist_matrix)
+    assert len(color_matrix.shape) == 1
+    assert color_matrix.dtype == 'uint8'
+
+
+def test_binarization(ts_transformer, params):
+    dist_matrix = pdist(metric=ts_transformer.rec_metric,
+                        X=params['time_series'].reshape(-1, 1))
+    bin_matrix = ts_transformer.binarization(dist_matrix, threshold=None)
+
+    assert len(bin_matrix.shape) == 1
+    assert len(np.unique(bin_matrix)) <=2
 
 
 def test_get_recurrence_metrics(ts_transformer, params):
