@@ -12,7 +12,8 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     LinearClassFSImplementation, NonLinearClassFSImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
-    *
+    FastICAImplementation, ImputationImplementation, KernelPCAImplementation, NormalizationImplementation, \
+    PCAImplementation, PolyFeaturesImplementation, ScalingImplementation
 from fedot.core.operations.evaluation.operation_implementations. \
     data_operations.topological.fast_topological_extractor import \
     FastTopologicalFeaturesImplementation
@@ -226,8 +227,8 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'treg',
                               'knnreg',
                               'dtreg'
-    ],
-        'classification': [
+                          ],
+                          'classification': [
                               'isolation_forest_reg',
                               'tst_model',
                               'resnet_model',
@@ -236,9 +237,9 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                               'label_encoding',
                               'isolation_forest_class',
                               'signal_extractor',
-                               'knnreg',
+                              'knnreg',
                               'recurrence_extractor'
-    ]}
+                          ]}
     available_operations = [
         x for x in available_operations if x not in excluded_operation[problem]]
     return available_operations

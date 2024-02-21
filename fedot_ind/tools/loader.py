@@ -8,7 +8,7 @@ from pathlib import Path
 import chardet
 import pandas as pd
 from datasetsforecast.m3 import M3
-from datasetsforecast.m4 import M4
+# from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
@@ -75,7 +75,7 @@ class DataLoader:
                                                               shuffle=shuffle)
 
         if train_data is None:
-            self.logger.info(f'Downloading...')
+            self.logger.info('Downloading...')
 
             # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
@@ -101,7 +101,7 @@ class DataLoader:
 
             shutil.rmtree(cache_path)
             return train_data, test_data
-        self.logger.info(f'Data readed successfully from local folder')
+        self.logger.info('Data read successfully from local folder')
         return train_data, test_data
 
     def read_train_test_files(self, data_path, dataset_name, shuffle=True):
@@ -227,7 +227,7 @@ class DataLoader:
                             raise TsFileParseException(
                                 "problemname tag requires an associated value")
 
-                        problem_name = line[len("@problemname") + 1:]
+                        # problem_name = line[len("@problemname") + 1:]
                         has_problem_name_tag = True
                         metadata_started = True
                     elif line.startswith("@timestamps"):

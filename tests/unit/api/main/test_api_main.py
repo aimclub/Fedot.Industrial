@@ -61,14 +61,14 @@ def fedot_industrial_regression():
 def test_fit_predict_classification(fedot_industrial_classification, data):
     fedot_industrial_classification.fit(data)
     predict = fedot_industrial_classification.predict(data)
-
-    assert predict.shape[0] == data[1].shape[0]
-
-    num_unique = np.unique(data[1])
     predict_proba = fedot_industrial_classification.predict_proba(data)
     metrics = fedot_industrial_classification.get_metrics(target=data[1])
+    num_unique = np.unique(data[1])
+
+    assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
+
     if len(num_unique) > 2:
         assert predict_proba.shape[1] == len(num_unique)
     else:
@@ -82,8 +82,8 @@ def test_fit_predict_classification(fedot_industrial_classification, data):
 def test_fit_predict_regression(fedot_industrial_regression, data):
     fedot_industrial_regression.fit(data)
     predict = fedot_industrial_regression.predict(data)
-    assert predict.shape[0] == data[1].shape[0]
 
+    assert predict.shape[0] == data[1].shape[0]
     if len(data[1].shape) > 1:
         assert predict.shape[1] == data[1].shape[1]
     else:
@@ -146,6 +146,3 @@ def test_plot_methods(fedot_industrial_classification):
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     fedot_industrial_classification.explain()
-
-
-# def test__batch_strategy()

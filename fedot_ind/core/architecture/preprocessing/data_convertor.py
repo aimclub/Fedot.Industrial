@@ -408,7 +408,7 @@ class ConditionConverter:
         if output_mode == 'labels':
             return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1)
         else:
-            self.probs_prediction_converter(output_mode, n_classes)
+            return self.probs_prediction_converter(output_mode, n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
         prediction = self.operation_implementation.predict_proba(
