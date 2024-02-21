@@ -16,8 +16,9 @@ if __name__ == "__main__":
         pipeline = PipelineBuilder().add_node('recurrence_extractor', params={'window_size': 30,
                                                                               'stride': 1,
                                                                               'image_mode': True}) \
-            .add_node('resnet_model', params={'epochs': 10}) \
-            .build()
+            .add_node('resnet_model', params={'epochs': 5,
+                                              'model_name': 'ResNet18',
+                                              'batch_size': 64}).build()
         pipeline.fit(input_train_data)
         output = pipeline.predict(input_test_data)
 
