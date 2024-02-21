@@ -1,11 +1,11 @@
+import copy
 import os
 from typing import Optional
 
-import pandas as pd
 import torch
 import torch.nn.functional as F
 from fedot.core.data.data import InputData, OutputData
-from fedot.core.data.data_split import _are_stratification_allowed, train_test_data_setup
+from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import Tensor
@@ -14,7 +14,6 @@ from torch.optim import lr_scheduler
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
     convert_to_4d_torch_array, fedot_data_type
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 
 
@@ -48,20 +47,138 @@ class BaseNeuralModel:
         self.learning_rate = 0.001
 
         self.label_encoder = None
+        self.model = None
+        self.model_for_inference = None
+        self.target = None
+        self.task_type = None
 
-    @convert_inputdata_to_torch_dataset
-    def _create_dataset(self, ts: InputData):
-        return ts
+    def fit(self, input_data: InputData):
+        self.num_classes = input_data.num_classes
+        self.target = input_data.target
+        self.task_type = input_data.task
+
+        self._fit_model(input_data)
+        self._save_and_clear_cache()
+
+    @convert_to_4d_torch_array
+    def _fit_model(self, ts: InputData):
+
+        loss_fn, optimizer = self._init_model(ts)
+        train_loader, val_loader = self._prepare_data(ts, split_data=True)
+
+        self._train_loop(
+            train_loader=train_loader,
+            val_loader=val_loader,
+            loss_fn=loss_fn,
+            optimizer=optimizer
+        )
 
     def _init_model(self, ts) -> tuple:
         NotImplementedError()
 
-    def _evaluate_num_of_epochs(self, ts):
-        min_num_epochs = min(100, round(ts.features.shape[0] * 1.5))
-        if self.epochs is None:
-            self.epochs = min_num_epochs
+    def _prepare_data(self, ts, split_data: bool = True):
+
+        if split_data:
+            train_data, val_data = train_test_data_setup(
+                ts, stratify=True, shuffle_flag=True, split_ratio=0.7)
+            train_dataset = self._create_dataset(train_data)
+            val_dataset = self._create_dataset(val_data)
         else:
-            self.epochs = max(min_num_epochs, self.epochs)
+            train_dataset = self._create_dataset(ts)
+            val_dataset = None
+
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=self.batch_size, shuffle=True)
+
+        if val_dataset is None:
+            val_loader = val_dataset
+        else:
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset, batch_size=self.batch_size, shuffle=True)
+
+        self.label_encoder = train_dataset.label_encoder
+        return train_loader, val_loader
+
+    def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
+        early_stopping = EarlyStopping()
+        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
+                                            steps_per_epoch=len(train_loader),
+                                            epochs=self.epochs,
+                                            max_lr=self.learning_rate)
+        if val_loader is None:
+            print('Not enough class samples for validation')
+
+        best_model = None
+        best_val_loss = float('inf')
+        val_interval = self.get_validation_frequency(self.epochs, self.learning_rate)
+
+        for epoch in range(1, self.epochs + 1):
+            training_loss = 0.0
+            valid_loss = 0.0
+            self.model.train()
+            for batch in train_loader:
+                optimizer.zero_grad()
+                inputs, targets = batch
+                output = self.model(inputs)
+                loss = loss_fn()(output, targets.float())
+                loss.backward()
+                optimizer.step()
+                training_loss += loss.data.item() * inputs.size(0)
+
+            training_loss /= len(train_loader.dataset)
+            print('Epoch: {}, Training Loss: {:.2f}'.format(epoch, training_loss))
+
+            if val_loader is not None and epoch % val_interval == 0:
+                self.model.eval()
+                for batch in val_loader:
+                    inputs, targets = batch
+                    output = self.model(inputs)
+                    loss = loss_fn()(output, targets.float())
+                    valid_loss += loss.data.item() * inputs.size(0)
+                valid_loss /= len(val_loader.dataset)
+                print('Epoch: {},Validation Loss: {:.2f}'.format(epoch, valid_loss))
+
+                if valid_loss < best_val_loss:
+                    best_val_loss = valid_loss
+                    best_model = copy.deepcopy(self.model)
+
+            early_stopping(training_loss, self.model, './')
+            adjust_learning_rate(optimizer, scheduler,
+                                 epoch + 1, self.learning_rate, printout=False)
+            scheduler.step()
+
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+            print('Updating learning rate to {}'.format(
+                scheduler.get_last_lr()[0]))
+
+        if best_model is not None:
+            self.model = best_model
+
+    @fedot_data_type
+    def predict(self,
+                input_data: InputData, output_mode: str = 'default') -> np.array:
+        """
+        Method for feature generation for all series
+        """
+        return self._predict_model(input_data, output_mode)
+
+    @fedot_data_type
+    def predict_for_fit(self,
+                        input_data: InputData, output_mode: str = 'default') -> np.array:
+        """
+        Method for feature generation for all series
+        """
+        return self._predict_model(input_data, output_mode)
+
+    @convert_to_4d_torch_array
+    def _predict_model(self, x_test, output_mode: str = 'default'):
+        self.model.eval()
+        # x_test = Tensor(x_test).to(default_device('cpu'))
+        x_test = Tensor(x_test).to(self._device)
+        pred = self.model(x_test)
+        return self._convert_predict(pred, output_mode)
 
     def _convert_predict(self, pred, output_mode: str = 'labels'):
         pred = F.softmax(pred, dim=1)
@@ -82,134 +199,36 @@ class BaseNeuralModel:
             data_type=DataTypesEnum.table)
         return predict
 
-    def _prepare_data(self, ts, split_data: bool = True):
-
-        stratify = _are_stratification_allowed(ts, 0.7)
-
-        if split_data and stratify:
-            train_data, val_data = train_test_data_setup(
-                ts, stratify=stratify, shuffle_flag=True, split_ratio=0.7)
-            train_dataset = self._create_dataset(train_data)
-            val_dataset = self._create_dataset(val_data)
-        else:
-            train_dataset = self._create_dataset(ts)
-            val_dataset = None
-
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True)
-
-        if val_dataset is None:
-            val_loader = val_dataset
-        else:
-            val_loader = torch.utils.data.DataLoader(
-                val_dataset, batch_size=self.batch_size, shuffle=True)
-
-        self.num_classes = train_dataset.classes
-        self.label_encoder = train_dataset.label_encoder
-        return train_loader, val_loader
-
     def _save_and_clear_cache(self):
         prefix = f'model_{self.__repr__()}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pt'
         torch.save(self.model.state_dict(), prefix)
         del self.model
         with torch.no_grad():
             torch.cuda.empty_cache()
-        self.model = self.model_for_inference.model.to(torch.device('cpu'))
-        self.model.load_state_dict(torch.load(
-            prefix, map_location=torch.device('cpu')))
+        self.model = self.model_for_inference.to(self._device)
+        self.model.load_state_dict(torch.load(prefix, map_location=self._device))
         os.remove(prefix)
 
-    def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
-        early_stopping = EarlyStopping()
-        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                            steps_per_epoch=len(train_loader),
-                                            epochs=self.epochs,
-                                            max_lr=self.learning_rate)
-        if val_loader is None:
-            print('Not enough class samples for validation')
+    @convert_inputdata_to_torch_dataset
+    def _create_dataset(self, ts: InputData):
+        return ts
 
-        for epoch in range(1, self.epochs + 1):
-            training_loss = 0.0
-            valid_loss = 0.0
-            self.model.train()
-            for batch in train_loader:
-                optimizer.zero_grad()
-                inputs, targets = batch
-                output = self.model(inputs)
-                loss = loss_fn()(output, targets.float())
-                loss.backward()
-                optimizer.step()
-                training_loss += loss.data.item() * inputs.size(0)
+    def _evaluate_num_of_epochs(self, ts):
+        min_num_epochs = min(100, round(ts.features.shape[0] * 1.5))
+        if self.epochs is None:
+            self.epochs = min_num_epochs
+        else:
+            self.epochs = max(min_num_epochs, self.epochs)
 
-            training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Training Loss: {:.2f}'.format(epoch, training_loss))
+    @staticmethod
+    def get_validation_frequency(epoch, lr):
+        if epoch < 10:
+            return 1  # Validate frequently in early epochs
+        elif lr < 0.01:
+            return 5  # Validate less frequently after learning rate decay
+        else:
+            return 2  # Default validation frequency
 
-            if val_loader is not None:
-                self.model.eval()
-                for batch in val_loader:
-                    inputs, targets = batch
-                    output = self.model(inputs)
-                    loss = loss_fn()(output, targets.float())
-                    valid_loss += loss.data.item() * inputs.size(0)
-                valid_loss /= len(val_loader.dataset)
-                print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,
-                                                                 valid_loss))
-            early_stopping(training_loss, self.model, './')
-            adjust_learning_rate(optimizer, scheduler,
-                                 epoch + 1, self.learning_rate, printout=False)
-            scheduler.step()
-
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
-            print('Updating learning rate to {}'.format(
-                scheduler.get_last_lr()[0]))
-
-    @convert_to_4d_torch_array
-    def _fit_model(self, ts: InputData, split_data: bool = False):
-
-        # if ts.task.task_type.value == 'classification':
-        #     ts.target = pd.get_dummies(ts.target.flatten()).values
-        loss_fn, optimizer = self._init_model(ts)
-        train_loader, val_loader = self._prepare_data(ts, split_data)
-
-        self._train_loop(
-            train_loader=train_loader,
-            val_loader=val_loader,
-            loss_fn=loss_fn,
-            optimizer=optimizer
-        )
-
-    @convert_to_4d_torch_array
-    def _predict_model(self, x_test, output_mode: str = 'default'):
-        self.model.eval()
-        x_test = Tensor(x_test).to(default_device('cpu'))
-        pred = self.model(x_test)
-        return self._convert_predict(pred, output_mode)
-
-    def fit(self,
-            input_data: InputData):
-        """
-        Method for feature generation for all series
-        """
-        self.num_classes = input_data.num_classes
-        self.target = input_data.target
-        self.task_type = input_data.task
-        self._fit_model(input_data)
-        self._save_and_clear_cache()
-
-    @fedot_data_type
-    def predict(self,
-                input_data: InputData, output_mode: str = 'default') -> np.array:
-        """
-        Method for feature generation for all series
-        """
-        return self._predict_model(input_data, output_mode)
-
-    @fedot_data_type
-    def predict_for_fit(self,
-                        input_data: InputData, output_mode: str = 'default') -> np.array:
-        """
-        Method for feature generation for all series
-        """
-        return self._predict_model(input_data, output_mode)
+    @property
+    def _device(self):
+        return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
