@@ -14,7 +14,7 @@ datasetsforecast
 
 tensorly==0.8.1
 torch==2.1.0
-torchvision==0.15.1
+torchvision
 statsforecast==1.5.0
 
 chardet

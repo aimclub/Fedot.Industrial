@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
@@ -18,9 +17,9 @@ from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
-from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, FEDOT_HEAD_ENSEMBLE, \
-    FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS, FEDOT_TUNER_STRATEGY
+from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_API_PARAMS, \
+    FEDOT_ASSUMPTIONS, FEDOT_GET_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TUNING_METRICS, FEDOT_WORKER_NUM, \
+    FEDOT_WORKER_TIMEOUT_PARTITION
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
@@ -65,16 +64,13 @@ class FedotIndustrial(Fedot):
     """
 
     def __init__(self, **kwargs):
-
         # init Fedot and Industrial hyperparams and path to results
         self.output_folder = kwargs.get('output_folder', None)
         self.preprocessing = kwargs.get('industrial_preprocessing', False)
         self.backend_method = kwargs.get('backend', 'cpu')
         self.RAF_workers = kwargs.get('RAF_workers', None)
         self.task_params = kwargs.get('task_params', None)
-        self.model_params = kwargs.get('model_params', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
-
         # create dirs with results
         prefix = './composition_results' if self.path_to_composition_results is None else \
             self.path_to_composition_results
@@ -105,16 +101,14 @@ class FedotIndustrial(Fedot):
                                                               default_industrial_availiable_operation(
                                                                   self.config_dict['problem']))
 
-        self.config_dict['optimizer'] = kwargs.get(
-            'optimizer', IndustrialEvoOptimizer)
+        self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
         self.config_dict['initial_assumption'] = kwargs.get('initial_assumption',
                                                             FEDOT_ASSUMPTIONS[self.config_dict['problem']])
         self.__init_experiment_setup()
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
-        industrial_params = [param for param in self.config_dict.keys(
-        ) if param not in list(FEDOT_API_PARAMS.keys())]
+        industrial_params = [param for param in self.config_dict.keys() if param not in list(FEDOT_API_PARAMS.keys())]
         [self.config_dict.pop(x, None) for x in industrial_params]
         backend_method_current, backend_scipy_current = BackendMethods(
             self.backend_method).backend
@@ -124,16 +118,13 @@ class FedotIndustrial(Fedot):
     def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
+        self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
         if self.config_dict['problem'] == 'ts_forecasting':
-            solver = self.config_dict['initial_assumption'].build()
-            solver.root_node.parameters = self.model_params
+            solver = self.config_dict['initial_assumption']
         else:
             self.logger.info('Initialising Dask Server')
-            self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build(
-            )
             self.dask_client = DaskServer().client
-            self.logger.info(
-                f'LinK Dask Server - {self.dask_client.dashboard_link}')
+            self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
             self.logger.info('Initialising solver')
             solver = Fedot(**self.config_dict)
         return solver
@@ -143,16 +134,13 @@ class FedotIndustrial(Fedot):
         del self.dask_client
 
     def _predict_raf_ensemble(self):
-        self.predict_for_ensemble_branch = [
-            x.predict(self.predict_data).predict for x in self.solver[1:]]
+        self.predict_for_ensemble_branch = [x.predict(self.predict_data).predict for x in self.solver[1:]]
         n_samples, n_channels, n_classes = self.predict_for_ensemble_branch[0].shape[0], \
             len(self.predict_for_ensemble_branch), \
             self.predict_for_ensemble_branch[0].shape[1]
-        input_for_head = np.hstack(self.predict_for_ensemble_branch).reshape(
-            n_samples, n_channels, n_classes)
+        input_for_head = np.hstack(self.predict_for_ensemble_branch).reshape(n_samples, n_channels, n_classes)
         self.predict_data.features = input_for_head
-        self.predict_for_head_ensemble = self.solver[0].predict(
-            self.predict_data).predict
+        self.predict_for_head_ensemble = self.solver[0].predict(self.predict_data).predict
         self.predicted_probs = self.predict_for_head_ensemble
         return self.predict_for_head_ensemble
 
@@ -162,8 +150,8 @@ class FedotIndustrial(Fedot):
 
     def _batch_strategy(self, input_data):
         self.logger.info('RAF algorithm was applied')
-        batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-                           is not None else FEDOT_WORKER_NUM)
+        batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers is not None
+                           else FEDOT_WORKER_NUM)
         batch_timeout = round(
             self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
         self.config_dict['timeout'] = batch_timeout
@@ -209,8 +197,7 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        self.predict_data = deepcopy(
-            predict_data)  # we do not want to make inplace changes
+        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
@@ -221,15 +208,8 @@ class FedotIndustrial(Fedot):
         else:
             predict = self.solver.predict(self.predict_data, 'labels').predict
             if self.config_dict['problem'] == 'classification' and self.predict_data.target.min() - predict.min() != 0:
-                predict = predict + \
-                    (self.predict_data.target.min() - predict.min())
-        if self.target_encoder is not None:
-            self.predicted_labels = self.target_encoder.inverse_transform(
-                predict)
-            self.predict_data.target = self.target_encoder.inverse_transform(
-                self.predict_data.target)
-        else:
-            self.predicted_labels = predict
+                predict = predict + (self.predict_data.target.min() - predict.min())
+        self.predicted_labels = predict if self.target_encoder is None else self.target_encoder.transform(predict)
         return self.predicted_labels
 
     def predict_proba(self,
@@ -245,8 +225,7 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        self.predict_data = deepcopy(
-            predict_data)  # we do not want to make inplace changes
+        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
@@ -257,8 +236,7 @@ class FedotIndustrial(Fedot):
         else:
             predict = self.solver.predict(self.predict_data, 'probs').predict
             if self.config_dict['problem'] == 'classification' and self.predict_data.target.min() - predict.min() != 0:
-                predict = predict + \
-                    (self.predict_data.target.min() - predict.min())
+                predict = predict + (self.predict_data.target.min() - predict.min())
         self.predicted_probs = predict
         return self.predicted_probs
 
@@ -276,8 +254,7 @@ class FedotIndustrial(Fedot):
 
             """
 
-        train_data = DataCheck(
-            input_data=train_data, task=self.config_dict['problem']).check_input_data()
+        train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
         tuning_params = {} if tuning_params is None else tuning_params
         tuned_metric = 0
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
@@ -285,8 +262,7 @@ class FedotIndustrial(Fedot):
             model_to_tune = deepcopy(self.solver.current_pipeline) if isinstance(self.solver, Fedot) \
                 else deepcopy(self.solver)
             tuning_params['tuner'] = tuner_type
-            pipeline_tuner, model_to_tune = build_tuner(
-                self, model_to_tune, tuning_params, train_data, mode)
+            pipeline_tuner, model_to_tune = build_tuner(self, model_to_tune, tuning_params, train_data, mode)
             if abs(pipeline_tuner.obtained_metric) > tuned_metric:
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
@@ -315,15 +291,13 @@ class FedotIndustrial(Fedot):
         """
         problem = self.config_dict['problem']
         if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
-            self.logger.info(
-                'Predicted probabilities are not available. Use `predict_proba()` method first')
+            self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
 
         valid_shape = target.shape
         return FEDOT_GET_METRICS[problem](target=target.flatten(),
                                           metric_names=metric_names,
                                           rounding_order=rounding_order,
-                                          labels=self.predicted_labels.reshape(
-                                              valid_shape),
+                                          labels=self.predicted_labels.reshape(valid_shape),
                                           probs=self.predicted_probs)
 
     def save_predict(self, predicted_data, **kwargs) -> None:
@@ -373,16 +347,13 @@ class FedotIndustrial(Fedot):
 
     def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""
-        self.solver.history.save(
-            f"{self.output_folder}/optimization_history.json")
+        self.solver.history.save(f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
         if not isinstance(self.solver, Fedot):
             for idx, p in enumerate(self.solver.ensemble_branches):
-                Pipeline(p).save(
-                    f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
-            Pipeline(self.solver.ensemble_head).save(
-                f'./raf_ensemble/ensemble_head', create_subdir=True)
+                Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
+            Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
         return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
                                                  is_datetime_in_path=True)
 
@@ -395,8 +366,7 @@ class FedotIndustrial(Fedot):
     def plot_operation_distribution(self, mode: str = 'total'):
         """Plot prediction of the model"""
         if mode == 'total':
-            self.solver.history.show.operations_kde(
-                save_path=f'{self.output_folder}/operation_kde.png', dpi=100)
+            self.solver.history.show.operations_kde(save_path=f'{self.output_folder}/operation_kde.png', dpi=100)
         else:
             self.solver.history.show.operations_animated_bar(
                 save_path=f'{self.output_folder}/history_animated_bars.gif', show_fitness=True, dpi=100)

@@ -2,7 +2,7 @@ from benchmark.benchmark_TSC import BenchmarkTSC
 
 experiment_setup = {'problem': 'classification',
                     'metric': 'accuracy',
-                    'timeout': 1,
+                    'timeout': 100,
                     'num_of_generations': 15,
                     'pop_size': 50,
                     'logging_level': 10,
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
                              custom_datasets=[
                                  # 'ERing',
-                                 'AtrialFibrillation',
+                                 # 'AtrialFibrillation',
                                  # 'SelfRegulationSCP2',
                                  'StandWalkJump',
                                  'Handwriting',

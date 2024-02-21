@@ -57,7 +57,7 @@ industrial_search_space = {
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['hac', 'dff']]},
-         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]}, }
+         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},}
 }
 
 

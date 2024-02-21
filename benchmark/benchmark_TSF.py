@@ -67,23 +67,20 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         basic_results = self.load_local_basic_results()
         metric_dict = {}
         for dataset_name in self.custom_datasets:
-            try:
-                experiment_setup = deepcopy(self.experiment_setup)
-                prediction, target, model = self.evaluate_loop(dataset_name, experiment_setup)
-                metric = SMAPE(prediction, target).metric()
-                metric_dict.update({dataset_name: metric})
-                dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}')
-                if not os.path.exists(dataset_path):
-                    os.makedirs(dataset_path)
-                basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-                basic_results.to_csv(os.path.join(dataset_path, 'metrics_report.csv'))
-                pred_df = pd.DataFrame([target, prediction]).T
-                pred_df.columns = ['label', 'prediction']
-                pred_df.to_csv(os.path.join(dataset_path, 'prediction.csv'))
-                model.solver.save(dataset_path)
-                gc.collect()
-            except Exception:
-                _ = 1
+            experiment_setup = deepcopy(self.experiment_setup)
+            prediction, target, model = self.evaluate_loop(dataset_name, experiment_setup)
+            metric = SMAPE(prediction, target).metric()
+            metric_dict.update({dataset_name: metric})
+            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}')
+            if not os.path.exists(dataset_path):
+                os.makedirs(dataset_path)
+            basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
+            basic_results.to_csv(os.path.join(dataset_path, 'metrics_report.csv'))
+            pred_df = pd.DataFrame([target, prediction]).T
+            pred_df.columns = ['label', 'prediction']
+            pred_df.to_csv(os.path.join(dataset_path, 'prediction.csv'))
+            model.solver.save(dataset_path)
+            gc.collect()
         basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
