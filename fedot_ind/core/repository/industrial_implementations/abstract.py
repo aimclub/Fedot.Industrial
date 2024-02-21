@@ -1,20 +1,18 @@
 from copy import copy
-from typing import List, Iterable, Union, Optional
+from typing import List, Optional, Union
 
 import pandas as pd
+from fedot.core.data.array_utilities import atleast_4d
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.preprocessing.data_types import TYPE_TO_ID
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.data.array_utilities import atleast_4d
-from fedot.core.data.data import InputData, OutputData
-
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 
 
@@ -36,6 +34,8 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
     model_to_tune = pipeline_tuner.tune(model_to_tune)
     model_to_tune.fit(train_data)
     return pipeline_tuner, model_to_tune
+
+
 def postprocess_predicts(self, merged_predicts: np.array) -> np.array:
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts

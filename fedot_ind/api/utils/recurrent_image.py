@@ -10,7 +10,6 @@ def plot_recurrence_matrix(dataset_name: str = 'Herring', save: bool = False, sh
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     input_data = init_input_data(train_data[0], train_data[1])
 
-    # stride = 30
     strides = [1, 5, 10]
     windows = [5, 10, 30]
 

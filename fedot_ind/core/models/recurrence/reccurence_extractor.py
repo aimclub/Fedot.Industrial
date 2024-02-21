@@ -1,9 +1,9 @@
 from typing import Optional
 
+import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from PIL import Image
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.base_extractor import BaseExtractor
@@ -94,10 +94,3 @@ class RecurrenceExtractor(BaseExtractor):
     def generate_features_from_ts(self, ts_data: np.array,
                                   dataset_name: str = None):
         return self.generate_recurrence_features(ts=ts_data)
-
-    def explain(self, input_data: InputData = None):
-        if input_data is None:
-            input_data = self.predict
-        for recurrence_matrix in input_data:
-            img = Image.fromarray(np.squeeze(recurrence_matrix), mode='L')
-            img.show()

@@ -1,13 +1,16 @@
+from typing import Optional
+
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
-from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
+# from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
-from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import IndustrialCustomPreprocessingStrategy, \
-    MultiDimPreprocessingStrategy
-from fedot_ind.core.repository.model_repository import NEURAL_MODEL, SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS, \
-    FORECASTING_MODELS
+from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import \
+    (IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
+from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
+    SKLEARN_REG_MODELS
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -50,6 +53,7 @@ class FedotNNRegressionStrategy(FedotNNClassificationStrategy):
                                                                   operation_type,
                                                                   mode='multi_dimensional')
         self.multi_dim_dispatcher.params_for_fit = params
+
 
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
     __operations_by_types = {

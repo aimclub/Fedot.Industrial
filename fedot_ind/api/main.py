@@ -353,7 +353,7 @@ class FedotIndustrial(Fedot):
         if not isinstance(self.solver, Fedot):
             for idx, p in enumerate(self.solver.ensemble_branches):
                 Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
-            Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
+            Pipeline(self.solver.ensemble_head).save('./raf_ensemble/ensemble_head', create_subdir=True)
         return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
                                                  is_datetime_in_path=True)
 

@@ -1,6 +1,5 @@
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-
-from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_MEDIAN_THR, SINGULAR_VALUE_BETA_THR
+from fedot_ind.core.repository.constanst_repository import SINGULAR_VALUE_BETA_THR, SINGULAR_VALUE_MEDIAN_THR
 
 
 def sv_to_explained_variance_ratio(singular_values, dispersion_by_component):
@@ -17,7 +16,7 @@ def sv_to_explained_variance_ratio(singular_values, dispersion_by_component):
     """
     singular_values = [abs(x) for x in singular_values]
     n_components = [x / sum(singular_values) * 100 for x in singular_values]
-    n_components = [x for x in n_components if x>dispersion_by_component]
+    n_components = [x for x in n_components if x > dispersion_by_component]
     explained_variance = sum(n_components)
     n_components = len(n_components)
     return explained_variance, n_components
@@ -62,8 +61,9 @@ def singular_value_hard_threshold(singular_values,
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
     if len(Sigma.shape) > 1:
-        def multi_reconstruction(x): return reconstruct_basis(
-            U=U, Sigma=x, VT=VT, ts_length=ts_length)
+        def multi_reconstruction(x):
+            return reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)
+
         TS_comps = list(map(multi_reconstruction, Sigma))
     else:
         rank = Sigma.shape[0]

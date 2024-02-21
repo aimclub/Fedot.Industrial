@@ -188,7 +188,7 @@ class BaseNeuralModel:
         else:
             y_pred = pred.cpu().detach().numpy()
 
-        if self.label_encoder is not None and output_mode is 'labels':
+        if self.label_encoder is not None and output_mode == 'labels':
             y_pred = self.label_encoder.inverse_transform(y_pred)
 
         predict = OutputData(

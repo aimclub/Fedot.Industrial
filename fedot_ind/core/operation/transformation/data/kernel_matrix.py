@@ -1,4 +1,3 @@
-from PIL import Image
 from scipy.spatial.distance import pdist, squareform
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter

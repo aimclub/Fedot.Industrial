@@ -116,22 +116,24 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         rank = round(data.shape[2] / 10)
         beta = data.shape[2] / data.shape[0]
 
-        def tensor_decomposition(x): return ListMonad(
-            parafac(tl.tensor(x), rank=rank).factors)
+        def tensor_decomposition(x):
+            return ListMonad(parafac(tl.tensor(x), rank=rank).factors)
 
-        def multi_threshold(x): return singular_value_hard_threshold(singular_values=x,
-                                                                     beta=beta,
-                                                                     threshold=None)
+        def multi_threshold(x):
+            return singular_value_hard_threshold(singular_values=x,
+                                                 beta=beta,
+                                                 threshold=None)
 
-        def threshold(Monoid): return ListMonad([Monoid[0],
-                                                 list(
-                                                     map(multi_threshold, Monoid[1])),
-                                                 Monoid[2].T])
+        def threshold(Monoid):
+            return ListMonad([Monoid[0],
+                              list(map(multi_threshold, Monoid[1])),
+                              Monoid[2].T])
 
-        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(Monoid[0],
-                                                                          Monoid[1],
-                                                                          Monoid[2],
-                                                                          ts_length=data.shape[2]))
+        def data_driven_basis(Monoid):
+            return ListMonad(reconstruct_basis(Monoid[0],
+                                               Monoid[1],
+                                               Monoid[2],
+                                               ts_length=data.shape[2]))
 
         basis = np.array(
             Either.insert(data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0])

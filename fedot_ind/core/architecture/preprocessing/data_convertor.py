@@ -89,7 +89,7 @@ class FedotConverter:
         else:
             try:
                 return torch.tensor(data)
-            except:
+            except Exception as e:
                 print(f"Can't convert {type(data)} to InputData", Warning)
 
     def __init_input_data(self, features: pd.DataFrame,
@@ -263,7 +263,7 @@ class NumpyConverter:
         else:
             try:
                 return np.asarray(data)
-            except:
+            except Exception as e:
                 print(f"Can't convert {type(data)} to np.array", Warning)
 
     def convert_to_1d_array(self):
@@ -405,8 +405,10 @@ class ConditionConverter:
         return isinstance(self.operation_implementation.classes_, list)
 
     def output_mode_converter(self, output_mode, n_classes):
-        return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1) if output_mode == 'labels' \
-            else self.probs_prediction_converter(output_mode, n_classes)
+        if output_mode == 'labels':
+            return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1)
+        else:
+            self.probs_prediction_converter(output_mode, n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
         prediction = self.operation_implementation.predict_proba(
@@ -483,7 +485,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         else:
             try:
                 return list(self.data)
-            except:
+            except Exception as e:
                 print(f'passed object needs to be of type L, list, np.ndarray or torch.Tensor but is {type(self.data)}',
                       Warning)
 

@@ -1,26 +1,20 @@
 from copy import deepcopy
+from typing import Optional
 
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from golem.core.tuning.simultaneous import SimultaneousTuner
+from pymonad.either import Either
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import FedotConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis
 from fedot_ind.core.repository.constanst_repository import FEDOT_TUNING_METRICS
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
-
-try:
-    import seaborn
-except ImportError:
-    pass
-from typing import Optional
-
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
-from fedot.core.operations.operation_parameters import OperationParameters
-from pymonad.either import Either
 
 
 class SSAForecasterImplementation(ModelImplementation):
@@ -173,7 +167,7 @@ class SSAForecasterImplementation(ModelImplementation):
     def _predict_channel(self, input_data: InputData, component_dynamics, forecast_length: int):
         comp = deepcopy(input_data)
         comp.features, comp.target, comp.idx = component_dynamics, component_dynamics, \
-                                               np.arange(component_dynamics.shape[1])
+            np.arange(component_dynamics.shape[1])
         forecast_by_channel, model_by_channel = {}, {}
         for index, ts_comp in enumerate(comp.features):
             comp.features = ts_comp

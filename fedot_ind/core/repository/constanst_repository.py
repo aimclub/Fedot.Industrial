@@ -11,9 +11,10 @@ from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, 
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.iopt_tuner import IOptTuner
 from golem.core.tuning.optuna_tuner import OptunaTuner
-from torch import nn
-from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
+from golem.core.tuning.simultaneous import SimultaneousTuner
+from torch import nn
+
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
