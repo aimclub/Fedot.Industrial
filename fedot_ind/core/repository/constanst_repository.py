@@ -11,17 +11,16 @@ from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, 
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.iopt_tuner import IOptTuner
 from golem.core.tuning.optuna_tuner import OptunaTuner
-from golem.core.tuning.sequential import SequentialTuner
-from golem.core.tuning.simultaneous import SimultaneousTuner
 from torch import nn
-
+from golem.core.tuning.simultaneous import SimultaneousTuner
+from golem.core.tuning.sequential import SequentialTuner
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
 from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-# from fedot_ind.core.models.topological.topofeatures import *
+from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
@@ -383,7 +382,8 @@ class BenchmarkDatasets(Enum):
                             'Y7134', 'Y7490', 'Y7503',
                             'Y7642', 'Y7690', 'Y7692', 'Y7942', 'Y7943', 'Y7967']
     M4_FORECASTING_LENGTH = {'D': 14, 'W': 13, 'M': 18, 'Q': 8, 'Y': 6}
-    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly', 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
+    M4_PREFIX = {'D': 'Daily', 'W': 'Weekly',
+                 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
     UNI_CLF_BENCH = [
         "ACSF1",
         "Adiac",
