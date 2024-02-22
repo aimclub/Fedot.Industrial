@@ -84,7 +84,6 @@ class InceptionTimeModel(BaseNeuralModel):
             loss_fn = RMSE
         return loss_fn, optimizer
 
-    @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
         loss_fn, optimizer = self._init_model(ts)
         train_loader, val_loader = self._prepare_data(ts, split_data)
@@ -102,3 +101,4 @@ class InceptionTimeModel(BaseNeuralModel):
         x_test = Tensor(x_test).to(default_device('cpu'))
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)
+

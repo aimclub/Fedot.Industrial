@@ -152,7 +152,6 @@ class OmniScaleModel(BaseNeuralModel):
             loss_fn = MULTI_CLASS_CROSS_ENTROPY()
         return loss_fn, optimizer
 
-    @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
         loss_fn, optimizer = self._init_model(ts)
         train_loader, val_loader = self._prepare_data(ts, split_data)

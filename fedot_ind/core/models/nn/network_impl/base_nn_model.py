@@ -116,6 +116,8 @@ class BaseNeuralModel:
             training_loss = 0.0
             valid_loss = 0.0
             self.model.train()
+            total = 0
+            correct = 0
             for batch in train_loader:
                 optimizer.zero_grad()
                 inputs, targets = batch
@@ -124,20 +126,24 @@ class BaseNeuralModel:
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
+                total += targets.size(0)
+                correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item()
 
+            accuracy = correct / total
             training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Training Loss: {:.2f}'.format(epoch, training_loss))
+            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(epoch, accuracy, training_loss))
 
             if val_loader is not None and epoch % val_interval == 0:
                 self.model.eval()
+                total = 0
+                correct = 0
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
                     loss = loss_fn()(output, targets.float())
                     valid_loss += loss.data.item() * inputs.size(0)
-                valid_loss /= len(val_loader.dataset)
-                print('Epoch: {},Validation Loss: {:.2f}'.format(epoch, valid_loss))
-
+                    total += targets.size(0)
+                    correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item()
                 if valid_loss < best_val_loss:
                     best_val_loss = valid_loss
                     best_model = copy.deepcopy(self.model)
@@ -150,8 +156,6 @@ class BaseNeuralModel:
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            print('Updating learning rate to {}'.format(
-                scheduler.get_last_lr()[0]))
 
         if best_model is not None:
             self.model = best_model
@@ -184,7 +188,7 @@ class BaseNeuralModel:
         pred = F.softmax(pred, dim=1)
 
         if output_mode == 'labels':
-            y_pred = torch.argmax(pred, dim=1)
+            y_pred = torch.argmax(pred, dim=1).cpu().detach().numpy()
         else:
             y_pred = pred.cpu().detach().numpy()
 
