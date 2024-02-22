@@ -20,6 +20,7 @@ from golem.core.dag.graph_utils import node_depth, nodes_from_layer
 from golem.core.dag.verification_rules import ERROR_PREFIX
 from golem.core.optimisers.advisor import RemoveType
 from golem.core.optimisers.genetic.gp_operators import equivalent_subtree, replace_subtrees
+from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
 from golem.core.optimisers.genetic.operators.crossover import CrossoverCallable, CrossoverTypesEnum
 from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 from golem.core.optimisers.graph import OptGraph, OptNode
@@ -28,6 +29,7 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
+
 from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED
 
 
@@ -61,7 +63,7 @@ class IndustrialMutations:
                              graph: OptGraph,
                              requirements: GraphRequirements,
                              graph_gen_params: GraphGenerationParams,
-                             parameters: 'GPAlgorithmParameters'
+                             parameters: GPAlgorithmParameters
                              ) -> OptGraph:
         """
         This mutation adds new edge between two random nodes in graph.
@@ -341,9 +343,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                node_depth(node_from_graph_first)
+                                   node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                node_depth(node_from_graph_second)
+                                    node_depth(node_from_graph_second)
 
             replace_subtrees(graph_first, graph_second, node_from_graph_first, node_from_graph_second,
                              layer_in_graph_first, layer_in_graph_second, max_depth)
@@ -521,8 +523,8 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
             # There are several parents for current node or at least 1
             for parent in parent_nodes:
                 parent_operation = parent.operation.operation_type
-                if current_operation in basis_models and pipeline.nodes[
-                        idx + 1].operation.operation_type not in extractor:
+                if current_operation in basis_models and \
+                        pipeline.nodes[idx + 1].operation.operation_type not in extractor:
                     raise ValueError(
                         f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination. '
                         f'Basis output should contain feature transformation')

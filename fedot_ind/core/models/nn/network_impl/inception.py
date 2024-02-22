@@ -2,9 +2,11 @@ from typing import Optional
 
 from fastai.torch_core import Module
 from fastcore.meta import delegates
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
-
+from torch import Tensor
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
@@ -73,7 +75,7 @@ class InceptionTimeModel(BaseNeuralModel):
                                                  output_dim=self.num_classes)
         self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        if ts.task.task_type == 'classification':
+        if ts.task.task_type.value == 'classification':
             if ts.num_classes == 2:
                 loss_fn = CROSS_ENTROPY
             else:
@@ -81,3 +83,22 @@ class InceptionTimeModel(BaseNeuralModel):
         else:
             loss_fn = RMSE
         return loss_fn, optimizer
+
+    def _fit_model(self, ts: InputData, split_data: bool = False):
+        loss_fn, optimizer = self._init_model(ts)
+        train_loader, val_loader = self._prepare_data(ts, split_data)
+
+        self._train_loop(
+            train_loader=train_loader,
+            val_loader=val_loader,
+            loss_fn=loss_fn,
+            optimizer=optimizer
+        )
+
+    @convert_to_3d_torch_array
+    def _predict_model(self, x_test, output_mode: str = 'default'):
+        self.model.eval()
+        x_test = Tensor(x_test).to(default_device('cpu'))
+        pred = self.model(x_test)
+        return self._convert_predict(pred, output_mode)
+

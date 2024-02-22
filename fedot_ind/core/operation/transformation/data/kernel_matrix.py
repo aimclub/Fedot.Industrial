@@ -20,10 +20,28 @@ class TSTransformer:
         distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.T)
         distance_matrix = np.ones(
             shape=distance_matrix.shape[0]) - distance_matrix
-        distance_matrix = self.binarization(
-            distance_matrix, threshold=threshold)
+        distance_matrix = self.binarization(distance_matrix, threshold=threshold)
         self.recurrence_matrix = squareform(distance_matrix)
         return self.recurrence_matrix
+
+    def ts_to_3d_recurrence_matrix(self):
+        cosine_matrix = pdist(metric='cosine', X=self.time_series.T)
+        euclidean_matrix = pdist(metric='euclidean', X=self.time_series.T)
+        canberra_matrix = pdist(metric='canberra', X=self.time_series.T)
+
+        squared_matrices = list(map(squareform, [cosine_matrix, euclidean_matrix, canberra_matrix]))
+        dimensions = list(map(self.colorise, squared_matrices))
+        self.recurrence_matrix = np.stack(dimensions, axis=2)
+        return self.recurrence_matrix
+
+    def colorise(self, distance_matrix):
+        """Instead of binarisation, we colorize the distance matrix by scaling the values to [0, 255].
+        Also convert the matrix to uint8 type – this is the format that PIL uses to display images.
+
+        """
+        distance_matrix = (distance_matrix - distance_matrix.min()) / \
+            (distance_matrix.max() - distance_matrix.min()) * 255
+        return np.round(distance_matrix).astype('uint8')
 
     def binarization(self, distance_matrix, threshold):
         best_threshold_flag = False

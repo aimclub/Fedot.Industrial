@@ -1,26 +1,20 @@
 from copy import deepcopy
+from typing import Optional
 
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from golem.core.tuning.simultaneous import SimultaneousTuner
+from pymonad.either import Either
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import FedotConverter
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis
 from fedot_ind.core.repository.constanst_repository import FEDOT_TUNING_METRICS
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
-
-try:
-    import seaborn
-except ImportError:
-    pass
-from typing import Optional
-
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
-from fedot.core.operations.operation_parameters import OperationParameters
-from pymonad.either import Either
 
 
 class SSAForecasterImplementation(ModelImplementation):
@@ -60,19 +54,17 @@ class SSAForecasterImplementation(ModelImplementation):
                          'tuner': SimultaneousTuner}
         component_mode_dict = {
             'topological': PipelineBuilder().add_node('lagged').add_node('topological_features').add_node('treg'),
-            'ar': PipelineBuilder().add_node('ar'),
-            'ridge': PipelineBuilder().add_node('lagged').add_node('ridge')}
+            'ar': PipelineBuilder().add_node('ar')}
 
         self.window_size_method = params.get('window_size_method')
         self.history_lookback = max(params.get('history_lookback', 0), 100)
-        self.low_rank_approximation = params.get(
-            'low_rank_approximation', False)
+        self.low_rank_approximation = params.get('low_rank_approximation', False)
         self.tuning_params = params.get('tuning_params', tuning_params)
-        self.component_model = params.get('component_model', 'ar')
+        self.component_model = params.get('component_model', 'topological')
         self.mode = params.get('mode', 'channel_independent')
         self.component_model = component_mode_dict[self.component_model]
-        # self.trend_model = PipelineBuilder().add_node('lagged').add_node('ridge')
-        self.trend_model = component_mode_dict['ar']
+        self.trend_model = PipelineBuilder().add_node('lagged').add_node('ridge')
+        self.trend_model = self.component_model
         self._decomposer = None
         self._rank_thr = None
         self._window_size = None
@@ -87,8 +79,7 @@ class SSAForecasterImplementation(ModelImplementation):
                                                       component,
                                                       'head')
         component_model.fit(component)
-        reconstructed_forecast = component_model.predict(
-            component).predict[-self.horizon:]
+        reconstructed_forecast = component_model.predict(component).predict[-self.horizon:]
         return reconstructed_forecast, component_model
 
     def _combine_trajectory(self, U, VT, n_components):
@@ -102,32 +93,26 @@ class SSAForecasterImplementation(ModelImplementation):
                                                    [np.sum([VT[i, :], VT[i + 1, :]], axis=0) for i in self._rank_thr
                                                     if i != 0 and i % 2 != 0])])
         else:
-            self.PCT, current_dynamics = U[:,
-                                           :n_components], VT[:n_components, :]
+            self.PCT, current_dynamics = U[:, :n_components], VT[:n_components, :]
 
         return current_dynamics
 
     def predict(self, input_data: InputData) -> OutputData:
-        if self.history_lookback is not None:
-            input_data.features = input_data.features[-self.history_lookback:].squeeze(
-            )
         hankel_matrix = HankelMatrix(time_series=input_data.features,
                                      window_size=self._decomposer.window_size).trajectory_matrix
         U, s, VT = np.linalg.svd(hankel_matrix)
         n_components = max(2, len(self._rank_thr))
         current_dynamics = self._combine_trajectory(U, VT, n_components)
+
         if self.mode == 'one_dimensional':
             comp = deepcopy(input_data)
             basis = reconstruct_basis(U=self.PCT,
                                       Sigma=s[:self.PCT.shape[1]],
                                       VT=current_dynamics,
                                       ts_length=input_data.features.shape[0])
-            reconstructed = np.array(basis).sum(axis=1)
-            comp.features, comp.target, comp.idx = reconstructed, reconstructed, np.arange(
-                reconstructed.shape[0])
+            comp.features, comp.idx = np.array(basis).sum(axis=1), np.arange(np.array(basis).sum(axis=1).shape[0])
 
-            reconstructed_forecast, self.model_by_channel = self._tune_component_model(
-                self.trend_model.build(), comp)
+            reconstructed_forecast, self.model_by_channel = self._tune_component_model(self.trend_model.build(), comp)
         elif self.mode == 'channel_independent':
             forecast_by_channel, self.model_by_channel = self._predict_channel(input_data,
                                                                                current_dynamics,
@@ -168,15 +153,10 @@ class SSAForecasterImplementation(ModelImplementation):
     def predict_for_fit(self, input_data: InputData) -> OutputData:
         if self.horizon is None:
             self.horizon = input_data.task.task_params.forecast_length
-
-        if input_data.features.shape[0] > self.history_lookback and self.mode != 'one_dimensional':
-            if self.history_lookback == 0:
-                self.history_lookback = round(
-                    input_data.features.shape[0] * 0.2)
-                self.history_lookback = min(
-                    round(input_data.features.shape[0] * 0.2), 500)
-                input_data.features = input_data.features[-self.history_lookback:].squeeze(
-                )
+        if input_data.features.shape[0] > self.history_lookback:
+            self.history_lookback = round(input_data.features.shape[0] * 0.2) \
+                if self.history_lookback == 0 else self.history_lookback
+            input_data.features = input_data.features[-self.history_lookback:].squeeze()
         else:
             self.history_lookback = None
         self._decomposer = EigenBasisImplementation({'low_rank_approximation': self.low_rank_approximation,
@@ -192,12 +172,9 @@ class SSAForecasterImplementation(ModelImplementation):
         for index, ts_comp in enumerate(comp.features):
             comp.features = ts_comp
             comp.target = ts_comp
-            model_to_tune = self.component_model.build(
-            ) if index != 0 else self.trend_model.build()
-            reconstructed_forecast, component_model = self._tune_component_model(
-                model_to_tune, comp)
-            forecast_by_channel.update(
-                {f'{index}_channel': reconstructed_forecast})
+            model_to_tune = self.component_model.build() if index != 0 else self.trend_model.build()
+            reconstructed_forecast, component_model = self._tune_component_model(model_to_tune, comp)
+            forecast_by_channel.update({f'{index}_channel': reconstructed_forecast})
             model_by_channel.update({f'{index}_channel': component_model})
 
         return forecast_by_channel, model_by_channel

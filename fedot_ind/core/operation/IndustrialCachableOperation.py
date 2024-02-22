@@ -17,7 +17,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         super().__init__(params)
         cache_folder = os.path.join(PROJECT_PATH, 'cache')
         os.makedirs(cache_folder, exist_ok=True)
-        self.cacher = DataCacher(data_type_prefix=f'Features of basis',
+        self.cacher = DataCacher(data_type_prefix='Features of basis',
                                  cache_folder=cache_folder)
 
         self.data_type = DataTypesEnum.image
@@ -79,8 +79,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             return predict
         else:
             transformed_features = self._transform(input_data)
-            predict = self._convert_to_fedot_datatype(
-                input_data, transformed_features)
+            predict = self._convert_to_fedot_datatype(input_data, transformed_features)
             return predict
 
     def _transform(self, input_data):

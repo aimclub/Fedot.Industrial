@@ -1,8 +1,10 @@
 from typing import Optional
 
+from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import optim
 
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
@@ -149,3 +151,21 @@ class OmniScaleModel(BaseNeuralModel):
         else:
             loss_fn = MULTI_CLASS_CROSS_ENTROPY()
         return loss_fn, optimizer
+
+    def _fit_model(self, ts: InputData, split_data: bool = False):
+        loss_fn, optimizer = self._init_model(ts)
+        train_loader, val_loader = self._prepare_data(ts, split_data)
+
+        self._train_loop(
+            train_loader=train_loader,
+            val_loader=val_loader,
+            loss_fn=loss_fn,
+            optimizer=optimizer
+        )
+
+    @convert_to_3d_torch_array
+    def _predict_model(self, x_test, output_mode: str = 'default'):
+        self.model.eval()
+        x_test = Tensor(x_test).to(default_device('cpu'))
+        pred = self.model(x_test)
+        return self._convert_predict(pred, output_mode)

@@ -22,7 +22,7 @@ def fedot_data_type(func):
                 input_data_squeezed = np.squeeze(features)
         else:
             input_data_squeezed = features
-        return func(self, input_data_squeezed)
+        return func(self, input_data_squeezed, args[1])
 
     return decorated_func
 
@@ -48,7 +48,7 @@ def convert_to_3d_torch_array(func):
             init_data.features = data
         else:
             init_data = data
-        return func(self, init_data)
+        return func(self, init_data, args[1])
 
     return decorated_func
 

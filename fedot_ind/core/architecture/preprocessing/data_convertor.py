@@ -89,7 +89,7 @@ class FedotConverter:
         else:
             try:
                 return torch.tensor(data)
-            except:
+            except Exception as e:
                 print(f"Can't convert {type(data)} to InputData", Warning)
 
     def __init_input_data(self, features: pd.DataFrame,
@@ -172,11 +172,9 @@ class FedotConverter:
                                    supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
             if len(self.input_data.features.shape) == 1:
-                self.input_data.features = self.input_data.features.reshape(
-                    1, -1)
+                self.input_data.features = self.input_data.features.reshape(1, -1)
             flat_input = self.input_data.features.shape[0] == 1
-            feats = self.input_data.features if flat_input else self.input_data.features.swapaxes(
-                1, 0)
+            feats = self.input_data.features if flat_input else self.input_data.features.swapaxes(1, 0)
             input_data = [InputData(idx=self.input_data.idx,
                                     features=features,
                                     target=self.input_data.target,
@@ -265,7 +263,7 @@ class NumpyConverter:
         else:
             try:
                 return np.asarray(data)
-            except:
+            except Exception as e:
                 print(f"Can't convert {type(data)} to np.array", Warning)
 
     def convert_to_1d_array(self):
@@ -300,7 +298,11 @@ class NumpyConverter:
 
     def convert_to_4d_torch_format(self):
         if self.numpy_data.ndim == 4:
-            return self.numpy_data
+            if self.numpy_data.shape[1] in range(1, 5):
+                # because image.shape[1] could be maximum RGB(a) channels
+                return self.numpy_data
+            else:
+                return self.numpy_data.swapaxes(1, 3)
         return self.numpy_data.reshape(self.numpy_data.shape[0],
                                        1,
                                        self.numpy_data.shape[1],
@@ -403,8 +405,10 @@ class ConditionConverter:
         return isinstance(self.operation_implementation.classes_, list)
 
     def output_mode_converter(self, output_mode, n_classes):
-        return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1) if output_mode == 'labels' \
-            else self.probs_prediction_converter(output_mode, n_classes)
+        if output_mode == 'labels':
+            return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1)
+        else:
+            return self.probs_prediction_converter(output_mode, n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
         prediction = self.operation_implementation.predict_proba(
@@ -481,7 +485,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         else:
             try:
                 return list(self.data)
-            except:
+            except Exception as e:
                 print(f'passed object needs to be of type L, list, np.ndarray or torch.Tensor but is {type(self.data)}',
                       Warning)
 

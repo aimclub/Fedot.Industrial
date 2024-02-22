@@ -13,8 +13,8 @@ distributed
 datasetsforecast
 
 tensorly==0.8.1
-torch==2.1.0
-torchvision
+torch==2.0.0
+torchvision==0.15.1
 statsforecast==1.5.0
 
 chardet
