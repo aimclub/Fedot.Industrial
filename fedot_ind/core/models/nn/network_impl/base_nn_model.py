@@ -114,7 +114,10 @@ class BaseNeuralModel:
         del self.model
         with torch.no_grad():
             torch.cuda.empty_cache()
-        self.model = self.model_for_inference.model.to(torch.device('cpu'))
+        if self.__repr__().startswith('Res'):
+            self.model = self.model_for_inference.model.to(torch.device('cpu'))
+        else:
+            self.model = self.model_for_inference.to(torch.device('cpu'))
         self.model.load_state_dict(torch.load(
             prefix, map_location=torch.device('cpu')))
         os.remove(prefix)
@@ -136,7 +139,10 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                loss = loss_fn()(output, targets.float())
+                try:
+                    loss = loss_fn()(output, targets.float())
+                except Exception:
+                    loss = loss_fn(output, targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
@@ -149,7 +155,10 @@ class BaseNeuralModel:
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
-                    loss = loss_fn()(output, targets.float())
+                    try:
+                        loss = loss_fn()(output, targets.float())
+                    except Exception:
+                        loss = loss_fn(output, targets.float())
                     valid_loss += loss.data.item() * inputs.size(0)
                 valid_loss /= len(val_loader.dataset)
                 print('Epoch: {},Validation Loss: {:.2f}'.format(epoch,

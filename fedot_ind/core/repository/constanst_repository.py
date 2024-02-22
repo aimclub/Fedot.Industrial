@@ -157,8 +157,9 @@ class FedotOperationConstant(Enum):
                             'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {'sequential': partial(SequentialTuner, inverse_node_order=True),
                             'simultaneous': SimultaneousTuner,
-                            'IOptTuner': IOptTuner,
-                            'optuna': OptunaTuner}
+                            #'IOptTuner': IOptTuner,
+                            'optuna': OptunaTuner
+                            }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'fedot_regr',
                            'classification': 'fedot_cls'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
@@ -213,15 +214,15 @@ class TorchLossesConstant(Enum):
     CROSS_ENTROPY = nn.CrossEntropyLoss
     MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
     MSE = nn.MSELoss
-    RMSE = RMSELoss()
-    SMAPE = SMAPELoss()
-    TWEEDIE_LOSS = TweedieLoss()
-    FOCAL_LOSS = FocalLoss()
+    RMSE = RMSELoss
+    SMAPE = SMAPELoss
+    TWEEDIE_LOSS = TweedieLoss
+    FOCAL_LOSS = FocalLoss
     CENTER_PLUS_LOSS = CenterPlusLoss
     CENTER_LOSS = CenterLoss
     MASK_LOSS = MaskedLossWrapper
-    LOG_COSH_LOSS = LogCoshLoss()
-    HUBER_LOSS = HuberLoss()
+    LOG_COSH_LOSS = LogCoshLoss
+    HUBER_LOSS = HuberLoss
     EXPONENTIAL_WEIGHTED_LOSS = ExpWeightedLoss
 
 
