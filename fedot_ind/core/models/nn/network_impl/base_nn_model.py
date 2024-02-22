@@ -205,8 +205,12 @@ class BaseNeuralModel:
         del self.model
         with torch.no_grad():
             torch.cuda.empty_cache()
-        self.model = self.model_for_inference.to(self._device)
-        self.model.load_state_dict(torch.load(prefix, map_location=self._device))
+        if self.__repr__().startswith('Res'):
+            self.model = self.model_for_inference.model.to(torch.device('cpu'))
+        else:
+            self.model = self.model_for_inference.to(torch.device('cpu'))
+        self.model.load_state_dict(torch.load(
+            prefix, map_location=torch.device('cpu')))
         os.remove(prefix)
 
     @convert_inputdata_to_torch_dataset
