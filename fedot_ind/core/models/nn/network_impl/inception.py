@@ -75,7 +75,7 @@ class InceptionTimeModel(BaseNeuralModel):
                                                  output_dim=self.num_classes)
         self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        if ts.task.task_type == 'classification':
+        if ts.task.task_type.value == 'classification':
             if ts.num_classes == 2:
                 loss_fn = CROSS_ENTROPY
             else:
