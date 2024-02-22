@@ -165,9 +165,9 @@ Useful tutorials and examples can be found in the `examples`_ folder.
    * - Topic
      - Example
    * - Time series classification
-     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
+     - `Basic_TSC <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced_TSC <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
    * - Time series regression
-     - `Basic <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/basic_example.py>`_, `Advanced <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/advanced_regression.py>`_, `Multi-TS <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/multi_ts_example.py>`_
+     - `Basic_TSR <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/basic_example.py>`_, `Advanced_TSR <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/advanced_regression.py>`_, `Multi-TS <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/multi_ts_example.py>`_
    * - Forecasting
      - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
    * - Anomaly detection
@@ -179,7 +179,7 @@ Benchmarking
 ============
 
 Univariate time series classification
-------------------------------------
+-------------------------------------
 
 Benchmarking was performed on the collection of 112 out of 144 datasets from the `UCR archive`_.
 
@@ -249,7 +249,7 @@ Benchmarking was performed on the collection of 112 out of 144 datasets from the
 
 
 Multivariate time series classification
---------------------------------------
+---------------------------------------
 
 Benchmarking was performed on the following datasets:
 BasicMotions, Cricket, LSST, FingerMovements, HandMovementDirection, NATOPS, PenDigits, RacketSports, Heartbeat, AtrialFibrillation, SelfRegulationSCP2
@@ -326,9 +326,9 @@ Real world cases
 Building energy consumption
 ----------------------------
 
-Link to the dataset on `Kaggle <https://www.kaggle.com/competitions/ashrae-energy-prediction>`_
+Link to the dataset `on Kaggle <https://www.kaggle.com/competitions/ashrae-energy-prediction>`_
 
-Full notebook with solution is `here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
+Full notebook with solution `is here <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/14bdb2f488c1246376fa138f5a2210795fcc16aa/cases/industrial_examples/energy_monitoring/building_energy_consumption.ipynb>`_
 
 The challenge is to develop accurate counterfactual models that estimate energy consumption savings
 post-retrofit. Leveraging a dataset comprising three years of hourly meter readings from over a
