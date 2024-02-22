@@ -163,8 +163,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             1, -1) for component in multi_ts_stat_features], axis=0)
 
         for index, component in enumerate(multi_ts_stat_features):
-            component.supplementary_data['feature_name'] = [f'{x} for component {index}'
-                                                            for x in component.supplementary_data['feature_name']]
+            # try:
+            #     component.supplementary_data['feature_name'] = [f'{x} for component {index}'
+            #                                                     for x in component.supplementary_data['feature_name']]
+            # except Exception as ex:
+            component.supplementary_data['feature_name'] = [f'component {index}']
         names = list(chain(*[x.supplementary_data['feature_name']
                      for x in multi_ts_stat_features]))
 
