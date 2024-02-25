@@ -1,5 +1,7 @@
-from typing import Optional
+from enum import Enum
+from typing import Optional, Tuple
 
+import numpy as np
 import torch
 from torch import nn
 from torch import optim
@@ -49,7 +51,7 @@ class NBeatsModel(BaseNeuralModel):
         return loss_fn, optimizer
 
 
-class NBeats:
+class NBeats(nn.Module):
     """
     N-Beats Model proposed in https://arxiv.org/abs/1905.10437
     """
@@ -59,9 +61,9 @@ class NBeats:
                  output_dim: int,
                  is_generic_architecture: bool,
                  n_stacks: int,
-                 n_blocks: int,
-                 n_layers: int,
-                 layer_size: int,
+                 # n_blocks: int,
+                 # n_layers: int,
+                 # layer_size: int,
                  n_trend_blocks: int,
                  n_trend_layers: int,
                  trend_layer_size: int,
@@ -101,22 +103,23 @@ class NBeats:
             activation: the activation function of intermediate layer, relu or gelu.
         """
 
-        self.stacks_list = list()
-        self.stack = None
+        super().__init__()
+
+        self.blocks = None
 
         if is_generic_architecture:
             self.stack = _NBeatsStack(
                 input_dim=input_dim,
                 output_dim=output_dim,
                 is_generic_architecture=is_generic_architecture,
-                n_blocks=n_blocks,
-                n_layers=n_layers,
-                layer_size=layer_size,
+                n_stacks=n_stacks,
+                # n_blocks=n_blocks,
+                # n_layers=n_layers,
+                # layer_size=layer_size,
             )
         else:
-            # The overall interpretable architecture consists of twostacks:
+            # The overall interpretable architecture consists of two stacks:
             # the trend stack is followed by the seasonality stack
-            # TODO think how to refactor
             self.stack = _NBeatsStack(
                 input_dim=input_dim,
                 output_dim=output_dim,
@@ -131,8 +134,18 @@ class NBeats:
                 n_of_harmonics=n_of_harmonics,
             )
 
-        for i in range(n_stacks):
-            self.stacks_list.append(self.stack)
+        self.blocks = nn.ModuleList(self.stacks)
+
+    def forward(self, x: torch.Tensor, input_mask: torch.Tensor) -> torch.Tensor:
+        residuals = x.flip(dims=(1,))
+        input_mask = input_mask.flip(dims=(1,))
+        forecast = x[:, -1:]
+        for i, block in enumerate(self.blocks):
+            backcast, block_forecast = block(residuals)
+            residuals = (residuals - backcast) * input_mask
+            forecast = forecast + block_forecast
+
+        return forecast
 
 
 class _NBeatsStack(nn.Module):
@@ -141,9 +154,7 @@ class _NBeatsStack(nn.Module):
             input_dim: int,
             output_dim: int,
             is_generic_architecture: bool,
-            n_blocks: int,
-            n_layers: int,
-            layer_size: int,
+            n_stacks: int,
             n_trend_blocks: int,
             n_trend_layers: int,
             trend_layer_size: int,
@@ -151,18 +162,45 @@ class _NBeatsStack(nn.Module):
             n_seasonality_blocks: int,
             n_seasonality_layers: int,
             seasonality_layer_size: int,
-            num_of_harmonics: int,
+            n_of_harmonics: int,
     ):
-        self.block_list = list()
         self.block = None
 
         if is_generic_architecture:
             self.block = _NBeatsBlock(
+                input_size=input_dim,
+                theta_size=input_dim + output_dim,
+                basis_function=_GenericBasis(
+                    backcast_size=input_dim,
+                    forecast_size=output_dim
+                )
             )
-        else:
+            self.blocks = [self.block for _ in range(n_stacks)]
 
-            self.block = _NBeatsBlock(
+        else:
+            trend_block = _NBeatsBlock(
+                input_size=input_dim,
+                theta_size=2 * (degree_of_polynomial + 1),
+                basis_function=_TrendBasis(
+                    degree_of_polynomial=degree_of_polynomial,
+                    backcast_size=input_dim,
+                    forecast_size=output_dim),
+                layers=n_trend_layers,
+                layer_size=trend_layer_size,
             )
+
+            seasonality_block = _NBeatsBlock(
+                input_size=input_dim,
+                theta_size=4 * int(np.ceil(n_of_harmonics / 2 * output_dim) - (n_of_harmonics - 1)),
+                basis_function=_SeasonalityBasis(
+                    harmonics=n_of_harmonics,
+                    backcast_size=input_dim,
+                    forecast_size=output_dim),
+                    layers=n_seasonality_layers,
+                    layer_size=seasonality_layer_size
+            )
+
+            self.blocks = [trend_block for _ in range(n_trend_blocks)] + [seasonality_block for _ in range(n_seasonality_blocks)]
 
 
 
@@ -174,29 +212,30 @@ class _NBeatsBlock(nn.Module):
     def __init__(
             self,
             input_size,
-            output_dim,
-            is_generic_architecture,
-            n_layers,
-            layer_size,
-            degree_of_polynomial: int,
-            n_seasonality_blocks: int,
-            n_seasonality_layers: int,
-            seasonality_layer_size: int,
-            num_of_harmonics: int,
+            theta_size: int,
+            basis_function: nn.Module,
+            layers: int,
+            layer_size: int
     ):
-        # TODO: conditional creation of a block layers based on Generic | Interpretable architectures
+        super().__init__()
+        self.layers = nn.ModuleList(
+            [nn.Linear(in_features=input_size, out_features=layer_size)] +
+            [nn.Linear(in_features=layer_size, out_features=layer_size) for _ in range(layers - 1)]
+        )
 
-        self.layers = None
+        self.basis_parameters = nn.Linear(in_features=layer_size, out_features=theta_size)
+        self.basis_function = basis_function
 
-        if is_generic_architecture:
-            self.layers = _GenericBasis(
-                input_size=input_size,
-                theta_size=input_size + output_dim,
-            )
-        else:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        block_input = x
+        for layer in self.layers:
+            block_input = torch.relu(layer(block_input))
+        basis_parameters = self.basis_parameters(block_input)
+
+        return self.basis_function(basis_parameters)
 
 
-class _GenericBasis(_NBeatsBlock):
+class _GenericBasis(nn.Module):
     """
     Generic basis function.
     The generic architecture does not rely on TS-specific knowledge.
@@ -208,19 +247,56 @@ class _GenericBasis(_NBeatsBlock):
         self.backcast_size = backcast_size
         self.forecast_size = forecast_size
 
+
     def forward(self, theta: torch.Tensor):
         return theta[:, :self.backcast_size], theta[:, -self.forecast_size:]
 
 
-class _TrendBasis(_NBeatsBlock):
+class _TrendBasis(nn.Module):
     """
     Polynomial function to model trend.
     Trend model. A typical characteristic of trend is that most of the time it is a monotonic function,
     or at least a slowly varying function. In order to mimic this behaviour constrain g^b_sl, and g^f_sl,
     to be a polynomial of small degree p, a function slowly varying across forecast window.
     """
-    # TODO:
-    pass
+    def __init__(
+            self,
+            degree_of_polynomial: int,
+            backcast_size: int,
+            forecast_size: int
+    ):
+        super().__init__()
+
+        self.polynomial_size = degree_of_polynomial + 1  # degree of polynomial with constant term
+        self.backcast_time = nn.Parameter(
+            torch.tensor(np.concatenate(
+                [np.power(np.arange(backcast_size, dtype=np.float) / backcast_size, i)[None, :] for i in range(self.polynomial_size)]),
+                dtype=torch.float32),
+            requires_grad=False
+        )
+
+        self.forecast_time = nn.Parameter(
+            torch.tensor(np.concatenate(
+                [np.power(np.arange(forecast_size, dtype=np.float) / forecast_size, i)[None, :] for i in range(self.polynomial_size)]),
+                dtype=torch.float32),
+            requires_grad=False
+        )
+
+
+    def forward(self, theta: torch.Tensor):
+        backcast = torch.einsum(
+            "bp,pt->bt",
+            theta[:, self.polynomial_size:],
+            self.backcast_time
+        )
+
+        forecast = torch.einsum(
+            "bp,pt->bt",
+            theta[:, :self.polynomial_size],
+            self.forecast_time
+        )
+
+        return backcast, forecast
 
 
 class _SeasonalityBasis(_NBeatsBlock):
@@ -230,5 +306,71 @@ class _SeasonalityBasis(_NBeatsBlock):
     Therefore, to model seasonality, constrain g^b_sl, and g^f_sl, to be long to the class of periodic functions,
     i.e. y_t = y_t-∆, where ∆ is a seasonality period.
     """
-    # TODO:
-    pass
+    def __init__(
+            self,
+            harmonics: int,
+            backcast_size: int,
+            forecast_size: int
+    ):
+        super().__init__()
+
+        self.frequency = np.append(np.zeros(1, dtype=np.float32),
+                                   np.arange(harmonics, harmonics / 2 * forecast_size,
+                                             dtype=np.float32) / harmonics)[None, :]
+        backcast_grid = -2 * np.pi * (
+                np.arange(backcast_size, dtype=np.float32)[:, None] / forecast_size) * self.frequency
+
+        forecast_grid = 2 * np.pi * (
+                np.arange(forecast_size, dtype=np.float32)[:, None] / forecast_size) * self.frequency
+
+        self.backcast_cos_template = nn.Parameter(
+            torch.tensor(np.transpose(np.cos(backcast_grid)), dtype=torch.float32),
+            requires_grad=False
+        )
+
+        self.backcast_sin_template = nn.Parameter(
+            torch.tensor(np.transpose(np.sin(backcast_grid)), dtype=torch.float32),
+            requires_grad=False
+        )
+
+        self.forecast_cos_template = nn.Parameter(
+            torch.tensor(np.transpose(np.cos(forecast_grid)), dtype=torch.float32),
+            requires_grad=False
+        )
+
+        self.forecast_sin_template = nn.Parameter(
+            torch.tensor(np.transpose(np.sin(forecast_grid)), dtype=torch.float32),
+            requires_grad=False
+        )
+
+    def forward(self, theta: torch.Tensor):
+        params_per_harmonic = theta.shape[1] // 4
+        backcast_harmonics_cos = torch.einsum(
+            "bp,pt->bt",
+            theta[:, 2 * params_per_harmonic:3 * params_per_harmonic],
+            self.backcast_cos_template
+        )
+
+        backcast_harmonics_sin = torch.einsum(
+            "bp,pt->bt",
+            theta[:, 3 * params_per_harmonic:],
+            self.backcast_sin_template
+        )
+
+        backcast = backcast_harmonics_sin + backcast_harmonics_cos
+
+        forecast_harmonics_cos = torch.einsum(
+            "bp,pt->bt",
+            theta[:, :params_per_harmonic],
+            self.forecast_cos_template
+        )
+
+        forecast_harmonics_sin = torch.einsum(
+            "bp,pt->bt",
+            theta[:, params_per_harmonic:2 * params_per_harmonic],
+            self.forecast_sin_template
+        )
+
+        forecast = forecast_harmonics_sin + forecast_harmonics_cos
+
+        return backcast, forecast
