@@ -41,7 +41,7 @@ class BaseNeuralModel:
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.num_classes = params.get('num_classes', None)
-        self.epochs = params.get('epochs', 10)
+        self.epochs = params.get('epochs', 100)
         self.batch_size = params.get('batch_size', 16)
         self.activation = params.get('activation', 'ReLU')
         self.learning_rate = 0.001
@@ -122,7 +122,10 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                loss = loss_fn()(output, targets.float())
+                try:
+                    loss = loss_fn()(output, targets.float())
+                except Exception:
+                    loss = loss_fn(output, targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
@@ -140,7 +143,10 @@ class BaseNeuralModel:
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
-                    loss = loss_fn()(output, targets.float())
+                    try:
+                        loss = loss_fn()(output, targets.float())
+                    except Exception:
+                        loss = loss_fn(output, targets.float())
                     valid_loss += loss.data.item() * inputs.size(0)
                     total += targets.size(0)
                     correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item()

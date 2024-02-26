@@ -58,6 +58,7 @@ from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
+from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
 
 TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_CLF_PREPROC_MODEL': {
@@ -206,41 +207,10 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                 INDUSTRIAL_PREPROC_MODEL.keys(),
                                 FEDOT_PREPROC_MODEL.keys()]
 
-    available_operations = list(
-        chain(*[list(x) for x in available_operations]))
-    excluded_operation = {'regression': ['one_hot_encoding',
-                                         'label_encoding',
-                                         'isolation_forest_class',
-                                         'tst_model',
-                                         'xcm_model',
-                                         'resnet_model',
-                                         'signal_extractor',
-                                         'recurrence_extractor'
-                                         ],
-                          'ts_forecasting': [
-                              'one_hot_encoding',
-                              'label_encoding',
-                              'isolation_forest_class'
-                              'xgbreg',
-                              'sgdr',
-                              'treg',
-                              'knnreg',
-                              'dtreg'
-    ],
-        'classification': [
-                              'isolation_forest_reg',
-                              'tst_model',
-                              'resnet_model',
-                              'xcm_model',
-                              'one_hot_encoding',
-                              'label_encoding',
-                              'isolation_forest_class',
-                              'signal_extractor',
-                              'knnreg',
-                              'recurrence_extractor'
-    ]}
-    available_operations = [
-        x for x in available_operations if x not in excluded_operation[problem]]
+    available_operations = list(chain(*[list(x) for x in available_operations]))
+    excluded_operations = list(chain(*[list(TEMPORARY_EXCLUDED[x]) for x in TEMPORARY_EXCLUDED.keys()]))
+    available_operations = [x for x in available_operations
+                            if x not in EXCLUDED_OPERATION_MUTATION[problem] and x not in excluded_operations]
     return available_operations
 
 
