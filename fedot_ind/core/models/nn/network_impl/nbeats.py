@@ -6,12 +6,11 @@ import torch
 from torch import nn
 from torch import optim
 
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 
-
-class NBeatsModel(BaseNeuralModel):
+class NBeatsModel(ModelImplementation):
     """Class responsible for NBeats model implementation.
 
     Attributes:
