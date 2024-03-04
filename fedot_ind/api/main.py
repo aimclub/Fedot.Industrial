@@ -142,19 +142,22 @@ class FedotIndustrial(Fedot):
         self.dask_client.close()
         del self.dask_client
 
-    def _predict_raf_ensemble(self):
-        self.predict_for_ensemble_branch = [
-            x.predict(self.predict_data).predict for x in self.solver[1:]]
-        n_samples, n_channels, n_classes = self.predict_for_ensemble_branch[0].shape[0], \
-            len(self.predict_for_ensemble_branch), \
-            self.predict_for_ensemble_branch[0].shape[1]
-        input_for_head = np.hstack(self.predict_for_ensemble_branch).reshape(
-            n_samples, n_channels, n_classes)
-        self.predict_data.features = input_for_head
-        self.predict_for_head_ensemble = self.solver[0].predict(
-            self.predict_data).predict
-        self.predicted_probs = self.predict_for_head_ensemble
-        return self.predict_for_head_ensemble
+    def _predict_raf_ensemble(self, mode: str = 'labels'):
+        self.predicted_branch_probs = [x.predict(self.predict_data).predict
+                                       for x in self.solver.root_node.nodes_from]
+        self.predicted_branch_labels = [np.argmax(x, axis=1) for x in self.predicted_branch_probs]
+        n_samples, n_channels, n_classes = self.predicted_branch_probs[0].shape[0], \
+                                           len(self.predicted_branch_probs), \
+                                           self.predicted_branch_probs[0].shape[1]
+        head_model = deepcopy(self.solver.root_node)
+        head_model.nodes_from = []
+        self.predict_data.features = np.hstack(self.predicted_branch_labels).reshape(n_samples,
+                                                                                     n_channels, 1)
+        head_predict = head_model.predict(self.predict_data).predict
+        if mode == 'labels':
+            return head_predict
+        else:
+            return np.argmax(head_predict, axis=1)
 
     def _preprocessing_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
@@ -163,7 +166,7 @@ class FedotIndustrial(Fedot):
     def _batch_strategy(self, input_data):
         self.logger.info('RAF algorithm was applied')
         batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-                           is not None else FEDOT_WORKER_NUM)
+                                                                              is not None else FEDOT_WORKER_NUM)
         batch_timeout = round(
             self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
         self.config_dict['timeout'] = batch_timeout
@@ -198,6 +201,7 @@ class FedotIndustrial(Fedot):
 
     def predict(self,
                 predict_data: tuple,
+                predict_mode: str = 'default',
                 **kwargs):
         """
         Method to obtain prediction labels from trained Industrial model.
@@ -209,31 +213,31 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        self.predict_data = deepcopy(
-            predict_data)  # we do not want to make inplace changes
+        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
-        if isinstance(self.solver, Fedot):
-            predict = self.solver.predict(self.predict_data)
-        elif isinstance(self.solver, list):
-            predict = self._predict_raf_ensemble()
+        if predict_mode == 'RAF_ensemble':
+            self.predicted_labels = self._predict_raf_ensemble()
         else:
-            predict = self.solver.predict(self.predict_data, 'labels').predict
-            if self.config_dict['problem'] == 'classification' and self.predict_data.target.min() - predict.min() != 0:
-                predict = predict + \
-                    (self.predict_data.target.min() - predict.min())
-        if self.target_encoder is not None:
-            self.predicted_labels = self.target_encoder.inverse_transform(
-                predict)
-            self.predict_data.target = self.target_encoder.inverse_transform(
-                self.predict_data.target)
-        else:
-            self.predicted_labels = predict
+            if isinstance(self.solver, Fedot):
+                predict = self.solver.predict(self.predict_data)
+            else:
+                predict = self.solver.predict(self.predict_data, 'labels').predict
+                if self.config_dict['problem'] == 'classification' \
+                        and self.predict_data.target.min() - predict.min() != 0 \
+                        and len(np.unique(predict).shape) != 1:
+                    predict = predict + (self.predict_data.target.min() - predict.min())
+            if self.target_encoder is not None:
+                self.predicted_labels = self.target_encoder.inverse_transform(predict)
+                self.predict_data.target = self.target_encoder.inverse_transform(self.predict_data.target)
+            else:
+                self.predicted_labels = predict
         return self.predicted_labels
 
     def predict_proba(self,
                       predict_data: tuple,
+                      predict_mode: str = 'default',
                       **kwargs):
         """
         Method to obtain prediction probabilities from trained Industrial model.
@@ -250,15 +254,16 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
-        if isinstance(self.solver, Fedot):
-            predict = self.solver.predict_proba(self.predict_data)
-        elif isinstance(self.solver, list):
-            return self.predicted_probs if self.predicted_probs is not None else self._predict_raf_ensemble()
+        if predict_mode == 'RAF_ensemble':
+            predict = self.predicted_labels = self._predict_raf_ensemble()
         else:
-            predict = self.solver.predict(self.predict_data, 'probs').predict
-            if self.config_dict['problem'] == 'classification' and self.predict_data.target.min() - predict.min() != 0:
-                predict = predict + \
-                    (self.predict_data.target.min() - predict.min())
+            if isinstance(self.solver, Fedot):
+                predict = self.solver.predict_proba(self.predict_data)
+            else:
+                predict = self.solver.predict(self.predict_data, 'probs').predict
+                if self.config_dict['problem'] == 'classification' and \
+                        self.predict_data.target.min() - predict.min() != 0:
+                    predict = predict + (self.predict_data.target.min() - predict.min())
         self.predicted_probs = predict
         return self.predicted_probs
 
@@ -363,6 +368,9 @@ class FedotIndustrial(Fedot):
         self.repo = IndustrialModels().setup_repository()
 
         dir_list = os.listdir(path)
+        p = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
+        path = f'{path}/{p}'
+        dir_list = os.listdir(path)
         if 'fitted_operations' in dir_list:
             self.solver = Pipeline().load(path)
         else:
@@ -382,12 +390,11 @@ class FedotIndustrial(Fedot):
                                                      is_datetime_in_path=True)
         elif isinstance(self.solver, Pipeline):
             return self.solver.save(path=self.output_folder, create_subdir=True,
-                                                     is_datetime_in_path=True)
+                                    is_datetime_in_path=True)
         else:
             for idx, p in enumerate(self.solver.ensemble_branches):
                 Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
             Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
-
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""
@@ -430,6 +437,10 @@ class FedotIndustrial(Fedot):
 
         explainer.explain(n_samples=samples, window=window, method=metric)
         explainer.visual(threshold=threshold, name=name)
+
+    def return_report(self) -> pd.DataFrame:
+        if isinstance(self.solver, Fedot):
+            return self.solver.return_report()
 
     @staticmethod
     def generate_ts(ts_config: dict):

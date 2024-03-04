@@ -42,17 +42,17 @@ industrial_search_space = {
                         'sampling-scope': [
                             ['LeakyReLU', 'ELU', 'SwishBeta', 'ReLU', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'omniscale_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
+        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'ELU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'inception_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
+        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'resnet_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]},
+        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},

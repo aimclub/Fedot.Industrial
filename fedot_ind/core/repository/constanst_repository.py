@@ -117,6 +117,41 @@ class FedotOperationConstant(Enum):
                   'regression': Task(TaskTypesEnum.regression),
                   'ts_forecasting': Task(TaskTypesEnum.ts_forecasting,
                                          TsForecastingParams(forecast_length=1))}
+    EXCLUDED_OPERATION_MUTATION = {
+        'regression': ['one_hot_encoding',
+                       'label_encoding',
+                       'isolation_forest_class',
+                       'tst_model',
+                       'omniscale_model',
+                       'isolation_forest_reg',
+                       'inception_model',
+                       'xcm_model',
+                       'resnet_model',
+                       'signal_extractor',
+                       'recurrence_extractor'
+                       ],
+        'ts_forecasting': [
+            'one_hot_encoding',
+            'label_encoding',
+            'isolation_forest_class'
+            'xgbreg',
+            'sgdr',
+            'treg',
+            'knnreg',
+            'dtreg'
+        ],
+        'classification': [
+            'isolation_forest_reg',
+            'tst_model',
+            'resnet_model',
+            'xcm_model',
+            'one_hot_encoding',
+            'label_encoding',
+            'isolation_forest_class',
+            'signal_extractor',
+            'knnreg',
+            'recurrence_extractor'
+        ]}
     FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
                                                         task_params=None,
                                                         timeout=None,
@@ -159,8 +194,8 @@ class FedotOperationConstant(Enum):
                             'simultaneous': SimultaneousTuner,
                             'IOptTuner': IOptTuner,
                             'optuna': OptunaTuner}
-    FEDOT_HEAD_ENSEMBLE = {'regression': 'fedot_regr',
-                           'classification': 'fedot_cls'}
+    FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
+                           'classification': 'logit'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
                                'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
@@ -542,6 +577,7 @@ SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
 EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
+EXCLUDED_OPERATION_MUTATION = FedotOperationConstant.EXCLUDED_OPERATION_MUTATION.value
 FEDOT_HEAD_ENSEMBLE = FedotOperationConstant.FEDOT_HEAD_ENSEMBLE.value
 FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
 FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value

@@ -110,14 +110,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             list_of_methods = [*STAT_METHODS.items()]
 
         for method in list_of_methods:
-            try:
-                features.append(method[1](time_series))
-                names.append(method[0])
-            except Exception as ex:
-                print(
-                    f'Error on statistical feature extraction - {method[0]}. Reason - {ex}')
-                features.append(0)
-                names.append(method[0])
+            features.append(method[1](time_series))
+            names.append(method[0])
         return features, names
 
     @convert_to_input_data

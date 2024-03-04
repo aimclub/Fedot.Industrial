@@ -1,0 +1,145 @@
+{
+    "total_pipeline_operations": [
+        "quantile_extractor",
+        "logit",
+        "wavelet_basis"
+    ],
+    "depth": 3,
+    "nodes": [
+        {
+            "operation_id": 2,
+            "operation_type": "quantile_extractor",
+            "operation_name": "QuantileExtractor",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_2.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 1,
+            "operation_type": "logit",
+            "operation_name": "LogisticRegression",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [
+                2
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_1.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 4,
+            "operation_type": "quantile_extractor",
+            "operation_name": "QuantileExtractor",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_4.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 3,
+            "operation_type": "logit",
+            "operation_name": "LogisticRegression",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [
+                4
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_3.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 6,
+            "operation_type": "wavelet_basis",
+            "operation_name": "WaveletBasisImplementation",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_6.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 5,
+            "operation_type": "logit",
+            "operation_name": "LogisticRegression",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [
+                6
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_5.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 8,
+            "operation_type": "quantile_extractor",
+            "operation_name": "QuantileExtractor",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_8.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 7,
+            "operation_type": "logit",
+            "operation_name": "LogisticRegression",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [
+                8
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_7.pkl"
+            ],
+            "rating": null
+        },
+        {
+            "operation_id": 0,
+            "operation_type": "logit",
+            "operation_name": "LogisticRegression",
+            "custom_params": {},
+            "params": {},
+            "nodes_from": [
+                1,
+                3,
+                5,
+                7
+            ],
+            "fitted_operation_path": [
+                "fitted_operations",
+                "operation_0.pkl"
+            ],
+            "rating": null
+        }
+    ],
+    "preprocessing": [
+        "preprocessing",
+        "data_preprocessor.pkl"
+    ],
+    "descriptive_id": "((/n_quantile_extractor;)/n_logit;;(/n_quantile_extractor;)/n_logit;;(/n_quantile_extractor;)/n_logit;;(/n_wavelet_basis;)/n_logit;)/n_logit"
+}
