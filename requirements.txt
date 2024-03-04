@@ -6,6 +6,8 @@ catboost==1.1.1; sys_platform == 'darwin'
 MKLpy==0.6
 PyMonad==2.4.0
 PyWavelets==1.4.1
+giotto_tda==0.6.0
+ripser==0.6.4
 
 fastcore
 fastai
