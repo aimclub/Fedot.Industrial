@@ -70,6 +70,7 @@ class AbstractBenchmark(object):
         # model.plot_fitness_by_generation()
         plt.close('all')
         model.shutdown()
+        model.return_report()
         return prediction.squeeze(), model.predict_data.target
 
     def finetune_loop(self, dataset, experiment_setup, composed_model_path):

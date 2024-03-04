@@ -69,8 +69,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         else:
             n_classes = len(trained_operation.classes_[0]) if self.operation_condition.is_multi_output_target \
                 else len(trained_operation.classes_)
-            prediction = self.operation_condition.output_mode_converter(
-                output_mode, n_classes)
+            prediction = self.operation_condition.output_mode_converter(output_mode, n_classes)
             return prediction
 
     def _convert_input_data(self, train_data, mode: str = None):
@@ -272,8 +271,7 @@ class IndustrialCustomPreprocessingStrategy:
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default'):
-        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
+        converted_predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, converted_predict_data, output_mode=output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:

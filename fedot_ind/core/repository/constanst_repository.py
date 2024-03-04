@@ -194,8 +194,8 @@ class FedotOperationConstant(Enum):
                             'simultaneous': SimultaneousTuner,
                             'IOptTuner': IOptTuner,
                             'optuna': OptunaTuner}
-    FEDOT_HEAD_ENSEMBLE = {'regression': 'fedot_regr',
-                           'classification': 'fedot_cls'}
+    FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
+                           'classification': 'logit'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
                                'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [

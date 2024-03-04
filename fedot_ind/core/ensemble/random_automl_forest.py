@@ -47,12 +47,10 @@ class RAFensembler:
     def _decompose_pipeline(self):
         batch_pipe = [automl_branch.fitted_operation.model.current_pipeline.root_node for automl_branch in
                       self.current_pipeline.nodes if
-                      automl_branch.name in FEDOT_HEAD_ENSEMBLE.values()]
-        self.ensemble_branches = batch_pipe[:-1]
-        self.ensemble_head = batch_pipe[-1]
-        for p in self.ensemble_head.nodes_from:
-            if len(p.nodes_from) == 0:
-                p.nodes_from = self.ensemble_branches
+                      automl_branch.name in FEDOT_ATOMIZE_OPERATION.values()]
+        self.ensemble_branches = batch_pipe
+        self.ensemble_head = self.current_pipeline.nodes[0]
+        self.ensemble_head.nodes_from = self.ensemble_branches
         composed = Pipeline(self.ensemble_head)
         self.current_pipeline = composed
 
@@ -62,8 +60,7 @@ class RAFensembler:
                 train_data.features.shape[0] / self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
-        self.current_pipeline = self.ensemble_method(
-            new_features, new_target, n_splits=self.n_splits)
+        self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
         self._decompose_pipeline()
 
     def predict(self, test_data, output_mode: str = 'labels'):
@@ -90,8 +87,7 @@ class RAFensembler:
                                                       in head_automl_params['available_operations']
                                                       if operation in list(SKLEARN_CLF_MODELS.keys())
                                                       or operation in list(SKLEARN_REG_MODELS.keys())]
-        head_automl_params['initial_assumption'] = FEDOT_ENSEMBLE_ASSUMPTIONS[self.atomized_automl_params['problem']].build()
-        raf_ensemble = raf_ensemble.join_branches(self.head,
-                                                  params=head_automl_params).build()
+        #head_automl_params['initial_assumption'] = FEDOT_ENSEMBLE_ASSUMPTIONS[self.atomized_automl_params['problem']].build()
+        raf_ensemble = raf_ensemble.join_branches(self.head).build()
         raf_ensemble.fit(input_data=train_multimodal)
         return raf_ensemble
