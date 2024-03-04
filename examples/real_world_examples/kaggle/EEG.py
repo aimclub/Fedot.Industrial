@@ -196,13 +196,10 @@ if __name__ == "__main__":
         model.fit(input_data_train)
         model.save_best_model()
     else:
-        model.load('./automl/raf_ensemble')
-
-    # obtain predictions
-    # prediction = model.predict(input_data_train)
-    # metric_train = model.get_metrics(input_data_train[1])
-    pred_test = model.predict(input_data_test)
-    metric_test = model.get_metrics(input_data_test[1])
+        model.load('./automl')
+    pred_test = model.predict(input_data_test, 'RAF_ensemble')
+    pred_prob = model.predict_proba(input_data_test, 'RAF_ensemble')
     sub_df = pd.DataFrame(target_probs[1], columns=list(TARS.keys()))
-    solution_df = pd.DataFrame(pred_test, columns=list(TARS.keys()))
+    solution_df = pd.DataFrame(pred_prob, columns=list(TARS.keys()))
     kl_train = kl_divergence(solution_df, sub_df)
+    _ = 1

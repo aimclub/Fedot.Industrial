@@ -74,28 +74,36 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
     def finetune(self):
         for dataset_name in self.custom_datasets:
             experiment_setup = deepcopy(self.experiment_setup)
-            composed_model_path = PROJECT_PATH + '/benchmark/results/ts_regression' + \
-                f'/{dataset_name}' + '/0_pipeline_saved'
-            experiment_setup['output_folder'] = composed_model_path
-            del experiment_setup['industrial_preprocessing']
-            prediction, model = self.finetune_loop(
-                dataset_name, experiment_setup)
-            metric = RMSE(model.predict_data.target, prediction).metric()
-            metric_path = PROJECT_PATH + '/benchmark/results/ts_regression' + \
-                f'/{dataset_name}' + '/metrics_report.csv'
-            fedot_results = pd.read_csv(metric_path, index_col=0)
-            fedot_results.loc[dataset_name,
-                              'Fedot_Industrial_finetuned'] = metric
-            fedot_results.to_csv(metric_path)
-            model.save_best_model()
+            path_to_results = PROJECT_PATH + '/benchmark/results/ts_regression' + \
+                f'/{dataset_name}'
+            composed_model_path = [path_to_results + f'/{x}' for x in os.listdir(path_to_results)
+                                   if x.__contains__('pipeline_saved')]
+            for p in composed_model_path:
+                experiment_setup['output_folder'] = path_to_results
+                prediction, model = self.finetune_loop(
+                    dataset_name, experiment_setup, p)
+                metric = RMSE(model.predict_data.target, prediction).metric()
+                metric_path = PROJECT_PATH + '/benchmark/results/ts_regression' + \
+                    f'/{dataset_name}' + '/metrics_report.csv'
+                fedot_results = pd.read_csv(metric_path, index_col=0)
+                fedot_results.loc[dataset_name,
+                                  'Fedot_Industrial_finetuned'] = metric
+                fedot_results.to_csv(metric_path)
+                model.save_best_model()
         self.logger.info("Benchmark finetune finished")
 
-    def finetune_loop(self, dataset, experiment_setup: dict = None):
+    def finetune_loop(self, dataset, experiment_setup, composed_model_path):
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
+        if 'tuning_params' in experiment_setup.keys():
+            tuning_params = experiment_setup['tuning_params']
+            del experiment_setup['tuning_params']
+        else:
+            tuning_params = None
         model = FedotIndustrial(**experiment_setup)
-        model.load(path=experiment_setup['output_folder'])
-        model.finetune(train_data, tuning_params=experiment_setup, mode='head')
-        prediction = model.finetune_predict(test_data)
+        model.load(path=composed_model_path)
+
+        model.finetune(train_data,tuning_params)
+        prediction = model.predict(test_data)
         return prediction, model
 
     def show_composite_pipeline(self):

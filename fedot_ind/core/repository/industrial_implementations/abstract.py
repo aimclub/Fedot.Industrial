@@ -1,9 +1,7 @@
 from copy import copy
-from typing import List, Optional, Union
-
 import pandas as pd
 from fedot.core.data.array_utilities import atleast_4d
-from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.merge.data_merger import DataMerger
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -14,6 +12,10 @@ from fedot.preprocessing.data_types import TYPE_TO_ID
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
+from typing import Optional, Tuple, Union, Sequence, List, Dict
+from golem.core.optimisers.timer import Timer
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.pipelines.node import PipelineNode
 
 
 def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
