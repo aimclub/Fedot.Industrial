@@ -8,14 +8,13 @@ from pathlib import Path
 import chardet
 import pandas as pd
 from datasetsforecast.m3 import M3
-# from datasetsforecast.m4 import M4
+from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
 from sktime.datasets._data_io import load_from_tsfile_to_dataframe
 from tqdm import tqdm
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.repository.constanst_repository import M4_PREFIX
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
@@ -37,27 +36,18 @@ class DataLoader:
         self.dataset_name = dataset_name
         self.folder = folder
         self.forecast_data_source = {'M3': M3.load,
-                                     # 'M4': M4.load,
-                                     'M4': self.local_m4_load,
+                                     'M4': M4.load,
                                      'M5': M5.load
                                      }
 
     def load_forecast_data(self):
-        loader = self.forecast_data_source['M4']
-        group_df = loader(directory='data',
-                          group=f'{M4_PREFIX[self.dataset_name[0]]}')
-        # 'M3_Monthly_M10'
-        ts_df = group_df[group_df['label'] == self.dataset_name]
-        del ts_df['label']
-        ts_df = ts_df.set_index(
-            'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
-        return ts_df
-
-    def local_m4_load(self, directory, group):
-        path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
-        for result_cvs in os.listdir(path_to_result):
-            if result_cvs.__contains__(group):
-                return pd.read_csv(Path(path_to_result, result_cvs))
+        benchmark_name, dataset_name, id_name = self.dataset_name.split('_')
+        ts_df, exog_df, stat_df = self.forecast_data_source[benchmark_name](directory='data',
+                                                                            group=dataset_name)
+        ts_df = ts_df[ts_df['unique_id'] == id_name]
+        del ts_df['unique_id']
+        ts_df = ts_df.set_index('ds')
+        return ts_df, (exog_df, stat_df)
 
     def load_data(self, shuffle=True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
@@ -75,7 +65,7 @@ class DataLoader:
                                                               shuffle=shuffle)
 
         if train_data is None:
-            self.logger.info('Downloading...')
+            self.logger.info(f'Downloading...')
 
             # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
@@ -101,7 +91,7 @@ class DataLoader:
 
             shutil.rmtree(cache_path)
             return train_data, test_data
-        self.logger.info('Data read successfully from local folder')
+        self.logger.info(f'Data readed successfully from local folder')
         return train_data, test_data
 
     def read_train_test_files(self, data_path, dataset_name, shuffle=True):
@@ -227,7 +217,7 @@ class DataLoader:
                             raise TsFileParseException(
                                 "problemname tag requires an associated value")
 
-                        # problem_name = line[len("@problemname") + 1:]
+                        problem_name = line[len("@problemname") + 1:]
                         has_problem_name_tag = True
                         metadata_started = True
                     elif line.startswith("@timestamps"):
@@ -346,8 +336,8 @@ class DataLoader:
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                            not has_univariate_tag or not has_target_labels_tag or \
-                            not has_data_tag
+                                                          not has_univariate_tag or not has_target_labels_tag or \
+                                                          not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
@@ -620,7 +610,7 @@ class DataLoader:
                                     if num_dimensions != this_line_num_dimensions:
                                         raise TsFileParseException("line " + str(
                                             line_num + 1) +
-                                            " does not have the same number of dimensions as the previous line of data")
+                                                                   " does not have the same number of dimensions as the previous line of data")
 
                             # Check that we are not expecting some more data, and if not, store that processed above
 
@@ -648,8 +638,8 @@ class DataLoader:
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
                                 raise TsFileParseException("line " + str(
                                     line_num + 1) +
-                                    "does not have the same number of dimensions as the "
-                                    "previous line of data")
+                                                           "does not have the same number of dimensions as the "
+                                                           "previous line of data")
 
                             # Check if we should have class values, and if so that they are contained
                             # in those listed in the metadata
@@ -710,7 +700,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                and has_target_labels_tag and has_data_tag
+                                            and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag
