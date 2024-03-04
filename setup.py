@@ -8,7 +8,7 @@ HERE = Path(__file__).parent.resolve()
 
 # The text of the README file
 NAME = 'fedot_ind'
-VERSION = '0.4.0'
+VERSION = '0.4.1'
 AUTHOR = 'NSS Lab'
 AUTHOR_EMAIL = 'itmo.nss.team@gmail.com'
 SHORT_DESCRIPTION = 'Automated machine learning framework for time series analysis'
