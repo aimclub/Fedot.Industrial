@@ -15,7 +15,8 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     *
 from fedot.core.operations.evaluation.operation_implementations. \
     data_operations.topological.fast_topological_extractor import \
-    FastTopologicalFeaturesImplementation
+    TopologicalFeaturesImplementation
+    # FastTopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -130,7 +131,7 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        'topological_features': FastTopologicalFeaturesImplementation,
+        'topological_features': TopologicalFeaturesImplementation,
 
     }
     INDUSTRIAL_PREPROC_MODEL = {
