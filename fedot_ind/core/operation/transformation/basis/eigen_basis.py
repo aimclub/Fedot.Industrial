@@ -66,8 +66,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return predict
 
     def _convert_basis_to_predict(self, basis, input_data):
-        self.predict = basis
 
+        if input_data.features.shape[0] == 1 and len(input_data.features.shape) == 3:
+            self.predict = basis[np.newaxis, :, :]
+        else:
+            self.predict = basis
         if input_data.task.task_params is None:
             input_data.task.task_params = self.__repr__()
         elif input_data.task.task_params not in [self.__repr__(), 'LargeFeatureSpace']:

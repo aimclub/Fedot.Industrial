@@ -411,8 +411,10 @@ class ConditionConverter:
             return self.probs_prediction_converter(output_mode, n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
-        prediction = self.operation_implementation.predict_proba(
-            self.train_data.features)
+        try:
+            prediction = self.operation_implementation.predict_proba(self.train_data.features)
+        except Exception:
+            prediction = self.operation_implementation.predict_proba(self.train_data.features.T)
         if n_classes < 2:
             raise ValueError(
                 'Data set contain only 1 target class. Please reformat your data.')
