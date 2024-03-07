@@ -192,7 +192,7 @@ class FedotOperationConstant(Enum):
                             'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {'sequential': partial(SequentialTuner, inverse_node_order=True),
                             'simultaneous': SimultaneousTuner,
-                            'IOptTuner': IOptTuner,
+                          #  'IOptTuner': IOptTuner,
                             'optuna': OptunaTuner}
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
                            'classification': 'logit'}

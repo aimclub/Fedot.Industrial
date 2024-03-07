@@ -366,11 +366,12 @@ class FedotIndustrial(Fedot):
 
         """
         self.repo = IndustrialModels().setup_repository()
+        if not path.__contains__('pipeline_saved'):
+            dir_list = os.listdir(path)
+            p = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
+            path = f'{path}/{p}'
+        dir_list = os.listdir(path)
 
-        dir_list = os.listdir(path)
-        p = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
-        path = f'{path}/{p}'
-        dir_list = os.listdir(path)
         if 'fitted_operations' in dir_list:
             self.solver = Pipeline().load(path)
         else:
@@ -395,6 +396,7 @@ class FedotIndustrial(Fedot):
             for idx, p in enumerate(self.solver.ensemble_branches):
                 Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
             Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
+            self.solver.current_pipeline.save(f'./raf_ensemble/ensemble_composed', create_subdir=True)
 
     def plot_fitness_by_generation(self, **kwargs):
         """Plot prediction of the model"""
