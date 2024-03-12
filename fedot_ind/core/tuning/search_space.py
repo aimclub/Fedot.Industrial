@@ -26,11 +26,11 @@ industrial_search_space = {
     'riemann_extractor':
         {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
                                                                        'cov', 'lwf', 'mcd', 'hub']]},
-         'tangent_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['euclid', 'harmonic',
-                                                                            'logdet', 'logeuclid', 'riemann',
+         'tangent_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['euclid', 'logeuclid',
+                                                                            'riemann',
                                                                             'wasserstein']]},
-         'SPD_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ale', 'alm', 'euclid', 'harmonic',
-                                                                        'identity', 'kullback_sym', 'logdet',
+         'SPD_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ale', 'alm', 'euclid',
+                                                                        'identity', 'kullback_sym',
                                                                         'logeuclid', 'riemann', 'wasserstein']]}},
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
