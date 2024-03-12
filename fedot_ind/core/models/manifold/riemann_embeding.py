@@ -75,16 +75,18 @@ class RiemannExtractor(BaseExtractor):
             SPD = self.covarince_transformer.fit_transform(input_data.features, input_data.target)
             ref_point = self.tangent_projector.fit_transform(SPD)
             self.fit_stage = False
+            self.classes_ = np.unique(input_data.target)
         return ref_point
 
     def extract_centroid_distance(self, input_data: InputData):
-        self.classes_ = np.unique(input_data.target)
-        if not self.fit_stage:
-            SPD = self.covarince_transformer.transform(input_data.features)
-        else:
+        input_data.target = input_data.target.astype(int)
+        if self.fit_stage:
             SPD = self.covarince_transformer.fit_transform(input_data.features, input_data.target)
-        self.covmeans_ = [mean_covariance(SPD[input_data.target == ll], metric=self.covariance_metric)
-                          for ll in self.classes_]
+        else:
+            SPD = self.covarince_transformer.transform(input_data.features)
+
+        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
+                                          metric=self.covariance_metric) for ll in self.classes_]
 
         n_centroids = len(self.covmeans_)
         dist = [distance(SPD, self.covmeans_[m], self.distance_metric) for m in range(n_centroids)]
