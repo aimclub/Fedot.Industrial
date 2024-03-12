@@ -30,6 +30,7 @@ from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
 
+from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
 from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED
 
 
@@ -43,6 +44,7 @@ class IndustrialMutations:
     def __init__(self, task_type):
         self.node_adapter = PipelineAdapter()
         self.task_type = Task(task_type)
+        self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
         self.industrial_data_operations = [*list(AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
                                            *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
@@ -50,6 +52,7 @@ class IndustrialMutations:
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
+        self.excluded = self.excluded + self.excluded_mutation
         self.industrial_data_operations = [operation for operation in self.industrial_data_operations if operation
                                            not in self.excluded]
 
@@ -262,9 +265,9 @@ class IndustrialMutations:
             task=self.task_type, mode='data_operation', tags=["basis"])
         extractors = get_operations_for_task(
             task=self.task_type, mode='data_operation', tags=["extractor"])
-        extractors = [x for x in extractors if x != 'dimension_reduction']
+        extractors = [x for x in extractors if x in self.industrial_data_operations]
         models = get_operations_for_task(task=self.task_type, mode='model')
-        models = [x for x in models if x != 'fedot_cls']
+        models = [x for x in models if x not in self.excluded_mutation]
         basis_model = PipelineNode(choice(basis_models))
         extractor_model = PipelineNode(
             choice(extractors), nodes_from=[basis_model])

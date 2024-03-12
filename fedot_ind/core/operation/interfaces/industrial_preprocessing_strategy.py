@@ -306,14 +306,12 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
         prediction = trained_operation.transform(predict_data)
-        converted = self.multi_dim_dispatcher._convert_to_output(
-            prediction, predict_data)
+        converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
         return converted
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
         prediction = trained_operation.transform_for_fit(predict_data)
-        converted = self.multi_dim_dispatcher._convert_to_output(
-            prediction, predict_data)
+        converted = self.multi_dim_dispatcher._convert_to_output(prediction, predict_data)
         return converted
 
 

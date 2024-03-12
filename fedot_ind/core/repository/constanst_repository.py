@@ -128,7 +128,8 @@ class FedotOperationConstant(Enum):
                        'xcm_model',
                        'resnet_model',
                        'signal_extractor',
-                       'recurrence_extractor'
+                       'recurrence_extractor',
+                       'fedot_regr'
                        ],
         'ts_forecasting': [
             'one_hot_encoding',
@@ -150,7 +151,11 @@ class FedotOperationConstant(Enum):
             'isolation_forest_class',
             'signal_extractor',
             'knnreg',
-            'recurrence_extractor'
+            'recurrence_extractor',
+            'fedot_cls',
+            'bernb',
+            'qda',
+            'omniscale_model'
         ]}
     FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
                                                         task_params=None,

@@ -1,17 +1,16 @@
 import gc
 
 import matplotlib
-import matplotlib.pyplot as plt
-import scipy
-import sklearn
-from sklearn.model_selection import train_test_split
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from joblib import delayed, Parallel
 from sklearn.preprocessing import LabelEncoder
 
+from tqdm import tqdm
+
+from benchmark.feature_utils import *
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from scipy.signal import butter, lfilter
-
-from fedot_ind.core.metrics.metrics_implementation import kl_divergence
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 import numpy as np
 import pandas as pd
@@ -19,43 +18,43 @@ import pandas as pd
 matplotlib.use('TkAgg')
 
 CREATE_EEGS = False
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 
 # feature preproc const
 TARS = {'Seizure': 0, 'LPD': 1, 'GPD': 2, 'LRDA': 3, 'GRDA': 4, 'Other': 5}
 FEATS = ['Fp1', 'O1', 'Fp2', 'O2']
 FEAT2IDX = {x: y for x, y in zip(FEATS, range(len(FEATS)))}
-DISPLAY = 4
+DISPLAY = 1000
 FREQS = [1, 2, 4, 8, 16][::-1]
 
 # path to data
-EEG_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/train_eegs/'
-EEG_PATH_TEST = PROJECT_PATH + \
-    '/data/hms-harmful-brain-activity-classification/test_eegs/'
-TRAIN_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/train.csv'
-TEST_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
+
 EEG_PATH_SAVE = PROJECT_PATH + \
-    '/data/hms-harmful-brain-activity-classification/eeg.npy'
+                '/data/hms-harmful-brain-activity-classification/eeg.npy'
 EEG_PATH_SAVE_TEST = PROJECT_PATH + \
-    '/data/hms-harmful-brain-activity-classification/eeg_test.npy'
+                     '/data/hms-harmful-brain-activity-classification/eeg_test.npy'
 
 # industrial experiment params
 label_encoder = LabelEncoder()
 ml_task = 'classification'
 experiment_setup = {'problem': ml_task,
-                    'metric': 'accuracy',
-                    'timeout': 100,
+                    'metric': 'f1',
+                    'timeout': 180,
                     'num_of_generations': 15,
                     'pop_size': 10,
                     'logging_level': 10,
                     'n_jobs': 4,
                     'output_folder': './automl',
-                    'industrial_preprocessing': True,
+                    'industrial_preprocessing': False,
                     'RAF_workers': 4,
                     'max_pipeline_fit_time': 15,
+                    'initial_assumption': PipelineBuilder().add_node('quantile_extractor', params={'window_size': 10,
+                                                                                                   'stride': 1}).
+                    add_node('kernel_pca', params={'n_components': 20,
+                                                   'kernel': 'rbf'}).add_node('logit'),
                     'with_tuning': False,
-                    'early_stopping_iterations': 5,
-                    'early_stopping_timeout': 60,
+                    'early_stopping_iterations': 10,
+                    'early_stopping_timeout': 120,
                     'optimizer': IndustrialEvoOptimizer}
 
 
@@ -133,73 +132,75 @@ def load_eeg(EEG_PATH, CREATE_EEGS, EEG_IDS, df_target, EGG_PATH_SAVE):
     return all_eegs
 
 
-def load_and_preproc_target(TRAIN_PATH):
-    df_train = pd.read_csv(TRAIN_PATH)
-    TARGETS = df_train.columns[-6:]
-    EEG_IDS = df_train.eeg_id.unique()
-    target_df = df_train.groupby('eeg_id')[['patient_id']].agg('first')
-    tmp = df_train.groupby('eeg_id')[TARGETS].agg('sum')
-    for t in TARGETS:
-        target_df[t] = tmp[t].values
+def load_and_preproc_eeg(all_eegs, target_df, window_size=10, train_fold: int = 0, test_fold: int = 1):
+    train_eeg_id = target_df[target_df['fold'] == train_fold]['eeg_id'].values
+    test_eeg_id = target_df[target_df['fold'] == test_fold]['eeg_id'].values
+    train_labels = target_df[target_df['fold'] == train_fold]['target'].values
+    test_labels = target_df[target_df['fold'] == test_fold]['target'].values
+    ts_train = [butter_lowpass_filter(all_eegs[x]) for x in train_eeg_id]
+    ts_test = [butter_lowpass_filter(all_eegs[x]) for x in test_eeg_id]
+    train_features = np.concatenate(ts_train).reshape(len(ts_train), ts_train[0].shape[1], ts_train[0].shape[0])
+    train_features = train_features[::, ::, ::window_size]
+    test_features = np.concatenate(ts_test).reshape(len(ts_test), ts_test[0].shape[1], ts_test[0].shape[0])
+    test_features = test_features[::, ::, ::window_size]
+    train_target = label_encoder.fit_transform(train_labels)
+    test_target = label_encoder.transform(test_labels)
+    return (train_features, train_target), (test_features, test_target)
 
-    y_data = target_df[TARGETS].values
-    y_data = y_data / y_data.sum(axis=1, keepdims=True)
-    target_df[TARGETS] = y_data
 
-    tmp = df_train.groupby('eeg_id')[['expert_consensus']].agg('first')
-    target_df['target'] = tmp
-    target_df = target_df.reset_index()
-    target_df = target_df.loc[target_df.eeg_id.isin(EEG_IDS)]
-
-    print('Data with unique eeg_id shape:', target_df.shape)
+def load_and_preproc_target(path, mode='train'):
+    dataframe = pd.read_csv(path)
+    TARGETS = ['target', 'fold', 'eeg_id']
+    EEG_IDS = dataframe.eeg_id.unique()
+    target_df = dataframe[TARGETS]
     return target_df, EEG_IDS
 
 
-def load_and_preproc_eeg(all_eegs, target_df, window_size=20):
-    ts_train = [butter_lowpass_filter(x) for x in all_eegs.values()]
-    id = list(all_eegs.keys())
-    train_features = np.concatenate(ts_train).reshape(
-        len(id), ts_train[0].shape[1], ts_train[0].shape[0])
+def generate_features(row):
+    e = EEGFeatures(metadata=dict(row))
+    s = SpectrogramFeatures(metadata=dict(row))
+    es = EEGBuiltSpectrogramFeatures(metadata=dict(row))
 
-    target_labels = []
-    for eeg_id in list(all_eegs.keys()):
-        target_labels.append(
-            target_df[target_df['eeg_id'] == eeg_id]['target'].values[0])
+    feature_data = pd.concat([
+        e.format_eeg_data(eeg_windows),
+        s.format_spectrogram_data(spec_windows),
+        es.format_custom_spectrogram(eeg_built_spec_windows)
+    ], axis=1)
+    return feature_data
 
-    train_target = label_encoder.fit_transform(target_labels)
-    target_df['target'] = train_target
-    target_probs = target_df.iloc[:, 2:].values
-    X_train_2, X_test_2, y_train_2, y_test_2 = train_test_split(train_features[::, ::, ::window_size],
-                                                                target_probs,
-                                                                test_size=0.8, stratify=train_target,
-                                                                random_state=42)
-
-    input_data = (X_train_2[::, ::, ::], y_train_2[:, -1])
-    input_data_test = (X_test_2[::, ::, ::], y_test_2[:, -1])
-    del ts_train, id, train_features
-    return input_data, input_data_test, (y_train_2[:, :-1], y_test_2[:, :-1])
 
 
 if __name__ == "__main__":
-
     # load and preproc data
-    target_df_train, EEG_IDS_train = load_and_preproc_target(TRAIN_PATH)
-    all_eegs_train = load_eeg(
-        EEG_PATH, False, EEG_IDS_train, target_df_train, EEG_PATH_SAVE)
-    input_data_train, input_data_test, target_probs = load_and_preproc_eeg(
-        all_eegs_train, target_df_train)
+    if CREATE_EEGS:
+        rd = ReadData()
+        train_df = rd.read_train_data()
+        train_df['left_eeg_index'] = train_df['eeg_label_offset_seconds'].multiply(200).astype('int')
+        train_df['right_eeg_index'] = train_df['eeg_label_offset_seconds'].add(50).multiply(200).astype('int')
+        df = pd.DataFrame()
+        for index, row in tqdm(train_df.query("eeg_sub_id == 0").iterrows()):
+            feature_data = generate_features(row)
+            df = pd.concat([
+                df,
+                feature_data
+            ])
+            print('Finished creating training data...')
+    else:
+        df = pd.read_csv('./train_features.csv')
+        from sklearn.decomposition import KernelPCA
+        df = df.fillna(0)
+        transformer = KernelPCA(n_components=1000, kernel='linear')
+        X_transformed = transformer.fit_transform(df.values)
+        input_data_train, input_data_test = load_and_preproc_eeg(all_eegs_train, target_df_train, 1, 2)
+
+    # input_data_train, input_data_test = load_and_preproc_eeg(all_eegs_train, target_df_train, 1, 2)
     model = FedotIndustrial(**experiment_setup)
     gc.collect()
-
     # train model
     if TRAIN_MODEL:
-        model.fit(input_data_train)
+        model.fit()
         model.save_best_model()
     else:
         model.load('./automl')
-    pred_test = model.predict(input_data_test, 'RAF_ensemble')
-    pred_prob = model.predict_proba(input_data_test, 'RAF_ensemble')
-    sub_df = pd.DataFrame(target_probs[1], columns=list(TARS.keys()))
-    solution_df = pd.DataFrame(pred_prob, columns=list(TARS.keys()))
-    kl_train = kl_divergence(solution_df, sub_df)
-    _ = 1
+    pred_test = model.predict()
+    pred_prob = model.predict_proba()

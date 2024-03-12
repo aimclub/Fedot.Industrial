@@ -13,10 +13,10 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     LinearClassFSImplementation, NonLinearClassFSImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
     *
-from fedot.core.operations.evaluation.operation_implementations. \
-    data_operations.topological.fast_topological_extractor import \
-    TopologicalFeaturesImplementation
+
     # FastTopologicalFeaturesImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
+    TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -44,6 +44,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBClassifier, XGBRegressor
 
+from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
@@ -142,6 +143,7 @@ class AtomizedModel(Enum):
         # feature extraction algorithm
         'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
+        'riemann_extractor': RiemannExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
         # isolation_forest forest

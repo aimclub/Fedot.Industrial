@@ -176,6 +176,12 @@
     "window_mode": false,
     "var_threshold": 0.01
   },
+  "riemann_extractor": {
+    "n_filter": 4,
+    "estimator": "scm",
+    "tangent_metric": "riemann",
+    "SPD_metric": "riemann"
+  },
   "recurrence_extractor": {
     "window_size": 20,
     "window_mode": true,

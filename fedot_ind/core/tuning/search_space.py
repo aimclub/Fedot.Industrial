@@ -23,6 +23,15 @@ industrial_search_space = {
     'quantile_extractor':
         {'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(0, 50, 3)]]}},
+    'riemann_extractor':
+        {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
+                                                                       'cov', 'lwf', 'mcd', 'hub']]},
+         'tangent_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['euclid', 'harmonic',
+                                                                            'logdet', 'logeuclid', 'riemann',
+                                                                            'wasserstein']]},
+         'SPD_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ale', 'alm', 'euclid', 'harmonic',
+                                                                        'identity', 'kullback_sym', 'logdet',
+                                                                        'logeuclid', 'riemann', 'wasserstein']]}},
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
