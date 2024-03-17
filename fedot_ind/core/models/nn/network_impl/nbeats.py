@@ -10,6 +10,8 @@ from fedot.core.operations.evaluation.operation_implementations.implementation_i
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import default_device
 
+from fedot_ind.core.models.nn.network_modules.losses import SMAPELoss
+
 class NBeatsModel(ModelImplementation):
     """Class responsible for NBeats model implementation.
 
@@ -34,19 +36,48 @@ class NBeatsModel(ModelImplementation):
                 pipeline.fit(input_data)
                 target = pipeline.predict(val_data).predict
                 metric = evaluate_metric(target=test_data[1], prediction=target)
-       """
+
+    References:
+        @inproceedings{
+            Oreshkin2020:N-BEATS,
+            title={{N-BEATS}: Neural basis expansion analysis for interpretable time series forecasting},
+            author={Boris N. Oreshkin and Dmitri Carpov and Nicolas Chapados and Yoshua Bengio},
+            booktitle={International Conference on Learning Representations},
+            year={2020},
+            url={https://openreview.net/forum?id=r1ecqn4YwB}
+        }
+        Original paper: https://arxiv.org/abs/1905.10437
+        Original code:  https://github.com/ServiceNow/N-BEATS
+    """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
-        # self.epochs = params.get("epochs", 10)
-        # self.batch_size = params.get("batch_size", 20)
-        self.blocks = params.get("blocks", 20)
+        self.is_generic_architecture = params.get("is_generic_architecture", True)
+        # self.loss_fn = params.get("loss_name", None)
+        # self.learning_rate = 0.001
+
+        self.n_stacks = params.get("n_stacks", 30)
+        self.layers = params.get("layers", 4)
+        self.layer_size = params.get("layer_size", 512)
+
+        self.n_trend_blocks = params.get("n_trend_blocks", 3)
+        self.n_trend_layers = params.get("n_trend_layers", 4)
+        self.trend_layer_size = params.get("trend_layer_size", 2)
+        self.degree_of_polynomial = params.get("degree_of_polynomial", 20)
+
+        self.n_seasonality_blocks = params.get("n_seasonality_blocks", 3)
+        self.n_seasonality_layers = params.get("n_seasonality_layers", 4)
+        self.seasonality_layer_size = params.get("seasonality_layer_size", 2048)
+        self.n_of_harmonics = params.get("n_of_harmonics", 1)
 
     def _init_model(self, ts):
         self.model = NBeats(
             input_dim=ts.features.shape[1],
             output_dim=self.num_classes).to(default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        loss_fn = nn.CrossEntropyLoss()
+
+        # In article, you could choose from: MAPE, MASE, SMAPE
+        # https://github.com/ServiceNow/N-BEATS/blob/master/experiments/trainer.py#L79
+        loss_fn = SMAPELoss
         return loss_fn, optimizer
 
 
@@ -60,9 +91,6 @@ class NBeats(nn.Module):
                  output_dim: int,
                  is_generic_architecture: bool,
                  n_stacks: int,
-                 # n_blocks: int,
-                 # n_layers: int,
-                 # layer_size: int,
                  n_trend_blocks: int,
                  n_trend_layers: int,
                  trend_layer_size: int,

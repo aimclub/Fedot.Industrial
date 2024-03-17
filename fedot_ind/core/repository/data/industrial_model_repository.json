@@ -469,12 +469,7 @@
       ]
     },
     "nbeats_model": {
-      "meta": "fedot_NN_forecasting",
-      "presets": ["ts"],
-      "tags": [
-        "simple",
-        "interpretable"
-      ]
+      "meta": "fedot_NN_forecasting"
     },
     "qda": {
       "meta": "custom_class",
