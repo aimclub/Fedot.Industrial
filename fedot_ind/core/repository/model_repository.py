@@ -15,8 +15,9 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     *
 
     # FastTopologicalFeaturesImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
-    TopologicalFeaturesImplementation
+# from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
+#     TopologicalFeaturesImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
