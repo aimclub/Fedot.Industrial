@@ -33,7 +33,7 @@ experiment_setup = {'problem': 'classification',
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
                              custom_datasets=[
-                                 'EthanolConcentration',
+                                 #'EthanolConcentration',
                                  'Handwriting',
                                  'StandWalkJump',
                                  'EigenWorms',
