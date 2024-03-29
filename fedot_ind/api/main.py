@@ -14,6 +14,7 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
+from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionConverter, ApiConverter
 from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -98,6 +99,7 @@ class FedotIndustrial(Fedot):
         self.predicted_probs = None
         self.predict_data = None
         self.target_encoder = None
+        self.condition_check = ApiConverter()
         # map Fedot params to Industrial params
         self.config_dict = kwargs
         self.config_dict['history_dir'] = prefix
@@ -125,18 +127,16 @@ class FedotIndustrial(Fedot):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
         if self.config_dict['problem'] == 'ts_forecasting':
-            solver = self.config_dict['initial_assumption'].build()
-            solver.root_node.parameters = self.model_params
+            self.solver = self.config_dict['initial_assumption'].build()
+            self.solver.root_node.parameters = self.model_params
         else:
             self.logger.info('Initialising Dask Server')
-            self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build(
-            )
+            self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
             self.dask_client = DaskServer().client
             self.logger.info(
                 f'LinK Dask Server - {self.dask_client.dashboard_link}')
             self.logger.info('Initialising solver')
-            solver = Fedot(**self.config_dict)
-        return solver
+            self.solver = Fedot(**self.config_dict)
 
     def shutdown(self):
         self.dask_client.close()
@@ -194,7 +194,7 @@ class FedotIndustrial(Fedot):
                                   task_params=self.task_params)
         self.train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
-        self.solver = self.__init_solver()
+        self.__init_solver()
         if self.preprocessing:
             self._preprocessing_strategy(self.train_data)
         self.solver.fit(self.train_data)
@@ -217,18 +217,18 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
-        if predict_mode == 'RAF_ensemble':
+        if self.condition_check.ensemble_mode(predict_mode):
             self.predicted_labels = self._predict_raf_ensemble()
         else:
-            if isinstance(self.solver, Fedot):
+            if self.condition_check.solver_is_fedot_class(self.solver):
                 predict = self.solver.predict(self.predict_data)
             else:
                 predict = self.solver.predict(self.predict_data, 'labels').predict
-                if self.config_dict['problem'] == 'classification' \
-                        and self.predict_data.target.min() - predict.min() != 0 \
-                        and len(np.unique(predict).shape) != 1:
+                if self.condition_check.is_multiclf_with_labeling_problem(self.config_dict['problem'],
+                                                                          self.predict_data.target,
+                                                                          predict):
                     predict = predict + (self.predict_data.target.min() - predict.min())
-            if self.target_encoder is not None:
+            if self.condition_check.solver_have_target_encoder(self.target_encoder):
                 self.predicted_labels = self.target_encoder.inverse_transform(predict)
                 self.predict_data.target = self.target_encoder.inverse_transform(self.predict_data.target)
             else:
@@ -254,15 +254,16 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
-        if predict_mode == 'RAF_ensemble':
+        if self.condition_check.ensemble_mode(predict_mode):
             predict = self.predicted_labels = self._predict_raf_ensemble()
         else:
-            if isinstance(self.solver, Fedot):
+            if self.condition_check.solver_is_fedot_class(self.solver):
                 predict = self.solver.predict_proba(self.predict_data)
             else:
                 predict = self.solver.predict(self.predict_data, 'probs').predict
-                if self.config_dict['problem'] == 'classification' and \
-                        self.predict_data.target.min() - predict.min() != 0:
+                if self.condition_check.is_multiclf_with_labeling_problem(self.config_dict['problem'],
+                                                                          self.predict_data.target,
+                                                                          predict):
                     predict = predict + (self.predict_data.target.min() - predict.min())
         self.predicted_probs = predict
         return self.predicted_probs
@@ -281,17 +282,20 @@ class FedotIndustrial(Fedot):
 
             """
 
-        train_data = DataCheck(
-            input_data=train_data, task=self.config_dict['problem']).check_input_data()
-        tuning_params = {} if tuning_params is None else tuning_params
+        train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
+        tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
         tuned_metric = 0
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
         for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-            model_to_tune = deepcopy(self.solver.current_pipeline) if isinstance(self.solver, Fedot) \
-                else deepcopy(self.solver)
+            if self.condition_check.solver_is_fedot_class(self.solver):
+                model_to_tune = deepcopy(self.solver.current_pipeline)
+            elif self.condition_check.solver_is_none(self.solver):
+                self.__init_solver()
+                model_to_tune = deepcopy(self.config_dict['initial_assumption'])
+            else:
+                model_to_tune = deepcopy(self.solver)
             tuning_params['tuner'] = tuner_type
-            pipeline_tuner, model_to_tune = build_tuner(
-                self, model_to_tune, tuning_params, train_data, mode)
+            pipeline_tuner, model_to_tune = build_tuner(self, model_to_tune, tuning_params, train_data, mode)
             if abs(pipeline_tuner.obtained_metric) > tuned_metric:
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
@@ -386,10 +390,10 @@ class FedotIndustrial(Fedot):
             f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
-        if isinstance(self.solver, Fedot):
+        if self.condition_check.solver_is_fedot_class(self.solver):
             return self.solver.current_pipeline.save(path=self.output_folder, create_subdir=True,
                                                      is_datetime_in_path=True)
-        elif isinstance(self.solver, Pipeline):
+        elif self.condition_check.solver_is_pipeline_class(self.solver):
             return self.solver.save(path=self.output_folder, create_subdir=True,
                                     is_datetime_in_path=True)
         else:

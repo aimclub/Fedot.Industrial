@@ -4,7 +4,9 @@ from inspect import signature
 import pandas as pd
 import torch
 import torch.nn as nn
+from fedot import Fedot
 from fedot.core.data.data import InputData, OutputData
+from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
@@ -404,6 +406,14 @@ class ConditionConverter:
     def is_multi_output_target(self):
         return isinstance(self.operation_implementation.classes_, list)
 
+    @property
+    def solver_is_fedot_class(self):
+        return isinstance(self.operation_implementation, Fedot)
+
+    @property
+    def solver_is_none(self):
+        return self.operation_implementation is None
+
     def output_mode_converter(self, output_mode, n_classes):
         if output_mode == 'labels':
             return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1)
@@ -425,6 +435,39 @@ class ConditionConverter:
             else:
                 prediction = prediction[:, 1]
         return prediction
+
+
+class ApiConverter:
+
+    @staticmethod
+    def solver_is_fedot_class(operation_implementation):
+        return isinstance(operation_implementation, Fedot)
+
+    @staticmethod
+    def solver_is_none(operation_implementation):
+        return operation_implementation is None
+
+    @staticmethod
+    def solver_is_pipeline_class(operation_implementation):
+        return isinstance(operation_implementation, Pipeline)
+
+    @staticmethod
+    def tuning_params_is_none(tuning_params):
+        return {} if tuning_params is None else tuning_params
+
+    @staticmethod
+    def ensemble_mode(predict_mode):
+        return predict_mode == 'RAF_ensemble'
+
+    @staticmethod
+    def solver_have_target_encoder(encoder):
+        return encoder is not None
+
+    def is_multiclf_with_labeling_problem(self, problem, target, predict):
+        clf_problem = problem == 'classification'
+        uncorrect_labels = target.min() - predict.min() != 0
+        multiclass = len(np.unique(predict).shape) != 1
+        return clf_problem and uncorrect_labels and multiclass
 
 
 class DataConverter(TensorConverter, NumpyConverter):

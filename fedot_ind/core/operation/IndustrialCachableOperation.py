@@ -29,6 +29,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                                    target='no_target',
                                    task='no_task',
                                    data_type=DataTypesEnum.table)
+
         if type(transformed_features) is OutputData:
             transformed_features = transformed_features.predict
 

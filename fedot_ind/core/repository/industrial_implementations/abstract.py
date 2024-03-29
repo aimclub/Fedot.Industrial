@@ -22,12 +22,14 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 from typing import Optional, Tuple, Union, Sequence, List, Dict
 from fedot.core.data.data import InputData, OutputData
+
+
 def split_any(data: InputData,
-               split_ratio: float,
-               shuffle: bool,
-               stratify: bool,
-               random_seed: int,
-               **kwargs):
+              split_ratio: float,
+              shuffle: bool,
+              stratify: bool,
+              random_seed: int,
+              **kwargs):
     """ Split any data except timeseries into train and test parts
 
     :param data: InputData object to split
@@ -38,6 +40,7 @@ def split_any(data: InputData,
     """
 
     stratify_labels = data.target if stratify else None
+
     def __split_loop(data, ratio, shuffle, stratify_labels):
         train_ids, test_ids = train_test_split(np.arange(0, len(data.target)),
                                                test_size=1 - ratio,
@@ -99,6 +102,7 @@ def _are_cv_folds_allowed(data: Union[InputData, MultiModalData], split_ratio: f
     else:
         return cv_folds
 
+
 def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
     # define split_ratio
     self.split_ratio = self.split_ratio or default_data_split_ratio_by_task[data.task.task_type]
@@ -155,7 +159,6 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
     return data_producer
 
 
-
 def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
     pipeline_tuner = TunerBuilder(train_data.task) \
         .with_tuner(tuning_params['tuner']) \
@@ -179,6 +182,7 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
 def postprocess_predicts(self, merged_predicts: np.array) -> np.array:
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts
+
 
 def transform_lagged(self, input_data: InputData):
     train_data = copy(input_data)

@@ -17,7 +17,8 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     # FastTopologicalFeaturesImplementation
 # from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
 #     TopologicalFeaturesImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import TopologicalFeaturesImplementation
+# from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor \
+#     import TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -46,6 +47,7 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBClassifier, XGBRegressor
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
+from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
@@ -57,6 +59,7 @@ from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtr
 from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
+from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
@@ -133,10 +136,12 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        'topological_features': TopologicalFeaturesImplementation,
+        #'topological_features': TopologicalFeaturesImplementation,
 
     }
     INDUSTRIAL_PREPROC_MODEL = {
+        # data filtration
+        'channel_filtration': ChannelCentroidFilter,
         # data projection onto different basis
         'eigen_basis': EigenBasisImplementation,
         'wavelet_basis': WaveletBasisImplementation,
@@ -147,6 +152,7 @@ class AtomizedModel(Enum):
         'riemann_extractor': RiemannExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
+        'chronos_extractor': ChronosExtractor,
         # isolation_forest forest
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,

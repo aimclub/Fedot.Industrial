@@ -27,16 +27,16 @@ industrial_search_space = {
         {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
                                                                        'cov', 'lwf', 'mcd', 'hub']]},
          'tangent_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
-                                                                            'euclid',
-                                                                            'logeuclid',
-                                                                            'riemann'
-                                                                            ]]},
+             'euclid',
+             'logeuclid',
+             'riemann'
+         ]]},
          'SPD_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
-                                                                        # 'ale',
-                                                                        # 'alm',
-                                                                        'euclid',
-                                                                        'identity',
-                                                                        'logeuclid', 'riemann']]}},
+             # 'ale',
+             # 'alm',
+             'euclid',
+             'identity',
+             'logeuclid', 'riemann']]}},
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
@@ -46,7 +46,18 @@ industrial_search_space = {
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'morl', 'db5', 'sym5']]}},
+    'channel_filtration':
+        {'distance': {'hyperopt-dist': hp.choice,
+                      'sampling-scope': [['manhattan', 'euclidean', 'chebyshev']]},
+         'centroid_metric': {'hyperopt-dist': hp.choice,
+                             'sampling-scope': [['manhattan', 'euclidean', 'chebyshev']]},
+         'selection_strategy': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [['sum', 'pairwise']]}
+         },
     'minirocket_extractor':
+        {'num_features': {'hyperopt-dist': hp.choice,
+                          'sampling-scope': [[x for x in range(5000, 20000, 1000)]]}},
+    'chronos_extractor':
         {'num_features': {'hyperopt-dist': hp.choice,
                           'sampling-scope': [[x for x in range(5000, 20000, 1000)]]}},
     'patch_tst_model':

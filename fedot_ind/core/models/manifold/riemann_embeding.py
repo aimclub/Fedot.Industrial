@@ -92,7 +92,6 @@ class RiemannExtractor(BaseExtractor):
             SPD = self.covarince_transformer.transform(input_data.features)
             SPD = self.shinkage.fit_transform(SPD)
 
-
         self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
                                           metric=self.covariance_metric) for ll in self.classes_]
 
@@ -140,12 +139,11 @@ if __name__ == "__main__":
     with IndustrialModels():
         # riemann_extractor
         # pipeline = PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor').add_node('rf').build()
-        pipeline = PipelineBuilder().add_node('riemann_extractor', params={'n_filter': 3})\
-                                    .add_node('quantile_extractor')\
-                                    .add_node('mlp')\
-                                    .build()
+        pipeline = PipelineBuilder().add_node('riemann_extractor', params={'n_filter': 3}) \
+            .add_node('quantile_extractor') \
+            .add_node('mlp') \
+            .build()
         pipeline.fit(init_train)
         pred = pipeline.predict(init_test)
         acc = accuracy_score(y_test, np.round(pred.predict))
         print(acc)
-

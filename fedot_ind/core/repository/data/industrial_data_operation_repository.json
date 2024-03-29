@@ -234,7 +234,16 @@
         "extractor"
       ]
     },
-    "dimension_reduction": {
+    "chronos_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
+    "channel_filtration": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"

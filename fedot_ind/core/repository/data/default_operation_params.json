@@ -163,6 +163,12 @@
     "sv_selector": "median",
     "rank_regularization": "hard_thresholding"
   },
+  "channel_filtration": {
+    "distance": "euclidean",
+    "shrink": 1e-5,
+    "centroid_metric": "euclidean",
+    "selection_strategy": "pairwise"
+  },
   "wavelet_basis": {
     "wavelet": "mexh",
     "n_components": 2
@@ -202,6 +208,9 @@
     "with_tuning": true
   },
   "minirocket_extractor": {
+    "num_features": 10000
+  },
+  "chronos_extractor": {
     "num_features": 10000
   },
   "inception_model": {
