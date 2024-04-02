@@ -1,23 +1,30 @@
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
-from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
 
 if __name__ == "__main__":
-    dataset_name = 'AppliancesEnergy'
+    dataset_name = 'IEEEPPG' #BeijingPM10Quality
+    finetune = True
+    initial_assumption = PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('treg')
+
     industrial = FedotIndustrial(problem='regression',
                                  metric='rmse',
                                  timeout=5,
+                                 initial_assumption=initial_assumption,
                                  n_jobs=2,
                                  logging_level=20)
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+    if finetune:
+        model = industrial.finetune(train_data)
+    else:
+        model = industrial.fit(train_data)
 
-    model = industrial.fit(train_data)
-
-    y_predicted = industrial.predict(test_data)
-
-    print('Metrics:')
-    print(
-        f'RMSE: {round(mean_squared_error(test_data[1], y_predicted, squared=False), 3)}')
-    print(
-        f'MAPE: {round(mean_absolute_percentage_error(test_data[1], y_predicted), 3)}')
+    labels = industrial.predict(test_data)
+    probs = industrial.predict_proba(test_data)
+    metrics = industrial.get_metrics(target=test_data[1],
+                                     rounding_order=3,
+                                     metric_names=('r2', 'rmse', 'mae'))
+    print(metrics)
+    _ = 1

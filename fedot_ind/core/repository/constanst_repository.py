@@ -26,6 +26,8 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
+    jensenshannon, mahalanobis, minkowski
 
 
 def beta_thr(beta):
@@ -87,6 +89,16 @@ class FeatureConstant(Enum):
         'hurst_exponent_': hurst_exponent,
         'petrosian_fractal_dimension_': pfd
     }
+
+    METRICS_DICT = {'euclidean': euclidean,
+                    'cosine': cosine,
+                    'cityblock': cityblock,
+                    'correlation': correlation,
+                    'chebyshev': chebyshev,
+                    #'jensenshannon': jensenshannon,
+                    #'mahalanobis': mahalanobis,
+                    'minkowski': minkowski
+                    }
 
     PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                     'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
@@ -195,10 +207,12 @@ class FedotOperationConstant(Enum):
                          'classification': calculate_classification_metric}
     FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
                             'regression': RegressionMetricsEnum.RMSE}
-    FEDOT_TUNER_STRATEGY = {'sequential': partial(SequentialTuner, inverse_node_order=True),
-                            'simultaneous': SimultaneousTuner,
-                          #  'IOptTuner': IOptTuner,
-                            'optuna': OptunaTuner}
+    FEDOT_TUNER_STRATEGY = {
+        'sequential': partial(SequentialTuner, inverse_node_order=True),
+        'simultaneous': SimultaneousTuner,
+        #  'IOptTuner': IOptTuner,
+        'optuna': OptunaTuner
+    }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
                            'classification': 'logit'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
@@ -223,8 +237,9 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
-        'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
+        'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
+            'logit'),
+        'regression': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('treg'),
         'ts_forecasting': PipelineBuilder().add_node('ssa_forecaster')
     }
 
@@ -578,6 +593,7 @@ CONTINUOUS_WAVELETS = FeatureConstant.CONTINUOUS_WAVELETS.value
 WAVELET_SCALES = FeatureConstant.WAVELET_SCALES.value
 SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
+DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
 
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value

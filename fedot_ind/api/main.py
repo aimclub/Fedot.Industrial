@@ -282,7 +282,9 @@ class FedotIndustrial(Fedot):
 
             """
 
-        train_data = DataCheck(input_data=train_data, task=self.config_dict['problem']).check_input_data()
+        input_preproc = DataCheck(input_data=train_data, task=self.config_dict['problem'])
+        train_data = input_preproc.check_input_data()
+        self.target_encoder = input_preproc.get_target_encoder()
         tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
         tuned_metric = 0
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
@@ -328,11 +330,17 @@ class FedotIndustrial(Fedot):
                 'Predicted probabilities are not available. Use `predict_proba()` method first')
 
         valid_shape = target.shape
-        return FEDOT_GET_METRICS[problem](target=target.flatten(),
+        if self.condition_check.solver_have_target_encoder(self.target_encoder):
+            new_target = self.target_encoder.transform(target.flatten())
+            labels = self.target_encoder.transform(self.predicted_labels).reshape(valid_shape)
+        else:
+            new_target = target.flatten()
+            labels = self.predicted_labels.reshape(valid_shape)
+
+        return FEDOT_GET_METRICS[problem](target=new_target,
                                           metric_names=metric_names,
                                           rounding_order=rounding_order,
-                                          labels=self.predicted_labels.reshape(
-                                              valid_shape),
+                                          labels=labels,
                                           probs=self.predicted_probs)
 
     def save_predict(self, predicted_data, **kwargs) -> None:

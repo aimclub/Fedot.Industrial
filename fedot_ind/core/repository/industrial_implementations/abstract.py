@@ -88,7 +88,7 @@ def _are_cv_folds_allowed(data: Union[InputData, MultiModalData], split_ratio: f
         if __debug__:
             # tests often use very small datasets that are not suitable for data splitting
             # stratification is disabled for tests
-            return False
+            return None
         else:
             raise ValueError(("There is the only value for some classes:"
                               f" {', '.join(str(val) for val, count in zip(*classes) if count == 1)}."

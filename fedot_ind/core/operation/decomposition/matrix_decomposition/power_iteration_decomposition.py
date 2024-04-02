@@ -3,6 +3,7 @@ from fedot_ind.core.architecture.settings.computational import backend_scipy
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
     sv_to_explained_variance_ratio
 import math
+from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
 
 
 class RSVDDecomposition:
@@ -42,11 +43,13 @@ class RSVDDecomposition:
             list_of_rank = list(range(1, low_rank + 1, 1))
             reconstr_matrix = [self._compute_matrix_approximation(
                 Ut, block, tensor, rank) for rank in list_of_rank]
-            fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro')/np.linalg.norm(tensor)*100)
+            fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro') / np.linalg.norm(tensor) * 100)
                          for reconstr_m in reconstr_matrix]
-            deriviate_of_error = abs(np.diff(fro_norms))
-            regularized_rank = len(
-                deriviate_of_error[deriviate_of_error > 1]) + 1
+            regularized_rank = _detect_knee_point(values=fro_norms, indices=list(range(len(fro_norms))))
+            regularized_rank = len(regularized_rank)
+            # deriviate_of_error = abs(np.diff(fro_norms))
+            # regularized_rank = len(
+            #     deriviate_of_error[deriviate_of_error > 1]) + 1
         return regularized_rank
 
     def rsvd(self,

@@ -4,9 +4,10 @@ from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
 
 if __name__ == "__main__":
-    dataset_name = 'PhonemeSpectra'
+    dataset_name = 'Handwriting'
     finetune = True
-    initial_assumption = PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('rf')
+    initial_assumption = PipelineBuilder().add_node('channel_filtration').\
+        add_node('quantile_extractor').add_node('rf')
 
     industrial = FedotIndustrial(problem='classification',
                                  metric='f1',
@@ -26,5 +27,5 @@ if __name__ == "__main__":
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
-    # industrial.finetune(train_data)
     print(metrics)
+    _ = 1
