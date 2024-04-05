@@ -302,6 +302,7 @@ class FedotIndustrial(Fedot):
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
 
+
     def get_metrics(self,
                     target: Union[list, np.array] = None,
                     metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),

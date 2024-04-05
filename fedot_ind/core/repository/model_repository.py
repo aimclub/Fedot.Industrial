@@ -86,6 +86,8 @@ TEMPORARY_EXCLUDED = {
                                  # isolation_forest forest
                                  'isolation_forest_class': IsolationForestClassImplementation,
                                  'isolation_forest_reg': IsolationForestRegImplementation,
+                                 'chronos_extractor': ChronosExtractor,
+                                'riemann_extractor': RiemannExtractor,
                                  },
     'SKLEARN_REG_MODELS': {
         'gbr': GradientBoostingRegressor,

@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.tools.loader import DataLoader
-
+from sktime.transformations.panel.signature_based import SignatureTransformer
 
 # sklearn-compatible interface
 class SklearnCompatibleClassifier(BaseEstimator, ClassifierMixin):
