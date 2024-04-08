@@ -22,9 +22,8 @@ if __name__ == "__main__":
         model = industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
-    probs = industrial.predict_proba(test_data)
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=('r2', 'rmse', 'mae'))
     print(metrics)
-    _ = 1
+

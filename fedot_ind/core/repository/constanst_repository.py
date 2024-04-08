@@ -14,7 +14,8 @@ from golem.core.tuning.optuna_tuner import OptunaTuner
 from torch import nn
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from golem.core.tuning.sequential import SequentialTuner
-from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
+from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
+    calculate_forecasting_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
 from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
@@ -193,8 +194,10 @@ class FedotOperationConstant(Enum):
                                                         with_tuning=True
                                                         )
     FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
+                         'ts_forecasting': calculate_forecasting_metric,
                          'classification': calculate_classification_metric}
     FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
+                            'ts_forecasting': RegressionMetricsEnum.RMSE,
                             'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {
         'sequential': partial(SequentialTuner, inverse_node_order=True),
@@ -229,7 +232,7 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
             'logit'),
         'regression': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('ssa_forecaster')
+        'ts_forecasting': PipelineBuilder().add_node('ar')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {

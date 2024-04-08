@@ -4,7 +4,7 @@ import shutil
 import urllib.request as request
 import zipfile
 from pathlib import Path
-
+from datasets import load_dataset
 import chardet
 import pandas as pd
 from datasetsforecast.m3 import M3
@@ -39,7 +39,8 @@ class DataLoader:
         self.forecast_data_source = {'M3': M3.load,
                                      # 'M4': M4.load,
                                      'M4': self.local_m4_load,
-                                     'M5': M5.load
+                                     'M5': M5.load,
+                                     'monash_tsf': load_dataset
                                      }
 
     def load_forecast_data(self, folder=None):

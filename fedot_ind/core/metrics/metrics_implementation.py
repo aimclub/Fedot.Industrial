@@ -9,6 +9,9 @@ from sklearn.metrics import (accuracy_score, f1_score,
 from sklearn.metrics import d2_absolute_error_score, explained_variance_score, max_error, median_absolute_error
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
+
+import numpy as np
 
 
 class ParetoMetrics:
@@ -70,8 +73,8 @@ class RMSE(QualityMetric):
 class SMAPE(QualityMetric):
     def metric(self):
         return 1 / len(self.predicted_labels) \
-            * np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
-                                                                        + np.abs(self.target)) * 100)
+               * np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
+                                                                           + np.abs(self.target)) * 100)
 
 
 class MSE(QualityMetric):
@@ -167,6 +170,14 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
+def MASE(A, F, y_train):
+    return mean_absolute_scaled_error(A, F, y_train=y_train)
+
+
+def SMAPE(a, f, _=None):
+    return 1 / len(a) * np.sum(2 * np.abs(f - a) / (np.abs(a) + np.abs(f)) * 100)
+
+
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
@@ -187,6 +198,30 @@ def calculate_regression_metric(target,
                    'explained_variance_score': explained_variance_score,
                    'max_error': max_error,
                    'd2_absolute_error_score': d2_absolute_error_score}
+
+    df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
+                       if name in metric_names},
+                      index=[0])
+    return df.round(rounding_order)
+
+
+def calculate_forecasting_metric(target,
+                                 labels,
+                                 rounding_order=3,
+                                 metric_names=('smape', 'rmse', 'median_absolute_error'),
+                                 **kwargs):
+    target = target.astype(float)
+
+    def rmse(y_true, y_pred):
+        return np.sqrt(mean_squared_error(y_true, y_pred))
+
+    metric_dict = {
+        'rmse': rmse,
+        'mae': mean_absolute_error,
+        'median_absolute_error': median_absolute_error,
+        'smape': SMAPE,
+        'mase': MASE
+    }
 
     df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
                        if name in metric_names},

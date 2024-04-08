@@ -81,7 +81,7 @@ class IndustrialModels:
                 transform_lagged_for_fit)
         setattr(TsSmoothingImplementation, 'transform', transform_smoothing)
 
-        # class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+        class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository
 
@@ -108,7 +108,6 @@ class IndustrialModels:
                 get_industrial_search_space)
         setattr(ApiComposer, "_get_default_mutations",
                 _get_default_industrial_mutations)
-        class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """

@@ -324,6 +324,8 @@ class IndustrialForecastingPreprocessingStrategy(IndustrialCustomPreprocessingSt
         params = IndustrialOperationParameters().from_params(operation_type, params) if params \
             else IndustrialOperationParameters().from_operation_type(operation_type)
         super().__init__(operation_type, params)
+        self.multi_dim_dispatcher.concat_func = np.vstack
+        self.ensemble_func = np.sum
 
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
@@ -334,15 +336,23 @@ class IndustrialForecastingPreprocessingStrategy(IndustrialCustomPreprocessingSt
                 output_mode: str = 'default'):
         converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data)
-        return self.multi_dim_dispatcher.predict(trained_operation, converted_predict_data, output_mode=output_mode)
+        predict_output = self.multi_dim_dispatcher.predict(trained_operation, converted_predict_data,
+                                                           output_mode=output_mode)
+        predict_output.predict = np.reshape(predict_output.predict, (len(trained_operation), -1))
+        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        return predict_output
 
     def predict_for_fit(self, trained_operation,
                         predict_data: InputData,
                         output_mode: str = 'default') -> OutputData:
         converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data)
-        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, converted_predict_data,
-                                                         output_mode=output_mode)
+        predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation,
+                                                                   converted_predict_data,
+                                                                   output_mode=output_mode)
+        predict_output.predict = np.reshape(predict_output.predict, (len(trained_operation), -1))
+        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        return predict_output
 
 
 class IndustrialClassificationPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):

@@ -181,7 +181,7 @@ class AtomizedModel(Enum):
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
         'glm': GLMImplementation,
-        'locf': RepeatLastValueImplementation,
+        #'locf': RepeatLastValueImplementation,
         #'ssa_forecaster': SSAForecasterImplementation
     }
 
