@@ -95,8 +95,8 @@ class FeatureConstant(Enum):
                     'cityblock': cityblock,
                     'correlation': correlation,
                     'chebyshev': chebyshev,
-                    #'jensenshannon': jensenshannon,
-                    #'mahalanobis': mahalanobis,
+                    # 'jensenshannon': jensenshannon,
+                    # 'mahalanobis': mahalanobis,
                     'minkowski': minkowski
                     }
 
@@ -130,44 +130,33 @@ class FedotOperationConstant(Enum):
                   'ts_forecasting': Task(TaskTypesEnum.ts_forecasting,
                                          TsForecastingParams(forecast_length=1))}
     EXCLUDED_OPERATION_MUTATION = {
-        'regression': ['one_hot_encoding',
-                       'label_encoding',
-                       'isolation_forest_class',
-                       'tst_model',
-                       'omniscale_model',
-                       'isolation_forest_reg',
-                       'inception_model',
-                       'xcm_model',
+        'regression': ['inception_model',
                        'resnet_model',
-                       'signal_extractor',
                        'recurrence_extractor',
-                       'fedot_regr'
                        ],
         'ts_forecasting': [
-            'one_hot_encoding',
-            'label_encoding',
-            'isolation_forest_class'
             'xgbreg',
             'sgdr',
+            'kernel_pca',
+            'resample',
+            'inception_model',
+            'simple_imputation',
+            'channel_filtration',
+            'recurrence_extractor',
+            'quantile_extractor',
+            'riemann_extractor',
+            'minirocket_extractor',
             'treg',
             'knnreg',
+            'resnet_model',
             'dtreg'
         ],
         'classification': [
-            'isolation_forest_reg',
-            'tst_model',
             'resnet_model',
-            'xcm_model',
-            'one_hot_encoding',
-            'label_encoding',
-            'isolation_forest_class',
-            'signal_extractor',
             'knnreg',
             'recurrence_extractor',
-            'fedot_cls',
             'bernb',
             'qda',
-            'omniscale_model'
         ]}
     FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
                                                         task_params=None,

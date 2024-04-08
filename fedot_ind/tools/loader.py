@@ -42,8 +42,8 @@ class DataLoader:
                                      'M5': M5.load
                                      }
 
-    def load_forecast_data(self):
-        loader = self.forecast_data_source['M4']
+    def load_forecast_data(self, folder=None):
+        loader = self.forecast_data_source[folder]
         group_df = loader(directory='data',
                           group=f'{M4_PREFIX[self.dataset_name[0]]}')
         # 'M3_Monthly_M10'
@@ -51,7 +51,7 @@ class DataLoader:
         del ts_df['label']
         ts_df = ts_df.set_index(
             'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
-        return ts_df
+        return ts_df, None
 
     def local_m4_load(self, directory, group):
         path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
@@ -352,8 +352,8 @@ class DataLoader:
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                            not has_univariate_tag or not has_target_labels_tag or \
-                            not has_data_tag
+                                                          not has_univariate_tag or not has_target_labels_tag or \
+                                                          not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
@@ -626,7 +626,7 @@ class DataLoader:
                                     if num_dimensions != this_line_num_dimensions:
                                         raise TsFileParseException("line " + str(
                                             line_num + 1) +
-                                            " does not have the same number of dimensions as the previous line of data")
+                                                                   " does not have the same number of dimensions as the previous line of data")
 
                             # Check that we are not expecting some more data, and if not, store that processed above
 
@@ -654,8 +654,8 @@ class DataLoader:
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
                                 raise TsFileParseException("line " + str(
                                     line_num + 1) +
-                                    "does not have the same number of dimensions as the "
-                                    "previous line of data")
+                                                           "does not have the same number of dimensions as the "
+                                                           "previous line of data")
 
                             # Check if we should have class values, and if so that they are contained
                             # in those listed in the metadata
@@ -716,7 +716,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                and has_target_labels_tag and has_data_tag
+                                            and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag

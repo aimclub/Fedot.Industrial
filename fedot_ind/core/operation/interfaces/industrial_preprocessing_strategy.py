@@ -24,10 +24,12 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
     def __init__(self, operation_impl,
                  operation_type: str,
                  params: Optional[OperationParameters] = None,
-                 mode: str = 'one_dimensional'):
+                 mode: str = 'one_dimensional'
+                 ):
         self.operation_impl = operation_impl
         super().__init__(operation_type, params)
         self.output_mode = 'labels'
+        self.concat_func = np.hstack
         self.mode = mode
 
     @property
@@ -48,8 +50,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         elif self.operation_condition.have_predict_atr and self.operation_condition.is_operation_is_list_container:
             prediction = trained_operation
         else:
-            prediction = self._predict_for_ndim(
-                predict_data, trained_operation)
+            prediction = self._predict_for_ndim(predict_data, trained_operation)
         return prediction
 
     def _convert_to_output(self,
@@ -108,8 +109,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             prediction = [pred.predict for pred in prediction if type(
                 pred) is not np.array]
 
-        prediction = NumpyConverter(data=np.hstack(
-            prediction)).convert_to_torch_format()
+        prediction = NumpyConverter(data=self.concat_func(prediction)).convert_to_torch_format()
         return prediction
 
     def _custom_fit(self, train_data):
@@ -169,6 +169,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 operation_implementation = [operation.fit(data) for operation, data in zip(
                     trained_operation, train_data)]
                 fit_method_is_not_implemented = operation_implementation[0] is None
+                if not type(operation_implementation[0]) == type(trained_operation[0]):
+                    operation_implementation = trained_operation
             elif self.operation_condition.have_transform_method:
                 operation_implementation = [operation.transform_for_fit(data) for operation, data in zip(
                     trained_operation, train_data)]

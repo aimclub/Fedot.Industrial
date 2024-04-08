@@ -14,7 +14,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
     *
 
-    # FastTopologicalFeaturesImplementation
+# FastTopologicalFeaturesImplementation
 # from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
 #     TopologicalFeaturesImplementation
 # from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor \
@@ -80,15 +80,16 @@ TEMPORARY_EXCLUDED = {
                             'one_hot_encoding': OneHotEncodingImplementation,
                             'label_encoding': LabelEncodingImplementation
                             },
-    'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
-                                 'dimension_reduction': FeatureFilter,
-                                 # 'signal_extractor': SignalExtractor,
-                                 # isolation_forest forest
-                                 'isolation_forest_class': IsolationForestClassImplementation,
-                                 'isolation_forest_reg': IsolationForestRegImplementation,
-                                 'chronos_extractor': ChronosExtractor,
-                                'riemann_extractor': RiemannExtractor,
-                                 },
+    'INDUSTRIAL_PREPROC_MODEL': {
+        'cat_features': DummyOperation,
+        'dimension_reduction': FeatureFilter,
+        # 'signal_extractor': SignalExtractor,
+        # isolation_forest forest
+        'isolation_forest_class': IsolationForestClassImplementation,
+        'isolation_forest_reg': IsolationForestRegImplementation,
+        'chronos_extractor': ChronosExtractor,
+        'riemann_extractor': RiemannExtractor,
+    },
     'SKLEARN_REG_MODELS': {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
@@ -100,7 +101,7 @@ TEMPORARY_EXCLUDED = {
                            'multinb': SklearnMultinomialNB,
                            'knn': FedotKnnClassImplementation
                            },
-    'NEURAL_MODELS': {'resnet_model': ResNetModel,
+    'NEURAL_MODELS': {'omniscale_model': OmniScaleModel,
                       # transformer models
                       'tst_model': TSTModel,
                       # explainable models
@@ -138,7 +139,7 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        #'topological_features': TopologicalFeaturesImplementation,
+        # 'topological_features': TopologicalFeaturesImplementation,
 
     }
     INDUSTRIAL_PREPROC_MODEL = {
@@ -181,7 +182,7 @@ class AtomizedModel(Enum):
         'cgru': CGRUImplementation,
         'glm': GLMImplementation,
         'locf': RepeatLastValueImplementation,
-        'ssa_forecaster': SSAForecasterImplementation
+        #'ssa_forecaster': SSAForecasterImplementation
     }
 
     FORECASTING_PREPROC = {
@@ -211,7 +212,8 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     if problem == 'ts_forecasting':
         available_operations = [operation_dict[problem],
                                 FORECASTING_PREPROC.keys(),
-                                SKLEARN_REG_MODELS.keys()
+                                SKLEARN_REG_MODELS.keys(),
+                                INDUSTRIAL_PREPROC_MODEL.keys(),
                                 ]
     else:
         available_operations = [operation_dict[problem],

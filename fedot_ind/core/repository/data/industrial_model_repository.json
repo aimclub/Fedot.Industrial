@@ -307,8 +307,7 @@
         "simple",
         "interpretable",
         "non_lagged",
-        "linear",
-        "correct_params"
+        "linear"
       ],
 	  "input_type": "[DataTypesEnum.ts]"
     },
@@ -536,7 +535,6 @@
         "simple",
         "interpretable",
         "non_lagged",
-        "correct_params",
         "non_linear"
       ],
 	  "input_type": "[DataTypesEnum.ts]"

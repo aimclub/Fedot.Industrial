@@ -130,9 +130,9 @@
 			"tasks": "[TaskTypesEnum.classification]"
 		},
     "industrial_preprocessing": {
-      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
-      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
-      "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression, TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table, DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.image, DataTypesEnum.table, DataTypesEnum.ts]",
       "accepted_node_types": [
         "any"
       ],

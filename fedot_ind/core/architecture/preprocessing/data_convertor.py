@@ -173,10 +173,15 @@ class FedotConverter:
                                    data_type=self.input_data.data_type,
                                    supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
-            if len(self.input_data.features.shape) == 1:
-                self.input_data.features = self.input_data.features.reshape(1, -1)
+            feats = self.input_data.features
             flat_input = self.input_data.features.shape[0] == 1
-            feats = self.input_data.features if flat_input else self.input_data.features.swapaxes(1, 0)
+            if len(self.input_data.features.shape) == 1:
+                feats = self.input_data.features.reshape(1, -1)
+            elif len(self.input_data.features.shape) == 3 and self.input_data.features.shape[0] == 1:
+                feats = self.input_data.features.reshape(self.input_data.features.shape[1],
+                                                                            1 * self.input_data.features.shape[2])
+            elif not flat_input:
+                feats = self.input_data.features.swapaxes(1, 0)
             input_data = [InputData(idx=self.input_data.idx,
                                     features=features,
                                     target=self.input_data.target,
@@ -323,10 +328,10 @@ class NumpyConverter:
                                            1,
                                            self.numpy_data.shape[1])
         elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1:
-            # add transpose data to (features, channel = 1 , sample = 1)
-            return self.numpy_data.reshape(self.numpy_data.shape[1],
+            # add 1 channel
+            return self.numpy_data.reshape(1,
                                            1,
-                                           self.numpy_data.shape[0])
+                                           self.numpy_data.shape[1])
 
         elif self.numpy_data.ndim > 3:
             return self.numpy_data.squeeze()

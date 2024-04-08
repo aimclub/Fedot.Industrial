@@ -9,12 +9,11 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
-from fedot_ind.core.architecture.preprocessing.data_convertor import ConditionConverter, ApiConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
 from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -28,7 +27,7 @@ from fedot_ind.core.repository.model_repository import default_industrial_availi
 from fedot_ind.tools.explain.explain import PointExplainer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
-
+from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 warnings.filterwarnings("ignore")
 
 
@@ -111,6 +110,9 @@ class FedotIndustrial(Fedot):
             'optimizer', IndustrialEvoOptimizer)
         self.config_dict['initial_assumption'] = kwargs.get('initial_assumption',
                                                             FEDOT_ASSUMPTIONS[self.config_dict['problem']])
+        self.config_dict['use_input_preprocessing'] = kwargs.get('use_input_preprocessing', False)
+        if self.task_params is not None and self.config_dict['problem'] == 'ts_forecasting':
+            self.config_dict['task_params'] = TsForecastingParams(forecast_length=self.task_params['forecast_length'])
         self.__init_experiment_setup()
 
     def __init_experiment_setup(self):
@@ -126,17 +128,13 @@ class FedotIndustrial(Fedot):
     def __init_solver(self):
         self.logger.info('Initialising Industrial Repository')
         self.repo = IndustrialModels().setup_repository()
-        if self.config_dict['problem'] == 'ts_forecasting':
-            self.solver = self.config_dict['initial_assumption'].build()
-            self.solver.root_node.parameters = self.model_params
-        else:
-            self.logger.info('Initialising Dask Server')
-            self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
-            self.dask_client = DaskServer().client
-            self.logger.info(
-                f'LinK Dask Server - {self.dask_client.dashboard_link}')
-            self.logger.info('Initialising solver')
-            self.solver = Fedot(**self.config_dict)
+        self.logger.info('Initialising Dask Server')
+        self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
+        self.dask_client = DaskServer().client
+        self.logger.info(
+            f'LinK Dask Server - {self.dask_client.dashboard_link}')
+        self.logger.info('Initialising solver')
+        self.solver = Fedot(**self.config_dict)
 
     def shutdown(self):
         self.dask_client.close()
@@ -188,8 +186,7 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        self.train_data = deepcopy(
-            input_data)  # we do not want to make inplace changes
+        self.train_data = deepcopy(input_data)  # we do not want to make inplace changes
         input_preproc = DataCheck(input_data=self.train_data, task=self.config_dict['problem'],
                                   task_params=self.task_params)
         self.train_data = input_preproc.check_input_data()
@@ -301,7 +298,6 @@ class FedotIndustrial(Fedot):
             if abs(pipeline_tuner.obtained_metric) > tuned_metric:
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
-
 
     def get_metrics(self,
                     target: Union[list, np.array] = None,

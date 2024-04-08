@@ -1,4 +1,4 @@
-fedot
+fedot~=0.7.3
 
 # workaround for macos
 catboost==1.1.1; sys_platform == 'darwin'
@@ -9,14 +9,36 @@ PyWavelets==1.4.1
 giotto_tda==0.6.0
 ripser==0.6.4
 
-fastcore
-fastai
-distributed
-datasetsforecast
+fastcore~=1.5.29
+fastai~=2.7.14
+distributed~=2023.12.0
+datasetsforecast~=0.0.8
 
 tensorly==0.8.1
-torch==2.0.0
-torchvision==0.15.1
+torch~=2.2.0
+torchvision~=0.13.1+cu113
 statsforecast==1.5.0
 
-chardet
+chardet~=5.2.0
+
+sphinx~=7.2.6
+numpy~=1.24.4
+pytest~=8.0.0
+matplotlib~=3.8.2
+pandas~=1.5.3
+scipy~=1.12.0
+typing~=3.7.4.3
+PyYAML~=6.0.1
+scikit-learn~=1.2.2
+sktime~=0.27.1
+joblib~=1.3.2
+tqdm~=4.65.2
+setuptools~=60.2.0
+librosa~=0.10.1
+pillow~=10.2.0
+chronos~=1.0.0
+pyriemann~=0.5
+hyperopt~=0.2.7
+statsmodels~=0.14.1
+xgboost~=2.0.3
+seaborn~=0.13.2

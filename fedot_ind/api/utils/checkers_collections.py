@@ -4,6 +4,7 @@ from typing import Union
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
@@ -89,11 +90,11 @@ class DataCheck:
         elif self.task == 'ts_forecasting':
             if type(self.input_data) is pd.DataFrame:
                 features_array = np.array(self.input_data.values)
-            ts_task = self.task_dict[self.task]
-            ts_task.task_params = self.task_params
+            task = Task(TaskTypesEnum.ts_forecasting,
+                        TsForecastingParams(forecast_length=self.task_params['forecast_length']))
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,
-                task=ts_task)
+                task=task)
         else:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=X,
@@ -112,8 +113,9 @@ class DataCheck:
             np.isnan(self.input_data.features), 0, self.input_data.features)
         self.input_data.features = np.where(
             np.isinf(self.input_data.features), 0, self.input_data.features)
-        self.input_data.features = NumpyConverter(
-            data=self.input_data.features).convert_to_torch_format()
+        if self.task != 'ts_forecasting':
+            self.input_data.features = NumpyConverter(
+                data=self.input_data.features).convert_to_torch_format()
 
     def _check_input_data_target(self):
         """Checks and preprocesses the features in the input data.

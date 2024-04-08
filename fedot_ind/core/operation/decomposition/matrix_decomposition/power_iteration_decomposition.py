@@ -34,7 +34,7 @@ class RSVDDecomposition:
             low_rank = sv_to_explained_variance_ratio(spectrum, 3)[1]
         elif reg_type == 'hard_thresholding':
             low_rank = len(singular_value_hard_threshold(spectrum))
-        return low_rank
+        return max(low_rank,2)
 
     def _matrix_approx_regularization(self, low_rank, Ut, block, tensor):
         if low_rank == 1:

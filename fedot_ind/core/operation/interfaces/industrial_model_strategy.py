@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 # from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
@@ -120,21 +121,28 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
 
 
 class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
-    """ Strategy for applying regression algorithms from Sklearn library """
+    """ Strategy for applying forecasting algorithms """
     _operations_by_types = FORECASTING_MODELS
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
+        self.multi_dim_dispatcher.mode = 'channel_independent'
+        self.multi_dim_dispatcher.concat_func = np.vstack
+        self.ensemble_func = np.sum
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
-        return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
+        predict_output = self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
+        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        return predict_output
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
-        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
+        predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
+        predict_output.predict = self.ensemble_func (predict_output.predict, axis=0)
+        return predict_output
 
 
 class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
