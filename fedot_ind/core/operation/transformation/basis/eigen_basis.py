@@ -157,10 +157,9 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         number_of_dim = list(range(data.shape[1]))
         if len(number_of_dim) == 1:
-            try:
-                svd_numbers = [self._transform_one_sample(signal, svd_flag=True) for signal in data[:, 0, :]]
-            except Exception:
-                _ = 1
+            svd_numbers = [self._transform_one_sample(signal, svd_flag=True) for signal in data[:, 0, :]]
+            if len(svd_numbers) == 0:
+                raise ValueError('Error in spectrum calculation')
         else:
             for dimension in number_of_dim:
                 dimension_rank = []

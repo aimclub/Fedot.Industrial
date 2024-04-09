@@ -25,6 +25,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
+        self.operators.remove(self.crossover)
         self.eval_dispatcher = IndustrialDispatcher(adapter=graph_generation_params.adapter,
                                                     n_jobs=requirements.n_jobs,
                                                     graph_cleanup_fn=_try_unfit_graph,

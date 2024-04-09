@@ -60,7 +60,7 @@ class IndustrialModels:
                 get_industrial_search_space)
         setattr(ApiParamsRepository, "_get_default_mutations",
                 _get_default_industrial_mutations)
-        setattr(Crossover, '_crossover_by_type', _crossover_by_type)
+        #setattr(Crossover, '_crossover_by_type', _crossover_by_type)
         ## replace data merger
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
