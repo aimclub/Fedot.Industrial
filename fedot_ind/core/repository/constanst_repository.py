@@ -29,6 +29,7 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
     jensenshannon, mahalanobis, minkowski
+from MKLpy.algorithms import FHeuristic, RMKL, MEMO, EasyMKL, CKA, PWMK
 
 
 def beta_thr(beta):
@@ -48,6 +49,27 @@ class ComputationalConstant(Enum):
     FEDOT_WORKER_NUM = 5
     FEDOT_WORKER_TIMEOUT_PARTITION = 4
     PATIENCE_FOR_EARLY_STOP = 15
+
+
+class KernelsConstant(Enum):
+    KERNEL_ALGO = {
+        'one_step_heur': FHeuristic,
+        'two_step_rmkl': RMKL,
+        'two_step_memo': MEMO,
+        'one_step_cka': CKA,
+        'one_step_pwmk': PWMK,
+    }
+    KERNEL_BASELINE_FEATURE_GENERATORS = {
+        'quantile_extractor': PipelineBuilder().add_node('quantile_extractor'),
+        'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis').add_node('quantile_extractor'),
+        'fourier_extractor': PipelineBuilder().add_node('fourier_basis').add_node('quantile_extractor'),
+        'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
+
+    KERNEL_BASELINE_NODE_LIST = {
+        'quantile_extractor': ('quantile_extractor'),
+        'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
+        'fourier_extractor': ('fourier_basis', 'quantile_extractor'),
+        'eigen_extractor': ('eigen_basis', 'quantile_extractor')}
 
 
 class DataTypeConstant(Enum):
@@ -586,6 +608,10 @@ WAVELET_SCALES = FeatureConstant.WAVELET_SCALES.value
 SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
+
+KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
+KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
+KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value

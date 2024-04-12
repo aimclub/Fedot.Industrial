@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from fedot import Fedot
 from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
@@ -457,6 +458,9 @@ class ApiConverter:
         return isinstance(operation_implementation, Pipeline)
 
     @staticmethod
+    def solver_is_dict(operation_implementation):
+        return isinstance(operation_implementation, dict)
+    @staticmethod
     def tuning_params_is_none(tuning_params):
         return {} if tuning_params is None else tuning_params
 
@@ -467,6 +471,10 @@ class ApiConverter:
     @staticmethod
     def solver_have_target_encoder(encoder):
         return encoder is not None
+
+    @staticmethod
+    def input_data_is_fedot_type(input_data):
+        return isinstance(input_data, (InputData,MultiModalData))
 
     def is_multiclf_with_labeling_problem(self, problem, target, predict):
         clf_problem = problem == 'classification'

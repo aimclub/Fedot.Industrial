@@ -115,35 +115,3 @@ class RiemannExtractor(BaseExtractor):
         feature_matrix = self.extraction_func(input_data)
         self.predict = self._clean_predict(feature_matrix)
         return self.predict
-
-
-if __name__ == "__main__":
-    from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-    from sklearn.metrics import accuracy_score
-    from fedot_ind.api.utils.data import init_input_data
-    from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-    from sklearn.model_selection import train_test_split
-
-    path_x = '/Users/technocreep/Desktop/Working-Folder/fedot-industrial/Fedot.Industrial/0_lavence/valence_data/pt1/X_eeg_4_24_old_resave.npy'
-    path_y = '/Users/technocreep/Desktop/Working-Folder/fedot-industrial/Fedot.Industrial/0_lavence/valence_data/pt1/y_old.npy'
-    X = np.load(path_x)
-    y = np.load(path_y)
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
-    x_train = pd.DataFrame([[pd.Series(i) for i in k] for k in X_train])
-    x_test = pd.DataFrame([[pd.Series(i) for i in k] for k in X_test])
-
-    init_train = init_input_data(x_train, y_train)
-    init_test = init_input_data(x_test, y_test)
-
-    with IndustrialModels():
-        # riemann_extractor
-        # pipeline = PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor').add_node('rf').build()
-        pipeline = PipelineBuilder().add_node('riemann_extractor', params={'n_filter': 3}) \
-            .add_node('quantile_extractor') \
-            .add_node('mlp') \
-            .build()
-        pipeline.fit(init_train)
-        pred = pipeline.predict(init_test)
-        acc = accuracy_score(y_test, np.round(pred.predict))
-        print(acc)
