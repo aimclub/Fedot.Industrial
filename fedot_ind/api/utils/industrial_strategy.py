@@ -33,8 +33,8 @@ class IndustrialStrategy:
         self.industrial_strategy_fit[self.industrial_strategy](input_data)
         return self.solver
 
-    def predict(self, input_data):
-        return self.industrial_strategy_predict[self.industrial_strategy](input_data)
+    def predict(self, input_data, predict_mode):
+        return self.industrial_strategy_predict[self.industrial_strategy](input_data, predict_mode)
 
     def _federated_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
@@ -53,10 +53,9 @@ class IndustrialStrategy:
                        kernel_data: dict,
                        tuning_params: dict = {}):
         tuned_kernels = {}
-        tuned_metric = 0
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
-
         for generator, kernel_model in kernel_ensemble.items():
+            tuned_metric = 0
             for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
                 tuning_params['tuner'] = tuner_type
                 model_to_tune = deepcopy(kernel_model)

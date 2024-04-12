@@ -169,7 +169,8 @@ class FedotIndustrial(Fedot):
         self.__init_solver()
         if self.industrial_strategy is not None:
             self.solver = self.industrial_strategy_class.fit(self.train_data)
-        self.solver.fit(self.train_data)
+        else:
+            self.solver.fit(self.train_data)
 
     def predict(self,
                 predict_data: tuple,
