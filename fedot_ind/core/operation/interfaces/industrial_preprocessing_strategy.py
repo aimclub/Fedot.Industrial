@@ -141,23 +141,34 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 operation_implementation.fit(train_data)
         return operation_implementation
 
+    def _init_impl(self, channel_params):
+        try:
+            operation_implementation = self.operation_impl(**channel_params.to_dict())
+        except Exception:
+            operation_implementation = self.operation_impl(channel_params)
+        return operation_implementation
+
     def fit(self, train_data: InputData):
         # init operation_impl model abstraction
-        try:
-            operation_implementation = self.operation_impl(**self.params_for_fit.to_dict())
-        except Exception:
-            operation_implementation = self.operation_impl(self.params_for_fit)
+        if isinstance(self.params_for_fit, list):
+            operation_implementation = [self._init_impl(channel_params) for channel_params in self.params_for_fit]
+        else:
+            operation_implementation = self._init_impl(self.params_for_fit)
+
         # Create model and data condition checker
-        self.operation_condition = ConditionConverter(
-            train_data, operation_implementation, self.mode)
+        self.operation_condition = ConditionConverter(train_data, operation_implementation, self.mode)
         # If model is classical sklearn model we use one_dimensional mode
         if self.operation_condition.is_one_dim_operation:
             return self.fit_one_sample(operation_implementation, train_data)
         # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         elif self.operation_condition.is_channel_independent_operation:
             # Create independent copy of model for each channel
-            trained_operation = [deepcopy(operation_implementation) if self.operation_condition.is_list_container
-                                 else deepcopy(operation_implementation) for i in range(len(train_data))]
+            if isinstance(operation_implementation, list):
+                trained_operation = operation_implementation
+            else:
+                trained_operation = [deepcopy(operation_implementation) if self.operation_condition.is_list_container
+                                     else deepcopy(operation_implementation) for i in range(len(train_data))]
+
             train_data = train_data if self.operation_condition.is_list_container else [
                 train_data]
 

@@ -132,27 +132,39 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
         self.multi_dim_dispatcher.concat_func = np.vstack
         self.ensemble_func = np.sum
 
-    def fit(self, train_data: InputData):
+    def _check_glm_params(self, mean_kurtosis, mean_skew):
+        if mean_kurtosis < 1 and mean_skew > 0.5:
+            family = 'gamma'
+            link = 'log'
+        elif mean_kurtosis > 3 and mean_skew > 0.5:
+            family = "inverse_gaussian"
+            link = 'inverse_power'
+        else:
+            family = 'gaussian'
+            link = 'identity'
+        return family, link
+
+    def _create_channel_params(self, train_data):
         if self.operation_type == 'glm':
-            mean_kurtosis = kurtosis(train_data.features)
-            mean_skew = skew(train_data.features)
-            if mean_kurtosis < 3 and mean_skew > 0:
-                family = 'gamma'
-                link = 'log'
-            elif mean_kurtosis > 3 and mean_skew != 0:
-                family = "inverse_gaussian"
-                link = 'inverse_power'
+            if isinstance(train_data, list):
+                self.multi_dim_dispatcher.params_for_fit = []
+                for x in train_data:
+                    family, link = self._check_glm_params(kurtosis(x.features), skew(x.features))
+                    self.multi_dim_dispatcher.params_for_fit.append({'family': family,
+                                                                     'link': link})
+
             else:
-                family = 'gaussian'
-                link = 'identity'
-            self.multi_dim_dispatcher.params_for_fit = {'family': family,
-                                                        'link': link}
+                family, link = self._check_glm_params(kurtosis(train_data.features), skew(train_data.features))
+                self.multi_dim_dispatcher.params_for_fit = {'family': family,
+                                                            'link': link}
+
+    def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
+        self._create_channel_params(train_data)
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data, mode=self.multi_dim_dispatcher.mode)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
         predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
         return predict_output

@@ -180,7 +180,7 @@ class FedotConverter:
                 feats = self.input_data.features.reshape(1, -1)
             elif len(self.input_data.features.shape) == 3 and self.input_data.features.shape[0] == 1:
                 feats = self.input_data.features.reshape(self.input_data.features.shape[1],
-                                                                            1 * self.input_data.features.shape[2])
+                                                         1 * self.input_data.features.shape[2])
             elif not flat_input:
                 feats = self.input_data.features.swapaxes(1, 0)
             input_data = [InputData(idx=self.input_data.idx,
@@ -350,23 +350,25 @@ class ConditionConverter:
     def __init__(self, train_data, operation_implementation, mode):
         self.train_data = train_data
         self.operation_implementation = operation_implementation
+        self.operation_example = operation_implementation[0] if isinstance(operation_implementation, list) \
+            else operation_implementation
         self.mode = mode
 
     @property
     def have_transform_method(self):
-        return 'transform' in dir(self.operation_implementation)
+        return 'transform' in dir(self.operation_example)
 
     @property
     def have_fit_method(self):
-        return 'fit' in dir(self.operation_implementation)
+        return 'fit' in dir(self.operation_example)
 
     @property
     def have_predict_method(self):
-        return 'predict' in dir(self.operation_implementation)
+        return 'predict' in dir(self.operation_example)
 
     @property
     def have_predict_for_fit_method(self):
-        return 'predict_for_fit' in dir(self.operation_implementation)
+        return 'predict_for_fit' in dir(self.operation_example)
 
     @property
     def is_one_dim_operation(self):
@@ -390,19 +392,19 @@ class ConditionConverter:
 
     @property
     def have_predict_atr(self):
-        return 'predict' in vars(self.operation_implementation[0]) if self.is_operation_is_list_container else False
+        return 'predict' in vars(self.operation_example) if self.is_operation_is_list_container else False
 
     @property
     def is_fit_input_fedot(self):
-        return str(list(signature(self.operation_implementation.fit).parameters.keys())[0]) == 'input_data'
+        return str(list(signature(self.operation_example.fit).parameters.keys())[0]) == 'input_data'
 
     @property
     def is_transform_input_fedot(self):
-        return str(list(signature(self.operation_implementation.transform).parameters.keys())[0]) == 'input_data'
+        return str(list(signature(self.operation_example.transform).parameters.keys())[0]) == 'input_data'
 
     @property
     def is_predict_input_fedot(self):
-        return str(list(signature(self.operation_implementation.predict).parameters.keys())[0]) == 'input_data'
+        return str(list(signature(self.operation_example.predict).parameters.keys())[0]) == 'input_data'
 
     @property
     def is_regression_of_forecasting_task(self):
@@ -410,27 +412,27 @@ class ConditionConverter:
 
     @property
     def is_multi_output_target(self):
-        return isinstance(self.operation_implementation.classes_, list)
+        return isinstance(self.operation_example.classes_, list)
 
     @property
     def solver_is_fedot_class(self):
-        return isinstance(self.operation_implementation, Fedot)
+        return isinstance(self.operation_example, Fedot)
 
     @property
     def solver_is_none(self):
-        return self.operation_implementation is None
+        return self.operation_example is None
 
     def output_mode_converter(self, output_mode, n_classes):
         if output_mode == 'labels':
-            return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1)
+            return self.operation_example.predict(self.train_data.features).reshape(-1, 1)
         else:
             return self.probs_prediction_converter(output_mode, n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
         try:
-            prediction = self.operation_implementation.predict_proba(self.train_data.features)
+            prediction = self.operation_example.predict_proba(self.train_data.features)
         except Exception:
-            prediction = self.operation_implementation.predict_proba(self.train_data.features.T)
+            prediction = self.operation_example.predict_proba(self.train_data.features.T)
         if n_classes < 2:
             raise ValueError(
                 'Data set contain only 1 target class. Please reformat your data.')
@@ -460,6 +462,7 @@ class ApiConverter:
     @staticmethod
     def solver_is_dict(operation_implementation):
         return isinstance(operation_implementation, dict)
+
     @staticmethod
     def tuning_params_is_none(tuning_params):
         return {} if tuning_params is None else tuning_params
@@ -474,7 +477,7 @@ class ApiConverter:
 
     @staticmethod
     def input_data_is_fedot_type(input_data):
-        return isinstance(input_data, (InputData,MultiModalData))
+        return isinstance(input_data, (InputData, MultiModalData))
 
     def is_multiclf_with_labeling_problem(self, problem, target, predict):
         clf_problem = problem == 'classification'

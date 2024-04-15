@@ -312,7 +312,7 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Seque
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
         mutations.append(boosting_mutation)
-        mutations.append(ind_mutations.add_lagged)
+        #mutations.append(ind_mutations.add_lagged)
         mutations.remove(ind_mutations.add_preprocessing)
         mutations.remove(ind_mutations.single_add)
     # TODO remove workaround after validation fix
