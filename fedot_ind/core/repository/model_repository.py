@@ -180,9 +180,7 @@ class AtomizedModel(Enum):
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
-        'glm': GLMImplementation,
-        #'locf': RepeatLastValueImplementation,
-        #'ssa_forecaster': SSAForecasterImplementation
+        'glm': GLMImplementation
     }
 
     FORECASTING_PREPROC = {

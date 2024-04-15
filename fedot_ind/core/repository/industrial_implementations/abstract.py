@@ -247,11 +247,9 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     input_data.features = input_data.features.squeeze()
     new_input_data = copy(input_data)
     forecast_length = new_input_data.task.task_params.forecast_length
-
     # Correct window size parameter
-    self._check_and_correct_window_size(
-        new_input_data.features, forecast_length)
-    window_size = self.window_size
+    self._check_and_correct_window_size(new_input_data.features, forecast_length)
+    window_size = 3*forecast_length
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
         input_data,
         forecast_length,

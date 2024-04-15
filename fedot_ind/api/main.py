@@ -368,8 +368,7 @@ class FedotIndustrial(Fedot):
 
     def save_optimization_history(self, **kwargs):
         """Plot prediction of the model"""
-        self.solver.history.save(
-            f"{self.output_folder}/optimization_history.json")
+        self.solver.history.save(f"{self.output_folder}/optimization_history.json")
 
     def save_best_model(self):
         if self.condition_check.solver_is_fedot_class(self.solver):

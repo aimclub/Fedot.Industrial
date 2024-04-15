@@ -1,3 +1,4 @@
+import os
 import random
 from pathlib import Path
 from fedot_ind.api.main import FedotIndustrial
@@ -42,7 +43,7 @@ def compare_forecast_with_sota(dataset_name, horizon):
                                                     labels=n_beats['predict'].values)
     autogluon_forecast = calculate_forecasting_metric(target=autogluon['value'].values,
                                                       labels=autogluon['predict'].values)
-    return n_beats['predict'].values,n_beats_forecast, autogluon['predict'].values, autogluon_forecast
+    return n_beats['predict'].values, n_beats_forecast, autogluon['predict'].values, autogluon_forecast
 
 
 def industrial_forecasting_modelling_loop(dataset_name: str = None,
@@ -54,14 +55,31 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
     train_data, _ = DataLoader(dataset_name=dataset_name).load_forecast_data(folder=benchmark)
     target = train_data.values[-horizon:].flatten()
     if finetune:
-        model = industrial.finetune(train_data)
+        industrial.finetune(train_data)
     else:
-        model = industrial.fit(train_data)
+        industrial.fit(train_data)
 
     labels = industrial.predict(train_data)
-    metrics = industrial.get_metrics(target=target,
-                                     metric_names=('smape', 'rmse', 'median_absolute_error'))
-    return model, labels, metrics, target
+    if isinstance(labels, dict):
+        val = 1000000000
+        for forecat_model, predict in labels.items():
+            industrial.predicted_labels = predict
+
+            current_metric = industrial.get_metrics(target=target,
+                                                    metric_names=('smape', 'rmse', 'median_absolute_error'))
+            current_rmse = current_metric['rmse'].values[0]
+
+            if current_rmse < val:
+                val = current_rmse
+                labels = predict
+                metrics = current_metric
+                best_model = forecat_model
+
+        industrial.solver = industrial.solver[best_model]
+    else:
+        metrics = industrial.get_metrics(target=target,
+                                         metric_names=('smape', 'rmse', 'median_absolute_error'))
+    return industrial, labels, metrics, target
 
 
 def industrial_common_modelling_loop(dataset_name: str = None,
@@ -81,3 +99,28 @@ def industrial_common_modelling_loop(dataset_name: str = None,
                                      rounding_order=3,
                                      metric_names=metric_names)
     return model, labels, metrics
+
+
+def read_results(forecast_result_path):
+    results = os.listdir(forecast_result_path)
+    df_forecast = []
+    df_metrics = []
+    for file in results:
+        df = pd.read_csv(f'{forecast_result_path}/{file}')
+        name = file.split('_')[0]
+        df['dataset_name'] = name
+        if file.__contains__('forecast'):
+            df_forecast.append(df)
+        else:
+            df_metrics.append(df)
+    return df_forecast, df_metrics
+
+
+def create_comprasion_df(df, metric: str = 'rmse'):
+    df_full = pd.concat(df)
+    df_full = df_full[df_full['Unnamed: 0'] == metric]
+    df_full = df_full.drop('Unnamed: 0', axis=1)
+    df_full['Difference_industrial'] = (df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+    df_full['industrial_Wins'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial'] > 0 else 'Loose',
+                                               axis=1)
+    return df_full

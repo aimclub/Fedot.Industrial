@@ -257,6 +257,14 @@ class FedotOperationConstant(Enum):
         'ts_forecasting': PipelineBuilder().add_node('ar')
     }
 
+    FEDOT_TS_FORECASTING_ASSUMPTIONS = {
+        'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
+        'eigen_ar': PipelineBuilder().add_node('eigen_basis',
+                                               params={'low_rank_approximation': False,
+                                                       'rank_regularization': 'explained_dispersion'}).add_node('ar'),
+        'glm': PipelineBuilder().add_node('glm')
+    }
+
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
         'regression': PipelineBuilder().add_node('treg')
@@ -626,6 +634,7 @@ FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
+FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

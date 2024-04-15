@@ -136,8 +136,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         else:
             sig = signature(operation_implementation.fit).parameters
             if len(sig) > 1:
-                operation_implementation.fit(
-                    train_data.features, train_data.target)
+                operation_implementation.fit(train_data.features, train_data.target)
             else:
                 operation_implementation.fit(train_data)
         return operation_implementation
@@ -145,8 +144,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
     def fit(self, train_data: InputData):
         # init operation_impl model abstraction
         try:
-            operation_implementation = self.operation_impl(
-                **self.params_for_fit.to_dict())
+            operation_implementation = self.operation_impl(**self.params_for_fit.to_dict())
         except Exception:
             operation_implementation = self.operation_impl(self.params_for_fit)
         # Create model and data condition checker
@@ -338,8 +336,6 @@ class IndustrialForecastingPreprocessingStrategy(IndustrialCustomPreprocessingSt
             predict_data)
         predict_output = self.multi_dim_dispatcher.predict(trained_operation, converted_predict_data,
                                                            output_mode=output_mode)
-        predict_output.predict = np.reshape(predict_output.predict, (len(trained_operation), -1))
-        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
         return predict_output
 
     def predict_for_fit(self, trained_operation,
@@ -350,8 +346,6 @@ class IndustrialForecastingPreprocessingStrategy(IndustrialCustomPreprocessingSt
         predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation,
                                                                    converted_predict_data,
                                                                    output_mode=output_mode)
-        predict_output.predict = np.reshape(predict_output.predict, (len(trained_operation), -1))
-        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
         return predict_output
 
 

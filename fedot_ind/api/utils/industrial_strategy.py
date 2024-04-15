@@ -1,11 +1,13 @@
 import logging
 from copy import deepcopy
 
+from fedot import Fedot
+
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY
+    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS
 
 import numpy as np
 
@@ -22,9 +24,11 @@ class IndustrialStrategy:
         self.industrial_strategy_params = industrial_strategy_params
         self.industrial_strategy = industrial_strategy
         self.industrial_strategy_fit = {'federated_automl': self._federated_strategy,
-                                        'kernel_automl': self._kernel_strategy}
+                                        'kernel_automl': self._kernel_strategy,
+                                        'forecasting_assumptions': self._forecasting_strategy}
         self.industrial_strategy_predict = {'federated_automl': self._federated_predict,
-                                            'kernel_automl': self._kernel_predict}
+                                            'kernel_automl': self._kernel_predict,
+                                            'forecasting_assumptions': self._forecasting_predict}
         self.config_dict = api_config
         self.logger = logger
         self.repo = IndustrialModels().setup_repository()
@@ -47,6 +51,16 @@ class IndustrialStrategy:
             self.solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
                                        batch_size=batch_size)
             self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
+
+    def _forecasting_strategy(self, input_data):
+        self.logger.info('TS forecasting algorithm was applied')
+        self.config_dict['timeout'] = round(self.config_dict['timeout'] / 3)
+        self.solver = {}
+        for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
+            self.config_dict['initial_assumption'] = init_assumption.build()
+            industrial = Fedot(**self.config_dict)
+            industrial.fit(input_data)
+            self.solver.update({model_name: industrial})
 
     def _finetune_loop(self,
                        kernel_ensemble: dict,
@@ -94,8 +108,14 @@ class IndustrialStrategy:
         else:
             return np.argmax(head_predict, axis=1)
 
+    def _forecasting_predict(self,
+                             input_data,
+                             mode: str = 'labels'):
+        labels_dict = {k: v.predict(input_data, mode) for k, v in self.solver.items()}
+        return labels_dict
+
     def _kernel_predict(self,
                         input_data,
                         mode: str = 'labels'):
-        labels_dict = {k: v.predict(input_data, mode) for k, v in self.solver.items()}
+        labels_dict = {k: v.predict(input_data, mode).predict for k, v in self.solver.items()}
         return labels_dict

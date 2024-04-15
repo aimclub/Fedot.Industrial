@@ -12,6 +12,8 @@ from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy impor
     (IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
     SKLEARN_REG_MODELS
+from scipy.stats import kurtosis
+from scipy.stats import skew
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -130,6 +132,24 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
         self.multi_dim_dispatcher.concat_func = np.vstack
         self.ensemble_func = np.sum
 
+    def fit(self, train_data: InputData):
+        if self.operation_type == 'glm':
+            mean_kurtosis = kurtosis(train_data.features)
+            mean_skew = skew(train_data.features)
+            if mean_kurtosis < 3 and mean_skew > 0:
+                family = 'gamma'
+                link = 'log'
+            elif mean_kurtosis > 3 and mean_skew != 0:
+                family = "inverse_gaussian"
+                link = 'inverse_power'
+            else:
+                family = 'gaussian'
+                link = 'identity'
+            self.multi_dim_dispatcher.params_for_fit = {'family': family,
+                                                        'link': link}
+        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
+        return self.multi_dim_dispatcher.fit(train_data)
+
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
@@ -140,8 +160,9 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
-        predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
-        predict_output.predict = self.ensemble_func (predict_output.predict, axis=0)
+        predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data,
+                                                                   output_mode='labels')
+        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
         return predict_output
 
 

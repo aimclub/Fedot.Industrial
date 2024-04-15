@@ -8,7 +8,7 @@ from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
 
@@ -34,6 +34,7 @@ class DataCheck:
                  task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.input_data = input_data
+        self.data_convertor = DataConverter(data=self.input_data)
         self.task = task
         self.task_params = task_params
         self.task_dict = FEDOT_TASK
@@ -71,7 +72,8 @@ class DataCheck:
 
         """
         is_multivariate_data = False
-        if isinstance(self.input_data, tuple):
+
+        if self.data_convertor.is_tuple:
             X, y = self.input_data[0], self.input_data[1]
             features, is_multivariate_data, target = self.__check_features_and_target(X, y)
 
@@ -81,6 +83,7 @@ class DataCheck:
                 target = self.label_encoder.fit_transform(target)
             else:
                 self.label_encoder = self.label_encoder
+
         if is_multivariate_data:
             self.input_data = InputData(idx=np.arange(len(X)),
                                         features=features,
@@ -88,8 +91,7 @@ class DataCheck:
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
         elif self.task == 'ts_forecasting':
-            if type(self.input_data) is pd.DataFrame:
-                features_array = np.array(self.input_data.values)
+            features_array = self.data_convertor.convert_to_1d_array()
             task = Task(TaskTypesEnum.ts_forecasting,
                         TsForecastingParams(forecast_length=self.task_params['forecast_length']))
             features_array = features_array[:-self.task_params['forecast_length']]
