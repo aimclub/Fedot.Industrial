@@ -157,10 +157,11 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
                 family, link = self._check_glm_params(kurtosis(train_data.features), skew(train_data.features))
                 self.multi_dim_dispatcher.params_for_fit = {'family': family,
                                                             'link': link}
+        return train_data
 
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
-        self._create_channel_params(train_data)
+        train_data = self._create_channel_params(train_data)
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:

@@ -17,7 +17,7 @@ from golem.core.optimisers.genetic.operators.crossover import Crossover
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.industrial_implementations.abstract import merge_predicts, preprocess_predicts, \
     predict_for_fit, predict, predict_operation, postprocess_predicts, update_column_types, transform_lagged, \
-    transform_lagged_for_fit, transform_smoothing, _build, split_any
+    transform_lagged_for_fit, transform_smoothing, _build, split_any, _check_and_correct_window_size
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
     MutationStrengthEnumIndustrial, has_no_data_flow_conflicts_in_industrial_pipeline, _crossover_by_type
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
@@ -79,6 +79,8 @@ class IndustrialModels:
         setattr(LaggedImplementation, 'transform', transform_lagged)
         setattr(LaggedImplementation, 'transform_for_fit',
                 transform_lagged_for_fit)
+        setattr(LaggedImplementation, '_check_and_correct_window_size',
+                _check_and_correct_window_size)
         setattr(TsSmoothingImplementation, 'transform', transform_smoothing)
 
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)

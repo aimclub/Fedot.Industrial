@@ -26,6 +26,7 @@ if __name__ == "__main__":
                       metric='rmse',
                       timeout=15,
                       with_tuning=False,
+                      pop_size=10,
                       industrial_strategy='forecasting_assumptions',
                       n_jobs=2,
                       logging_level=30)

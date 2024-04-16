@@ -12,9 +12,6 @@ from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
-
-from fedot.core.pipelines.adapters import PipelineAdapter
-from fedot.core.utils import fedot_project_root
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
@@ -107,6 +104,7 @@ class FedotIndustrial(Fedot):
         self.predicted_probs = None
         self.predict_data = None
         self.target_encoder = None
+        self.is_finetuned = False
 
         # map Fedot params to Industrial params
         self.config_dict = kwargs
@@ -177,6 +175,7 @@ class FedotIndustrial(Fedot):
             self.solver = self.industrial_strategy_class.fit(self.train_data)
         else:
             self.solver.fit(self.train_data)
+        self.is_finetuned = False
 
     def predict(self,
                 predict_data: tuple,
@@ -196,7 +195,7 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
-        if self.industrial_strategy is not None:
+        if self.industrial_strategy is not None and not self.is_finetuned:
             self.predicted_labels = self.industrial_strategy_class.predict(self.predict_data, predict_mode)
         else:
             if self.condition_check.solver_is_fedot_class(self.solver):
@@ -234,7 +233,7 @@ class FedotIndustrial(Fedot):
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params).check_input_data()
-        if self.industrial_strategy is not None:
+        if self.industrial_strategy is not None and not self.is_finetuned:
             self.predicted_labels = self.industrial_strategy_class.predict(self.predict_data, predict_mode)
         else:
             if self.condition_check.solver_is_fedot_class(self.solver):
@@ -263,7 +262,9 @@ class FedotIndustrial(Fedot):
 
             """
         if not self.condition_check.input_data_is_fedot_type(train_data):
-            input_preproc = DataCheck(input_data=train_data, task=self.config_dict['problem'])
+            input_preproc = DataCheck(input_data=train_data,
+                                      task=self.config_dict['problem'],
+                                      task_params=self.task_params)
             train_data = input_preproc.check_input_data()
             self.target_encoder = input_preproc.get_target_encoder()
         tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
@@ -275,12 +276,13 @@ class FedotIndustrial(Fedot):
             elif not self.condition_check.solver_is_none(model_to_tune):
                 model_to_tune = model_to_tune
             else:
-                model_to_tune = deepcopy(self.config_dict['initial_assumption'])
+                model_to_tune = deepcopy(self.config_dict['initial_assumption']).build()
             tuning_params['tuner'] = tuner_type
             pipeline_tuner, model_to_tune = build_tuner(self, model_to_tune, tuning_params, train_data, mode)
             if abs(pipeline_tuner.obtained_metric) > tuned_metric:
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
+        self.is_finetuned = True
 
     def get_metrics(self,
                     target: Union[list, np.array] = None,

@@ -254,7 +254,10 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
             'logit'),
         'regression': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('ar')
+        'ts_forecasting': PipelineBuilder().add_node('eigen_basis',
+                                                     params={'low_rank_approximation': False,
+                                                             'rank_regularization': 'explained_dispersion'}).add_node(
+            'ar')
     }
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
@@ -262,8 +265,8 @@ class FedotOperationConstant(Enum):
         'eigen_ar': PipelineBuilder().add_node('eigen_basis',
                                                params={'low_rank_approximation': False,
                                                        'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-        'glm': PipelineBuilder().add_node('glm')
-    }
+        'cgru': PipelineBuilder().add_node("lagged").add_node('cgru', params={'loss': 'mse',
+                                                                              'optimizer': 'adamw'})}
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),

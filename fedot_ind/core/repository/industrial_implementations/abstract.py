@@ -235,6 +235,33 @@ def transform_smoothing(self, input_data: InputData) -> OutputData:
     return output_data
 
 
+def _check_and_correct_window_size(self, time_series: np.ndarray, forecast_length: int):
+    """ Method check if the length of the time series is not enough for
+        lagged transformation
+
+        Args:
+            time_series: time series for transformation
+            forecast_length: forecast length
+
+        Returns:
+
+        """
+    max_allowed_window_size = max(1, round((len(time_series) - forecast_length - 1) * 0.25))
+    window_list = list(range(3 * forecast_length, max_allowed_window_size, round(1.5 * forecast_length)))
+
+    if self.window_size == 0 or self.window_size > max_allowed_window_size:
+        window_size = np.random.choice(window_list)
+        self.log.message((f"Window size of lagged transformation was changed "
+                          f"by WindowSizeSelector from {self.params.get('window_size')} to {window_size}"))
+        self.params.update(window_size=window_size)
+
+    # Minimum threshold
+    if self.window_size < self.window_size_minimum:
+        self.log.info((f"Warning: window size of lagged transformation was changed "
+                       f"from {self.params.get('window_size')} to {self.window_size_minimum}"))
+        self.params.update(window_size=self.window_size_minimum)
+
+
 def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     """Method for transformation of time series to lagged form for fit stage
 
@@ -249,7 +276,10 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     forecast_length = new_input_data.task.task_params.forecast_length
     # Correct window size parameter
     self._check_and_correct_window_size(new_input_data.features, forecast_length)
-    window_size = 3*forecast_length
+    window_list = list(range(3 * forecast_length,
+                             round(input_data.features.shape[0] * 0.25),
+                             round(1.5 * forecast_length)))
+    window_size = np.random.choice(window_list)
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
         input_data,
         forecast_length,
