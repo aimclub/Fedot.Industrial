@@ -208,6 +208,9 @@ class TensorConverter:
         self.tensor_data = self.convert_to_tensor(data)
 
     def convert_to_tensor(self, data):
+        if isinstance(data, tuple):
+            data = data[0]
+
         if isinstance(data, torch.Tensor):
             return data
         elif isinstance(data, np.ndarray):
@@ -258,6 +261,8 @@ class NumpyConverter:
     def convert_to_array(self, data):
         if isinstance(data, np.ndarray):
             return data
+        elif isinstance(data, tuple):
+            return data[0]
         elif isinstance(data, torch.Tensor):
             return data.detach().numpy()
         elif isinstance(data, pd.DataFrame):

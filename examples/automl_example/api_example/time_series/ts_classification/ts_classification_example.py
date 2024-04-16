@@ -5,8 +5,7 @@ from fedot_ind.tools.example_utils import industrial_common_modelling_loop
 if __name__ == "__main__":
     dataset_name = 'Handwriting'
     finetune = True
-    initial_assumption = PipelineBuilder().add_node('channel_filtration'). \
-        add_node('quantile_extractor').add_node('rf')
+    initial_assumption = PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('rf')
     metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
     api_config = dict(problem='classification',
                       metric='f1',

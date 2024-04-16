@@ -5,11 +5,17 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Union
 
+import matplotlib
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
 
+from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
+
+from fedot.core.pipelines.adapters import PipelineAdapter
+from fedot.core.utils import fedot_project_root
+from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
@@ -19,7 +25,7 @@ from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS,\
+    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, \
     FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS, FEDOT_TUNER_STRATEGY
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -366,9 +372,11 @@ class FedotIndustrial(Fedot):
                 self.solver.append(Pipeline().load(
                     f'{path}/{p}/0_pipeline_saved'))
 
-    def save_optimization_history(self, **kwargs):
+    def save_optimization_history(self, return_history: bool = False):
         """Plot prediction of the model"""
         self.solver.history.save(f"{self.output_folder}/optimization_history.json")
+        if return_history:
+            return self.solver.history
 
     def save_best_model(self):
         if self.condition_check.solver_is_fedot_class(self.solver):
@@ -382,21 +390,6 @@ class FedotIndustrial(Fedot):
                 Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
             Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
             self.solver.current_pipeline.save(f'./raf_ensemble/ensemble_composed', create_subdir=True)
-
-    def plot_fitness_by_generation(self, **kwargs):
-        """Plot prediction of the model"""
-        self.solver.history.show.fitness_box(save_path=f'{self.output_folder}/fitness_by_gen.png',
-                                             best_fraction=0.5,
-                                             dpi=100)
-
-    def plot_operation_distribution(self, mode: str = 'total'):
-        """Plot prediction of the model"""
-        if mode == 'total':
-            self.solver.history.show.operations_kde(
-                save_path=f'{self.output_folder}/operation_kde.png', dpi=100)
-        else:
-            self.solver.history.show.operations_animated_bar(
-                save_path=f'{self.output_folder}/history_animated_bars.gif', show_fitness=True, dpi=100)
 
     def explain(self, **kwargs):
         """ Explain model's prediction via time series points perturbation
@@ -428,6 +421,32 @@ class FedotIndustrial(Fedot):
     def return_report(self) -> pd.DataFrame:
         if isinstance(self.solver, Fedot):
             return self.solver.return_report()
+
+    def vis_optimisation_history(self, opt_history_path: str = None,
+                                 mode: str = 'all',
+                                 return_history: bool = False):
+        """ The function runs visualization of the composing history and the best pipeline. """
+        # Gather pipeline and history.
+        matplotlib.use('TkAgg')
+        if isinstance(opt_history_path, str):
+            history = OptHistory.load(opt_history_path + 'optimization_history.json')
+        else:
+            history = opt_history_path
+        history_visualizer = PipelineHistoryVisualizer(history)
+        vis_func = {
+            'fitness': (history_visualizer.fitness_box, dict(save_path='fitness_by_generation.png',
+                                                             best_fraction=1)),
+            'models': (history_visualizer.operations_animated_bar,
+                       dict(save_path='operations_animated_bar.gif', show_fitness=True)),
+            'diversity': (history_visualizer.diversity_population, dict(save_path='diversity_population.gif', fps=1))}
+        if mode == 'all':
+            for func, params in vis_func.values():
+                func(**params)
+        else:
+            func, params = vis_func[mode]
+            func(**params)
+        if return_history:
+            return history_visualizer.history
 
     @staticmethod
     def generate_ts(ts_config: dict):

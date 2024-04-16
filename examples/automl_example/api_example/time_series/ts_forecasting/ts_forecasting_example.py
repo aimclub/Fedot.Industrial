@@ -1,8 +1,6 @@
 import os
 
 import pandas as pd
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH, M4_FORECASTING_LENGTH
 from fedot_ind.tools.example_utils import industrial_forecasting_modelling_loop, compare_forecast_with_sota, \
@@ -37,7 +35,7 @@ if __name__ == "__main__":
             print('Already evaluated, but with bad metrics')
             horizon = M4_FORECASTING_LENGTH[dataset_name[0]]
             api_config.update(task_params={'forecast_length': horizon})
-            api_config.update(output_folder=os.path.join(PROJECT_PATH, 'results_of_experiments',dataset_name))
+            api_config.update(output_folder=os.path.join(PROJECT_PATH, 'results_of_experiments', dataset_name))
             n_beats_forecast, n_beats_metrics, \
             autogluon_forecast, autogluon_metrics = compare_forecast_with_sota(dataset_name=dataset_name,
                                                                                horizon=horizon)

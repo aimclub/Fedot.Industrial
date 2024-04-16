@@ -90,15 +90,15 @@ def industrial_common_modelling_loop(dataset_name: str = None,
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     if finetune:
-        model = industrial.finetune(train_data)
+        industrial.finetune(train_data)
     else:
-        model = industrial.fit(train_data)
+        industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=metric_names)
-    return model, labels, metrics
+    return industrial, labels, metrics
 
 
 def read_results(forecast_result_path):
@@ -120,7 +120,7 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = pd.concat(df)
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
-    df_full['Difference_industrial'] = (df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+    df_full['Difference_industrial'] = (df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
     df_full['industrial_Wins'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial'] > 0 else 'Loose',
                                                axis=1)
     return df_full
