@@ -14,16 +14,18 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 def chronos_small(input_dim: int = 1,
                   seq_len: int = 1,
                   num_features: int = 100):
-    model = ChronosPipeline.from_pretrained("amazon/chronos-t5-small", device_map='cpu', torch_dtype=torch.bfloat16)
+    model = ChronosPipeline.from_pretrained("amazon/chronos-t5-small",
+                                            device_map='cpu',
+                                            torch_dtype=torch.bfloat16)
     chronos_encoder = model.model.model.encoder
     return chronos_encoder
 
 
 class ChronosExtractor(BaseExtractor):
-    """Class responsible for Chronos transformer feature generator .
+    """Feature space generator based on Chronos model.
 
     Attributes:
-        self.num_features: int, the number of features.
+        num_features: int, the number of features.
 
     Example:
         To use this operation you can create pipeline as follows::
@@ -34,12 +36,13 @@ class ChronosExtractor(BaseExtractor):
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
             with IndustrialModels():
-                pipeline = PipelineBuilder().add_node('minirocket_features').add_node(
-                    'rf').build()
+                pipeline = PipelineBuilder().add_node('chronos_extractor')\
+                                            .add_node('rf').build()
                 input_data = init_input_data(train_data[0], train_data[1])
                 pipeline.fit(input_data)
                 features = pipeline.predict(input_data)
                 print(features)
+
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -49,7 +52,7 @@ class ChronosExtractor(BaseExtractor):
     def __repr__(self):
         return 'TransformerFeatureSpace'
 
-    def _save_and_clear_cache(self, model_list):
+    def _save_and_clear_cache(self, model_list: list):
         del model_list
         with torch.no_grad():
             torch.cuda.empty_cache()
@@ -76,8 +79,8 @@ class ChronosExtractor(BaseExtractor):
 
         features = [chrono_model(inputs_embeds=torch.Tensor(data).to(default_device('cpu')).to(torch.long))
                     for model, data in zip(model_list, ts_converted)]
-        chrono_features = [feature_by_dim.swapaxes(
-            1, 2) for feature_by_dim in features]
+
+        chrono_features = [feature_by_dim.swapaxes(1, 2) for feature_by_dim in features]
         minirocket_features = np.concatenate(chrono_features, axis=1)
         minirocket_features = OutputData(idx=np.arange(minirocket_features.shape[2]),
                                          task=self.task,

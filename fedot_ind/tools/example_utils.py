@@ -90,7 +90,7 @@ def industrial_common_modelling_loop(dataset_name: str = None,
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     if finetune:
-        industrial.finetune(train_data)
+        industrial.finetune(train_data, tuning_params={'tuning_timeout': api_config['timeout']})
     else:
         industrial.fit(train_data)
 

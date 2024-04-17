@@ -251,23 +251,37 @@ def kl_divergence(solution: pd.DataFrame,
                   epsilon: float = 0.001,
                   micro_average: bool = False,
                   sample_weights: pd.Series = None):
-    # Overwrite solution for convenience
+    """
+    Calculates the Kullback-Leibler (KL) divergence between the solution and submission dataframes.
+
+    The KL divergence is a measure of how one probability distribution diverges from a second, expected
+    probability distribution.
+
+    Args:
+        solution (pd.DataFrame): The expected probability distribution.
+        submission (pd.DataFrame): The probability distribution to compare.
+        epsilon (float, optional): A small value to avoid division by zero or log of zero. Defaults to 0.001.
+        micro_average (bool, optional): If True, compute the micro-average (i.e., the total sum for all classes) of
+                                        the KL divergence. If False, compute the macro-average (i.e., the unweighted
+                                        mean for all classes). Defaults to False.
+        sample_weights (pd.Series, optional): An array of weights that are assigned to individual samples.
+                                              If None, then samples are equally weighted. Defaults to None.
+
+    Returns:
+        float: The average KL divergence between the solution and submission dataframes.
+
+    """
+
     for col in solution.columns:
-        # Prevent issue with populating int columns with floats
         if not pd.api.types.is_float_dtype(solution[col]):
             solution[col] = solution[col].astype(float)
 
-        # Clip both the min and max following Kaggle conventions for related metrics like log loss
-        # Clipping the max avoids cases where the loss would be infinite or undefined, clipping the min
-        # prevents users from playing games with the 20th decimal place of predictions.
         submission[col] = np.clip(submission[col], epsilon, 1 - epsilon)
 
         y_nonzero_indices = solution[col] != 0
         solution[col] = solution[col].astype(float)
         solution.loc[y_nonzero_indices, col] = solution.loc[y_nonzero_indices, col] * np.log(
             solution.loc[y_nonzero_indices, col] / submission.loc[y_nonzero_indices, col])
-        # Set the loss equal to zero where y_true equals zero following the scipy convention:
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.rel_entr.html#scipy.special.rel_entr
         solution.loc[~y_nonzero_indices, col] = 0
 
     if micro_average:

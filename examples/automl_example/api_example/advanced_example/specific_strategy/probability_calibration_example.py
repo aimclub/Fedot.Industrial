@@ -3,13 +3,20 @@ from fedot.core.pipelines.pipeline import Pipeline
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.tools.loader import DataLoader
-from sktime.transformations.panel.signature_based import SignatureTransformer
+
 
 # sklearn-compatible interface
 class SklearnCompatibleClassifier(BaseEstimator, ClassifierMixin):
+    """Wrapper for FedotIndustrial to make it compatible with sklearn.
+
+    Args:
+        estimator (Pipeline): FedotIndustrial pipeline.
+
+    """
 
     def __init__(self, estimator: Pipeline):
         self.estimator = estimator

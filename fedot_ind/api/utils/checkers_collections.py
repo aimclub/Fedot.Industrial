@@ -49,7 +49,7 @@ class DataCheck:
         else:
             features = X
 
-        if type(y) is pd.DataFrame or type(y) is pd.Series:
+        if isinstance(y, (pd.DataFrame, pd.Series)):
             y = y.values
         if multi_target:
             target = y
@@ -71,21 +71,25 @@ class DataCheck:
             ValueError: If the input data format is invalid.
 
         """
-        is_multivariate_data = False
+        # is_multivariate_data = False
 
         if self.data_convertor.is_tuple:
-            X, y = self.input_data[0], self.input_data[1]
-            features, is_multivariate_data, target = self.__check_features_and_target(X, y)
+            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data[0],
+                                                                                      self.input_data[1])
+        else:
+            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data.features,
+                                                                                      self.input_data.target)
 
         if self.label_encoder is None and self.task == 'classification':
-            if type(y[0]) is np.str_:
+            # x, y = self.input_data.features, self.input_data.target
+            if type(target[0]) is np.str_:
                 self.label_encoder = LabelEncoder()
                 target = self.label_encoder.fit_transform(target)
-            else:
-                self.label_encoder = self.label_encoder
+            # else:
+            #     self.label_encoder = self.label_encoder
 
         if is_multivariate_data:
-            self.input_data = InputData(idx=np.arange(len(X)),
+            self.input_data = InputData(idx=np.arange(len(features)),
                                         features=features,
                                         target=target,
                                         task=self.task_dict[self.task],
@@ -99,10 +103,11 @@ class DataCheck:
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,
                 target_array=target,
-                task=task)
+                task=task
+            )
         else:
-            self.input_data = InputData(idx=np.arange(len(X)),
-                                        features=X,
+            self.input_data = InputData(idx=np.arange(len(features)),
+                                        features=features,
                                         target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)

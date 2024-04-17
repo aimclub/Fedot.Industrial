@@ -4,10 +4,9 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
-from sklearn.neighbors import NearestCentroid
-from scipy.spatial.distance import euclidean
-from sktime.dists_kernels import (BasePairwiseTransformerPanel, FlatDist, ScipyDist)
 from fedot.core.operations.operation_parameters import OperationParameters
+from sklearn.neighbors import NearestCentroid
+from sktime.dists_kernels import (BasePairwiseTransformerPanel, FlatDist, ScipyDist)
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
@@ -49,30 +48,32 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
     Note: Channels, variables, dimensions, features are used interchangeably in
     literature. E.g., channel selection = variable selection.
 
-    Parameters
-    ----------
-    distance: sktime pairwise panel transform, str, or callable, optional, default=None
-        if panel transform, will be used directly as the distance in the algorithm
-        default None = euclidean distance on flattened series, FlatDist(ScipyDist())
-        if str, will behave as FlatDist(ScipyDist(distance)) = scipy dist on flat series
-        if callable, must be univariate nested_univ x nested_univ -> 2D float np.array
+    Parameters:
 
-    Attributes
-    ----------
-    channels_selected : list of integer
-        List of variables/channels selected by the estimator
-        integers (iloc reference), referring to variables/channels by order
-    distance_frame : np.array
-        distance matrix of the class centroids pair and channels.
-            ``shape = [n_channels, n_class_centroids_pairs]``
-    References
-    ----------
-    ..[1]: Bhaskar Dhariyal et al. "Fast Channel Selection for Scalable Multivariate
-    Time Series Classification." AALTD, ECML-PKDD, Springer, 2021
+        distance: sktime pairwise panel transform, str, or callable, optional, default=None
+            if panel transform, will be used directly as the distance in the algorithm
+            default None = euclidean distance on flattened series, FlatDist(ScipyDist())
+            if str, will behave as FlatDist(ScipyDist(distance)) = scipy dist on flat series
+            if callable, must be univariate nested_univ x nested_univ -> 2D float np.array
+
+    Attributes:
+
+        channels_selected : list of integer
+            List of variables/channels selected by the estimator
+            integers (iloc reference), referring to variables/channels by order
+        distance_frame : np.array
+            distance matrix of the class centroids pair and channels.
+                ``shape = [n_channels, n_class_centroids_pairs]``
+
+    References:
+
+        ..[1]: Bhaskar Dhariyal et al. "Fast Channel Selection for Scalable Multivariate
+        Time Series Classification." AALTD, ECML-PKDD, Springer, 2021
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
 
+        super().__init__(params)
         self.distance = params.get('distance', None)  # “manhattan” “chebyshev”
         self.shrink = params.get('shrink', 1e-5)
         self.centroid_metric = params.get('centroid_metric', 'euclidean')
@@ -106,7 +107,7 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
                 dict_ = {f"Centroid_{[class_[0]]}_{[class_[1]]}": class_pair}
 
             distance_frame = pd.concat([distance_frame, pd.DataFrame(dict_)], axis=1)
-        #distance_metrics.append(distance_frame)
+        # distance_metrics.append(distance_frame)
 
         return distance_frame
 

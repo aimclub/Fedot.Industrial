@@ -1,17 +1,16 @@
 from copy import deepcopy
-from typing import Optional, List, Any
-from fedot.core.data.data import InputData
-from fedot.core.data.multi_modal import MultiModalData
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from fedot.core.repository.dataset_types import DataTypesEnum
-from sklearn.svm import SVC
+from typing import Optional, Any
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from MKLpy.callbacks import EarlyStopping
 from MKLpy.scheduler import ReduceOnWorsening
+from fedot.core.data.data import InputData
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from scipy.spatial.distance import pdist, squareform
+from sklearn.svm import SVC
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
     KERNEL_BASELINE_NODE_LIST
@@ -20,6 +19,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 
 class KernelEnsembler(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
         self.distance_metric = params.get('distance_metric', 'cosine')
         self.kernel_strategy = params.get('kernel_strategy ', 'one_step_cka')
         self.feature_extractor = params.get('feature_extractor', list(KERNEL_BASELINE_FEATURE_GENERATORS.keys()))

@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
+import pywt
+from librosa import power_to_db
+from librosa.feature import melspectrogram
 from matplotlib import pyplot as plt
-import pywt, librosa
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
@@ -29,7 +31,6 @@ eeg_built_spec_windows = {
     'pre': (0, 100),
     'post': (-100, 256)
 }
-
 
 USE_WAVELET = None
 
@@ -67,7 +68,8 @@ def spectrogram_from_eeg(parquet_path, display=False):
     # VARIABLE TO HOLD SPECTROGRAM
     img = np.zeros((128, 256, 4), dtype='float32')
 
-    if display: plt.figure(figsize=(10, 7))
+    if display:
+        plt.figure(figsize=(10, 7))
     signals = []
     for k in range(4):
         COLS = FEATS[k]
@@ -78,24 +80,23 @@ def spectrogram_from_eeg(parquet_path, display=False):
             x = eeg[COLS[kk]].values - eeg[COLS[kk + 1]].values
 
             # FILL NANS
-            m =  np.nanmean(x)
+            m = np.nanmean(x)
             if np.isnan(x).mean() < 1:
                 x = np.nan_to_num(x, nan=m)
             else:
                 x[:] = 0
 
             # DENOISE
-            if USE_WAVELET:
+            if USE_WAVELET is not None:
                 x = denoise(x, wavelet=USE_WAVELET)
             signals.append(x)
 
             # RAW SPECTROGRAM
-            mel_spec = librosa.feature.melspectrogram(y=x, sr=200, hop_length=len(x) // 256,
-                                                      n_fft=1024, n_mels=128, fmin=0, fmax=20, win_length=128)
-
+            mel_spec = melspectrogram(y=x, sr=200, hop_length=len(x) // 256,
+                                      n_fft=1024, n_mels=128, fmin=0, fmax=20, win_length=128)
             # LOG TRANSFORM
             width = (mel_spec.shape[1] // 32) * 32
-            mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max).astype(np.float32)[:, :width]
+            mel_spec_db = power_to_db(mel_spec, ref=np.max).astype(np.float32)[:, :width]
 
             # STANDARDIZE TO -1 TO 1
             mel_spec_db = (mel_spec_db + 40) / 40
@@ -106,14 +107,15 @@ def spectrogram_from_eeg(parquet_path, display=False):
 
     return img
 
-class ReadData():
+
+class ReadData:
     def __init__(self, is_train=True):
         self.is_train = is_train
 
     def _read_data(self, data_type, file_id):
 
         if self.is_train:
-            PATH = PROJECT_PATH +  f"/data/hms-harmful-brain-activity-classification/train_{data_type}/{file_id}.parquet"
+            PATH = PROJECT_PATH + f"/data/hms-harmful-brain-activity-classification/train_{data_type}/{file_id}.parquet"
         else:
             PATH = PROJECT_PATH + f"/data/hms-harmful-brain-activity-classification/test_{data_type}/{file_id}.parquet"
 
@@ -143,8 +145,8 @@ class ReadData():
         return spec
 
     def read_train_data(self):
-        TRAIN_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/train.csv'
-        dataframe = pd.read_csv(TRAIN_PATH)
+        train_path = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/train.csv'
+        dataframe = pd.read_csv(train_path)
         # TARGETS = ['target', 'fold', 'eeg_id']
         # EEG_IDS = dataframe.eeg_id.unique()
         # target_df = dataframe[TARGETS]
@@ -154,16 +156,20 @@ class ReadData():
         TEST_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
         return pd.read_csv("/kaggle/input/hms-harmful-brain-activity-classification/test.csv")
 
+
 class FeatureEngineerData(ReadData):
+    """
+    Class to engineer features from the EEG and Spectrogram data
+
+    Args:
+        metadata (dict): Contains the information on the eeg ids and labels
+        is_train (bool): Whether the data is train or test data
+        row_id (str): The name of the row id in the metadata
+
+    """
+
     def __init__(self, metadata, is_train=True, row_id='label_id'):
-        '''
-
-        Params
-        ----------
-        metadata : dict
-            Contains the information on the eeg ids and labels
-
-        '''
+        super().__init__(is_train)
         self.metadata = metadata
         self.is_train = is_train
 
@@ -200,9 +206,9 @@ class FeatureEngineerData(ReadData):
                 )
 
     def get_corr(self, df) -> pd.DataFrame:
-        '''
+        """
         Returns the correlation of an eeg file
-        '''
+        """
 
         def apply_mask(df):
             mask = np.triu(np.ones_like(df, dtype=bool))
@@ -215,17 +221,17 @@ class FeatureEngineerData(ReadData):
                 .set_axis(['var_1', 'var_2', 'corr'], axis=1)
                 .query("var_1 != var_2")
                 .assign(
-            row_id=self.row_id,
-            label=lambda x: x.var_1 + "_" + x.var_2
+                        row_id=self.row_id,
+                        label=lambda x: x.var_1 + "_" + x.var_2
         )
                 .pivot(columns='label', values='corr', index='row_id')
                 .add_prefix('cor_')
                 )
 
     def filter_spectrogram_corr(self, corr_df) -> pd.DataFrame:
-        '''
+        """
         Returns a dataframe with only the correlation across the same frequency
-        '''
+        """
         return corr_df[[col for col in corr_df.columns if col.split('_')[2] == col.split('_')[4]]]
 
     def filter_eegspectrogram_corr(self, corr_df) -> pd.DataFrame:

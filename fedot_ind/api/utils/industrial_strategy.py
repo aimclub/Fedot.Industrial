@@ -1,16 +1,12 @@
-import logging
 from copy import deepcopy
 
+import numpy as np
 from fedot import Fedot
 
-from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS
-
-import numpy as np
-
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
@@ -32,6 +28,8 @@ class IndustrialStrategy:
         self.config_dict = api_config
         self.logger = logger
         self.repo = IndustrialModels().setup_repository()
+        self.RAF_workers = None
+        self.solver = None
 
     def fit(self, input_data):
         self.industrial_strategy_fit[self.industrial_strategy](input_data)
@@ -43,12 +41,18 @@ class IndustrialStrategy:
     def _federated_strategy(self, input_data):
         if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
             self.logger.info('RAF algorithm was applied')
-            batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-                                                                                  is not None else FEDOT_WORKER_NUM)
+
+            if self.RAF_workers is None:
+                batch_size = FEDOT_WORKER_NUM
+            else:
+                batch_size = round(input_data.features.shape[0] / self.RAF_workers)
+            # batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
+            #                                                                       is not None else FEDOT_WORKER_NUM)
             batch_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
             self.config_dict['timeout'] = batch_timeout
             self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
-            self.solver = RAFensembler(composing_params=self.config_dict, n_splits=self.RAF_workers,
+            self.solver = RAFensembler(composing_params=self.config_dict,
+                                       n_splits=self.RAF_workers,
                                        batch_size=batch_size)
             self.logger.info(f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
 

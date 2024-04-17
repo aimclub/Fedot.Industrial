@@ -10,9 +10,10 @@ import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
 from fedot.core.pipelines.pipeline import Pipeline
-
-from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
+from fedot.core.repository.tasks import TsForecastingParams
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
+from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
+
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
@@ -22,7 +23,7 @@ from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, \
+    FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, \
     FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS, FEDOT_TUNER_STRATEGY
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -30,7 +31,6 @@ from fedot_ind.core.repository.model_repository import default_industrial_availi
 from fedot_ind.tools.explain.explain import PointExplainer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
-from fedot.core.repository.tasks import TsForecastingParams
 
 warnings.filterwarnings("ignore")
 
@@ -74,14 +74,20 @@ class FedotIndustrial(Fedot):
         self.output_folder = kwargs.get('output_folder', None)
         self.industrial_strategy_params = kwargs.get('industrial_strategy_params', None)
         self.industrial_strategy = kwargs.get('industrial_strategy', None)
-        self.RAF_workers = kwargs.get('RAF_workers', None)
-        self.task_params = kwargs.get('task_params', None)
-        self.model_params = kwargs.get('model_params', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.backend_method = kwargs.get('backend', 'cpu')
+        self.task_params = kwargs.get('task_params', None)
+
+        # TODO: unused params
+        # self.model_params = kwargs.get('model_params', None)
+        # self.RAF_workers = kwargs.get('RAF_workers', None)
+
         # create dirs with results
-        prefix = './composition_results' if self.path_to_composition_results is None else \
-            self.path_to_composition_results
+        if self.path_to_composition_results is None:
+            prefix = './composition_results'
+        else:
+            prefix = self.path_to_composition_results
+
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
         # create dirs with results
@@ -92,9 +98,11 @@ class FedotIndustrial(Fedot):
             Path(self.output_folder).mkdir(parents=True, exist_ok=True)
             del kwargs['output_folder']
         # init logger
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s %(levelname)s: %(name)s - %(message)s',
                             handlers=[logging.FileHandler(Path(self.output_folder) / 'log.log'),
-                                      logging.StreamHandler()])
+                                      logging.StreamHandler()]
+                            )
         super(Fedot, self).__init__()
 
         # init hidden state variables
@@ -109,15 +117,16 @@ class FedotIndustrial(Fedot):
         # map Fedot params to Industrial params
         self.config_dict = kwargs
         self.config_dict['history_dir'] = prefix
-        self.config_dict['available_operations'] = kwargs.get('available_operations',
-                                                              default_industrial_availiable_operation(
-                                                                  self.config_dict['problem']))
+        self.config_dict['available_operations'] = kwargs.get(
+            'available_operations',
+            default_industrial_availiable_operation(self.config_dict['problem'])
+        )
 
-        self.config_dict['optimizer'] = kwargs.get(
-            'optimizer', IndustrialEvoOptimizer)
+        self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
         self.config_dict['initial_assumption'] = kwargs.get('initial_assumption',
                                                             FEDOT_ASSUMPTIONS[self.config_dict['problem']])
         self.config_dict['use_input_preprocessing'] = kwargs.get('use_input_preprocessing', False)
+
         if self.task_params is not None and self.config_dict['problem'] == 'ts_forecasting':
             self.config_dict['task_params'] = TsForecastingParams(forecast_length=self.task_params['forecast_length'])
 
@@ -131,11 +140,14 @@ class FedotIndustrial(Fedot):
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
-        industrial_params = [param for param in self.config_dict.keys(
-        ) if param not in list(FEDOT_API_PARAMS.keys())]
-        [self.config_dict.pop(x, None) for x in industrial_params]
-        backend_method_current, backend_scipy_current = BackendMethods(
-            self.backend_method).backend
+        # industrial_params = [p for p in self.config_dict.keys() if p not in list(FEDOT_API_PARAMS.keys())]
+        # [self.config_dict.pop(x, None) for x in industrial_params]
+
+        industrial_params = set(self.config_dict.keys()) - set(FEDOT_API_PARAMS.keys())
+        for param in industrial_params:
+            self.config_dict.pop(param, None)
+
+        backend_method_current, backend_scipy_current = BackendMethods(self.backend_method).backend
         globals()['backend_methods'] = backend_method_current
         globals()['backend_scipy'] = backend_scipy_current
 
@@ -185,6 +197,7 @@ class FedotIndustrial(Fedot):
         Method to obtain prediction labels from trained Industrial model.
 
         Args:
+            predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
             predict_data: tuple with test_features and test_target
 
         Returns:
@@ -252,13 +265,13 @@ class FedotIndustrial(Fedot):
                  tuning_params=None,
                  model_to_tune=None,
                  mode: str = 'head'):
-        """
-            Method to obtain prediction probabilities from trained Industrial model.
+        """Method to obtain prediction probabilities from trained Industrial model.
 
             Args:
+                model_to_tune: model to fine-tune
                 train_data: raw train data
                 tuning_params: dictionary with tuning parameters
-                mode: str, ``default='full'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
+                mode: str, ``default='head'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
 
             """
         if not self.condition_check.input_data_is_fedot_type(train_data):

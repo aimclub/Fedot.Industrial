@@ -1,13 +1,13 @@
-import numpy as np
-import pandas as pd
-from pyriemann.estimation import XdawnCovariances, Covariances, Shrinkage
-from pyriemann.tangentspace import TangentSpace
 from typing import Optional
-from sklearn.utils.extmath import softmax
+
+import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from pyriemann.estimation import Covariances, Shrinkage
+from pyriemann.tangentspace import TangentSpace
 from pyriemann.utils import mean_covariance
 from pyriemann.utils.distance import distance
+from sklearn.utils.extmath import softmax
 
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
@@ -16,9 +16,8 @@ class RiemannExtractor(BaseExtractor):
     """Class responsible for riemann tangent space features generator.
 
     Attributes:
-        window_size (int): size of window
-        stride (int): stride for window
-        var_threshold (float): threshold for variance
+        estimator (str): estimator for covariance matrix, 'corr', 'cov', 'lwf', 'mcd', 'hub'
+        distance_metric (str): metric for tangent space, 'riemann', 'logeuclid', 'euclid'
 
     Example:
         To use this class you need to import it and call needed methods::
@@ -30,8 +29,7 @@ class RiemannExtractor(BaseExtractor):
 
             train_data, test_data = DataLoader(dataset_name='Ham').load_data()
             with IndustrialModels():
-                pipeline = PipelineBuilder().add_node('quantile_extractor',
-                                                       params={'window_size': 20, 'window_mode': True})
+                pipeline = PipelineBuilder().add_node('riemann_extractor')
                                             .add_node('rf')
                                             .build()
                 input_data = init_input_data(train_data[0], train_data[1])
@@ -42,6 +40,7 @@ class RiemannExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
+        self.classes_ = None
         extraction_dict = {'mdm': self.extract_centroid_distance,
                            'tangent': self.extract_riemann_features,
                            'ensemble': self._ensemble_features}
@@ -52,9 +51,9 @@ class RiemannExtractor(BaseExtractor):
         self.distance_metric = params.get('tangent_metric', 'riemann')
         self.extraction_strategy = params.get('extraction_strategy ', 'ensemble')
 
-        self.covarince_transformer = params.get('SPD_space', None)
+        self.covariance_transformer = params.get('SPD_space', None)
         self.tangent_projector = params.get('tangent_space', None)
-        if np.any([self.covarince_transformer, self.tangent_projector]) is None:
+        if np.any([self.covariance_transformer, self.tangent_projector]) is None:
             self._init_spaces()
             self.fit_stage = True
         self.extraction_func = extraction_dict[self.extraction_strategy]
@@ -65,18 +64,18 @@ class RiemannExtractor(BaseExtractor):
             'SPD_space_metric': self.covariance_metric})
 
     def _init_spaces(self):
-        self.covarince_transformer = Covariances(estimator='scm')
+        self.covariance_transformer = Covariances(estimator='scm')
         self.tangent_projector = TangentSpace(metric=self.distance_metric)
-        self.shinkage = Shrinkage()
+        self.shrinkage = Shrinkage()
 
     def extract_riemann_features(self, input_data: InputData) -> InputData:
         if not self.fit_stage:
-            SPD = self.covarince_transformer.transform(input_data.features)
-            SPD = self.shinkage.transform(SPD)
+            SPD = self.covariance_transformer.transform(input_data.features)
+            SPD = self.shrinkage.transform(SPD)
             ref_point = self.tangent_projector.transform(SPD)
         else:
-            SPD = self.covarince_transformer.fit_transform(input_data.features, input_data.target)
-            SPD = self.shinkage.fit_transform(SPD)
+            SPD = self.covariance_transformer.fit_transform(input_data.features, input_data.target)
+            SPD = self.shrinkage.fit_transform(SPD)
             ref_point = self.tangent_projector.fit_transform(SPD)
             self.fit_stage = False
             self.classes_ = np.unique(input_data.target)
@@ -85,12 +84,12 @@ class RiemannExtractor(BaseExtractor):
     def extract_centroid_distance(self, input_data: InputData):
         input_data.target = input_data.target.astype(int)
         if self.fit_stage:
-            SPD = self.covarince_transformer.fit_transform(input_data.features, input_data.target)
-            SPD = self.shinkage.transform(SPD)
+            SPD = self.covariance_transformer.fit_transform(input_data.features, input_data.target)
+            SPD = self.shrinkage.transform(SPD)
 
         else:
-            SPD = self.covarince_transformer.transform(input_data.features)
-            SPD = self.shinkage.fit_transform(SPD)
+            SPD = self.covariance_transformer.transform(input_data.features)
+            SPD = self.shrinkage.fit_transform(SPD)
 
         self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
                                           metric=self.covariance_metric) for ll in self.classes_]
