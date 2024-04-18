@@ -16,7 +16,7 @@ datasetsforecast~=0.0.8
 
 tensorly==0.8.1
 torch~=2.2.0
-torchvision~=0.13.1+cu113
+torchvision~=0.13.1
 statsforecast==1.5.0
 
 chardet~=5.2.0
@@ -36,7 +36,7 @@ tqdm~=4.65.2
 setuptools~=60.2.0
 librosa~=0.10.1
 pillow~=10.2.0
-chronos~=1.0.0
+#chronos~=1.0.0
 pyriemann~=0.5
 hyperopt~=0.2.7
 statsmodels~=0.14.1

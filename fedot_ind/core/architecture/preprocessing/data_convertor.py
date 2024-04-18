@@ -216,7 +216,10 @@ class TensorConverter:
         elif isinstance(data, np.ndarray):
             return torch.from_numpy(data)
         elif isinstance(data, pd.DataFrame):
-            return torch.from_numpy(data.values)
+            if data.values.dtype == object:
+                return torch.from_numpy(np.array(data.values.tolist()).astype(float))
+            else:
+                return torch.from_numpy(data.values)
         elif isinstance(data, InputData):
             return torch.from_numpy(data.features)
         else:

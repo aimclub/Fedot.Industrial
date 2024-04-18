@@ -321,8 +321,7 @@ class FedotIndustrial(Fedot):
         """
         problem = self.config_dict['problem']
         if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
-            self.logger.info(
-                'Predicted probabilities are not available. Use `predict_proba()` method first')
+            self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
 
         valid_shape = target.shape
         if self.condition_check.solver_have_target_encoder(self.target_encoder):
