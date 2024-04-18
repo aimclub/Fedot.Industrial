@@ -42,6 +42,5 @@ hyperopt~=0.2.7
 statsmodels~=0.14.1
 xgboost~=2.0.3
 seaborn~=0.13.2
-datasets
 librosa
 pywt

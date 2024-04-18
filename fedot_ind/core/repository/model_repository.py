@@ -80,6 +80,7 @@ TEMPORARY_EXCLUDED = {
                             'one_hot_encoding': OneHotEncodingImplementation,
                             'label_encoding': LabelEncodingImplementation
                             },
+    'FORECASTING_PREPROC': {'exog_ts': ExogDataTransformationImplementation},
     'INDUSTRIAL_PREPROC_MODEL': {
         'cat_features': DummyOperation,
         'dimension_reduction': FeatureFilter,
@@ -187,7 +188,8 @@ class AtomizedModel(Enum):
         'lagged': LaggedTransformationImplementation,
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
-        'gaussian_filter': GaussianFilterImplementation
+        'gaussian_filter': GaussianFilterImplementation,
+        'exog_ts': ExogDataTransformationImplementation,
     }
 
     NEURAL_MODEL = {

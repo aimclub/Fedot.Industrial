@@ -179,7 +179,7 @@ class FedotIndustrial(Fedot):
         """
         self.train_data = deepcopy(input_data)  # we do not want to make inplace changes
         input_preproc = DataCheck(input_data=self.train_data, task=self.config_dict['problem'],
-                                  task_params=self.task_params)
+                                  task_params=self.task_params, industrial_task_params=self.industrial_strategy_params)
         self.train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
         self.__init_solver()
@@ -207,7 +207,8 @@ class FedotIndustrial(Fedot):
         self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
-                                      task_params=self.task_params).check_input_data()
+                                      task_params=self.task_params,
+                                      industrial_task_params=self.industrial_strategy_params).check_input_data()
         if self.industrial_strategy is not None and not self.is_finetuned:
             self.predicted_labels = self.industrial_strategy_class.predict(self.predict_data, predict_mode)
         else:
@@ -245,7 +246,8 @@ class FedotIndustrial(Fedot):
             predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
-                                      task_params=self.task_params).check_input_data()
+                                      task_params=self.task_params,
+                                      industrial_task_params=self.industrial_strategy_params).check_input_data()
         if self.industrial_strategy is not None and not self.is_finetuned:
             self.predicted_labels = self.industrial_strategy_class.predict(self.predict_data, predict_mode)
         else:
