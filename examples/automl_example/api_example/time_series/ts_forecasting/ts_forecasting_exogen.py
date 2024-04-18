@@ -6,7 +6,7 @@ from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 if __name__ == "__main__":
     dataset_name = PROJECT_PATH + '/examples/data/forecasting\monash_benchmark\MonashBitcoin_30.csv'
-    horizon = 30
+    horizon = 60
     metric_names = ('smape', 'rmse', 'median_absolute_error')
 
     train_data = pd.read_csv(dataset_name)

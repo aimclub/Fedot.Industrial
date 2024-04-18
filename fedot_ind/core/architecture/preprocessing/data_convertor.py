@@ -262,10 +262,11 @@ class NumpyConverter:
             np.isinf(self.numpy_data), 0, self.numpy_data)
 
     def convert_to_array(self, data):
+        if isinstance(data, tuple):
+            data = data[0]
+
         if isinstance(data, np.ndarray):
             return data
-        elif isinstance(data, tuple):
-            return data[0]
         elif isinstance(data, torch.Tensor):
             return data.detach().numpy()
         elif isinstance(data, pd.DataFrame):

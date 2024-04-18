@@ -191,7 +191,7 @@ def transform_lagged(self, input_data: InputData):
     # Correct window size parameter
     self._check_and_correct_window_size(train_data.features, forecast_length)
     window_size = self.window_size
-
+    window_size = forecast_length
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(train_data,
                                                                                       forecast_length,
                                                                                       window_size)
@@ -324,7 +324,13 @@ def preprocess_predicts(*args) -> List[np.array]:
             raise ValueError(
                 "Can't merge images of different sizes: " + str(img_wh))
         return reshaped_predicts
-
+def merge_targets(self) -> np.array:
+    filtered_main_target = self.main_output.target
+    # if target has the same form as index
+    #  then it makes sense to extract target with common indices
+    if filtered_main_target is not None and len(self.main_output.idx) == len(filtered_main_target):
+        filtered_main_target = self.select_common(self.main_output.idx, filtered_main_target)
+    return filtered_main_target
 
 def merge_predicts(*args) -> np.array:
     predicts = args[1]

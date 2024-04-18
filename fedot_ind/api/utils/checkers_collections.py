@@ -32,7 +32,7 @@ class DataCheck:
                  input_data: Union[tuple, InputData] = None,
                  task: str = None,
                  task_params=None,
-                 industrial_task_params = None):
+                 industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.industrial_task_params = industrial_task_params
         self.input_data = input_data

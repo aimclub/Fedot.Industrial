@@ -55,7 +55,7 @@ class DataLoader:
             'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
         return ts_df, None
 
-    def local_m4_load(self, group):
+    def local_m4_load(self, directory='data', group=None):
         path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
         for result_cvs in os.listdir(path_to_result):
             if result_cvs.__contains__(group):
