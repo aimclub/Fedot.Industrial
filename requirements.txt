@@ -12,7 +12,7 @@ giotto_tda==0.6.0
 ripser==0.6.4
 fastcore==1.5.29
 fastai==2.7.14
-distributed==2023.12.0
+distributed
 datasetsforecast==0.0.8
 tensorly==0.8.1
 torch==2.2.0
