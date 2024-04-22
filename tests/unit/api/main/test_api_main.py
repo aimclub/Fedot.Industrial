@@ -54,11 +54,8 @@ def fedot_industrial_regression():
     return FedotIndustrial(problem='regression', timeout=0.1)
 
 
-@pytest.mark.parametrize("data", (
-    univariate_clf_data(),
-    multivariate_clf_data()
-))
-def test_fit_predict_classification(fedot_industrial_classification, data):
+def test_fit_predict_classification_multi(fedot_industrial_classification):
+    data = multivariate_clf_data()
     fedot_industrial_classification.fit(data)
     predict = fedot_industrial_classification.predict(data)
     predict_proba = fedot_industrial_classification.predict_proba(data)
@@ -75,11 +72,38 @@ def test_fit_predict_classification(fedot_industrial_classification, data):
         assert len(predict_proba.shape) == 1
 
 
-@pytest.mark.parametrize("data", (
-    univariate_regression_data(),
-    multivariate_regression_data()
-))
-def test_fit_predict_regression(fedot_industrial_regression, data):
+def test_fit_predict_classification_uni(fedot_industrial_classification):
+    data = univariate_clf_data()
+    fedot_industrial_classification.fit(data)
+    predict = fedot_industrial_classification.predict(data)
+    predict_proba = fedot_industrial_classification.predict_proba(data)
+    metrics = fedot_industrial_classification.get_metrics(target=data[1])
+    num_unique = np.unique(data[1])
+
+    assert predict.shape[0] == data[1].shape[0]
+    assert predict_proba.shape[0] == data[1].shape[0]
+    assert metrics is not None
+
+    if len(num_unique) > 2:
+        assert predict_proba.shape[1] == len(num_unique)
+    else:
+        assert len(predict_proba.shape) == 1
+
+
+def test_fit_predict_regression_uni(fedot_industrial_regression):
+    data = univariate_regression_data()
+    fedot_industrial_regression.fit(data)
+    predict = fedot_industrial_regression.predict(data)
+
+    assert predict.shape[0] == data[1].shape[0]
+    if len(data[1].shape) > 1:
+        assert predict.shape[1] == data[1].shape[1]
+    else:
+        assert len(predict.shape) == 1
+
+
+def test_fit_predict_regression_multi(fedot_industrial_regression):
+    data = multivariate_regression_data()
     fedot_industrial_regression.fit(data)
     predict = fedot_industrial_regression.predict(data)
 

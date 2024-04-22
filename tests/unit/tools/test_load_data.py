@@ -2,9 +2,10 @@ import os
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from fedot_ind.tools.loader import DataLoader
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.tools.loader import DataLoader
 
 ds_path = os.path.join(PROJECT_PATH, 'examples',
                        'data', 'ItalyPowerDemand_fake')
@@ -22,8 +23,8 @@ def test_load_multivariate_data():
     train_data, test_data = DataLoader('Epilepsy').load_data()
     x_train, y_train = train_data
     x_test, y_test = test_data
-    assert x_train.shape == (137, 3)
-    assert x_test.shape == (138, 3)
+    assert x_train.shape == (137, 3, 206)
+    assert x_test.shape == (138, 3, 206)
     assert y_train.shape == (137,)
     assert y_test.shape == (138,)
 
@@ -39,9 +40,10 @@ def test_load_univariate_data():
 
 
 def test_load_fake_data():
-    train_data, test_data = DataLoader('Fake').load_data()
-    assert train_data is None
-    assert test_data is None
+    with pytest.raises(FileNotFoundError):
+        DataLoader('Fake').load_data()
+    # assert train_data is None
+    # assert test_data is None
 
 
 def test__load_from_tsfile_to_dataframe():
