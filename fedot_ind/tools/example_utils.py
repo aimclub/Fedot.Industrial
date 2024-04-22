@@ -54,6 +54,7 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
     industrial = FedotIndustrial(**api_config)
     train_data, _ = DataLoader(dataset_name=dataset_name).load_forecast_data(folder=benchmark)
     target = train_data.values[-horizon:].flatten()
+    train_data = (train_data, target)
     if finetune:
         industrial.finetune(train_data)
     else:
@@ -95,6 +96,7 @@ def industrial_common_modelling_loop(dataset_name: str = None,
         industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
+    probs = industrial.predict_proba(test_data)
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=metric_names)

@@ -251,22 +251,19 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
-            'logit'),
-        'regression': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('eigen_basis',
-                                                     params={'low_rank_approximation': False,
-                                                             'rank_regularization': 'explained_dispersion'}).add_node(
-            'ar')
-    }
+        'classification': PipelineBuilder().add_node('channel_filtration').
+        add_node('quantile_extractor').add_node('logit'),
+        'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
+        'ts_forecasting': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': False,
+                                                     'rank_regularization': 'explained_dispersion'}).add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
         'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
         'eigen_ar': PipelineBuilder().add_node('eigen_basis',
                                                params={'low_rank_approximation': False,
                                                        'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-        'cgru': PipelineBuilder().add_node("lagged").add_node('cgru', params={'loss': 'mse',
-                                                                              'optimizer': 'adamw'})}
+        'glm': PipelineBuilder().add_node('glm')
+    }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),

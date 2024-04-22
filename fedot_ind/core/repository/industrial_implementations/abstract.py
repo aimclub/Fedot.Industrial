@@ -127,7 +127,7 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
     if self.cv_folds is None and not (0 < self.split_ratio < 1):
         raise ValueError(f'split_ratio is {self.split_ratio} but should be between 0 and 1')
 
-    if self.stratify:
+    if data.task.task_type is not TaskTypesEnum.ts_forecasting and self.stratify:
         # check that stratification can be done
         # for cross validation split ratio is defined as validation_size / all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (1 - 1 / (self.cv_folds + 1))
@@ -191,7 +191,7 @@ def transform_lagged(self, input_data: InputData):
     # Correct window size parameter
     self._check_and_correct_window_size(train_data.features, forecast_length)
     window_size = self.window_size
-
+    window_size = forecast_length
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(train_data,
                                                                                       forecast_length,
                                                                                       window_size)
@@ -250,7 +250,10 @@ def _check_and_correct_window_size(self, time_series: np.ndarray, forecast_lengt
     window_list = list(range(3 * forecast_length, max_allowed_window_size, round(1.5 * forecast_length)))
 
     if self.window_size == 0 or self.window_size > max_allowed_window_size:
-        window_size = np.random.choice(window_list)
+        try:
+            window_size = np.random.choice(window_list)
+        except Exception:
+            window_size = 3 * forecast_length
         self.log.message((f"Window size of lagged transformation was changed "
                           f"by WindowSizeSelector from {self.params.get('window_size')} to {window_size}"))
         self.params.update(window_size=window_size)
@@ -276,10 +279,7 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     forecast_length = new_input_data.task.task_params.forecast_length
     # Correct window size parameter
     self._check_and_correct_window_size(new_input_data.features, forecast_length)
-    window_list = list(range(3 * forecast_length,
-                             round(input_data.features.shape[0] * 0.25),
-                             round(1.5 * forecast_length)))
-    window_size = np.random.choice(window_list)
+    window_size = self.window_size
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
         input_data,
         forecast_length,
@@ -324,7 +324,13 @@ def preprocess_predicts(*args) -> List[np.array]:
             raise ValueError(
                 "Can't merge images of different sizes: " + str(img_wh))
         return reshaped_predicts
-
+def merge_targets(self) -> np.array:
+    filtered_main_target = self.main_output.target
+    # if target has the same form as index
+    #  then it makes sense to extract target with common indices
+    if filtered_main_target is not None and len(self.main_output.idx) == len(filtered_main_target):
+        filtered_main_target = self.select_common(self.main_output.idx, filtered_main_target)
+    return filtered_main_target
 
 def merge_predicts(*args) -> np.array:
     predicts = args[1]

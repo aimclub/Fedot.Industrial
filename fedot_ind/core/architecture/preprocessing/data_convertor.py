@@ -216,7 +216,10 @@ class TensorConverter:
         elif isinstance(data, np.ndarray):
             return torch.from_numpy(data)
         elif isinstance(data, pd.DataFrame):
-            return torch.from_numpy(data.values)
+            if data.values.dtype == object:
+                return torch.from_numpy(np.array(data.values.tolist()).astype(float))
+            else:
+                return torch.from_numpy(data.values)
         elif isinstance(data, InputData):
             return torch.from_numpy(data.features)
         else:
@@ -259,10 +262,11 @@ class NumpyConverter:
             np.isinf(self.numpy_data), 0, self.numpy_data)
 
     def convert_to_array(self, data):
+        if isinstance(data, tuple):
+            data = data[0]
+
         if isinstance(data, np.ndarray):
             return data
-        elif isinstance(data, tuple):
-            return data[0]
         elif isinstance(data, torch.Tensor):
             return data.detach().numpy()
         elif isinstance(data, pd.DataFrame):

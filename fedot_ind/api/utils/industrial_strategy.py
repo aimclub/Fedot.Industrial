@@ -2,11 +2,17 @@ from copy import deepcopy
 
 import numpy as np
 from fedot import Fedot
+from fedot.core.data.data import InputData
+from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.data.multi_modal import MultiModalData
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
-    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS
+    FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS, \
+    FEDOT_TASK
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
@@ -21,10 +27,13 @@ class IndustrialStrategy:
         self.industrial_strategy = industrial_strategy
         self.industrial_strategy_fit = {'federated_automl': self._federated_strategy,
                                         'kernel_automl': self._kernel_strategy,
-                                        'forecasting_assumptions': self._forecasting_strategy}
+                                        'forecasting_assumptions': self._forecasting_strategy,
+                                        'forecasting_exogenous': self._forecasting_exogenous_strategy
+                                        }
         self.industrial_strategy_predict = {'federated_automl': self._federated_predict,
                                             'kernel_automl': self._kernel_predict,
-                                            'forecasting_assumptions': self._forecasting_predict}
+                                            'forecasting_assumptions': self._forecasting_predict,
+                                            'forecasting_exogenous': self._forecasting_predict}
         self.config_dict = api_config
         self.logger = logger
         self.repo = IndustrialModels().setup_repository()
@@ -65,6 +74,36 @@ class IndustrialStrategy:
             industrial = Fedot(**self.config_dict)
             industrial.fit(input_data)
             self.solver.update({model_name: industrial})
+
+    def _forecasting_exogenous_strategy(self, input_data):
+        self.logger.info('TS exogenous forecasting algorithm was applied')
+        self.solver = {}
+        init_assumption = PipelineBuilder().add_node('lagged', 0)
+        task = FEDOT_TASK[self.config_dict['problem']]
+        train_lagged, predict_lagged = train_test_data_setup(InputData(idx=np.arange(len(input_data.features)),
+                                                                       features=input_data.features,
+                                                                       target=input_data.features,
+                                                                       task=task,
+                                                                       data_type=DataTypesEnum.ts), 2)
+        dataset_dict = {'lagged': train_lagged}
+        exog_variable = self.industrial_strategy_params['exog_variable']
+        init_assumption.add_node('exog_ts', 1)
+
+        # Exogenous time series
+        train_exog, predict_exog = train_test_data_setup(InputData(idx=np.arange(len(exog_variable)),
+                                                                   features=exog_variable,
+                                                                   target=input_data.features,
+                                                                   task=task,
+                                                                   data_type=DataTypesEnum.ts), 2)
+        dataset_dict.update({f'exog_ts': train_exog})
+
+        train_dataset = MultiModalData(dataset_dict)
+        init_assumption = init_assumption.join_branches('ridge')
+        self.config_dict['initial_assumption'] = init_assumption.build()
+
+        industrial = Fedot(**self.config_dict)
+        industrial.fit(train_dataset)
+        self.solver = {'exog_model': industrial}
 
     def _finetune_loop(self,
                        kernel_ensemble: dict,
