@@ -219,7 +219,7 @@
         "extractor","non_applicable_for_ts"
       ]
 	},
-      "topological_features": {
+      "topological_extractor": {
         "meta": "custom_preprocessing",
         "presets": [
           "fast_train"

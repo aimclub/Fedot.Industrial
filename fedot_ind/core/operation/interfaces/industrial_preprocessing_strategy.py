@@ -251,8 +251,10 @@ class IndustrialCustomPreprocessingStrategy:
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
-        params = IndustrialOperationParameters().from_params(operation_type, params) if params \
-            else IndustrialOperationParameters().from_operation_type(operation_type)
+        if params is None or operation_type == 'xgboost':
+            params = IndustrialOperationParameters().from_operation_type(operation_type)
+        else:
+            params = IndustrialOperationParameters().from_params(operation_type, params)
         self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
                                                                   operation_type,
                                                                   params=params,

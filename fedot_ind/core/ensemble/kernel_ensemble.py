@@ -15,6 +15,7 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
     KERNEL_BASELINE_NODE_LIST
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from itertools import chain
 
 
 class KernelEnsembler(BaseExtractor):
@@ -44,8 +45,7 @@ class KernelEnsembler(BaseExtractor):
                 kernel_model.solution.weights.cpu().detach().numpy()))
         else:
             for n_class in self.n_classes:
-                kernels_weights_by_class.append(abs(
-                    kernel_model.solution[n_class].weights.cpu().detach().numpy()))
+                kernels_weights_by_class.append(abs(kernel_model.solution[n_class].weights.cpu().detach().numpy()))
         kernel_df = pd.DataFrame(kernels_weights_by_class)
         # kernel_df.columns = self.feature_extractor
         return kernel_df
@@ -60,15 +60,18 @@ class KernelEnsembler(BaseExtractor):
             self.multiclass = False
 
     def _select_top_feature_generators(self, kernel_weight_matrix):
+        self.all_classes = kernel_weight_matrix.index.values.tolist()
         kernel_weight_matrix['best_generator_by_class'] = kernel_weight_matrix.apply(
             lambda row: self._mapping_dict[np.where(np.isclose(row.values,
                                                                max(row)))[0][0]], axis=1)
         top_n_generators = kernel_weight_matrix['best_generator_by_class'].value_counts().head(2).index.values.tolist()
 
-        classes_described_by_generator = [kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
-                                                               == gen].index.values.tolist()
-                                          for gen in top_n_generators]
-        return top_n_generators, classes_described_by_generator
+        self.classes_described_by_generator = [kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
+                                                                    == gen].index.values.tolist()
+                                               for gen in top_n_generators]
+        self.classes_misses_by_generator = [i for i in self.all_classes if
+                                            i not in list(chain.from_iterable(self.classes_described_by_generator))]
+        return top_n_generators, self.classes_described_by_generator
 
     def _create_kernel_ensemble(self, input_data, top_n_generators, classes_described_by_generator):
         kernel_ensemble = {}
@@ -78,8 +81,12 @@ class KernelEnsembler(BaseExtractor):
             sample_idx, target = np.where(train_fold.target == input_data_fold_target)
             train_fold.target[sample_idx] = -1
             basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
-            kernel_ensemble.update(
-                {gen: PipelineBuilder().add_node(basis).add_node(generator).add_node('logit').build()})
+            if basis is None:
+                kernel_ensemble.update(
+                    {gen: PipelineBuilder().add_node(generator).add_node('xgboost').build()})
+            else:
+                kernel_ensemble.update(
+                    {gen: PipelineBuilder().add_node(basis).add_node(generator).add_node('xgboost').build()})
             kernel_data.update({gen: train_fold})
         return kernel_ensemble, kernel_data
 

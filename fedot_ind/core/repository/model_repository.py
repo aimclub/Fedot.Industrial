@@ -14,11 +14,8 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
     *
 
-# FastTopologicalFeaturesImplementation
-# from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.topological_extractor import \
-#     TopologicalFeaturesImplementation
-# from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor \
-#     import TopologicalFeaturesImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
+    TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -28,11 +25,9 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
     CGRUImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.naive import \
-    RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation, GLMImplementation
-from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
+from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, GradientBoostingClassifier, \
     RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
@@ -41,6 +36,7 @@ from sklearn.linear_model import (
     Ridge as SklearnRidgeReg,
     SGDRegressor as SklearnSGD
 )
+
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
@@ -56,8 +52,6 @@ from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
-from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
-from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
@@ -74,7 +68,6 @@ TEMPORARY_EXCLUDED = {
     'FEDOT_PREPROC_MODEL': {'pca': PCAImplementation,
                             'fast_ica': FastICAImplementation,
                             'poly_features': PolyFeaturesImplementation,
-                            'topological_extractor': TopologicalExtractor,
                             'exog_ts': ExogDataTransformationImplementation,
                             # categorical encoding
                             'one_hot_encoding': OneHotEncodingImplementation,
@@ -121,7 +114,7 @@ class AtomizedModel(Enum):
     }
     SKLEARN_CLF_MODELS = {
         # boosting models (bid datasets)
-        'xgboost': XGBClassifier,
+        'xgboost': GradientBoostingClassifier,
         # solo linear models
         'logit': SklearnLogReg,
         # solo tree models
@@ -140,8 +133,7 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        # 'topological_features': TopologicalFeaturesImplementation,
-
+        'topological_extractor': TopologicalFeaturesImplementation
     }
     INDUSTRIAL_PREPROC_MODEL = {
         # data filtration
@@ -154,6 +146,8 @@ class AtomizedModel(Enum):
         'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
         'riemann_extractor': RiemannExtractor,
+        # feature generation
+        'topological_extractor': TopologicalFeaturesImplementation,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
         'chronos_extractor': ChronosExtractor,

@@ -60,13 +60,17 @@ class KernelsConstant(Enum):
         'one_step_pwmk': PWMK,
     }
     KERNEL_BASELINE_FEATURE_GENERATORS = {
+        #'minirocket_extractor': PipelineBuilder().add_node('minirocket_extractor'),
         'quantile_extractor': PipelineBuilder().add_node('quantile_extractor'),
+        'topological_extractor': PipelineBuilder().add_node('topological_extractor'),
         'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis').add_node('quantile_extractor'),
         'fourier_extractor': PipelineBuilder().add_node('fourier_basis').add_node('quantile_extractor'),
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
 
     KERNEL_BASELINE_NODE_LIST = {
-        'quantile_extractor': ('quantile_extractor'),
+        #'minirocket_extractor': (None, 'minirocket_extractor'),
+        'quantile_extractor': (None,  'quantile_extractor'),
+        'topological_extractor': (None, 'topological_extractor'),
         'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
         'fourier_extractor': ('fourier_basis', 'quantile_extractor'),
         'eigen_extractor': ('eigen_basis', 'quantile_extractor')}
@@ -222,13 +226,13 @@ class FedotOperationConstant(Enum):
                             'ts_forecasting': RegressionMetricsEnum.RMSE,
                             'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {
-        'sequential': partial(SequentialTuner, inverse_node_order=True),
-        'simultaneous': SimultaneousTuner,
+        # 'sequential': partial(SequentialTuner, inverse_node_order=True),
+        # 'simultaneous': SimultaneousTuner,
         #  'IOptTuner': IOptTuner,
         'optuna': OptunaTuner
     }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
-                           'classification': 'logit'}
+                           'classification': 'xgboost'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
                                'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
@@ -252,17 +256,19 @@ class FedotOperationConstant(Enum):
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('channel_filtration').
-        add_node('quantile_extractor').add_node('logit'),
+        add_node('quantile_extractor').add_node('xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
         'ts_forecasting': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': False,
-                                                     'rank_regularization': 'explained_dispersion'}).add_node('ar')}
+                                                                            'rank_regularization': 'explained_dispersion'}).add_node(
+            'ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
         'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
         'eigen_ar': PipelineBuilder().add_node('eigen_basis',
                                                params={'low_rank_approximation': False,
                                                        'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-        'glm': PipelineBuilder().add_node('glm')
+        'topological_ridge': PipelineBuilder().add_node('topological_extractor').add_node('ridge')
+        # 'glm': PipelineBuilder().add_node('glm')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {

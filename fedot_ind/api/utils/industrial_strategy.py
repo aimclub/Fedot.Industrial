@@ -34,9 +34,19 @@ class IndustrialStrategy:
                                             'kernel_automl': self._kernel_predict,
                                             'forecasting_assumptions': self._forecasting_predict,
                                             'forecasting_exogenous': self._forecasting_predict}
+
+        self.ensemble_strategy_dict = {'MeanEnsemble': np.mean,
+                                       'MedianEnsemble': np.median,
+                                       'MinEnsemble': np.min,
+                                       'MaxEnsemble': np.max,
+                                       'ProductEnsemble': np.prod}
+
+        self.ensemble_strategy = list(self.ensemble_strategy_dict.keys())
+
         self.config_dict = api_config
         self.logger = logger
         self.repo = IndustrialModels().setup_repository()
+        self.kernel_ensembler = KernelEnsembler
         self.RAF_workers = None
         self.solver = None
 
@@ -129,7 +139,8 @@ class IndustrialStrategy:
         return tuned_kernels
 
     def _kernel_strategy(self, input_data):
-        kernel_ensemble, kernel_data = KernelEnsembler(self.industrial_strategy_params).transform(input_data).predict
+        self.kernel_ensembler = KernelEnsembler(self.industrial_strategy_params)
+        kernel_ensemble, kernel_data = self.kernel_ensembler.transform(input_data).predict
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
 
     def _federated_predict(self,
@@ -162,3 +173,39 @@ class IndustrialStrategy:
                         mode: str = 'labels'):
         labels_dict = {k: v.predict(input_data, mode).predict for k, v in self.solver.items()}
         return labels_dict
+
+    def _check_predictions(self, predictions):
+        """Check if the predictions array has the correct size.
+
+        Args:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
+
+        Returns:
+            predictions: array of shape (n_samples, n_classifiers). The votes obtained by each classifier
+            for each sample.
+
+        Raises:
+            ValueError: if the array do not contain exactly 3 dimensions: [n_samples, n_classifiers, n_classes]
+
+        """
+
+        list_proba = [predictions[model_preds] for model_preds in predictions]
+        transformed = []
+        for prob_by_gen, class_by_gen in zip(list_proba, self.kernel_ensembler.classes_described_by_generator):
+            converted_probs = np.zeros((prob_by_gen.shape[0], len(self.kernel_ensembler.all_classes)))
+            for idx, cls in enumerate(class_by_gen):
+                converted_probs[:, cls] = prob_by_gen[:, idx]
+            transformed.append(converted_probs)
+
+        return np.array(transformed).transpose((1, 0, 2))
+
+    def ensemble_predictions(self, prediction_dict, strategy):
+        transformed_predictions = self._check_predictions(prediction_dict)
+        average_proba_predictions = self.ensemble_strategy_dict[strategy](transformed_predictions, axis=1)
+
+        if average_proba_predictions.shape[1] == 1:
+            average_proba_predictions = np.concatenate([average_proba_predictions, 1 - average_proba_predictions],
+                                                       axis=1)
+
+        return average_proba_predictions

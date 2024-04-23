@@ -231,9 +231,13 @@ def get_industrial_search_space(self):
                 'type': 'discrete'},
         },
         'xgboost': {
+            'n_estimators': {
+                'hyperopt-dist': hp.uniformint,
+                'sampling-scope': [100, 3000],
+                'type': 'discrete'},
             'max_depth': {
                 'hyperopt-dist': hp.uniformint,
-                'sampling-scope': [1, 7],
+                'sampling-scope': [3, 10],
                 'type': 'discrete'},
             'learning_rate': {
                 'hyperopt-dist': hp.loguniform,
@@ -243,10 +247,18 @@ def get_industrial_search_space(self):
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.05, 0.99],
                 'type': 'continuous'},
-            'min_child_weight': {
-                'hyperopt-dist': hp.uniformint,
-                'sampling-scope': [1, 21],
-                'type': 'discrete'}
+            'min_weight_fraction_leaf': {
+                'hyperopt-dist': hp.uniform,
+                'sampling-scope': [0.0, 0.5],
+                'type': 'continuous'},
+            'min_samples_leaf': {
+                'hyperopt-dist': hp.uniform,
+                'sampling-scope': [0.0, 1],
+                'type': 'continuous'},
+            'min_samples_split': {
+                'hyperopt-dist': hp.uniform,
+                'sampling-scope': [0.0, 1.0],
+                'type': 'continuous'}
         },
         'svr': {
             'C': {

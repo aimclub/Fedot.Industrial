@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
-# from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
@@ -80,10 +79,7 @@ class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy)
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
         self.operation_impl = self._convert_to_operation(operation_type)
-        self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
-                                                                  operation_type,
-                                                                  params,
-                                                                  mode='one_dimensional')
+        self.multi_dim_dispatcher.mode = 'one_dimensional'
 
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)

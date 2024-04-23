@@ -210,7 +210,15 @@ class FedotIndustrial(Fedot):
                                       task_params=self.task_params,
                                       industrial_task_params=self.industrial_strategy_params).check_input_data()
         if self.industrial_strategy is not None and not self.is_finetuned:
-            self.predicted_labels = self.industrial_strategy_class.predict(self.predict_data, predict_mode)
+            if predict_mode == 'ensemble':
+                predict = self.industrial_strategy_class.predict(self.predict_data, 'probs')
+                ensemble_strat = self.industrial_strategy_class.ensemble_strategy
+                predict = {
+                    strategy: np.argmax(self.industrial_strategy_class.ensemble_predictions(predict, strategy),axis=1) for
+                    strategy in ensemble_strat}
+            else:
+                predict = self.industrial_strategy_class.predict(self.predict_data, 'labels')
+            self.predicted_labels = predict
         else:
             if self.condition_check.solver_is_fedot_class(self.solver):
                 predict = self.solver.predict(self.predict_data)
@@ -249,7 +257,11 @@ class FedotIndustrial(Fedot):
                                       task_params=self.task_params,
                                       industrial_task_params=self.industrial_strategy_params).check_input_data()
         if self.industrial_strategy is not None and not self.is_finetuned:
-            self.predicted_labels = self.industrial_strategy_class.predict(self.predict_data, predict_mode)
+            predict = self.industrial_strategy_class.predict(self.predict_data, 'probs')
+            if predict_mode == 'ensemble':
+                ensemble_strat = self.industrial_strategy_class.ensemble_strategy
+                predict = {strategy: self.industrial_strategy_class.ensemble_predictions(predict, strategy)
+                           for strategy in ensemble_strat}
         else:
             if self.condition_check.solver_is_fedot_class(self.solver):
                 predict = self.solver.predict_proba(self.predict_data)
@@ -299,6 +311,27 @@ class FedotIndustrial(Fedot):
                 self.solver = model_to_tune
         self.is_finetuned = True
 
+    def _metric_evaluation_loop(self,
+                                target,
+                                predicted_labels,
+                                predicted_probs,
+                                problem,
+                                metric_names,
+                                rounding_order):
+        valid_shape = target.shape
+        if self.condition_check.solver_have_target_encoder(self.target_encoder):
+            new_target = self.target_encoder.transform(target.flatten())
+            labels = self.target_encoder.transform(predicted_labels).reshape(valid_shape)
+        else:
+            new_target = target.flatten()
+            labels = predicted_labels.reshape(valid_shape)
+
+        return FEDOT_GET_METRICS[problem](target=new_target,
+                                          metric_names=metric_names,
+                                          rounding_order=rounding_order,
+                                          labels=labels,
+                                          probs=predicted_probs)
+
     def get_metrics(self,
                     target: Union[list, np.array] = None,
                     metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),
@@ -324,20 +357,23 @@ class FedotIndustrial(Fedot):
         problem = self.config_dict['problem']
         if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
             self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
+        if self.predicted_probs is dict:
+            metric_dict = {strategy: self._metric_evaluation_loop(target=target,
+                                                                  problem=problem,
+                                                                  predicted_labels=self.predicted_labels[strategy],
+                                                                  predicted_probs=probs,
+                                                                  rounding_order=rounding_order,
+                                                                  metric_names=metric_names) for strategy, probs in
+                           self.predicted_probs.items()}
 
-        valid_shape = target.shape
-        if self.condition_check.solver_have_target_encoder(self.target_encoder):
-            new_target = self.target_encoder.transform(target.flatten())
-            labels = self.target_encoder.transform(self.predicted_labels).reshape(valid_shape)
         else:
-            new_target = target.flatten()
-            labels = self.predicted_labels.reshape(valid_shape)
-
-        return FEDOT_GET_METRICS[problem](target=new_target,
-                                          metric_names=metric_names,
-                                          rounding_order=rounding_order,
-                                          labels=labels,
-                                          probs=self.predicted_probs)
+            metric_dict = self._metric_evaluation_loop(target=target,
+                                                       problem=problem,
+                                                       predicted_labels=self.predicted_labels,
+                                                       predicted_probs=self.predicted_probs,
+                                                       rounding_order=rounding_order,
+                                                       metric_names=metric_names)
+        return metric_dict
 
     def save_predict(self, predicted_data, **kwargs) -> None:
         """
