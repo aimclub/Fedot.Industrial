@@ -214,7 +214,8 @@ class FedotIndustrial(Fedot):
                 predict = self.industrial_strategy_class.predict(self.predict_data, 'probs')
                 ensemble_strat = self.industrial_strategy_class.ensemble_strategy
                 predict = {
-                    strategy: np.argmax(self.industrial_strategy_class.ensemble_predictions(predict, strategy),axis=1) for
+                    strategy: np.argmax(self.industrial_strategy_class.ensemble_predictions(predict, strategy), axis=1)
+                    for
                     strategy in ensemble_strat}
             else:
                 predict = self.industrial_strategy_class.predict(self.predict_data, 'labels')
@@ -357,7 +358,7 @@ class FedotIndustrial(Fedot):
         problem = self.config_dict['problem']
         if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
             self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
-        if self.predicted_probs is dict:
+        if isinstance(self.predicted_probs, dict):
             metric_dict = {strategy: self._metric_evaluation_loop(target=target,
                                                                   problem=problem,
                                                                   predicted_labels=self.predicted_labels[strategy],

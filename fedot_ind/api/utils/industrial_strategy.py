@@ -7,6 +7,7 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
+from golem.core.tuning.optuna_tuner import OptunaTuner
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
@@ -42,7 +43,7 @@ class IndustrialStrategy:
                                        'ProductEnsemble': np.prod}
 
         self.ensemble_strategy = list(self.ensemble_strategy_dict.keys())
-
+        self.random_label = None
         self.config_dict = api_config
         self.logger = logger
         self.repo = IndustrialModels().setup_repository()
@@ -142,7 +143,9 @@ class IndustrialStrategy:
         self.kernel_ensembler = KernelEnsembler(self.industrial_strategy_params)
         kernel_ensemble, kernel_data = self.kernel_ensembler.transform(input_data).predict
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
-
+        # tuning_params = {'metric': FEDOT_TUNING_METRICS[self.config_dict['problem']], 'tuner': OptunaTuner}
+        # self.solver
+        # self.solver = build_tuner(self, self.solver, tuning_params, input_data, 'head')
     def _federated_predict(self,
                            input_data,
                            mode: str = 'labels'):
@@ -192,10 +195,16 @@ class IndustrialStrategy:
 
         list_proba = [predictions[model_preds] for model_preds in predictions]
         transformed = []
+        if self.random_label is None:
+            self.random_label = {
+                class_by_gen: np.random.choice(self.kernel_ensembler.classes_misses_by_generator[class_by_gen])
+                for class_by_gen in self.kernel_ensembler.classes_described_by_generator}
         for prob_by_gen, class_by_gen in zip(list_proba, self.kernel_ensembler.classes_described_by_generator):
             converted_probs = np.zeros((prob_by_gen.shape[0], len(self.kernel_ensembler.all_classes)))
-            for idx, cls in enumerate(class_by_gen):
-                converted_probs[:, cls] = prob_by_gen[:, idx]
+            for true_class, map_class in self.kernel_ensembler.mapper_dict[class_by_gen].items():
+                converted_probs[:, true_class] = prob_by_gen[:, map_class]
+            random_label = self.random_label[class_by_gen]
+            converted_probs[:, random_label] = prob_by_gen[:, -1]
             transformed.append(converted_probs)
 
         return np.array(transformed).transpose((1, 0, 2))

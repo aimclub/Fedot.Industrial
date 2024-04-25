@@ -1,4 +1,5 @@
 from copy import deepcopy
+from functools import partial
 from typing import Optional, Any
 
 import pandas as pd
@@ -66,20 +67,31 @@ class KernelEnsembler(BaseExtractor):
                                                                max(row)))[0][0]], axis=1)
         top_n_generators = kernel_weight_matrix['best_generator_by_class'].value_counts().head(2).index.values.tolist()
 
-        self.classes_described_by_generator = [kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
-                                                                    == gen].index.values.tolist()
-                                               for gen in top_n_generators]
-        self.classes_misses_by_generator = [i for i in self.all_classes if
-                                            i not in list(chain.from_iterable(self.classes_described_by_generator))]
+        self.classes_described_by_generator = {gen: kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
+                                                                         == gen].index.values.tolist()
+                                               for gen in top_n_generators}
+        self.classes_misses_by_generator = {gen: [i for i in self.all_classes if
+                                                  i not in self.classes_described_by_generator[gen]]
+                                            for gen in top_n_generators}
+        self.mapper_dict = {gen: {k: v for k, v in
+                                  zip(self.classes_described_by_generator[gen],
+                                      np.arange(0, len(self.classes_described_by_generator[gen])+1))} for gen in
+                            top_n_generators}
         return top_n_generators, self.classes_described_by_generator
+
+    def _map_target_for_generator(self, entry, mapper_dict):
+        return mapper_dict[entry] if entry in mapper_dict else entry
 
     def _create_kernel_ensemble(self, input_data, top_n_generators, classes_described_by_generator):
         kernel_ensemble = {}
         kernel_data = {}
-        for (i, gen), input_data_fold_target in zip(enumerate(top_n_generators), classes_described_by_generator):
+        for i, gen in enumerate(top_n_generators):
             train_fold = deepcopy(input_data)
-            sample_idx, target = np.where(train_fold.target == input_data_fold_target)
-            train_fold.target[sample_idx] = -1
+            described_idx, _ = np.where(train_fold.target == classes_described_by_generator[gen])
+            not_described_idx = [i for i in np.arange(0, train_fold.target.shape[0]) if i not in described_idx]
+            mp = np.vectorize(self._map_target_for_generator)
+            train_fold.target = mp(entry=train_fold.target, mapper_dict=self.mapper_dict[gen])
+            train_fold.target[not_described_idx] = max(list(self.mapper_dict[gen].values()))+1
             basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
             if basis is None:
                 kernel_ensemble.update(
