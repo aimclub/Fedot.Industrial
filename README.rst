@@ -60,7 +60,7 @@
     :alt: Downloads
 
 .. |support| image:: https://img.shields.io/badge/Telegram-Group-blue.svg
-    :target: https://t.me/fedotindustrial_support
+    :target: https://t.me/FEDOT_helpdesk
     :alt: Support
 
 .. |rus| image:: https://img.shields.io/badge/lang-ru-yellow.svg
