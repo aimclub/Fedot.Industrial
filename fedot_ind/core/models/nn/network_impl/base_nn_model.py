@@ -143,9 +143,9 @@ class BaseNeuralModel:
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
-                    
+
                     loss = loss_fn(output, targets.float())
-                    
+
                     valid_loss += loss.data.item() * inputs.size(0)
                     total += targets.size(0)
                     correct += (torch.argmax(output, 1) ==
