@@ -16,13 +16,8 @@ from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_
 
 @delegates(InceptionModule.__init__)
 class InceptionTime(Module):
-    def __init__(self,
-                 input_dim,
-                 output_dim,
-                 seq_len=None,
-                 number_of_filters=32,
-                 nb_filters=None,
-                 **kwargs):
+    def __init__(self, input_dim, output_dim, seq_len=None, number_of_filters=32, nb_filters=None, **kwargs):
+        super().__init__()
         if number_of_filters is None:
             number_of_filters = nb_filters
         self.inception_block = InceptionBlock(
@@ -77,11 +72,11 @@ class InceptionTimeModel(BaseNeuralModel):
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         if ts.task.task_type.value == 'classification':
             if ts.num_classes == 2:
-                loss_fn = CROSS_ENTROPY
+                loss_fn = CROSS_ENTROPY()
             else:
-                loss_fn = MULTI_CLASS_CROSS_ENTROPY
+                loss_fn = MULTI_CLASS_CROSS_ENTROPY()
         else:
-            loss_fn = RMSE
+            loss_fn = RMSE()
         return loss_fn, optimizer
 
     def _fit_model(self, ts: InputData, split_data: bool = False):
@@ -101,4 +96,3 @@ class InceptionTimeModel(BaseNeuralModel):
         x_test = Tensor(x_test).to(default_device('cpu'))
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)
-

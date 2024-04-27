@@ -1,15 +1,14 @@
 import os
-import random
 from pathlib import Path
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.metrics.metrics_implementation import calculate_forecasting_metric
-
-from fedot_ind.tools.loader import DataLoader
 
 import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
+
+from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.metrics.metrics_implementation import calculate_forecasting_metric
+from fedot_ind.tools.loader import DataLoader
 
 ts_datasets = {
     'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Yearly.csv'),
@@ -52,7 +51,8 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
                                           finetune: bool = False,
                                           api_config: dict = None):
     industrial = FedotIndustrial(**api_config)
-    train_data, _ = DataLoader(dataset_name=dataset_name).load_forecast_data(folder=benchmark)
+    train_data, _ = DataLoader(
+        dataset_name=dataset_name).load_forecast_data(folder=benchmark)
     target = train_data.values[-horizon:].flatten()
     train_data = (train_data, target)
     if finetune:
@@ -91,7 +91,8 @@ def industrial_common_modelling_loop(dataset_name: str = None,
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     if finetune:
-        industrial.finetune(train_data, tuning_params={'tuning_timeout': api_config['timeout']})
+        industrial.finetune(train_data, tuning_params={
+                            'tuning_timeout': api_config['timeout']})
     else:
         industrial.fit(train_data)
 
@@ -122,7 +123,8 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = pd.concat(df)
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
-    df_full['Difference_industrial'] = (df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
+    df_full['Difference_industrial'] = (
+        df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
     df_full['industrial_Wins'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial'] > 0 else 'Loose',
                                                axis=1)
     return df_full

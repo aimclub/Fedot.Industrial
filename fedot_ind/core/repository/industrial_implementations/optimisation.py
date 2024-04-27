@@ -54,7 +54,8 @@ class IndustrialMutations:
         #                                    *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
         #                                    *list(AtomizedModel.NEURAL_MODEL.value.keys()),
         #                                    *list(AtomizedModel.FORECASTING_MODELS.value.keys())]
-        self.industrial_data_operations = default_industrial_availiable_operation(self.task_type.task_type.value)
+        self.industrial_data_operations = default_industrial_availiable_operation(
+            self.task_type.task_type.value)
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
@@ -271,7 +272,8 @@ class IndustrialMutations:
             task=self.task_type, mode='data_operation', tags=["basis"])
         extractors = get_operations_for_task(
             task=self.task_type, mode='data_operation', tags=["extractor"])
-        extractors = [x for x in extractors if x in self.industrial_data_operations]
+        extractors = [
+            x for x in extractors if x in self.industrial_data_operations]
         models = get_operations_for_task(task=self.task_type, mode='model')
         models = [x for x in models if x not in self.excluded_mutation]
         basis_model = PipelineNode(choice(basis_models))
@@ -295,7 +297,8 @@ class IndustrialMutations:
             return pipeline
         else:
             pipeline = PipelineBuilder().add_sequence(*lagged, branch_idx=0).\
-                add_sequence(*current_operation, branch_idx=1).join_branches('ridge').build()
+                add_sequence(*current_operation,
+                             branch_idx=1).join_branches('ridge').build()
             return pipeline
 
 
@@ -312,7 +315,7 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Seque
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
         mutations.append(boosting_mutation)
-        #mutations.append(ind_mutations.add_lagged)
+        # mutations.append(ind_mutations.add_lagged)
         mutations.remove(ind_mutations.add_preprocessing)
         mutations.remove(ind_mutations.single_add)
     # TODO remove workaround after validation fix
@@ -365,9 +368,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                                   node_depth(node_from_graph_first)
+                node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                                    node_depth(node_from_graph_second)
+                node_depth(node_from_graph_second)
 
             replace_subtrees(graph_first, graph_second, node_from_graph_first, node_from_graph_second,
                              layer_in_graph_first, layer_in_graph_second, max_depth)

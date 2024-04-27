@@ -1,6 +1,5 @@
 import sys
 from functools import partial
-from typing import Optional
 
 import pandas as pd
 from fedot.core.data.data import InputData
@@ -9,6 +8,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
 from tqdm import tqdm
+from typing import Optional
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor

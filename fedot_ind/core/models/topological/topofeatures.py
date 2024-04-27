@@ -1,12 +1,11 @@
-# -*- coding: utf-8 -*-
-
 from abc import ABC
 from multiprocessing.dummy import Pool as ThreadPool
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from gtda.diagrams import BettiCurve, Filtering, PersistenceEntropy, PersistenceLandscape, Scaler
 from gtda.homology import VietorisRipsPersistence
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class PersistenceDiagramFeatureExtractor(ABC):
@@ -268,6 +267,6 @@ class RadiusAtMaxBNFeature(PersistenceDiagramFeatureExtractor):
             n_jobs=-1, n_bins=n_bins).fit_transform([persistence_diagram])[0]
         max_dim = int(np.max(persistence_diagram[:, 2])) + 1
         max_bettis = np.array([np.max(betti_curve[i, :])
-                              for i in range(max_dim)])
+                               for i in range(max_dim)])
         return np.array(
             [np.where(betti_curve[i, :] == max_bettis[i])[0][0] / (n_bins * max_dim) for i in range(max_dim)])

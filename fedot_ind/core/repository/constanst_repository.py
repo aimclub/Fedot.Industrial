@@ -1,19 +1,19 @@
 import math
 from enum import Enum
-from functools import partial
 from multiprocessing import cpu_count
 
 import numpy as np
 import pywt
+from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-from golem.core.tuning.iopt_tuner import IOptTuner
 from golem.core.tuning.optuna_tuner import OptunaTuner
+from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
+    minkowski
 from torch import nn
-from golem.core.tuning.simultaneous import SimultaneousTuner
-from golem.core.tuning.sequential import SequentialTuner
+
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
     calculate_forecasting_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
@@ -27,9 +27,6 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
-    jensenshannon, mahalanobis, minkowski
-from MKLpy.algorithms import FHeuristic, RMKL, MEMO, EasyMKL, CKA, PWMK
 
 
 def beta_thr(beta):
@@ -60,7 +57,7 @@ class KernelsConstant(Enum):
         'one_step_pwmk': PWMK,
     }
     KERNEL_BASELINE_FEATURE_GENERATORS = {
-        #'minirocket_extractor': PipelineBuilder().add_node('minirocket_extractor'),
+        # 'minirocket_extractor': PipelineBuilder().add_node('minirocket_extractor'),
         'quantile_extractor': PipelineBuilder().add_node('quantile_extractor'),
         'topological_extractor': PipelineBuilder().add_node('topological_extractor'),
         'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis').add_node('quantile_extractor'),
@@ -68,7 +65,7 @@ class KernelsConstant(Enum):
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
 
     KERNEL_BASELINE_NODE_LIST = {
-        #'minirocket_extractor': (None, 'minirocket_extractor'),
+        # 'minirocket_extractor': (None, 'minirocket_extractor'),
         'quantile_extractor': (None,  'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
         'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
@@ -296,15 +293,15 @@ class TorchLossesConstant(Enum):
     CROSS_ENTROPY = nn.CrossEntropyLoss
     MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
     MSE = nn.MSELoss
-    RMSE = RMSELoss()
-    SMAPE = SMAPELoss()
-    TWEEDIE_LOSS = TweedieLoss()
-    FOCAL_LOSS = FocalLoss()
+    RMSE = RMSELoss
+    SMAPE = SMAPELoss
+    TWEEDIE_LOSS = TweedieLoss
+    FOCAL_LOSS = FocalLoss
     CENTER_PLUS_LOSS = CenterPlusLoss
     CENTER_LOSS = CenterLoss
     MASK_LOSS = MaskedLossWrapper
-    LOG_COSH_LOSS = LogCoshLoss()
-    HUBER_LOSS = HuberLoss()
+    LOG_COSH_LOSS = LogCoshLoss
+    HUBER_LOSS = HuberLoss
     EXPONENTIAL_WEIGHTED_LOSS = ExpWeightedLoss
 
 

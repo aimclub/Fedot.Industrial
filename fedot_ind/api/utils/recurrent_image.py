@@ -39,7 +39,8 @@ def plot_recurrence_matrix(dataset_name, save: bool = False, show: bool = True):
 
         for idx, image in enumerate(output.predict):
             image_mode = 'L' if len(image.shape) == 2 else 'RGB'
-            Image.fromarray(image, mode=image_mode).save(f'{path_to_save}/{output.target[idx][0]}/image_{idx}.png')
+            Image.fromarray(image, mode=image_mode).save(
+                f'{path_to_save}/{output.target[idx][0]}/image_{idx}.png')
 
     # for cls in np.unique(input_data.target):
     #     fig, axs = plt.subplots(len(windows), len(strides), figsize=(20, 20))
@@ -62,9 +63,11 @@ def plot_recurrence_matrix(dataset_name, save: bool = False, show: bool = True):
     # if show:
     #     plt.show()
 
+
 def show_class_balance(target):
     plt.hist(target, bins=len(np.unique(target)))
     plt.show()
+
 
 if __name__ == '__main__':
     ds = 'Epilepsy'

@@ -49,7 +49,8 @@ class RiemannExtractor(BaseExtractor):
         self.estimator = params.get('estimator', 'scm')
         self.covariance_metric = params.get('SPD_metric', 'riemann')
         self.distance_metric = params.get('tangent_metric', 'riemann')
-        self.extraction_strategy = params.get('extraction_strategy ', 'ensemble')
+        self.extraction_strategy = params.get(
+            'extraction_strategy ', 'ensemble')
 
         self.covariance_transformer = params.get('SPD_space', None)
         self.tangent_projector = params.get('tangent_space', None)
@@ -74,7 +75,8 @@ class RiemannExtractor(BaseExtractor):
             SPD = self.shrinkage.transform(SPD)
             ref_point = self.tangent_projector.transform(SPD)
         else:
-            SPD = self.covariance_transformer.fit_transform(input_data.features, input_data.target)
+            SPD = self.covariance_transformer.fit_transform(
+                input_data.features, input_data.target)
             SPD = self.shrinkage.fit_transform(SPD)
             ref_point = self.tangent_projector.fit_transform(SPD)
             self.fit_stage = False
@@ -84,7 +86,8 @@ class RiemannExtractor(BaseExtractor):
     def extract_centroid_distance(self, input_data: InputData):
         input_data.target = input_data.target.astype(int)
         if self.fit_stage:
-            SPD = self.covariance_transformer.fit_transform(input_data.features, input_data.target)
+            SPD = self.covariance_transformer.fit_transform(
+                input_data.features, input_data.target)
             SPD = self.shrinkage.transform(SPD)
 
         else:
@@ -95,7 +98,8 @@ class RiemannExtractor(BaseExtractor):
                                           metric=self.covariance_metric) for ll in self.classes_]
 
         n_centroids = len(self.covmeans_)
-        dist = [distance(SPD, self.covmeans_[m], self.distance_metric) for m in range(n_centroids)]
+        dist = [distance(SPD, self.covmeans_[m], self.distance_metric)
+                for m in range(n_centroids)]
         dist = np.concatenate(dist, axis=1)
         feature_matrix = softmax(-dist ** 2)
         return feature_matrix
@@ -103,7 +107,8 @@ class RiemannExtractor(BaseExtractor):
     def _ensemble_features(self, input_data: InputData):
         tangent_features = self.extract_riemann_features(input_data)
         dist_features = self.extract_centroid_distance(input_data)
-        feature_matrix = np.concatenate([tangent_features, dist_features], axis=1)
+        feature_matrix = np.concatenate(
+            [tangent_features, dist_features], axis=1)
         return feature_matrix
 
     def _transform(self, input_data: InputData) -> np.array:

@@ -20,7 +20,8 @@ class TSTransformer:
         distance_matrix = pdist(metric=self.rec_metric, X=self.time_series.T)
         distance_matrix = np.ones(
             shape=distance_matrix.shape[0]) - distance_matrix
-        distance_matrix = self.binarization(distance_matrix, threshold=threshold)
+        distance_matrix = self.binarization(
+            distance_matrix, threshold=threshold)
         self.recurrence_matrix = squareform(distance_matrix)
         return self.recurrence_matrix
 
@@ -29,7 +30,8 @@ class TSTransformer:
         euclidean_matrix = pdist(metric='euclidean', X=self.time_series.T)
         canberra_matrix = pdist(metric='canberra', X=self.time_series.T)
 
-        squared_matrices = list(map(squareform, [cosine_matrix, euclidean_matrix, canberra_matrix]))
+        squared_matrices = list(
+            map(squareform, [cosine_matrix, euclidean_matrix, canberra_matrix]))
         dimensions = list(map(self.colorise, squared_matrices))
         self.recurrence_matrix = np.stack(dimensions, axis=2)
         return self.recurrence_matrix

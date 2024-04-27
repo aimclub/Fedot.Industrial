@@ -1,11 +1,11 @@
 import logging
-from typing import Union
 
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 from sklearn.preprocessing import LabelEncoder
+from typing import Union
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
@@ -101,7 +101,8 @@ class DataCheck:
             task = Task(TaskTypesEnum.ts_forecasting,
                         TsForecastingParams(forecast_length=self.task_params['forecast_length']))
             if self.industrial_task_params is None:
-                features_array = features_array[:-self.task_params['forecast_length']]
+                features_array = features_array[:-
+                                                self.task_params['forecast_length']]
                 target = features_array[-self.task_params['forecast_length']:]
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,

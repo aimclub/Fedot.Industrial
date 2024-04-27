@@ -5,10 +5,9 @@ from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold, train_test_split
+
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.repository.constanst_repository import FEDOT_ATOMIZE_OPERATION, FEDOT_HEAD_ENSEMBLE, FEDOT_TASK, \
-    FEDOT_ENSEMBLE_ASSUMPTIONS
+from fedot_ind.core.repository.constanst_repository import FEDOT_ATOMIZE_OPERATION, FEDOT_HEAD_ENSEMBLE, FEDOT_TASK
 from fedot_ind.core.repository.model_repository import SKLEARN_CLF_MODELS, SKLEARN_REG_MODELS
 
 
@@ -60,7 +59,8 @@ class RAFensembler:
                 train_data.features.shape[0] / self.batch_size)
         new_features = np.array_split(train_data.features, self.n_splits)
         new_target = np.array_split(train_data.target, self.n_splits)
-        self.current_pipeline = self.ensemble_method(new_features, new_target, n_splits=self.n_splits)
+        self.current_pipeline = self.ensemble_method(
+            new_features, new_target, n_splits=self.n_splits)
         self._decompose_pipeline()
 
     def predict(self, test_data, output_mode: str = 'labels'):
@@ -87,7 +87,8 @@ class RAFensembler:
                                                       in head_automl_params['available_operations']
                                                       if operation in list(SKLEARN_CLF_MODELS.keys())
                                                       or operation in list(SKLEARN_REG_MODELS.keys())]
-        #head_automl_params['initial_assumption'] = FEDOT_ENSEMBLE_ASSUMPTIONS[self.atomized_automl_params['problem']].build()
+        # head_automl_params['initial_assumption'] = FEDOT_ENSEMBLE_ASSUMPTIONS[self.atomized_automl_params[
+        # 'problem']].build()
         raf_ensemble = raf_ensemble.join_branches(self.head).build()
         raf_ensemble.fit(input_data=train_multimodal)
         return raf_ensemble

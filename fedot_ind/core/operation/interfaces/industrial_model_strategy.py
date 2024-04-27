@@ -86,11 +86,13 @@ class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy)
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode=output_mode)
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode=output_mode)
 
 
@@ -110,11 +112,13 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         super().__init__(operation_type, params)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
 
 
@@ -145,12 +149,14 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             if isinstance(train_data, list):
                 self.multi_dim_dispatcher.params_for_fit = []
                 for x in train_data:
-                    family, link = self._check_glm_params(kurtosis(x.features), skew(x.features))
+                    family, link = self._check_glm_params(
+                        kurtosis(x.features), skew(x.features))
                     self.multi_dim_dispatcher.params_for_fit.append({'family': family,
                                                                      'link': link})
 
             else:
-                family, link = self._check_glm_params(kurtosis(train_data.features), skew(train_data.features))
+                family, link = self._check_glm_params(
+                    kurtosis(train_data.features), skew(train_data.features))
                 self.multi_dim_dispatcher.params_for_fit = {'family': family,
                                                             'link': link}
         return train_data
@@ -161,9 +167,12 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode=self.multi_dim_dispatcher.mode)
-        predict_output = self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
-        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(
+            predict_data, mode=self.multi_dim_dispatcher.mode)
+        predict_output = self.multi_dim_dispatcher.predict(
+            trained_operation, predict_data, output_mode='labels')
+        predict_output.predict = self.ensemble_func(
+            predict_output.predict, axis=0)
         return predict_output
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
@@ -171,7 +180,8 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data,
                                                                    output_mode='labels')
-        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        predict_output.predict = self.ensemble_func(
+            predict_output.predict, axis=0)
         return predict_output
 
 

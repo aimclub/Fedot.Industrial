@@ -81,7 +81,7 @@ TEMPORARY_EXCLUDED = {
         # isolation_forest forest
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,
-        'chronos_extractor': ChronosExtractor,
+        # 'chronos_extractor': ChronosExtractor,
         'riemann_extractor': RiemannExtractor,
     },
     'SKLEARN_REG_MODELS': {
@@ -150,7 +150,7 @@ class AtomizedModel(Enum):
         'topological_extractor': TopologicalFeaturesImplementation,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
-        'chronos_extractor': ChronosExtractor,
+        # 'chronos_extractor': ChronosExtractor,
         # isolation_forest forest
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,
@@ -215,8 +215,10 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                 INDUSTRIAL_PREPROC_MODEL.keys(),
                                 FEDOT_PREPROC_MODEL.keys()]
 
-    available_operations = list(chain(*[list(x) for x in available_operations]))
-    excluded_operations = list(chain(*[list(TEMPORARY_EXCLUDED[x]) for x in TEMPORARY_EXCLUDED.keys()]))
+    available_operations = list(
+        chain(*[list(x) for x in available_operations]))
+    excluded_operations = list(
+        chain(*[list(TEMPORARY_EXCLUDED[x]) for x in TEMPORARY_EXCLUDED.keys()]))
     available_operations = [x for x in available_operations
                             if x not in EXCLUDED_OPERATION_MUTATION[problem] and x not in excluded_operations]
     return available_operations

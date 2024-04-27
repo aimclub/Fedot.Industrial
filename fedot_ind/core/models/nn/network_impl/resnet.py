@@ -134,11 +134,11 @@ class ResNetModel(BaseNeuralModel):
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         if ts.task.task_type.value == 'classification':
             if ts.num_classes == 2:
-                loss_fn = CROSS_ENTROPY
+                loss_fn = CROSS_ENTROPY()
             else:
-                loss_fn = MULTI_CLASS_CROSS_ENTROPY
+                loss_fn = MULTI_CLASS_CROSS_ENTROPY()
         else:
-            loss_fn = RMSE
+            loss_fn = RMSE()
         return loss_fn, optimizer
 
     @convert_to_4d_torch_array

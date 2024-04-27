@@ -62,7 +62,7 @@ class ExpWeightedLoss(nn.Module):
         res = torch.mean(input_, axis=0).reshape(self.n_t, -1)
         target = torch.mean(target, axis=0).reshape(self.n_t, -1)
         m = torch.triu(torch.ones((self.n_t, self.n_t),
-                       dtype=res.dtype), diagonal=1).T.to(default_device())
+                                  dtype=res.dtype), diagonal=1).T.to(default_device())
         with torch.no_grad():
             w = torch.exp(- self.tol * (m @ res))
         loss = torch.mean(w * res)
@@ -93,7 +93,7 @@ class HuberLoss(nn.Module):
         abs_diff = torch.abs(diff)
         mask = abs_diff < self.delta
         loss = torch.cat([(.5 * diff[mask] ** 2), self.delta *
-                         (abs_diff[~mask] - (.5 * self.delta))])
+                          (abs_diff[~mask] - (.5 * self.delta))])
         if self.reduction == 'mean':
             return loss.mean()
         elif self.reduction == 'sum':

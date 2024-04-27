@@ -58,7 +58,8 @@ class SSAForecasterImplementation(ModelImplementation):
 
         self.window_size_method = params.get('window_size_method')
         self.history_lookback = max(params.get('history_lookback', 0), 100)
-        self.low_rank_approximation = params.get('low_rank_approximation', False)
+        self.low_rank_approximation = params.get(
+            'low_rank_approximation', False)
         self.tuning_params = params.get('tuning_params', tuning_params)
         self.component_model = params.get('component_model', 'topological')
         self.mode = params.get('mode', 'channel_independent')
@@ -79,7 +80,8 @@ class SSAForecasterImplementation(ModelImplementation):
                                                       component,
                                                       'head')
         component_model.fit(component)
-        reconstructed_forecast = component_model.predict(component).predict[-self.horizon:]
+        reconstructed_forecast = component_model.predict(
+            component).predict[-self.horizon:]
         return reconstructed_forecast, component_model
 
     def _combine_trajectory(self, U, VT, n_components):
@@ -93,7 +95,8 @@ class SSAForecasterImplementation(ModelImplementation):
                                                    [np.sum([VT[i, :], VT[i + 1, :]], axis=0) for i in self._rank_thr
                                                     if i != 0 and i % 2 != 0])])
         else:
-            self.PCT, current_dynamics = U[:, :n_components], VT[:n_components, :]
+            self.PCT, current_dynamics = U[:,
+                                           :n_components], VT[:n_components, :]
 
         return current_dynamics
 
@@ -110,9 +113,11 @@ class SSAForecasterImplementation(ModelImplementation):
                                       Sigma=s[:self.PCT.shape[1]],
                                       VT=current_dynamics,
                                       ts_length=input_data.features.shape[0])
-            comp.features, comp.idx = np.array(basis).sum(axis=1), np.arange(np.array(basis).sum(axis=1).shape[0])
+            comp.features, comp.idx = np.array(basis).sum(
+                axis=1), np.arange(np.array(basis).sum(axis=1).shape[0])
 
-            reconstructed_forecast, self.model_by_channel = self._tune_component_model(self.trend_model.build(), comp)
+            reconstructed_forecast, self.model_by_channel = self._tune_component_model(
+                self.trend_model.build(), comp)
         elif self.mode == 'channel_independent':
             forecast_by_channel, self.model_by_channel = self._predict_channel(input_data,
                                                                                current_dynamics,
@@ -156,7 +161,8 @@ class SSAForecasterImplementation(ModelImplementation):
         if input_data.features.shape[0] > self.history_lookback:
             self.history_lookback = round(input_data.features.shape[0] * 0.2) \
                 if self.history_lookback == 0 else self.history_lookback
-            input_data.features = input_data.features[-self.history_lookback:].squeeze()
+            input_data.features = input_data.features[-self.history_lookback:].squeeze(
+            )
         else:
             self.history_lookback = None
         self._decomposer = EigenBasisImplementation({'low_rank_approximation': self.low_rank_approximation,
@@ -172,9 +178,12 @@ class SSAForecasterImplementation(ModelImplementation):
         for index, ts_comp in enumerate(comp.features):
             comp.features = ts_comp
             comp.target = ts_comp
-            model_to_tune = self.component_model.build() if index != 0 else self.trend_model.build()
-            reconstructed_forecast, component_model = self._tune_component_model(model_to_tune, comp)
-            forecast_by_channel.update({f'{index}_channel': reconstructed_forecast})
+            model_to_tune = self.component_model.build(
+            ) if index != 0 else self.trend_model.build()
+            reconstructed_forecast, component_model = self._tune_component_model(
+                model_to_tune, comp)
+            forecast_by_channel.update(
+                {f'{index}_channel': reconstructed_forecast})
             model_by_channel.update({f'{index}_channel': component_model})
 
         return forecast_by_channel, model_by_channel

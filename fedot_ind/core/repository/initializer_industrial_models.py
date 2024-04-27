@@ -55,27 +55,27 @@ class IndustrialModels:
                        'default_tags': []}})
         OperationTypesRepository.assign_repo(
             'model', self.industrial_model_path)
-        ## replace mutations
+        # replace mutations
         setattr(PipelineSearchSpace, "get_parameters_dict",
                 get_industrial_search_space)
         setattr(ApiParamsRepository, "_get_default_mutations",
                 _get_default_industrial_mutations)
         #setattr(Crossover, '_crossover_by_type', _crossover_by_type)
-        ## replace data merger
+        # replace data merger
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
         setattr(TSDataMerger, "merge_predicts", merge_predicts)
         setattr(TSDataMerger, "merge_targets", merge_targets)
         setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
-        ## replace data split
+        # replace data split
         setattr(DataSourceSplitter, "build", _build)
         setattr(fedot_data_split, "_split_any",  split_any)
         # setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
-        ## replace predict operations
+        # replace predict operations
         setattr(Operation, "_predict", predict_operation)
         setattr(Operation, "predict", predict)
         setattr(Operation, "predict_for_fit", predict_for_fit)
-        ## replace ts forecasting operations
+        # replace ts forecasting operations
         setattr(LaggedImplementation,
                 '_update_column_types', update_column_types)
         setattr(LaggedImplementation, 'transform', transform_lagged)
