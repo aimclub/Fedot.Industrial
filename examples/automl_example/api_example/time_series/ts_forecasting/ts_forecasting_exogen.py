@@ -5,14 +5,17 @@ from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 if __name__ == "__main__":
-    dataset_name = PROJECT_PATH + '/examples/data/forecasting\monash_benchmark\MonashBitcoin_30.csv'
+    dataset_name = PROJECT_PATH + \
+        '/examples/data/forecasting\monash_benchmark\MonashBitcoin_30.csv'
     horizon = 60
     metric_names = ('smape', 'rmse', 'median_absolute_error')
 
     train_data = pd.read_csv(dataset_name)
     variables = train_data['label'].unique().tolist()
-    exog_var = ['send_usd', 'market_cap', 'median_transaction_value', 'google_trends']
-    exog_ts = np.vstack([train_data[train_data['label'] == var]['value'].values for var in exog_var])
+    exog_var = ['send_usd', 'market_cap',
+                'median_transaction_value', 'google_trends']
+    exog_ts = np.vstack(
+        [train_data[train_data['label'] == var]['value'].values for var in exog_var])
     exog_ts = exog_ts[0, :]
     ts = train_data[train_data['label'] == 'price']['value'].values
     target = ts[-horizon:].flatten()

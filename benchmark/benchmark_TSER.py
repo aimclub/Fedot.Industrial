@@ -102,7 +102,7 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
         model = FedotIndustrial(**experiment_setup)
         model.load(path=composed_model_path)
 
-        model.finetune(train_data,tuning_params)
+        model.finetune(train_data, tuning_params)
         prediction = model.predict(test_data)
         return prediction, model
 

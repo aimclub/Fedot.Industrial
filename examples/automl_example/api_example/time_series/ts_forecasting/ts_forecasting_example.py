@@ -20,7 +20,8 @@ df_forecast, df_metrics = read_results(PROJECT_PATH +
 df_comprasion = create_comprasion_df(df_metrics, 'rmse')
 
 if __name__ == "__main__":
-    industrial_loss = df_comprasion[df_comprasion['industrial_Wins'] == 'Loose']['dataset_name'].values.tolist()
+    industrial_loss = df_comprasion[df_comprasion['industrial_Wins']
+                                    == 'Loose']['dataset_name'].values.tolist()
 
     api_config = dict(problem='ts_forecasting',
                       metric='rmse',
@@ -36,20 +37,23 @@ if __name__ == "__main__":
             print('Already evaluated, but with bad metrics')
             horizon = M4_FORECASTING_LENGTH[dataset_name[0]]
             api_config.update(task_params={'forecast_length': horizon})
-            api_config.update(output_folder=os.path.join(PROJECT_PATH, 'results_of_experiments', dataset_name))
+            api_config.update(output_folder=os.path.join(
+                PROJECT_PATH, 'results_of_experiments', dataset_name))
             n_beats_forecast, n_beats_metrics, \
-            autogluon_forecast, autogluon_metrics = compare_forecast_with_sota(dataset_name=dataset_name,
-                                                                               horizon=horizon)
+                autogluon_forecast, autogluon_metrics = compare_forecast_with_sota(dataset_name=dataset_name,
+                                                                                   horizon=horizon)
             model, labels, metrics, target = industrial_forecasting_modelling_loop(dataset_name=dataset_name,
                                                                                    benchmark=benchmark,
                                                                                    horizon=horizon,
                                                                                    api_config=api_config,
                                                                                    finetune=finetune)
 
-            forecast = pd.DataFrame([labels, target, n_beats_forecast, autogluon_forecast]).T
+            forecast = pd.DataFrame(
+                [labels, target, n_beats_forecast, autogluon_forecast]).T
             forecast.columns = forecast_col
 
-            metrics_comprasion = pd.concat([metrics, autogluon_metrics, n_beats_metrics]).T
+            metrics_comprasion = pd.concat(
+                [metrics, autogluon_metrics, n_beats_metrics]).T
             metrics_comprasion.columns = metric_col
 
             model.save_best_model()

@@ -473,16 +473,15 @@ class FedotIndustrial(Fedot):
                 f'./raf_ensemble/ensemble_composed', create_subdir=True)
 
     def explain(self, **kwargs):
-        """ Explain model's prediction via time series points perturbation
+        """Explain model's prediction via time series points perturbation
 
-        Args:
-            samples: int, ``default=1``. Number of samples to explain.
-            window: int, ``default=5``. Window size for perturbation.
-            metric: str ``default='rmse'``. Distance metric for perturbation impact assessment.
-            threshold: int, ``default=90``. Threshold for perturbation impact assessment.
-            name: str, ``default='test'``. Name of the dataset to be placed on plot.
-
+            Args:
+                **kwargs: Additional arguments for explanation. These arguments control the
+                         number of samples, window size, metric, threshold, and dataset name.
+                         See the function implementation for detailed information on
+                         supported arguments.
         """
+
         methods = {'point': PointExplainer,
                    'shap': NotImplementedError,
                    'lime': NotImplementedError}

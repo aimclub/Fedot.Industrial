@@ -16,7 +16,8 @@ from sklearn.model_selection import train_test_split
 
 data = pd.read_csv('scoring_train.csv', index_col=0)
 target = 'target'
-X_train, X_test, y_train, y_test = train_test_split(data.drop(target, axis=1), data[target], test_size=0.3)
+X_train, X_test, y_train, y_test = train_test_split(
+    data.drop(target, axis=1), data[target], test_size=0.3)
 
 print('Shape of train', X_train.shape, 'and test', X_test.shape)
 

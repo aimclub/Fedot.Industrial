@@ -53,9 +53,12 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
     def evaluate_loop(self, dataset, experiment_setup: dict = None):
         matplotlib.use('TkAgg')
         train_data = DataLoader(dataset_name=dataset).load_forecast_data()
-        experiment_setup['task_params'] = TsForecastingParams(forecast_length=M4_FORECASTING_LENGTH[dataset[0]])
-        target = train_data.iloc[-experiment_setup['task_params'].forecast_length:, :].values.ravel()
-        train_data = train_data.iloc[:-experiment_setup['task_params'].forecast_length, :]
+        experiment_setup['task_params'] = TsForecastingParams(
+            forecast_length=M4_FORECASTING_LENGTH[dataset[0]])
+        target = train_data.iloc[-experiment_setup['task_params']
+                                 .forecast_length:, :].values.ravel()
+        train_data = train_data.iloc[:-
+                                     experiment_setup['task_params'].forecast_length, :]
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(train_data)
@@ -68,29 +71,35 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         metric_dict = {}
         for dataset_name in self.custom_datasets:
             experiment_setup = deepcopy(self.experiment_setup)
-            prediction, target, model = self.evaluate_loop(dataset_name, experiment_setup)
+            prediction, target, model = self.evaluate_loop(
+                dataset_name, experiment_setup)
             metric = SMAPE(prediction, target).metric()
             metric_dict.update({dataset_name: metric})
-            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}')
+            dataset_path = os.path.join(
+                self.experiment_setup['output_folder'], f'{dataset_name}')
             if not os.path.exists(dataset_path):
                 os.makedirs(dataset_path)
             basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-            basic_results.to_csv(os.path.join(dataset_path, 'metrics_report.csv'))
+            basic_results.to_csv(os.path.join(
+                dataset_path, 'metrics_report.csv'))
             pred_df = pd.DataFrame([target, prediction]).T
             pred_df.columns = ['label', 'prediction']
             pred_df.to_csv(os.path.join(dataset_path, 'prediction.csv'))
             model.solver.save(dataset_path)
             gc.collect()
-        basic_path = os.path.join(self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
+        basic_path = os.path.join(
+            self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
 
     def finetune(self):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
-            composed_model_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/0_pipeline_saved'
+            composed_model_path = PROJECT_PATH + self.path_to_save + \
+                f'/{dataset_name}' + '/0_pipeline_saved'
             if os.path.isdir(composed_model_path):
-                self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+                self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                    self.path_to_save
                 experiment_setup = deepcopy(self.experiment_setup)
                 prediction, target = self.finetune_loop(
                     dataset_name, experiment_setup)
@@ -99,7 +108,8 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
                                             f'{dataset_name}',
                                             'metrics_report.csv')
                 fedot_results = pd.read_csv(dataset_path, index_col=0)
-                fedot_results.loc[dataset_name, 'Fedot_Industrial_finetuned'] = metric
+                fedot_results.loc[dataset_name,
+                                  'Fedot_Industrial_finetuned'] = metric
 
                 fedot_results.to_csv(dataset_path)
             else:
@@ -112,20 +122,23 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         results = pd.read_csv(path, sep=',', index_col=0).T
         results = results.dropna(axis=1, how='all')
         results = results.dropna(axis=0, how='all')
-        self.experiment_setup['output_folder'] = PROJECT_PATH + self.path_to_save
+        self.experiment_setup['output_folder'] = PROJECT_PATH + \
+            self.path_to_save
         return results
 
     def create_report(self):
         _ = []
         names = []
         for dataset_name in self.custom_datasets:
-            model_result_path = PROJECT_PATH + self.path_to_save + f'/{dataset_name}' + '/metrics_report.csv'
+            model_result_path = PROJECT_PATH + self.path_to_save + \
+                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
-                metrics = df.loc[dataset_name, 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                metrics = df.loc[dataset_name,
+                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_results = np.stack(_, axis=1).T
