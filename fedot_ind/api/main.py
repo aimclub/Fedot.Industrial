@@ -72,8 +72,7 @@ class FedotIndustrial(Fedot):
 
         # init Fedot and Industrial hyperparams and path to results
         self.output_folder = kwargs.get('output_folder', None)
-        self.industrial_strategy_params = kwargs.get(
-            'industrial_strategy_params', None)
+        self.industrial_strategy_params = kwargs.get('industrial_strategy_params', None)
         self.industrial_strategy = kwargs.get('industrial_strategy', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.backend_method = kwargs.get('backend', 'cpu')
