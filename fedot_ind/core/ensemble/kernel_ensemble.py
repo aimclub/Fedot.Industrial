@@ -1,4 +1,5 @@
 from copy import deepcopy
+from functools import partial
 from typing import Optional, Any
 
 import pandas as pd
@@ -23,10 +24,8 @@ class KernelEnsembler(BaseExtractor):
         super().__init__(params)
         self.distance_metric = params.get('distance_metric', 'cosine')
         self.kernel_strategy = params.get('kernel_strategy ', 'one_step_cka')
-        self.feature_extractor = params.get('feature_extractor', list(
-            KERNEL_BASELINE_FEATURE_GENERATORS.keys()))
-        self._mapping_dict = {k: v for k,
-                              v in enumerate(self.feature_extractor)}
+        self.feature_extractor = params.get('feature_extractor', list(KERNEL_BASELINE_FEATURE_GENERATORS.keys()))
+        self._mapping_dict = {k: v for k, v in enumerate(self.feature_extractor)}
         self.lr = params.get('learning_rate', 0.1)
         self.patience = params.get('patience', 5)
         self.epoch = params.get('epoch', 500)
@@ -47,8 +46,7 @@ class KernelEnsembler(BaseExtractor):
                 kernel_model.solution.weights.cpu().detach().numpy()))
         else:
             for n_class in self.n_classes:
-                kernels_weights_by_class.append(
-                    abs(kernel_model.solution[n_class].weights.cpu().detach().numpy()))
+                kernels_weights_by_class.append(abs(kernel_model.solution[n_class].weights.cpu().detach().numpy()))
         kernel_df = pd.DataFrame(kernels_weights_by_class)
         # kernel_df.columns = self.feature_extractor
         return kernel_df
@@ -67,24 +65,33 @@ class KernelEnsembler(BaseExtractor):
         kernel_weight_matrix['best_generator_by_class'] = kernel_weight_matrix.apply(
             lambda row: self._mapping_dict[np.where(np.isclose(row.values,
                                                                max(row)))[0][0]], axis=1)
-        top_n_generators = kernel_weight_matrix['best_generator_by_class'].value_counts(
-        ).head(2).index.values.tolist()
+        top_n_generators = kernel_weight_matrix['best_generator_by_class'].value_counts().head(2).index.values.tolist()
 
-        self.classes_described_by_generator = [kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
-                                                                    == gen].index.values.tolist()
-                                               for gen in top_n_generators]
-        self.classes_misses_by_generator = [i for i in self.all_classes if
-                                            i not in list(chain.from_iterable(self.classes_described_by_generator))]
+        self.classes_described_by_generator = {gen: kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
+                                                                         == gen].index.values.tolist()
+                                               for gen in top_n_generators}
+        self.classes_misses_by_generator = {gen: [i for i in self.all_classes if
+                                                  i not in self.classes_described_by_generator[gen]]
+                                            for gen in top_n_generators}
+        self.mapper_dict = {gen: {k: v for k, v in
+                                  zip(self.classes_described_by_generator[gen],
+                                      np.arange(0, len(self.classes_described_by_generator[gen])+1))} for gen in
+                            top_n_generators}
         return top_n_generators, self.classes_described_by_generator
+
+    def _map_target_for_generator(self, entry, mapper_dict):
+        return mapper_dict[entry] if entry in mapper_dict else entry
 
     def _create_kernel_ensemble(self, input_data, top_n_generators, classes_described_by_generator):
         kernel_ensemble = {}
         kernel_data = {}
-        for (i, gen), input_data_fold_target in zip(enumerate(top_n_generators), classes_described_by_generator):
+        for i, gen in enumerate(top_n_generators):
             train_fold = deepcopy(input_data)
-            sample_idx, target = np.where(
-                train_fold.target == input_data_fold_target)
-            train_fold.target[sample_idx] = -1
+            described_idx, _ = np.where(train_fold.target == classes_described_by_generator[gen])
+            not_described_idx = [i for i in np.arange(0, train_fold.target.shape[0]) if i not in described_idx]
+            mp = np.vectorize(self._map_target_for_generator)
+            train_fold.target = mp(entry=train_fold.target, mapper_dict=self.mapper_dict[gen])
+            train_fold.target[not_described_idx] = max(list(self.mapper_dict[gen].values()))+1
             basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
             if basis is None:
                 kernel_ensemble.update(
@@ -102,15 +109,11 @@ class KernelEnsembler(BaseExtractor):
         self.__multiclass_check(input_data.target)
         grammian_list = self.generate_grammian(input_data)
         if self.kernel_strategy.__contains__('one'):
-            kernel_weight_matrix = self.__one_stage_kernel(
-                grammian_list, input_data.target)
+            kernel_weight_matrix = self.__one_stage_kernel(grammian_list, input_data.target)
         else:
-            kernel_weight_matrix = self.__two_stage_kernel(
-                grammian_list, input_data.target)
-        top_n_generators, classes_described_by_generator = self._select_top_feature_generators(
-            kernel_weight_matrix)
-        self.predict = self._create_kernel_ensemble(
-            input_data, top_n_generators, classes_described_by_generator)
+            kernel_weight_matrix = self.__two_stage_kernel(grammian_list, input_data.target)
+        top_n_generators, classes_described_by_generator = self._select_top_feature_generators(kernel_weight_matrix)
+        self.predict = self._create_kernel_ensemble(input_data, top_n_generators, classes_described_by_generator)
         return self.predict
 
     def generate_grammian(self, input_data) -> list[Any]:
@@ -124,8 +127,7 @@ class KernelEnsembler(BaseExtractor):
         return KLtr
 
     def __one_stage_kernel(self, grammian_list, target):
-        mkl = KERNEL_ALGO[self.kernel_strategy](
-            multiclass_strategy=self.multiclass_strategy).fit(grammian_list, target)
+        mkl = KERNEL_ALGO[self.kernel_strategy](multiclass_strategy=self.multiclass_strategy).fit(grammian_list, target)
         kernel_weight_matrix = self.__convert_weights(mkl)
         return kernel_weight_matrix
 
