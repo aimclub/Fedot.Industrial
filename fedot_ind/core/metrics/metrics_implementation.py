@@ -171,11 +171,11 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
-def MASE(A, F, y_train):
+def mase(A, F, y_train):
     return mean_absolute_scaled_error(A, F, y_train=y_train)
 
 
-def SMAPE(a, f, _=None):
+def smape(a, f, _=None):
     return 1 / len(a) * np.sum(2 * np.abs(f - a) / (np.abs(a) + np.abs(f)) * 100)
 
 
@@ -221,8 +221,8 @@ def calculate_forecasting_metric(target,
         'rmse': rmse,
         'mae': mean_absolute_error,
         'median_absolute_error': median_absolute_error,
-        'smape': SMAPE,
-        'mase': MASE
+        'smape': smape,
+        'mase': mase
     }
 
     df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()

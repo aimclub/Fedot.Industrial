@@ -15,7 +15,8 @@ fastai==2.7.14
 distributed
 datasetsforecast==0.0.8
 tensorly==0.8.1
-torch==2.2.0
+torch~=2.2.0
+torchvision~=0.13.1+cu113
 torchvision==0.17.0
 statsforecast==1.5.0
 chardet==5.2.0

@@ -10,7 +10,7 @@ experiment_setup = {'problem': 'classification',
                     'logging_level': 10,
                     'n_jobs': 2,
                     'early_stopping_iterations': 5,
-                    'initial_assumption': PipelineBuilder().add_node('chronos_extractor').add_node('logit'),
+                    'initial_assumption': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
                     'early_stopping_timeout': 75}
 
 if __name__ == "__main__":
