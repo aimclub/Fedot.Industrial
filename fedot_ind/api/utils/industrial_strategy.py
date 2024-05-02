@@ -81,10 +81,13 @@ class IndustrialStrategy:
         self.config_dict['timeout'] = round(self.config_dict['timeout'] / 3)
         self.solver = {}
         for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
-            self.config_dict['initial_assumption'] = init_assumption.build()
-            industrial = Fedot(**self.config_dict)
-            industrial.fit(input_data)
-            self.solver.update({model_name: industrial})
+            try:
+                self.config_dict['initial_assumption'] = init_assumption.build()
+                industrial = Fedot(**self.config_dict)
+                industrial.fit(input_data)
+                self.solver.update({model_name: industrial})
+            except Exception:
+                self.logger.info(f'Failed during fit stage - {model_name}')
 
     def _forecasting_exogenous_strategy(self, input_data):
         self.logger.info('TS exogenous forecasting algorithm was applied')
@@ -167,8 +170,8 @@ class IndustrialStrategy:
 
     def _forecasting_predict(self,
                              input_data,
-                             mode: str = 'labels'):
-        labels_dict = {k: v.predict(input_data, mode) for k, v in self.solver.items()}
+                             mode: str = True):
+        labels_dict = {k: v.predict(features=input_data, in_sample=mode) for k, v in self.solver.items()}
         return labels_dict
 
     def _kernel_predict(self,

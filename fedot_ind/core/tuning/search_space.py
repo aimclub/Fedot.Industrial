@@ -409,6 +409,11 @@ def get_industrial_search_space(self):
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [2, 800],
                 'type': 'continuous'}
+            ,
+            'trend': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [['n', 'c', 't', 'ct']],
+                'type': 'categorical'}
         },
         'ets': {
             'error': {
@@ -499,7 +504,7 @@ def get_industrial_search_space(self):
                 'sampling-scope': [['mae', 'mse']],
                 'type': 'categorical'},
         },
-        'topological_features': {
+        'topological_extractor': {
             'window_size_as_share': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.1, 0.9],

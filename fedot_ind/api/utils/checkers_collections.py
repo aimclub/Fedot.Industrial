@@ -102,7 +102,7 @@ class DataCheck:
                         TsForecastingParams(forecast_length=self.task_params['forecast_length']))
             if self.industrial_task_params is None:
                 features_array = features_array[:-self.task_params['forecast_length']]
-                target = features_array[-self.task_params['forecast_length']:]
+                target = features_array
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,
                 target_array=target,

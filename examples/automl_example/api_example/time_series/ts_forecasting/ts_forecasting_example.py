@@ -29,10 +29,10 @@ if __name__ == "__main__":
                       pop_size=10,
                       industrial_strategy='forecasting_assumptions',
                       n_jobs=2,
-                      logging_level=30)
+                      logging_level=40)
 
     for dataset_name in M4_FORECASTING_BENCH:
-        if dataset_name in industrial_loss and not dataset_name.__contains__('D'):
+        if dataset_name in industrial_loss and dataset_name.__contains__('W'):#
             print('Already evaluated, but with bad metrics')
             horizon = M4_FORECASTING_LENGTH[dataset_name[0]]
             api_config.update(task_params={'forecast_length': horizon})

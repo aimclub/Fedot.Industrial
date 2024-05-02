@@ -123,9 +123,9 @@ class FedotConverter:
                                prediction,
                                predict_data,
                                output_data_type):
-        if type(prediction) is OutputData:
+        if isinstance(prediction, OutputData):
             output_data = prediction
-        elif type(prediction) is list:
+        elif isinstance(prediction, list):
             output_data = prediction[0]
             target = NumpyConverter(
                 data=np.concatenate([p.target for p in prediction], axis=0)).convert_to_torch_format()
@@ -167,6 +167,9 @@ class FedotConverter:
                 array.reshape(array.shape[0], array.shape[1] * array.shape[2])
                 if array is not None and len(array.shape) > 2 else array
                 for array in [self.input_data.features, self.input_data.target]]
+            # if new_features.shape[0] != new_target.shape[0]:
+            #     min_samples = min(new_features.shape[0], new_target.shape[0])
+            #     new_features, new_target = new_features[:min_samples], new_target[:min_samples]
             input_data = InputData(idx=self.input_data.idx,
                                    features=new_features,
                                    target=new_target,

@@ -23,7 +23,32 @@ from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 from typing import Optional, Tuple, Union, Sequence, List, Dict
 from fedot.core.data.data import InputData, OutputData
 
+def split_time_series(data: InputData,
+                       validation_blocks: Optional[int] = None,
+                       **kwargs):
+    """ Split time series data into train and test parts
 
+    :param data: InputData object to split
+    :param validation_blocks: validation blocks are used for test
+    """
+
+    forecast_length = data.task.task_params.forecast_length
+    if validation_blocks is not None:
+        forecast_length *= validation_blocks
+
+    target_length = len(data.target)
+    train_data = _split_input_data_by_indexes(data, index=np.arange(0, target_length - forecast_length),)
+    test_data = _split_input_data_by_indexes(data, index=np.arange(target_length - forecast_length, target_length),
+                                             retain_first_target=True)
+
+    if validation_blocks is None:
+        # for in-sample
+        test_data.features = train_data.features
+    else:
+        # for out-of-sample
+        test_data.features = data.features
+
+    return train_data, test_data
 def split_any(data: InputData,
               split_ratio: float,
               shuffle: bool,
@@ -191,7 +216,6 @@ def transform_lagged(self, input_data: InputData):
     # Correct window size parameter
     self._check_and_correct_window_size(train_data.features, forecast_length)
     window_size = self.window_size
-    window_size = forecast_length
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(train_data,
                                                                                       forecast_length,
                                                                                       window_size)

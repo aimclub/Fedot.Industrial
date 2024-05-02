@@ -65,7 +65,7 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
         val = 1000000000
         for forecat_model, predict in labels.items():
             industrial.predicted_labels = predict
-
+            best_model = forecat_model
             current_metric = industrial.get_metrics(target=target,
                                                     metric_names=('smape', 'rmse', 'median_absolute_error'))
             current_rmse = current_metric['rmse'].values[0]

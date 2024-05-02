@@ -49,11 +49,6 @@ class IndustrialMutations:
         self.node_adapter = PipelineAdapter()
         self.task_type = Task(task_type)
         self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
-        # self.industrial_data_operations = [*list(AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value.keys()),
-        #                                    *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
-        #                                    *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
-        #                                    *list(AtomizedModel.NEURAL_MODEL.value.keys()),
-        #                                    *list(AtomizedModel.FORECASTING_MODELS.value.keys())]
         self.industrial_data_operations = default_industrial_availiable_operation(self.task_type.task_type.value)
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]

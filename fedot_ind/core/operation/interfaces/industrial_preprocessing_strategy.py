@@ -96,18 +96,22 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             if self.operation_condition_for_channel_independent.is_transform_input_fedot:
                 prediction = list(operation.transform(
                     data) for operation, data in zip(trained_operation, test_data))
-                prediction = [pred.predict if type(
-                    pred) is not np.ndarray else pred for pred in prediction]
+                if self.operation_type == 'lagged' or self.operation_type == 'sparse_lagged':
+                    prediction = prediction
+                else:
+                    prediction = [pred.predict if type(
+                        pred) is not np.ndarray else pred for pred in prediction]
             else:
                 prediction = list(
                     operation.transform(data.features) for operation, data in zip(trained_operation, test_data))
         elif self.operation_condition_for_channel_independent.have_predict_method:
             prediction = list(operation.predict(data)
                               for operation, data in zip(trained_operation, test_data))
-            prediction = [pred.predict for pred in prediction if type(
-                pred) is not np.array]
 
-        prediction = NumpyConverter(data=self.concat_func(prediction)).convert_to_torch_format()
+            prediction = [pred.predict for pred in prediction if type(pred) is not np.array]
+
+        if not isinstance(prediction[0], OutputData):
+            prediction = NumpyConverter(data=self.concat_func(prediction)).convert_to_torch_format()
         return prediction
 
     def _custom_fit(self, train_data):
@@ -161,23 +165,23 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         elif self.operation_condition.is_channel_independent_operation:
             # Create independent copy of model for each channel
-            if isinstance(operation_implementation, list):
+            if self.operation_condition.is_operation_is_list_container:
                 trained_operation = operation_implementation
             else:
                 trained_operation = [deepcopy(operation_implementation) if self.operation_condition.is_list_container
                                      else deepcopy(operation_implementation) for i in range(len(train_data))]
 
-            train_data = train_data if self.operation_condition.is_list_container else [
-                train_data]
+            train_data = train_data if self.operation_condition.is_list_container else [train_data]
 
             # Check if model have both or just one method (fit and transform_for_fit). For some model one of this method
             # could be not finished to use right now.
             if self.operation_condition.have_fit_method:
                 operation_implementation = [operation.fit(data) for operation, data in zip(
                     trained_operation, train_data)]
-                fit_method_is_not_implemented = operation_implementation[0] is None
+
                 if not type(operation_implementation[0]) == type(trained_operation[0]):
                     operation_implementation = trained_operation
+                fit_method_is_not_implemented = operation_implementation[0] is None
             elif self.operation_condition.have_transform_method:
                 operation_implementation = [operation.transform_for_fit(data) for operation, data in zip(
                     trained_operation, train_data)]
@@ -210,8 +214,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                                                  predict_data=predict_data,
                                                                  output_mode=output_mode)
         elif self.operation_condition.is_channel_independent_operation:
-            prediction = self.__operation_multidim_adapter(
-                trained_operation, predict_data)
+            prediction = self.__operation_multidim_adapter(trained_operation, predict_data)
         elif self.operation_condition.is_multi_dimensional_operation:
             if self.operation_condition.have_predict_for_fit_method:
                 prediction = trained_operation.predict_for_fit(
@@ -220,8 +223,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                 prediction = trained_operation.predict(
                     predict_data, output_mode)
 
-        converted = self._convert_to_output(
-            prediction, predict_data_copy, data_type, output_mode)
+        converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
