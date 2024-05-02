@@ -4,7 +4,7 @@ on: [push, pull_request, delete]
 
 jobs:
   call-nss-ops-mirror-workflow:
-    uses: ITMO-NSS-team/open-source-ops/.github/workflows/mirror-repo.yml@master
+    uses: ITMO-NSS-team/open-source-ops/.github/workflows/mirror-repo.yml@main
     with:
       GITLAB_URL: 'https://gitlab.actcognitive.org/itmo-nss-team/FEDOT-Industrial.git'
     secrets:
