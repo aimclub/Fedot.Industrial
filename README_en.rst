@@ -164,16 +164,14 @@ Useful tutorials and examples can be found in the `examples`_ folder.
 
    * - Topic
      - Example
-   * - Time series classification
-     - `Basic_TSC <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/basic_example.py>`_ and `Advanced_TSC <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_classification/advanced_example.py>`_
-   * - Time series regression
-     - `Basic_TSR <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/basic_example.py>`_, `Advanced_TSR <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/advanced_regression.py>`_, `Multi-TS <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_regression/multi_ts_example.py>`_
+   * - Classification
+     - `Basic <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/time_series/ts_classification/ts_classification_example.py>`_ , `Federated AutoML <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/advanced_example/specific_strategy/federated_automl_example.py>`_, `Proba Calibration <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/advanced_example/specific_strategy/probability_calibration_example.py>`_, `Multimodal <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/advanced_example/multimodal/multimodal.py>`_
+   * - Regression
+     - `Basic <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/time_series/ts_regression/ts_regression_example.py>`_
    * - Forecasting
-     - `SSA example <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/pipeline_example/time_series/ts_forecasting/ssa_forecasting.py>`_
-   * - Anomaly detection
-     - soon will be available
+     - `Basic <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/time_series/ts_forecasting/ts_forecasting_example.py>`_, `Exogen <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/time_series/ts_forecasting/ts_forecasting_exogen.py>`_, `With strategy <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/advanced_example/specific_strategy/forecasting_strategy_example.py>`_
    * - Model ensemble
-     - `Notebook <https://github.com/aimclub/Fedot.Industrial/blob/main/examples/notebook_examples/rank_ensemle.ipynb>`_
+     - `Kernel Ensemble <https://github.com/ITMO-NSS-team/Fedot.Industrial/blob/ad2ab68084c9b4a53accec4389edc2fd96fcb2fc/examples/automl_example/api_example/advanced_example/specific_strategy/kernel_ensemble_example.py>`_
 
 Benchmarking
 ============
