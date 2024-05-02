@@ -1,8 +1,8 @@
 from typing import Optional
 
+import numpy as np
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
-# from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
@@ -11,6 +11,8 @@ from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy impor
     (IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
     SKLEARN_REG_MODELS
+from scipy.stats import kurtosis
+from scipy.stats import skew
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -77,10 +79,7 @@ class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy)
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
         self.operation_impl = self._convert_to_operation(operation_type)
-        self.multi_dim_dispatcher = MultiDimPreprocessingStrategy(self.operation_impl,
-                                                                  operation_type,
-                                                                  params,
-                                                                  mode='one_dimensional')
+        self.multi_dim_dispatcher.mode = 'one_dimensional'
 
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
@@ -120,21 +119,32 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
 
 
 class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
-    """ Strategy for applying regression algorithms from Sklearn library """
+    """ Strategy for applying forecasting algorithms """
     _operations_by_types = FORECASTING_MODELS
 
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
+        self.multi_dim_dispatcher.mode = 'channel_independent'
+        self.multi_dim_dispatcher.concat_func = np.vstack
+        self.ensemble_func = np.sum
+
+    def fit(self, train_data: InputData):
+        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
+        return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data, mode=self.multi_dim_dispatcher.mode)
-        return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data, mode=self.multi_dim_dispatcher.mode)
+        predict_output = self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode='labels')
+        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        return predict_output
 
     def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
-        return self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data, output_mode='labels')
+        predict_output = self.multi_dim_dispatcher.predict_for_fit(trained_operation, predict_data,
+                                                                   output_mode='labels')
+        predict_output.predict = self.ensemble_func(predict_output.predict, axis=0)
+        return predict_output
 
 
 class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):

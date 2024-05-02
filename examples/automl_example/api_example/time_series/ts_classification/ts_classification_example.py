@@ -1,22 +1,18 @@
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.tools.loader import DataLoader
+from fedot_ind.tools.example_utils import industrial_common_modelling_loop
 
 if __name__ == "__main__":
-    dataset_name = 'Epilepsy'
-    industrial = FedotIndustrial(problem='classification',
-                                 metric='f1',
-                                 timeout=5,
-                                 n_jobs=2,
-                                 logging_level=20)
+    dataset_name = 'Handwriting'
+    finetune = False
+    metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
+    api_config = dict(problem='classification',
+                      metric='f1',
+                      timeout=2,
+                      pop_size=10,
+                      with_tunig=False,
+                      n_jobs=2,
+                      logging_level=20)
 
-    train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
-
-    model = industrial.fit(train_data)
-
-    labels = industrial.predict(test_data)
-    probs = industrial.predict_proba(test_data)
-    metrics = industrial.get_metrics(target=test_data[1],
-                                     rounding_order=3,
-                                     metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
-    # industrial.finetune(train_data)
+    model, labels, metrics = industrial_common_modelling_loop(api_config=api_config,
+                                                              dataset_name=dataset_name,
+                                                              finetune=finetune)
     print(metrics)

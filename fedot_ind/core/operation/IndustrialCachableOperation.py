@@ -29,6 +29,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                                    target='no_target',
                                    task='no_task',
                                    data_type=DataTypesEnum.table)
+
         if type(transformed_features) is OutputData:
             transformed_features = transformed_features.predict
 
@@ -56,6 +57,14 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
     def transform(self, input_data: InputData, use_cache: bool = False) -> OutputData:
         """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
+
+        Args:
+            input_data: InputData - data to transform
+            use_cache: bool - whether to use cache or not
+
+        Returns:
+            OutputData - transformed data
+
         """
         if use_cache:
             class_params = {k: v for k, v in self.__dict__.items() if k not in ['cacher',
@@ -79,7 +88,8 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             return predict
         else:
             transformed_features = self._transform(input_data)
-            predict = self._convert_to_fedot_datatype(input_data, transformed_features)
+            predict = self._convert_to_fedot_datatype(
+                input_data, transformed_features)
             return predict
 
     def _transform(self, input_data):

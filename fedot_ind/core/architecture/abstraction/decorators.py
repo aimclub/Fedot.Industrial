@@ -1,3 +1,5 @@
+from weakref import WeakValueDictionary
+
 from distributed import Client, LocalCluster
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -5,8 +7,6 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot_ind.core.architecture.preprocessing.data_convertor import CustomDatasetCLF, CustomDatasetTS, DataConverter, \
     TensorConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-
-from weakref import WeakValueDictionary
 
 
 def fedot_data_type(func):
@@ -106,8 +106,6 @@ class Singleton(type):
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            # This variable declaration is required to force a
-            # strong reference on the instance.
             instance = super(Singleton, cls).__call__(*args, **kwargs)
             cls._instances[cls] = instance
         return cls._instances[cls]

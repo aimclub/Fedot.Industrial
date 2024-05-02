@@ -91,7 +91,7 @@ class TimeSeriesDatasetsGenerator:
 
     def create_features(self, n_samples, ts_length, multivariate):
         features = pd.DataFrame(np.random.random((n_samples, ts_length)))
-        # TODO: add option to select dimentions
+        # TODO: add option to select dimensions
         if multivariate:
-            features = features.apply(lambda x: pd.Series([x, x, x]), axis=1)
+            features = np.random.rand(n_samples, 3, ts_length)
         return features

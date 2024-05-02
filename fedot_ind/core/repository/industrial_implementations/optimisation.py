@@ -5,11 +5,14 @@ from math import ceil
 from random import choice, sample
 from typing import Sequence
 from typing import Tuple
-
+from fedot.core.pipelines.node import PipelineNode
+from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.operations.atomized_model import AtomizedModel
 from fedot.core.composer.gp_composer.specific_operators import boosting_mutation, parameter_change_mutation
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.operation_types_repository import get_operations_for_task
 from fedot.core.repository.tasks import Task
 from fedot.core.repository.tasks import TaskTypesEnum
@@ -29,8 +32,10 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
-
-from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED
+from fedot.core.operations.atomized_model import AtomizedModel as Atom
+from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
+from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED, \
+    default_industrial_availiable_operation
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -43,13 +48,12 @@ class IndustrialMutations:
     def __init__(self, task_type):
         self.node_adapter = PipelineAdapter()
         self.task_type = Task(task_type)
-        self.industrial_data_operations = [*list(AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value.keys()),
-                                           *list(AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value.keys()),
-                                           *list(AtomizedModel.FEDOT_PREPROC_MODEL.value.keys()),
-                                           *list(AtomizedModel.NEURAL_MODEL.value.keys())]
+        self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
+        self.industrial_data_operations = default_industrial_availiable_operation(self.task_type.task_type.value)
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
+        self.excluded = self.excluded + self.excluded_mutation
         self.industrial_data_operations = [operation for operation in self.industrial_data_operations if operation
                                            not in self.excluded]
 
@@ -146,7 +150,7 @@ class IndustrialMutations:
 
         while True:
             new_node = node_factory.get_node(is_primary=False)
-            if new_node.name not in self.industrial_data_operations:
+            if new_node.name in self.industrial_data_operations:
                 break
         if not new_node:
             return graph
@@ -262,9 +266,9 @@ class IndustrialMutations:
             task=self.task_type, mode='data_operation', tags=["basis"])
         extractors = get_operations_for_task(
             task=self.task_type, mode='data_operation', tags=["extractor"])
-        extractors = [x for x in extractors if x != 'dimension_reduction']
+        extractors = [x for x in extractors if x in self.industrial_data_operations]
         models = get_operations_for_task(task=self.task_type, mode='model')
-        models = [x for x in models if x != 'fedot_cls']
+        models = [x for x in models if x not in self.excluded_mutation]
         basis_model = PipelineNode(choice(basis_models))
         extractor_model = PipelineNode(
             choice(extractors), nodes_from=[basis_model])
@@ -278,6 +282,16 @@ class IndustrialMutations:
         pipeline.nodes.append(extractor_model)
 
         return pipeline
+
+    def add_lagged(self, pipeline: Pipeline, **kwargs) -> Pipeline:
+        lagged = ['lagged', 'ridge']
+        current_operation = list(reversed([x.name for x in pipeline.nodes]))
+        if 'lagged' in current_operation:
+            return pipeline
+        else:
+            pipeline = PipelineBuilder().add_sequence(*lagged, branch_idx=0).\
+                add_sequence(*current_operation, branch_idx=1).join_branches('ridge').build()
+            return pipeline
 
 
 def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Sequence[MutationTypesEnum]:
@@ -293,6 +307,9 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Seque
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
         mutations.append(boosting_mutation)
+        #mutations.append(ind_mutations.add_lagged)
+        mutations.remove(ind_mutations.add_preprocessing)
+        mutations.remove(ind_mutations.single_add)
     # TODO remove workaround after validation fix
     if task_type is not TaskTypesEnum.ts_forecasting:
         mutations.append(MutationTypesEnum.single_edge)
@@ -534,17 +551,6 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
     return True
 
 
-def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> CrossoverCallable:
+def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> None:
     ind_crossover = IndustrialCrossover()
-    crossovers = {
-        CrossoverTypesEnum.subtree: ind_crossover.subtree_crossover,
-        CrossoverTypesEnum.one_point: ind_crossover.one_point_crossover,
-        CrossoverTypesEnum.exchange_edges: ind_crossover.exchange_edges_crossover,
-        CrossoverTypesEnum.exchange_parents_one: ind_crossover.exchange_parents_one_crossover,
-        CrossoverTypesEnum.exchange_parents_both: ind_crossover.exchange_parents_both_crossover
-    }
-    if crossover_type in crossovers:
-        return crossovers[crossover_type]
-    else:
-        raise ValueError(
-            f'Required crossover type is not found: {crossover_type}')
+    return None

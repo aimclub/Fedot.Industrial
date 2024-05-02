@@ -1,11 +1,11 @@
-name: Poetry Unit Tests
+name: Unit Tests
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
-#  push:
-#    branches: [ main , release ]
-#  pull_request:
-#    branches: [ main , release ]
 
 jobs:
   test:

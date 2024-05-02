@@ -130,9 +130,9 @@
 			"tasks": "[TaskTypesEnum.classification]"
 		},
     "industrial_preprocessing": {
-      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
-      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
-      "output_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression, TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table, DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.image, DataTypesEnum.table, DataTypesEnum.ts]",
       "accepted_node_types": [
         "any"
       ],
@@ -169,7 +169,9 @@
         "fast_train"
       ],
       "tags": [
-        "basis"
+        "basis",
+		  "non_lagged",
+		  "ts_to_ts"
       ]
     },
     "wavelet_basis": {
@@ -178,7 +180,7 @@
         "fast_train"
       ],
       "tags": [
-        "basis"
+        "basis","non_applicable_for_ts"
       ]
     },
     "fourier_basis": {
@@ -187,7 +189,7 @@
         "fast_train"
       ],
       "tags": [
-        "basis"
+        "basis","non_applicable_for_ts"
       ]
     },
     "quantile_extractor": {
@@ -199,16 +201,25 @@
         "extractor"
       ]
     },
+    "riemann_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor","non_applicable_for_ts"
+      ]
+    },
     "recurrence_extractor": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
       "tags": [
-        "extractor"
+        "extractor","non_applicable_for_ts"
       ]
 	},
-      "topological_features": {
+      "topological_extractor": {
         "meta": "custom_preprocessing",
         "presets": [
           "fast_train"
@@ -222,16 +233,25 @@
         "fast_train"
       ],
       "tags": [
-        "extractor"
+        "extractor","non_applicable_for_ts"
       ]
     },
-    "dimension_reduction": {
+    "chronos_extractor": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
       ],
       "tags": [
-        "extractor"
+        "extractor","non_applicable_for_ts"
+      ]
+    },
+    "channel_filtration": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor","non_applicable_for_ts"
       ]
     },
     "cat_features": {
@@ -240,7 +260,7 @@
         "fast_train"
       ],
       "tags": [
-        "cat_features"
+        "cat_features","non_applicable_for_ts"
       ]
     },
     "data_source_img": {

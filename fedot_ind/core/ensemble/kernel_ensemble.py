@@ -1,108 +1,163 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from copy import deepcopy
+from functools import partial
+from typing import Optional, Any
+
 import pandas as pd
-from MKLpy.algorithms import FHeuristic, RMKL
 from MKLpy.callbacks import EarlyStopping
 from MKLpy.scheduler import ReduceOnWorsening
+from fedot.core.data.data import InputData
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from scipy.spatial.distance import pdist, squareform
+from sklearn.svm import SVC
 
-from fedot_ind.core.architecture.pipelines.classification import ClassificationPipelines
-from fedot_ind.core.architecture.settings.pipeline_factory import KernelFeatureGenerator
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.models.base_extractor import BaseExtractor
+from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
+    KERNEL_BASELINE_NODE_LIST
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from itertools import chain
 
 
-class KernelEnsembler(ClassificationPipelines):
-    def __init__(self, train_data, test_data):
-        super().__init__(train_data, test_data)
-        self.n_classes = np.unique(self.train_target)
+class KernelEnsembler(BaseExtractor):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.distance_metric = params.get('distance_metric', 'cosine')
+        self.kernel_strategy = params.get('kernel_strategy ', 'one_step_cka')
+        self.feature_extractor = params.get('feature_extractor', list(
+            KERNEL_BASELINE_FEATURE_GENERATORS.keys()))
+        self._mapping_dict = {k: v for k,
+                              v in enumerate(self.feature_extractor)}
+        self.lr = params.get('learning_rate', 0.1)
+        self.patience = params.get('patience', 5)
+        self.epoch = params.get('epoch', 500)
+        self.optimisation_metric = params.get('optimisation_metric', 'roc_auc')
+
+        self.algo_impl_dict = {'one_step': self.__one_stage_kernel,
+                               'two_step': self.__two_stage_kernel
+                               }
+
+        self.repo = IndustrialModels().setup_repository()
         self.feature_matrix_train = []
         self.feature_matrix_test = []
+
+    def __convert_weights(self, kernel_model):
+        kernels_weights_by_class = []
+        if not self.multiclass:
+            kernels_weights_by_class.append(abs(
+                kernel_model.solution.weights.cpu().detach().numpy()))
+        else:
+            for n_class in self.n_classes:
+                kernels_weights_by_class.append(
+                    abs(kernel_model.solution[n_class].weights.cpu().detach().numpy()))
+        kernel_df = pd.DataFrame(kernels_weights_by_class)
+        # kernel_df.columns = self.feature_extractor
+        return kernel_df
+
+    def __multiclass_check(self, target):
+        self.n_classes = np.unique(target)
         if self.n_classes.shape[0] > 2:
             self.multiclass_strategy = 'ova'
             self.multiclass = True
         else:
             self.multiclass_strategy = 'ovr'
             self.multiclass = False
-        self.kernel_params_list = {
-            i.name: i.value for i in KernelFeatureGenerator}
 
-    def __call__(self, pipeline_type: str = 'one_stage_kernel'):
-        pipeline_dict = {'one_stage_kernel': self.__one_stage_kernel,
-                         'two_stage_kernel': self.__two_stage_kernel
-                         }
-        return pipeline_dict[pipeline_type]
+    def _select_top_feature_generators(self, kernel_weight_matrix):
+        self.all_classes = kernel_weight_matrix.index.values.tolist()
+        kernel_weight_matrix['best_generator_by_class'] = kernel_weight_matrix.apply(
+            lambda row: self._mapping_dict[np.where(np.isclose(row.values,
+                                                               max(row)))[0][0]], axis=1)
+        top_n_generators = kernel_weight_matrix['best_generator_by_class'].value_counts(
+        ).head(2).index.values.tolist()
 
-    def __convert_weights(self, kernel_model):
-        kernels_weights_by_class = []
-        if not self.multiclass:
-            kernels_weights_by_class.append(
-                kernel_model.solution.weights.cpu().detach().numpy())
+        self.classes_described_by_generator = {gen: kernel_weight_matrix[kernel_weight_matrix['best_generator_by_class']
+                                                                         == gen].index.values.tolist()
+                                               for gen in top_n_generators}
+        self.classes_misses_by_generator = {gen: [i for i in self.all_classes if
+                                                  i not in self.classes_described_by_generator[gen]]
+                                            for gen in top_n_generators}
+        self.mapper_dict = {gen: {k: v for k, v in
+                                  zip(self.classes_described_by_generator[gen],
+                                      np.arange(0, len(self.classes_described_by_generator[gen])+1))} for gen in
+                            top_n_generators}
+        return top_n_generators, self.classes_described_by_generator
+
+    def _map_target_for_generator(self, entry, mapper_dict):
+        return mapper_dict[entry] if entry in mapper_dict else entry
+
+    def _create_kernel_ensemble(self, input_data, top_n_generators, classes_described_by_generator):
+        kernel_ensemble = {}
+        kernel_data = {}
+        for i, gen in enumerate(top_n_generators):
+            train_fold = deepcopy(input_data)
+            described_idx, _ = np.where(
+                train_fold.target == classes_described_by_generator[gen])
+            not_described_idx = [i for i in np.arange(
+                0, train_fold.target.shape[0]) if i not in described_idx]
+            mp = np.vectorize(self._map_target_for_generator)
+            train_fold.target = mp(
+                entry=train_fold.target, mapper_dict=self.mapper_dict[gen])
+            train_fold.target[not_described_idx] = max(
+                list(self.mapper_dict[gen].values()))+1
+            basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
+            if basis is None:
+                kernel_ensemble.update(
+                    {gen: PipelineBuilder().add_node(generator).add_node('xgboost').build()})
+            else:
+                kernel_ensemble.update(
+                    {gen: PipelineBuilder().add_node(basis).add_node(generator).add_node('xgboost').build()})
+            kernel_data.update({gen: train_fold})
+        return kernel_ensemble, kernel_data
+
+    def _transform(self, input_data: InputData) -> np.array:
+        """
+        Method for feature generation for all series
+        """
+        self.__multiclass_check(input_data.target)
+        grammian_list = self.generate_grammian(input_data)
+        if self.kernel_strategy.__contains__('one'):
+            kernel_weight_matrix = self.__one_stage_kernel(
+                grammian_list, input_data.target)
         else:
-            for n_class in self.n_classes:
-                kernels_weights_by_class.append(
-                    kernel_model.solution[n_class].weights.cpu().detach().numpy())
-        return pd.DataFrame(kernels_weights_by_class)
+            kernel_weight_matrix = self.__two_stage_kernel(
+                grammian_list, input_data.target)
+        top_n_generators, classes_described_by_generator = self._select_top_feature_generators(
+            kernel_weight_matrix)
+        self.predict = self._create_kernel_ensemble(
+            input_data, top_n_generators, classes_described_by_generator)
+        return self.predict
 
-    def transform(self, kernel_params_dict: dict = None, feature_generator: str = None):
-
-        if kernel_params_dict is None:
-            kernel_params_dict = self.kernel_params_list
-        if feature_generator is not None:
-            kernel_params_dict = {
-                feature_generator: kernel_params_dict[feature_generator]}
-
-        for feature_generator, kernel_params in kernel_params_dict.items():
-            for specified_params in kernel_params:
-                feature_extractor, classificator, lambda_func_dict = self._init_pipeline_nodes(
-                    **specified_params)
-
-                self.feature_matrix_train.append(feature_extractor.extract_features(
-                    self.train_features, self.train_target))
-                self.feature_matrix_test.append(
-                    feature_extractor.extract_features(self.test_features, self.test_target))
-        return
-
-    def __one_stage_kernel(self, kernel_params_dict: dict = None, feature_generator: str = None):
-        self.transform(kernel_params_dict, feature_generator)
-        KLtr = [squareform(pdist(X=feature, metric='cosine'))
+    def generate_grammian(self, input_data) -> list[Any]:
+        for model in self.feature_extractor:
+            model = KERNEL_BASELINE_FEATURE_GENERATORS[model].build()
+            self.feature_matrix_train.append(model.fit(input_data).predict)
+        self.feature_matrix_train = [x.reshape(x.shape[0], x.shape[1] * x.shape[2])
+                                     for x in self.feature_matrix_train]
+        KLtr = [squareform(pdist(X=feature, metric=self.distance_metric))
                 for feature in self.feature_matrix_train]
-        # mkl = CKA(multiclass_strategy=self.multiclass_strategy).fit(KLtr, self.train_target)
-        mkl = FHeuristic(multiclass_strategy=self.multiclass_strategy).fit(
-            KLtr, self.train_target)
-        # mkl = EasyMKL(multiclass_strategy=self.multiclass_strategy).fit(KLtr, self.train_target)
+        return KLtr
+
+    def __one_stage_kernel(self, grammian_list, target):
+        mkl = KERNEL_ALGO[self.kernel_strategy](
+            multiclass_strategy=self.multiclass_strategy).fit(grammian_list, target)
         kernel_weight_matrix = self.__convert_weights(mkl)
         return kernel_weight_matrix
 
-    def __two_stage_kernel(self, kernel_params_dict: dict = None, feature_generator: str = None):
-        self.transform(kernel_params_dict, feature_generator)
-        KLtr = [squareform(pdist(X=feature, metric='cosine'))
-                for feature in self.feature_matrix_train]
+    def __two_stage_kernel(self, grammian_list, target):
         earlystop = EarlyStopping(
-            KLtr,
-            self.train_target,  # validation data, KL is a validation kernels list
-            patience=5,  # max number of acceptable negative steps
-            cooldown=1,  # how ofter we run a measurement, 1 means every optimization step
-            metric='roc_auc',  # the metric we monitor
+            grammian_list,
+            target,  # validation data, KL is a validation kernels list
+            patience=self.patience,  # max number of acceptable negative steps
+            cooldown=5,  # how ofter we run a measurement, 1 means every optimization step
+            metric=self.optimisation_metric,  # the metric we monitor
         )
 
-        mkl = RMKL(multiclass_strategy='ova',
-                   max_iter=1000,
-                   learning_rate=.1,
-                   callbacks=[earlystop],
-                   scheduler=ReduceOnWorsening()).fit(KLtr, self.train_target)
+        mkl = KERNEL_ALGO[self.kernel_strategy](multiclass_strategy='ovr',
+                                                max_iter=self.epoch,
+                                                learner=SVC(C=1000),
+                                                learning_rate=self.lr,
+                                                callbacks=[earlystop],
+                                                scheduler=ReduceOnWorsening()).fit(grammian_list, target)
         kernel_weight_matrix = self.__convert_weights(mkl)
         return kernel_weight_matrix
-
-
-def init_kernel_ensemble(train_data,
-                         test_data,
-                         strategy: str = 'quantile',
-                         kernel_list: dict = None):
-    kernels = KernelEnsembler(train_data=train_data, test_data=test_data)
-    set_of_fg = kernels('one_stage_kernel')(kernel_params_dict=kernel_list)
-
-    train_feats = kernels.feature_matrix_train
-    train_target = kernels.train_target
-
-    test_feats = kernels.feature_matrix_test
-    test_target = kernels.test_target
-
-    return set_of_fg, train_feats, train_target, test_feats, test_target

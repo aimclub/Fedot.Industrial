@@ -7,16 +7,17 @@ from pathlib import Path
 
 import chardet
 import pandas as pd
+from datasets import load_dataset
 from datasetsforecast.m3 import M3
 # from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
-from sktime.datasets._data_io import load_from_tsfile_to_dataframe
+from sktime.datasets import load_from_tsfile_to_dataframe
 from tqdm import tqdm
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.repository.constanst_repository import M4_PREFIX
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.repository.constanst_repository import M4_PREFIX
 
 
 class DataLoader:
@@ -39,11 +40,12 @@ class DataLoader:
         self.forecast_data_source = {'M3': M3.load,
                                      # 'M4': M4.load,
                                      'M4': self.local_m4_load,
-                                     'M5': M5.load
+                                     'M5': M5.load,
+                                     'monash_tsf': load_dataset
                                      }
 
-    def load_forecast_data(self):
-        loader = self.forecast_data_source['M4']
+    def load_forecast_data(self, folder=None):
+        loader = self.forecast_data_source[folder]
         group_df = loader(directory='data',
                           group=f'{M4_PREFIX[self.dataset_name[0]]}')
         # 'M3_Monthly_M10'
@@ -51,9 +53,9 @@ class DataLoader:
         del ts_df['label']
         ts_df = ts_df.set_index(
             'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
-        return ts_df
+        return ts_df, None
 
-    def local_m4_load(self, directory, group):
+    def local_m4_load(self, directory='data', group=None):
         path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
         for result_cvs in os.listdir(path_to_result):
             if result_cvs.__contains__(group):
@@ -91,17 +93,30 @@ class DataLoader:
                 zipfile.ZipFile(
                     download_path + filename).extractall(temp_data_path + dataset_name)
             except zipfile.BadZipFile:
-                self.logger.error(
+                raise FileNotFoundError(
                     f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
-                return None, None
 
             self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
             train_data, test_data = self.extract_data(
                 dataset_name, temp_data_path)
 
             shutil.rmtree(cache_path)
-            return train_data, test_data
+
+            # if type(train_data[0])
+
+            # return train_data, test_data
         self.logger.info('Data read successfully from local folder')
+
+        if isinstance(train_data[0].iloc[0, 0], pd.Series):
+            def convert(arr):
+                """Transform pd.Series values to np.ndarray"""
+                return np.array([d.values for d in arr])
+
+            train_data = (np.apply_along_axis(
+                convert, 1, train_data[0]), train_data[1])
+            test_data = (np.apply_along_axis(
+                convert, 1, test_data[0]), test_data[1])
+
         return train_data, test_data
 
     def read_train_test_files(self, data_path, dataset_name, shuffle=True):
@@ -138,6 +153,11 @@ class DataLoader:
             x_train, y_train, x_test, y_test = self.read_arff_files(
                 dataset_name, data_path)
             is_multi = True
+
+        elif os.path.isfile(file_path + '.csv'):
+            self.logger.info(
+                f'Reading data from {data_path + "/" + dataset_name}')
+            df = pd.read_csv(file_path + '.csv')
 
         else:
             self.logger.error(

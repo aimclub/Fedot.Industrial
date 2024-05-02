@@ -1,5 +1,3 @@
-from typing import Optional, TypeVar
-
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -8,6 +6,7 @@ from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
+from typing import Optional, TypeVar
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -37,7 +36,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         self.low_rank_approximation = params.get(
             'low_rank_approximation', True)
         self.tensor_approximation = params.get('tensor_approximation', False)
-        self.rank_regularization = params.get('rank_regularization', 'hard_thresholding')
+        self.rank_regularization = params.get(
+            'rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = []
         self.SV_threshold = None
@@ -54,7 +54,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         if len(number_of_dim) == 1:
-            predict = [self._transform_one_sample(signal) for signal in features[:, 0, :]]
+            predict = [self._transform_one_sample(
+                signal) for signal in features[:, 0, :]]
             predict = [[np.array(v) if len(v) > 1 else v[0] for v in predict]]
         else:
             for dimension in number_of_dim:
@@ -157,10 +158,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
         number_of_dim = list(range(data.shape[1]))
         if len(number_of_dim) == 1:
-            try:
-                svd_numbers = [self._transform_one_sample(signal, svd_flag=True) for signal in data[:, 0, :]]
-            except Exception:
-                _ = 1
+            svd_numbers = [self._transform_one_sample(
+                signal, svd_flag=True) for signal in data[:, 0, :]]
+            if len(svd_numbers) == 0:
+                raise ValueError('Error in spectrum calculation')
         else:
             for dimension in number_of_dim:
                 dimension_rank = []

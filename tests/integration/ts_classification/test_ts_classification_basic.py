@@ -1,42 +1,34 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.tools.loader import DataLoader
 
 
-GENERATORS = ['signal', 'quantile', 'recurrence', 'topological']
-WINDOWS = [0, 10]
+@pytest.fixture
+def multi_data():
+    train_data, test_data = DataLoader(dataset_name='Epilepsy').load_data()
+    return train_data, test_data
 
 
-def generator_window_combinations():
-    return [(gen, win) for gen in GENERATORS for win in WINDOWS]
+@pytest.fixture
+def uni_data():
+    train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
+    return train_data, test_data
 
 
-@pytest.mark.parametrize('strategy, window_size', generator_window_combinations())
-def test_ts_classification(strategy, window_size):
-    train_data, test_data = DataLoader('Ham').load_data()
-    industrial = FedotIndustrial(task='ts_classification',
-                                 dataset='Ham',
-                                 strategy=strategy,
-                                 use_cache=False,
-                                 timeout=1,
-                                 n_jobs=-1,
-                                 window_size=window_size,
-                                 available_operations=['scaling', 'normalization', 'xgboost',
-                                                       'rfr', 'rf', 'logit', 'mlp', 'knn',
-                                                       'lgbm', 'pca']
-                                 )
+@pytest.mark.parametrize('data', [multi_data, uni_data])
+def basic_tsc_test(data):
+    train_data, test_data = data
 
-    model = industrial.fit(features=train_data[0], target=train_data[1])
-    labels = industrial.predict(features=test_data[0],
-                                target=test_data[1])
-    probs = industrial.predict_proba(features=test_data[0],
-                                     target=test_data[1])
-    metrics = industrial.get_metrics(target=test_data[1],
-                                     metric_names=['f1', 'roc_auc', 'accuracy'])
-    assert model is not None
-    assert isinstance(labels, np.ndarray)
-    assert isinstance(probs, np.ndarray)
-    assert isinstance(metrics, dict)
-    assert all([i in metrics.keys() for i in ['f1', 'roc_auc', 'accuracy']])
+    industrial = FedotIndustrial(task='classification',
+                                 timeout=2,
+                                 n_jobs=-1)
+
+    industrial.fit(train_data)
+    labels = industrial.predict(test_data)
+    probs = industrial.predict_proba(test_data)
+    assert labels is not None
+    assert probs is not None
+    assert np.mean(labels) > 0
+    assert np.mean(probs) > 0

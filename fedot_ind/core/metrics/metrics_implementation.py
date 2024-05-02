@@ -9,6 +9,9 @@ from sklearn.metrics import (accuracy_score, f1_score,
 from sklearn.metrics import d2_absolute_error_score, explained_variance_score, max_error, median_absolute_error
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
+
+import numpy as np
 
 
 class ParetoMetrics:
@@ -39,7 +42,8 @@ class QualityMetric:
     def __init__(self, target,
                  predicted_labels,
                  predicted_probs=None,
-                 metric_list: list = ('f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                 metric_list: list = (
+                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         if len(predicted_labels.shape) >= 2:
@@ -167,6 +171,14 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
+def mase(A, F, y_train):
+    return mean_absolute_scaled_error(A, F, y_train=y_train)
+
+
+def smape(a, f, _=None):
+    return 1 / len(a) * np.sum(2 * np.abs(f - a) / (np.abs(a) + np.abs(f)) * 100)
+
+
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
@@ -187,6 +199,31 @@ def calculate_regression_metric(target,
                    'explained_variance_score': explained_variance_score,
                    'max_error': max_error,
                    'd2_absolute_error_score': d2_absolute_error_score}
+
+    df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
+                       if name in metric_names},
+                      index=[0])
+    return df.round(rounding_order)
+
+
+def calculate_forecasting_metric(target,
+                                 labels,
+                                 rounding_order=3,
+                                 metric_names=('smape', 'rmse',
+                                               'median_absolute_error'),
+                                 **kwargs):
+    target = target.astype(float)
+
+    def rmse(y_true, y_pred):
+        return np.sqrt(mean_squared_error(y_true, y_pred))
+
+    metric_dict = {
+        'rmse': rmse,
+        'mae': mean_absolute_error,
+        'median_absolute_error': median_absolute_error,
+        'smape': smape,
+        'mase': mase
+    }
 
     df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
                        if name in metric_names},
@@ -216,23 +253,37 @@ def kl_divergence(solution: pd.DataFrame,
                   epsilon: float = 0.001,
                   micro_average: bool = False,
                   sample_weights: pd.Series = None):
-    # Overwrite solution for convenience
+    """
+    Calculates the Kullback-Leibler (KL) divergence between the solution and submission dataframes.
+
+    The KL divergence is a measure of how one probability distribution diverges from a second, expected
+    probability distribution.
+
+    Args:
+        solution (pd.DataFrame): The expected probability distribution.
+        submission (pd.DataFrame): The probability distribution to compare.
+        epsilon (float, optional): A small value to avoid division by zero or log of zero. Defaults to 0.001.
+        micro_average (bool, optional): If True, compute the micro-average (i.e., the total sum for all classes) of
+                                        the KL divergence. If False, compute the macro-average (i.e., the unweighted
+                                        mean for all classes). Defaults to False.
+        sample_weights (pd.Series, optional): An array of weights that are assigned to individual samples.
+                                              If None, then samples are equally weighted. Defaults to None.
+
+    Returns:
+        float: The average KL divergence between the solution and submission dataframes.
+
+    """
+
     for col in solution.columns:
-        # Prevent issue with populating int columns with floats
         if not pd.api.types.is_float_dtype(solution[col]):
             solution[col] = solution[col].astype(float)
 
-        # Clip both the min and max following Kaggle conventions for related metrics like log loss
-        # Clipping the max avoids cases where the loss would be infinite or undefined, clipping the min
-        # prevents users from playing games with the 20th decimal place of predictions.
         submission[col] = np.clip(submission[col], epsilon, 1 - epsilon)
 
         y_nonzero_indices = solution[col] != 0
         solution[col] = solution[col].astype(float)
         solution.loc[y_nonzero_indices, col] = solution.loc[y_nonzero_indices, col] * np.log(
             solution.loc[y_nonzero_indices, col] / submission.loc[y_nonzero_indices, col])
-        # Set the loss equal to zero where y_true equals zero following the scipy convention:
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.rel_entr.html#scipy.special.rel_entr
         solution.loc[~y_nonzero_indices, col] = 0
 
     if micro_average:

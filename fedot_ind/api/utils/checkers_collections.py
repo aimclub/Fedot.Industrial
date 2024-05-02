@@ -4,10 +4,11 @@ from typing import Union
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
 from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
-from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
 
@@ -30,9 +31,12 @@ class DataCheck:
     def __init__(self,
                  input_data: Union[tuple, InputData] = None,
                  task: str = None,
-                 task_params=None):
+                 task_params=None,
+                 industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.industrial_task_params = industrial_task_params
         self.input_data = input_data
+        self.data_convertor = DataConverter(data=self.input_data)
         self.task = task
         self.task_params = task_params
         self.task_dict = FEDOT_TASK
@@ -47,7 +51,7 @@ class DataCheck:
         else:
             features = X
 
-        if type(y) is pd.DataFrame or type(y) is pd.Series:
+        if isinstance(y, (pd.DataFrame, pd.Series)):
             y = y.values
         if multi_target:
             target = y
@@ -69,34 +73,44 @@ class DataCheck:
             ValueError: If the input data format is invalid.
 
         """
-        is_multivariate_data = False
-        if isinstance(self.input_data, tuple):
-            X, y = self.input_data[0], self.input_data[1]
-            features, is_multivariate_data, target = self.__check_features_and_target(X, y)
+        # is_multivariate_data = False
+
+        if self.data_convertor.is_tuple:
+            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data[0],
+                                                                                      self.input_data[1])
+        else:
+            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data.features,
+                                                                                      self.input_data.target)
 
         if self.label_encoder is None and self.task == 'classification':
-            if type(y[0]) is np.str_:
+            # x, y = self.input_data.features, self.input_data.target
+            if type(target[0]) is np.str_:
                 self.label_encoder = LabelEncoder()
                 target = self.label_encoder.fit_transform(target)
-            else:
-                self.label_encoder = self.label_encoder
+            # else:
+            #     self.label_encoder = self.label_encoder
+
         if is_multivariate_data:
-            self.input_data = InputData(idx=np.arange(len(X)),
+            self.input_data = InputData(idx=np.arange(len(features)),
                                         features=features,
                                         target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
         elif self.task == 'ts_forecasting':
-            if type(self.input_data) is pd.DataFrame:
-                features_array = np.array(self.input_data.values)
-            ts_task = self.task_dict[self.task]
-            ts_task.task_params = self.task_params
+            features_array = self.data_convertor.convert_to_1d_array()
+            task = Task(TaskTypesEnum.ts_forecasting,
+                        TsForecastingParams(forecast_length=self.task_params['forecast_length']))
+            if self.industrial_task_params is None:
+                features_array = features_array[:-self.task_params['forecast_length']]
+                target = features_array
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,
-                task=ts_task)
+                target_array=target,
+                task=task
+            )
         else:
-            self.input_data = InputData(idx=np.arange(len(X)),
-                                        features=X,
+            self.input_data = InputData(idx=np.arange(len(features)),
+                                        features=features,
                                         target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
@@ -112,8 +126,9 @@ class DataCheck:
             np.isnan(self.input_data.features), 0, self.input_data.features)
         self.input_data.features = np.where(
             np.isinf(self.input_data.features), 0, self.input_data.features)
-        self.input_data.features = NumpyConverter(
-            data=self.input_data.features).convert_to_torch_format()
+        if self.task != 'ts_forecasting':
+            self.input_data.features = NumpyConverter(
+                data=self.input_data.features).convert_to_torch_format()
 
     def _check_input_data_target(self):
         """Checks and preprocesses the features in the input data.

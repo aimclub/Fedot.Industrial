@@ -1,20 +1,21 @@
 import math
 from enum import Enum
-from functools import partial
 from multiprocessing import cpu_count
 
 import numpy as np
 import pywt
+from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-from golem.core.tuning.iopt_tuner import IOptTuner
 from golem.core.tuning.optuna_tuner import OptunaTuner
+from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
+    minkowski
 from torch import nn
-from golem.core.tuning.simultaneous import SimultaneousTuner
-from golem.core.tuning.sequential import SequentialTuner
-from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric
+
+from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
+    calculate_forecasting_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
 from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
@@ -45,6 +46,31 @@ class ComputationalConstant(Enum):
     FEDOT_WORKER_NUM = 5
     FEDOT_WORKER_TIMEOUT_PARTITION = 4
     PATIENCE_FOR_EARLY_STOP = 15
+
+
+class KernelsConstant(Enum):
+    KERNEL_ALGO = {
+        'one_step_heur': FHeuristic,
+        'two_step_rmkl': RMKL,
+        'two_step_memo': MEMO,
+        'one_step_cka': CKA,
+        'one_step_pwmk': PWMK,
+    }
+    KERNEL_BASELINE_FEATURE_GENERATORS = {
+        # 'minirocket_extractor': PipelineBuilder().add_node('minirocket_extractor'),
+        'quantile_extractor': PipelineBuilder().add_node('quantile_extractor'),
+        'topological_extractor': PipelineBuilder().add_node('topological_extractor'),
+        'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis').add_node('quantile_extractor'),
+        'fourier_extractor': PipelineBuilder().add_node('fourier_basis').add_node('quantile_extractor'),
+        'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
+
+    KERNEL_BASELINE_NODE_LIST = {
+        # 'minirocket_extractor': (None, 'minirocket_extractor'),
+        'quantile_extractor': (None,  'quantile_extractor'),
+        'topological_extractor': (None, 'topological_extractor'),
+        'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
+        'fourier_extractor': ('fourier_basis', 'quantile_extractor'),
+        'eigen_extractor': ('eigen_basis', 'quantile_extractor')}
 
 
 class DataTypeConstant(Enum):
@@ -88,6 +114,16 @@ class FeatureConstant(Enum):
         'petrosian_fractal_dimension_': pfd
     }
 
+    METRICS_DICT = {'euclidean': euclidean,
+                    'cosine': cosine,
+                    'cityblock': cityblock,
+                    'correlation': correlation,
+                    'chebyshev': chebyshev,
+                    # 'jensenshannon': jensenshannon,
+                    # 'mahalanobis': mahalanobis,
+                    'minkowski': minkowski
+                    }
+
     PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
                                     'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
                                     'RelevantHolesNumber': RelevantHolesNumber(),
@@ -118,39 +154,33 @@ class FedotOperationConstant(Enum):
                   'ts_forecasting': Task(TaskTypesEnum.ts_forecasting,
                                          TsForecastingParams(forecast_length=1))}
     EXCLUDED_OPERATION_MUTATION = {
-        'regression': ['one_hot_encoding',
-                       'label_encoding',
-                       'isolation_forest_class',
-                       'tst_model',
-                       'omniscale_model',
-                       'isolation_forest_reg',
-                       'inception_model',
-                       'xcm_model',
+        'regression': ['inception_model',
                        'resnet_model',
-                       'signal_extractor',
-                       'recurrence_extractor'
+                       'recurrence_extractor',
                        ],
         'ts_forecasting': [
-            'one_hot_encoding',
-            'label_encoding',
-            'isolation_forest_class'
             'xgbreg',
             'sgdr',
+            'kernel_pca',
+            'resample',
+            'inception_model',
+            'simple_imputation',
+            'channel_filtration',
+            'recurrence_extractor',
+            'quantile_extractor',
+            'riemann_extractor',
+            'minirocket_extractor',
             'treg',
             'knnreg',
+            'resnet_model',
             'dtreg'
         ],
         'classification': [
-            'isolation_forest_reg',
-            'tst_model',
             'resnet_model',
-            'xcm_model',
-            'one_hot_encoding',
-            'label_encoding',
-            'isolation_forest_class',
-            'signal_extractor',
             'knnreg',
-            'recurrence_extractor'
+            'recurrence_extractor',
+            'bernb',
+            'qda',
         ]}
     FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
                                                         task_params=None,
@@ -187,15 +217,19 @@ class FedotOperationConstant(Enum):
                                                         with_tuning=True
                                                         )
     FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
+                         'ts_forecasting': calculate_forecasting_metric,
                          'classification': calculate_classification_metric}
     FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
+                            'ts_forecasting': RegressionMetricsEnum.RMSE,
                             'regression': RegressionMetricsEnum.RMSE}
-    FEDOT_TUNER_STRATEGY = {'sequential': partial(SequentialTuner, inverse_node_order=True),
-                            'simultaneous': SimultaneousTuner,
-                          #  'IOptTuner': IOptTuner,
-                            'optuna': OptunaTuner}
+    FEDOT_TUNER_STRATEGY = {
+        # 'sequential': partial(SequentialTuner, inverse_node_order=True),
+        # 'simultaneous': SimultaneousTuner,
+        #  'IOptTuner': IOptTuner,
+        'optuna': OptunaTuner
+    }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
-                           'classification': 'logit'}
+                           'classification': 'xgboost'}
     FEDOT_ATOMIZE_OPERATION = {'regression': 'fedot_regr',
                                'classification': 'fedot_cls'}
     AVAILABLE_CLS_OPERATIONS = [
@@ -218,9 +252,20 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('quantile_extractor').add_node('logit'),
+        'classification': PipelineBuilder().add_node('channel_filtration').
+        add_node('quantile_extractor').add_node('xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('ssa_forecaster')
+        'ts_forecasting': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': False,
+                                                                            'rank_regularization': 'explained_dispersion'}).add_node(
+            'ar')}
+
+    FEDOT_TS_FORECASTING_ASSUMPTIONS = {
+        # 'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
+        'eigen_ar': PipelineBuilder().add_node('eigen_basis',
+                                               params={'low_rank_approximation': False,
+                                                       'rank_regularization': 'explained_dispersion'}).add_node('ar'),
+       # 'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
+       'glm': PipelineBuilder().add_node('glm')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
@@ -248,15 +293,15 @@ class TorchLossesConstant(Enum):
     CROSS_ENTROPY = nn.CrossEntropyLoss
     MULTI_CLASS_CROSS_ENTROPY = nn.BCEWithLogitsLoss
     MSE = nn.MSELoss
-    RMSE = RMSELoss()
-    SMAPE = SMAPELoss()
-    TWEEDIE_LOSS = TweedieLoss()
-    FOCAL_LOSS = FocalLoss()
+    RMSE = RMSELoss
+    SMAPE = SMAPELoss
+    TWEEDIE_LOSS = TweedieLoss
+    FOCAL_LOSS = FocalLoss
     CENTER_PLUS_LOSS = CenterPlusLoss
     CENTER_LOSS = CenterLoss
     MASK_LOSS = MaskedLossWrapper
-    LOG_COSH_LOSS = LogCoshLoss()
-    HUBER_LOSS = HuberLoss()
+    LOG_COSH_LOSS = LogCoshLoss
+    HUBER_LOSS = HuberLoss
     EXPONENTIAL_WEIGHTED_LOSS = ExpWeightedLoss
 
 
@@ -573,6 +618,11 @@ CONTINUOUS_WAVELETS = FeatureConstant.CONTINUOUS_WAVELETS.value
 WAVELET_SCALES = FeatureConstant.WAVELET_SCALES.value
 SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
+DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
+
+KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
+KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
+KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
@@ -587,6 +637,7 @@ FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
+FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

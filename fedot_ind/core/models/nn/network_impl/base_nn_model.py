@@ -1,6 +1,5 @@
 import copy
 import os
-from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -10,6 +9,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import Tensor
 from torch.optim import lr_scheduler
+from typing import Optional
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
     convert_to_4d_torch_array, fedot_data_type
@@ -110,7 +110,8 @@ class BaseNeuralModel:
 
         best_model = None
         best_val_loss = float('inf')
-        val_interval = self.get_validation_frequency(self.epochs, self.learning_rate)
+        val_interval = self.get_validation_frequency(
+            self.epochs, self.learning_rate)
 
         for epoch in range(1, self.epochs + 1):
             training_loss = 0.0
@@ -122,19 +123,18 @@ class BaseNeuralModel:
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
-                try:
-                    loss = loss_fn()(output, targets.float())
-                except Exception:
-                    loss = loss_fn(output, targets.float())
+                loss = loss_fn(output, targets.float())
                 loss.backward()
                 optimizer.step()
                 training_loss += loss.data.item() * inputs.size(0)
                 total += targets.size(0)
-                correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item()
+                correct += (torch.argmax(output, 1) ==
+                            torch.argmax(targets, 1)).sum().item()
 
             accuracy = correct / total
             training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(epoch, accuracy, training_loss))
+            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(
+                epoch, accuracy, training_loss))
 
             if val_loader is not None and epoch % val_interval == 0:
                 self.model.eval()
@@ -143,13 +143,13 @@ class BaseNeuralModel:
                 for batch in val_loader:
                     inputs, targets = batch
                     output = self.model(inputs)
-                    try:
-                        loss = loss_fn()(output, targets.float())
-                    except Exception:
-                        loss = loss_fn(output, targets.float())
+
+                    loss = loss_fn(output, targets.float())
+
                     valid_loss += loss.data.item() * inputs.size(0)
                     total += targets.size(0)
-                    correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item()
+                    correct += (torch.argmax(output, 1) ==
+                                torch.argmax(targets, 1)).sum().item()
                 if valid_loss < best_val_loss:
                     best_val_loss = valid_loss
                     best_model = copy.deepcopy(self.model)

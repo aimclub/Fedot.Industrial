@@ -146,7 +146,6 @@ class PatchTSTModel(BaseNeuralModel):
         patch_pred_len = round(self.horizon / 4)
         loss_fn = EXPONENTIAL_WEIGHTED_LOSS(
             time_steps=patch_pred_len, tolerance=0.3)
-        # loss_fn = RMSE()
         return model, loss_fn, optimizer
 
     def _fit_model(self, input_data: InputData, split_data: bool = True):

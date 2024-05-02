@@ -1,8 +1,9 @@
+import math
+
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.settings.computational import backend_scipy
+from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
     sv_to_explained_variance_ratio
-import math
 
 
 class RSVDDecomposition:
@@ -33,7 +34,7 @@ class RSVDDecomposition:
             low_rank = sv_to_explained_variance_ratio(spectrum, 3)[1]
         elif reg_type == 'hard_thresholding':
             low_rank = len(singular_value_hard_threshold(spectrum))
-        return low_rank
+        return max(low_rank, 2)
 
     def _matrix_approx_regularization(self, low_rank, Ut, block, tensor):
         if low_rank == 1:
@@ -42,36 +43,34 @@ class RSVDDecomposition:
             list_of_rank = list(range(1, low_rank + 1, 1))
             reconstr_matrix = [self._compute_matrix_approximation(
                 Ut, block, tensor, rank) for rank in list_of_rank]
-            fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro')/np.linalg.norm(tensor)*100)
+            fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro') / np.linalg.norm(tensor) * 100)
                          for reconstr_m in reconstr_matrix]
-            deriviate_of_error = abs(np.diff(fro_norms))
-            regularized_rank = len(
-                deriviate_of_error[deriviate_of_error > 1]) + 1
+            regularized_rank = _detect_knee_point(
+                values=fro_norms, indices=list(range(len(fro_norms))))
+            regularized_rank = len(regularized_rank)
+            # deriviate_of_error = abs(np.diff(fro_norms))
+            # regularized_rank = len(
+            #     deriviate_of_error[deriviate_of_error > 1]) + 1
         return regularized_rank
 
     def rsvd(self,
-             tensor,
+             tensor: np.array,
              approximation: bool = False,
              regularized_rank: int = None,
              reg_type: str = 'hard_thresholding') -> list:
         """Block Krylov subspace method for computing the SVD of a matrix with a low computational cost.
 
         Args:
-            tensor (array (M, N) array_like):
-            k (int): rank of the decomposition
-            block_size (int): size of the block
-            num_iter (int): number of iterations
+            tensor: matrix to decompose
+            approximation: if True, the matrix approximation will be computed
+            regularized_rank: rank of the matrix approximation
+            reg_type: type of regularization. 'hard_thresholding' or 'explained_dispersion'
 
         Returns:
-            u, s, vt (array_like): decomposition
-
-        Notes:
-        :param reg_type:
-        :param regularized_rank:
-        :param approximation:
+            u, s, vt: decomposition
 
         """
-        # Return classic svd decomposition with choosen type of spectrum thresholding
+        # Return classic svd decomposition with chosen type of spectrum thresholding
         if not approximation:
             # classic svd decomposition
             Ut, St, Vt = np.linalg.svd(tensor, full_matrices=False)
