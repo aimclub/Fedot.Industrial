@@ -75,11 +75,13 @@ def split_any(data: InputData,
 
         train_data = _split_input_data_by_indexes(data, index=train_ids)
         test_data = _split_input_data_by_indexes(data, index=test_ids)
-        correct_split = np.unique(test_data.target).shape[0] == np.unique(train_data.target).shape[0]
+        correct_split = np.unique(test_data.target).shape[0] == np.unique(
+            train_data.target).shape[0]
         return train_data, test_data, correct_split
 
     for ratio in [split_ratio, 0.6, 0.5, 0.4, 0.3, 0.1]:
-        train_data, test_data, correct_split = __split_loop(data, ratio, shuffle, stratify_labels)
+        train_data, test_data, correct_split = __split_loop(
+            data, ratio, shuffle, stratify_labels)
         if correct_split:
             break
     return train_data, test_data
@@ -130,7 +132,8 @@ def _are_cv_folds_allowed(data: Union[InputData, MultiModalData], split_ratio: f
 
 def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
     # define split_ratio
-    self.split_ratio = self.split_ratio or default_data_split_ratio_by_task[data.task.task_type]
+    self.split_ratio = self.split_ratio or default_data_split_ratio_by_task[
+        data.task.task_type]
 
     # Check cv_folds
     if self.cv_folds is not None:
@@ -150,12 +153,14 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
 
     # Check split_ratio
     if self.cv_folds is None and not (0 < self.split_ratio < 1):
-        raise ValueError(f'split_ratio is {self.split_ratio} but should be between 0 and 1')
+        raise ValueError(
+            f'split_ratio is {self.split_ratio} but should be between 0 and 1')
 
     if data.task.task_type is not TaskTypesEnum.ts_forecasting and self.stratify:
         # check that stratification can be done
         # for cross validation split ratio is defined as validation_size / all_data_size
-        split_ratio = self.split_ratio if self.cv_folds is None else (1 - 1 / (self.cv_folds + 1))
+        split_ratio = self.split_ratio if self.cv_folds is None else (
+            1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:
@@ -270,8 +275,10 @@ def _check_and_correct_window_size(self, time_series: np.ndarray, forecast_lengt
         Returns:
 
         """
-    max_allowed_window_size = max(1, round((len(time_series) - forecast_length - 1) * 0.25))
-    window_list = list(range(3 * forecast_length, max_allowed_window_size, round(1.5 * forecast_length)))
+    max_allowed_window_size = max(
+        1, round((len(time_series) - forecast_length - 1) * 0.25))
+    window_list = list(range(3 * forecast_length,
+                             max_allowed_window_size, round(1.5 * forecast_length)))
 
     if self.window_size == 0 or self.window_size > max_allowed_window_size:
         try:
@@ -302,7 +309,8 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     new_input_data = copy(input_data)
     forecast_length = new_input_data.task.task_params.forecast_length
     # Correct window size parameter
-    self._check_and_correct_window_size(new_input_data.features, forecast_length)
+    self._check_and_correct_window_size(
+        new_input_data.features, forecast_length)
     window_size = self.window_size
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
         input_data,
@@ -348,13 +356,17 @@ def preprocess_predicts(*args) -> List[np.array]:
             raise ValueError(
                 "Can't merge images of different sizes: " + str(img_wh))
         return reshaped_predicts
+
+
 def merge_targets(self) -> np.array:
     filtered_main_target = self.main_output.target
     # if target has the same form as index
     #  then it makes sense to extract target with common indices
     if filtered_main_target is not None and len(self.main_output.idx) == len(filtered_main_target):
-        filtered_main_target = self.select_common(self.main_output.idx, filtered_main_target)
+        filtered_main_target = self.select_common(
+            self.main_output.idx, filtered_main_target)
     return filtered_main_target
+
 
 def merge_predicts(*args) -> np.array:
     predicts = args[1]

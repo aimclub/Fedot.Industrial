@@ -23,5 +23,5 @@ if __name__ == "__main__":
     else:
         # tutorial sample of opt history
         opt_hist = PROJECT_PATH + '/examples/data/forecasting/D1679_opt_history/'
-    opt_hist = industrial.vis_optimisation_history(opt_history_path=opt_hist, return_history=True)
-
+    opt_hist = industrial.vis_optimisation_history(
+        opt_history_path=opt_hist, return_history=True)

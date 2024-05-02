@@ -52,7 +52,8 @@ def denoise(x, wavelet='haar', level=1):
     sigma = (1 / 0.6745) * maddest(coeff[-level])
 
     uthresh = sigma * np.sqrt(2 * np.log(len(x)))
-    coeff[1:] = (pywt.threshold(i, value=uthresh, mode='hard') for i in coeff[1:])
+    coeff[1:] = (pywt.threshold(i, value=uthresh, mode='hard')
+                 for i in coeff[1:])
 
     ret = pywt.waverec(coeff, wavelet, mode='per')
 
@@ -96,7 +97,8 @@ def spectrogram_from_eeg(parquet_path, display=False):
                                       n_fft=1024, n_mels=128, fmin=0, fmax=20, win_length=128)
             # LOG TRANSFORM
             width = (mel_spec.shape[1] // 32) * 32
-            mel_spec_db = power_to_db(mel_spec, ref=np.max).astype(np.float32)[:, :width]
+            mel_spec_db = power_to_db(
+                mel_spec, ref=np.max).astype(np.float32)[:, :width]
 
             # STANDARDIZE TO -1 TO 1
             mel_spec_db = (mel_spec_db + 40) / 40
@@ -115,9 +117,11 @@ class ReadData:
     def _read_data(self, data_type, file_id):
 
         if self.is_train:
-            PATH = PROJECT_PATH + f"/data/hms-harmful-brain-activity-classification/train_{data_type}/{file_id}.parquet"
+            PATH = PROJECT_PATH + \
+                f"/data/hms-harmful-brain-activity-classification/train_{data_type}/{file_id}.parquet"
         else:
-            PATH = PROJECT_PATH + f"/data/hms-harmful-brain-activity-classification/test_{data_type}/{file_id}.parquet"
+            PATH = PROJECT_PATH + \
+                f"/data/hms-harmful-brain-activity-classification/test_{data_type}/{file_id}.parquet"
 
         return pd.read_parquet(PATH)
 
@@ -133,14 +137,16 @@ class ReadData:
         spec = pd.DataFrame()
 
         if self.is_train:
-            _ = PROJECT_PATH + f"/data/hms-harmful-brain-activity-classification/EEG_Spectrograms/{eeg_id}.npy"
+            _ = PROJECT_PATH + \
+                f"/data/hms-harmful-brain-activity-classification/EEG_Spectrograms/{eeg_id}.npy"
             eeg_specs = np.load(_)
         else:
             eeg_specs = spectrogram_from_eeg(
                 f"/kaggle/input/hms-harmful-brain-activity-classification/test_eegs/{eeg_id}.parquet")
 
         for i in range(len(montages)):
-            spec = pd.concat([spec, pd.DataFrame(eeg_specs[:, :, i]).T.add_prefix(f'{montages[i]}_')], axis=1)
+            spec = pd.concat([spec, pd.DataFrame(
+                eeg_specs[:, :, i]).T.add_prefix(f'{montages[i]}_')], axis=1)
 
         return spec
 
@@ -221,9 +227,9 @@ class FeatureEngineerData(ReadData):
                 .set_axis(['var_1', 'var_2', 'corr'], axis=1)
                 .query("var_1 != var_2")
                 .assign(
-                        row_id=self.row_id,
-                        label=lambda x: x.var_1 + "_" + x.var_2
-        )
+                    row_id=self.row_id,
+                    label=lambda x: x.var_1 + "_" + x.var_2
+                )
                 .pivot(columns='label', values='corr', index='row_id')
                 .add_prefix('cor_')
                 )
@@ -272,7 +278,8 @@ class EEGFeatures(FeatureEngineerData):
 
         offset_range = self.get_offset()
 
-        df = self.read_eeg_data(self.metadata['eeg_id']).iloc[offset_range[0]:offset_range[1]]
+        df = self.read_eeg_data(
+            self.metadata['eeg_id']).iloc[offset_range[0]:offset_range[1]]
 
         eeg_df = pd.DataFrame()
         for window in window_sizes:
@@ -281,7 +288,8 @@ class EEGFeatures(FeatureEngineerData):
 
             eeg_df = pd.concat([
                 eeg_df,
-                self.get_features(df.iloc[left_index:right_index], time_id=window)
+                self.get_features(
+                    df.iloc[left_index:right_index], time_id=window)
             ], axis=1)
 
         return eeg_df
@@ -327,7 +335,8 @@ class SpectrogramFeatures(FeatureEngineerData):
 
             spec_df = pd.concat([
                 spec_df,
-                self.get_features(df.loc[middle + left_index:middle + right_index], time_id=window)
+                self.get_features(
+                    df.loc[middle + left_index:middle + right_index], time_id=window)
             ], axis=1)
 
         return spec_df
@@ -346,7 +355,8 @@ class SpectrogramFeatures(FeatureEngineerData):
 
 class EEGBuiltSpectrogramFeatures(FeatureEngineerData):
     def format_custom_spectrogram(self, window_sizes={()}):
-        df = self.read_eeg_built_spectrogram_data(self.metadata['eeg_id']).copy()
+        df = self.read_eeg_built_spectrogram_data(
+            self.metadata['eeg_id']).copy()
 
         spec_df = pd.DataFrame()
         for window in window_sizes:
@@ -355,7 +365,8 @@ class EEGBuiltSpectrogramFeatures(FeatureEngineerData):
 
             spec_df = pd.concat([
                 spec_df,
-                self.get_features(df.iloc[left_index:right_index], time_id=window)
+                self.get_features(
+                    df.iloc[left_index:right_index], time_id=window)
             ], axis=1)
 
         return spec_df

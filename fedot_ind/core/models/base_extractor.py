@@ -2,14 +2,12 @@ import logging
 import math
 from itertools import chain
 from multiprocessing import cpu_count
-from typing import Optional
-import pandas as pd
-import numpy as np
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
+from typing import Optional
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
@@ -161,8 +159,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             #     component.supplementary_data['feature_name'] = [f'{x} for component {index}'
             #                                                     for x in component.supplementary_data['feature_name']]
             # except Exception as ex:
-            component.supplementary_data['feature_name'] = [f'component {index}']
+            component.supplementary_data['feature_name'] = [
+                f'component {index}']
         names = list(chain(*[x.supplementary_data['feature_name']
-                     for x in multi_ts_stat_features]))
+                             for x in multi_ts_stat_features]))
 
         return features, names

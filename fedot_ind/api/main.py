@@ -119,16 +119,20 @@ class FedotIndustrial(Fedot):
         self.config_dict['history_dir'] = prefix
         self.config_dict['available_operations'] = kwargs.get(
             'available_operations',
-            default_industrial_availiable_operation(self.config_dict['problem'])
+            default_industrial_availiable_operation(
+                self.config_dict['problem'])
         )
 
-        self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
+        self.config_dict['optimizer'] = kwargs.get(
+            'optimizer', IndustrialEvoOptimizer)
         self.config_dict['initial_assumption'] = kwargs.get('initial_assumption',
                                                             FEDOT_ASSUMPTIONS[self.config_dict['problem']])
-        self.config_dict['use_input_preprocessing'] = kwargs.get('use_input_preprocessing', False)
+        self.config_dict['use_input_preprocessing'] = kwargs.get(
+            'use_input_preprocessing', False)
 
         if self.task_params is not None and self.config_dict['problem'] == 'ts_forecasting':
-            self.config_dict['task_params'] = TsForecastingParams(forecast_length=self.task_params['forecast_length'])
+            self.config_dict['task_params'] = TsForecastingParams(
+                forecast_length=self.task_params['forecast_length'])
 
         # create API subclasses for side task
         self.__init_experiment_setup()
@@ -143,11 +147,13 @@ class FedotIndustrial(Fedot):
         # industrial_params = [p for p in self.config_dict.keys() if p not in list(FEDOT_API_PARAMS.keys())]
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
-        industrial_params = set(self.config_dict.keys()) - set(FEDOT_API_PARAMS.keys())
+        industrial_params = set(self.config_dict.keys()) - \
+            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
-        backend_method_current, backend_scipy_current = BackendMethods(self.backend_method).backend
+        backend_method_current, backend_scipy_current = BackendMethods(
+            self.backend_method).backend
         globals()['backend_methods'] = backend_method_current
         globals()['backend_scipy'] = backend_scipy_current
 
@@ -177,7 +183,8 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        self.train_data = deepcopy(input_data)  # we do not want to make inplace changes
+        self.train_data = deepcopy(
+            input_data)  # we do not want to make inplace changes
         input_preproc = DataCheck(input_data=self.train_data, task=self.config_dict['problem'],
                                   task_params=self.task_params, industrial_task_params=self.industrial_strategy_params)
         self.train_data = input_preproc.check_input_data()
@@ -204,35 +211,43 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
+        self.predict_data = deepcopy(
+            predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(input_data=self.predict_data,
                                       task=self.config_dict['problem'],
                                       task_params=self.task_params,
                                       industrial_task_params=self.industrial_strategy_params).check_input_data()
         if self.industrial_strategy is not None and not self.is_finetuned:
             if predict_mode == 'ensemble':
-                predict = self.industrial_strategy_class.predict(self.predict_data, 'probs')
+                predict = self.industrial_strategy_class.predict(
+                    self.predict_data, 'probs')
                 ensemble_strat = self.industrial_strategy_class.ensemble_strategy
                 predict = {
-                    strategy: np.argmax(self.industrial_strategy_class.ensemble_predictions(predict, strategy), axis=1)
+                    strategy: np.argmax(self.industrial_strategy_class.ensemble_predictions(
+                        predict, strategy), axis=1)
                     for
                     strategy in ensemble_strat}
             else:
-                predict = self.industrial_strategy_class.predict(self.predict_data, 'labels')
+                predict = self.industrial_strategy_class.predict(
+                    self.predict_data, 'labels')
             self.predicted_labels = predict
         else:
             if self.condition_check.solver_is_fedot_class(self.solver):
                 predict = self.solver.predict(self.predict_data)
             else:
-                predict = self.solver.predict(self.predict_data, 'labels').predict
+                predict = self.solver.predict(
+                    self.predict_data, 'labels').predict
                 if self.condition_check.is_multiclf_with_labeling_problem(self.config_dict['problem'],
                                                                           self.predict_data.target,
                                                                           predict):
-                    predict = predict + (self.predict_data.target.min() - predict.min())
+                    predict = predict + \
+                        (self.predict_data.target.min() - predict.min())
 
             if self.condition_check.solver_have_target_encoder(self.target_encoder):
-                self.predicted_labels = self.target_encoder.inverse_transform(predict)
-                self.predict_data.target = self.target_encoder.inverse_transform(self.predict_data.target)
+                self.predicted_labels = self.target_encoder.inverse_transform(
+                    predict)
+                self.predict_data.target = self.target_encoder.inverse_transform(
+                    self.predict_data.target)
             else:
                 self.predicted_labels = predict
         return self.predicted_labels
@@ -245,6 +260,7 @@ class FedotIndustrial(Fedot):
         Method to obtain prediction probabilities from trained Industrial model.
 
         Args:
+            predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
             predict_data: tuple with test_features and test_target
 
         Returns:
@@ -258,7 +274,8 @@ class FedotIndustrial(Fedot):
                                       task_params=self.task_params,
                                       industrial_task_params=self.industrial_strategy_params).check_input_data()
         if self.industrial_strategy is not None and not self.is_finetuned:
-            predict = self.industrial_strategy_class.predict(self.predict_data, 'probs')
+            predict = self.industrial_strategy_class.predict(
+                self.predict_data, 'probs')
             if predict_mode == 'ensemble':
                 ensemble_strat = self.industrial_strategy_class.ensemble_strategy
                 predict = {strategy: self.industrial_strategy_class.ensemble_predictions(predict, strategy)
@@ -267,11 +284,13 @@ class FedotIndustrial(Fedot):
             if self.condition_check.solver_is_fedot_class(self.solver):
                 predict = self.solver.predict_proba(self.predict_data)
             else:
-                predict = self.solver.predict(self.predict_data, 'probs').predict
+                predict = self.solver.predict(
+                    self.predict_data, 'probs').predict
                 if self.condition_check.is_multiclf_with_labeling_problem(self.config_dict['problem'],
                                                                           self.predict_data.target,
                                                                           predict):
-                    predict = predict + (self.predict_data.target.min() - predict.min())
+                    predict = predict + \
+                        (self.predict_data.target.min() - predict.min())
         self.predicted_probs = predict
         return self.predicted_probs
 
@@ -304,9 +323,11 @@ class FedotIndustrial(Fedot):
             elif not self.condition_check.solver_is_none(model_to_tune):
                 model_to_tune = model_to_tune
             else:
-                model_to_tune = deepcopy(self.config_dict['initial_assumption']).build()
+                model_to_tune = deepcopy(
+                    self.config_dict['initial_assumption']).build()
             tuning_params['tuner'] = tuner_type
-            pipeline_tuner, model_to_tune = build_tuner(self, model_to_tune, tuning_params, train_data, mode)
+            pipeline_tuner, model_to_tune = build_tuner(
+                self, model_to_tune, tuning_params, train_data, mode)
             if abs(pipeline_tuner.obtained_metric) > tuned_metric:
                 tuned_metric = abs(pipeline_tuner.obtained_metric)
                 self.solver = model_to_tune
@@ -322,7 +343,8 @@ class FedotIndustrial(Fedot):
         valid_shape = target.shape
         if self.condition_check.solver_have_target_encoder(self.target_encoder):
             new_target = self.target_encoder.transform(target.flatten())
-            labels = self.target_encoder.transform(predicted_labels).reshape(valid_shape)
+            labels = self.target_encoder.transform(
+                predicted_labels).reshape(valid_shape)
         else:
             new_target = target.flatten()
             labels = predicted_labels.reshape(valid_shape)
@@ -357,7 +379,8 @@ class FedotIndustrial(Fedot):
         """
         problem = self.config_dict['problem']
         if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
-            self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
+            self.logger.info(
+                'Predicted probabilities are not available. Use `predict_proba()` method first')
         if isinstance(self.predicted_probs, dict):
             metric_dict = {strategy: self._metric_evaluation_loop(target=target,
                                                                   problem=problem,
@@ -427,7 +450,8 @@ class FedotIndustrial(Fedot):
 
     def save_optimization_history(self, return_history: bool = False):
         """Plot prediction of the model"""
-        self.solver.history.save(f"{self.output_folder}/optimization_history.json")
+        self.solver.history.save(
+            f"{self.output_folder}/optimization_history.json")
         if return_history:
             return self.solver.history
 
@@ -440,21 +464,23 @@ class FedotIndustrial(Fedot):
                                     is_datetime_in_path=True)
         else:
             for idx, p in enumerate(self.solver.ensemble_branches):
-                Pipeline(p).save(f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
-            Pipeline(self.solver.ensemble_head).save(f'./raf_ensemble/ensemble_head', create_subdir=True)
-            self.solver.current_pipeline.save(f'./raf_ensemble/ensemble_composed', create_subdir=True)
+                Pipeline(p).save(
+                    f'./raf_ensemble/{idx}_ensemble_branch', create_subdir=True)
+            Pipeline(self.solver.ensemble_head).save(
+                f'./raf_ensemble/ensemble_head', create_subdir=True)
+            self.solver.current_pipeline.save(
+                f'./raf_ensemble/ensemble_composed', create_subdir=True)
 
     def explain(self, **kwargs):
-        """ Explain model's prediction via time series points perturbation
+        """Explain model's prediction via time series points perturbation
 
-        Args:
-            samples: int, ``default=1``. Number of samples to explain.
-            window: int, ``default=5``. Window size for perturbation.
-            metric: str ``default='rmse'``. Distance metric for perturbation impact assessment.
-            threshold: int, ``default=90``. Threshold for perturbation impact assessment.
-            name: str, ``default='test'``. Name of the dataset to be placed on plot.
-
+            Args:
+                **kwargs: Additional arguments for explanation. These arguments control the
+                         number of samples, window size, metric, threshold, and dataset name.
+                         See the function implementation for detailed information on
+                         supported arguments.
         """
+
         methods = {'point': PointExplainer,
                    'shap': NotImplementedError,
                    'lime': NotImplementedError}
@@ -482,7 +508,8 @@ class FedotIndustrial(Fedot):
         # Gather pipeline and history.
         matplotlib.use('TkAgg')
         if isinstance(opt_history_path, str):
-            history = OptHistory.load(opt_history_path + 'optimization_history.json')
+            history = OptHistory.load(
+                opt_history_path + 'optimization_history.json')
         else:
             history = opt_history_path
         history_visualizer = PipelineHistoryVisualizer(history)

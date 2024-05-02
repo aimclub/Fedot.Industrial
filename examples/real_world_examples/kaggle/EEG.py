@@ -30,9 +30,9 @@ FREQS = [1, 2, 4, 8, 16][::-1]
 # path to data
 
 EEG_PATH_SAVE = PROJECT_PATH + \
-                '/data/hms-harmful-brain-activity-classification/eeg.npy'
+    '/data/hms-harmful-brain-activity-classification/eeg.npy'
 EEG_PATH_SAVE_TEST = PROJECT_PATH + \
-                     '/data/hms-harmful-brain-activity-classification/eeg_test.npy'
+    '/data/hms-harmful-brain-activity-classification/eeg_test.npy'
 
 # industrial experiment params
 label_encoder = LabelEncoder()
@@ -139,9 +139,11 @@ def load_and_preproc_eeg(all_eegs, target_df, window_size=10, train_fold: int = 
     test_labels = target_df[target_df['fold'] == test_fold]['target'].values
     ts_train = [butter_lowpass_filter(all_eegs[x]) for x in train_eeg_id]
     ts_test = [butter_lowpass_filter(all_eegs[x]) for x in test_eeg_id]
-    train_features = np.concatenate(ts_train).reshape(len(ts_train), ts_train[0].shape[1], ts_train[0].shape[0])
+    train_features = np.concatenate(ts_train).reshape(
+        len(ts_train), ts_train[0].shape[1], ts_train[0].shape[0])
     train_features = train_features[::, ::, ::window_size]
-    test_features = np.concatenate(ts_test).reshape(len(ts_test), ts_test[0].shape[1], ts_test[0].shape[0])
+    test_features = np.concatenate(ts_test).reshape(
+        len(ts_test), ts_test[0].shape[1], ts_test[0].shape[0])
     test_features = test_features[::, ::, ::window_size]
     train_target = label_encoder.fit_transform(train_labels)
     test_target = label_encoder.transform(test_labels)
@@ -169,14 +171,15 @@ def generate_features(row):
     return feature_data
 
 
-
 if __name__ == "__main__":
     # load and preproc data
     if CREATE_EEGS:
         rd = ReadData()
         train_df = rd.read_train_data()
-        train_df['left_eeg_index'] = train_df['eeg_label_offset_seconds'].multiply(200).astype('int')
-        train_df['right_eeg_index'] = train_df['eeg_label_offset_seconds'].add(50).multiply(200).astype('int')
+        train_df['left_eeg_index'] = train_df['eeg_label_offset_seconds'].multiply(
+            200).astype('int')
+        train_df['right_eeg_index'] = train_df['eeg_label_offset_seconds'].add(
+            50).multiply(200).astype('int')
         df = pd.DataFrame()
         for index, row in tqdm(train_df.query("eeg_sub_id == 0").iterrows()):
             feature_data = generate_features(row)
@@ -191,7 +194,8 @@ if __name__ == "__main__":
         df = df.fillna(0)
         transformer = KernelPCA(n_components=1000, kernel='linear')
         X_transformed = transformer.fit_transform(df.values)
-        input_data_train, input_data_test = load_and_preproc_eeg(all_eegs_train, target_df_train, 1, 2)
+        input_data_train, input_data_test = load_and_preproc_eeg(
+            all_eegs_train, target_df_train, 1, 2)
 
     # input_data_train, input_data_test = load_and_preproc_eeg(all_eegs_train, target_df_train, 1, 2)
     model = FedotIndustrial(**experiment_setup)

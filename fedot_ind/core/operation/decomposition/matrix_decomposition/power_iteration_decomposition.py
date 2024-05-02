@@ -45,7 +45,8 @@ class RSVDDecomposition:
                 Ut, block, tensor, rank) for rank in list_of_rank]
             fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro') / np.linalg.norm(tensor) * 100)
                          for reconstr_m in reconstr_matrix]
-            regularized_rank = _detect_knee_point(values=fro_norms, indices=list(range(len(fro_norms))))
+            regularized_rank = _detect_knee_point(
+                values=fro_norms, indices=list(range(len(fro_norms))))
             regularized_rank = len(regularized_rank)
             # deriviate_of_error = abs(np.diff(fro_norms))
             # regularized_rank = len(

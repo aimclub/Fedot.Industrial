@@ -9,6 +9,8 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.base_extractor import BaseExtractor
+
+
 class ChronosExtractor:
     pass
 

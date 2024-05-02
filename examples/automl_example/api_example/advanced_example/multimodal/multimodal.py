@@ -12,7 +12,8 @@ if __name__ == "__main__":
     input_train_data = init_input_data(train_data[0], train_data[1])
     input_test_data = init_input_data(test_data[0], test_data[1])
 
-    metric_dict = {'accuracy': accuracy_score, 'f1': f1_score, 'roc_auc': roc_auc_score}
+    metric_dict = {'accuracy': accuracy_score,
+                   'f1': f1_score, 'roc_auc': roc_auc_score}
     with IndustrialModels():
         pipeline = PipelineBuilder().add_node('recurrence_extractor', params={'window_size': 30,
                                                                               'stride': 5,

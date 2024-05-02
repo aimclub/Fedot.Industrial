@@ -115,9 +115,9 @@ class RecurrenceFeatureExtractor:
         if lam:
             number_of_vectors = number_of_vectors + 1
         numerator = np.sum([i * distribution[i]
-                           for i in range(factor, number_of_vectors)])
+                            for i in range(factor, number_of_vectors)])
         denominator = np.sum([i * distribution[i]
-                             for i in range(1, number_of_vectors)])
+                              for i in range(1, number_of_vectors)])
         return numerator / denominator
 
     def longest_line_length(self, frequency_distribution, number_of_vectors, diag: bool):
@@ -129,7 +129,7 @@ class RecurrenceFeatureExtractor:
 
     def average_line_length(self, factor, number_of_vectors, distribution):
         numerator = np.sum([i * distribution[i]
-                           for i in range(factor, number_of_vectors + 1)])
+                            for i in range(factor, number_of_vectors + 1)])
         denominator = np.sum([distribution[i]
-                             for i in range(factor, number_of_vectors + 1)])
+                              for i in range(factor, number_of_vectors + 1)])
         return numerator / denominator

@@ -219,7 +219,7 @@ class WindowSizeSelector:
                 continue
 
             score = 1 - (self.suss_score(time_series, window_size,
-                         stats) - min_score) / (max_score - min_score)
+                                         stats) - min_score) / (max_score - min_score)
 
             if score > threshold:
                 break
@@ -232,7 +232,7 @@ class WindowSizeSelector:
         while lbound <= ubound:
             window_size = int((lbound + ubound) / 2)
             score = 1 - (self.suss_score(time_series, window_size,
-                         stats) - min_score) / (max_score - min_score)
+                                         stats) - min_score) / (max_score - min_score)
 
             if score < threshold:
                 lbound = window_size + 1
