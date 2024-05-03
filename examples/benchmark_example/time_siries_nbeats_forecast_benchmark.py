@@ -30,7 +30,7 @@ def get_m4_data(backcast_length, forecast_length, is_training=True):
     x_tl = []
     headers = True
     with open(filename, "r") as file:
-        reader = csv.reader(file, delimiter=',')
+        reader = csv.reader(file, delimiter=",")
         for line in reader:
             line = line[1:]
             if not headers:
@@ -138,16 +138,16 @@ def train(network, no_lora):
                 ff, xx, yy = p[i] * norm_constant, x_test[i] * norm_constant, y_test[i] * norm_constant
                 plt.subplot(subplots[plot_id])
                 plt.grid()
-                plot_scatter(range(0, backcast_length), xx, color='#000000')
-                plot_scatter(range(backcast_length, backcast_length + forecast_length), yy, color='#1535f3')
-                plot_scatter(range(backcast_length, backcast_length + forecast_length), ff, color='#b512b8')
+                plot_scatter(range(0, backcast_length), xx, color="#000000")
+                plot_scatter(range(backcast_length, backcast_length + forecast_length), yy, color="#1535f3")
+                plot_scatter(range(backcast_length, backcast_length + forecast_length), ff, color="#b512b8")
             plt.show()
 
             print(
-                f'epoch = {str(epoch).zfill(4)}, '
-                f'grad_step = {str(grad_step).zfill(6)}, '
-                f'tr_loss (epoch) = {1000 * train_loss:.3f}, '
-                f'te_loss (epoch) = {1000 * test_loss:.3f}'
+                f"epoch = {str(epoch).zfill(4)}, "
+                f"grad_step = {str(grad_step).zfill(6)}, "
+                f"tr_loss (epoch) = {1000 * train_loss:.3f}, "
+                f"te_loss (epoch) = {1000 * test_loss:.3f}"
             )
 
 
