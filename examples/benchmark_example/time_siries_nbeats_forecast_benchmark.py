@@ -1,21 +1,13 @@
 import csv
-import pickle
-import random
-from time import time
-from typing import Union
 
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsNet
 
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
-from torch.nn.functional import mse_loss, l1_loss, binary_cross_entropy, cross_entropy
-from torch.optim import Optimizer
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-
 
 def get_m4_data(backcast_length, forecast_length, is_training=True):
     # https://www.mcompetitions.unic.ac.cy/the-dataset/
