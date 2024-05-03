@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class LoraLayer(nn.Module):
+
+class LoRALayer(nn.Module):
     # All names of layers that may contain (trainable) adapter weights
     adapter_layer_names = ("lora_A", "lora_B", "lora_embedding_A", "lora_embedding_B")
     # All names of other parameters that may contain adapter-related parameters
@@ -93,10 +94,8 @@ class LoraLayer(nn.Module):
             weight_norm = torch.linalg.norm(weight, dim=1).to(weight.dtype)
             return weight_norm
 
-
         def _cache_store(self, key: str, value: Any) -> None:
             self._caches[key] = value
-
 
         def _cache_pop(self, key: str) -> Any:
             value = self._caches.pop(key)
@@ -189,22 +188,24 @@ class LoraLayer(nn.Module):
 
             return result
 
+
 class Linear(nn.Module):
     # Lora implemented in a dense layer
     def __init__(
-        self,
-        base_layer,
-        adapter_name: str,
-        r: int = 0,
-        lora_alpha: int = 1,
-        lora_dropout: float = 0.0,
-        fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
-        is_target_conv_1d_layer: bool = False,
-        init_lora_weights: Union[bool, str] = True,
-        **kwargs,
+            self,
+            base_layer,
+            adapter_name: str,
+            r: int = 0,
+            lora_alpha: int = 1,
+            lora_dropout: float = 0.0,
+            fan_in_fan_out: bool = False,
+            # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
+            is_target_conv_1d_layer: bool = False,
+            init_lora_weights: Union[bool, str] = True,
+            **kwargs,
     ) -> None:
         super().__init__()
-        LoraLayer.__init__(self, base_layer, **kwargs)
+        LoRALayer.__init__(self, base_layer, **kwargs)
         self.fan_in_fan_out = fan_in_fan_out
 
         self._active_adapter = adapter_name
@@ -263,9 +264,7 @@ class Linear(nn.Module):
 
                     base_layer.weight.data = base_layer.weight.data + delta_weight
 
-
                 self.merged_adapters.append(active_adapter)
-
 
     def unmerge(self) -> None:
         """
@@ -349,20 +348,20 @@ class Linear(nn.Module):
         return "lora." + rep
 
 
-class Embedding(nn.Module, LoraLayer):
+class Embedding(nn.Module, LoRALayer):
     # LoRA implemented in an Embedding layer
     def __init__(
-        self,
-        base_layer: nn.Module,
-        adapter_name: str,
-        r: int = 0,
-        lora_alpha: int = 1,
-        lora_dropout: float = 0.0,
-        init_lora_weights: Union[bool, str] = True,
-        **kwargs,
+            self,
+            base_layer: nn.Module,
+            adapter_name: str,
+            r: int = 0,
+            lora_alpha: int = 1,
+            lora_dropout: float = 0.0,
+            init_lora_weights: Union[bool, str] = True,
+            **kwargs,
     ) -> None:
         super().__init__()
-        LoraLayer.__init__(self, base_layer)
+        LoRALayer.__init__(self, base_layer)
 
         self._active_adapter = adapter_name
         self.update_layer(
@@ -483,7 +482,7 @@ class Embedding(nn.Module, LoraLayer):
         return output_tensor
 
     def _mixed_batch_forward(
-        self, x: torch.Tensor, *args: Any, adapter_names: list[str], **kwargs: Any
+            self, x: torch.Tensor, *args: Any, adapter_names: list[str], **kwargs: Any
     ) -> torch.Tensor:
         # This is a special method that handles the case when users pass the argument `adapter_names`. This is an
         # extra argument that allows mixing different adapters in the same batch at inference time.
@@ -556,20 +555,20 @@ class Embedding(nn.Module, LoraLayer):
         return "lora." + rep
 
 
-class Conv2d(nn.Module, LoraLayer):
+class Conv2d(nn.Module, LoRALayer):
     # Lora implemented in a conv2d layer
     def __init__(
-        self,
-        base_layer: nn.Module,
-        adapter_name: str,
-        r: int = 0,
-        lora_alpha: int = 1,
-        lora_dropout: float = 0.0,
-        init_lora_weights: Union[bool, str] = True,
-        **kwargs,
+            self,
+            base_layer: nn.Module,
+            adapter_name: str,
+            r: int = 0,
+            lora_alpha: int = 1,
+            lora_dropout: float = 0.0,
+            init_lora_weights: Union[bool, str] = True,
+            **kwargs,
     ) -> None:
         super().__init__()
-        LoraLayer.__init__(self, base_layer)
+        LoRALayer.__init__(self, base_layer)
 
         self._active_adapter = adapter_name
         self.update_layer(
@@ -673,7 +672,6 @@ class Conv2d(nn.Module, LoraLayer):
 
                 weight.data -= delta_weight
 
-
     def get_delta_weight(self, adapter) -> torch.Tensor:
         """
         Compute the delta weight for the given adapter.
@@ -705,11 +703,11 @@ class Conv2d(nn.Module, LoraLayer):
         else:
             # conv2d 3x3
             output_tensor = (
-                F.conv2d(
-                    weight_A.permute(1, 0, 2, 3),
-                    weight_B,
-                ).permute(1, 0, 2, 3)
-                * self.scaling[adapter]
+                    F.conv2d(
+                        weight_A.permute(1, 0, 2, 3),
+                        weight_B,
+                    ).permute(1, 0, 2, 3)
+                    * self.scaling[adapter]
             )
 
         if cast_to_fp32:
@@ -730,8 +728,8 @@ class Conv2d(nn.Module, LoraLayer):
 
     def _apply_dora(self, x, lora_A, lora_B, scaling, active_adapter):
         """
-        For DoRA, calculate the extra output from LoRA with DoRA applied. This should be added on top of the base layer
-        output.
+        For DoRA, calculate the extra output from LoRA with DoRA applied.
+        This should be added on top of the base layer output.
         """
         base_layer = self.get_base_layer()
         weight = base_layer.weight
@@ -805,3 +803,55 @@ def transpose(weight, fan_in_fan_out):
         return torch.nn.Parameter(weight.T)
     return weight.T
 
+
+class LoRAParametrization(nn.Module):
+    """Class responsible for LoRA Update matrices.
+
+    References:
+        @inproceedings{
+            hu2022lora,
+            title={Lo{RA}: Low-Rank Adaptation of Large Language Models},
+            author={Edward J Hu and Yelong Shen and Phillip Wallis and Zeyuan Allen-Zhu and Yuanzhi Li and Shean Wang and Lu Wang and Weizhu Chen},
+            booktitle={International Conference on Learning Representations},
+            year={2022},
+            url={https://openreview.net/forum?id=nZeVKeeFYf9}
+        }
+        Original paper: https://arxiv.org/pdf/2106.09685
+    """
+
+    def __init__(self, features_in, features_out, rank=1, alpha=1, device="cpu"):
+        super().__init__()
+        # Section 4.1 from paper:
+        #    We use a random Gaussian initialization for A and zero for B, 
+        #    so ∆W = B * A is zero at the beginning of training
+        self.lora_A = nn.Parameter(torch.zeros((rank, features_out)).to(device))
+        self.lora_B = nn.Parameter(torch.zeros((features_in, rank)).to(device))
+
+        nn.init.normal_(self.lora_A, mean=0, std=1)
+        # Section 4.1 from paper:
+        #   We then scale ∆W * x by α/r , where α is a constant in r. When optimizing with Adam,
+        #   tuning α is roughly the same as tuning the learning rate if we scale the initialization appropriately.
+        #   As a result, we simply set α to the first r we try and do not tune it.
+        #   This scaling helps to reduce the need to re-tune hyperparameters when we vary r.
+        self.scale = alpha / rank
+        self.enabled = True
+
+    def forward(self, original_weights):
+        if self.enabled:
+            # Return W + (B * A) * scale if lora is enabled instead of W * x + ∆W * x
+            return original_weights + torch.matmul(self.lora_B, self.lora_A).view(original_weights.shape) * self.scale
+
+        return original_weights
+
+def linear_layer_parameterization(layer, device, rank=1, lora_alpha=1):
+    # Only add the parameterization to the weight matrix, ignore the Bias
+
+    # From section 4.2 of the paper:
+    #   We limit our study to only adapting the attention weights
+    #   for downstream tasks and freeze the MLP modules (so they are not trained in downstream tasks)
+    #   both for simplicity and parameter-efficiency.
+    #   [...]
+    #   We leave the empirical investigation of [...], and biases to a future work.
+
+    features_in, features_out = layer.weight.shape
+    return LoRAParametrization(features_in, features_out, rank=rank, alpha=lora_alpha, device=device)
