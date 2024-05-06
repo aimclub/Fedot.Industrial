@@ -1,9 +1,11 @@
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import torch
 import torch.nn.functional as F
 from fastai.torch_core import Module
 from torch import nn, Tensor
+import torch.distributions as distributions
+
 
 from fedot_ind.core.architecture.settings.computational import default_device
 
@@ -249,3 +251,68 @@ class RMSELoss(Module):
         criterion = nn.MSELoss()
         loss = torch.sqrt(criterion(input, target))
         return loss
+
+
+class DistributionLoss(nn.Module):
+    distribution_class: distributions.Distribution
+    distribution_arguments: List[str]
+    need_affine=True
+
+    def __init__(
+        self, quantiles: List[float] = [.05, .25, .5, .75, .95], reduction="mean",
+    ):
+        super().__init__()
+        self.quantiles = quantiles
+        self.reduction = getattr(torch, reduction)
+
+
+    def map_x_to_distribution(self, x: torch.Tensor) -> distributions.Distribution:
+        """
+        Map the a tensor of parameters to a probability distribution.
+
+        Args:
+            x (torch.Tensor): parameters for probability distribution. Last dimension will index the parameters
+
+        Returns:
+            distributions.Distribution: torch probability distribution as defined in the
+                class attribute ``distribution_class``
+        """
+        distr = self._map_x_to_distribution(x)
+        if self.need_affine:
+            scaler = distributions.AffineTransform(loc=x[..., 0], scale=x[..., 1])
+            distr = distributions.TransformedDistribution(distr, [scaler])
+        return distr
+
+    def forward(self, y_pred: torch.Tensor, y_actual: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate negative likelihood
+
+        Args:
+            y_pred: network output
+            y_actual: actual values
+
+        Returns:
+            torch.Tensor: metric value on which backpropagation can be applied
+        """
+        distribution = self.map_x_to_distribution(y_pred)
+        loss = -distribution.log_prob(y_actual)
+        loss = self.reduction(loss)
+        return loss
+
+ 
+class NormalDistributionLoss(DistributionLoss):
+    """
+    Normal distribution loss.
+    """
+
+    distribution_class = distributions.Normal
+    distribution_arguments = ["loc", "scale"]
+    need_affine=False
+
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        loc = x[..., -2]
+        scale = x[..., -1]
+        distr = self.distribution_class(loc=loc, scale=scale)
+        return distr
+        
+        
