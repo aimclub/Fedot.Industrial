@@ -33,6 +33,7 @@ pillow = "~10.2.0"
 pyriemann = "~0.5"
 seaborn = "~0.13.2"
 datasets = "^2.18.0"
+pandas = "^1.5.3"
 
 [tool.poetry.group.docs.dependencies]
 sphinx-rtd-theme = "^2.0.0"
