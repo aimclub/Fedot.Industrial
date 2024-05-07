@@ -256,17 +256,17 @@ class RMSELoss(Module):
 class DistributionLoss(nn.Module):
     distribution_class: distributions.Distribution
     distribution_arguments: List[str]
+    quantiles: List[float] = [.05, .25, .5, .75, .95]
     need_affine=True
 
     def __init__(
-        self, quantiles: List[float] = [.05, .25, .5, .75, .95], reduction="mean",
+        self, reduction="mean",
     ):
         super().__init__()
-        self.quantiles = quantiles
-        self.reduction = getattr(torch, reduction)
+        self.reduction = getattr(torch, reduction) if reduction else lambda x: x
 
-
-    def map_x_to_distribution(self, x: torch.Tensor) -> distributions.Distribution:
+    @classmethod
+    def map_x_to_distribution(cls, x: torch.Tensor) -> distributions.Distribution:
         """
         Map the a tensor of parameters to a probability distribution.
 
@@ -277,11 +277,16 @@ class DistributionLoss(nn.Module):
             distributions.Distribution: torch probability distribution as defined in the
                 class attribute ``distribution_class``
         """
-        distr = self._map_x_to_distribution(x)
-        if self.need_affine:
+        distr = cls._map_x_to_distribution(x)
+        if cls.need_affine:
             scaler = distributions.AffineTransform(loc=x[..., 0], scale=x[..., 1])
             distr = distributions.TransformedDistribution(distr, [scaler])
         return distr
+    
+    @classmethod
+    def _map_x_to_distribution(cls, x):
+        raise NotImplemented
+    
 
     def forward(self, y_pred: torch.Tensor, y_actual: torch.Tensor) -> torch.Tensor:
         """
@@ -309,6 +314,7 @@ class NormalDistributionLoss(DistributionLoss):
     distribution_arguments = ["loc", "scale"]
     need_affine=False
 
+    @classmethod
     def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
         loc = x[..., -2]
         scale = x[..., -1]
