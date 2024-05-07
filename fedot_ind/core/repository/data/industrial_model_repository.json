@@ -468,6 +468,9 @@
         "linear"
       ]
     },
+    "nbeats_model": {
+      "meta": "ts_model"
+    },
     "qda": {
       "meta": "custom_class",
       "presets": ["fast_train"],
