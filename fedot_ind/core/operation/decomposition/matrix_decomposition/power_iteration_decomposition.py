@@ -1,4 +1,7 @@
 import math
+from typing import Optional
+
+from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
@@ -7,19 +10,16 @@ from fedot_ind.core.operation.transformation.regularization.spectrum import sing
 
 
 class RSVDDecomposition:
-    def __init__(self,
-                 rank: int = None
-                 ):
-        self.rank = rank
-
-    def _init_random_params(self, tensor):
-        # Percent of sampling columns. By default - 70%
-        projection_rank = math.ceil(min(tensor.shape) / 1.5)
+    def __init__(self, params: Optional[OperationParameters] = {}):
+        self.rank = params.get('rank', 1)
         # Polynom degree for power iteration procedure.
-        self.poly_deg = 3
-        # Create random matrix for projection/
-        self.random_projection = np.random.randn(
-            tensor.shape[1], projection_rank)
+        self.poly_deg = params.get('power_iter', 3)
+        # Percent of sampling columns. By default - 70%
+        self.projection_rank = params.get('sampling_share', 0.7)
+    def _init_random_params(self, tensor):
+        # Create random matrix for projection
+        projection_rank = math.ceil(min(tensor.shape) * self.projection_rank)
+        self.random_projection = np.random.randn(tensor.shape[1], projection_rank)
 
     def _compute_matrix_approximation(self, Ut, block, tensor, rank):
         Ut_ = Ut[:, :rank]

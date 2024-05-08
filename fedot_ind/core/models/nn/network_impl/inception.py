@@ -14,6 +14,7 @@ from fedot_ind.core.models.nn.network_modules.layers.special import InceptionBlo
 from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 
 
+
 @delegates(InceptionModule.__init__)
 class InceptionTime(Module):
     def __init__(self, input_dim, output_dim, seq_len=None, number_of_filters=32, nb_filters=None, **kwargs):
