@@ -45,6 +45,7 @@ from xgboost import XGBClassifier, XGBRegressor
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.temporal_convolution_model import TCNModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
@@ -96,11 +97,13 @@ TEMPORARY_EXCLUDED = {
                            'multinb': SklearnMultinomialNB,
                            'knn': FedotKnnClassImplementation
                            },
-    'NEURAL_MODELS': {'omniscale_model': OmniScaleModel,
+    'NEURAL_MODELS': {
+                      #'omniscale_model': OmniScaleModel,
+                      'tcn_model': TCNModel,
                       # transformer models
-                      'tst_model': TSTModel,
+                      #'tst_model': TSTModel,
                       # explainable models
-                      'xcm_model': XCModel
+                      #'xcm_model': XCModel
                       }
 }
 
@@ -176,7 +179,8 @@ class AtomizedModel(Enum):
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
-        'glm': GLMIndustrial
+        'glm': GLMIndustrial,
+        'tcn_model': TCNModel
     }
 
     FORECASTING_PREPROC = {
@@ -184,7 +188,7 @@ class AtomizedModel(Enum):
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
-        'exog_ts': ExogDataTransformationImplementation,
+        'exog_ts': ExogDataTransformationImplementation
     }
 
     NEURAL_MODEL = {
@@ -192,6 +196,7 @@ class AtomizedModel(Enum):
         'inception_model': InceptionTimeModel,
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
+        'tcn_model': TCNModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models
