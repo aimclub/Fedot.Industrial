@@ -1,0 +1,210 @@
+from typing import Optional
+
+import torch
+from fedot.core.data.data import InputData
+from fedot.core.operations.operation_parameters import OperationParameters
+from torch import nn, optim
+from torch import Tensor
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
+from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
+import torch.nn.utils.parametrize as parametrize
+
+from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
+from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
+from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
+from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
+from fedot_ind.core.models.nn.network_impl.tst import TSTModel
+
+NEURAL_MODEL = {
+    # fundamental models
+    'inception_model': InceptionTimeModel,
+    'omniscale_model': OmniScaleModel,
+    'resnet_model': ResNetModel,
+    'nbeats_model': NBeatsModel,
+    # transformer models
+    'tst_model': TSTModel,
+    # explainable models
+    'xcm_model': XCModel,
+    # linear_dummy_model
+    'dummy': DummyOverComplicatedNeuralNetwork,
+
+}
+
+
+def linear_layer_parameterization_with_info(spectrum, device, rank=1, lora_alpha=1):
+    # Only add the parameterization to the weight matrix, ignore the Bias
+
+    # From section 4.2 of the paper:
+    #   We limit our study to only adapting the attention weights for downstream tasks
+    #   and freeze the MLP modules (so they are not trained in downstream tasks)
+    #   both for simplicity and parameter-efficiency.
+    #   [...]
+    #   We leave the empirical investigation of [...], and biases to a future work.
+
+    return LoRAParametrizationWithInfo(spectrum, rank=rank, alpha=lora_alpha, device=device)
+
+
+class LoRAParametrizationWithInfo(nn.Module):
+    def __init__(self,
+                 spectrum,
+                 rank=1,
+                 alpha=1,
+                 device=default_device()):
+        super().__init__()
+
+        self.USV = spectrum
+        self.rank = rank
+        self._a = torch.tensor(self.USV[0][:, self.rank:] @ self.USV[1][self.rank:])
+        self._b = torch.tensor(self.USV[1][self.rank:] @ self.USV[2][self.rank:, :])
+        self.lora_A = nn.Parameter(torch.unsqueeze(self._a, 1)).to(device)
+        self.lora_B = nn.Parameter(torch.unsqueeze(self._b, 0)).to(device)
+        self.scale = alpha / rank
+        self.enabled = True
+
+    def forward(self, original_weights):
+        if self.enabled:
+            return (original_weights + torch.matmul(self.lora_A, self.lora_B).view(
+                original_weights.shape) * self.scale).to(torch.float32)
+        else:
+            return original_weights
+
+
+class LoraModel(BaseNeuralModel):
+    """Class responsible for Low Rank adaptation model implementation.
+
+    Attributes:
+        self.num_features: int, the number of features.
+
+    Example:
+        To use this operation you can create pipeline as follows::
+            from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+            from examples.fedot.fedot_ex import init_input_data
+            from fedot_ind.tools.loader import DataLoader
+            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+            train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
+            input_data = init_input_data(train_data[0], train_data[1])
+            val_data = init_input_data(test_data[0], test_data[1])
+            with IndustrialModels():
+                pipeline = PipelineBuilder().add_node('inception_model', params={'epochs': 100,
+                                                                                 'batch_size': 10}).build()
+                pipeline.fit(input_data)
+                target = pipeline.predict(val_data).predict
+                metric = evaluate_metric(target=test_data[1], prediction=target)
+
+    """
+
+    def __init__(self, params: Optional[OperationParameters] = {}):
+        super().__init__(params)
+
+        # hyperparams for LoRa learning
+        self.epochs = params.get('epochs', 1)
+        self.batch_size = params.get('epochs', 16)
+        self.model_type = params.get('neural_architecture', 'dummy')
+        self.pretrain = params.get('from_pretrain', False)
+        self.lora_init = params.get('lora_init', 'random')
+        # hyperparams for SVD
+        self.sampling_share = params.get('sampling_share', 0.3)
+        self.rank = params.get('lora_rank', 1)
+        self.power_iter = params.get('power_iter', 3)
+        self.use_approx = params.get('use_rsvd', True)
+
+        svd_params = dict(rank=self.rank,
+                          sampling_share=self.sampling_share,
+                          power_iter=self.power_iter
+                          )
+        self.industrial_impl = NEURAL_MODEL[self.model_type]
+        self.rsvd = RSVDDecomposition(svd_params)
+
+    def __repr__(self):
+        return f'LoRa - {self.model_type}'
+
+    def _init_model(self, input_data):
+        self.model = self.industrial_impl(input_dim=input_data.features.shape[1],
+                                          output_dim=self.num_classes).to(default_device())
+        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        if input_data.task.task_type.value == 'classification':
+            if input_data.num_classes == 2:
+                loss_fn = CROSS_ENTROPY()
+            else:
+                loss_fn = MULTI_CLASS_CROSS_ENTROPY()
+        else:
+            loss_fn = RMSE()
+        return loss_fn, optimizer
+
+    def __init_lora(self, spectrum_by_layer):
+        updated_weight = []
+        if self.lora_init == 'residual_lora':
+            for spectrum in spectrum_by_layer:
+                _a = torch.tensor(spectrum[0][:, :self.rank] @ spectrum[1][:self.rank])
+                _b = torch.tensor(spectrum[1][:self.rank] @ spectrum[2][:self.rank, :])
+
+                lora_A = nn.Parameter(torch.unsqueeze(_a, 1)).to(default_device())
+                lora_B = nn.Parameter(torch.unsqueeze(_b, 0)).to(default_device())
+                updated_weight.append(torch.matmul(lora_A, lora_B))
+        elif self.lora_init == 'random':
+            for spectrum in spectrum_by_layer:
+                features_in = spectrum[0].shape[0]
+                features_out = spectrum[2].shape[0]
+                lora_A = nn.Parameter(torch.zeros((self.rank, features_out)).to(default_device()))
+                lora_B = nn.Parameter(torch.zeros((features_in, self.rank)).to(default_device()))
+                lora_B = nn.init.normal_(lora_B, mean=0, std=1)
+                updated_weight.append(torch.matmul(lora_A, lora_B))
+        elif self.lora_init == 'residual_core':
+            for spectrum in spectrum_by_layer:
+                _a = torch.tensor(spectrum[0][:, self.rank:] @ spectrum[1][self.rank:])
+                _b = torch.tensor(spectrum[1][self.rank:] @ spectrum[2][self.rank:, :])
+                lora_A = nn.Parameter(torch.unsqueeze(_a, 1)).to(default_device())
+                lora_B = nn.Parameter(torch.unsqueeze(_b, 0)).to(default_device())
+                updated_weight.append(torch.matmul(lora_A, lora_B))
+        return updated_weight
+
+    def _evaluate_decomposition(self):
+        spectrum_by_layer = []
+        for name, param in self.model.named_parameters():
+            if name.__contains__('weight'):
+                spectrum_by_layer.append(self.rsvd.rsvd(tensor=param.clone().cpu().detach().numpy(),
+                                                        approximation=self.use_approx))
+
+        return spectrum_by_layer
+
+    def _create_lora(self, spectrum_by_layer, updated_weight):
+
+        parametrize_by_layer = [parametrize.register_parametrization(self.model.linear1, "weight",
+                                                                     linear_layer_parameterization_with_info(
+                                                                         spectrum, default_device(),
+                                                                         self.rank),
+                                                                     unsafe=True) for spectrum in spectrum_by_layer]
+
+    def enable_disable_lora(self, enabled=True):
+        for name, param in self.model.named_parameters():
+            param.parametrizations["weight"][0].enabled = enabled
+            if "lora" not in name:
+                print(f"Freezing non-LoRA parameter {name}")
+                param.requires_grad = False
+
+    def _fit_model(self, input_data: InputData, split_data: bool = False):
+        loss_fn, optimizer = self._init_model(input_data)
+        train_loader, val_loader = self._prepare_data(input_data, split_data)
+
+        if not self.pretrain:
+            self._train_loop(
+                train_loader=train_loader,
+                val_loader=val_loader,
+                loss_fn=loss_fn,
+                optimizer=optimizer
+            )
+        spectrum_by_layer = self._evaluate_decomposition()
+        updated_weight = self.__init_lora(spectrum_by_layer)
+        lora_impl = self._create_lora(spectrum_by_layer,updated_weight)
+
+    @convert_to_3d_torch_array
+    def _predict_model(self, x_test, output_mode: str = 'default'):
+        self.model.eval()
+        x_test = Tensor(x_test).to(default_device('cpu'))
+        pred = self.model(x_test)
+        return self._convert_predict(pred, output_mode)

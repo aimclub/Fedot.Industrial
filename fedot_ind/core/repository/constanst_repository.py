@@ -57,7 +57,6 @@ class KernelsConstant(Enum):
         'one_step_pwmk': PWMK,
     }
     KERNEL_BASELINE_FEATURE_GENERATORS = {
-        # 'minirocket_extractor': PipelineBuilder().add_node('minirocket_extractor'),
         'quantile_extractor': PipelineBuilder().add_node('quantile_extractor'),
         'topological_extractor': PipelineBuilder().add_node('topological_extractor'),
         'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis').add_node('quantile_extractor'),
@@ -65,7 +64,6 @@ class KernelsConstant(Enum):
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
 
     KERNEL_BASELINE_NODE_LIST = {
-        # 'minirocket_extractor': (None, 'minirocket_extractor'),
         'quantile_extractor': (None,  'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
         'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
@@ -261,11 +259,11 @@ class FedotOperationConstant(Enum):
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
         # 'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
-        'eigen_ar': PipelineBuilder().add_node('eigen_basis',
-                                               params={'low_rank_approximation': False,
-                                                       'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-       # 'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
-       'glm': PipelineBuilder().add_node('glm')
+        # 'eigen_ar': PipelineBuilder().add_node('eigen_basis',
+        #                                        params={'low_rank_approximation': False,
+        #                                                'rank_regularization': 'explained_dispersion'}).add_node('ar'),
+       'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
+      # 'glm': PipelineBuilder().add_node('glm')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {

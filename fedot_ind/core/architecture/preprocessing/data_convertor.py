@@ -48,7 +48,7 @@ class CustomDatasetCLF:
                 ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
-            if type(min(ts.target)[0]) is np.str_:
+            if type(min(ts.target)) is np.str_:
                 self.label_encoder = LabelEncoder()
                 ts.target = self.label_encoder.fit_transform(ts.target)
             else:
@@ -534,6 +534,12 @@ class DataConverter(TensorConverter, NumpyConverter):
     def is_tuple(self):
         return isinstance(self.data, tuple)
 
+    @property
+    def is_torchvision_dataset(self):
+        if self.is_tuple:
+            return self.data[1] == 'torchvision_dataset'
+        else:
+            return False
     @property
     def is_none(self):
         return self.data is None
