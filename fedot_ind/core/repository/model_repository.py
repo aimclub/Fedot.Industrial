@@ -44,8 +44,10 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
+from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
@@ -195,10 +197,15 @@ class AtomizedModel(Enum):
         'inception_model': InceptionTimeModel,
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
+        'nbeats_model': NBeatsModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models
-        'xcm_model': XCModel
+        'xcm_model': XCModel,
+        # linear_dummy_model
+        'dummy': DummyOverComplicatedNeuralNetwork,
+        # linear_dummy_model
+        'lora_model': LoraModel
     }
 
 

@@ -226,8 +226,11 @@ def transform_lagged(self, input_data: InputData):
                                                                                       window_size)
 
     # Update target for Input Data
-    train_data.target = new_target
-    train_data.idx = new_idx
+    if new_target.shape[0] != 0:
+        train_data.target = new_target
+        train_data.idx = new_idx
+    else:
+        train_data = input_data
     output_data = self._convert_to_output(train_data,
                                           transformed_cols,
                                           data_type=DataTypesEnum.image)

@@ -11,6 +11,8 @@ from torch import Tensor
 from torch.optim import lr_scheduler
 from typing import Optional
 
+from tqdm import tqdm
+
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
     convert_to_4d_torch_array, fedot_data_type
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -119,7 +121,7 @@ class BaseNeuralModel:
             self.model.train()
             total = 0
             correct = 0
-            for batch in train_loader:
+            for batch in tqdm(train_loader):
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
