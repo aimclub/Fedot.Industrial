@@ -265,6 +265,14 @@
       "tags": [
       ]
     },
+    "lora_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
     "resnet_model": {
       "meta": "fedot_NN_classification",
       "presets": [

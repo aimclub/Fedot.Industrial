@@ -240,6 +240,17 @@
     "epochs": 100,
     "batch_size": 32
   },
+  "lora_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "neural_architecture":"dummy",
+    "from_pretrain": false,
+    "lora_init": "random",
+    "lora_rank": 1,
+    "power_iter": 3,
+    "use_rsvd": true,
+    "sampling_share": 0.3
+  },
   "topological_extractor": {
     "n_jobs": 2,
     "window_size_as_share": 0.33,
