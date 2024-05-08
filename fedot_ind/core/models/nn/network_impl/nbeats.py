@@ -412,18 +412,7 @@ class _SeasonalityBasis(_NBeatsBlock):
 
 
 class NBeatsNet(nn.Module):
-    """Class responsible for N-BEATS: Neural basis expansion analysis for interpretable time series forecasting
 
-    References:
-        @misc{NBeatsPRemy,
-            author = {Philippe Remy},
-            title = {N-BEATS: Neural basis expansion analysis for interpretable time series forecasting},
-            year = {2020},
-            publisher = {GitHub},
-            journal = {GitHub repository},
-            howpublished = {\url{https://github.com/philipperemy/n-beats}},
-        }
-    """
     SEASONALITY_BLOCK = "seasonality"
     TREND_BLOCK = "trend"
     GENERIC_BLOCK = "generic"
