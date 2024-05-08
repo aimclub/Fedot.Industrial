@@ -107,9 +107,9 @@ TEMPORARY_EXCLUDED = {
                       'omniscale_model': OmniScaleModel,
                       'tcn_model': TCNModel,
                       # transformer models
-                      'tst_model': TSTModel,
+                      #'tst_model': TSTModel,
                       # explainable models
-                      'xcm_model': XCModel
+                      #'xcm_model': XCModel
                       }
 }
 
