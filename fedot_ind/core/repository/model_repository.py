@@ -44,6 +44,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
+from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
@@ -195,7 +196,9 @@ class AtomizedModel(Enum):
         # transformer models
         'tst_model': TSTModel,
         # explainable models
-        'xcm_model': XCModel
+        'xcm_model': XCModel,
+        #variational models
+        'deepar_model': DeepAR,
     }
 
 

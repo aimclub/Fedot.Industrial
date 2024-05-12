@@ -1,7 +1,7 @@
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from typing import Optional, Callable, Any, List, Union
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY
 import torch.optim as optim
 from torch.nn import LSTM, GRU, Linear, Module, RNN
@@ -13,13 +13,14 @@ from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 import pandas as pd
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
 import torch.utils.data as data
 from fedot_ind.core.architecture.settings.computational import default_device
-
-
+import torch.optim.lr_scheduler as lr_scheduler 
+from fedot.core.data.data_split import train_test_data_setup
 
 
 
@@ -31,17 +32,17 @@ class DeepARModule(Module):
     def __init__(self, cell_type, input_size, hidden_size, rnn_layers, dropout, distribution):
         super().__init__()
         self.rnn = {'LSTM': LSTM, 'GRU': GRU, 'RNN': RNN}[cell_type](
-        input_size = input_size,
-        hidden_size = hidden_size,
-        num_layers = rnn_layers,
-        batch_first = True,
-        dropout = dropout if rnn_layers > 1 else 0.
+            input_size = input_size,
+            hidden_size = hidden_size,
+            num_layers = rnn_layers,
+            batch_first = True,
+            dropout = dropout if rnn_layers > 1 else 0.
         )
         self.hidden_size = hidden_size
         self.scaler = RevIN(
             affine=False,
             input_dim=input_size, 
-            dim=-1, # -1 in case series-wise normalization, 0 for batch-wise
+            dim=-1, # -1 in case series-wise normalization, 0 for batch-wise, RNN needs series_wise
         )
         self.distribution = self._loss_fns[distribution]
         if distribution is not None:
@@ -56,21 +57,19 @@ class DeepARModule(Module):
         ts.size = (length, hidden)
         """
         _, hidden_state = self.rnn(
-            ts, enforce_sorted=False
+            ts,
         )  
-        # self.distribution_projector = self.distribution_projector()
         return hidden_state
     
     def _decode_whole_seq(self, ts: torch.Tensor, hidden_state: torch.Tensor):
         output, hidden_state = self.rnn(
             ts, hidden_state
-            #   enforce_sorted=False
         )
         output = self.projector(output)
         return output, hidden_state
     
 
-    def forward(self, x: torch.Tensor, n_samples: int = None):
+    def forward(self, x: torch.Tensor, n_samples: int = None, mode='raw'):
         """
         Forward pass
         x.size == (nseries, length)
@@ -81,11 +80,10 @@ class DeepARModule(Module):
         
         if self.training:
             assert n_samples is None, "cannot sample from decoder when training"
-        output, hidden_state = self.decode(
+        output = self.decode(
             x,
-            hidden_state=hidden_state,
-        )
-        # return relevant part
+            hidden_state, n_samples=0, mode=mode
+        )        
         return output, hidden_state
     
     def to_quantiles(self, params: torch.Tensor, quantiles=None):
@@ -102,11 +100,10 @@ class DeepARModule(Module):
         distr = self.distribution.map_x_to_distribution(params)
         return distr.sample((1,)).T.squeeze() # distr_n x 1
     
-    def _transform_params(self, distr_params):
-        mode = self.forecast_mode
+    def _transform_params(self, distr_params, mode='raw'):
         if mode == 'raw':
             transformed = distr_params
-        if mode == 'quantiles':
+        elif mode == 'quantiles':
             transformed = self.to_quantiles(distr_params)
         elif mode == 'predictions':
             transformed = self.to_predictions(distr_params)
@@ -114,26 +111,21 @@ class DeepARModule(Module):
             transformed = self.to_samples(distr_params)
         else:
             raise ValueError('Unexpected forecast mode!')
-        # transformed = self.scaler
+        transformed = self.scaler(transformed, False)
         return transformed
         
-    def predict(self, x):
+    def predict(self, test_x: torch.Tensor, mode=None):
         self.eval()
-        distr_params, _ = self(x)
-        output = self._transform_params(distr_params)
-        return output
-    
-    
-    
-    def decode(self, x, n_samples=0):
+        distr_params, _ = self(test_x)
+        return self._transform_params(distr_params, mode)
+
+    def decode(self, x, hidden_state=None, n_samples=0, mode='raw'):
+        if hidden_state is None:
+            hidden_state = torch.zeros((self.hidden_size,)).float()
         if not n_samples:
                 output, _ = self._decode_whole_seq(x, hidden_state)
-                output = self._transform_params(output,)
+                output = self._transform_params(output, mode=mode)
         else:
-                # run in eval, i.e. simulation mode
-                # target_pos = self.target_positions
-                # lagged_target_positions = self.lagged_target_positions
-                # repeat for n_samples
                 x = x.repeat_interleave(n_samples, 0)
                 hidden_state = self.rnn.repeat_interleave(hidden_state, n_samples)
 
@@ -145,22 +137,15 @@ class DeepARModule(Module):
                     n_decoder_steps=x.size(1),
                     n_samples=n_samples,
                 )
-                # reshape predictions for n_samples:
-                # from n_samples * batch_size x time steps to batch_size x time steps x n_samples
-                # output = (output, lambda x:: x.reshape(-1, n_samples, input_vector.size(1)).permute(0, 2, 1))
+
         return output
     
 
     def _decode_one(self, x,
                 idx,
-                # lagged_targets,
                 hidden_state,
                 ):
         x = x[:, [idx], ...]
-                # x[:, 0, target_pos] = lagged_targets[-1]
-                # for lag, lag_positions in lagged_target_positions.items():
-                #     if idx > lag:
-                #         x[:, 0, lag_positions] = lagged_targets[-lag]
         prediction, hidden_state = self._decode_whole_seq(x, hidden_state)
         prediction = prediction[:, 0]  # select first time step fo this index
         return prediction, hidden_state
@@ -204,10 +189,6 @@ class DeepARModule(Module):
         return output
 
 
-    
-
-    
-
 class DeepAR(BaseNeuralModel):
     """No exogenous variable support
     Variational Inference + Probable Anomaly detection"""
@@ -215,19 +196,12 @@ class DeepAR(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
-        self.num_classes = 2 #params.get('num_classes', 2)
 
         #INSIDE
         # self.epochs = params.get('epochs', 100)
         # self.batch_size = params.get('batch_size', 16)
         # self.activation = params.get('activation', 'ReLU')
         # self.learning_rate = 0.001
-
-        # self.label_encoder = None
-        # self.model = None
-        # self.model_for_inference = None
-        # self.target = None
-        # self.task_type = None
         
         self.cell_type = params.get('cell_type', 'LSTM')
         self.hidden_size = params.get('hidden_size', 10)
@@ -246,13 +220,13 @@ class DeepAR(BaseNeuralModel):
     
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
-        self.model = DeepARModule(input_size=ts.features.shape[1],
+        self.model = DeepARModule(input_size=ts.features.shape[-1],
                                    hidden_size=self.hidden_size,
                                    cell_type=self.cell_type,
                                    dropout=self.dropout,
                                    rnn_layers=self.rnn_layers,
                                    distribution=self.expected_distribution).to(default_device())
-        self.model_for_inference = DeepARModule(input_size=ts.features.shape[1],
+        self.model_for_inference = DeepARModule(input_size=ts.features.shape[-1],
                                    hidden_size=self.hidden_size,
                                    cell_type=self.cell_type,
                                    dropout=self.dropout,
@@ -263,47 +237,145 @@ class DeepAR(BaseNeuralModel):
 
         return self.loss_fn, self.optimizer
 
-
-    # def __preprocess_for_fedot(self, input_data):
-    #     input_data.features = np.squeeze(input_data.features)
-    #     if self.horizon is None:
-    #         self.horizon = input_data.task.task_params.forecast_length
-    #     if len(input_data.features.shape) == 1:
-    #         input_data.features = input_data.features.reshape(1, -1)
-    #     else:
-    #         if input_data.features.shape[1] != 1:
-    #             self.preprocess_to_lagged = True
-
-    #     if self.preprocess_to_lagged:
-    #         self.seq_len = input_data.features.shape[0] + \
-    #             input_data.features.shape[1]
-    #     else:
-    #         self.seq_len = input_data.features.shape[1]
-    #     self.target = input_data.target
-    #     self.task_type = input_data.task
-    #     return input_data
+    def fit(self, input_data: InputData):
+        self._fit_model(input_data)
     
-    def _fit_model(self, input_data: InputData, split_data: bool = True):
+    def _fit_model(self, input_data: InputData, split_data: bool = False):
+        val_loader = None
         if self.preprocess_to_lagged:
-            self.patch_len = input_data.features.shape[1]
+            self.patch_len = input_data.features.shape[-1]
             train_loader = self.__create_torch_loader(input_data)
         else:
             if self.patch_len is None:
                 dominant_window_size = WindowSizeSelector(
                     method='dff').get_window_size(input_data.features)
                 self.patch_len = 2 * dominant_window_size
-            train_loader, *val_loader = self._prepare_data(
-                    input_data.features, self.patch_len, False)
-            print(val_loader)
-            print(train_loader)
-            val_loader = val_loader[0] if len(val_loader) else None
+            train_loader, val_loader = self._prepare_data(
+                    input_data.features, self.patch_len, split_data)
 
         self.test_patch_len = self.patch_len
-        return train_loader
         loss_fn, optimizer = self._init_model(input_data)
-        model = self._train_loop(train_loader=train_loader, loss_fn=loss_fn, optimizer=optimizer, val_loader=val_loader,)
-        # self.model_list.append(model)
-    
+        return train_loader
+        self._train_loop(model=self.model, 
+                        train_loader=train_loader,
+                        loss_fn=loss_fn, 
+                        optimizer=optimizer, 
+                        val_loader=val_loader,
+                        )
+
+    def predict(self, test_loader, output_mode):
+        model = self.model # or model for inference? 
+        output = model.predict(test_loader, output_mode)
+
+        y_pred = output #
+        forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
+                                         stop=test_data.idx[-self.horizon] +
+                                         y_pred.shape[0],
+                                         step=1)
+        predict = OutputData(
+            idx=forecast_idx_predict,
+            task=self.task_type,
+            predict=y_pred.reshape(1, -1),
+            target=self.target,
+            data_type=DataTypesEnum.table)
+        return predict
+
+    def predict_for_fit(self,
+                        test_data,
+                        output_mode: str='samples'):
+        y_pred = []
+        true_mode = self.forecast_mode
+
+        self.forecast_mode = output_mode
+        model = self.model
+        ##########
+
+        y_pred = np.array(y_pred)
+        y_pred = y_pred.squeeze()
+        forecast_idx_predict = test_data.idx
+        predict = OutputData(
+            idx=forecast_idx_predict,
+            task=self.task_type,
+            predict=y_pred,
+            target=self.target,
+            data_type=DataTypesEnum.table)
+        self.forecast_mode = true_mode
+        return predict
+
+    def _train_loop(self, model,
+                    train_loader,
+                    loss_fn,
+                    val_loader,
+                    optimizer):
+        train_steps = len(train_loader)
+        early_stopping = EarlyStopping()
+        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
+                                            steps_per_epoch=train_steps,
+                                            epochs=self.epochs,
+                                            max_lr=self.learning_rate)
+        args = {'lradj': 'type2'}
+
+        best_model = None
+        best_val_loss = float('inf')
+
+        for epoch in range(self.epochs):
+            iter_count = 0
+            train_loss = []
+            model.train()
+            training_loss = 0.0
+            valid_loss = 0.0
+
+            for i, (batch_x, batch_y) in enumerate(train_loader):
+                iter_count += 1
+                optimizer.zero_grad()
+                batch_x = batch_x.float().to(default_device())
+                batch_y = batch_y.float().to(default_device())
+                
+                outputs = model(batch_x)
+                loss = loss_fn(outputs, batch_y)
+                train_loss.append(loss.item())
+
+                loss.backward()
+                optimizer.step()
+
+                adjust_learning_rate(optimizer, scheduler,
+                                     epoch + 1, args, printout=False)
+                scheduler.step()
+            if val_loader is not None and epoch % val_interval == 0:
+                model.eval()
+                total = 0
+                for batch in val_loader:
+                    inputs, targets = batch
+                    output = model(inputs)
+
+                    loss = loss_fn(output, targets.float())
+
+                    valid_loss += loss.data.item() * inputs.size(0)
+                    total += inputs.size(0)
+                valid_loss /= total
+                if valid_loss < best_val_loss:
+                    best_val_loss = valid_loss
+                    best_model = copy.deepcopy(model)
+
+            train_loss = np.average(train_loss)
+            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
+                epoch + 1, train_steps, train_loss))
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+            print('Updating learning rate to {}'.format(
+                scheduler.get_last_lr()[0]))
+        return best_model
+
+    def _predict_loop(self, test_loader):
+        outputs = []
+        with torch.no_grad():
+            for x_test in test_loader:
+                outputs.append(self.model.predict(x_test))
+        output = torch.stack(outputs, dim=0)
+        return output
+
+
     @convert_inputdata_to_torch_time_series_dataset
     def _create_dataset(self,
                         ts: InputData,
@@ -314,11 +386,16 @@ class DeepAR(BaseNeuralModel):
     
     def _prepare_data(self,
                       ts,
-                      patch_len,
+                      patch_len=None,
                       split_data: bool = True,
-                      validation_blocks: int = None):
-        train_data = self.split_data(ts)
+                      validation_blocks: int = None, 
+                      unsqueeze_0=True):
+        if patch_len is None:
+            patch_len = self.horizon
+        train_data = self.__ts_to_input_data(ts)
+        # print(train_data)
         if split_data:
+            raise NotImplementedError('Problem with lagged_data splitting')
             train_data, val_data = train_test_data_setup(
                 train_data, validation_blocks=validation_blocks)
             _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
@@ -335,31 +412,36 @@ class DeepAR(BaseNeuralModel):
                                                                                                   self.horizon,
                                                                                                   patch_len)
         train_loader = self.__create_torch_loader(train_data)
-        return train_loader
+        return train_loader, None
 
 
-    def split_data(self, input_data):
-
-        time_series = pd.DataFrame(input_data)
+    def __ts_to_input_data(self, input_data: Union[InputData, pd.DataFrame]):
+        if isinstance(input_data, InputData):
+            return input_data
+        
+        if not isinstance(input_data, pd.DataFrame):
+            time_series = pd.DataFrame(input_data)
         task = Task(TaskTypesEnum.ts_forecasting,
                     TsForecastingParams(forecast_length=self.horizon))
         if 'datetime' in time_series.columns:
             idx = pd.to_datetime(time_series['datetime'].values)
         else:
-            idx = time_series.columns.values
+            idx = np.arange(len(time_series.values.flatten()))
 
         time_series = time_series.values
+
         train_input = InputData(idx=idx,
                                 features=time_series.flatten(),
                                 target=time_series.flatten(),
                                 task=task,
                                 data_type=DataTypesEnum.ts)
-
+        
         return train_input
 
     def __create_torch_loader(self, train_data):
 
         train_dataset = self._create_dataset(train_data)
+        # print(train_dataset.x.size(), train_dataset.y.size())
         train_loader = torch.utils.data.DataLoader(
             data.TensorDataset(train_dataset.x, train_dataset.y),
             batch_size=self.batch_size, shuffle=False)
