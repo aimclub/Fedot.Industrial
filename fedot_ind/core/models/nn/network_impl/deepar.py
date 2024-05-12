@@ -207,7 +207,7 @@ class DeepAR(BaseNeuralModel):
         self.hidden_size = params.get('hidden_size', 10)
         self.rnn_layers = params.get('rnn_layers', 2)
         self.dropout = params.get('dropout', 0.1)
-        self.horizon = params.get('forecast_length', 1)
+        self.horizon = params.get('horizon', 1)
         self.forecast_length = self.horizon
         self.expected_distribution = params.get('expected_distribution', 'normal')
 
@@ -220,13 +220,14 @@ class DeepAR(BaseNeuralModel):
     
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
-        self.model = DeepARModule(input_size=ts.features.shape[-1],
+        input_size = self.patch_len or ts.features.shape[-1]
+        self.model = DeepARModule(input_size=input_size,
                                    hidden_size=self.hidden_size,
                                    cell_type=self.cell_type,
                                    dropout=self.dropout,
                                    rnn_layers=self.rnn_layers,
                                    distribution=self.expected_distribution).to(default_device())
-        self.model_for_inference = DeepARModule(input_size=ts.features.shape[-1],
+        self.model_for_inference = DeepARModule(input_size=input_size,
                                    hidden_size=self.hidden_size,
                                    cell_type=self.cell_type,
                                    dropout=self.dropout,
@@ -255,22 +256,21 @@ class DeepAR(BaseNeuralModel):
 
         self.test_patch_len = self.patch_len
         loss_fn, optimizer = self._init_model(input_data)
-        return train_loader
-        self._train_loop(model=self.model, 
+        return self._train_loop(model=self.model, 
                         train_loader=train_loader,
                         loss_fn=loss_fn, 
                         optimizer=optimizer, 
                         val_loader=val_loader,
                         )
 
-    def predict(self, test_loader, output_mode):
+    def _predict(self, test_loader, output_mode):
         model = self.model # or model for inference? 
         output = model.predict(test_loader, output_mode)
 
         y_pred = output #
         forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
                                          stop=test_data.idx[-self.horizon] +
-                                         y_pred.shape[0],
+                                         self.horizon,
                                          step=1)
         predict = OutputData(
             idx=forecast_idx_predict,
@@ -313,7 +313,7 @@ class DeepAR(BaseNeuralModel):
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
-        args = {'lradj': 'type2'}
+        kwargs = {'lradj': 'type3'}
 
         best_model = None
         best_val_loss = float('inf')
@@ -330,16 +330,17 @@ class DeepAR(BaseNeuralModel):
                 optimizer.zero_grad()
                 batch_x = batch_x.float().to(default_device())
                 batch_y = batch_y.float().to(default_device())
-                
-                outputs = model(batch_x)
+                outputs, *hidden_state = model(batch_x)
+                # return batch_x, outputs, batch_y
+
                 loss = loss_fn(outputs, batch_y)
                 train_loss.append(loss.item())
 
                 loss.backward()
                 optimizer.step()
 
-                adjust_learning_rate(optimizer, scheduler,
-                                     epoch + 1, args, printout=False)
+                # adjust_learning_rate(optimizer, scheduler,
+                #                      epoch, learning_rate=, printout=False, **kwargs)
                 scheduler.step()
             if val_loader is not None and epoch % val_interval == 0:
                 model.eval()
@@ -393,7 +394,6 @@ class DeepAR(BaseNeuralModel):
         if patch_len is None:
             patch_len = self.horizon
         train_data = self.__ts_to_input_data(ts)
-        # print(train_data)
         if split_data:
             raise NotImplementedError('Problem with lagged_data splitting')
             train_data, val_data = train_test_data_setup(
@@ -439,9 +439,7 @@ class DeepAR(BaseNeuralModel):
         return train_input
 
     def __create_torch_loader(self, train_data):
-
         train_dataset = self._create_dataset(train_data)
-        # print(train_dataset.x.size(), train_dataset.y.size())
         train_loader = torch.utils.data.DataLoader(
             data.TensorDataset(train_dataset.x, train_dataset.y),
             batch_size=self.batch_size, shuffle=False)

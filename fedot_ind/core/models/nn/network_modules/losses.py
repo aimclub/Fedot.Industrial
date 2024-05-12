@@ -316,8 +316,9 @@ class NormalDistributionLoss(DistributionLoss):
 
     @classmethod
     def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        assert isinstance(x, torch.Tensor), 'x must be tensor!'
         loc = x[..., -2]
-        scale = x[..., -1]
+        scale = F.softplus(x[..., -1])
         distr = self.distribution_class(loc=loc, scale=scale)
         return distr
         
