@@ -258,6 +258,8 @@ class DistributionLoss(nn.Module):
     distribution_arguments: List[str]
     quantiles: List[float] = [.05, .25, .5, .75, .95]
     need_affine=True
+    scale_dependent_idx = tuple()
+    loc_dependent_idx = tuple()
 
     def __init__(
         self, reduction="mean",
@@ -312,11 +314,12 @@ class NormalDistributionLoss(DistributionLoss):
 
     distribution_class = distributions.Normal
     distribution_arguments = ["loc", "scale"]
+    scale_dependent_idx = (1,)
+    loc_dependent_idx = (0,)
     need_affine=False
 
     @classmethod
     def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
-        assert isinstance(x, torch.Tensor), 'x must be tensor!'
         loc = x[..., -2]
         scale = F.softplus(x[..., -1])
         distr = self.distribution_class(loc=loc, scale=scale)
