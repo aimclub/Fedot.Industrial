@@ -123,8 +123,16 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = pd.concat(df)
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
-    df_full['Difference_industrial'] = (
+    df_full['Difference_industrial_All'] = (
         df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
-    df_full['industrial_Wins'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial'] > 0 else 'Loose',
+    df_full['Difference_industrial_AG'] = (
+        df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+    df_full['Difference_industrial_NBEATS'] = (
+        df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
+    df_full['industrial_Wins_All'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial_All'] > 0 else 'Loose',
+                                               axis=1)
+    df_full['industrial_Wins_AG'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial_AG'] > 0 else 'Loose',
+                                               axis=1)
+    df_full['industrial_Wins_NBEATS'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial_NBEATS'] > 0 else 'Loose',
                                                axis=1)
     return df_full
