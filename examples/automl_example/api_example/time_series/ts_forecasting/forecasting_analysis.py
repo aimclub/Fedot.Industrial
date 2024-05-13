@@ -8,4 +8,7 @@ if __name__ == "__main__":
     for metric in ['rmse', 'smape']:
         df_forecast, df_metrics = read_results(forecast_result_path)
         df_comprasion = create_comprasion_df(df_metrics, metric)
-        print(df_comprasion['industrial_Wins'].value_counts())
+        print(df_comprasion['industrial_Wins_All'].value_counts())
+        print(df_comprasion['industrial_Wins_AG'].value_counts())
+        print(df_comprasion['industrial_Wins_NBEATS'].value_counts())
+        _ = 1
