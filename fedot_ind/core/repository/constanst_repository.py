@@ -258,12 +258,12 @@ class FedotOperationConstant(Enum):
             'ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        # 'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
-        # 'eigen_ar': PipelineBuilder().add_node('eigen_basis',
-        #                                        params={'low_rank_approximation': False,
-        #                                                'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-       'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
-      # 'glm': PipelineBuilder().add_node('glm')
+        'arima': PipelineBuilder().add_node('stl_arima'),
+        'eigen_ar': PipelineBuilder().add_node('eigen_basis',
+                                               params={'low_rank_approximation': False,
+                                                       'rank_regularization': 'explained_dispersion'}).add_node('ar'),
+       # 'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
+      'glm': PipelineBuilder().add_node('glm')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
