@@ -2,7 +2,7 @@ from functools import partial
 
 from hyperopt import hp
 
-from fedot_ind.core.repository.constanst_repository import DISTANCE_METRICS
+#from fedot_ind.core.repository.constanst_repository import DISTANCE_METRICS
 
 NESTED_PARAMS_LABEL = 'nested_label'
 
@@ -83,12 +83,12 @@ industrial_search_space = {
 
 
 def get_industrial_search_space(self):
-    parameters_per_operation = {'kmeans': {
-        'n_clusters': {
-            'hyperopt-dist': hp.uniformint,
-            'sampling-scope': [2, 7],
-            'type': 'discrete'}
-    },
+    parameters_per_operation = {
+        'kmeans': {
+            'n_clusters': {
+                'hyperopt-dist': hp.uniformint,
+                'sampling-scope': [2, 7],
+                'type': 'discrete'}},
         'adareg': {
             'learning_rate': {
                 'hyperopt-dist': hp.loguniform,
@@ -97,8 +97,7 @@ def get_industrial_search_space(self):
             'loss': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [["linear", "square", "exponential"]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'gbr': {
             'loss': {
                 'hyperopt-dist': hp.choice,
@@ -131,8 +130,7 @@ def get_industrial_search_space(self):
             'alpha': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.75, 0.99],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'logit': {
             'C': {
                 'hyperopt-dist': hp.uniform,
@@ -147,8 +145,7 @@ def get_industrial_search_space(self):
             'solver': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['liblinear']],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'rf': {
             'criterion': {
                 'hyperopt-dist': hp.choice,
@@ -169,20 +166,17 @@ def get_industrial_search_space(self):
             'bootstrap': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [[True, False]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'ridge': {
             'alpha': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.01, 10.0],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'lasso': {
             'alpha': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.01, 10.0],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'rfr': {
             'max_features': {
                 'hyperopt-dist': hp.uniform,
@@ -199,8 +193,7 @@ def get_industrial_search_space(self):
             'bootstrap': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [[True, False]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'xgbreg': {
             'max_depth': {
                 'hyperopt-dist': hp.uniformint,
@@ -217,8 +210,7 @@ def get_industrial_search_space(self):
             'min_child_weight': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 21],
-                'type': 'discrete'},
-        },
+                'type': 'discrete'},},
         'xgboost': {
             'n_estimators': {
                 'hyperopt-dist': hp.uniformint,
@@ -247,8 +239,7 @@ def get_industrial_search_space(self):
             'min_samples_split': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.0, 1.0],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'svr': {
             'C': {
                 'hyperopt-dist': hp.uniform,
@@ -265,8 +256,7 @@ def get_industrial_search_space(self):
             'loss': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [["epsilon_insensitive", "squared_epsilon_insensitive"]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'dtreg': {
             'max_depth': {
                 'hyperopt-dist': hp.uniformint,
@@ -279,8 +269,7 @@ def get_industrial_search_space(self):
             'min_samples_leaf': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 21],
-                'type': 'discrete'}
-        },
+                'type': 'discrete'}},
         'treg': {
             'max_features': {
                 'hyperopt-dist': hp.uniform,
@@ -297,8 +286,7 @@ def get_industrial_search_space(self):
             'bootstrap': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [[True, False]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'dt': {
             'max_depth': {
                 'hyperopt-dist': hp.uniformint,
@@ -311,8 +299,7 @@ def get_industrial_search_space(self):
             'min_samples_leaf': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 21],
-                'type': 'discrete'}
-        },
+                'type': 'discrete'}},
         'knnreg': {
             'n_neighbors': {
                 'hyperopt-dist': hp.uniformint,
@@ -325,8 +312,7 @@ def get_industrial_search_space(self):
             'p': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [[1, 2]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'knn': {
             'n_neighbors': {
                 'hyperopt-dist': hp.uniformint,
@@ -339,8 +325,7 @@ def get_industrial_search_space(self):
             'p': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [[1, 2]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'arima': {
             'p': {
                 'hyperopt-dist': hp.uniformint,
@@ -353,8 +338,7 @@ def get_industrial_search_space(self):
             'q': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 5],
-                'type': 'discrete'}
-        },
+                'type': 'discrete'}},
         'stl_arima': {
             'p': {
                 'hyperopt-dist': hp.uniformint,
@@ -371,8 +355,7 @@ def get_industrial_search_space(self):
             'period': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 365],
-                'type': 'discrete'}
-        },
+                'type': 'discrete'}},
         'mlp': {
             'hidden_layer_sizes': {
                 'hyperopt-dist': hp.choice,
@@ -387,8 +370,7 @@ def get_industrial_search_space(self):
                          'type': 'discrete'},
             'learning_rate': {'hyperopt-dist': hp.choice,
                               'sampling-scope': [['constant', 'adaptive']],
-                              'type': 'categorical'}
-        },
+                              'type': 'categorical'}},
         'ar': {
             'lag_1': {
                 'hyperopt-dist': hp.uniform,
@@ -397,13 +379,11 @@ def get_industrial_search_space(self):
             'lag_2': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [2, 800],
-                'type': 'continuous'}
-            ,
+                'type': 'continuous'},
             'trend': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['n', 'c', 't', 'ct']],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'ets': {
             'error': {
                 'hyperopt-dist': hp.choice,
@@ -424,8 +404,7 @@ def get_industrial_search_space(self):
             'seasonal_periods': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [1, 100],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'glm': {
             NESTED_PARAMS_LABEL: {
                 'hyperopt-dist': hp.choice,
@@ -449,8 +428,7 @@ def get_industrial_search_space(self):
                     }
 
                 ]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'cgru': {
             'hidden_size': {
                 'hyperopt-dist': hp.uniform,
@@ -491,8 +469,7 @@ def get_industrial_search_space(self):
             'loss': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['mae', 'mse']],
-                'type': 'categorical'},
-        },
+                'type': 'categorical'},},
         'topological_extractor': {
             'window_size_as_share': {
                 'hyperopt-dist': hp.uniform,
@@ -507,14 +484,12 @@ def get_industrial_search_space(self):
             'metric': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['euclidean', 'manhattan', 'cosine']],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'pca': {
             'n_components': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.1, 0.99],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'kernel_pca': {
             'n_components': {
                 'hyperopt-dist': hp.uniformint,
@@ -523,14 +498,12 @@ def get_industrial_search_space(self):
             'kernel': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['linear', 'poly', 'rbf', 'sigmoid', 'cosine', 'precomputed']],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'lagged': {
             'window_size': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [5, 500],
-                'type': 'discrete'}
-        },
+                'type': 'discrete'}},
         'sparse_lagged': {
             'window_size': {
                 'hyperopt-dist': hp.uniformint,
@@ -543,20 +516,17 @@ def get_industrial_search_space(self):
             'use_svd': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [[True, False]],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'smoothing': {
             'window_size': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [2, 20],
-                'type': 'discrete'}
-        },
+                'type': 'discrete'}},
         'gaussian_filter': {
             'sigma': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [1, 5],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'diff_filter': {
             'poly_degree': {
                 'hyperopt-dist': hp.uniformint,
@@ -569,14 +539,12 @@ def get_industrial_search_space(self):
             'window_size': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [3, 20],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'cut': {
             'cut_part': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0, 0.9],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'lgbm': {
             'class_weight': {
                 'hyperopt-dist': hp.choice,
@@ -605,8 +573,7 @@ def get_industrial_search_space(self):
             'reg_lambda': {
                 'hyperopt-dist': hp.loguniform,
                 'sampling-scope': [1e-8, 10],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'lgbmreg': {
             'num_leaves': {
                 'hyperopt-dist': hp.uniformint,
@@ -631,8 +598,7 @@ def get_industrial_search_space(self):
             'reg_lambda': {
                 'hyperopt-dist': hp.loguniform,
                 'sampling-scope': [1e-8, 10],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'catboost': {
             'max_depth': {
                 'hyperopt-dist': hp.uniformint,
@@ -653,8 +619,7 @@ def get_industrial_search_space(self):
             'l2_leaf_reg': {
                 'hyperopt-dist': hp.loguniform,
                 'sampling-scope': [1e-8, 10],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'catboostreg': {
             'max_depth': {
                 'hyperopt-dist': hp.uniformint,
@@ -675,8 +640,7 @@ def get_industrial_search_space(self):
             'l2_leaf_reg': {
                 'hyperopt-dist': hp.loguniform,
                 'sampling-scope': [1e-8, 10],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'resample': {
             'balance': {
                 'hyperopt-dist': hp.choice,
@@ -689,8 +653,7 @@ def get_industrial_search_space(self):
             'balance_ratio': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.3, 1],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'lda': {
             'solver': {
                 'hyperopt-dist': hp.choice,
@@ -699,27 +662,23 @@ def get_industrial_search_space(self):
             'shrinkage': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.1, 0.9],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'ts_naive_average': {
             'part_for_averaging': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.1, 1],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'locf': {
             'part_for_repeat': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.01, 0.5],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
         'word2vec_pretrained': {
             'model_name': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['glove-twitter-25', 'glove-twitter-50',
                                     'glove-wiki-gigaword-100', 'word2vec-ruscorpora-300']],
-                'type': 'categorical'}
-        },
+                'type': 'categorical'}},
         'tfidf': {
             'ngram_range': {
                 'hyperopt-dist': hp.choice,
@@ -732,8 +691,7 @@ def get_industrial_search_space(self):
             'max_df': {
                 'hyperopt-dist': hp.uniform,
                 'sampling-scope': [0.9, 0.99],
-                'type': 'continuous'}
-        },
+                'type': 'continuous'}},
     }
     for key in industrial_search_space:
         parameters_per_operation[key] = industrial_search_space[key]
