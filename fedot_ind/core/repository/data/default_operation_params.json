@@ -10,7 +10,6 @@
     "wavelet": "mexh"
   },
   "fourier_basis": {
-    "spectrum_type": "smoothed",
     "threshold": 20000
   },
   "topological_extractor": {
@@ -22,10 +21,8 @@
     "stride": 5
   },
   "quantile_extractor": {
-    "window_mode": false,
-    "var_threshold": 0.01,
     "stride": 5,
-    "window_size": 24
+    "window_size": 0
   },
   "riemann_extractor": {
     "n_filter": 4,
@@ -45,12 +42,6 @@
   "signal_extractor": {
     "n_components": 6,
     "wavelet": "mexh"
-  },
-  "channel_filtration": {
-    "shrink": 1e-5,
-    "distance": "euclidean",
-    "centroid_metric": "euclidean",
-    "selection_strategy": "pairwise"
   },
   "minirocket_extractor": {
     "num_features": 10000

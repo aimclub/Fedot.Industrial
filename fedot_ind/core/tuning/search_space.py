@@ -42,23 +42,12 @@ industrial_search_space = {
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         # 'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']])
-         },
+         # 'rec_metric': (hp.choice, [['chebyshev', 'cosine', 'euclidean', 'mahalanobis']]),
+         'image_mode': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'signal_extractor':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'morl', 'db5', 'sym5']]}},
-    'channel_filtration':
-        {'distance': {'hyperopt-dist': hp.choice,
-                      'sampling-scope': [['manhattan', 'euclidean', 'chebyshev']]},
-         'centroid_metric': {'hyperopt-dist': hp.choice,
-                             'sampling-scope': [['manhattan', 'euclidean', 'chebyshev']]},
-         'sample_metric': {'hyperopt-dist': hp.choice,
-                           'sampling-scope': [list(DISTANCE_METRICS.keys())]},
-
-         'selection_strategy': {'hyperopt-dist': hp.choice,
-                                'sampling-scope': [['sum', 'pairwise']]}
-         },
     'minirocket_extractor':
         {'num_features': {'hyperopt-dist': hp.choice,
                           'sampling-scope': [[x for x in range(5000, 20000, 1000)]]}},

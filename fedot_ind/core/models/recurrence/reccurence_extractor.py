@@ -45,9 +45,8 @@ class RecurrenceExtractor(BaseExtractor):
         super().__init__(params)
         self.window_size = params.get('window_size', 0)
         self.stride = params.get('stride', 1)
-        self.rec_metric = params.get('rec_metric', 'cosine')
+        self.rec_metric = params.get('rec_metric', 'cosine') # TODO add threshold for other metrics
         self.image_mode = params.get('image_mode', False)
-        self.rec_metric = 'cosine'  # TODO add threshold for other metrics
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor
 
