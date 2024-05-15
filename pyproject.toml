@@ -10,7 +10,7 @@ readme = "README_en.rst"
 python = ">=3.9,<3.12"
 fedot = "^0.7.3"
 catboost = {version = "1.1.1", markers = "sys_platform == 'Darwin'"}
-catboost = {version = ">1.1.1", markers = "sys_platform == 'linux' or sys_platform == 'Windows'"}
+catboost = {version = "latest", markers = "sys_platform == 'linux' or sys_platform == 'Windows'"}
 mklpy = "0.6"
 PyMonad = "2.4.0"
 PyWavelets = "1.4.1"
