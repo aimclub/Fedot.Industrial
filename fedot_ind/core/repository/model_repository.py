@@ -177,7 +177,9 @@ class AtomizedModel(Enum):
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
-        'glm': GLMIndustrial
+        'glm': GLMIndustrial,
+        # variational
+        'deepar_model': DeepAR,
     }
 
     FORECASTING_PREPROC = {
