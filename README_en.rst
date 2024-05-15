@@ -100,8 +100,7 @@ To install the latest version from the `main branch`_:
 
     git clone https://github.com/aimclub/Fedot.Industrial.git
     cd FEDOT.Industrial
-    pip install -r requirements.txt
-    pytest -s test/
+    poetry install
 
 How to Use
 ==========
