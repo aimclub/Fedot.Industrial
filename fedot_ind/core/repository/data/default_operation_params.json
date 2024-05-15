@@ -224,6 +224,10 @@
     "epochs": 100,
     "batch_size": 32
   },
+  "deepar_model": {
+    "epochs": 100,
+    "batch_size": 16
+  },
   "tst_model": {
     "epochs": 100,
     "batch_size": 32
