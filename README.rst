@@ -100,8 +100,7 @@ Fedot.Ind доступен на PyPI и может быть установлен
 
     git clone https://github.com/aimclub/Fedot.Industrial.git
     cd FEDOT.Industrial
-    pip install -r requirements.txt
-    pytest -s test/
+    poetry install
 
 Как пользоваться
 ================
