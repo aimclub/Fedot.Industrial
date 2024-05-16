@@ -18,8 +18,6 @@ jobs:
         run: autopep8 --in-place --recursive ./fedot_ind ./tests
 
       - uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.PEP8_TOKEN }}
           script: |
             git diff --quiet ./fedot_ind ./tests  # Only check for changes in relevant files
 
@@ -32,3 +30,4 @@ jobs:
             git commit -m "Fix PEP 8 style violations"
             target_branch=${{ github.event.pull_request.head.ref }}
             git push origin $target_branch
+            ${{ secrets.PEP8_TOKEN }}
