@@ -18,18 +18,28 @@
     "bootstrap":false
   },
   "xgboost": {
-    "n_estimators": 500,
-    "learning_rate": 0.1,
-    "max_depth": 5,
-    "random_state": 42
+    "eval_metric": "mlogloss",
+    "nthread": 1,
+    "n_jobs": 1,
+    "verbose": 0
   },
   "catboost": {
     "allow_writing_files": false,
-    "verbose": false
+    "verbose": false,
+    "iterations": 1000,
+    "use_eval_set": false,
+    "use_best_model": false,
+    "early_stopping_rounds": null,
+    "n_jobs": 1
   },
   "catboostreg": {
     "allow_writing_files": false,
-    "verbose": false
+    "verbose": false,
+    "iterations": 1000,
+    "use_eval_set": false,
+    "use_best_model": false,
+    "early_stopping_rounds": null,
+    "n_jobs": 1
   },
   "lgbm": {
     "num_leaves": 32,
@@ -37,7 +47,9 @@
     "subsample": 0.8,
     "subsample_freq": 10,
     "learning_rate": 0.03,
-    "n_estimators": 100
+    "n_estimators": 100,
+    "n_jobs": 1,
+    "verbose": -1
   },
   "lgbmreg": {
     "num_leaves": 32,
@@ -45,7 +57,9 @@
     "subsample": 0.8,
     "subsample_freq": 10,
     "learning_rate": 0.03,
-    "n_estimators": 100
+    "n_estimators": 100,
+    "n_jobs": 1,
+    "verbose": -1
   },
   "lagged": {
     "window_size": 10
@@ -239,6 +253,18 @@
   "patch_tst_model": {
     "epochs": 100,
     "batch_size": 32
+  },
+  "nbeats_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "degree_of_polynomial": 3,
+    "n_trend_blocks": 3,
+    "n_trend_layers": 3,
+    "n_seasonality_blocks": 2,
+    "n_seasonality_layers ": 2,
+    "n_of_harmonics": 1,
+    "n_stacks": 10,
+    "layers": 4
   },
   "lora_model": {
     "epochs": 100,
