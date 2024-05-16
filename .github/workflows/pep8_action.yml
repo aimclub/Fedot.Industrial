@@ -1,0 +1,31 @@
+name: Fix PEP 8 Style
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fix_pep8:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install autopep8
+        run: pip install --upgrade autopep8
+
+      - name: Fix PEP 8 style violations
+        run: autopep8 --in-place --aggressive .
+
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.PEP8_TOKEN }}
+          
+            if git diff --quiet; then
+              echo "No PEP 8 style changes detected."
+              exit 0
+            fi
+
+            git add .
+            git commit -m "Fix PEP 8 style violations"
+            git push origin HEAD:main
