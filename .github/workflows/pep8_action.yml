@@ -25,7 +25,6 @@ jobs:
             if git diff --quiet; then
               echo "No PEP 8 style changes detected."
               exit 0
-            fi
 
             git add .
             git commit -m "Fix PEP 8 style violations"
