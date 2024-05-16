@@ -301,11 +301,14 @@
     },    
     "tcn_model": {
       "meta": "ts_model",
-      "presets": [
-        "ts"
-      ],
+      "presets": ["fast_train", "ts"],
       "tags": [
-      ]
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
     },
     "adareg": {
       "meta": "sklearn_regr",
