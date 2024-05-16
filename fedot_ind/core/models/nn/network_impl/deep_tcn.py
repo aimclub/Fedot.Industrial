@@ -190,9 +190,9 @@ class TCNModel(BaseNeuralModel):
             time_steps=patch_pred_len, tolerance=0.3)
         return model, loss_fn, optimizer
 
-    @property
-    def first_prediction_index(self) -> int:
-        return -self.output_chunk_length
+    # @property
+    # def first_prediction_index(self) -> int:
+    #     return -self.seq_len
 
     def _fit_model(self, input_data: InputData, split_data: bool = True):
         if self.preprocess_to_lagged:
