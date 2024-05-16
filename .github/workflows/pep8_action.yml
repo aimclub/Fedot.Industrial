@@ -20,6 +20,7 @@ jobs:
       - uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PEP8_TOKEN }}
+          script: |
           
             if git diff --quiet; then
               echo "No PEP 8 style changes detected."
@@ -30,3 +31,4 @@ jobs:
             git commit -m "Fix PEP 8 style violations"
             target_branch=${{ github.event.pull_request.head.ref }}
             git push origin $target_branch
+            
