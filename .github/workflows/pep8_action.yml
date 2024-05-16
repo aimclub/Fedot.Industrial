@@ -1,32 +1,26 @@
-name: Fix PEP 8 Style
-
+name: fix-pep8-command
 on:
-  pull_request:
-    branches: [ main ]
-
+  repository_dispatch:
+    types: [fix-pep8-command]
 jobs:
-  fix_pep8:
+  fix-pep8:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install autopep8
-        run: pip install --upgrade autopep8
-
-      - name: Fix PEP 8 style violations
-        run: autopep8 --in-place --recursive ./fedot_ind ./tests
-
-      - name: Checkout PR
-        env:
-            GITHUB_TOKEN: ${{ secrets.PEP8_TOKEN }}
-        run: gh pr checkout ${{ github.event.pull_request.number }}
-
-      - name: Push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        steps:
-          run:
-            git add .
-            git commit -m "Fix PEP 8 style violations"
-            git push origin ${{ github.event.pull_request.head.ref }}
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PEP8_TOKEN }}
+          repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.client_payload.pull_request.head.ref }}
+      - name: autopep8
+        id: autopep8
+        uses: peter-evans/autopep8@v2
+        with:
+          args: --exit-code --max-line-length 120 --recursive --in-place --aggressive --aggressive .
+      - name: Commit autopep8 changes
+        id: cap8c
+        if: steps.autopep8.outputs.exit-code == 2
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit -am "Automated autopep8 fixes"
+          git push
