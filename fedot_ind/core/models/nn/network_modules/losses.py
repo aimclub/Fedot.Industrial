@@ -309,7 +309,7 @@ class DistributionLoss(nn.Module):
         raise NotImplemented
     
 
-    def forward(self, y_pred: torch.Tensor, y_actual: torch.Tensor) -> torch.Tensor:
+    def forward(self, param_pred: torch.Tensor, target: torch.Tensor, scaler=None) -> torch.Tensor:
         """
         Calculate negative likelihood
 
@@ -320,8 +320,10 @@ class DistributionLoss(nn.Module):
         Returns:
             torch.Tensor: metric value on which backpropagation can be applied
         """
-        distribution = self.map_x_to_distribution(y_pred)
-        loss = -distribution.log_prob(y_actual)
+        distribution = self.map_x_to_distribution(param_pred)
+        if scaler:
+            target = scaler.scale(target)
+        loss = -distribution.log_prob(target)
         loss = self.reduction(loss)
         return loss
 
