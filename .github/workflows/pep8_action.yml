@@ -21,13 +21,14 @@ jobs:
         with:
           github-token: ${{ secrets.PEP8_TOKEN }}
           script: |
-          
-            if git diff --quiet; then
+            git diff --quiet ./fedot_ind ./tests  # Only check for changes in relevant files
+
+            if [ $? -eq 0 ]; then
               echo "No PEP 8 style changes detected."
               exit 0
+            fi
 
             git add .
             git commit -m "Fix PEP 8 style violations"
             target_branch=${{ github.event.pull_request.head.ref }}
             git push origin $target_branch
-            
