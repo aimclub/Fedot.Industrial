@@ -468,6 +468,18 @@
     "epochs": 100,
     "batch_size": 32
   },
+  "nbeats_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "degree_of_polynomial": 3,
+    "n_trend_blocks": 3,
+    "n_trend_layers": 3,
+    "n_seasonality_blocks": 2,
+    "n_seasonality_layers ": 2,
+    "n_of_harmonics": 1,
+    "n_stacks": 10,
+    "layers": 4
+  },
   "lora_model": {
     "epochs": 100,
     "batch_size": 32,

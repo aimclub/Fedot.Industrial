@@ -6,6 +6,7 @@ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStr
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
+from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import \
     (IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
@@ -59,7 +60,8 @@ class FedotNNRegressionStrategy(FedotNNClassificationStrategy):
 
 class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
     __operations_by_types = {
-        'patch_tst_model': PatchTSTModel
+        'patch_tst_model': PatchTSTModel,
+        'nbeats_model': NBeatsModel
     }
 
     def _convert_to_operation(self, operation_type: str):

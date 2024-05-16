@@ -39,7 +39,8 @@ class ParetoMetrics:
 
 
 class QualityMetric:
-    def __init__(self, target,
+    def __init__(self,
+                 target,
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (

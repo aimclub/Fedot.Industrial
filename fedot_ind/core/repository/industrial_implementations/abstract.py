@@ -23,9 +23,13 @@ from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 from typing import Optional, Tuple, Union, Sequence, List, Dict
 from fedot.core.data.data import InputData, OutputData
 
+from itertools import chain
+from joblib import Parallel, delayed
+
+
 def split_time_series(data: InputData,
-                       validation_blocks: Optional[int] = None,
-                       **kwargs):
+                      validation_blocks: Optional[int] = None,
+                      **kwargs):
     """ Split time series data into train and test parts
 
     :param data: InputData object to split
@@ -37,7 +41,7 @@ def split_time_series(data: InputData,
         forecast_length *= validation_blocks
 
     target_length = len(data.target)
-    train_data = _split_input_data_by_indexes(data, index=np.arange(0, target_length - forecast_length),)
+    train_data = _split_input_data_by_indexes(data, index=np.arange(0, target_length - forecast_length), )
     test_data = _split_input_data_by_indexes(data, index=np.arange(target_length - forecast_length, target_length),
                                              retain_first_target=True)
 
@@ -49,6 +53,8 @@ def split_time_series(data: InputData,
         test_data.features = data.features
 
     return train_data, test_data
+
+
 def split_any(data: InputData,
               split_ratio: float,
               shuffle: bool,
@@ -160,7 +166,7 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
         # check that stratification can be done
         # for cross validation split ratio is defined as validation_size / all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
-            1 - 1 / (self.cv_folds + 1))
+                1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:
@@ -395,6 +401,31 @@ def merge_predicts(*args) -> np.array:
         prediction_2d = np.concatenate(
             [x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
         return prediction_2d.reshape(prediction_2d.shape[0], 1, prediction_2d.shape[1])
+
+
+def fit_topo_extractor(self, input_data: InputData):
+    input_data.features = input_data.features if len(input_data.features.shape) == 0 \
+        else input_data.features.reshape(1, -1)
+    self._window_size = int(input_data.features.shape[1] * self.window_size_as_share)
+    self._window_size = max(self._window_size, 2)
+    self._window_size = min(self._window_size, input_data.features.shape[1] - 2)
+    return self
+
+
+def transform_topo_extractor(self, input_data: InputData) -> OutputData:
+    features = input_data.features if len(input_data.features.shape) == 0 \
+        else input_data.features.reshape(1, -1)
+    with Parallel(n_jobs=self.n_jobs, prefer='processes') as parallel:
+        topological_features = parallel(delayed(self._extract_features)
+                                        (np.mean(features[i:i + 2, ::self.stride], axis=0))
+                                        for i in range(0, features.shape[0], 2))
+    if len(topological_features) * 2 < features.shape[0]:
+        topological_features.append(topological_features[-1])
+    result = np.array(list(chain(*zip(topological_features, topological_features))))
+    if result.shape[0] > features.shape[0]:
+        result = result[:-1, :]
+    np.nan_to_num(result, copy=False, nan=0, posinf=0, neginf=0)
+    return result
 
 
 def predict_operation(self, fitted_operation, data: InputData, params: Optional[OperationParameters] = None,

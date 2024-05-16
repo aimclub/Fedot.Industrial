@@ -323,10 +323,13 @@ class NumpyConverter:
                 return self.numpy_data
             else:
                 return self.numpy_data.swapaxes(1, 3)
-        return self.numpy_data.reshape(self.numpy_data.shape[0],
-                                       1,
-                                       self.numpy_data.shape[1],
-                                       self.numpy_data.shape[2])
+        elif self.numpy_data.ndim == 1:
+            return self.numpy_data.reshape(-1, 1, 1)
+        else:
+            return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                           1,
+                                           self.numpy_data.shape[1],
+                                           self.numpy_data.shape[2])
 
     def convert_to_torch_format(self):
         if self.numpy_data.ndim == 3:
@@ -450,7 +453,7 @@ class ConditionConverter:
         if n_classes < 2:
             raise ValueError(
                 'Data set contain only 1 target class. Please reformat your data.')
-        elif n_classes == 2 and output_mode != 'full_probs':
+        elif n_classes == 2 and output_mode != 'probs':
             if self.is_multi_output_target:
                 prediction = np.stack([pred[:, 1]
                                        for pred in prediction]).T
@@ -540,6 +543,7 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.data[1] == 'torchvision_dataset'
         else:
             return False
+
     @property
     def is_none(self):
         return self.data is None

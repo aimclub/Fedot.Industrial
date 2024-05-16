@@ -477,7 +477,12 @@
       ]
     },
     "nbeats_model": {
-      "meta": "ts_model"
+      "meta": "fedot_NN_forecasting",
+      "presets": ["fast_train", "best_quality", "ts"],
+      "tags": [
+        "deep", "ts_model"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
     },
     "qda": {
       "meta": "custom_class",
