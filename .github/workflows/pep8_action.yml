@@ -15,7 +15,7 @@ jobs:
         run: pip install --upgrade autopep8
 
       - name: Fix PEP 8 style violations
-        run: autopep8 --in-place --aggressive .
+        run: autopep8 --in-place --recursive .
 
       - uses: actions/github-script@v6
         with:
@@ -28,4 +28,5 @@ jobs:
 
             git add .
             git commit -m "Fix PEP 8 style violations"
-            git push origin HEAD:main
+            target_branch=${{ github.event.pull_request.head.ref }}
+            git push origin $target_branch
