@@ -1,7 +1,8 @@
 name: fix-pep8-command
 on:
-  repository_dispatch:
-    types: [fix-pep8-command]
+  pull_request:
+    branches:
+      - main
 jobs:
   fix-pep8:
     runs-on: ubuntu-latest
