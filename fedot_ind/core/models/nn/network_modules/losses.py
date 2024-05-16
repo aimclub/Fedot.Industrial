@@ -1,4 +1,4 @@
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -282,7 +282,7 @@ class DistributionLoss(nn.Module):
         self.reduction = getattr(torch, reduction) if reduction else lambda x: x
 
     @classmethod
-    def map_x_to_distribution(cls, x: torch.Tensor, affine: List[torch.Tensor, torch.Tensor]=None) -> distributions.Distribution:
+    def map_x_to_distribution(cls, x: torch.Tensor) -> distributions.Distribution:
         """
         Map the a tensor of parameters to a probability distribution.
 
@@ -294,15 +294,14 @@ class DistributionLoss(nn.Module):
                 class attribute ``distribution_class``
         """
         distr = cls._map_x_to_distribution(x)
-        if cls.need_affine or affine:
-            if affine:
-                loc = affine[0]
-                scale = affine[1]
-            else:
-                loc = x[..., 0]
-                scale = x[..., 1]
-            scaler = distributions.AffineTransform(loc=loc, scale=scale)
-            distr = distributions.TransformedDistribution(distr, [scaler])
+        transforms = []
+        if cls.need_affine:
+            loc = x[..., 0]
+            scale = x[..., 1]
+            scaler_from_output = distributions.AffineTransform(loc=loc, scale=scale)
+            transforms.append(scaler_from_output)
+        if transforms:
+            distr = distributions.TransformedDistribution(distr, transforms)
         return distr
     
     @classmethod
