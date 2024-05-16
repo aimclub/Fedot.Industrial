@@ -25,8 +25,8 @@ jobs:
       - name: Push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        run:
-          git add .
-          git commit -m "Fix PEP 8 style violations"
-          git push origin ${{ github.event.pull_request.head.ref }}
+        steps:
+          run:
+            git add .
+            git commit -m "Fix PEP 8 style violations"
+            git push origin ${{ github.event.pull_request.head.ref }}
