@@ -45,7 +45,7 @@ from xgboost import XGBClassifier, XGBRegressor
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
-from fedot_ind.core.models.nn.network_impl.temporal_convolution_model import TCNModel
+from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
@@ -98,12 +98,12 @@ TEMPORARY_EXCLUDED = {
                            'knn': FedotKnnClassImplementation
                            },
     'NEURAL_MODELS': {
-                      #'omniscale_model': OmniScaleModel,
+                      'omniscale_model': OmniScaleModel,
                       'tcn_model': TCNModel,
                       # transformer models
-                      #'tst_model': TSTModel,
+                      'tst_model': TSTModel,
                       # explainable models
-                      #'xcm_model': XCModel
+                      'xcm_model': XCModel
                       }
 }
 
