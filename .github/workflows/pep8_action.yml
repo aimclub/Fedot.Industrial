@@ -15,9 +15,8 @@ jobs:
         run: pip install --upgrade autopep8
 
       - name: Fix PEP 8 style violations
-        run: autopep8 --in-place --recursive .
+        run: autopep8 --in-place --recursive ./fedot_index ./tests
 
-      - uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PEP8_TOKEN }}
           
