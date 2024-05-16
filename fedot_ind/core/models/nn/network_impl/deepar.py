@@ -68,7 +68,7 @@ class DeepARModule(Module):
             self.projector = Linear(self.hidden_size, 2)
             
 
-    def encode(self, ts: torch.Tensor):
+    def _encode(self, ts: torch.Tensor):
         """
         Encode sequence into hidden state
         ts.size = (length, hidden)
@@ -86,23 +86,52 @@ class DeepARModule(Module):
         output = self.projector(output)
         return output, hidden_state
 
+    def forecast(self, prefix: torch.Tensor, horizon, mode='lagged', output_mode='quantiles', **mode_kw):
+        # assert prefix.size(-1) == self.rnn.input_size, f'Not enough information for forecasting! need {self.input_size}'
+        self.eval()
+        forecast = []
+        if mode == 'lagged':
+            with torch.no_grad():
+                for i in range(horizon):
+                    output = self(prefix)[0]
+                    forecast.append(self._transform_params(output, mode=output_mode, **mode_kw).detach().cpu())
+                    prediction = self._transform_params(output, mode='samples', n_samples=1)
+                    prefix = torch.roll(prefix, -1, dims=-1)
+                    prefix[..., -1] = prediction
+            forecast = torch.stack(forecast).squeeze(1).permute(1, 2, 0)
+        elif mode == 'auto':
+            pass
+        else:
+            raise ValueError('Unknown forecasting type!')
+        
+        return forecast
+    
 
-    def forward(self, x: torch.Tensor, n_samples: int = None, mode='raw'):
+
+    def forward(self, x: torch.Tensor,
+                #  n_samples: int = None,
+                   mode='raw', **mode_kw):
         """
         Forward pass
         x.size == (nseries, length)
         """
         x = self.scaler(x, normalize=True)
-        hidden_state = self.encode(x)
+        hidden_state = self._encode(x)
         # decode
         
         if self.training:
-            assert n_samples is None, "cannot sample from decoder when training"
-        output = self.decode(
-            x,
-            hidden_state, n_samples=0, mode=mode
-        )        
-        return output, hidden_state
+            # assert n_samples is None, "cannot sample from decoder when training"
+            assert mode == 'raw', "cannot use another mode, but 'raw' while training"
+            return self._decode_whole_seq(x, hidden_state)
+        else:
+            output = self._decode_whole_seq(x, hidden_state)
+            return self._transform_params(output, mode, **mode_kw)
+
+            output = self._decode_autoregressive(
+                x,
+                hidden_state, n_samples=0, mode=mode
+            )        
+            return output, hidden_state
     
     def to_quantiles(self, params: torch.Tensor, quantiles=None):
         if quantiles is None:
@@ -118,19 +147,19 @@ class DeepARModule(Module):
         distr = self.distribution.map_x_to_distribution(params)
         return distr.sample((1,)).T.squeeze() # distr_n x 1
     
-    def _transform_params(self, distr_params, mode='raw'):
+    def _transform_params(self, distr_params, mode='raw', **mode_kw):
         # factors =
         if mode == 'raw':
             transformed = distr_params
         elif mode == 'quantiles':
-            transformed = self.to_quantiles(distr_params)
+            transformed = self.to_quantiles(distr_params, **mode_kw)
         elif mode == 'predictions':
-            transformed = self.to_predictions(distr_params)
+            transformed = self.to_predictions(distr_params, **mode_kw)
         elif mode == 'samples':
-            transformed = self.to_samples(distr_params)
+            transformed = self.to_samples(distr_params, **mode_kw)
         else:
             raise ValueError('Unexpected forecast mode!')
-        transformed = self.scaler(transformed, False)
+        # transformed = self.scaler(transformed, False)
         return transformed
         
     def predict(self, test_x: torch.Tensor, mode=None):
@@ -138,23 +167,22 @@ class DeepARModule(Module):
         distr_params, _ = self(test_x)
         return self._transform_params(distr_params, mode)
 
-    def decode(self, x, hidden_state=None, n_samples=0, mode='raw'):
-        if hidden_state is None:
-            hidden_state = torch.zeros((self.hidden_size,)).float()
-
-        if not n_samples:
-                output, _ = self._decode_whole_seq(x, hidden_state)
-                output = self._transform_params(output, mode=mode)
-        else:
-                # make predictions which are fed into next step
-                output = self.decode_autoregressive(
-                    first_target=x[:, 0],
-                    first_hidden_state=hidden_state,
-                    # target_scale=target_scale,
-                    n_decoder_steps=x.size(1),
-                    n_samples=n_samples,
-                )
-        return output
+    # def decode(self, x, hidden_state=None, n_samples=0, mode='raw'):
+    #     if hidden_state is None:
+    #         hidden_state = torch.zeros((self.hidden_size,)).float()
+    #     # if not n_samples:
+    #     #         output, _ = self._decode_whole_seq(x, hidden_state)
+    #     #         output = self._transform_params(output, mode=mode)
+    #     if True:
+    #             # make predictions which are fed into next step
+    #             output = self.decode_autoregressive(
+    #                 first_target=x[:, 0],
+    #                 first_hidden_state=hidden_state,
+    #                 # target_scale=target_scale,
+    #                 n_decoder_steps=x.size(1),
+    #                 n_samples=n_samples,
+    #             )
+    #     return output
     
 
     def _decode_one(self, x,
@@ -166,7 +194,7 @@ class DeepARModule(Module):
         prediction = prediction[:, [0], ...]  # select first time step fo this index
         return prediction, hidden_state
 
-    def decode_autoregressive(
+    def _decode_autoregressive(
         self,
         hidden_state: Any,
         first_target: Union[List[torch.Tensor], torch.Tensor],
@@ -283,6 +311,7 @@ class DeepAR(BaseNeuralModel):
 
         self.test_patch_len = self.patch_len
         return train_loader, val_loader
+
 
 
     def _predict_loop(self, test_loader, output_mode):
