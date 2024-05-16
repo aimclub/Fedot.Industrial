@@ -2,11 +2,11 @@ from functools import partial
 import pandas as pd
 from pymonad.list import ListMonad
 from pymonad.either import Right
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipelines
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 
 
-class AnomalyDetectionPipelines(AbstractPipelines):
+class AnomalyDetectionPipelines(AbstractPipeline):
 
     def __call__(self, pipeline_type: str = 'SpecifiedFeatureGeneratorTSC'):
         pipeline_dict = {'SST': self.__singular_transformation_pipeline,
