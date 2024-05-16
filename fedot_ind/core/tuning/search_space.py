@@ -12,8 +12,8 @@ industrial_search_space = {
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
          'rank_regularization': {'hyperopt-dist': hp.choice, 'sampling-scope': [
              ['hard_thresholding', 'explained_dispersion']]},
-         'low_rank_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]},
-         'tensor_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
+         # 'tensor_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]},
+         'low_rank_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
@@ -25,8 +25,8 @@ industrial_search_space = {
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
     'quantile_extractor':
-        {'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(0, 50, 3)]]}},
+        {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
     'riemann_extractor':
         {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
                                                                        'cov', 'lwf', 'mcd', 'hub']]},
@@ -219,7 +219,7 @@ def get_industrial_search_space(self):
             'min_child_weight': {
                 'hyperopt-dist': hp.uniformint,
                 'sampling-scope': [1, 21],
-                'type': 'discrete'},},
+                'type': 'discrete'}},
         'xgboost': {
             'n_estimators': {
                 'hyperopt-dist': hp.uniformint,
@@ -478,7 +478,7 @@ def get_industrial_search_space(self):
             'loss': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['mae', 'mse']],
-                'type': 'categorical'},},
+                'type': 'categorical'}},
         'topological_extractor': {
             'window_size_as_share': {
                 'hyperopt-dist': hp.uniform,
