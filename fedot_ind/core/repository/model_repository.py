@@ -197,6 +197,7 @@ class AtomizedModel(Enum):
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
         'tcn_model': TCNModel,
+        'tcn_model': TCNModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models
