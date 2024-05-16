@@ -17,6 +17,7 @@ jobs:
       - name: Fix PEP 8 style violations
         run: autopep8 --in-place --recursive ./fedot_ind ./tests
 
+      - uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PEP8_TOKEN }}
           
