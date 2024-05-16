@@ -18,7 +18,7 @@ jobs:
         run: autopep8 --in-place --recursive ./fedot_ind ./tests
 
       - uses: actions/github-script@v6
-          script: |
+          run:
             git diff --quiet ./fedot_ind ./tests  # Only check for changes in relevant files
 
             if [ $? -eq 0 ]; then
