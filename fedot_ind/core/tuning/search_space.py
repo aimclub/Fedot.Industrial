@@ -81,6 +81,13 @@ industrial_search_space = {
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+    'nbeats_model':
+        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(50, 200, 20)]]},
+         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32]]},
+         "n_stacks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 50, 10)]]},
+         "n_trend_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 5, 1)]]},
+         "n_seasonality_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 4, 1)]]},
+         "n_of_harmonics": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 3, 1)]]}},
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['hac', 'dff']]},

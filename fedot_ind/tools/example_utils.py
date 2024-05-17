@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Union
 
 import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
@@ -88,19 +89,25 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
 
 
 def industrial_common_modelling_loop(
-    dataset_name: str = None,
-    finetune: bool = False,
-    api_config: dict = None,
-    metric_names: tuple = (
-        'r2',
-        'rmse',
-        'mae')):
+        dataset_name: Union[str, dict] = None,
+        finetune: bool = False,
+        api_config: dict = None,
+        metric_names: tuple = (
+                'r2',
+                'rmse',
+                'mae')):
     industrial = FedotIndustrial(**api_config)
-
-    train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+    if api_config['problem'] == 'ts_forecasting':
+        train_data, _ = DataLoader(dataset_name=dataset_name['dataset']).load_forecast_data(
+            dataset_name['benchmark'])
+        target = train_data.values[-api_config['task_params']['forecast_length']:].flatten()
+        train_data = (train_data, target)
+        test_data = train_data
+    else:
+        train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     if finetune:
         industrial.finetune(train_data, tuning_params={
-                            'tuning_timeout': api_config['timeout']})
+            'tuning_timeout': api_config['timeout']})
     else:
         industrial.fit(train_data)
 
@@ -132,11 +139,11 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
     df_full['Difference_industrial_All'] = (
-        df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
+            df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
     df_full['Difference_industrial_AG'] = (
-        df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+            df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
     df_full['Difference_industrial_NBEATS'] = (
-        df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
+            df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
     df_full['industrial_Wins_All'] = df_full.apply(
         lambda row: 'Win' if row.loc['Difference_industrial_All'] > 0 else 'Loose', axis=1)
     df_full['industrial_Wins_AG'] = df_full.apply(

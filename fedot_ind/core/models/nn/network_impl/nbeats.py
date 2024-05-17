@@ -6,13 +6,12 @@ import torch
 from fedot.core.data.data import InputData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
-from torch import nn, optim
 from fedot.core.operations.operation_parameters import OperationParameters
+from torch import nn
+
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.forecasting.nbeats import _NBeatsStack, NBeatsNet
-
-from fedot_ind.core.models.nn.network_modules.losses import SMAPELoss
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
@@ -41,8 +40,8 @@ class NBeatsModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.is_generic_architecture = params.get(
             "is_generic_architecture", True)
-        self.epochs = params.get("n_stacks", 10)
-        self.batch_size = params.get("layers", 16)
+        self.epochs = params.get("epochs", 10)
+        self.batch_size = params.get("batch_size", 16)
         self.loss = params.get("loss", 'mse')
         self.optimizer = params.get("optimizer", 'adam')
         self.activation = 'None'
