@@ -95,7 +95,7 @@ class FedotConverter:
         else:
             try:
                 return torch.tensor(data)
-            except Exception as e:
+            except Exception:
                 print(f"Can't convert {type(data)} to InputData", Warning)
 
     def __init_input_data(self, features: pd.DataFrame,
@@ -293,7 +293,7 @@ class NumpyConverter:
         else:
             try:
                 return np.asarray(data)
-            except Exception as e:
+            except Exception:
                 print(f"Can't convert {type(data)} to np.array", Warning)
 
     def convert_to_1d_array(self):
@@ -592,7 +592,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         else:
             try:
                 return list(self.data)
-            except Exception as e:
+            except Exception:
                 print(
                     f'passed object needs to be of type L, list, np.ndarray or torch.Tensor but is {type(self.data)}',
                     Warning)

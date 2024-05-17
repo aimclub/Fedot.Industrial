@@ -156,12 +156,12 @@ def test_plot_methods(fedot_industrial_classification):
     industrial = fedot_industrial_classification
     data = univariate_clf_data()
     industrial.fit(data)
-    labels = industrial.predict(data)
-    probs = industrial.predict_proba(data)
+    industrial.predict(data)
+    industrial.predict_proba(data)
 
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
-    curr_backend = get_backend()
+    get_backend()
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     fedot_industrial_classification.explain()

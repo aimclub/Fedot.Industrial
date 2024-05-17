@@ -1,4 +1,3 @@
-import matplotlib
 import matplotlib.pyplot as plt
 
 from examples.simple.time_series_forecasting.api_forecasting import get_ts_data

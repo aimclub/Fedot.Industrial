@@ -6,7 +6,7 @@ from fedot.core.repository.metrics_repository import RegressionMetricsEnum
 from golem.core.tuning.optuna_tuner import OptunaTuner
 from scipy.stats import kurtosis, skew
 from statsmodels.genmod.families import Gamma, Gaussian, InverseGaussian
-from statsmodels.genmod.families.links import identity, inverse_power, inverse_squared, log as lg
+from statsmodels.genmod.families.links import inverse_squared, log as lg
 from statsmodels.genmod.generalized_linear_model import GLM
 
 from fedot.core.data.data import InputData, OutputData
@@ -81,7 +81,7 @@ class GLMIndustrial(ModelImplementation):
         input_data = copy(input_data)
         parameters = input_data.task.task_params
         forecast_length = parameters.forecast_length
-        old_idx = input_data.idx
+        input_data.idx
         if forecast_length == 1:
             predictions = self.model.predict(np.concatenate(
                 [np.array([1]), input_data.idx.astype("float64")]).reshape(-1, 2))

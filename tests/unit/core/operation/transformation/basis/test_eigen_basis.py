@@ -1,5 +1,3 @@
-import pytest
-from fedot.core.data.data import OutputData
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np

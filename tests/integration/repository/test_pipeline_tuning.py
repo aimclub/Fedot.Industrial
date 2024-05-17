@@ -60,7 +60,6 @@ def test_industrial_uni_series():
 def test_tuner_industrial_uni_series():
     with IndustrialModels():
         train_data, test_data = initialize_uni_data()
-        cv_folds = 3
         # search_space = SearchSpace(get_industrial_search_space(1))
         pipeline_builder = PipelineBuilder()
         pipeline_builder.add_node('eigen_basis')

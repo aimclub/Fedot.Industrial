@@ -3,7 +3,7 @@ import csv
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsNet
 
 import torch
-from torch import nn, optim
+from torch import optim
 from torch.nn import functional as F
 
 import matplotlib.pyplot as plt

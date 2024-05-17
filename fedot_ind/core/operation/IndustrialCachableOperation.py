@@ -52,7 +52,6 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         Returns:
             np.array: The decomposition of the given data.
         """
-        pass
 
     def try_load_from_cache(self, hashed_info: str) -> np.array:
         predict = self.cacher.load_data_from_cache(hashed_info=hashed_info)

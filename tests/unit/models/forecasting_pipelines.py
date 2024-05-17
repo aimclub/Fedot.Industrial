@@ -1,10 +1,6 @@
-import numpy as np
-from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
-from fedot_ind.core.metrics.metrics_implementation import RMSE
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_TSF_PIPELINE
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 BENCHMARK = 'M4'

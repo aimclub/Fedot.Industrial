@@ -1,13 +1,9 @@
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.metrics.metrics_implementation import RMSE, Accuracy
-from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_CLF_PIPELINE
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.tools.loader import DataLoader
 
-from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
-from fedot_ind.core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel
-from fedot_ind.core.metrics.evaluation import PerformanceAnalyzer
 
 BENCHMARK = 'M4'
 

@@ -48,7 +48,7 @@ def synthetic_ts():
 def test_generate(config, synthetic_ts):
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
-    curr_backend = get_backend()
+    get_backend()
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
 

@@ -1,5 +1,4 @@
 from copy import deepcopy
-from functools import partial
 from typing import Optional, Any
 
 import pandas as pd
@@ -16,7 +15,6 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
     KERNEL_BASELINE_NODE_LIST
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from itertools import chain
 
 
 class KernelEnsembler(BaseExtractor):

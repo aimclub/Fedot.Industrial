@@ -1,7 +1,7 @@
 import pickle
 import random
 from time import time
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 import torch

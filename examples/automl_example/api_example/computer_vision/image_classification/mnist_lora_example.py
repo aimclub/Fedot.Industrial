@@ -1,4 +1,4 @@
-from fedot_ind.core.models.nn.network_modules.layers.lora import LoRAParametrization, linear_layer_parameterization
+from fedot_ind.core.models.nn.network_modules.layers.lora import linear_layer_parameterization
 
 import torch
 import torch.nn as nn
@@ -9,7 +9,6 @@ import torchvision.transforms as transforms
 
 from tqdm import tqdm
 
-import matplotlib.pyplot as plt
 
 # Make torch deterministic
 _ = torch.manual_seed(228)

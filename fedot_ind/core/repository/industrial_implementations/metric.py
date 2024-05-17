@@ -8,8 +8,6 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 @from_maximised_metric
 def metric_f1(reference: InputData, predicted: OutputData) -> float:
     n_classes = reference.num_classes
-    default_value = 0
-    output_mode = 'labels'
     binary_averaging_mode = 'binary'
     multiclass_averaging_mode = 'weighted'
     if n_classes > 2:

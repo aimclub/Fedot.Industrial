@@ -1,5 +1,3 @@
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.tools.loader import DataLoader
 
 
 def test_kernel_ensemble():
