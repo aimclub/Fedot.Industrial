@@ -182,28 +182,27 @@ class DeepAR(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
-
-        #INSIDE
+        #INSIDE super
         # self.epochs = params.get('epochs', 100)
         # self.batch_size = params.get('batch_size', 16)
         # self.activation = params.get('activation', 'ReLU')
         # self.learning_rate = 0.001
         
+        # architecture settings
         self.cell_type = params.get('cell_type', 'LSTM')
         self.hidden_size = params.get('hidden_size', 10)
         self.rnn_layers = params.get('rnn_layers', 2)
         self.dropout = params.get('dropout', 0.1)
-        self.horizon = params.get('horizon', 1)
-        self.forecast_length = self.horizon
         self.expected_distribution = params.get('expected_distribution', 'normal')
-
-        ###
-        self.preprocess_to_lagged = False
         self.patch_len = params.get('patch_len', None)
+        self.preprocess_to_lagged = False
+
+        # forecasting settings
+        self.horizon = params.get('horizon', 1)
         self.forecast_mode = params.get('forecast_mode', 'predictions')
         self.quantiles = params.get('quantiles', None)
-
         self.test_patch_len = None
+
     
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
@@ -259,11 +258,10 @@ class DeepAR(BaseNeuralModel):
         if not output_mode:
             output_mode = self.forecast_mode
         # test_loader = self._get_test_loader(test_data)
+        self.horizon = test_data.task.task_params.forecast_length
         test_loader, _ = self._prepare_data(test_data, False, 0)
         last_patch = test_loader.dataset[-1][0][None, ...]
-        fcs = self._predict(last_patch, output_mode)
-
-        # some logic to select needed ts
+        fcs = self._predict(last_patch, output_mode) #
 
         # forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
         #                                  stop=test_data.idx[-self.horizon] +
@@ -272,10 +270,13 @@ class DeepAR(BaseNeuralModel):
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.horizon,
                                          step=1)
+        # some logic to select needed ts
+        prediction = fcs[:, ...].flatten()
+        print('predict', fcs.size(), prediction.size())
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
-            predict=fcs.reshape(self.horizon, -1, fcs.size(-1)),
+            predict=prediction,
             target=self.target,
             data_type=DataTypesEnum.table)
         
@@ -285,17 +286,18 @@ class DeepAR(BaseNeuralModel):
     def _predict(self, x, output_mode, **output_kw):
         mode = 'lagged' if self.preprocess_to_lagged else 'auto'
         x = x.to(default_device())
+        print(self.horizon)
         fc = self.model.forecast(x, self.horizon, mode, output_mode, **output_kw)
+        print(fc.size())
         return fc
 
     def predict_for_fit(self,
                         test_data,
-                        output_mode: str = 'labels'): # will here signature conflict raise in case I drop kw?
+                        output_mode: str = 'predictions'): # will here signature conflict raise in case I drop kw?
         output_mode = 'predictions' 
         # test_loader = self._get_test_loader(test_data)
         fcs = self._predict(test_loader, output_mode)
 
-        # test_loader = self._get_test_loader(test_data)
         test_loader, _ = self._prepare_data(test_data, False, 0)
         last_patch = test_loader.dataset[-1][0][None, ...]
         fcs = self._predict(last_patch, output_mode)
@@ -309,11 +311,13 @@ class DeepAR(BaseNeuralModel):
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.horizon,
                                          step=1)
+        prediction = fcs.squeeze().numpy()
+        print('predict_for_fit', fcs.size(), prediction.shape)
 
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
-            predict=fcs.squeeze().numpy(),
+            predict=prediction,
             target=self.target,
             data_type=DataTypesEnum.table)   
         return predict
@@ -473,7 +477,6 @@ class DeepAR(BaseNeuralModel):
             target = torch.from_numpy(DataConverter(
                 data=features).convert_to_torch_format()).float()
         else:
-        # if True:
             features = test_data.features
             features = torch.from_numpy(DataConverter(data=features).
                                         convert_to_torch_format()).float()
