@@ -65,11 +65,7 @@ def test_fit_predict_classification_multi(fedot_industrial_classification):
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
-
-    if len(num_unique) > 2:
-        assert predict_proba.shape[1] == len(num_unique)
-    else:
-        assert len(predict_proba.shape) == 1
+    assert predict_proba.shape[1] == len(num_unique)
 
 
 def test_fit_predict_classification_uni(fedot_industrial_classification):
@@ -83,11 +79,7 @@ def test_fit_predict_classification_uni(fedot_industrial_classification):
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
-
-    if len(num_unique) > 2:
-        assert predict_proba.shape[1] == len(num_unique)
-    else:
-        assert len(predict_proba.shape) == 1
+    assert predict_proba.shape[1] == len(num_unique)
 
 
 def test_fit_predict_regression_uni(fedot_industrial_regression):
