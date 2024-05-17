@@ -44,5 +44,6 @@ jobs:
       - name: Codecov-coverage
         uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.xml
           flags: unittests
