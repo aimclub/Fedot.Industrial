@@ -1,10 +1,13 @@
 from copy import copy
 from functools import partial
+from itertools import chain
+from typing import List, Optional, Union
 
 import pandas as pd
 from fedot.core.constants import default_data_split_ratio_by_task
 from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.cv_folds import cv_generator
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import _split_input_data_by_indexes
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -15,17 +18,12 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
 from fedot.preprocessing.data_types import TYPE_TO_ID
+from joblib import delayed, Parallel
 from sklearn.model_selection import train_test_split
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
-from typing import Optional, Union, List
-from fedot.core.data.data import InputData, OutputData
-
-
-from itertools import chain
-from joblib import Parallel, delayed
 
 
 def split_time_series(data: InputData,
