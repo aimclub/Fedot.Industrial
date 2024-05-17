@@ -42,8 +42,8 @@ if __name__ == "__main__":
             api_config.update(output_folder=os.path.join(
                 PROJECT_PATH, 'results_of_experiments', dataset_name))
             n_beats_forecast, n_beats_metrics, \
-            autogluon_forecast, autogluon_metrics = compare_forecast_with_sota(dataset_name=dataset_name,
-                                                                               horizon=horizon)
+                autogluon_forecast, autogluon_metrics = compare_forecast_with_sota(dataset_name=dataset_name,
+                                                                                   horizon=horizon)
             model, labels, metrics, target = industrial_forecasting_modelling_loop(dataset_name=dataset_name,
                                                                                    benchmark=benchmark,
                                                                                    horizon=horizon,

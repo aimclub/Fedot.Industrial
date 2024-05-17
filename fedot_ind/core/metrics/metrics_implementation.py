@@ -266,12 +266,12 @@ def calculate_classification_metric(
     probs,
     rounding_order=3,
     metric_names=(
-            'f1',
-            # 'roc_auc',
-            'accuracy')):
+        'f1',
+        # 'roc_auc',
+        'accuracy')):
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
-                   #'roc_auc': ROCAUC,
+                   # 'roc_auc': ROCAUC,
                    'precision': Precision,
                    'logloss': Logloss}
 
