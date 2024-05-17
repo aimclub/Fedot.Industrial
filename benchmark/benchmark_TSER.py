@@ -52,10 +52,13 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
             metric_dict.update({dataset_name: metric})
             basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
             dataset_path = os.path.join(
-                self.experiment_setup['output_folder'], f'{dataset_name}', 'metrics_report.csv')
+                self.experiment_setup['output_folder'],
+                f'{dataset_name}',
+                'metrics_report.csv')
             basic_results.to_csv(dataset_path)
         basic_path = os.path.join(
-            self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
+            self.experiment_setup['output_folder'],
+            'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
 
@@ -74,10 +77,11 @@ class BenchmarkTSER(AbstractBenchmark, ABC):
     def finetune(self):
         for dataset_name in self.custom_datasets:
             experiment_setup = deepcopy(self.experiment_setup)
-            path_to_results = PROJECT_PATH + '/benchmark/results/ts_regression' + \
-                f'/{dataset_name}'
-            composed_model_path = [path_to_results + f'/{x}' for x in os.listdir(path_to_results)
-                                   if x.__contains__('pipeline_saved')]
+            path_to_results = PROJECT_PATH + \
+                '/benchmark/results/ts_regression' + f'/{dataset_name}'
+            composed_model_path = [
+                path_to_results +
+                f'/{x}' for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')]
             for p in composed_model_path:
                 experiment_setup['output_folder'] = path_to_results
                 prediction, model = self.finetune_loop(

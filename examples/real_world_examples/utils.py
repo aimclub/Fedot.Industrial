@@ -78,7 +78,13 @@ def evaluate_automl(experiment_setup, train_data, test_data, runs=5):
     return metric_dict, model_list
 
 
-def finetune(tuning_params, model_dict, train_data, test_data, val_data, input_data):
+def finetune(
+        tuning_params,
+        model_dict,
+        train_data,
+        test_data,
+        val_data,
+        input_data):
     metric_dict = {}
     for model in model_dict.keys():
         print(f'Current_model - {model}')
@@ -99,9 +105,9 @@ def finetune(tuning_params, model_dict, train_data, test_data, val_data, input_d
 
 def ts_regression_setup():
     model_dict = {
-        'regression_with_statistical_features': PipelineBuilder().add_node('quantile_extractor',
-                                                                           params={'window_size': 0}).add_node('ridge')
-    }
+        'regression_with_statistical_features': PipelineBuilder().add_node(
+            'quantile_extractor', params={
+                'window_size': 0}).add_node('ridge')}
     ml_task = 'regression'
     available_opearations = default_industrial_availiable_operation(ml_task)
     experiment_setup = {'problem': 'regression',
@@ -129,7 +135,12 @@ def ts_regression_setup():
     return OperationTypesRepository, tuning_params, data_path, experiment_setup, model_dict
 
 
-def sota_compare(data_path, dataset_name, best_baseline, best_tuned, df_automl):
+def sota_compare(
+        data_path,
+        dataset_name,
+        best_baseline,
+        best_tuned,
+        df_automl):
     df = pd.read_csv(data_path + '/ts_regression_sota_results.csv', sep=';')
     df = df[df['ds/type'] == dataset_name].iloc[:, :25]
     df.index = df['algorithm']

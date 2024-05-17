@@ -30,7 +30,8 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
 def beta_thr(beta):
-    return 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
+    return 0.56 * np.power(beta, 3) - 0.95 * \
+        np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 class ComputationalConstant(Enum):
@@ -66,7 +67,7 @@ class KernelsConstant(Enum):
 
     KERNEL_BASELINE_NODE_LIST = {
         # 'minirocket_extractor': (None, 'minirocket_extractor'),
-        'quantile_extractor': (None,  'quantile_extractor'),
+        'quantile_extractor': (None, 'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
         'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
         'fourier_extractor': ('fourier_basis', 'quantile_extractor'),
@@ -124,22 +125,21 @@ class FeatureConstant(Enum):
                     'minkowski': minkowski
                     }
 
-    PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
-                                    'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
-                                    'RelevantHolesNumber': RelevantHolesNumber(),
-                                    'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
-                                    'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
-                                    'PersistenceEntropyFeature': PersistenceEntropyFeature(),
-                                    'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
-                                    'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
-                                    'BettiNumbersSumFeature': BettiNumbersSumFeature(),
-                                    'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
+    PERSISTENCE_DIAGRAM_FEATURES = {
+        'HolesNumberFeature': HolesNumberFeature(),
+        'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
+        'RelevantHolesNumber': RelevantHolesNumber(),
+        'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
+        'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
+        'PersistenceEntropyFeature': PersistenceEntropyFeature(),
+        'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
+        'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
+        'BettiNumbersSumFeature': BettiNumbersSumFeature(),
+        'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
 
-    PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
-                                                                 takens_embedding_delay=2,
-                                                                 homology_dimensions=(
-                                                                     0, 1),
-                                                                 parallel=False)
+    PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(
+        takens_embedding_dim=1, takens_embedding_delay=2, homology_dimensions=(
+            0, 1), parallel=False)
     DISCRETE_WAVELETS = pywt.wavelist(kind='discrete')
     CONTINUOUS_WAVELETS = pywt.wavelist(kind='continuous')
     WAVELET_SCALES = [2, 4, 10, 20]
@@ -149,10 +149,12 @@ class FeatureConstant(Enum):
 
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
-    FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
-                  'regression': Task(TaskTypesEnum.regression),
-                  'ts_forecasting': Task(TaskTypesEnum.ts_forecasting,
-                                         TsForecastingParams(forecast_length=1))}
+    FEDOT_TASK = {
+        'classification': Task(
+            TaskTypesEnum.classification), 'regression': Task(
+            TaskTypesEnum.regression), 'ts_forecasting': Task(
+                TaskTypesEnum.ts_forecasting, TsForecastingParams(
+                    forecast_length=1))}
     EXCLUDED_OPERATION_MUTATION = {
         'regression': ['inception_model',
                        'resnet_model',
@@ -182,46 +184,47 @@ class FedotOperationConstant(Enum):
             'bernb',
             'qda',
         ]}
-    FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
-                                                        task_params=None,
-                                                        timeout=None,
-                                                        n_jobs=-1,
-                                                        logging_level=50,
-                                                        seed=42,
-                                                        parallelization_mode='populational',
-                                                        show_progress=True,
-                                                        max_depth=6,
-                                                        max_arity=3,
-                                                        pop_size=20,
-                                                        num_of_generations=None,
-                                                        keep_n_best=1,
-                                                        available_operations=None,
-                                                        metric=None,
-                                                        cv_folds=2,
-                                                        genetic_scheme=None,
-                                                        early_stopping_iterations=None,
-                                                        early_stopping_timeout=10,
-                                                        optimizer=None,
-                                                        collect_intermediate_metric=False,
-                                                        max_pipeline_fit_time=None,
-                                                        initial_assumption=None,
-                                                        preset=None,
-                                                        use_pipelines_cache=True,
-                                                        use_preprocessing_cache=True,
-                                                        use_input_preprocessing=True,
-                                                        use_auto_preprocessing=False,
-                                                        use_meta_rules=False,
-                                                        cache_dir=None,
-                                                        keep_history=True,
-                                                        history_dir=None,
-                                                        with_tuning=True
-                                                        )
+    FEDOT_API_PARAMS = default_param_values_dict = dict(
+        problem=None,
+        task_params=None,
+        timeout=None,
+        n_jobs=-1,
+        logging_level=50,
+        seed=42,
+        parallelization_mode='populational',
+        show_progress=True,
+        max_depth=6,
+        max_arity=3,
+        pop_size=20,
+        num_of_generations=None,
+        keep_n_best=1,
+        available_operations=None,
+        metric=None,
+        cv_folds=2,
+        genetic_scheme=None,
+        early_stopping_iterations=None,
+        early_stopping_timeout=10,
+        optimizer=None,
+        collect_intermediate_metric=False,
+        max_pipeline_fit_time=None,
+        initial_assumption=None,
+        preset=None,
+        use_pipelines_cache=True,
+        use_preprocessing_cache=True,
+        use_input_preprocessing=True,
+        use_auto_preprocessing=False,
+        use_meta_rules=False,
+        cache_dir=None,
+        keep_history=True,
+        history_dir=None,
+        with_tuning=True)
     FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
                          'ts_forecasting': calculate_forecasting_metric,
                          'classification': calculate_classification_metric}
-    FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
-                            'ts_forecasting': RegressionMetricsEnum.RMSE,
-                            'regression': RegressionMetricsEnum.RMSE}
+    FEDOT_TUNING_METRICS = {
+        'classification': ClassificationMetricsEnum.accuracy,
+        'ts_forecasting': RegressionMetricsEnum.RMSE,
+        'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {
         # 'sequential': partial(SequentialTuner, inverse_node_order=True),
         # 'simultaneous': SimultaneousTuner,
@@ -252,20 +255,21 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration').
-        add_node('quantile_extractor').add_node('xgboost'),
+        'classification': PipelineBuilder().add_node('channel_filtration'). add_node('quantile_extractor').add_node('xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': False,
-                                                                            'rank_regularization': 'explained_dispersion'}).add_node(
-            'ar')}
+        'ts_forecasting': PipelineBuilder().add_node(
+            'eigen_basis',
+            params={
+                'low_rank_approximation': False,
+                'rank_regularization': 'explained_dispersion'}).add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
         # 'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
         'eigen_ar': PipelineBuilder().add_node('eigen_basis',
                                                params={'low_rank_approximation': False,
                                                        'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-       # 'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
-       'glm': PipelineBuilder().add_node('glm')
+        # 'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
+        'glm': PipelineBuilder().add_node('glm')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {

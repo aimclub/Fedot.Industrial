@@ -23,7 +23,10 @@ class DataCacher:
         >>> data_cacher.load_data_from_cache(hashed_info)
     """
 
-    def __init__(self, data_type_prefix: str = 'Data', cache_folder: str = None):
+    def __init__(
+            self,
+            data_type_prefix: str = 'Data',
+            cache_folder: str = None):
         self.data_type = data_type_prefix
         self.cache_folder = self._init_cache_folder(cache_folder)
 

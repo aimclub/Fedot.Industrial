@@ -157,8 +157,14 @@ class TST(Module):
             tr_factor = math.ceil(seq_len / q_len)
             total_padding = (tr_factor * q_len - seq_len)
             padding = (total_padding // 2, total_padding - total_padding // 2)
-            self.W_P = nn.Sequential(Pad1d(padding),
-                                     Conv1d(input_dim, model_dim, kernel_size=tr_factor, padding=0, stride=tr_factor))
+            self.W_P = nn.Sequential(
+                Pad1d(padding),
+                Conv1d(
+                    input_dim,
+                    model_dim,
+                    kernel_size=tr_factor,
+                    padding=0,
+                    stride=tr_factor))
             print(
                 f'temporal resolution modified: {seq_len} --> {q_len} time steps: kernel_size={tr_factor}, stride={tr_factor}, padding={padding}.\n',
                 verbose)
@@ -168,7 +174,8 @@ class TST(Module):
             q_len = nn.Conv1d(1, 1, **kwargs)(t).shape[-1]
             self.W_P = nn.Conv1d(input_dim, model_dim, **kwargs)  # Eq 2
             print(
-                f'Conv1d with kwargs={kwargs} applied to input to create input encodings\n', verbose)
+                f'Conv1d with kwargs={kwargs} applied to input to create input encodings\n',
+                verbose)
         else:
             # Eq 1: projection of feature vectors onto a d-dim vector space
             self.W_P = nn.Linear(input_dim, model_dim)
@@ -224,7 +231,8 @@ class TST(Module):
         if self.new_q_len:
             u = self.W_P(x).transpose(2,
                                       1)  # Eq 2
-            # u: [bs x model_dim x q_len] transposed to [bs x q_len x model_dim]
+            # u: [bs x model_dim x q_len] transposed to [bs x q_len x
+            # model_dim]
         else:
             u = self.W_P(x.transpose(2,
                                      1))  # Eq 1
@@ -285,15 +293,19 @@ class TSTModel(BaseNeuralModel):
 if __name__ == "__main__":
     dataset_list = ['Lightning2']
     result_dict = {}
-    pipeline_dict = {'omniscale_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50,
-                                                                                        'batch_size': 32}),
-
-                     'quantile_rf_model': PipelineBuilder()
-                     .add_node('quantile_extractor')
-                     .add_node('rf'),
-                     'composed_model': PipelineBuilder()
-                     .add_node('tst_model', params={'epochs': 50,
-                                                    'batch_size': 32})
-                     .add_node('quantile_extractor', branch_idx=1)
-                     .add_node('rf', branch_idx=1)
-                     .join_branches('logit')}
+    pipeline_dict = {
+        'omniscale_model': PipelineBuilder().add_node(
+            'tst_model',
+            params={
+                'epochs': 50,
+                'batch_size': 32}),
+        'quantile_rf_model': PipelineBuilder() .add_node('quantile_extractor') .add_node('rf'),
+        'composed_model': PipelineBuilder() .add_node(
+            'tst_model',
+            params={
+                'epochs': 50,
+                'batch_size': 32}) .add_node(
+            'quantile_extractor',
+            branch_idx=1) .add_node(
+            'rf',
+            branch_idx=1) .join_branches('logit')}

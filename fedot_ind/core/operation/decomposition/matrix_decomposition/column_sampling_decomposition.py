@@ -54,7 +54,8 @@ class CURDecomposition:
             TS_comps[:, i] = eigenvector
         return TS_comps
 
-    def select_rows_cols(self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def select_rows_cols(
+            self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
         col_norms = np.sum(matrix ** 2, axis=0)
         row_norms = np.sum(matrix ** 2, axis=1)

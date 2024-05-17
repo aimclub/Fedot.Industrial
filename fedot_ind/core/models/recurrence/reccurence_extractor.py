@@ -5,7 +5,7 @@ from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
-#from fedot_ind.core.metrics.metrics_implementation import *
+# from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.models.recurrence.sequences import RecurrenceFeatureExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -45,7 +45,8 @@ class RecurrenceExtractor(BaseExtractor):
         super().__init__(params)
         self.window_size = params.get('window_size', 0)
         self.stride = params.get('stride', 1)
-        self.rec_metric = params.get('rec_metric', 'cosine')  # TODO add threshold for other metrics
+        # TODO add threshold for other metrics
+        self.rec_metric = params.get('rec_metric', 'cosine')
         self.image_mode = params.get('image_mode', False)
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor

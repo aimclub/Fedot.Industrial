@@ -92,8 +92,8 @@ class RiemannExtractor(BaseExtractor):
             SPD = self.spd_space.transform(input_data.features)
             SPD = self.shrinkage.fit_transform(SPD)
 
-        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
-                                          metric=self.spd_metric) for ll in self.classes_]
+        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten(
+        )], metric=self.spd_metric) for ll in self.classes_]
 
         n_centroids = len(self.covmeans_)
         dist = [distance(SPD, self.covmeans_[m], self.tangent_metric)

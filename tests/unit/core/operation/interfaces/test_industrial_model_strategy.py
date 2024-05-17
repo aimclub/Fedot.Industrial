@@ -15,14 +15,20 @@ NN_MODELS = AtomizedModel.NEURAL_MODEL.value
 def torch_classification_data():
     features = np.random.rand(10, 10)
     target = np.random.randint(2, size=10)
-    return init_input_data(X=pd.DataFrame(features), y=target, task='classification')
+    return init_input_data(
+        X=pd.DataFrame(features),
+        y=target,
+        task='classification')
 
 
 @pytest.fixture()
 def torch_regression_data():
     features = np.random.rand(10, 10)
     target = np.random.rand(10, 1)
-    return init_input_data(X=pd.DataFrame(features), y=target, task='regression')
+    return init_input_data(
+        X=pd.DataFrame(features),
+        y=target,
+        task='regression')
 
 #
 # # TODO: add more models from NN_MODELS

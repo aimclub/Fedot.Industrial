@@ -88,7 +88,8 @@ class MiniRocketFeatures(nn.Module):
 
     def forward(self, x):
         _features = []
-        for i, (dilation, padding) in enumerate(zip(self.dilations, self.padding)):
+        for i, (dilation, padding) in enumerate(
+                zip(self.dilations, self.padding)):
             _padding1 = i % 2
 
             # Convolution
@@ -121,8 +122,8 @@ class MiniRocketFeatures(nn.Module):
             # Features
             _features.append(self._get_PPVs(
                 C[:, _padding1::2], bias_this_dilation[_padding1::2]))
-            _features.append(
-                self._get_PPVs(C[:, 1 - _padding1::2, padding:-padding], bias_this_dilation[1 - _padding1::2]))
+            _features.append(self._get_PPVs(
+                C[:, 1 - _padding1::2, padding:-padding], bias_this_dilation[1 - _padding1::2]))
         return torch.cat(_features, dim=1)
 
     def _get_PPVs(self, C, bias):
@@ -136,9 +137,10 @@ class MiniRocketFeatures(nn.Module):
             num_features_per_kernel, self.max_dilations_per_kernel)
         multiplier = num_features_per_kernel / true_max_dilations_per_kernel
         max_exponent = np.log2((input_length - 1) / (9 - 1))
-        dilations, num_features_per_dilation = \
-            np.unique(np.logspace(0, max_exponent, true_max_dilations_per_kernel, base=2).astype(np.int32),
-                      return_counts=True)
+        dilations, num_features_per_dilation = np.unique(
+            np.logspace(
+                0, max_exponent, true_max_dilations_per_kernel, base=2).astype(
+                np.int32), return_counts=True)
         num_features_per_dilation = (
             num_features_per_dilation * multiplier).astype(np.int32)
         remainder = num_features_per_kernel - num_features_per_dilation.sum()
@@ -159,8 +161,8 @@ class MiniRocketFeatures(nn.Module):
         max_num_channels = min(num_channels, 9)
         max_exponent_channels = np.log2(max_num_channels + 1)
         np.random.seed(self.random_state)
-        num_channels_per_combination = (2 ** np.random.uniform(0, max_exponent_channels, num_combinations)).astype(
-            np.int32)
+        num_channels_per_combination = (
+            2 ** np.random.uniform(0, max_exponent_channels, num_combinations)).astype(np.int32)
         channel_combinations = torch.zeros(
             (1, num_channels, num_combinations, 1))
         for i in range(num_combinations):
@@ -170,10 +172,12 @@ class MiniRocketFeatures(nn.Module):
             channel_combinations, self.num_kernels, 2)  # split by dilation
         for i, channel_combination in enumerate(channel_combinations):
             self.register_buffer(
-                f'channel_combinations_{i}', channel_combination)  # per dilation
+                f'channel_combinations_{i}',
+                channel_combination)  # per dilation
 
     def _get_quantiles(self, n):
-        return torch.tensor([(_ * ((np.sqrt(5) + 1) / 2)) % 1 for _ in range(1, n + 1)]).float()
+        return torch.tensor([(_ * ((np.sqrt(5) + 1) / 2)) %
+                            1 for _ in range(1, n + 1)]).float()
 
     def _get_bias(self, C, num_features_this_dilation):
         np.random.seed(self.random_state)
@@ -242,11 +246,12 @@ class MiniRocket(nn.Sequential):
                  dropout=0.):
 
         # Backbone
-        backbone = MiniRocketFeatures(input_dim,
-                                      seq_len,
-                                      num_features=num_features,
-                                      max_dilations_per_kernel=max_dilations_per_kernel,
-                                      random_state=random_state)
+        backbone = MiniRocketFeatures(
+            input_dim,
+            seq_len,
+            num_features=num_features,
+            max_dilations_per_kernel=max_dilations_per_kernel,
+            random_state=random_state)
         num_features = backbone.num_features
 
         # Head
@@ -305,12 +310,17 @@ class MiniRocketExtractor(BaseExtractor):
         with torch.no_grad():
             torch.cuda.empty_cache()
 
-    def _generate_features_from_ts(self, ts: np.array, mode: str = 'multivariate'):
+    def _generate_features_from_ts(
+            self,
+            ts: np.array,
+            mode: str = 'multivariate'):
 
         if ts.shape[1] > 1 and mode == 'chanel_independent':
-            mrf = MiniRocketFeatures(input_dim=1,
-                                     seq_len=ts.shape[2],
-                                     num_features=self.num_features).to(default_device())
+            mrf = MiniRocketFeatures(
+                input_dim=1,
+                seq_len=ts.shape[2],
+                num_features=self.num_features).to(
+                default_device())
 
             n_dim = range(ts.shape[1])
             ts_converted = [ts[:, i, :] for i in n_dim]
@@ -318,9 +328,11 @@ class MiniRocketExtractor(BaseExtractor):
                             for x in ts_converted]
             model_list = [mrf for i in n_dim]
         else:
-            mrf = MiniRocketFeatures(input_dim=ts.shape[1],
-                                     seq_len=ts.shape[2],
-                                     num_features=self.num_features).to(default_device())
+            mrf = MiniRocketFeatures(
+                input_dim=ts.shape[1],
+                seq_len=ts.shape[2],
+                num_features=self.num_features).to(
+                default_device())
 
             ts_converted = [ts]
             model_list = [mrf]
@@ -332,10 +344,12 @@ class MiniRocketExtractor(BaseExtractor):
         minirocket_features = [feature_by_dim.swapaxes(
             1, 2) for feature_by_dim in features]
         minirocket_features = np.concatenate(minirocket_features, axis=1)
-        minirocket_features = OutputData(idx=np.arange(minirocket_features.shape[2]),
-                                         task=self.task,
-                                         predict=minirocket_features,
-                                         data_type=DataTypesEnum.image)
+        minirocket_features = OutputData(
+            idx=np.arange(
+                minirocket_features.shape[2]),
+            task=self.task,
+            predict=minirocket_features,
+            data_type=DataTypesEnum.image)
         self._save_and_clear_cache(model_list)
         return minirocket_features
 

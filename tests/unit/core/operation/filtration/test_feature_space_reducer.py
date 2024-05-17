@@ -11,8 +11,8 @@ def get_features(add_stable: bool = False):
     feature_dict = {'feature_0': np.random.rand(10),
                     'feature_1': np.random.rand(10)}
     for i in range(2, N_FEATURES):
-        feature_dict[f'feature_{i}'] = i * feature_dict[np.random.choice(['feature_0',
-                                                                          'feature_1'])]
+        feature_dict[f'feature_{i}'] = i * \
+            feature_dict[np.random.choice(['feature_0', 'feature_1'])]
     if add_stable:
         last_name = list(feature_dict.keys())[-1]
         feature_dict[last_name] = np.ones(10)

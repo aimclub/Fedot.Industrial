@@ -20,16 +20,19 @@ PATH = Path(PROJECT_PATH, 'examples', 'data', 'ices_areas_ts.csv')
 time_series_df = pd.read_csv(PATH).iloc[:, 1:]
 target_series = time_series_df['Карское'].values
 
-input_data = InputData.from_numpy_time_series(target_series, task=Task(TaskTypesEnum.ts_forecasting,
-                                                                       task_params=TsForecastingParams(
-                                                                           forecast_length=horizon)))
+input_data = InputData.from_numpy_time_series(
+    target_series,
+    task=Task(
+        TaskTypesEnum.ts_forecasting,
+        task_params=TsForecastingParams(
+            forecast_length=horizon)))
 train_data, test_data = train_test_data_setup(input_data)
 
 pipeline_based = PipelineBuilder().add_node('lagged').add_node('rfr').build()
 pipeline_based.fit(train_data)
 
-topological_pipeline = PipelineBuilder().add_node('lagged').add_node('topological_features') \
-    .add_node('lagged', branch_idx=2).join_branches('rfr').build()
+topological_pipeline = PipelineBuilder().add_node('lagged').add_node(
+    'topological_features') .add_node('lagged', branch_idx=2).join_branches('rfr').build()
 topological_pipeline.fit(train_data)
 
 forecast_base = np.ravel(pipeline_based.predict(test_data).predict)
@@ -50,8 +53,18 @@ plt.show()
 
 print('base')
 print(mean_squared_error(test_data.target, forecast_base, squared=False))
-print(mean_absolute_percentage_error(test_data.target+1000, forecast_base+1000))
+print(
+    mean_absolute_percentage_error(
+        test_data.target +
+        1000,
+        forecast_base +
+        1000))
 
 print('topo')
 print(mean_squared_error(test_data.target, forecast_topo, squared=False))
-print(mean_absolute_percentage_error(test_data.target+1000, forecast_topo+1000))
+print(
+    mean_absolute_percentage_error(
+        test_data.target +
+        1000,
+        forecast_topo +
+        1000))

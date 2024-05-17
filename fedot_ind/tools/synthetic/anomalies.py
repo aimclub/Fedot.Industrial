@@ -69,13 +69,12 @@ class IncreaseDispersion(DecreaseDispersion):
 class AddNoise(Anomaly):
     def __init__(self, params):
         super().__init__(params)
-        self.noise_type = params.get('noise_type', np.random.choice(['gaussian',
-                                                                     'uniform',
-                                                                     'laplace']))
+        self.noise_type = params.get('noise_type', np.random.choice(
+            ['gaussian', 'uniform', 'laplace']))
 
     def get(self, ts: np.ndarray, interval: tuple):
         ts_ = ts.copy()
-        sector = ts_[interval[0]: interval[1]+1]
+        sector = ts_[interval[0]: interval[1] + 1]
 
         noise_std = np.std(sector) * self.level / 100
 
@@ -90,7 +89,7 @@ class AddNoise(Anomaly):
                 "Invalid noise_type. Please choose 'gaussian', 'uniform', or 'laplace'.")
 
         noisy_sector = sector + noise
-        ts_[interval[0]:interval[1]+1] = noisy_sector
+        ts_[interval[0]:interval[1] + 1] = noisy_sector
 
         return ts_
 
@@ -102,9 +101,9 @@ class Peak(Anomaly):
     def get(self, ts: np.ndarray, interval: tuple):
         ts_ = ts.copy()
         shift = np.zeros(ts.size)
-        sector = ts_[interval[0]: interval[1]+1]
+        sector = ts_[interval[0]: interval[1] + 1]
         peak_value = abs(np.mean(sector) * (self.level / 100))
-        center_point = int((interval[1]+1 + interval[0]) / 2)
+        center_point = int((interval[1] + 1 + interval[0]) / 2)
         shift[center_point] = peak_value
         return self.apply_shift(ts_, shift)
 

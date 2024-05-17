@@ -13,7 +13,8 @@ from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCacha
 from fedot_ind.core.repository.constanst_repository import CPU_NUMBERS, MULTI_ARRAY
 
 
-class BasisDecompositionImplementation(IndustrialCachableOperationImplementation):
+class BasisDecompositionImplementation(
+        IndustrialCachableOperationImplementation):
     """
     A class for decomposing data on the abstract basis and evaluating the derivative of the resulting decomposition.
     """
@@ -30,7 +31,8 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
 
     def _get_basis(self, data):
 
-        if type(data) is list or all([type(data) is np.ndarray and len(data.shape) > 1]):
+        if isinstance(data, list) or all(
+                [isinstance(data, np.ndarray) and len(data.shape) > 1]):
             func = self._get_multidim_basis
         else:
             func = self._get_1d_basis
@@ -67,7 +69,9 @@ class BasisDecompositionImplementation(IndustrialCachableOperationImplementation
         basis = Either.insert(input_data).then(decompose).value[0]
         return basis
 
-    def _transform(self, input_data: Union[InputData, pd.DataFrame]) -> np.array:
+    def _transform(self,
+                   input_data: Union[InputData,
+                                     pd.DataFrame]) -> np.array:
         """Method for transforming all samples
 
         """

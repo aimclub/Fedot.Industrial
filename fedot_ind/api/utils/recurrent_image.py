@@ -9,7 +9,10 @@ from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtr
 from fedot_ind.tools.loader import DataLoader
 
 
-def plot_recurrence_matrix(dataset_name, save: bool = False, show: bool = True):
+def plot_recurrence_matrix(
+        dataset_name,
+        save: bool = False,
+        show: bool = True):
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
     input_data = init_input_data(train_data[0], train_data[1])
 

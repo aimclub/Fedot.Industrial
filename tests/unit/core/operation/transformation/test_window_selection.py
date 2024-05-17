@@ -96,7 +96,8 @@ def test_mean_waveform_multiple(multiple_ts_data, selector_mwf):
     assert selected_window < 100
 
 
-def test_summary_statistics_subsequence_multiple(multiple_ts_data, selector_sss):
+def test_summary_statistics_subsequence_multiple(
+        multiple_ts_data, selector_sss):
     ts = multiple_ts_data
     selected_window = selector_sss.apply(time_series=ts)
     assert selected_window > 0

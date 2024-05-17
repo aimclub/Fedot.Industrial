@@ -31,7 +31,9 @@ class SklearnCompatibleClassifier(BaseEstimator, ClassifierMixin):
         return self.estimator.predict(init_input_data(X, None)).predict
 
     def predict_proba(self, X):
-        return self.estimator.predict(init_input_data(X, None), output_mode='probs').predict
+        return self.estimator.predict(
+            init_input_data(
+                X, None), output_mode='probs').predict
 
 
 if __name__ == "__main__":

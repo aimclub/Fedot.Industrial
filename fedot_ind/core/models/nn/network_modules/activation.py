@@ -58,7 +58,8 @@ class SmeLU(nn.Module):
         self.beta = abs(beta)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.where(torch.abs(x) <= self.beta, ((x + self.beta) ** 2) / (4. * self.beta), F.relu(x))
+        return torch.where(torch.abs(x) <= self.beta, ((
+            x + self.beta) ** 2) / (4. * self.beta), F.relu(x))
 
 
 pytorch_acts = [nn.ELU,

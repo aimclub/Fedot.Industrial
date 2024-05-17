@@ -34,8 +34,8 @@ def test__create_models_rank_dict(get_proba_metric_dict):
     ensembler = RankEnsemble(dataset_name='UMD',
                              proba_dict=proba_dict,
                              metric_dict=metric_dict)
-    model_rank = ensembler._create_models_rank_dict(prediction_proba_dict=proba_dict,
-                                                    metric_dict=metric_dict)
+    model_rank = ensembler._create_models_rank_dict(
+        prediction_proba_dict=proba_dict, metric_dict=metric_dict)
     assert isinstance(model_rank, dict)
 
 
@@ -44,7 +44,7 @@ def test__sort_models(get_proba_metric_dict):
     ensembler = RankEnsemble(dataset_name='UMD',
                              proba_dict=proba_dict,
                              metric_dict=metric_dict)
-    model_rank = ensembler._create_models_rank_dict(prediction_proba_dict=proba_dict,
-                                                    metric_dict=metric_dict)
+    model_rank = ensembler._create_models_rank_dict(
+        prediction_proba_dict=proba_dict, metric_dict=metric_dict)
     sorted_dict = ensembler._sort_models(model_rank=model_rank)
     assert isinstance(sorted_dict, dict)

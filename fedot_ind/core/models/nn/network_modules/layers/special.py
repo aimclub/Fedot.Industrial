@@ -17,7 +17,11 @@ from fedot_ind.core.repository.constanst_repository import PATIENCE_FOR_EARLY_ST
 
 
 class EarlyStopping:
-    def __init__(self, patience=PATIENCE_FOR_EARLY_STOP, verbose=False, delta=0):
+    def __init__(
+            self,
+            patience=PATIENCE_FOR_EARLY_STOP,
+            verbose=False,
+            delta=0):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -50,7 +54,13 @@ class EarlyStopping:
         self.val_loss_min = val_loss
 
 
-def adjust_learning_rate(optimizer, scheduler, epoch, learning_rate, printout=True, lradj='3'):
+def adjust_learning_rate(
+        optimizer,
+        scheduler,
+        epoch,
+        learning_rate,
+        printout=True,
+        lradj='3'):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if lradj == 'type1':
         lr_adjust = {epoch: ['learning_rate'] * (0.5 ** ((epoch - 1) // 1))}
@@ -133,7 +143,9 @@ class SampaddingConv1D_BN(Module):
         self.padding = nn.ConstantPad1d(
             (int((kernel_size - 1) / 2), int(kernel_size / 2)), 0)
         self.conv1d = torch.nn.Conv1d(
-            in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size)
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size)
         self.batch_norm = nn.BatchNorm1d(num_features=out_channels)
 
     def forward(self, x):
@@ -183,9 +195,17 @@ class InceptionModule(Module):
         ks = [k if k % 2 != 0 else k - 1 for k in ks]  # ensure odd ks
         bottleneck = bottleneck if input_dim > 1 else False
         self.bottleneck = Conv1d(
-            input_dim, number_of_filters, 1, bias=False) if bottleneck else Noop
-        self.convs = nn.ModuleList([Conv1d(number_of_filters if bottleneck else input_dim,
-                                           number_of_filters, k, bias=False) for k in ks])
+            input_dim,
+            number_of_filters,
+            1,
+            bias=False) if bottleneck else Noop
+        self.convs = nn.ModuleList(
+            [
+                Conv1d(
+                    number_of_filters if bottleneck else input_dim,
+                    number_of_filters,
+                    k,
+                    bias=False) for k in ks])
         self.maxconvpool = nn.Sequential(*[nn.MaxPool1d(3, stride=1, padding=1),
                                            Conv1d(input_dim, number_of_filters, 1, bias=False)])
         self.concat = Concat()
@@ -214,12 +234,16 @@ class InceptionBlock(Module):
         self.inception, self.shortcut = nn.ModuleList(), nn.ModuleList()
         for d in range(depth):
             self.inception.append(
-                InceptionModule(input_dim if d == 0 else number_of_filters * 4, number_of_filters, **kwargs))
+                InceptionModule(
+                    input_dim if d == 0 else number_of_filters * 4,
+                    number_of_filters,
+                    **kwargs))
             if self.residual and d % 3 == 2:
                 n_in, n_out = number_of_filters if d == 2 else number_of_filters * \
                     4, number_of_filters * 4
                 self.shortcut.append(
-                    BN1d(n_in) if n_in == n_out else ConvBlock(n_in, n_out, 1, act=None))
+                    BN1d(n_in) if n_in == n_out else ConvBlock(
+                        n_in, n_out, 1, act=None))
         self.add = Add()
         self.activation = get_activation_fn(activation)
 
@@ -238,9 +262,22 @@ class InceptionBlock(Module):
 
 
 class _TSTiEncoderLayer(nn.Module):
-    def __init__(self, q_len, d_model, n_heads, d_k=None, d_v=None, d_ff=256, store_attn=False,
-                 norm='BatchNorm', attn_dropout=0, dropout=0., bias=True, activation="GELU", res_attention=False,
-                 pre_norm=False):
+    def __init__(
+            self,
+            q_len,
+            d_model,
+            n_heads,
+            d_k=None,
+            d_v=None,
+            d_ff=256,
+            store_attn=False,
+            norm='BatchNorm',
+            attn_dropout=0,
+            dropout=0.,
+            bias=True,
+            activation="GELU",
+            res_attention=False,
+            pre_norm=False):
         super().__init__()
         assert not d_model % n_heads, f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
         d_k = d_model // n_heads if d_k is None else d_k
@@ -248,8 +285,14 @@ class _TSTiEncoderLayer(nn.Module):
 
         # Multi-Head attention
         self.res_attention = res_attention
-        self.self_attn = MultiHeadAttention(d_model, n_heads, d_k, d_v, attn_dropout=attn_dropout,
-                                            proj_dropout=dropout, res_attention=res_attention)
+        self.self_attn = MultiHeadAttention(
+            d_model,
+            n_heads,
+            d_k,
+            d_v,
+            attn_dropout=attn_dropout,
+            proj_dropout=dropout,
+            res_attention=res_attention)
 
         # Add & Norm
         self.dropout_attn = nn.Dropout(dropout)
@@ -318,9 +361,24 @@ class _TSTiEncoderLayer(nn.Module):
 
 
 class _TSTiEncoder(nn.Module):  # i means channel-independent
-    def __init__(self, input_dim, patch_num, patch_len, n_layers=3, d_model=128, n_heads=16, d_k=None, d_v=None,
-                 d_ff=256, norm='BatchNorm', attn_dropout=0., dropout=0., act="GELU", store_attn=False,
-                 res_attention=True, pre_norm=False):
+    def __init__(
+            self,
+            input_dim,
+            patch_num,
+            patch_len,
+            n_layers=3,
+            d_model=128,
+            n_heads=16,
+            d_k=None,
+            d_v=None,
+            d_ff=256,
+            norm='BatchNorm',
+            attn_dropout=0.,
+            dropout=0.,
+            act="GELU",
+            store_attn=False,
+            res_attention=True,
+            pre_norm=False):
 
         super().__init__()
 
@@ -343,10 +401,21 @@ class _TSTiEncoder(nn.Module):  # i means channel-independent
 
         # Encoder
         self.layers = nn.ModuleList(
-            [_TSTiEncoderLayer(q_len, d_model, n_heads=n_heads, d_k=d_k, d_v=d_v, d_ff=d_ff, norm=norm,
-                               attn_dropout=attn_dropout, dropout=dropout,
-                               activation=act, res_attention=res_attention,
-                               pre_norm=pre_norm, store_attn=store_attn) for i in range(n_layers)])
+            [
+                _TSTiEncoderLayer(
+                    q_len,
+                    d_model,
+                    n_heads=n_heads,
+                    d_k=d_k,
+                    d_v=d_v,
+                    d_ff=d_ff,
+                    norm=norm,
+                    attn_dropout=attn_dropout,
+                    dropout=dropout,
+                    activation=act,
+                    res_attention=res_attention,
+                    pre_norm=pre_norm,
+                    store_attn=store_attn) for i in range(n_layers)])
         self.res_attention = res_attention
 
     def forward(self, x: Tensor):

@@ -30,17 +30,24 @@ class AbstractPipelines:
     def _evaluate(self, classificator, train_features, test_features):
         fitted_model = classificator.fit(train_features=train_features,
                                          train_target=self.train_target)
-        predicted_probs_labels = (classificator.predict(test_features=test_features),
-                                  classificator.predict_proba(test_features=test_features))
-        metrics = PerformanceAnalyzer().calculate_metrics(target=self.test_target,
-                                                          predicted_labels=predicted_probs_labels[0],
-                                                          predicted_probs=predicted_probs_labels[1])
+        predicted_probs_labels = (
+            classificator.predict(
+                test_features=test_features), classificator.predict_proba(
+                test_features=test_features))
+        metrics = PerformanceAnalyzer().calculate_metrics(
+            target=self.test_target,
+            predicted_labels=predicted_probs_labels[0],
+            predicted_probs=predicted_probs_labels[1])
         return fitted_model, metrics
 
     def get_feature_generator(self, **kwargs):
         pass
 
-    def _get_feature_matrix(self, list_of_features, mode: str = 'Multi', **kwargs):
+    def _get_feature_matrix(
+            self,
+            list_of_features,
+            mode: str = 'Multi',
+            **kwargs):
         if mode == '1D':
             feature_matrix = pd.concat(list_of_features, axis=0)
             if feature_matrix.shape[0] != len(list_of_features):
@@ -79,9 +86,10 @@ class AbstractPipelines:
                 params = _feature_gen_params[f'{generator}_extractor']
             feature_extractor = generator(params)
         try:
-            classificator = self.model_dict[model_type](model_hyperparams=kwargs['model_hyperparams'],
-                                                        generator_name=kwargs['feature_generator_type'],
-                                                        generator_runner=feature_extractor)
+            classificator = self.model_dict[model_type](
+                model_hyperparams=kwargs['model_hyperparams'],
+                generator_name=kwargs['feature_generator_type'],
+                generator_runner=feature_extractor)
         except Exception:
             classificator = None
 

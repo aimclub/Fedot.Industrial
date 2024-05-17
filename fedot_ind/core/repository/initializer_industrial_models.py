@@ -26,19 +26,23 @@ from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 class IndustrialModels:
     def __init__(self):
-        self.industrial_data_operation_path = pathlib.Path(PROJECT_PATH, 'fedot_ind',
-                                                           'core',
-                                                           'repository',
-                                                           'data',
-                                                           'industrial_data_operation_repository.json')
+        self.industrial_data_operation_path = pathlib.Path(
+            PROJECT_PATH,
+            'fedot_ind',
+            'core',
+            'repository',
+            'data',
+            'industrial_data_operation_repository.json')
         self.base_data_operation_path = pathlib.Path(
             'data_operation_repository.json')
 
-        self.industrial_model_path = pathlib.Path(PROJECT_PATH, 'fedot_ind',
-                                                  'core',
-                                                  'repository',
-                                                  'data',
-                                                  'industrial_model_repository.json')
+        self.industrial_model_path = pathlib.Path(
+            PROJECT_PATH,
+            'fedot_ind',
+            'core',
+            'repository',
+            'data',
+            'industrial_model_repository.json')
         self.base_model_path = pathlib.Path('model_repository.json')
 
     def setup_repository(self):
@@ -61,7 +65,7 @@ class IndustrialModels:
                 get_industrial_search_space)
         setattr(ApiParamsRepository, "_get_default_mutations",
                 _get_default_industrial_mutations)
-        #setattr(Crossover, '_crossover_by_type', _crossover_by_type)
+        # setattr(Crossover, '_crossover_by_type', _crossover_by_type)
         # replace data merger
         setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
         setattr(ImageDataMerger, "merge_predicts", merge_predicts)
@@ -70,7 +74,7 @@ class IndustrialModels:
         setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
         # replace data split
         setattr(DataSourceSplitter, "build", _build)
-        setattr(fedot_data_split, "_split_any",  split_any)
+        setattr(fedot_data_split, "_split_any", split_any)
         setattr(fedot_data_split, "_split_time_series", split_time_series)
         # setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
         # replace predict operations
