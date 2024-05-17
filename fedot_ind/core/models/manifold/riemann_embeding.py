@@ -45,12 +45,10 @@ class RiemannExtractor(BaseExtractor):
                            'tangent': self.extract_riemann_features,
                            'ensemble': self._ensemble_features}
 
-        self.n_filter = params.get('nfilter', 2)
         self.estimator = params.get('estimator', 'scm')
         self.spd_metric = params.get('SPD_metric', 'riemann')
         self.tangent_metric = params.get('tangent_metric', 'riemann')
-        self.extraction_strategy = params.get(
-            'extraction_strategy ', 'ensemble')
+        self.extraction_strategy = 'ensemble'
 
         self.spd_space = params.get('SPD_space', None)
         self.tangent_space = params.get('tangent_space', None)

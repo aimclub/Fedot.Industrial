@@ -25,7 +25,7 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.threshold = params.get('threshold')
-        self.approximation = params.get('approximation', 'smooth')
+        self.approximation = 'smooth'
         self.basis = None
 
         self.logging_params.update({'threshold': self.threshold})

@@ -9,10 +9,9 @@ NESTED_PARAMS_LABEL = 'nested_label'
 industrial_search_space = {
     'eigen_basis':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
-         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
+         # 'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
          'rank_regularization': {'hyperopt-dist': hp.choice, 'sampling-scope': [
              ['hard_thresholding', 'explained_dispersion']]},
-         # 'tensor_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]},
          'low_rank_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
@@ -36,8 +35,6 @@ industrial_search_space = {
              'riemann'
          ]]},
          'SPD_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [[
-             # 'ale',
-             # 'alm',
              'euclid',
              'identity',
              'logeuclid', 'riemann']]}},

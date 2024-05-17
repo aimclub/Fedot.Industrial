@@ -1,7 +1,6 @@
 {
   "eigen_basis": {
     "window_size": 20,
-    "stride": 5,
     "rank_regularization": "hard_thresholding",
     "low_rank_approximation": true,
     "tensor_approximation": false
@@ -11,8 +10,7 @@
     "wavelet": "mexh"
   },
   "fourier_basis": {
-    "threshold": 20000,
-    "approximation": "smooth"
+    "threshold": 20000
   },
   "topological_extractor": {
     "window_size_as_share": 0.33,
@@ -29,8 +27,6 @@
     "estimator": "scm",
     "tangent_metric": "riemann",
     "SPD_metric": "riemann",
-    "n_filter": 2,
-    "extraction_strategy": "ensemble"
   },
   "recurrence_extractor": {
     "window_size": 0,
