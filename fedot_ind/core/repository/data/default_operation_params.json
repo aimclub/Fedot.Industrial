@@ -1,78 +1,194 @@
 {
+  "eigen_basis": {
+    "window_size": 20,
+    "rank_regularization": "hard_thresholding",
+    "low_rank_approximation": true,
+    "tensor_approximation": false
+  },
+  "wavelet_basis": {
+    "n_components": 2,
+    "wavelet": "mexh"
+  },
+  "fourier_basis": {
+    "threshold": 20000
+  },
+  "topological_extractor": {
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean",
+    "window_size": 25,
+    "stride": 5
+  },
+  "quantile_extractor": {
+    "stride": 1,
+    "window_size": 0
+  },
+  "riemann_extractor": {
+    "estimator": "scm",
+    "tangent_metric": "riemann",
+    "SPD_metric": "riemann"
+  },
+  "recurrence_extractor": {
+    "window_size": 0,
+    "stride": 1,
+    "rec_metric": "cosine",
+    "image_mode": false
+  },
+  "minirocket_extractor": {
+    "num_features": 10000
+  },
+  "chronos_extractor": {
+    "num_features": 10000
+  },
+  "channel_filtration": {
+    "distance": "euclidean",
+    "shrink": 1e-5,
+    "centroid_metric": "euclidean",
+    "selection_strategy": "sum"
+  },
+  "patch_tst_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "activation": "ReLU",
+    "learning_rate": 0.001,
+    "use_amp": false,
+    "forecast_length": null,
+    "patch_len": null,
+    "ouput_attention": false,
+    "forecast_mode": "out_of_sample"
+  },
+  "omniscale_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "activation": "Softmax",
+    "num_classes": 1
+  },
+  "inception_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "activation": "Softmax",
+    "num_classes": 1
+  },
+  "resnet_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "activation": "Softmax",
+    "model_name": "ResNet18"
+  },
+  "ssa_forecaster": {
+    "window_size_method": "hac",
+    "history_lookback": 30
+  },
+  "kmeans": {
+    "n_clusters": 4
+  },
+  "adareg": {
+    "learning_rate": 0.1,
+    "loss": "square"
+  },
+  "gbr": {
+    "loss": "quantile",
+    "learning_rate": 0.1,
+    "max_depth": 5,
+    "min_samples_split": 10,
+    "min_samples_leaf": 10,
+    "subsample": 0.5,
+    "max_features": 0.9,
+    "alpha": 0.85
+  },
+  "logit": {
+    "C": 1,
+    "penalty": "l2",
+    "solver": "liblinear"
+  },
   "rf": {
     "criterion":"gini",
-    "max_features":0.9,
-    "min_samples_split":5,
-    "min_samples_leaf":5,
-    "bootstrap":false
+    "max_features": 0.9,
+    "min_samples_split": 5,
+    "min_samples_leaf": 5,
+    "bootstrap": false
   },
-  "mlp":{
-    "max_iter":300,
-    "activation":"relu",
-    "solver":"adam"
+  "ridge": {
+    "alpha": 1.0
+  },
+  "lasso": {
+    "alpha": 1.0
   },
   "rfr": {
-    "max_features":0.9,
-    "min_samples_split":5,
-    "min_samples_leaf":5,
-    "bootstrap":false
+    "max_features": 0.9,
+    "min_samples_split": 5,
+    "min_samples_leaf": 5,
+    "bootstrap": false
+  },
+  "xgbreg": {
+    "max_depth": 5,
+    "learning_rate": 0.1,
+    "subsample": 0.5,
+    "min_child_weight": 10
   },
   "xgboost": {
     "n_estimators": 500,
-    "learning_rate": 0.1,
     "max_depth": 5,
+    "learning_rate": 0.1,
+    "subsample": 0.5,
+    "min_weight_fraction_leaf": 0.25,
+    "min_samples_leaf": 0.5,
+    "min_samples_split": 0.5,
     "random_state": 42
   },
-  "catboost": {
-    "allow_writing_files": false,
-    "verbose": false
+  "svr": {
+    "C": 1.0,
+    "epsilon": 0.1,
+    "tol": 1e-3,
+    "loss": "squared_epsilon_insensitive"
   },
-  "catboostreg": {
-    "allow_writing_files": false,
-    "verbose": false
+  "dtreg": {
+    "max_depth": 5,
+    "min_samples_split": 10,
+    "min_samples_leaf": 10
   },
-  "lgbm": {
-    "num_leaves": 32,
-    "colsample_bytree": 0.8,
-    "subsample": 0.8,
-    "subsample_freq": 10,
-    "learning_rate": 0.03,
-    "n_estimators": 100
+  "treg": {
+    "max_features": 0.5,
+    "min_samples_split": 10,
+    "min_samples_leaf": 10,
+    "bootstrap": false
   },
-  "lgbmreg": {
-    "num_leaves": 32,
-    "colsample_bytree": 0.8,
-    "subsample": 0.8,
-    "subsample_freq": 10,
-    "learning_rate": 0.03,
-    "n_estimators": 100
+  "dt": {
+    "max_depth": 5,
+    "min_samples_split": 10,
+    "min_samples_leaf": 10
   },
-  "lagged": {
-    "window_size": 10
+  "knnreg": {
+    "n_neighbors": 5,
+    "weights": "uniform",
+    "p": 1
   },
-  "diff_filter": {
-    "window_size": 3,
-    "poly_degree": 2,
-    "order": 1
-  },
-  "cut": {
-    "cut_part": 0.5
-  },
-  "sparse_lagged": {
-    "window_size": 10,
-    "n_components": 0.5,
-    "sparse_transform": true,
-    "use_svd": false
-  },
-  "ar": {
-    "lag_1": 7,
-    "lag_2": 12,
-    "trend": "c"
+  "knn": {
+    "n_neighbors": 5,
+    "weights": "uniform",
+    "p": 1
   },
   "arima": {
     "p": 2,
     "d": 0,
     "q": 2
+  },
+  "stl_arima": {
+    "p": 2,
+    "d": 0,
+    "q": 2,
+    "period": 30
+  },
+  "mlp": {
+    "activation": "relu",
+    "max_iter": 300,
+    "learning_rate": "constant",
+    "solver": "adam"
+  },
+  "ar": {
+    "lag_1": 7,
+    "lag_2": 12,
+    "trend": "c"
   },
   "ets": {
     "error": "add",
@@ -81,24 +197,9 @@
     "damped_trend": false,
     "seasonal_periods": 7
   },
-  "polyfit": {
-    "degree": 2
-  },
   "glm": {
     "family": "gaussian",
     "link": "identity"
-  },
-  "ransac_lin_reg": {
-    "min_samples": 0.4,
-    "residual_threshold": 10,
-    "max_trials": 100,
-    "max_skips": 1000
-  },
-  "ransac_non_lin_reg": {
-    "min_samples": 0.4,
-    "residual_threshold": 10,
-    "max_trials": 100,
-    "max_skips": 1000
   },
   "cgru": {
     "hidden_size": 200,
@@ -111,6 +212,113 @@
     "num_epochs": 50,
     "optimizer": "adamw",
     "loss": "mse"
+  },
+  "pca": {
+    "svd_solver": "full",
+    "n_components": 0.7
+  },
+  "kernel_pca": {
+    "n_components": null,
+    "kernel": "rbf"
+  },
+  "lagged": {
+    "window_size": 10
+  },
+  "sparse_lagged": {
+    "window_size": 10,
+    "n_components": 0.5,
+    "use_svd": false,
+    "sparse_transform": true
+  },
+  "smoothing": {
+    "window_size": 10
+  },
+  "gaussian_filter": {
+    "sigma": 2
+  },
+  "diff_filter": {
+    "poly_degree": 2,
+    "order": 1,
+    "window_size": 3
+  },
+  "cut": {
+    "cut_part": 0.5
+  },
+  "lgbm": {
+    "n_estimators": 100,
+    "class_weight": null,
+    "num_leaves": 32,
+    "learning_rate": 0.03,
+    "colsample_bytree": 0.8,
+    "subsample": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.1,
+    "subsample_freq": 10
+  },
+  "lgbmreg": {
+    "n_estimators": 100,
+    "num_leaves": 32,
+    "learning_rate": 0.03,
+    "colsample_bytree": 0.8,
+    "subsample": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.1,
+    "subsample_freq": 10
+  },
+  "catboost": {
+    "allow_writing_files": false,
+    "verbose": false,
+    "max_depth": 5,
+    "learning_rate": 0.1,
+    "min_data_in_leaf": 3,
+    "border_count": 32,
+    "l2_leaf_reg": 1
+  },
+  "catboostreg": {
+    "allow_writing_files": false,
+    "verbose": false,
+    "max_depth": 5,
+    "learning_rate": 0.1,
+    "min_data_in_leaf": 3,
+    "border_count": 32,
+    "l2_leaf_reg": 1
+  },
+  "resample": {
+    "balance": "expand_minority",
+    "replace": false,
+    "balance_ratio": 1
+  },
+  "lda": {
+    "solver": "svd",
+    "shrinkage": 0.5
+  },
+  "ts_naive_average": {
+    "part_for_averaging": 1.0
+  },
+  "locf": {
+    "part_for_repeat": -1
+  },
+  "word2vec_pretrained": {
+    "model_name": "glove-twitter-25"
+  },
+  "tfidf": {
+    "min_df": 0.1,
+    "max_df": 0.9
+  },
+  "polyfit": {
+    "degree": 2
+  },
+  "ransac_lin_reg": {
+    "min_samples": 0.4,
+    "residual_threshold": 10,
+    "max_trials": 100,
+    "max_skips": 1000
+  },
+  "ransac_non_lin_reg": {
+    "min_samples": 0.4,
+    "residual_threshold": 10,
+    "max_trials": 100,
+    "max_skips": 1000
   },
   "h2o_regr": {
     "timeout": 20,
@@ -132,75 +340,8 @@
     "generations": 3,
     "population_size": 3
   },
-  "resample": {
-    "balance": "expand_minority",
-    "replace": false,
-    "balance_ratio": 1
-  },
-  "pca": {
-    "svd_solver": "full",
-    "n_components": 0.7
-  },
-  "kernel_pca": {
-    "n_components": null,
-    "kernel": "rbf"
-  },
-  "ts_naive_average": {
-    "part_for_averaging": 1.0
-  },
-  "locf": {
-    "part_for_repeat": -1
-  },
-  "word2vec_pretrained": {
-    "model_name": "glove-twitter-25"
-  },
-  "tfidf": {
-    "min_df": 0.1,
-    "max_df": 0.9
-  },
   "fast_ica": {
     "whiten": "unit-variance"
-  },
-  "eigen_basis": {
-    "window_size": 25,
-    "sv_selector": "median",
-    "rank_regularization": "hard_thresholding"
-  },
-  "channel_filtration": {
-    "distance": "euclidean",
-    "shrink": 1e-5,
-    "centroid_metric": "euclidean",
-    "selection_strategy": "pairwise"
-  },
-  "wavelet_basis": {
-    "wavelet": "mexh",
-    "n_components": 2
-  },
-  "fourier_basis": {
-    "spectrum_type": "smoothed",
-    "threshold": 20000
-  },
-  "quantile_extractor": {
-    "window_size": 0,
-    "window_mode": false,
-    "var_threshold": 0.01
-  },
-  "riemann_extractor": {
-    "n_filter": 4,
-    "estimator": "scm",
-    "tangent_metric": "riemann",
-    "SPD_metric": "riemann"
-  },
-  "recurrence_extractor": {
-    "window_size": 20,
-    "window_mode": true,
-    "min_signal_ratio": 0.5,
-    "max_signal_ratio": 0.75,
-    "rec_metric": "euclidean",
-    "image_mode": false},
-  "ssa_forecaster": {
-    "window_size_method": "hac",
-    "history_lookback": 30
   },
   "fedot_cls": {
     "timeout": 10,
@@ -210,40 +351,12 @@
     "timeout": 10,
     "with_tuning": true
   },
-  "minirocket_extractor": {
-    "num_features": 10000
-  },
-  "chronos_extractor": {
-    "num_features": 10000
-  },
-  "inception_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "omniscale_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
   "tst_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "resnet_model": {
     "epochs": 100,
     "batch_size": 32
   },
   "xcm_model": {
     "epochs": 100,
     "batch_size": 32
-  },
-  "patch_tst_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "topological_extractor": {
-    "n_jobs": 2,
-    "window_size_as_share": 0.33,
-    "max_homology_dimension": 1,
-    "metric": "euclidean"
   }
 }
