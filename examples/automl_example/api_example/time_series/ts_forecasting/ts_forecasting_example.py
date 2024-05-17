@@ -12,7 +12,8 @@ if __name__ == "__main__":
             'eigen_basis',
             params={
                 'low_rank_approximation': False,
-                'rank_regularization': 'explained_dispersion'}).add_node('ar')}
+                'rank_regularization': 'explained_dispersion'}).add_node('ar')
+    }
     for assumption in initial_assumptions.keys():
         api_config = dict(problem='ts_forecasting',
                           metric='rmse',
@@ -24,4 +25,5 @@ if __name__ == "__main__":
         metric_names = ('r2', 'rmse', 'mae')
         model, labels, metrics = industrial_common_modelling_loop(
             api_config=api_config, dataset_name=dataset_name, finetune=finetune)
+        finetune = False
         print(f'{assumption} have metrics - {metrics}')

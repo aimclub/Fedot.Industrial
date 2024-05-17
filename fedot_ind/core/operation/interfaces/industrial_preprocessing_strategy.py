@@ -125,7 +125,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
             prediction = [
                 pred.predict for pred in prediction if not isinstance(
-                    pred, np.array)]
+                    pred, np.ndarray)]
 
         if not isinstance(prediction[0], OutputData):
             prediction = NumpyConverter(
