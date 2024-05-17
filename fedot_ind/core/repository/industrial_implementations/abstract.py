@@ -1,10 +1,13 @@
 from copy import copy
 from functools import partial
+from itertools import chain
+from typing import List, Optional, Union
 
 import pandas as pd
 from fedot.core.constants import default_data_split_ratio_by_task
 from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.cv_folds import cv_generator
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import _split_input_data_by_indexes
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -15,13 +18,12 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
 from fedot.preprocessing.data_types import TYPE_TO_ID
+from joblib import delayed, Parallel
 from sklearn.model_selection import train_test_split
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
-from typing import Optional, Tuple, Union, Sequence, List, Dict
-from fedot.core.data.data import InputData, OutputData
 
 
 def split_time_series(data: InputData,
@@ -246,8 +248,11 @@ def transform_lagged(self, input_data: InputData):
         train_data, forecast_length, window_size)
 
     # Update target for Input Data
-    train_data.target = new_target
-    train_data.idx = new_idx
+    if new_target.shape[0] != 0:
+        train_data.target = new_target
+        train_data.idx = new_idx
+    else:
+        train_data = input_data
     output_data = self._convert_to_output(train_data,
                                           transformed_cols,
                                           data_type=DataTypesEnum.image)
@@ -423,6 +428,36 @@ def merge_predicts(*args) -> np.array:
             [x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
         return prediction_2d.reshape(
             prediction_2d.shape[0], 1, prediction_2d.shape[1])
+
+
+def fit_topo_extractor(self, input_data: InputData):
+    input_data.features = input_data.features if len(
+        input_data.features.shape) == 0 else input_data.features.reshape(1, -1)
+    self._window_size = int(
+        input_data.features.shape[1] *
+        self.window_size_as_share)
+    self._window_size = max(self._window_size, 2)
+    self._window_size = min(
+        self._window_size,
+        input_data.features.shape[1] - 2)
+    return self
+
+
+def transform_topo_extractor(self, input_data: InputData) -> OutputData:
+    features = input_data.features if len(input_data.features.shape) == 0 \
+        else input_data.features.reshape(1, -1)
+    with Parallel(n_jobs=self.n_jobs, prefer='processes') as parallel:
+        topological_features = parallel(delayed(self._extract_features)
+                                        (np.mean(features[i:i + 2, ::self.stride], axis=0))
+                                        for i in range(0, features.shape[0], 2))
+    if len(topological_features) * 2 < features.shape[0]:
+        topological_features.append(topological_features[-1])
+    result = np.array(
+        list(chain(*zip(topological_features, topological_features))))
+    if result.shape[0] > features.shape[0]:
+        result = result[:-1, :]
+    np.nan_to_num(result, copy=False, nan=0, posinf=0, neginf=0)
+    return result
 
 
 def predict_operation(

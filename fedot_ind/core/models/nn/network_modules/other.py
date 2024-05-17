@@ -64,7 +64,7 @@ def test_module_to_torchscript(
             if serialize:
                 file_path = Path(f"test_traced_{m_name}.pt")
                 torch.jit.save(traced_m, file_path)
-                traced_mod = torch.jit.load(file_path)
+                torch.jit.load(file_path)
                 file_path.unlink()
             traced_output = traced_m(
                 *inputs) if inp_is_tuple else traced_m(inputs)
@@ -87,7 +87,7 @@ def test_module_to_torchscript(
             if serialize:
                 file_path = Path(f"test_scripted_{m_name}.pt")
                 torch.jit.save(scripted_m, file_path)
-                scripted_mod = torch.jit.load(file_path)
+                torch.jit.load(file_path)
                 file_path.unlink()
             scripted_output = scripted_m(
                 *inputs) if inp_is_tuple else scripted_m(inputs)

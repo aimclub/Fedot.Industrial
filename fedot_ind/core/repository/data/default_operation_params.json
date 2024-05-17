@@ -190,6 +190,11 @@
     "lag_2": 12,
     "trend": "c"
   },
+  "arima": {
+    "p": 2,
+    "d": 0,
+    "q": 2
+  },
   "ets": {
     "error": "add",
     "trend": null,
@@ -197,9 +202,24 @@
     "damped_trend": false,
     "seasonal_periods": 7
   },
+  "polyfit": {
+    "degree": 2
+  },
   "glm": {
     "family": "gaussian",
     "link": "identity"
+  },
+  "ransac_lin_reg": {
+    "min_samples": 0.4,
+    "residual_threshold": 10,
+    "max_trials": 100,
+    "max_skips": 1000
+  },
+  "ransac_non_lin_reg": {
+    "min_samples": 0.4,
+    "residual_threshold": 10,
+    "max_trials": 100,
+    "max_skips": 1000
   },
   "cgru": {
     "hidden_size": 200,
@@ -340,8 +360,75 @@
     "generations": 3,
     "population_size": 3
   },
+  "resample": {
+    "balance": "expand_minority",
+    "replace": false,
+    "balance_ratio": 1
+  },
+  "pca": {
+    "svd_solver": "full",
+    "n_components": 0.7
+  },
+  "kernel_pca": {
+    "n_components": null,
+    "kernel": "rbf"
+  },
+  "ts_naive_average": {
+    "part_for_averaging": 1.0
+  },
+  "locf": {
+    "part_for_repeat": -1
+  },
+  "word2vec_pretrained": {
+    "model_name": "glove-twitter-25"
+  },
+  "tfidf": {
+    "min_df": 0.1,
+    "max_df": 0.9
+  },
   "fast_ica": {
     "whiten": "unit-variance"
+  },
+  "eigen_basis": {
+    "window_size": 25,
+    "sv_selector": "median",
+    "rank_regularization": "hard_thresholding"
+  },
+  "channel_filtration": {
+    "distance": "euclidean",
+    "shrink": 1e-5,
+    "centroid_metric": "euclidean",
+    "selection_strategy": "pairwise"
+  },
+  "wavelet_basis": {
+    "wavelet": "mexh",
+    "n_components": 2
+  },
+  "fourier_basis": {
+    "spectrum_type": "smoothed",
+    "threshold": 20000
+  },
+  "quantile_extractor": {
+    "window_size": 0,
+    "window_mode": false,
+    "var_threshold": 0.01
+  },
+  "riemann_extractor": {
+    "n_filter": 4,
+    "estimator": "scm",
+    "tangent_metric": "riemann",
+    "SPD_metric": "riemann"
+  },
+  "recurrence_extractor": {
+    "window_size": 20,
+    "window_mode": true,
+    "min_signal_ratio": 0.5,
+    "max_signal_ratio": 0.75,
+    "rec_metric": "euclidean",
+    "image_mode": false},
+  "ssa_forecaster": {
+    "window_size_method": "hac",
+    "history_lookback": 30
   },
   "fedot_cls": {
     "timeout": 10,
@@ -351,12 +438,63 @@
     "timeout": 10,
     "with_tuning": true
   },
+  "minirocket_extractor": {
+    "num_features": 10000
+  },
+  "chronos_extractor": {
+    "num_features": 10000
+  },
+  "inception_model": {
+    "epochs": 100,
+    "batch_size": 32
+  },
+  "omniscale_model": {
+    "epochs": 100,
+    "batch_size": 32
+  },
   "tst_model": {
+    "epochs": 100,
+    "batch_size": 32
+  },
+  "resnet_model": {
     "epochs": 100,
     "batch_size": 32
   },
   "xcm_model": {
     "epochs": 100,
     "batch_size": 32
+  },
+  "patch_tst_model": {
+    "epochs": 100,
+    "batch_size": 32
+  },
+  "nbeats_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "degree_of_polynomial": 3,
+    "n_trend_blocks": 3,
+    "n_trend_layers": 3,
+    "n_seasonality_blocks": 2,
+    "n_seasonality_layers ": 2,
+    "n_of_harmonics": 1,
+    "n_stacks": 10,
+    "layers": 4
+  },
+  "lora_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "neural_architecture":"dummy",
+    "from_pretrain": false,
+    "lora_init": "random",
+    "lora_rank": 1,
+    "power_iter": 3,
+    "use_rsvd": true,
+    "sampling_share": 0.3
+  },
+  "topological_extractor": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
   }
 }

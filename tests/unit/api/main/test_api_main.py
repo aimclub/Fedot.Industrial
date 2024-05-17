@@ -65,11 +65,7 @@ def test_fit_predict_classification_multi(fedot_industrial_classification):
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
-
-    if len(num_unique) > 2:
-        assert predict_proba.shape[1] == len(num_unique)
-    else:
-        assert len(predict_proba.shape) == 1
+    assert predict_proba.shape[1] == len(num_unique)
 
 
 def test_fit_predict_classification_uni(fedot_industrial_classification):
@@ -83,11 +79,7 @@ def test_fit_predict_classification_uni(fedot_industrial_classification):
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
-
-    if len(num_unique) > 2:
-        assert predict_proba.shape[1] == len(num_unique)
-    else:
-        assert len(predict_proba.shape) == 1
+    assert predict_proba.shape[1] == len(num_unique)
 
 
 def test_fit_predict_regression_uni(fedot_industrial_regression):
@@ -164,12 +156,12 @@ def test_plot_methods(fedot_industrial_classification):
     industrial = fedot_industrial_classification
     data = univariate_clf_data()
     industrial.fit(data)
-    labels = industrial.predict(data)
-    probs = industrial.predict_proba(data)
+    industrial.predict(data)
+    industrial.predict_proba(data)
 
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
-    curr_backend = get_backend()
+    get_backend()
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     fedot_industrial_classification.explain()

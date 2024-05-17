@@ -87,7 +87,7 @@ class FunctionalPCA:
             J = np.dot(X, self.basis_function)
         else:
             # If no other basis is specified we use the same basis as the
-            components_basis = X.copy()
+            X.copy()
             # G = pairwise_distance(X.T)
             G = X.T.dot(X)
             J = G

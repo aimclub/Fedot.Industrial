@@ -48,7 +48,7 @@ class CustomDatasetCLF:
                 ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
-            if type(min(ts.target)[0]) is np.str_:
+            if type(min(ts.target)) is np.str_:
                 self.label_encoder = LabelEncoder()
                 ts.target = self.label_encoder.fit_transform(ts.target)
             else:
@@ -95,7 +95,7 @@ class FedotConverter:
         else:
             try:
                 return torch.tensor(data)
-            except Exception as e:
+            except Exception:
                 print(f"Can't convert {type(data)} to InputData", Warning)
 
     def __init_input_data(self, features: pd.DataFrame,
@@ -293,7 +293,7 @@ class NumpyConverter:
         else:
             try:
                 return np.asarray(data)
-            except Exception as e:
+            except Exception:
                 print(f"Can't convert {type(data)} to np.array", Warning)
 
     def convert_to_1d_array(self):
@@ -333,10 +333,13 @@ class NumpyConverter:
                 return self.numpy_data
             else:
                 return self.numpy_data.swapaxes(1, 3)
-        return self.numpy_data.reshape(self.numpy_data.shape[0],
-                                       1,
-                                       self.numpy_data.shape[1],
-                                       self.numpy_data.shape[2])
+        elif self.numpy_data.ndim == 1:
+            return self.numpy_data.reshape(-1, 1, 1)
+        else:
+            return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                           1,
+                                           self.numpy_data.shape[1],
+                                           self.numpy_data.shape[2])
 
     def convert_to_torch_format(self):
         if self.numpy_data.ndim == 3:
@@ -472,7 +475,7 @@ class ConditionConverter:
         if n_classes < 2:
             raise ValueError(
                 'Data set contain only 1 target class. Please reformat your data.')
-        elif n_classes == 2 and output_mode != 'full_probs':
+        elif n_classes == 2 and output_mode != 'probs':
             if self.is_multi_output_target:
                 prediction = np.stack([pred[:, 1]
                                        for pred in prediction]).T
@@ -557,6 +560,13 @@ class DataConverter(TensorConverter, NumpyConverter):
         return isinstance(self.data, tuple)
 
     @property
+    def is_torchvision_dataset(self):
+        if self.is_tuple:
+            return self.data[1] == 'torchvision_dataset'
+        else:
+            return False
+
+    @property
     def is_none(self):
         return self.data is None
 
@@ -582,7 +592,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         else:
             try:
                 return list(self.data)
-            except Exception as e:
+            except Exception:
                 print(
                     f'passed object needs to be of type L, list, np.ndarray or torch.Tensor but is {type(self.data)}',
                     Warning)

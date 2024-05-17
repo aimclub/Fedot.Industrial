@@ -25,8 +25,9 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
     CGRUImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
-    AutoRegImplementation, ExpSmoothingImplementation, GLMImplementation
-from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, GradientBoostingClassifier, \
+    AutoRegImplementation, ExpSmoothingImplementation
+from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
+    GradientBoostingClassifier, \
     RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
@@ -35,17 +36,21 @@ from sklearn.linear_model import (
     Ridge as SklearnRidgeReg,
     SGDRegressor as SklearnSGD
 )
-
+from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
+    FedotCatBoostRegressionImplementation
+from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from xgboost import XGBClassifier, XGBRegressor
+from xgboost import XGBRegressor
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
-from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
+from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
+from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
@@ -95,7 +100,9 @@ TEMPORARY_EXCLUDED = {
                            'multinb': SklearnMultinomialNB,
                            'knn': FedotKnnClassImplementation
                            },
-    'NEURAL_MODELS': {'omniscale_model': OmniScaleModel,
+    'NEURAL_MODELS': {'resnet_model': ResNetModel,
+                      "nbeats_model": NBeatsModel,
+                      'omniscale_model': OmniScaleModel,
                       # transformer models
                       'tst_model': TSTModel,
                       # explainable models
@@ -122,7 +129,9 @@ class AtomizedModel(Enum):
         # ensemble tree models
         'rf': RandomForestClassifier,
         # solo nn models
-        'mlp': MLPClassifier
+        'mlp': MLPClassifier,
+        # external models
+        'lgbm': LGBMClassifier
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization
@@ -166,7 +175,10 @@ class AtomizedModel(Enum):
         'ridge': SklearnRidgeReg,
         'lasso': SklearnLassoReg,
         # solo tree models (small datasets)
-        'dtreg': DecisionTreeRegressor
+        'dtreg': DecisionTreeRegressor,
+        # external models
+        'lgbmreg': LGBMRegressor,
+        "catboostreg": FedotCatBoostRegressionImplementation
     }
 
     FORECASTING_MODELS = {
@@ -191,10 +203,15 @@ class AtomizedModel(Enum):
         'inception_model': InceptionTimeModel,
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
+        'nbeats_model': NBeatsModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models
-        'xcm_model': XCModel
+        'xcm_model': XCModel,
+        # linear_dummy_model
+        'dummy': DummyOverComplicatedNeuralNetwork,
+        # linear_dummy_model
+        'lora_model': LoraModel
     }
 
 

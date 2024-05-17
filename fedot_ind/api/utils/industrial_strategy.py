@@ -7,7 +7,6 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
-from golem.core.tuning.optuna_tuner import OptunaTuner
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
@@ -26,16 +25,22 @@ class IndustrialStrategy:
                  ):
         self.industrial_strategy_params = industrial_strategy_params
         self.industrial_strategy = industrial_strategy
+
         self.industrial_strategy_fit = {
             'federated_automl': self._federated_strategy,
             'kernel_automl': self._kernel_strategy,
             'forecasting_assumptions': self._forecasting_strategy,
-            'forecasting_exogenous': self._forecasting_exogenous_strategy}
+            'forecasting_exogenous': self._forecasting_exogenous_strategy,
+            'lora_strategy': self._lora_strategy,
+        }
+
         self.industrial_strategy_predict = {
             'federated_automl': self._federated_predict,
             'kernel_automl': self._kernel_predict,
             'forecasting_assumptions': self._forecasting_predict,
-            'forecasting_exogenous': self._forecasting_predict}
+            'forecasting_exogenous': self._forecasting_predict,
+            'lora_strategy': self._lora_predict,
+        }
 
         self.ensemble_strategy_dict = {'MeanEnsemble': np.mean,
                                        'MedianEnsemble': np.median,
@@ -157,6 +162,11 @@ class IndustrialStrategy:
         # self.solver
         # self.solver = build_tuner(self, self.solver, tuning_params, input_data, 'head')
 
+    def _lora_strategy(self, input_data):
+        self.lora_model = PipelineBuilder().add_node(
+            'lora_model', params=self.industrial_strategy_params).build()
+        self.lora_model.fit(input_data)
+
     def _federated_predict(self,
                            input_data,
                            mode: str = 'labels'):
@@ -181,6 +191,16 @@ class IndustrialStrategy:
     def _forecasting_predict(self,
                              input_data,
                              mode: str = True):
+        labels_dict = {
+            k: v.predict(
+                features=input_data,
+                in_sample=mode) for k,
+            v in self.solver.items()}
+        return labels_dict
+
+    def _lora_predict(self,
+                      input_data,
+                      mode: str = True):
         labels_dict = {
             k: v.predict(
                 features=input_data,

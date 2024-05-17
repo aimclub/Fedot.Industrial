@@ -1,5 +1,6 @@
 from typing import Union
 
+import numpy as np
 import pandas as pd
 from sklearn.metrics import (accuracy_score, f1_score,
                              log_loss, mean_absolute_error,
@@ -7,11 +8,9 @@ from sklearn.metrics import (accuracy_score, f1_score,
                              mean_squared_error, mean_squared_log_error,
                              precision_score, r2_score, roc_auc_score)
 from sklearn.metrics import d2_absolute_error_score, explained_variance_score, max_error, median_absolute_error
-
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
 
-import numpy as np
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class ParetoMetrics:
@@ -42,7 +41,8 @@ class ParetoMetrics:
 
 
 class QualityMetric:
-    def __init__(self, target,
+    def __init__(self,
+                 target,
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
@@ -267,11 +267,11 @@ def calculate_classification_metric(
     rounding_order=3,
     metric_names=(
         'f1',
-        'roc_auc',
+        # 'roc_auc',
         'accuracy')):
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
-                   'roc_auc': ROCAUC,
+                   # 'roc_auc': ROCAUC,
                    'precision': Precision,
                    'logloss': Logloss}
 

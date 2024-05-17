@@ -6,12 +6,10 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
-from fedot_ind.tools.loader import DataLoader
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from examples.example_utils import init_input_data, calculate_regression_metric
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
-import matplotlib
 from golem.core.tuning.simultaneous import SimultaneousTuner
 from fedot_ind.api.main import FedotIndustrial
 

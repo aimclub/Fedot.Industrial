@@ -125,7 +125,7 @@ class WindowSizeSelector:
         """
         fourier = np.fft.fft(time_series)
         freq = np.fft.fftfreq(time_series.shape[0], 1)
-        l = int(len(freq) // 2)
+        int(len(freq) // 2)
         magnitudes, window_sizes = [], []
 
         for coef, freq in zip(fourier, freq):
