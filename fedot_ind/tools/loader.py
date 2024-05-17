@@ -161,7 +161,7 @@ class DataLoader:
         elif os.path.isfile(file_path + '.csv'):
             self.logger.info(
                 f'Reading data from {data_path + "/" + dataset_name}')
-            df = pd.read_csv(file_path + '.csv')
+            pd.read_csv(file_path + '.csv')
 
         else:
             self.logger.error(
@@ -298,9 +298,9 @@ class DataLoader:
                             raise TsFileParseException(
                                 "univariate tag requires an associated Boolean value")
                         elif tokens[1] == "true":
-                            univariate = True
+                            pass
                         elif tokens[1] == "false":
-                            univariate = False
+                            pass
                         else:
                             raise TsFileParseException(
                                 "invalid univariate value")
@@ -761,14 +761,14 @@ class DataLoader:
                                             pd.Series(data_series))
                                     else:
                                         instance_list[dim].append(pd.Series())
-                                except Exception as ex:
+                                except Exception:
                                     _ = 1
 
                             if target_labels:
                                 try:
                                     class_val_list.append(
                                         float(dimensions[num_dimensions].strip()))
-                                except Exception as ex:
+                                except Exception:
                                     _ = 1
 
                 line_num += 1

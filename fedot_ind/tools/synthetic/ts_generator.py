@@ -116,7 +116,7 @@ class AutoRegression(DefaultTimeSeries):
         self.initial_values = params.get('initial_values', None)
 
     def get_ts(self):
-        time_index = pd.Series(np.arange(0, self.ts_length))
+        pd.Series(np.arange(0, self.ts_length))
         ar_process = np.zeros(self.ts_length)
 
         for i in range(len(ar_process)):

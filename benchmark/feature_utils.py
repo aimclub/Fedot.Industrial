@@ -169,7 +169,7 @@ class ReadData:
         return dataframe
 
     def read_test_data(self):
-        TEST_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
+        PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
         return pd.read_csv(
             "/kaggle/input/hms-harmful-brain-activity-classification/test.csv")
 

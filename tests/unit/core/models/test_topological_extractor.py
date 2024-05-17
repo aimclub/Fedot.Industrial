@@ -1,4 +1,3 @@
-import pandas as pd
 import pytest
 from fedot.core.data.data import InputData, OutputData
 from fedot_ind.api.utils.data import init_input_data

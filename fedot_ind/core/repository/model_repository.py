@@ -25,7 +25,7 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
     CGRUImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
-    AutoRegImplementation, ExpSmoothingImplementation, GLMImplementation
+    AutoRegImplementation, ExpSmoothingImplementation
 from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
     GradientBoostingClassifier, \
     RandomForestClassifier, RandomForestRegressor
@@ -42,10 +42,9 @@ from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from xgboost import XGBClassifier, XGBRegressor
+from xgboost import XGBRegressor
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
-from fedot_ind.core.models.nn.network_impl.chronos_tst import ChronosExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel

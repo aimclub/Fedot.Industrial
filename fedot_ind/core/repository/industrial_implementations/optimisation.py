@@ -7,7 +7,6 @@ from typing import Sequence
 from typing import Tuple
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.operations.atomized_model import AtomizedModel
 from fedot.core.composer.gp_composer.specific_operators import boosting_mutation, parameter_change_mutation
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
@@ -24,7 +23,7 @@ from golem.core.dag.verification_rules import ERROR_PREFIX
 from golem.core.optimisers.advisor import RemoveType
 from golem.core.optimisers.genetic.gp_operators import equivalent_subtree, replace_subtrees
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
-from golem.core.optimisers.genetic.operators.crossover import CrossoverCallable, CrossoverTypesEnum
+from golem.core.optimisers.genetic.operators.crossover import CrossoverTypesEnum
 from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 from golem.core.optimisers.graph import OptGraph, OptNode
 from golem.core.optimisers.opt_node_factory import OptNodeFactory
@@ -32,10 +31,8 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
-from fedot.core.operations.atomized_model import AtomizedModel as Atom
 from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
-from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED, \
-    default_industrial_availiable_operation
+from fedot_ind.core.repository.model_repository import TEMPORARY_EXCLUDED, default_industrial_availiable_operation
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -567,7 +564,7 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
                     f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination')
             # There are several parents for current node or at least 1
             for parent in parent_nodes:
-                parent_operation = parent.operation.operation_type
+                parent.operation.operation_type
                 if current_operation in basis_models and \
                         pipeline.nodes[idx + 1].operation.operation_type not in extractor:
                     raise ValueError(
@@ -580,5 +577,5 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
 
 def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> None:
-    ind_crossover = IndustrialCrossover()
+    IndustrialCrossover()
     return None

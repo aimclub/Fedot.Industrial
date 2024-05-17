@@ -12,8 +12,6 @@ from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy impor
     IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
     SKLEARN_REG_MODELS
-from scipy.stats import kurtosis
-from scipy.stats import skew
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):

@@ -1,10 +1,8 @@
-import json
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 from scipy.spatial.distance import pdist
 
-from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
 from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 

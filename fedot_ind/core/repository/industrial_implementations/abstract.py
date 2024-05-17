@@ -20,7 +20,7 @@ from sklearn.model_selection import train_test_split
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
-from typing import Optional, Tuple, Union, Sequence, List, Dict
+from typing import Optional, Union, List
 from fedot.core.data.data import InputData, OutputData
 
 

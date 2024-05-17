@@ -2,7 +2,6 @@ import logging
 from enum import Enum
 from typing import Dict, List
 
-from sklearn import preprocessing
 
 from fedot_ind.core.metrics.metrics_implementation import *
 

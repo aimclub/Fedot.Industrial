@@ -1,14 +1,5 @@
-from typing import Optional
 
-import numpy as np
-import torch
 # from chronos import ChronosPipeline
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-
-from fedot_ind.core.architecture.settings.computational import default_device
-from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
 class ChronosExtractor:

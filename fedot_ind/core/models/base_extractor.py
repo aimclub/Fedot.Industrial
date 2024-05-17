@@ -86,7 +86,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             window_length: int = None) -> np.array:
         """Method responsible for generation of features from time series.
         """
-        pass
 
     @convert_to_input_data
     def get_statistical_features(self,

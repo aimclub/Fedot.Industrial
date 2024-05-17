@@ -2,7 +2,6 @@ import gc
 
 import matplotlib
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from joblib import delayed, Parallel
 from sklearn.preprocessing import LabelEncoder
 
 from tqdm import tqdm

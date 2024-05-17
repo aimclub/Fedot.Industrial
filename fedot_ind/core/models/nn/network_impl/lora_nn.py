@@ -218,7 +218,7 @@ class LoraModel(BaseNeuralModel):
             )
         spectrum_by_layer = self._evaluate_decomposition()
         updated_weight = self.__init_lora(spectrum_by_layer)
-        lora_impl = self._create_lora(updated_weight)
+        self._create_lora(updated_weight)
 
     @convert_to_3d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):

@@ -1,6 +1,5 @@
 from golem.core.optimisers.genetic.evaluation import MultiprocessingDispatcher
 
-from fedot_ind.core.architecture.abstraction.decorators import DaskServer
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 import logging
@@ -16,7 +15,7 @@ from golem.core.optimisers.opt_history_objects.individual import GraphEvalResult
 from golem.core.optimisers.timer import Timer
 from golem.utilities.memory import MemoryAnalytics
 from golem.utilities.utilities import determine_n_jobs
-from joblib import wrap_non_picklable_objects, Parallel, delayed, parallel_backend
+from joblib import wrap_non_picklable_objects, Parallel, parallel_backend
 
 
 class IndustrialDispatcher(MultiprocessingDispatcher):
@@ -84,7 +83,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                                    logs_initializer: Optional[Tuple[int,
                                                                     pathlib.Path]] = None) -> GraphEvalResult:
         if self._n_jobs != 1:
-            OperationTypesRepository = IndustrialModels().setup_repository()
+            IndustrialModels().setup_repository()
 
         graph = self.evaluation_cache.get(cache_key, graph)
 

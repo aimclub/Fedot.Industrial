@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.tools.loader import DataLoader

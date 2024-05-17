@@ -3,7 +3,6 @@ from functools import partial
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fastai.layers import *
 from fastai.torch_core import Module
 from fastcore.basics import snake2camel
 from torch import Tensor

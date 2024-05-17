@@ -136,7 +136,7 @@ class FeatureSpaceReducer:
             Dataframe with reduced feature space.
 
         """
-        init_feature_space_size = features.shape[1]
+        features.shape[1]
 
         features = self._drop_stable_features(features, var_threshold)
         features_new = self._drop_correlated_features(corr_threshold, features)

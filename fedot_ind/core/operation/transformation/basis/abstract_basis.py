@@ -45,7 +45,6 @@ class BasisDecompositionImplementation(
         Returns:
             np.array: The decomposition of the given data.
         """
-        pass
 
     def _decompose_signal(self, signal) -> np.array:
         pass
@@ -56,13 +55,11 @@ class BasisDecompositionImplementation(
         Returns:
             np.array: The derivative of the decomposition of the given data.
         """
-        pass
 
     def _transform_one_sample(self, sample: np.array):
         """
             Method for transforming one sample
         """
-        pass
 
     def _get_1d_basis(self, input_data):
         def decompose(signal): return ListMonad(self._decompose_signal(signal))

@@ -1,5 +1,4 @@
 import pathlib
-import types
 
 from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
@@ -14,7 +13,6 @@ from fedot.core.optimisers.objective.data_source_splitter import DataSourceSplit
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.verification import class_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
-from golem.core.optimisers.genetic.operators.crossover import Crossover
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.industrial_implementations.abstract import merge_predicts, preprocess_predicts, \
@@ -22,7 +20,7 @@ from fedot_ind.core.repository.industrial_implementations.abstract import merge_
     transform_lagged_for_fit, transform_smoothing, _build, split_any, _check_and_correct_window_size, merge_targets, \
     split_time_series, fit_topo_extractor, transform_topo_extractor
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
-    MutationStrengthEnumIndustrial, has_no_data_flow_conflicts_in_industrial_pipeline, _crossover_by_type
+    has_no_data_flow_conflicts_in_industrial_pipeline
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 
@@ -99,7 +97,6 @@ class IndustrialModels:
         setattr(TsSmoothingImplementation, 'transform', transform_smoothing)
 
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
-        MutationStrengthEnum = MutationStrengthEnumIndustrial
         return OperationTypesRepository
 
     def __enter__(self):
