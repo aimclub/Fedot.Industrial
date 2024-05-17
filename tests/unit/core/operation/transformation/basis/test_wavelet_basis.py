@@ -17,10 +17,8 @@ def wavelet_components_combination():
 
 @pytest.fixture
 def dataset():
-    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
-                                                                       max_ts_len=50,
-                                                                       binary=True,
-                                                                       test_size=0.5).generate_data()
+    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(
+        num_samples=20, max_ts_len=50, binary=True, test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 
 
@@ -31,7 +29,8 @@ def input_train(dataset):
     return input_train_data
 
 
-@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+@pytest.mark.parametrize('wavelet, n_components',
+                         wavelet_components_combination())
 def test_transform(input_train, wavelet, n_components):
     basis = WaveletBasisImplementation({"wavelet": wavelet,
                                         "n_components": n_components})
@@ -40,7 +39,8 @@ def test_transform(input_train, wavelet, n_components):
     assert train_features.features.shape[0] == input_train.features.shape[0]
 
 
-@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+@pytest.mark.parametrize('wavelet, n_components',
+                         wavelet_components_combination())
 def test_decompose_signal(input_train, wavelet, n_components):
     basis = WaveletBasisImplementation({"wavelet": wavelet,
                                         "n_components": n_components})
@@ -50,7 +50,8 @@ def test_decompose_signal(input_train, wavelet, n_components):
     assert len(transformed_sample) == 2
 
 
-@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+@pytest.mark.parametrize('wavelet, n_components',
+                         wavelet_components_combination())
 def test_decomposing_level(input_train, wavelet, n_components):
     basis = WaveletBasisImplementation({"wavelet": wavelet,
                                         "n_components": n_components})
@@ -62,7 +63,8 @@ def test_decomposing_level(input_train, wavelet, n_components):
     assert isinstance(decomposing_level, int)
 
 
-@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+@pytest.mark.parametrize('wavelet, n_components',
+                         wavelet_components_combination())
 def test_transform_one_sample(input_train, wavelet, n_components):
     basis = WaveletBasisImplementation({"wavelet": wavelet,
                                         "n_components": n_components})
@@ -71,7 +73,8 @@ def test_transform_one_sample(input_train, wavelet, n_components):
     assert isinstance(transformed_sample, np.ndarray)
 
 
-@pytest.mark.parametrize('wavelet, n_components', wavelet_components_combination())
+@pytest.mark.parametrize('wavelet, n_components',
+                         wavelet_components_combination())
 def test_get_1d_bassis(input_train, wavelet, n_components):
     basis = WaveletBasisImplementation({"wavelet": wavelet,
                                         "n_components": n_components})

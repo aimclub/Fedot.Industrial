@@ -16,7 +16,13 @@ class ScaledDotProductAttention(Module):
 
     """
 
-    def __init__(self, d_model, n_heads, attn_dropout=0., res_attention=False, lsa=False):
+    def __init__(
+            self,
+            d_model,
+            n_heads,
+            attn_dropout=0.,
+            res_attention=False,
+            lsa=False):
         self.attn_dropout = nn.Dropout(attn_dropout)
         self.res_attention = res_attention
         head_dim = d_model // n_heads
@@ -24,8 +30,14 @@ class ScaledDotProductAttention(Module):
             head_dim ** -0.5), requires_grad=lsa)
         self.lsa = lsa
 
-    def forward(self, q: Tensor, k: Tensor, v: Tensor, prev: Optional[Tensor] = None,
-                key_padding_mask: Optional[Tensor] = None, attn_mask: Optional[Tensor] = None):
+    def forward(
+            self,
+            q: Tensor,
+            k: Tensor,
+            v: Tensor,
+            prev: Optional[Tensor] = None,
+            key_padding_mask: Optional[Tensor] = None,
+            attn_mask: Optional[Tensor] = None):
         """
         Method for forward pass of scaled dot-product attention.
 
@@ -53,7 +65,8 @@ class ScaledDotProductAttention(Module):
             attn_scores = attn_scores + prev
 
         # Attention mask (optional)
-        # attn_mask with shape [q_len x seq_len] - only used when q_len == seq_len
+        # attn_mask with shape [q_len x seq_len] - only used when q_len ==
+        # seq_len
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 attn_scores.masked_fill_(attn_mask, -np.inf)
@@ -119,15 +132,25 @@ class MultiHeadAttention(Module):
 
         # Scaled Dot-Product Attention (multiple heads)
         self.res_attention = res_attention
-        self.sdp_attn = ScaledDotProductAttention(d_model, n_heads, attn_dropout=attn_dropout,
-                                                  res_attention=self.res_attention, lsa=lsa)
+        self.sdp_attn = ScaledDotProductAttention(
+            d_model,
+            n_heads,
+            attn_dropout=attn_dropout,
+            res_attention=self.res_attention,
+            lsa=lsa)
 
         # Poject output
         self.to_out = nn.Sequential(
             nn.Linear(n_heads * d_v, d_model), nn.Dropout(proj_dropout))
 
-    def forward(self, Q: Tensor, K: Optional[Tensor] = None, V: Optional[Tensor] = None, prev: Optional[Tensor] = None,
-                key_padding_mask: Optional[Tensor] = None, attn_mask: Optional[Tensor] = None):
+    def forward(
+            self,
+            Q: Tensor,
+            K: Optional[Tensor] = None,
+            V: Optional[Tensor] = None,
+            prev: Optional[Tensor] = None,
+            key_padding_mask: Optional[Tensor] = None,
+            attn_mask: Optional[Tensor] = None):
 
         bs = Q.size(0)
         if K is None:
@@ -147,8 +170,8 @@ class MultiHeadAttention(Module):
 
         # Apply Scaled Dot-Product Attention (multiple heads)
         if self.res_attention:
-            output, attn_weights, attn_scores = self.sdp_attn(q_s, k_s, v_s, prev=prev,
-                                                              key_padding_mask=key_padding_mask, attn_mask=attn_mask)
+            output, attn_weights, attn_scores = self.sdp_attn(
+                q_s, k_s, v_s, prev=prev, key_padding_mask=key_padding_mask, attn_mask=attn_mask)
         else:
             output, attn_weights = self.sdp_attn(
                 q_s, k_s, v_s, key_padding_mask=key_padding_mask, attn_mask=attn_mask)
@@ -157,8 +180,9 @@ class MultiHeadAttention(Module):
         # scores: [bs x n_heads x max_q_len x q_len]
 
         # back to the original inputs dimensions
-        output = output.transpose(1, 2).contiguous().view(bs, -1,
-                                                          self.n_heads * self.d_v)
+        output = output.transpose(
+            1, 2).contiguous().view(
+            bs, -1, self.n_heads * self.d_v)
         # output: [bs x q_len x n_heads * d_v]
         output = self.to_out(output)
 

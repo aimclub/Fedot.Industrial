@@ -15,12 +15,16 @@ if __name__ == "__main__":
     metric_dict = {'accuracy': accuracy_score,
                    'f1': f1_score, 'roc_auc': roc_auc_score}
     with IndustrialModels():
-        pipeline = PipelineBuilder().add_node('recurrence_extractor', params={'window_size': 30,
-                                                                              'stride': 5,
-                                                                              'image_mode': True}) \
-            .add_node('resnet_model', params={'epochs': 50,
-                                              'model_name': 'ResNet50one'}) \
-            .build()
+        pipeline = PipelineBuilder().add_node(
+            'recurrence_extractor',
+            params={
+                'window_size': 30,
+                'stride': 5,
+                'image_mode': True}) .add_node(
+            'resnet_model',
+            params={
+                'epochs': 50,
+                'model_name': 'ResNet50one'}) .build()
         pipeline.fit(input_train_data)
         output = pipeline.predict(input_test_data)
 

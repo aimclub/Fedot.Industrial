@@ -53,9 +53,8 @@ def test_generate(config, synthetic_ts):
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
 
     generator = AnomalyGenerator(config=config)
-    init_synth_ts, mod_synth_ts, synth_inters = generator.generate(time_series_data=synthetic_ts,
-                                                                   plot=True,
-                                                                   overlap=0.1)
+    init_synth_ts, mod_synth_ts, synth_inters = generator.generate(
+        time_series_data=synthetic_ts, plot=True, overlap=0.1)
 
     assert len(init_synth_ts) == len(mod_synth_ts)
     for anomaly_type in synth_inters:

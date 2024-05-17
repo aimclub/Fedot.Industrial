@@ -24,7 +24,9 @@ def input_data_with_inf():
     return array, target
 
 
-@pytest.mark.parametrize("input_data", [input_data_with_inf(), input_data_with_nans()])
+@pytest.mark.parametrize("input_data",
+                         [input_data_with_inf(),
+                          input_data_with_nans()])
 def test_DataCheck(input_data):
     features, target = input_data
     data_check = DataCheck(input_data=(

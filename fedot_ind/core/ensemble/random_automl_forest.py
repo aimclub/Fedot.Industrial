@@ -69,24 +69,27 @@ class RAFensembler:
     def _raf_ensemble(self, features, target, n_splits):
         raf_ensemble = PipelineBuilder()
         data_dict = {}
-        for i, data_fold_features, data_fold_target in zip(range(n_splits), features, target):
+        for i, data_fold_features, data_fold_target in zip(
+                range(n_splits), features, target):
             train_fold = InputData(idx=np.arange(0, len(data_fold_features)),
                                    features=data_fold_features,
                                    target=data_fold_target,
                                    task=self.task,
                                    data_type=DataTypesEnum.image)
 
-            raf_ensemble.add_node(f'data_source_img/{i}', branch_idx=i).add_node(
+            raf_ensemble.add_node(
+                f'data_source_img/{i}',
+                branch_idx=i).add_node(
                 self.atomized_automl,
                 params=self.atomized_automl_params,
                 branch_idx=i)
             data_dict.update({f'data_source_img/{i}': train_fold})
         train_multimodal = MultiModalData(data_dict)
         head_automl_params = deepcopy(self.atomized_automl_params)
-        head_automl_params['available_operations'] = [operation for operation
-                                                      in head_automl_params['available_operations']
-                                                      if operation in list(SKLEARN_CLF_MODELS.keys())
-                                                      or operation in list(SKLEARN_REG_MODELS.keys())]
+        head_automl_params['available_operations'] = [
+            operation for operation in head_automl_params['available_operations'] if operation in list(
+                SKLEARN_CLF_MODELS.keys()) or operation in list(
+                SKLEARN_REG_MODELS.keys())]
         # head_automl_params['initial_assumption'] = FEDOT_ENSEMBLE_ASSUMPTIONS[self.atomized_automl_params[
         # 'problem']].build()
         raf_ensemble = raf_ensemble.join_branches(self.head).build()

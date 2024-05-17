@@ -59,11 +59,14 @@ class TopologicalExtractor(BaseExtractor):
             te_dimension, te_time_delay = self.get_embedding_params_from_batch(
                 ts_data=ts_data)
 
-            persistence_diagram_extractor = PersistenceDiagramsExtractor(takens_embedding_dim=te_dimension,
-                                                                         takens_embedding_delay=te_time_delay,
-                                                                         homology_dimensions=(
-                                                                             0, 1, 2),
-                                                                         parallel=True)
+            persistence_diagram_extractor = PersistenceDiagramsExtractor(
+                takens_embedding_dim=te_dimension,
+                takens_embedding_delay=te_time_delay,
+                homology_dimensions=(
+                    0,
+                    1,
+                    2),
+                parallel=True)
 
             self.feature_extractor = TopologicalFeaturesExtractor(
                 persistence_diagram_extractor=persistence_diagram_extractor,
@@ -73,22 +76,28 @@ class TopologicalExtractor(BaseExtractor):
                                    persistence_params: dict) -> InputData:
         if self.data_transformer is None:
             self.data_transformer = TopologicalTransformation(
-                persistence_params=persistence_params,
-                window_length=round(ts_data.shape[0] * 0.01 * self.window_size))
+                persistence_params=persistence_params, window_length=round(
+                    ts_data.shape[0] * 0.01 * self.window_size))
 
         point_cloud = self.data_transformer.time_series_to_point_cloud(
             input_data=ts_data)
         topological_features = self.feature_extractor.transform(point_cloud)
-        topological_features = InputData(idx=np.arange(len(topological_features.values)),
-                                         features=topological_features.values,
-                                         target='no_target',
-                                         task='no_task',
-                                         data_type=DataTypesEnum.table,
-                                         supplementary_data={'feature_name': topological_features.columns})
+        topological_features = InputData(
+            idx=np.arange(
+                len(
+                    topological_features.values)),
+            features=topological_features.values,
+            target='no_target',
+            task='no_task',
+            data_type=DataTypesEnum.table,
+            supplementary_data={
+                'feature_name': topological_features.columns})
         return topological_features
 
-    def generate_topological_features(self, ts: np.array,
-                                      persistence_params: dict = None) -> InputData:
+    def generate_topological_features(
+            self,
+            ts: np.array,
+            persistence_params: dict = None) -> InputData:
 
         if persistence_params is not None:
             self.__evaluate_persistence_params(ts)
@@ -97,15 +106,24 @@ class TopologicalExtractor(BaseExtractor):
             aggregation_df = self._generate_features_from_ts(
                 ts, persistence_params)
         else:
-            aggregation_df = self._get_feature_matrix(partial(self._generate_features_from_ts,
-                                                              persistence_params=persistence_params), ts)
+            aggregation_df = self._get_feature_matrix(
+                partial(
+                    self._generate_features_from_ts,
+                    persistence_params=persistence_params),
+                ts)
 
         return aggregation_df
 
-    def generate_features_from_ts(self, ts_data: np.array, dataset_name: str = None):
+    def generate_features_from_ts(
+            self,
+            ts_data: np.array,
+            dataset_name: str = None):
         return self.generate_topological_features(ts=ts_data)
 
-    def get_embedding_params_from_batch(self, ts_data: pd.DataFrame, method: str = 'mean') -> tuple:
+    def get_embedding_params_from_batch(
+            self,
+            ts_data: pd.DataFrame,
+            method: str = 'mean') -> tuple:
         """Method for getting optimal Takens embedding parameters.
 
         Args:
@@ -129,10 +147,8 @@ class TopologicalExtractor(BaseExtractor):
             ts_data = pd.DataFrame(ts_data)
             single_time_series = ts_data.sample(
                 1, replace=False, axis=0).squeeze()
-            delay, dim = takens_embedding_optimal_parameters(X=single_time_series,
-                                                             max_time_delay=1,
-                                                             max_dimension=5,
-                                                             n_jobs=-1)
+            delay, dim = takens_embedding_optimal_parameters(
+                X=single_time_series, max_time_delay=1, max_dimension=5, n_jobs=-1)
             delay_list.append(delay)
             dim_list.append(dim)
 

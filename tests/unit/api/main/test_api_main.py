@@ -138,10 +138,13 @@ def anomaly_config():
             }
 
 
-def test_generate_anomaly_ts(fedot_industrial_classification, ts_config, anomaly_config):
+def test_generate_anomaly_ts(
+        fedot_industrial_classification,
+        ts_config,
+        anomaly_config):
     industrial = fedot_industrial_classification
-    init_synth_ts, mod_synth_ts, synth_inters = industrial.generate_anomaly_ts(ts_data=ts_config,
-                                                                               anomaly_config=anomaly_config)
+    init_synth_ts, mod_synth_ts, synth_inters = industrial.generate_anomaly_ts(
+        ts_data=ts_config, anomaly_config=anomaly_config)
     assert len(init_synth_ts) == len(mod_synth_ts)
     for anomaly_type in synth_inters:
         for interval in synth_inters[anomaly_type]:

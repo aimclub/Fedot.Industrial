@@ -12,14 +12,20 @@ from fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy import
 def regression_data():
     features = np.random.rand(10, 10)
     target = np.random.rand(10, 1)
-    return init_input_data(X=pd.DataFrame(features), y=target, task='regression')
+    return init_input_data(
+        X=pd.DataFrame(features),
+        y=target,
+        task='regression')
 
 
 @pytest.fixture()
 def classification_data():
     features = np.random.rand(10, 10)
     target = np.random.randint(2, size=10)
-    return init_input_data(X=pd.DataFrame(features), y=target, task='classification')
+    return init_input_data(
+        X=pd.DataFrame(features),
+        y=target,
+        task='classification')
 
 
 def test_fedot_automl_classification_strategy_fit(classification_data):

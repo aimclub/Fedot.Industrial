@@ -380,8 +380,12 @@ class SimplexSigmaPoints(object):
             row = np.ones((1, Istar.shape[1] + 1)) * 1. / np.sqrt(
                 lambda_ * d * (d + 1))  # pylint: disable=unsubscriptable-object
             row[0, -1] = -d / np.sqrt(lambda_ * d * (d + 1))
-            Istar = np.r_[np.c_[Istar, np.zeros(
-                (Istar.shape[0]))], row]  # pylint: disable=unsubscriptable-object
+            Istar = np.r_[
+                np.c_[
+                    Istar,
+                    np.zeros(
+                        (Istar.shape[0]))],
+                row]  # pylint: disable=unsubscriptable-object
 
         I = np.sqrt(n) * Istar
         scaled_unitary = (U.T).dot(I)
@@ -430,7 +434,12 @@ def order_by_derivative(Q, dim, block_size):
     return D
 
 
-def Q_discrete_white_noise(dim, dt=1., var=1., block_size=1, order_by_dim=True):
+def Q_discrete_white_noise(
+        dim,
+        dt=1.,
+        var=1.,
+        block_size=1,
+        order_by_dim=True):
     """
     Returns the Q matrix for the Discrete Constant White Noise
     Model. dim may be either 2, 3, or 4 dt is the time step, and sigma

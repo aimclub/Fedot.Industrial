@@ -50,7 +50,8 @@ class PatchTST(nn.Module):
                  # activation function of intermediate layer, relu or gelu.
                  activation="GELU",
                  norm='BatchNorm',  # type of normalization layer used in the encoder
-                 # flag to indicate if normalization is applied as the first step in the sublayers
+                 # flag to indicate if normalization is applied as the first
+                 # step in the sublayers
                  pre_norm=False,
                  res_attention=True,  # flag to indicate if Residual MultiheadAttention should be used
                  store_attn=True,
@@ -62,14 +63,29 @@ class PatchTST(nn.Module):
         if pred_dim is None:
             pred_dim = seq_len
 
-        self.model = _PatchTST_backbone(input_dim=input_dim, seq_len=seq_len, pred_dim=pred_dim,
-                                        patch_len=patch_len, stride=stride, n_layers=n_layers, d_model=d_model,
-                                        n_heads=n_heads, d_ff=d_ff, norm=norm, attn_dropout=attn_dropout,
-                                        dropout=dropout, act=activation, res_attention=res_attention,
-                                        pre_norm=pre_norm,
-                                        store_attn=store_attn, padding_patch=padding_patch,
-                                        individual=individual, revin=revin, affine=affine,
-                                        subtract_last=subtract_last, preprocess_to_lagged=preprocess_to_lagged)
+        self.model = _PatchTST_backbone(
+            input_dim=input_dim,
+            seq_len=seq_len,
+            pred_dim=pred_dim,
+            patch_len=patch_len,
+            stride=stride,
+            n_layers=n_layers,
+            d_model=d_model,
+            n_heads=n_heads,
+            d_ff=d_ff,
+            norm=norm,
+            attn_dropout=attn_dropout,
+            dropout=dropout,
+            act=activation,
+            res_attention=res_attention,
+            pre_norm=pre_norm,
+            store_attn=store_attn,
+            padding_patch=padding_patch,
+            individual=individual,
+            revin=revin,
+            affine=affine,
+            subtract_last=subtract_last,
+            preprocess_to_lagged=preprocess_to_lagged)
         self.patch_num = self.model.patch_num
 
     def forward(self, x):
@@ -235,16 +251,13 @@ class PatchTSTModel(BaseNeuralModel):
         if split_data:
             train_data, val_data = train_test_data_setup(
                 train_data, validation_blocks=validation_blocks)
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  self.horizon,
-                                                                                                  patch_len)
-            _, val_data.features, val_data.target = transform_features_and_target_into_lagged(val_data,
-                                                                                              self.horizon,
-                                                                                              patch_len)
+            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(
+                train_data, self.horizon, patch_len)
+            _, val_data.features, val_data.target = transform_features_and_target_into_lagged(
+                val_data, self.horizon, patch_len)
         else:
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  self.horizon,
-                                                                                                  patch_len)
+            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(
+                train_data, self.horizon, patch_len)
         train_loader = self.__create_torch_loader(train_data)
         return train_loader
 
@@ -318,7 +331,12 @@ class PatchTSTModel(BaseNeuralModel):
                 outputs = model(last_patch)
                 return outputs.flatten().cpu().numpy()
 
-    def _encoder_decoder_transition(self, batch_x, batch_x_mark, dec_inp, batch_y_mark):
+    def _encoder_decoder_transition(
+            self,
+            batch_x,
+            batch_x_mark,
+            dec_inp,
+            batch_y_mark):
         # encoder - decoder
         if 'Linear' in self.model or 'TST' in self.model:
             outputs = self.model(batch_x)
@@ -376,10 +394,13 @@ class PatchTSTModel(BaseNeuralModel):
             test_data.features = test_data.features.reshape(1, -1)
 
         if not self.preprocess_to_lagged:
-            features = HankelMatrix(time_series=test_data.features,
-                                    window_size=self.test_patch_len).trajectory_matrix
-            features = torch.from_numpy(DataConverter(data=features).
-                                        convert_to_torch_format()).float().permute(2, 1, 0)
+            features = HankelMatrix(
+                time_series=test_data.features,
+                window_size=self.test_patch_len).trajectory_matrix
+            features = torch.from_numpy(
+                DataConverter(
+                    data=features). convert_to_torch_format()).float().permute(
+                2, 1, 0)
             target = torch.from_numpy(DataConverter(
                 data=features).convert_to_torch_format()).float()
 
@@ -389,6 +410,6 @@ class PatchTSTModel(BaseNeuralModel):
                                         convert_to_torch_format()).float()
             target = torch.from_numpy(DataConverter(
                 data=features).convert_to_torch_format()).float()
-        test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
-                                                  batch_size=self.batch_size, shuffle=False)
+        test_loader = torch.utils.data.DataLoader(data.TensorDataset(
+            features, target), batch_size=self.batch_size, shuffle=False)
         return self._predict(model, test_loader)

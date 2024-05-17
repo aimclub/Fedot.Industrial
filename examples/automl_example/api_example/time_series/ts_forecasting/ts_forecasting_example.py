@@ -11,12 +11,13 @@ metric_col = ['industrial', 'AG', 'NBEATS']
 benchmark = 'M4'
 finetune = False
 
-forecast_result_path = os.listdir(PROJECT_PATH +
-                                  '/examples/automl_example/api_example/time_series/ts_forecasting/forecasts/')
+forecast_result_path = os.listdir(
+    PROJECT_PATH +
+    '/examples/automl_example/api_example/time_series/ts_forecasting/forecasts/')
 forecast_result_path = set([x.split('_')[0] for x in forecast_result_path])
 
-df_forecast, df_metrics = read_results(PROJECT_PATH +
-                                       '/examples/automl_example/api_example/time_series/ts_forecasting/forecasts/')
+df_forecast, df_metrics = read_results(
+    PROJECT_PATH + '/examples/automl_example/api_example/time_series/ts_forecasting/forecasts/')
 df_comprasion = create_comprasion_df(df_metrics, 'rmse')
 
 if __name__ == "__main__":
@@ -33,7 +34,7 @@ if __name__ == "__main__":
                       logging_level=40)
 
     for dataset_name in M4_FORECASTING_BENCH:
-        if dataset_name in industrial_loss and dataset_name.__contains__('W'):#
+        if dataset_name in industrial_loss and dataset_name.__contains__('W'):
             print('Already evaluated, but with bad metrics')
             horizon = M4_FORECASTING_LENGTH[dataset_name[0]]
             api_config.update(task_params={'forecast_length': horizon})
@@ -59,8 +60,8 @@ if __name__ == "__main__":
             model.save_best_model()
             model.save_optimization_history()
 
-            if metrics_comprasion.T[metrics_comprasion.T['rmse']
-                                    == metrics_comprasion.T.min(axis=0).values[0]].index[0] == 'industrial':
+            if metrics_comprasion.T[metrics_comprasion.T['rmse'] == metrics_comprasion.T.min(
+                    axis=0).values[0]].index[0] == 'industrial':
                 forecast.to_csv(f'./{dataset_name}_forecast.csv')
                 metrics_comprasion.to_csv(f'./{dataset_name}_metrics.csv')
 

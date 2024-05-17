@@ -61,9 +61,17 @@ class AdaptiveWeightedAvgPool1d(Module):
         for i in range(n_layers):
             inp_mult = mult if i > 0 else 1
             out_mult = mult if i < n_layers - 1 else 1
-            p = dropout[i] if type(dropout) is list else dropout
-            layers.append(LinLnDrop(seq_len * inp_mult, seq_len * out_mult, ln=False, p=p,
-                                    act=act if i < n_layers - 1 and n_layers > 1 else None))
+            p = dropout[i] if isinstance(dropout, list) else dropout
+            layers.append(
+                LinLnDrop(
+                    seq_len *
+                    inp_mult,
+                    seq_len *
+                    out_mult,
+                    ln=False,
+                    p=p,
+                    act=act if i < n_layers -
+                    1 and n_layers > 1 else None))
         self.layers = layers
         self.softmax = SoftMax(-1)
         if zero_init:
@@ -142,8 +150,10 @@ GWAP1d = GlobalWeightedAveragePool1d
 
 
 def gwa_pool_head(n_in, output_dim, seq_len, batch_norm=True, fc_dropout=0.):
-    return nn.Sequential(GlobalWeightedAveragePool1d(n_in, seq_len), Reshape(),
-                         LinBnDrop(n_in, output_dim, p=fc_dropout, batch_norm=batch_norm))
+    return nn.Sequential(
+        GlobalWeightedAveragePool1d(
+            n_in, seq_len), Reshape(), LinBnDrop(
+            n_in, output_dim, p=fc_dropout, batch_norm=batch_norm))
 
 
 class AttentionalPool1d(Module):
@@ -164,11 +174,27 @@ class AttentionalPool1d(Module):
 
 class GAttP1d(nn.Sequential):
     def __init__(self, n_in, output_dim, batch_norm=False):
-        super().__init__(AttentionalPool1d(n_in, output_dim, batch_norm=batch_norm), Reshape())
+        super().__init__(
+            AttentionalPool1d(
+                n_in,
+                output_dim,
+                batch_norm=batch_norm),
+            Reshape())
 
 
-def attentional_pool_head(n_in, output_dim, seq_len=None, batch_norm=True, **kwargs):
-    return nn.Sequential(AttentionalPool1d(n_in, output_dim, batch_norm=batch_norm, **kwargs), Reshape())
+def attentional_pool_head(
+        n_in,
+        output_dim,
+        seq_len=None,
+        batch_norm=True,
+        **kwargs):
+    return nn.Sequential(
+        AttentionalPool1d(
+            n_in,
+            output_dim,
+            batch_norm=batch_norm,
+            **kwargs),
+        Reshape())
 
 
 class PoolingLayer(Module):
@@ -194,12 +220,14 @@ class PoolingLayer(Module):
         elif self.method == 'mean':
             return torch.mean(x, -1) if self.seq_last else torch.mean(x, 1)
         elif self.method == 'max-mean':
-            return torch.cat([torch.max(x, -1)[0] if self.seq_last else torch.max(x, 1)[0],
-                              torch.mean(x, -1) if self.seq_last else torch.mean(x, 1)], 1)
+            return torch.cat([torch.max(x, -
+                                        1)[0] if self.seq_last else torch.max(x, 1)[0], torch.mean(x, -
+                                                                                                   1) if self.seq_last else torch.mean(x, 1)], 1)
         elif self.method == 'flatten':
             return x.flatten(1)
         elif self.method == 'linear' or self.method == 'conv1d':
-            return self.linear(x)[..., 0] if self.seq_last else self.linear(x.transpose(1, 2))[..., 0]
+            return self.linear(x)[..., 0] if self.seq_last else self.linear(
+                x.transpose(1, 2))[..., 0]
 
     def __repr__(self):
         return f"{self.__class__.__name__}(method={self.method}, token={self.token}, seq_last={self.seq_last})"

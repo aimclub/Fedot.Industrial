@@ -72,7 +72,11 @@ class AnomalyGenerator:
             self.taken_slots[start_idx:end_idx] = 1
             return start_idx, end_idx
 
-    def generate(self, time_series_data: Union[np.ndarray, dict], plot: bool = False, overlap: float = 0.1):
+    def generate(self,
+                 time_series_data: Union[np.ndarray,
+                                         dict],
+                 plot: bool = False,
+                 overlap: float = 0.1):
         """
         Generate anomalies in time series data.
 
@@ -104,10 +108,10 @@ class AnomalyGenerator:
             n = self.anomaly_config[anomaly_cls]['number']
             anomaly_obj = self.types[anomaly_cls]
             params = self.anomaly_config[anomaly_cls]
-            max_length = params.get('max_anomaly_length',
-                                    ValueError(f'max_anomaly_length must be defined for {anomaly_cls} type'))
-            min_length = params.get('min_anomaly_length',
-                                    ValueError(f'min_anomaly_length must be defined for {anomaly_cls} type'))
+            max_length = params.get('max_anomaly_length', ValueError(
+                f'max_anomaly_length must be defined for {anomaly_cls} type'))
+            min_length = params.get('min_anomaly_length', ValueError(
+                f'min_anomaly_length must be defined for {anomaly_cls} type'))
 
             for i in range(n):
                 start_idx, end_idx = self.select_interval(
@@ -140,8 +144,10 @@ class AnomalyGenerator:
         color_dict = {cls: color for cls, color in zip(
             anomaly_intervals_dict.keys(), cmap)}
 
-        legend_patches = [patches.Patch(color=color_dict[cls],
-                                        label=cls) for cls in anomaly_intervals_dict.keys()]
+        legend_patches = [
+            patches.Patch(
+                color=color_dict[cls],
+                label=cls) for cls in anomaly_intervals_dict.keys()]
 
         for anomaly_class, intervals in anomaly_intervals_dict.items():
             for interval in intervals:
@@ -239,7 +245,6 @@ if __name__ == '__main__':
 
     generator = AnomalyGenerator(config=anomaly_config)
 
-    init_synth_ts, mod_synth_ts, synth_inters = generator.generate(time_series_data=synth_ts,
-                                                                   plot=True,
-                                                                   overlap=0.1)
+    init_synth_ts, mod_synth_ts, synth_inters = generator.generate(
+        time_series_data=synth_ts, plot=True, overlap=0.1)
     _ = 1

@@ -15,7 +15,10 @@ import numpy as np
 
 
 class ParetoMetrics:
-    def pareto_metric_list(self, costs: Union[list, np.ndarray], maximise: bool = True) -> np.ndarray:
+    def pareto_metric_list(self,
+                           costs: Union[list,
+                                        np.ndarray],
+                           maximise: bool = True) -> np.ndarray:
         """ Calculates the pareto front for a list of costs.
 
         Args:
@@ -68,7 +71,10 @@ class QualityMetric:
 
 class RMSE(QualityMetric):
     def metric(self) -> float:
-        return mean_squared_error(y_true=self.target, y_pred=self.predicted_labels, squared=False)
+        return mean_squared_error(
+            y_true=self.target,
+            y_pred=self.predicted_labels,
+            squared=False)
 
 
 class SMAPE(QualityMetric):
@@ -80,17 +86,23 @@ class SMAPE(QualityMetric):
 
 class MSE(QualityMetric):
     def metric(self) -> float:
-        return mean_squared_error(y_true=self.target, y_pred=self.predicted_labels, squared=True)
+        return mean_squared_error(
+            y_true=self.target,
+            y_pred=self.predicted_labels,
+            squared=True)
 
 
 class MSLE(QualityMetric):
     def metric(self) -> float:
-        return mean_squared_log_error(y_true=self.target, y_pred=self.predicted_labels)
+        return mean_squared_log_error(
+            y_true=self.target,
+            y_pred=self.predicted_labels)
 
 
 class MAPE(QualityMetric):
     def metric(self) -> float:
-        return mean_absolute_percentage_error(y_true=self.target, y_pred=self.predicted_labels)
+        return mean_absolute_percentage_error(
+            y_true=self.target, y_pred=self.predicted_labels)
 
 
 class F1(QualityMetric):
@@ -102,17 +114,26 @@ class F1(QualityMetric):
 
         try:
             if n_classes > 2 or n_classes_pred > 2:
-                return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='weighted')
+                return f1_score(
+                    y_true=self.target,
+                    y_pred=self.predicted_labels,
+                    average='weighted')
             else:
                 pos_label = QualityMetric._get_least_frequent_val(self.target)
-                return f1_score(y_true=self.target, y_pred=self.predicted_labels, average='binary', pos_label=pos_label)
+                return f1_score(
+                    y_true=self.target,
+                    y_pred=self.predicted_labels,
+                    average='binary',
+                    pos_label=pos_label)
         except ValueError:
             return self.default_value
 
 
 class MAE(QualityMetric):
     def metric(self) -> float:
-        return mean_absolute_error(y_true=self.target, y_pred=self.predicted_labels)
+        return mean_absolute_error(
+            y_true=self.target,
+            y_pred=self.predicted_labels)
 
 
 class R2(QualityMetric):
@@ -136,8 +157,11 @@ class ROCAUC(QualityMetric):
             additional_params = {}
             prediction = self.predicted_probs
 
-        score = roc_auc_score(y_score=prediction,
-                              y_true=target, labels=np.unique(target), **additional_params)
+        score = roc_auc_score(
+            y_score=prediction,
+            y_true=target,
+            labels=np.unique(target),
+            **additional_params)
         score = round(score, 3)
 
         return score
@@ -154,7 +178,9 @@ class Precision(QualityMetric):
             additional_params = {}
 
         score = precision_score(
-            y_pred=self.predicted_labels, y_true=self.target, **additional_params)
+            y_pred=self.predicted_labels,
+            y_true=self.target,
+            **additional_params)
         score = round(score, 3)
         return score
 
@@ -176,7 +202,8 @@ def mase(A, F, y_train):
 
 
 def smape(a, f, _=None):
-    return 1 / len(a) * np.sum(2 * np.abs(f - a) / (np.abs(a) + np.abs(f)) * 100)
+    return 1 / len(a) * np.sum(2 * np.abs(f - a) /
+                               (np.abs(a) + np.abs(f)) * 100)
 
 
 def calculate_regression_metric(target,
@@ -200,8 +227,9 @@ def calculate_regression_metric(target,
                    'max_error': max_error,
                    'd2_absolute_error_score': d2_absolute_error_score}
 
-    df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
-                       if name in metric_names},
+    df = pd.DataFrame({name: func(target,
+                                  labels) for name,
+                       func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
@@ -225,26 +253,30 @@ def calculate_forecasting_metric(target,
         'mase': mase
     }
 
-    df = pd.DataFrame({name: func(target, labels) for name, func in metric_dict.items()
-                       if name in metric_names},
+    df = pd.DataFrame({name: func(target,
+                                  labels) for name,
+                       func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
 
-def calculate_classification_metric(target,
-                                    labels,
-                                    probs,
-                                    rounding_order=3,
-                                    metric_names=('f1', 'roc_auc', 'accuracy')):
+def calculate_classification_metric(
+    target,
+    labels,
+    probs,
+    rounding_order=3,
+    metric_names=(
+        'f1',
+        'roc_auc',
+        'accuracy')):
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
                    'roc_auc': ROCAUC,
                    'precision': Precision,
                    'logloss': Logloss}
 
-    df = pd.DataFrame({name: func(target, labels, probs).metric() for name, func in metric_dict.items()
-                       if name in metric_names},
-                      index=[0])
+    df = pd.DataFrame({name: func(target, labels, probs).metric(
+    ) for name, func in metric_dict.items() if name in metric_names}, index=[0])
     return df.round(rounding_order)
 
 
@@ -282,8 +314,11 @@ def kl_divergence(solution: pd.DataFrame,
 
         y_nonzero_indices = solution[col] != 0
         solution[col] = solution[col].astype(float)
-        solution.loc[y_nonzero_indices, col] = solution.loc[y_nonzero_indices, col] * np.log(
-            solution.loc[y_nonzero_indices, col] / submission.loc[y_nonzero_indices, col])
+        solution.loc[y_nonzero_indices,
+                     col] = solution.loc[y_nonzero_indices,
+                                         col] * np.log(solution.loc[y_nonzero_indices,
+                                                                    col] / submission.loc[y_nonzero_indices,
+                                                                                          col])
         solution.loc[~y_nonzero_indices, col] = 0
 
     if micro_average:

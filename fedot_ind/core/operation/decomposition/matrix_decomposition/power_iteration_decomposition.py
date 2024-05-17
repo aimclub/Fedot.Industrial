@@ -43,8 +43,10 @@ class RSVDDecomposition:
             list_of_rank = list(range(1, low_rank + 1, 1))
             reconstr_matrix = [self._compute_matrix_approximation(
                 Ut, block, tensor, rank) for rank in list_of_rank]
-            fro_norms = [abs(np.linalg.norm(tensor - reconstr_m, 'fro') / np.linalg.norm(tensor) * 100)
-                         for reconstr_m in reconstr_matrix]
+            fro_norms = [abs(np.linalg.norm(tensor -
+                                            reconstr_m, 'fro') /
+                             np.linalg.norm(tensor) *
+                             100) for reconstr_m in reconstr_matrix]
             regularized_rank = _detect_knee_point(
                 values=fro_norms, indices=list(range(len(fro_norms))))
             regularized_rank = len(regularized_rank)
@@ -70,7 +72,8 @@ class RSVDDecomposition:
             u, s, vt: decomposition
 
         """
-        # Return classic svd decomposition with chosen type of spectrum thresholding
+        # Return classic svd decomposition with chosen type of spectrum
+        # thresholding
         if not approximation:
             # classic svd decomposition
             Ut, St, Vt = np.linalg.svd(tensor, full_matrices=False)
@@ -91,15 +94,19 @@ class RSVDDecomposition:
             # are well separated from each other). The important point is that the exponentiation procedure only changes
             # the eigenvalues but does not change the eigenvectors. Next, the resulting matrix is multiplied with the
             # original matrix ("overweighing" the column space) and then multiplied with a random matrix
-            # in order to reduce the dimension and facilitate the procedure for "large" matrices.
+            # in order to reduce the dimension and facilitate the procedure for
+            # "large" matrices.
             sampled_tensor = np.linalg.matrix_power(
                 AAT, self.poly_deg) @ tensor @ self.random_projection
-            # Fourth step. Orthogonalization of the resulting "sampled" matrix creates for us a basis of eigenvectors.
+            # Fourth step. Orthogonalization of the resulting "sampled" matrix
+            # creates for us a basis of eigenvectors.
             sampled_tensor_orto, _ = np.linalg.qr(
                 sampled_tensor, mode='reduced')
-            # Fifth step. Project initial Gramm matrix on new basis obtained from "sampled matrix".
+            # Fifth step. Project initial Gramm matrix on new basis obtained
+            # from "sampled matrix".
             M = sampled_tensor_orto.T @ AAT @ sampled_tensor_orto
-            # Six step. Classical svd decomposition with choosen type of spectrum thresholding
+            # Six step. Classical svd decomposition with choosen type of
+            # spectrum thresholding
             Ut, St, Vt = np.linalg.svd(M, full_matrices=False)
             # Compute low rank.
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)

@@ -73,9 +73,8 @@ class XCM(Module):
                      padding='same'),
               BatchNorm(number_filters),
               nn.ReLU()])
-        self.conv2d1x1block = nn.Sequential(*[nn.Conv2d(number_filters, 1, kernel_size=1),
-                                              nn.ReLU(),
-                                              Squeeze(1)])
+        self.conv2d1x1block = nn.Sequential(
+            *[nn.Conv2d(number_filters, 1, kernel_size=1), nn.ReLU(), Squeeze(1)])
         self.conv1dblock = nn.Sequential(
             *[Conv1d(
                 input_dim,
@@ -104,9 +103,15 @@ class XCM(Module):
             self.head = custom_head(
                 self.head_number_filters, output_dim, seq_len, **kwargs)
         else:
-            self.head = create_head(self.head_number_filters, output_dim, seq_len, flatten=flatten,
-                                    concat_pool=concat_pool,
-                                    fc_dropout=fc_dropout, batch_norm=batch_norm, y_range=y_range)
+            self.head = create_head(
+                self.head_number_filters,
+                output_dim,
+                seq_len,
+                flatten=flatten,
+                concat_pool=concat_pool,
+                fc_dropout=fc_dropout,
+                batch_norm=batch_norm,
+                y_range=y_range)
 
     def _get_acts_and_grads(self,
                             model,
@@ -117,7 +122,7 @@ class XCM(Module):
                             cpu=False):
         r"""Returns activations and gradients for given modules in a model and a single input or a batch.
         Gradients require y value(s). If they are not provided, it will use the predictions. """
-        if type(modules) is not list:
+        if not isinstance(modules, list):
             modules = [modules]
         x = x[None, None] if x.ndim == 1 else x[None] if x.ndim == 2 else x
         if cpu:
@@ -140,7 +145,9 @@ class XCM(Module):
         if len(modules) == 1:
             return h_act.stored[0].data, h_grad.stored[0][0].data
         else:
-            return [h.data for h in h_act.stored], [h[0].data for h in h_grad.stored]
+            return [
+                h.data for h in h_act.stored], [
+                h[0].data for h in h_grad.stored]
 
     def get_attribution_map(self,
                             model,
@@ -159,9 +166,12 @@ class XCM(Module):
             if L_c.ndim == 3:
                 return L_c.squeeze(0) if L_c.shape[0] == 1 else L_c
             else:
-                return L_c.repeat(features.shape[1], 1) if L_c.shape[0] == 1 else L_c.unsqueeze(1).repeat(1,
-                                                                                                          features.shape[
-                                                                                                              1], 1)
+                return L_c.repeat(
+                    features.shape[1],
+                    1) if L_c.shape[0] == 1 else L_c.unsqueeze(1).repeat(
+                    1,
+                    features.shape[1],
+                    1)
 
         if features.ndim == 1:
             features = features[None, None]
@@ -169,8 +179,12 @@ class XCM(Module):
             features = features[None]
         A_k, w_ck = self._get_acts_and_grads(
             model, modules, features, target, detach=detach, cpu=cpu)
-        if type(A_k) is list:
-            return [_get_attribution_map(A_k[i], w_ck[i]) for i in range(len(A_k))]
+        if isinstance(A_k, list):
+            return [
+                _get_attribution_map(
+                    A_k[i],
+                    w_ck[i]) for i in range(
+                    len(A_k))]
         else:
             return _get_attribution_map(A_k, w_ck)
 
