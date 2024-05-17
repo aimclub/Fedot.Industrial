@@ -6,12 +6,13 @@ if __name__ == "__main__":
     dataset_name = {'benchmark': 'M4',
                     'dataset': 'D3257'}
     finetune = False
-    initial_assumptions = {'nbeats': PipelineBuilder().add_node('nbeats_model'),
-                           'industiral': PipelineBuilder().add_node(
-                               'eigen_basis',
-                               params={
-                                   'low_rank_approximation': False,
-                                   'rank_regularization': 'explained_dispersion'}).add_node('ar')}
+    initial_assumptions = {
+        'nbeats': PipelineBuilder().add_node('nbeats_model'),
+        'industiral': PipelineBuilder().add_node(
+            'eigen_basis',
+            params={
+                'low_rank_approximation': False,
+                'rank_regularization': 'explained_dispersion'}).add_node('ar')}
     for assumption in initial_assumptions.keys():
         api_config = dict(problem='ts_forecasting',
                           metric='rmse',
