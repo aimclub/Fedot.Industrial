@@ -5,7 +5,7 @@ from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
-
+import warnings
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import \
@@ -74,6 +74,45 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
     def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
         super().__init__(operation_type, params)
+
+    def fit(self, train_data: InputData):
+        """
+        This method is used for operation training with the data provided
+        :param InputData train_data: data used for operation training
+        :return: trained model
+        """
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+        model = self.operation(self.params_for_fit)
+        model.fit(train_data)
+        return model
+
+    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+        """
+        This method used for prediction of the target data during predict stage.
+
+        :param output_mode:
+        :param trained_operation: trained operation object
+        :param predict_data: data to predict
+        :return OutputData: passed data with new predicted target
+        """
+
+        prediction = trained_operation.predict(predict_data, output_mode)
+        converted = self._convert_to_output(prediction, predict_data)
+        return converted
+
+    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+        """
+        This method used for prediction of the target data during fit stage.
+
+        :param output_mode:
+        :param trained_operation: trained operation object
+        :param predict_data: data to predict
+        :return OutputData: passed data with new predicted target
+        """
+
+        prediction = trained_operation.predict_for_fit(predict_data, output_mode)
+        converted = self._convert_to_output(prediction, predict_data)
+        return converted
 
 
 class IndustrialSkLearnEvaluationStrategy(IndustrialCustomPreprocessingStrategy):
