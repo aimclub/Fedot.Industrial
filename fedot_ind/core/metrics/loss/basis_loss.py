@@ -12,8 +12,8 @@ def basis_approximation_metric(derivation_coef: np.array,
     # Normalize metrics and der_coef
     normalized_derivative_coef = MinMaxScaler(feature_range=(0, 1)).fit_transform(
         sum_of_derivative_coef.reshape(-1, 1))[:, 0]
-    normalized_metric_values = MinMaxScaler(feature_range=(0, 1)).fit_transform(
-        metric_values.reshape(-1, 1))[:, 0]
+    normalized_metric_values = MinMaxScaler(feature_range=(
+        0, 1)).fit_transform(metric_values.reshape(-1, 1))[:, 0]
 
     # Alternative approach where metric = regulizer*np.exp(der_coef)*metric_val
     # exponent_of_coef = np.array([np.exp(x) for x in normalized_derivative_coef])

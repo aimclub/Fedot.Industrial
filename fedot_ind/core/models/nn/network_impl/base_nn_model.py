@@ -167,16 +167,20 @@ class BaseNeuralModel:
             self.model = best_model
 
     @fedot_data_type
-    def predict(self,
-                input_data: InputData, output_mode: str = 'default') -> np.array:
+    def predict(
+            self,
+            input_data: InputData,
+            output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """
         return self._predict_model(input_data, output_mode)
 
     @fedot_data_type
-    def predict_for_fit(self,
-                        input_data: InputData, output_mode: str = 'default') -> np.array:
+    def predict_for_fit(
+            self,
+            input_data: InputData,
+            output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """

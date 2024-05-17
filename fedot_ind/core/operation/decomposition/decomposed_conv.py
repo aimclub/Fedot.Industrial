@@ -123,8 +123,10 @@ class DecomposedConv2d(Conv2d):
         Replaces U, S, Vh matrices with weights such that weights = U * S * Vh.
         """
         W = self.U @ torch.diag(self.S) @ self.Vh
-        self.weight = Parameter(W.reshape(
-            self.decomposing['compose_shape']).permute(self.decomposing['permute']))
+        self.weight = Parameter(
+            W.reshape(
+                self.decomposing['compose_shape']).permute(
+                self.decomposing['permute']))
         self.register_parameter('U', None)
         self.register_parameter('S', None)
         self.register_parameter('Vh', None)
@@ -152,7 +154,11 @@ class DecomposedConv2d(Conv2d):
         U = self.U.reshape(self.decomposing['U shape']).permute(0, 3, 1, 2)
         x = conv2d(input=input, weight=SVh, groups=self.groups,
                    **self.decomposing['Vh'])
-        return conv2d(input=x, weight=U, bias=self.bias, **self.decomposing['U'])
+        return conv2d(
+            input=x,
+            weight=U,
+            bias=self.bias,
+            **self.decomposing['U'])
 
     def _three_layers_forward(self, input: torch.Tensor) -> torch.Tensor:
         S = torch.diag(self.S).view([len(self.S), len(self.S), 1, 1])
@@ -161,9 +167,17 @@ class DecomposedConv2d(Conv2d):
         x = conv2d(input=input, weight=Vh, groups=self.groups,
                    **self.decomposing['Vh'])
         x = conv2d(input=x, weight=S, padding=0)
-        return conv2d(input=x, weight=U, bias=self.bias, **self.decomposing['U'])
+        return conv2d(
+            input=x,
+            weight=U,
+            bias=self.bias,
+            **self.decomposing['U'])
 
-    def set_U_S_Vh(self, u: torch.Tensor, s: torch.Tensor, vh: torch.Tensor) -> None:
+    def set_U_S_Vh(
+        self,
+        u: torch.Tensor,
+        s: torch.Tensor,
+            vh: torch.Tensor) -> None:
         """Update U, S, Vh matrices.
         Raises:
             Assertion Error: If ``self.decomposing`` is False.

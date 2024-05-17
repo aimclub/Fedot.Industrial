@@ -40,15 +40,20 @@ class TSTransformer:
         self.freq_length = None
 
     def __check_multivariate(self, time_series: np.ndarray):
-        return isinstance(time_series, list) or (len(time_series.shape) > 1 and time_series.shape[1] > 1)
+        return isinstance(time_series, list) or (
+            len(time_series.shape) > 1 and time_series.shape[1] > 1)
 
     def transform(self, series: np.array):
         """ Split test data on subsequences"""
 
         return self._transform_test(series)
 
-    def transform_for_fit(self, series: np.array, anomaly_dict: Dict, plot: bool = False,
-                          binarize: bool = False) -> tuple:
+    def transform_for_fit(
+            self,
+            series: np.array,
+            anomaly_dict: Dict,
+            plot: bool = False,
+            binarize: bool = False) -> tuple:
         """
         Method for splitting time series into train and test parts based on most frequent anomaly length.
 
@@ -67,20 +72,24 @@ class TSTransformer:
         self.freq_length = self._get_frequent_anomaly_length(intervals)
         transformed_intervals = self._transform_intervals(series, intervals)
 
-        features, target = self.get_features_and_target(series=series,
-                                                        classes=classes,
-                                                        transformed_intervals=transformed_intervals,
-                                                        binarize=binarize)
+        features, target = self.get_features_and_target(
+            series=series, classes=classes, transformed_intervals=transformed_intervals, binarize=binarize)
 
         if plot and not self.__check_multivariate(series):
-            self.plot_classes_and_intervals(series=series,
-                                            classes=classes,
-                                            intervals=intervals,
-                                            transformed_intervals=transformed_intervals)
+            self.plot_classes_and_intervals(
+                series=series,
+                classes=classes,
+                intervals=intervals,
+                transformed_intervals=transformed_intervals)
 
         return features, target
 
-    def get_features_and_target(self, series, classes, transformed_intervals, binarize) -> tuple:
+    def get_features_and_target(
+            self,
+            series,
+            classes,
+            transformed_intervals,
+            binarize) -> tuple:
         target, features = self._split_by_intervals(
             series, classes, transformed_intervals)
         non_anomaly_inters = self._get_non_anomaly_intervals(
@@ -91,7 +100,8 @@ class TSTransformer:
             target = self._binarize_target(target)
         return np.array(features), np.array(target)
 
-    def _get_anomaly_intervals(self, anomaly_dict: Dict) -> Tuple[List[str], List[list]]:
+    def _get_anomaly_intervals(
+            self, anomaly_dict: Dict) -> Tuple[List[str], List[list]]:
         labels = list(anomaly_dict.keys())
         label_intervals = []
         for anomaly_label in labels:
@@ -124,11 +134,13 @@ class TSTransformer:
                 if current_len < self.freq_length:
                     left = i[0] - left_add
                     right = i[1] + right_add
-                    # If left border is negative, shift right border to the right
+                    # If left border is negative, shift right border to the
+                    # right
                     if left < 0:
                         right += abs(left)
                         left = 0
-                    # If right border is greater than time series length, shift left border to the left
+                    # If right border is greater than time series length, shift
+                    # left border to the left
                     if right > len(series):
                         left -= abs(right - len(series))
                         right = len(series)
@@ -146,9 +158,11 @@ class TSTransformer:
             new_intervals.append(new_class_intervals)
         return new_intervals
 
-    def _split_by_intervals(self, series: np.array,
+    def _split_by_intervals(self,
+                            series: np.array,
                             classes: list,
-                            transformed_intervals: list) -> Tuple[List[str], List[list]]:
+                            transformed_intervals: list) -> Tuple[List[str],
+                                                                  List[list]]:
         all_labels, all_ts = [], []
 
         for i, label in enumerate(classes):
@@ -160,7 +174,12 @@ class TSTransformer:
                     all_ts.append(np.ravel(series[inter[0]:inter[1]]))
         return all_labels, all_ts
 
-    def plot_classes_and_intervals(self, series, classes, intervals, transformed_intervals):
+    def plot_classes_and_intervals(
+            self,
+            series,
+            classes,
+            intervals,
+            transformed_intervals):
         fig, axes = plt.subplots(3, 1, figsize=(17, 7))
         fig.tight_layout()
         for ax in axes:
@@ -198,7 +217,12 @@ class TSTransformer:
                 new_target.append(1)
         return new_target
 
-    def balance_with_non_anomaly(self, series, target, features, non_anomaly_intervals):
+    def balance_with_non_anomaly(
+            self,
+            series,
+            target,
+            features,
+            non_anomaly_intervals):
         number_of_anomalies = len(target)
         anomaly_len = len(features[0])
         non_anomaly_ts_list = []
@@ -206,7 +230,8 @@ class TSTransformer:
         counter = 0
         taken_slots = pd.Series([0 for _ in range(len(ts))])
 
-        while len(non_anomaly_ts_list) != number_of_anomalies and counter != number_of_anomalies * 100:
+        while len(
+                non_anomaly_ts_list) != number_of_anomalies and counter != number_of_anomalies * 100:
             seed = np.random.randint(1000)
             random.seed(seed)
             random_inter = random.choice(non_anomaly_intervals)
@@ -258,7 +283,8 @@ class TSTransformer:
             series[single_interval[0]:single_interval[1]] = np.nan
 
         non_nan_intervals = []
-        for k, g in series.groupby((series.notnull() != series.shift().notnull()).cumsum()):
+        for k, g in series.groupby(
+                (series.notnull() != series.shift().notnull()).cumsum()):
             if g.notnull().any():
                 non_nan_intervals.append((g.index[0], g.index[-1]))
 

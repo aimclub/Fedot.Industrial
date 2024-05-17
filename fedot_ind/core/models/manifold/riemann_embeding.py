@@ -54,7 +54,8 @@ class RiemannExtractor(BaseExtractor):
 
         self.covariance_transformer = params.get('SPD_space', None)
         self.tangent_projector = params.get('tangent_space', None)
-        if np.any([self.covariance_transformer, self.tangent_projector]) is None:
+        if np.any([self.covariance_transformer,
+                  self.tangent_projector]) is None:
             self._init_spaces()
             self.fit_stage = True
         self.extraction_func = extraction_dict[self.extraction_strategy]
@@ -94,8 +95,8 @@ class RiemannExtractor(BaseExtractor):
             SPD = self.covariance_transformer.transform(input_data.features)
             SPD = self.shrinkage.fit_transform(SPD)
 
-        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
-                                          metric=self.covariance_metric) for ll in self.classes_]
+        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten(
+        )], metric=self.covariance_metric) for ll in self.classes_]
 
         n_centroids = len(self.covmeans_)
         dist = [distance(SPD, self.covmeans_[m], self.distance_metric)

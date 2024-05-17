@@ -29,10 +29,11 @@ def test_performance_analyzer_tsc(basic_metric_data_clf):
     performance_analyzer = PerformanceAnalyzer()
     target_metrics = ['roc_auc', 'f1', 'accuracy', 'logloss', 'precision']
 
-    score = performance_analyzer.calculate_metrics(target=target_label,
-                                                   predicted_labels=test_label,
-                                                   predicted_probs=test_proba,
-                                                   target_metrics=target_metrics)
+    score = performance_analyzer.calculate_metrics(
+        target=target_label,
+        predicted_labels=test_label,
+        predicted_probs=test_proba,
+        target_metrics=target_metrics)
     assert score is not None
     assert isinstance(score, dict)
     assert len(score) == len(target_metrics)
@@ -43,9 +44,10 @@ def test_performance_analyzer_reg(basic_metric_data_reg):
     performance_analyzer = PerformanceAnalyzer()
     target_metrics = ['rmse', 'r2', 'mae', 'mse', 'mape']
 
-    score = performance_analyzer.calculate_metrics(target=target_label,
-                                                   predicted_labels=test_label,
-                                                   target_metrics=target_metrics)
+    score = performance_analyzer.calculate_metrics(
+        target=target_label,
+        predicted_labels=test_label,
+        target_metrics=target_metrics)
     assert score is not None
     assert isinstance(score, dict)
     assert len(score) == len(target_metrics)

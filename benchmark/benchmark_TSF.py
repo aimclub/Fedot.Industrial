@@ -88,7 +88,8 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
             model.solver.save(dataset_path)
             gc.collect()
         basic_path = os.path.join(
-            self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
+            self.experiment_setup['output_folder'],
+            'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
 
@@ -104,9 +105,10 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
                 prediction, target = self.finetune_loop(
                     dataset_name, experiment_setup)
                 metric = RMSE(target, prediction).metric()
-                dataset_path = os.path.join(self.experiment_setup['output_folder'],
-                                            f'{dataset_name}',
-                                            'metrics_report.csv')
+                dataset_path = os.path.join(
+                    self.experiment_setup['output_folder'],
+                    f'{dataset_name}',
+                    'metrics_report.csv')
                 fedot_results = pd.read_csv(dataset_path, index_col=0)
                 fedot_results.loc[dataset_name,
                                   'Fedot_Industrial_finetuned'] = metric

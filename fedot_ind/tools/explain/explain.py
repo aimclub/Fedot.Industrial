@@ -38,10 +38,13 @@ class PointExplainer(Explainer):
         self.scaled_vector = None
         self.window_length = None
 
-    def explain(self, n_samples: int = 1, window: int = 5, method: str = 'rmse'):
-        self.picked_feature, self.picked_target = self.select(self.features,
-                                                              self.target.flatten(),
-                                                              n_samples_=n_samples)
+    def explain(
+            self,
+            n_samples: int = 1,
+            window: int = 5,
+            method: str = 'rmse'):
+        self.picked_feature, self.picked_target = self.select(
+            self.features, self.target.flatten(), n_samples_=n_samples)
         self.scaled_vector, self.window_length = self.importance(window=window,
                                                                  method=method)
 
@@ -59,18 +62,38 @@ class PointExplainer(Explainer):
             window_length = 0
             n_parts = part_feature_.shape[1]
 
-            iv_scaled = self.get_vector(base_proba_, distance_func, model, n_parts,
-                                        part_feature_, part_target_, window_length)
+            iv_scaled = self.get_vector(
+                base_proba_,
+                distance_func,
+                model,
+                n_parts,
+                part_feature_,
+                part_target_,
+                window_length)
 
         else:
             window_length = part_feature_.shape[1] * window // 100
             n_parts = math.ceil(part_feature_.shape[1] / window_length)
-            iv_scaled = self.get_vector(base_proba_, distance_func, model, n_parts,
-                                        part_feature_, part_target_, window_length)
+            iv_scaled = self.get_vector(
+                base_proba_,
+                distance_func,
+                model,
+                n_parts,
+                part_feature_,
+                part_target_,
+                window_length)
 
         return pd.DataFrame(iv_scaled), window_length
 
-    def get_vector(self, base_proba_, distance_func, model, n_parts, part_feature_, part_target_, window_length):
+    def get_vector(
+            self,
+            base_proba_,
+            distance_func,
+            model,
+            n_parts,
+            part_feature_,
+            part_target_,
+            window_length):
         importance_vector_ = {cls: np.zeros(
             n_parts) for cls in np.unique(part_target_)}
         with tqdm(total=n_parts, desc='Processing points', unit='point') as pbar:
@@ -85,7 +108,9 @@ class PointExplainer(Explainer):
                     if cls not in distance_dict:
                         distance_dict[cls] = []
                     distance = distance_func(
-                        np.array(base_proba_[idx]).ravel(), np.array(proba_new[idx]).ravel())
+                        np.array(
+                            base_proba_[idx]).ravel(), np.array(
+                            proba_new[idx]).ravel())
                     distance_dict[cls].append(distance)
                 for cls in distance_dict:
                     importance_vector_[cls][part] = np.mean(distance_dict[cls])
@@ -128,8 +153,11 @@ class PointExplainer(Explainer):
         # filter by threshold value for each class
         threshold_ = {cls: np.percentile(
             vector_df[cls], thr) for cls in np.unique(target)}
-        importance_vector_filtered_ = {cls: np.where(vector_df[cls] > threshold_[cls], vector_df[cls], 0) for cls in
-                                       np.unique(target)}
+        importance_vector_filtered_ = {
+            cls: np.where(
+                vector_df[cls] > threshold_[cls],
+                vector_df[cls],
+                0) for cls in np.unique(target)}
         vector_df = pd.DataFrame(importance_vector_filtered_)
         n_classes = len(np.unique(target))
         fig, axs = plt.subplots(n_classes, 1, figsize=(
@@ -160,8 +188,8 @@ class PointExplainer(Explainer):
                     *np.arange(0, len(feature.iloc[idx, :]), window), len(feature.iloc[idx, :])]
                 for span_idx, dot in enumerate(copy_vec):
                     left = span_idx * window
-                    right = span_idx * window + window if span_idx * window + window < len(feature.iloc[idx, :]) \
-                        else len(feature.iloc[idx, :])
+                    right = span_idx * window + window if span_idx * window + \
+                        window < len(feature.iloc[idx, :]) else len(feature.iloc[idx, :])
                     axs[idx].axvspan(left, right, color=cmap(norm(dot)))
                     top = axs[idx].get_ylim()[1]
                     axs[idx].text(
@@ -169,8 +197,8 @@ class PointExplainer(Explainer):
                     axs[idx].set_xticks(x_ticks)
 
             mean_value = feature.iloc[idx, :].mean()
-            axs[idx].plot([0, len(feature.iloc[idx, :])], [mean_value, mean_value], color='black', linestyle='--',
-                          label='mean')
+            axs[idx].plot([0, len(feature.iloc[idx, :])], [
+                          mean_value, mean_value], color='black', linestyle='--', label='mean')
             class_indexes = np.where(target == cls)[0]
             for class_idx in class_indexes:
                 axs[idx].plot(feature.iloc[class_idx, :],

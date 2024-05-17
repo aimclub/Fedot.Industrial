@@ -24,7 +24,8 @@ def config():
                 )
 
 
-@pytest.mark.parametrize('kind', ('random_walk', 'sin', 'auto_regression', 'smooth_normal'))
+@pytest.mark.parametrize('kind', ('random_walk', 'sin',
+                         'auto_regression', 'smooth_normal'))
 def test_get_ts(config, kind):
     specific_config = config[kind]
     generator = TimeSeriesGenerator(params=specific_config)

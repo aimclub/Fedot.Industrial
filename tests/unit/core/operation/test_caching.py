@@ -17,9 +17,9 @@ class TestDataCacher(unittest.TestCase):
         self.data = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
 
     def test_hash_info(self):
-        hashed_info = self.data_cacher.hash_info(name='data', data=self.data, add_info=['fedot',
-                                                                                        'industrial',
-                                                                                        'time series'])
+        hashed_info = self.data_cacher.hash_info(
+            name='data', data=self.data, add_info=[
+                'fedot', 'industrial', 'time series'])
         self.assertIsInstance(hashed_info, str)
         self.assertEqual(len(hashed_info), 20)
 

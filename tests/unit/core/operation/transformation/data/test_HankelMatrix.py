@@ -15,16 +15,18 @@ def ts_data():
 
 
 def test_valid_trajectory_matrix(ts_data, valid_window_size):
-    trajectory_matrix = HankelMatrix(time_series=ts_data,
-                                     window_size=valid_window_size).trajectory_matrix
+    trajectory_matrix = HankelMatrix(
+        time_series=ts_data,
+        window_size=valid_window_size).trajectory_matrix
 
     assert trajectory_matrix is not None
     assert trajectory_matrix.shape[0] == valid_window_size
 
 
 def test_zero_trajectory_matrix(ts_data, zero_window_size):
-    trajectory_matrix = HankelMatrix(time_series=ts_data,
-                                     window_size=zero_window_size).trajectory_matrix
+    trajectory_matrix = HankelMatrix(
+        time_series=ts_data,
+        window_size=zero_window_size).trajectory_matrix
 
     made_up_window = int(TS_LENGTH / 3)
     assert trajectory_matrix is not None
