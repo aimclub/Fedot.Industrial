@@ -210,7 +210,10 @@ class SingularSpectrumTransformation:
         else:
             return self._predict(test_features=test_features, target=target)
 
-    def _predict(self, test_features: HankelMatrix, target: HankelMatrix) -> list:
+    def _predict(
+            self,
+            test_features: HankelMatrix,
+            target: HankelMatrix) -> list:
         """Core implementation of offline score calculation.
 
         Args:
@@ -225,8 +228,9 @@ class SingularSpectrumTransformation:
         """
 
         if self.dynamic_mode:
-            def dynamic_sst(trajectory_data_tuple): return self._sst_svd(trajectory_data_tuple[0].trajectory_matrix,
-                                                                         trajectory_data_tuple[1].trajectory_matrix)
+            def dynamic_sst(trajectory_data_tuple): return self._sst_svd(
+                trajectory_data_tuple[0].trajectory_matrix,
+                trajectory_data_tuple[1].trajectory_matrix)
             trajectory_data_tuple = list(zip(test_features, target))
             score_list = list(map(dynamic_sst, trajectory_data_tuple))
         else:

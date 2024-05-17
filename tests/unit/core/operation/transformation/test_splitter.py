@@ -26,8 +26,8 @@ def anomaly_dict():
 def test__check_multivariate(frequent_splitter, time_series):
     univariate = frequent_splitter._TSTransformer__check_multivariate(
         time_series)
-    multivariate = frequent_splitter._TSTransformer__check_multivariate(np.array([time_series,
-                                                                                  time_series]))
+    multivariate = frequent_splitter._TSTransformer__check_multivariate(
+        np.array([time_series, time_series]))
     assert univariate is False
     assert multivariate is True
 
@@ -41,16 +41,19 @@ def test_transform(frequent_splitter, time_series, anomaly_dict):
 
 @pytest.mark.parametrize('binarize, plot', ([True, False], [False, False],
                                             [True, True], [False, True]))
-def test_transform_for_fit(frequent_splitter, time_series, anomaly_dict, binarize, plot):
+def test_transform_for_fit(
+        frequent_splitter,
+        time_series,
+        anomaly_dict,
+        binarize,
+        plot):
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
     get_backend()
     plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
-    features, target = frequent_splitter.transform_for_fit(series=time_series,
-                                                           anomaly_dict=anomaly_dict,
-                                                           plot=plot,
-                                                           binarize=binarize)
+    features, target = frequent_splitter.transform_for_fit(
+        series=time_series, anomaly_dict=anomaly_dict, plot=plot, binarize=binarize)
     assert isinstance(features, np.ndarray)
     assert isinstance(target, np.ndarray)
     if binarize:
@@ -67,12 +70,10 @@ def test_get_features_and_target(frequent_splitter,
     classes = list(anomaly_dict.keys())
     intervals = list(anomaly_dict.values())
     frequent_splitter.freq_length = 20
-    trans_intervals = frequent_splitter._transform_intervals(series=time_series,
-                                                             intervals=intervals)
-    features, target = frequent_splitter.get_features_and_target(series=time_series,
-                                                                 classes=classes,
-                                                                 transformed_intervals=trans_intervals,
-                                                                 binarize=binarize)
+    trans_intervals = frequent_splitter._transform_intervals(
+        series=time_series, intervals=intervals)
+    features, target = frequent_splitter.get_features_and_target(
+        series=time_series, classes=classes, transformed_intervals=trans_intervals, binarize=binarize)
 
     assert isinstance(features, np.ndarray)
     assert isinstance(target, np.ndarray)
@@ -111,12 +112,11 @@ def test__split_by_intervals(frequent_splitter, time_series, anomaly_dict):
     classes = list(anomaly_dict.keys())
     intervals = list(anomaly_dict.values())
     frequent_splitter.freq_length = 20
-    transformed_intervals = frequent_splitter._transform_intervals(series=time_series,
-                                                                   intervals=intervals)
+    transformed_intervals = frequent_splitter._transform_intervals(
+        series=time_series, intervals=intervals)
 
-    all_labels, all_ts = frequent_splitter._split_by_intervals(series=time_series,
-                                                               classes=classes,
-                                                               transformed_intervals=transformed_intervals)
+    all_labels, all_ts = frequent_splitter._split_by_intervals(
+        series=time_series, classes=classes, transformed_intervals=transformed_intervals)
 
     assert isinstance(all_ts, list)
     assert isinstance(all_ts, list)
@@ -133,34 +133,37 @@ def test_binarize_target(frequent_splitter):
     assert np.mean(new_target == 'anomaly') == 0
 
 
-def test_balance_with_non_anomaly(frequent_splitter, time_series, anomaly_dict):
+def test_balance_with_non_anomaly(
+        frequent_splitter,
+        time_series,
+        anomaly_dict):
     classes = list(anomaly_dict.keys())
     intervals = list(anomaly_dict.values())
     frequent_splitter.freq_length = 20
-    transformed_intervals = frequent_splitter._transform_intervals(series=time_series,
-                                                                   intervals=intervals)
-    target, features, = frequent_splitter._split_by_intervals(time_series,
-                                                              classes,
-                                                              transformed_intervals)
-    non_anomaly_inters = frequent_splitter._get_non_anomaly_intervals(time_series,
-                                                                      transformed_intervals)
-    new_target, new_features = frequent_splitter.balance_with_non_anomaly(time_series,
-                                                                          target,
-                                                                          features,
-                                                                          non_anomaly_inters)
+    transformed_intervals = frequent_splitter._transform_intervals(
+        series=time_series, intervals=intervals)
+    target, features, = frequent_splitter._split_by_intervals(
+        time_series, classes, transformed_intervals)
+    non_anomaly_inters = frequent_splitter._get_non_anomaly_intervals(
+        time_series, transformed_intervals)
+    new_target, new_features = frequent_splitter.balance_with_non_anomaly(
+        time_series, target, features, non_anomaly_inters)
 
     assert new_target.count('no_anomaly') / len(new_target) == 0.5
     assert len(new_target) == len(new_features)
 
 
-def test_get_non_anomaly_intervals(frequent_splitter, anomaly_dict, time_series):
+def test_get_non_anomaly_intervals(
+        frequent_splitter,
+        anomaly_dict,
+        time_series):
     intervals = list(anomaly_dict.values())
     frequent_splitter.freq_length = 20
-    transformed_intervals = frequent_splitter._transform_intervals(series=time_series,
-                                                                   intervals=intervals)
+    transformed_intervals = frequent_splitter._transform_intervals(
+        series=time_series, intervals=intervals)
 
-    non_nan_intervals = frequent_splitter._get_non_anomaly_intervals(time_series,
-                                                                     transformed_intervals)
+    non_nan_intervals = frequent_splitter._get_non_anomaly_intervals(
+        time_series, transformed_intervals)
     ts_len = len(time_series)
     assert isinstance(non_nan_intervals, list)
     assert non_nan_intervals[0][0] in range(ts_len)

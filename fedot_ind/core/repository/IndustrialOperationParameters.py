@@ -23,7 +23,8 @@ def get_default_params(operation_type: str) -> dict:
     :return: default repository parameters for the model name
     """
     with DefaultOperationParamsRepository() as default_params_repo:
-        return default_params_repo.get_default_params_for_operation(operation_type)
+        return default_params_repo.get_default_params_for_operation(
+            operation_type)
 
 
 class DefaultOperationParamsRepository:

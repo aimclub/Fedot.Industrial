@@ -29,7 +29,8 @@ def _readlines(*names: str, **kwargs) -> List[str]:
 
 
 def _extract_requirements(file_name: str):
-    return [line for line in _readlines(file_name) if line and not line.startswith('#')]
+    return [line for line in _readlines(
+        file_name) if line and not line.startswith('#')]
 
 
 def _get_requirements(req_name: str):

@@ -26,7 +26,8 @@ class BaseEnsemble:
     def ensemble(self) -> dict:
         raise NotImplementedError
 
-    def create_proba_and_metrics_dicts(self, modelling_results: dict) -> (dict, dict):
+    def create_proba_and_metrics_dicts(
+            self, modelling_results: dict) -> (dict, dict):
         """
         Method for creating dictionary with structure {'ModelName': [tensor with class probs]}
         and dictionary with structure {'ModelName':[metric values]}

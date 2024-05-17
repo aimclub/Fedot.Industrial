@@ -65,8 +65,9 @@ class TimeSeriesGenerator:
 
         """
         if self.ts_type not in self.ts_types.keys():
-            raise ValueError('ts_type must be one of the following: "sin", "smooth_normal", "random_walk", '
-                             '"auto_regression"')
+            raise ValueError(
+                'ts_type must be one of the following: "sin", "smooth_normal", "random_walk", '
+                '"auto_regression"')
         else:
             ts_class = self.ts_types[self.ts_type](self.params)
             return ts_class.get_ts()
@@ -145,10 +146,19 @@ class SmoothNormal(DefaultTimeSeries):
     def get_ts(self):
         normal_ts = np.random.normal(0, 1, self.ts_length) + 100
         noise = np.random.normal(0, 1, self.ts_length)
-        return np.array(self.savitzky_golay(y=normal_ts, window_size=self.window_size, order=3) + noise)
+        return np.array(
+            self.savitzky_golay(
+                y=normal_ts,
+                window_size=self.window_size,
+                order=3) + noise)
 
     @staticmethod
-    def savitzky_golay(y: np.array, window_size: int, order: int = 3, deriv: int = 0, rate: int = 1):
+    def savitzky_golay(
+            y: np.array,
+            window_size: int,
+            order: int = 3,
+            deriv: int = 0,
+            rate: int = 1):
         """
         Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
 

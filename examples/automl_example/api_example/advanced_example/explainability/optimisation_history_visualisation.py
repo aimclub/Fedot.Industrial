@@ -15,9 +15,8 @@ if __name__ == "__main__":
                       n_jobs=2,
                       logging_level=10)
 
-    industrial, labels, metrics = industrial_common_modelling_loop(api_config=api_config,
-                                                                   dataset_name=dataset_name,
-                                                                   finetune=finetune)
+    industrial, labels, metrics = industrial_common_modelling_loop(
+        api_config=api_config, dataset_name=dataset_name, finetune=finetune)
     if return_history:
         opt_hist = industrial.save_optimization_history(return_history=True)
     else:

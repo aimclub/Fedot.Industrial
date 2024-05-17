@@ -21,8 +21,9 @@ class SameConv1d(Module):
         self.pad = Pad1d
 
     def forward(self, x):
-        self.padding = same_padding1d(x.shape[-1], self.ks,
-                                      dilation=self.dilation)  # stride=self.stride not used in padding calculation!
+        # stride=self.stride not used in padding calculation!
+        self.padding = same_padding1d(
+            x.shape[-1], self.ks, dilation=self.dilation)
         return self.conv1d_same(self.pad(self.padding)(x))
 
 

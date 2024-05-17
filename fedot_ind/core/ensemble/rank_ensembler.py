@@ -9,7 +9,7 @@ from fedot_ind.core.ensemble.base_ensembler import BaseEnsemble
 
 
 class RankEnsemble(BaseEnsemble):
-    """Class responsible for the results of ensemble models by ranking them and 
+    """Class responsible for the results of ensemble models by ranking them and
     recursively adding them to the final composite model.
 
     Args:
@@ -71,7 +71,10 @@ class RankEnsemble(BaseEnsemble):
                 if item is not None:
                     return item
 
-    def _create_models_rank_dict(self, prediction_proba_dict, metric_dict) -> dict:
+    def _create_models_rank_dict(
+            self,
+            prediction_proba_dict,
+            metric_dict) -> dict:
         """
         Method that returns a dictionary with the best metric values of base models
 
@@ -134,8 +137,8 @@ class RankEnsemble(BaseEnsemble):
         """
         for top_K_models in range(1, self.n_models):
 
-            modelling_results_top = {k: v for k, v in prediction_proba_dict[self.dataset_name].items() if
-                                     k in list(self.sorted_dict.keys())[:top_K_models + 1]}
+            modelling_results_top = {k: v for k, v in prediction_proba_dict[self.dataset_name].items(
+            ) if k in list(self.sorted_dict.keys())[:top_K_models + 1]}
             self.logger.info(
                 f'Applying ensemble {self.ensemble_strategy} strategy for {top_K_models + 1} models')
 
@@ -155,8 +158,7 @@ class RankEnsemble(BaseEnsemble):
                     :top_K_models + 1]
                 self.logger.info(
                     f'Accomplished metric improvement by {current_ensemble_method}:'
-                    f'New best metric – {best_ensemble_metric}'
-                )
+                    f'New best metric – {best_ensemble_metric}')
 
                 if self.best_ensemble_metric > 0:
                     self.experiment_results.update(
@@ -179,23 +181,31 @@ class RankEnsemble(BaseEnsemble):
         for ensemble_method in ensemble_results:
             ensemble_dict = ensemble_results[ensemble_method]
 
-            ensemble_metrics = self.performance_analyzer.calculate_metrics(target=ensemble_dict['target'],
-                                                                           predicted_labels=ensemble_dict['label'],
-                                                                           predicted_probs=ensemble_dict['proba'],
-                                                                           target_metrics=[self.metric])
+            ensemble_metrics = self.performance_analyzer.calculate_metrics(
+                target=ensemble_dict['target'],
+                predicted_labels=ensemble_dict['label'],
+                predicted_probs=ensemble_dict['proba'],
+                target_metrics=[
+                    self.metric])
 
             ensemble_metric = ensemble_metrics[self.metric]
-            if ensemble_metric > self.best_base_results['Base_metric'] and ensemble_metric > self.best_ensemble_metric:
+            if ensemble_metric > self.best_base_results[
+                    'Base_metric'] and ensemble_metric > self.best_ensemble_metric:
                 self.best_ensemble_metric = ensemble_metric
                 top_ensemble_dict.update({ensemble_method: ensemble_metric})
-        return dict(sorted(top_ensemble_dict.items(), key=lambda x: x[1], reverse=True))
+        return dict(
+            sorted(
+                top_ensemble_dict.items(),
+                key=lambda x: x[1],
+                reverse=True))
 
-    def agg_ensemble(self, modelling_results: dict = None, single_mode: bool = False) -> dict:
+    def agg_ensemble(self, modelling_results: dict = None,
+                     single_mode: bool = False) -> dict:
         ensemble_dict = {}
         if single_mode:
             for strategy in self.ensemble_strategy:
-                ensemble_dict.update({f'{strategy}': self._ensemble_by_method(modelling_results,
-                                                                              strategy=strategy)})
+                ensemble_dict.update({f'{strategy}': self._ensemble_by_method(
+                    modelling_results, strategy=strategy)})
         else:
             for generator in modelling_results:
                 ensemble_dict[generator] = {}
@@ -205,8 +215,8 @@ class RankEnsemble(BaseEnsemble):
                         {launch: modelling_results[generator][launch]['metrics']})
 
                 for strategy in self.ensemble_strategy:
-                    ensemble_dict[generator].update({strategy: self._ensemble_by_method(modelling_results[generator],
-                                                                                        strategy=strategy)})
+                    ensemble_dict[generator].update({strategy: self._ensemble_by_method(
+                        modelling_results[generator], strategy=strategy)})
         return ensemble_dict
 
     def _ensemble_by_method(self, predictions, strategy):
@@ -216,15 +226,17 @@ class RankEnsemble(BaseEnsemble):
             transformed_predictions, axis=1)
 
         if average_proba_predictions.shape[1] == 1:
-            average_proba_predictions = np.concatenate([average_proba_predictions, 1 - average_proba_predictions],
-                                                       axis=1)
+            average_proba_predictions = np.concatenate(
+                [average_proba_predictions, 1 - average_proba_predictions], axis=1)
 
         label_predictions = np.argmax(average_proba_predictions, axis=1)
         try:
             target = self.test_target
-            metrics = self.performance_analyzer.calculate_metrics(target=target,
-                                                                  predicted_labels=label_predictions,
-                                                                  predicted_probs=average_proba_predictions, )
+            metrics = self.performance_analyzer.calculate_metrics(
+                target=target,
+                predicted_labels=label_predictions,
+                predicted_probs=average_proba_predictions,
+            )
         except KeyError:
             metrics = None
             target = None
@@ -253,7 +265,7 @@ class RankEnsemble(BaseEnsemble):
         if strategy_name in self.strategy_exclude_list:
             return predictions
 
-        if type(predictions) == dict:
+        if isinstance(predictions, dict):
             try:
                 list_proba = []
                 for model_preds in predictions:

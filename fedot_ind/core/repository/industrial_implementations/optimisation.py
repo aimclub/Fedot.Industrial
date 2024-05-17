@@ -49,13 +49,14 @@ class IndustrialMutations:
         self.node_adapter = PipelineAdapter()
         self.task_type = Task(task_type)
         self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
-        self.industrial_data_operations = default_industrial_availiable_operation(self.task_type.task_type.value)
+        self.industrial_data_operations = default_industrial_availiable_operation(
+            self.task_type.task_type.value)
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
         self.excluded = self.excluded + self.excluded_mutation
-        self.industrial_data_operations = [operation for operation in self.industrial_data_operations if operation
-                                           not in self.excluded]
+        self.industrial_data_operations = [
+            operation for operation in self.industrial_data_operations if operation not in self.excluded]
 
     def transform_to_pipeline_node(self, node):
         return self.node_adapter._transform_to_pipeline_node(node)
@@ -169,8 +170,10 @@ class IndustrialMutations:
         if new_node_child:
             graph.connect_nodes(node_parent=new_node,
                                 node_child=new_node_child)
-            graph.disconnect_nodes(node_parent=node_to_mutate, node_child=new_node_child,
-                                   clean_up_leftovers=True)
+            graph.disconnect_nodes(
+                node_parent=node_to_mutate,
+                node_child=new_node_child,
+                clean_up_leftovers=True)
 
         return graph
 
@@ -241,9 +244,8 @@ class IndustrialMutations:
         if removal_type == RemoveType.with_direct_children:
             # TODO refactor workaround with data_source
             graph.delete_node(node_to_del)
-            nodes_to_delete = \
-                [n for n in graph.nodes
-                 if n.descriptive_id.count('data_source') == 1 and node_name in n.descriptive_id]
+            nodes_to_delete = [n for n in graph.nodes if n.descriptive_id.count(
+                'data_source') == 1 and node_name in n.descriptive_id]
             for child_node in nodes_to_delete:
                 graph.delete_node(child_node, reconnect=ReconnectType.all)
         elif removal_type == RemoveType.with_parents:
@@ -266,7 +268,8 @@ class IndustrialMutations:
             task=self.task_type, mode='data_operation', tags=["basis"])
         extractors = get_operations_for_task(
             task=self.task_type, mode='data_operation', tags=["extractor"])
-        extractors = [x for x in extractors if x in self.industrial_data_operations]
+        extractors = [
+            x for x in extractors if x in self.industrial_data_operations]
         models = get_operations_for_task(task=self.task_type, mode='model')
         models = [x for x in models if x not in self.excluded_mutation]
         basis_model = PipelineNode(choice(basis_models))
@@ -289,12 +292,17 @@ class IndustrialMutations:
         if 'lagged' in current_operation:
             return pipeline
         else:
-            pipeline = PipelineBuilder().add_sequence(*lagged, branch_idx=0).\
-                add_sequence(*current_operation, branch_idx=1).join_branches('ridge').build()
+            pipeline = PipelineBuilder().add_sequence(
+                *lagged,
+                branch_idx=0). add_sequence(
+                *current_operation,
+                branch_idx=1).join_branches('ridge').build()
             return pipeline
 
 
-def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Sequence[MutationTypesEnum]:
+def _get_default_industrial_mutations(
+        task_type: TaskTypesEnum,
+        params) -> Sequence[MutationTypesEnum]:
     ind_mutations = IndustrialMutations(task_type=task_type)
     mutations = [
         parameter_change_mutation,
@@ -307,7 +315,7 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Seque
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
         mutations.append(boosting_mutation)
-        #mutations.append(ind_mutations.add_lagged)
+        # mutations.append(ind_mutations.add_lagged)
         mutations.remove(ind_mutations.add_preprocessing)
         mutations.remove(ind_mutations.single_add)
     # TODO remove workaround after validation fix
@@ -321,7 +329,9 @@ class IndustrialCrossover:
     def subtree_crossover(self,
                           graph_1: OptGraph,
                           graph_2: OptGraph,
-                          max_depth: int, inplace: bool = True) -> Tuple[OptGraph, OptGraph]:
+                          max_depth: int,
+                          inplace: bool = True) -> Tuple[OptGraph,
+                                                         OptGraph]:
         """Performed by the replacement of random subtree
         in first selected parent to random subtree from the second parent"""
 
@@ -342,8 +352,14 @@ class IndustrialCrossover:
         node_from_graph_second = choice(nodes_from_layer(
             graph_2, random_layer_in_graph_second))
 
-        replace_subtrees(graph_1, graph_2, node_from_graph_first, node_from_graph_second,
-                         random_layer_in_graph_first, random_layer_in_graph_second, max_depth)
+        replace_subtrees(
+            graph_1,
+            graph_2,
+            node_from_graph_first,
+            node_from_graph_second,
+            random_layer_in_graph_first,
+            random_layer_in_graph_second,
+            max_depth)
 
         return graph_1, graph_2
 
@@ -360,12 +376,18 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                                   node_depth(node_from_graph_first)
+                node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                                    node_depth(node_from_graph_second)
+                node_depth(node_from_graph_second)
 
-            replace_subtrees(graph_first, graph_second, node_from_graph_first, node_from_graph_second,
-                             layer_in_graph_first, layer_in_graph_second, max_depth)
+            replace_subtrees(
+                graph_first,
+                graph_second,
+                node_from_graph_first,
+                node_from_graph_second,
+                layer_in_graph_first,
+                layer_in_graph_second,
+                max_depth)
         return graph_first, graph_second
 
     @register_native
@@ -421,8 +443,11 @@ class IndustrialCrossover:
         return graph_first, graph_second
 
     @register_native
-    def exchange_parents_one_crossover(self,
-                                       graph_first: OptGraph, graph_second: OptGraph, max_depth: int):
+    def exchange_parents_one_crossover(
+            self,
+            graph_first: OptGraph,
+            graph_second: OptGraph,
+            max_depth: int):
         """For the selected node for the first parent, change the parent nodes to
         the parent nodes of the same node of the second parent. Thus, the first child is obtained.
         The second child is a copy of the second parent"""
@@ -462,8 +487,11 @@ class IndustrialCrossover:
         return graph_first, graph_second
 
     @register_native
-    def exchange_parents_both_crossover(self,
-                                        graph_first: OptGraph, graph_second: OptGraph, max_depth: int):
+    def exchange_parents_both_crossover(
+            self,
+            graph_first: OptGraph,
+            graph_second: OptGraph,
+            max_depth: int):
         """For the selected node for the first parent, change the parent nodes to
         the parent nodes of the same node of the second parent. Thus, the first child is obtained.
         The second child is formed in a similar way"""

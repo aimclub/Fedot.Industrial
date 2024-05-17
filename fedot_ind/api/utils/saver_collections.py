@@ -7,16 +7,21 @@ from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
 
 
 class ResultSaver:
-    def __init__(self, dataset_name: str, generator_name: str, output_dir: str = None):
+    def __init__(
+            self,
+            dataset_name: str,
+            generator_name: str,
+            output_dir: str = None):
         if generator_name is None:
             generator_name = 'without_generator'
         self.path = self.__init_save_path(
             dataset_name, generator_name, output_dir)
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.save_method_dict = {'labels': self.save_labels,
-                                 'probs': self.save_probs,
-                                 'metrics': self.save_metrics,
-                                 'baseline_metrics': self.save_baseline_metrics}
+        self.save_method_dict = {
+            'labels': self.save_labels,
+            'probs': self.save_probs,
+            'metrics': self.save_metrics,
+            'baseline_metrics': self.save_baseline_metrics}
 
     def __init_save_path(self, dataset_name, generator_name, output_dir):
         if output_dir is None:

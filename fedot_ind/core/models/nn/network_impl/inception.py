@@ -17,7 +17,14 @@ from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_
 
 @delegates(InceptionModule.__init__)
 class InceptionTime(Module):
-    def __init__(self, input_dim, output_dim, seq_len=None, number_of_filters=32, nb_filters=None, **kwargs):
+    def __init__(
+            self,
+            input_dim,
+            output_dim,
+            seq_len=None,
+            number_of_filters=32,
+            nb_filters=None,
+            **kwargs):
         super().__init__()
         if number_of_filters is None:
             number_of_filters = nb_filters
@@ -65,10 +72,12 @@ class InceptionTimeModel(BaseNeuralModel):
         return "InceptionNN"
 
     def _init_model(self, ts):
-        self.model = InceptionTime(input_dim=ts.features.shape[1],
-                                   output_dim=self.num_classes).to(default_device())
-        self.model_for_inference = InceptionTime(input_dim=ts.features.shape[1],
-                                                 output_dim=self.num_classes)
+        self.model = InceptionTime(
+            input_dim=ts.features.shape[1],
+            output_dim=self.num_classes).to(
+            default_device())
+        self.model_for_inference = InceptionTime(
+            input_dim=ts.features.shape[1], output_dim=self.num_classes)
         self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         if ts.task.task_type.value == 'classification':

@@ -11,8 +11,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     LinearClassFSImplementation, NonLinearClassFSImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
-    *
+from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
     TopologicalFeaturesImplementation

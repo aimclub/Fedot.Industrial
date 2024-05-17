@@ -7,7 +7,9 @@ from fedot.api.main import Fedot
 from fedot_ind.api.main import FedotIndustrial
 
 
-def convert_anomalies_dict_to_points(series: np.array, anomaly_dict: Dict) -> np.array:
+def convert_anomalies_dict_to_points(
+        series: np.array,
+        anomaly_dict: Dict) -> np.array:
     points = np.array(['no_anomaly' for _ in range(len(series))], dtype=object)
     for anomaly_class in anomaly_dict:
         for interval in anomaly_dict[anomaly_class]:

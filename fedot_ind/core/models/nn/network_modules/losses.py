@@ -27,7 +27,7 @@ def lambda_prepare(val: torch.Tensor,
     if isinstance(lambda_, int):
         try:
             lambdas = torch.ones(val.shape[-1], dtype=val.dtype) * lambda_
-        except:
+        except BaseException:
             lambdas = torch.tensor(lambda_, dtype=val.dtype)
     elif isinstance(lambda_, list):
         lambdas = torch.tensor(lambda_, dtype=val.dtype)
@@ -61,8 +61,13 @@ class ExpWeightedLoss(nn.Module):
         # res = torch.sum(input ** 2, dim=0).reshape(self.n_t, -1)
         res = torch.mean(input_, axis=0).reshape(self.n_t, -1)
         target = torch.mean(target, axis=0).reshape(self.n_t, -1)
-        m = torch.triu(torch.ones((self.n_t, self.n_t),
-                                  dtype=res.dtype), diagonal=1).T.to(default_device())
+        m = torch.triu(
+            torch.ones(
+                (self.n_t,
+                 self.n_t),
+                dtype=res.dtype),
+            diagonal=1).T.to(
+            default_device())
         with torch.no_grad():
             w = torch.exp(- self.tol * (m @ res))
         loss = torch.mean(w * res)
@@ -157,9 +162,13 @@ class CenterLoss(Module):
             labels: ground truth labels with shape (batch_size).
         """
         bs = x.shape[0]
-        distmat = torch.pow(x, 2).sum(dim=1, keepdim=True).expand(bs, self.c_out) + \
-            torch.pow(self.centers, 2).sum(
-                dim=1, keepdim=True).expand(self.c_out, bs).T
+        distmat = torch.pow(
+            x, 2).sum(
+            dim=1, keepdim=True).expand(
+            bs, self.c_out) + torch.pow(
+                self.centers, 2).sum(
+                    dim=1, keepdim=True).expand(
+                        self.c_out, bs).T
         distmat = torch.addmm(distmat, x, self.centers.T, beta=1, alpha=-2)
 
         labels = labels.unsqueeze(1).expand(bs, self.c_out)
@@ -187,7 +196,11 @@ class CenterPlusLoss(Module):
 class FocalLoss(Module):
     """ Weighted, multiclass focal loss"""
 
-    def __init__(self, alpha: Optional[Tensor] = None, gamma: float = 2., reduction: str = 'mean'):
+    def __init__(
+            self,
+            alpha: Optional[Tensor] = None,
+            gamma: float = 2.,
+            reduction: str = 'mean'):
         """
         Args:
             alpha (Tensor, optional): Weights for each class. Defaults to None.
@@ -238,7 +251,8 @@ class SMAPELoss(Module):
         super().__init__()
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        return 100 * torch.mean(2 * torch.abs(input - target) / (torch.abs(target) + torch.abs(input)) + 1e-8)
+        return 100 * torch.mean(2 * torch.abs(input - target) /
+                                (torch.abs(target) + torch.abs(input)) + 1e-8)
 
 
 class RMSELoss(Module):

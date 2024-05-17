@@ -23,7 +23,7 @@ class TopologicalTransformation:
     """
 
     def __init__(self,
-                 time_series:  np.ndarray = None,
+                 time_series: np.ndarray = None,
                  max_simplex_dim: int = None,
                  epsilon: int = 10,
                  persistence_params: dict = None,
@@ -97,9 +97,8 @@ class TopologicalTransformation:
                                               strides=self.stride)
         return trajectory_transformer.trajectory_matrix
 
-    def point_cloud_to_persistent_cohomology_ripser(self,
-                                                    point_cloud: np.array = None,
-                                                    max_simplex_dim: int = 1):
+    def point_cloud_to_persistent_cohomology_ripser(
+            self, point_cloud: np.array = None, max_simplex_dim: int = 1):
 
         # ensure epsilon_range is a numpy array
         epsilon_range = self.epsilon_range
@@ -119,8 +118,8 @@ class TopologicalTransformation:
         # normalize epsilon distance in diagrams so max is 1
         diagrams = [np.array([dg for dg in diag if np.isfinite(dg).all()])
                     for diag in diagrams]
-        diagrams = diagrams / max(
-            [np.array([dg for dg in diag if np.isfinite(dg).all()]).max() for diag in diagrams if diag.shape[0] > 0])
+        diagrams = diagrams / max([np.array([dg for dg in diag if np.isfinite(
+            dg).all()]).max() for diag in diagrams if diag.shape[0] > 0])
 
         ep_ran_len = len(epsilon_range)
 
@@ -136,9 +135,8 @@ class TopologicalTransformation:
 
         return homology
 
-    def time_series_to_persistent_cohomology_ripser(self,
-                                                    time_series: np.array,
-                                                    max_simplex_dim: int) -> dict:
+    def time_series_to_persistent_cohomology_ripser(
+            self, time_series: np.array, max_simplex_dim: int) -> dict:
         """Wrapper function that takes in a time series and outputs the persistent homology object, along with other
         auxiliary objects.
 
@@ -153,16 +151,16 @@ class TopologicalTransformation:
 
         """
 
-        homology = self.point_cloud_to_persistent_cohomology_ripser(point_cloud=time_series,
-                                                                    max_simplex_dim=max_simplex_dim)
+        homology = self.point_cloud_to_persistent_cohomology_ripser(
+            point_cloud=time_series, max_simplex_dim=max_simplex_dim)
         return homology
 
     def time_series_rolling_betti_ripser(self, ts):
 
         point_cloud = self.rolling_window(
             array=ts, window=self.__window_length)
-        homology = self.time_series_to_persistent_cohomology_ripser(point_cloud,
-                                                                    max_simplex_dim=self.max_simplex_dim)
+        homology = self.time_series_to_persistent_cohomology_ripser(
+            point_cloud, max_simplex_dim=self.max_simplex_dim)
         df_features = pd.DataFrame(data=homology)
         cols = ["Betti_{}".format(i) for i in range(df_features.shape[1])]
         df_features.columns = cols
@@ -175,4 +173,5 @@ class TopologicalTransformation:
         if window > len(array):
             raise ValueError(
                 "Window size cannot exceed the length of the array.")
-        return np.array([array[i:i + window] for i in range(len(array) - window + 1)])
+        return np.array([array[i:i + window]
+                        for i in range(len(array) - window + 1)])

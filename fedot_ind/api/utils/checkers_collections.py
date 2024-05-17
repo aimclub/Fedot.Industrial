@@ -73,6 +73,7 @@ class DataCheck:
             ValueError: If the input data format is invalid.
 
         """
+        # is_multivariate_data = False
 
         if self.data_convertor.is_tuple:
             if self.data_convertor.is_torchvision_dataset:
@@ -82,8 +83,8 @@ class DataCheck:
                 features, is_multivariate_data, target = self.__check_features_and_target(self.input_data[0],
                                                                                           self.input_data[1])
         else:
-            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data.features,
-                                                                                      self.input_data.target)
+            features, is_multivariate_data, target = self.__check_features_and_target(
+                self.input_data.features, self.input_data.target)
 
         if np.logical_and(self.label_encoder is None,
                           self.task == 'classification'):
@@ -106,10 +107,11 @@ class DataCheck:
                                         data_type=DataTypesEnum.image)
         elif self.task == 'ts_forecasting':
             features_array = self.data_convertor.convert_to_1d_array()
-            task = Task(TaskTypesEnum.ts_forecasting,
-                        TsForecastingParams(forecast_length=self.task_params['forecast_length']))
+            task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
+                forecast_length=self.task_params['forecast_length']))
             if self.industrial_task_params is None:
-                features_array = features_array[:-self.task_params['forecast_length']]
+                features_array = features_array[:- \
+                    self.task_params['forecast_length']]
                 target = features_array
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,
@@ -145,8 +147,9 @@ class DataCheck:
         - Converts features to torch format using NumpyConverter.
 
         """
-        if self.input_data.target is not None and type(
-                self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
+        if self.input_data.target is not None and isinstance(
+                self.input_data.target.ravel()[0],
+                np.str_) and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
         elif self.task == 'regression':

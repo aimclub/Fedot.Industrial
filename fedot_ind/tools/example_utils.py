@@ -38,10 +38,12 @@ def compare_forecast_with_sota(dataset_name, horizon):
     n_beats = pd.read_csv(n_beats)
     autogluon = pd.read_csv(autogluon)
 
-    n_beats_forecast = calculate_forecasting_metric(target=n_beats['value'].values,
-                                                    labels=n_beats['predict'].values)
-    autogluon_forecast = calculate_forecasting_metric(target=autogluon['value'].values,
-                                                      labels=autogluon['predict'].values)
+    n_beats_forecast = calculate_forecasting_metric(
+        target=n_beats['value'].values,
+        labels=n_beats['predict'].values)
+    autogluon_forecast = calculate_forecasting_metric(
+        target=autogluon['value'].values,
+        labels=autogluon['predict'].values)
     return n_beats['predict'].values, n_beats_forecast, autogluon['predict'].values, autogluon_forecast
 
 
@@ -66,8 +68,9 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
         for forecat_model, predict in labels.items():
             industrial.predicted_labels = predict
             best_model = forecat_model
-            current_metric = industrial.get_metrics(target=target,
-                                                    metric_names=('smape', 'rmse', 'median_absolute_error'))
+            current_metric = industrial.get_metrics(
+                target=target, metric_names=(
+                    'smape', 'rmse', 'median_absolute_error'))
             current_rmse = current_metric['rmse'].values[0]
 
             if current_rmse < val:
@@ -78,15 +81,20 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
 
         industrial.solver = industrial.solver[best_model]
     else:
-        metrics = industrial.get_metrics(target=target,
-                                         metric_names=('smape', 'rmse', 'median_absolute_error'))
+        metrics = industrial.get_metrics(
+            target=target, metric_names=(
+                'smape', 'rmse', 'median_absolute_error'))
     return industrial, labels, metrics, target
 
 
-def industrial_common_modelling_loop(dataset_name: str = None,
-                                     finetune: bool = False,
-                                     api_config: dict = None,
-                                     metric_names: tuple = ('r2', 'rmse', 'mae')):
+def industrial_common_modelling_loop(
+    dataset_name: str = None,
+    finetune: bool = False,
+    api_config: dict = None,
+    metric_names: tuple = (
+        'r2',
+        'rmse',
+        'mae')):
     industrial = FedotIndustrial(**api_config)
 
     train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()

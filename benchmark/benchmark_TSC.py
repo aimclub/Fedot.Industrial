@@ -57,12 +57,15 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             metric = Accuracy(target, prediction).metric()
             metric_dict.update({dataset_name: metric})
             basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                        'metrics_report.csv')
+            dataset_path = os.path.join(
+                self.experiment_setup['output_folder'],
+                f'{dataset_name}',
+                'metrics_report.csv')
             basic_results.to_csv(dataset_path)
             gc.collect()
         basic_path = os.path.join(
-            self.experiment_setup['output_folder'], 'comprasion_metrics_report.csv')
+            self.experiment_setup['output_folder'],
+            'comprasion_metrics_report.csv')
         basic_results.to_csv(basic_path)
         self.logger.info("Benchmark test finished")
 
@@ -72,8 +75,9 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         for dataset_name in self.custom_datasets:
             path_to_results = PROJECT_PATH + \
                 self.path_to_save + f'/{dataset_name}'
-            composed_model_path = [path_to_results + f'/{x}' for x in os.listdir(path_to_results)
-                                   if x.__contains__('pipeline_saved')]
+            composed_model_path = [
+                path_to_results +
+                f'/{x}' for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')]
             metric_result = {}
             for p in composed_model_path:
                 if os.path.isdir(p):
@@ -97,8 +101,10 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                                 f'OLD VERSION OF PIPELINE. IT IS A LAST SAVED MODEL')
                 else:
                     print(f"No composed model for dataset - {dataset_name}")
-            dataset_path = os.path.join(self.experiment_setup['output_folder'], f'{dataset_name}',
-                                        'metrics_report.csv')
+            dataset_path = os.path.join(
+                self.experiment_setup['output_folder'],
+                f'{dataset_name}',
+                'metrics_report.csv')
             fedot_results = pd.read_csv(dataset_path, index_col=0)
             if len(metric_result) != 0:
                 best_metric = 0

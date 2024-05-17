@@ -46,7 +46,8 @@ def model(data):
     return stat_model, x_test, y_test
 
 
-@pytest.mark.parametrize('distance, window', [(d, w) for d in distances for w in [0, 30]])
+@pytest.mark.parametrize('distance, window',
+                         [(d, w) for d in distances for w in [0, 30]])
 def test_explain(data, model, distance, window):
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots

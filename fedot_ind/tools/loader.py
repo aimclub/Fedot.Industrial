@@ -69,11 +69,13 @@ class DataLoader:
         """
 
         dataset_name = self.dataset_name
-        data_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
+        data_path = os.path.join(
+            PROJECT_PATH,
+            'fedot_ind',
+            'data') if self.folder is None else self.folder
 
-        _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
-                                                              data_path=data_path,
-                                                              shuffle=shuffle)
+        _, train_data, test_data = self.read_train_test_files(
+            dataset_name=dataset_name, data_path=data_path, shuffle=shuffle)
 
         if train_data is None:
             self.logger.info('Downloading...')
@@ -90,7 +92,10 @@ class DataLoader:
             request.urlretrieve(url, download_path + filename)
             try:
                 zipfile.ZipFile(
-                    download_path + filename).extractall(temp_data_path + dataset_name)
+                    download_path +
+                    filename).extractall(
+                    temp_data_path +
+                    dataset_name)
             except zipfile.BadZipFile:
                 raise FileNotFoundError(
                     f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
@@ -120,7 +125,7 @@ class DataLoader:
 
     def read_train_test_files(self, data_path, dataset_name, shuffle=True):
 
-        file_path = f'{data_path}\{dataset_name}\{dataset_name}_TRAIN'
+        file_path = data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN'
         # If data unpacked as .tsv file
         if os.path.isfile(file_path + '.tsv'):
             self.logger.info(
@@ -138,7 +143,7 @@ class DataLoader:
             is_multi = False
 
         # If data unpacked as .ts file
-        elif os.path.isfile(f'{file_path}.ts'):
+        elif os.path.isfile(file_path + '.ts'):
             self.logger.info(
                 f'Reading data from {data_path + "/" + dataset_name}')
             x_train, y_train, x_test, y_test = self.read_ts_files(
@@ -180,8 +185,11 @@ class DataLoader:
             rawdata = b''.join([f.readline() for _ in range(n_lines)])
         return chardet.detect(rawdata)['encoding']
 
-    def _load_from_tsfile_to_dataframe(self, full_file_path_and_name, return_separate_X_and_y=True,
-                                       replace_missing_vals_with='NaN'):
+    def _load_from_tsfile_to_dataframe(
+            self,
+            full_file_path_and_name,
+            return_separate_X_and_y=True,
+            replace_missing_vals_with='NaN'):
         """Loads data from a .ts file into a Pandas DataFrame.
         Taken from https://github.com/ChangWeiTan/TS-Extrinsic-Regression/blob/master/utils/data_loader.py
 
@@ -224,9 +232,15 @@ class DataLoader:
 
         with open(full_file_path_and_name, 'r', encoding=encoding) as file:
             dataset_name = os.path.basename(full_file_path_and_name)
-            for line in tqdm(file.readlines(), desc='Loading data', leave=False, postfix=dataset_name, unit='lines'):
+            for line in tqdm(
+                    file.readlines(),
+                    desc='Loading data',
+                    leave=False,
+                    postfix=dataset_name,
+                    unit='lines'):
                 # print(".", end='')
-                # Strip white space from start/end of line and change to lowercase for use below
+                # Strip white space from start/end of line and change to
+                # lowercase for use below
                 line = line.strip().lower()
                 # Empty lines are valid at any point in a file
                 if line:
@@ -361,12 +375,13 @@ class DataLoader:
                         else:
                             has_data_tag = True
                             data_started = True
-                    # If the 'data tag has been found then metadata has been parsed and data can be loaded
+                    # If the 'data tag has been found then metadata has been
+                    # parsed and data can be loaded
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                                                          not has_univariate_tag or not has_target_labels_tag or \
-                                                          not has_data_tag
+                            not has_univariate_tag or not has_target_labels_tag or \
+                            not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
@@ -394,16 +409,20 @@ class DataLoader:
 
                             while char_num < line_len:
                                 # Move through any spaces
-                                while char_num < line_len and str.isspace(line[char_num]):
+                                while char_num < line_len and str.isspace(
+                                        line[char_num]):
                                     char_num += 1
 
-                                # See if there is any more data to read in or if we should validate that read thus far
+                                # See if there is any more data to read in or
+                                # if we should validate that read thus far
 
                                 if char_num < line_len:
 
-                                    # See if we have an empty dimension (i.e. no values)
+                                    # See if we have an empty dimension (i.e.
+                                    # no values)
                                     if line[char_num] == ":":
-                                        if len(instance_list) < (this_line_num_dimensions + 1):
+                                        if len(instance_list) < (
+                                                this_line_num_dimensions + 1):
                                             instance_list.append([])
 
                                         instance_list[this_line_num_dimensions].append(
@@ -418,14 +437,15 @@ class DataLoader:
 
                                         char_num += 1
                                     else:
-                                        # Check if we have reached a class label
+                                        # Check if we have reached a class
+                                        # label
                                         if line[char_num] != "(" and target_labels:
                                             class_val = line[char_num:].strip()
 
                                             # if class_val not in class_val_list:
                                             #     raise TsFileParseException(
                                             #         "the class value '" + class_val + "' on line " + str(
-                                            #             line_num + 1) + " is not valid")
+                                            # line_num + 1) + " is not valid")
 
                                             class_val_list.append(
                                                 float(class_val))
@@ -439,7 +459,8 @@ class DataLoader:
 
                                         else:
 
-                                            # Read in the data contained within the next tuple
+                                            # Read in the data contained within
+                                            # the next tuple
 
                                             if line[char_num] != "(" and not target_labels:
                                                 raise TsFileParseException(
@@ -460,14 +481,18 @@ class DataLoader:
                                                         this_line_num_dimensions + 1) + " on line " + str(
                                                         line_num + 1) + " does not end with a ')'")
 
-                                            # Read in any spaces immediately after the current tuple
+                                            # Read in any spaces immediately
+                                            # after the current tuple
 
                                             char_num += 1
 
-                                            while char_num < line_len and str.isspace(line[char_num]):
+                                            while char_num < line_len and str.isspace(
+                                                    line[char_num]):
                                                 char_num += 1
 
-                                            # Check if there is another value or dimension to process after this tuple
+                                            # Check if there is another value
+                                            # or dimension to process after
+                                            # this tuple
 
                                             if char_num >= line_len:
                                                 has_another_value = False
@@ -484,7 +509,8 @@ class DataLoader:
                                             char_num += 1
 
                                             # Get the numeric value for the tuple by reading from the end
-                                            # of the tuple data backwards to the last comma
+                                            # of the tuple data backwards to
+                                            # the last comma
 
                                             last_comma_index = tuple_data.rfind(
                                                 ',')
@@ -507,7 +533,8 @@ class DataLoader:
                                                         line_num + 1)
                                                     + " contains a tuple that does not have a valid numeric value")
 
-                                            # Check the type of timestamp that we have
+                                            # Check the type of timestamp that
+                                            # we have
 
                                             timestamp = tuple_data[0: last_comma_index]
 
@@ -576,7 +603,9 @@ class DataLoader:
                                                 timestamp]
                                             values_for_dimension += [value]
 
-                                            #  If this was our first tuple then we store the type of timestamp we had
+                                            # If this was our first tuple then
+                                            # we store the type of timestamp we
+                                            # had
 
                                             if previous_timestamp_was_timestamp is None and timestamp_is_timestamp:
                                                 previous_timestamp_was_timestamp = True
@@ -593,10 +622,12 @@ class DataLoader:
                                                 previous_timestamp_was_int = False
                                                 previous_timestamp_was_float = True
 
-                                            # See if we should add the data for this dimension
+                                            # See if we should add the data for
+                                            # this dimension
 
                                             if not has_another_value:
-                                                if len(instance_list) < (this_line_num_dimensions + 1):
+                                                if len(instance_list) < (
+                                                        this_line_num_dimensions + 1):
                                                     instance_list.append([])
 
                                                 if timestamp_is_timestamp:
@@ -622,7 +653,8 @@ class DataLoader:
                                             line_num + 1) + " ends with a ':' while it should list a class value")
 
                                 elif has_another_dimension and not target_labels:
-                                    if len(instance_list) < (this_line_num_dimensions + 1):
+                                    if len(instance_list) < (
+                                            this_line_num_dimensions + 1):
                                         instance_list.append([])
 
                                     instance_list[this_line_num_dimensions].append(
@@ -630,18 +662,23 @@ class DataLoader:
                                     this_line_num_dimensions += 1
                                     num_dimensions = this_line_num_dimensions
 
-                                # If this is the 1st line of data we have seen then note the dimensions
+                                # If this is the 1st line of data we have seen
+                                # then note the dimensions
 
                                 if not has_another_value and not has_another_dimension:
                                     if num_dimensions is None:
                                         num_dimensions = this_line_num_dimensions
 
                                     if num_dimensions != this_line_num_dimensions:
-                                        raise TsFileParseException("line " + str(
-                                            line_num + 1) +
-                                                                   " does not have the same number of dimensions as the previous line of data")
+                                        raise TsFileParseException(
+                                            "line " +
+                                            str(
+                                                line_num +
+                                                1) +
+                                            " does not have the same number of dimensions as the previous line of data")
 
-                            # Check that we are not expecting some more data, and if not, store that processed above
+                            # Check that we are not expecting some more data,
+                            # and if not, store that processed above
 
                             if has_another_value:
                                 raise TsFileParseException(
@@ -654,7 +691,8 @@ class DataLoader:
                                         line_num + 1) + " ends with a ':' while it should list a class value")
 
                             elif has_another_dimension and not target_labels:
-                                if len(instance_list) < (this_line_num_dimensions + 1):
+                                if len(instance_list) < (
+                                        this_line_num_dimensions + 1):
                                     instance_list.append([])
 
                                 instance_list[this_line_num_dimensions].append(
@@ -662,13 +700,17 @@ class DataLoader:
                                 this_line_num_dimensions += 1
                                 num_dimensions = this_line_num_dimensions
 
-                            # If this is the 1st line of data we have seen then note the dimensions
+                            # If this is the 1st line of data we have seen then
+                            # note the dimensions
 
                             if not has_another_value and num_dimensions != this_line_num_dimensions:
-                                raise TsFileParseException("line " + str(
-                                    line_num + 1) +
-                                                           "does not have the same number of dimensions as the "
-                                                           "previous line of data")
+                                raise TsFileParseException(
+                                    "line " +
+                                    str(
+                                        line_num +
+                                        1) +
+                                    "does not have the same number of dimensions as the "
+                                    "previous line of data")
 
                             # Check if we should have class values, and if so that they are contained
                             # in those listed in the metadata
@@ -678,7 +720,8 @@ class DataLoader:
                                     "the cases have no associated class values")
                         else:
                             dimensions = line.split(":")
-                            # If first row then note the number of dimensions (that must be the same for all cases)
+                            # If first row then note the number of dimensions
+                            # (that must be the same for all cases)
                             if is_first_case:
                                 num_dimensions = len(dimensions)
 
@@ -689,16 +732,21 @@ class DataLoader:
                                     instance_list.append([])
                                 is_first_case = False
 
-                            # See how many dimensions that the case whose data in represented in this line has
+                            # See how many dimensions that the case whose data
+                            # in represented in this line has
                             this_line_num_dimensions = len(dimensions)
 
                             if target_labels:
                                 this_line_num_dimensions -= 1
 
-                            # All dimensions should be included for all series, even if they are empty
+                            # All dimensions should be included for all series,
+                            # even if they are empty
                             if this_line_num_dimensions != num_dimensions:
-                                print("inconsistent number of dimensions. Expecting " + str(
-                                    num_dimensions) + " but have read " + str(this_line_num_dimensions))
+                                print(
+                                    "inconsistent number of dimensions. Expecting " +
+                                    str(num_dimensions) +
+                                    " but have read " +
+                                    str(this_line_num_dimensions))
 
                             # Process the data for each dimension
                             for dim in range(0, num_dimensions):
@@ -729,7 +777,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                                            and has_target_labels_tag and has_data_tag
+                and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag
@@ -773,16 +821,24 @@ class DataLoader:
             tuple: (x_train, x_test) and (y_train, y_test)
 
         """
-        df_train = pd.read_csv(os.path.join(data_path, dataset_name, f'{dataset_name}_TRAIN.tsv'),
-                               sep='\t',
-                               header=None)
+        df_train = pd.read_csv(
+            os.path.join(
+                data_path,
+                dataset_name,
+                f'{dataset_name}_TRAIN.tsv'),
+            sep='\t',
+            header=None)
 
         x_train = df_train.iloc[:, 1:]
         y_train = df_train[0].values
 
-        df_test = pd.read_csv(os.path.join(data_path, dataset_name, f'{dataset_name}_TEST.tsv'),
-                              sep='\t',
-                              header=None)
+        df_test = pd.read_csv(
+            os.path.join(
+                data_path,
+                dataset_name,
+                f'{dataset_name}_TEST.tsv'),
+            sep='\t',
+            header=None)
 
         x_test = df_test.iloc[:, 1:]
         y_test = df_test[0].values
@@ -815,8 +871,8 @@ class DataLoader:
 
     def read_ts_files(self, dataset_name, data_path):
         try:
-            x_test, y_test = load_from_tsfile_to_dataframe(data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                                                           return_separate_X_and_y=True)
+            x_test, y_test = load_from_tsfile_to_dataframe(
+                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts', return_separate_X_and_y=True)
             x_train, y_train = load_from_tsfile_to_dataframe(
                 data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
                 return_separate_X_and_y=True)
@@ -880,8 +936,13 @@ class DataLoader:
             if not is_multi:
                 df = pd.DataFrame(x_train if subset == 'TRAIN' else x_test)
                 df.insert(0, 'class', y_train if subset == 'TRAIN' else y_test)
-                df.to_csv(os.path.join(
-                    new_path, f'{dataset_name}_{subset}.tsv'), sep='\t', index=False, header=False)
+                df.to_csv(
+                    os.path.join(
+                        new_path,
+                        f'{dataset_name}_{subset}.tsv'),
+                    sep='\t',
+                    index=False,
+                    header=False)
                 del df
 
             else:
@@ -892,7 +953,8 @@ class DataLoader:
         if is_multi:
             return (x_train, y_train), (x_test, y_test)
         else:
-            return (pd.DataFrame(x_train), y_train), (pd.DataFrame(x_test), y_test)
+            return (pd.DataFrame(x_train),
+                    y_train), (pd.DataFrame(x_test), y_test)
 
 
 def convert_type(y_train, y_test):
