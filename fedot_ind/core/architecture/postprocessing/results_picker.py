@@ -20,7 +20,7 @@ class ResultsPicker:
     Examples:
         >>> from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
         >>> collector = ResultsPicker(path='to_your_results_folder', launch_type='max')
-        >>> metrics_df = parser.run(get_metrics_df=True)
+        >>> metrics_df = collector.run(get_metrics_df=True)
         >>> metrics_df.to_csv('metrics.csv')
 
     """
