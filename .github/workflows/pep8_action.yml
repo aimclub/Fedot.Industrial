@@ -15,6 +15,10 @@ jobs:
         uses: peter-evans/autopep8@v2
         with:
           args: --exit-code --recursive --in-place --aggressive --aggressive .
+      - name: Install autoflake
+        run: pip install autoflake
+      - name: Remove unused variables and imports
+        run: autoflake --in-place --remove-all-unused-imports --remove-unused-variables --recursive .
       - name: Commit autopep8 changes
         if: steps.autopep8.outputs.exit-code == 2
         run: |
