@@ -115,7 +115,9 @@ def industrial_common_modelling_loop(
         industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
-    probs = industrial.predict_proba(test_data)
+    if api_config['problem'] != 'ts_forecasting':
+        probs = industrial.predict_proba(test_data)
+
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=metric_names)
