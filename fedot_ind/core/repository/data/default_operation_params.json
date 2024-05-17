@@ -26,7 +26,7 @@
   "riemann_extractor": {
     "estimator": "scm",
     "tangent_metric": "riemann",
-    "SPD_metric": "riemann",
+    "SPD_metric": "riemann"
   },
   "recurrence_extractor": {
     "window_size": 0,
