@@ -1,3 +1,5 @@
+from typing import Optional, TypeVar
+
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -6,7 +8,6 @@ from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
-from typing import Optional, TypeVar
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
