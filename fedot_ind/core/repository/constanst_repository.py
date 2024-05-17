@@ -261,12 +261,12 @@ class FedotOperationConstant(Enum):
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
         'arima': PipelineBuilder().add_node('stl_arima'),
-        'eigen_ar': PipelineBuilder().add_node('eigen_basis',
-                                               params={'low_rank_approximation': False,
-                                                       'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-
-        'glm': PipelineBuilder().add_node('glm')
-    }
+        'eigen_ar': PipelineBuilder().add_node(
+            'eigen_basis',
+            params={
+                'low_rank_approximation': False,
+                'rank_regularization': 'explained_dispersion'}).add_node('ar'),
+        'glm': PipelineBuilder().add_node('glm')}
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
@@ -610,44 +610,37 @@ class BenchmarkDatasets(Enum):
 
 
 class UnitTestConstant(Enum):
-    VALID_LINEAR_CLF_PIPELINE = {'eigen_statistical': ['eigen_basis', 'quantile_extractor', 'logit'],
-                                 'channel_filtration_statistical': ['channel_filtration', 'quantile_extractor',
-                                                                    'logit'],
-                                 'fourier_statistical': ['fourier_basis', 'quantile_extractor', 'logit'],
-                                 'wavelet_statistical': ['wavelet_basis', 'quantile_extractor', 'logit'],
-                                 'recurrence_clf': ['recurrence_extractor', 'logit'],
-                                 'riemann_clf': ['riemann_extractor', 'logit'],
-                                 'topological_clf': ['topological_extractor', 'logit'],
-                                 'statistical_clf': ['quantile_extractor', 'logit'],
-                                 'statistical_lgbm': ['quantile_extractor', 'lgbm'],
-                                 'composite_clf': {0: ['quantile_extractor'],
-                                                   1: ['riemann_extractor'],
-                                                   2: ['fourier_basis', 'quantile_extractor'],
-                                                   'head': 'mlp'}
-                                 }
-    VALID_LINEAR_REG_PIPELINE = {'eigen_statistical_reg': ['eigen_basis', 'quantile_extractor', 'treg'],
-                                 'channel_filtration_statistical_reg': ['channel_filtration', 'quantile_extractor',
-                                                                        'treg'],
-                                 'fourier_statistical_reg': ['fourier_basis', 'quantile_extractor', 'treg'],
-                                 'wavelet_statistical_reg': ['wavelet_basis', 'quantile_extractor', 'treg'],
-                                 'recurrence_reg': ['recurrence_extractor', 'treg'],
-                                 'topological_reg': ['topological_extractor', 'treg'],
-                                 'statistical_reg': ['quantile_extractor', 'treg'],
-                                 'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
-                                 'composite_reg': {0: ['quantile_extractor'],
-                                                   1: ['topological_extractor'],
-                                                   2: ['fourier_basis', 'quantile_extractor'],
-                                                   'head': 'treg'}
-                                 }
-    VALID_LINEAR_TSF_PIPELINE = {'stl_arima': ['stl_arima'],
-                                 'topological_lgbm': ['topological_extractor', 'lgbmreg'],
-                                 'ar': ['ar'],
-                                 'eigen_autoregression': ['eigen_basis', 'ar'],
-                                 'smoothed_ar': ['smoothing', 'ar'],
-                                 'gaussian_ar': ['gaussian_filter', 'ar'],
-                                 'glm': ['glm'],
-                                 'nbeats': ['nbeats_model']
-                                 }
+    VALID_LINEAR_CLF_PIPELINE = {
+        'eigen_statistical': [
+            'eigen_basis', 'quantile_extractor', 'logit'], 'channel_filtration_statistical': [
+            'channel_filtration', 'quantile_extractor', 'logit'], 'fourier_statistical': [
+                'fourier_basis', 'quantile_extractor', 'logit'], 'wavelet_statistical': [
+                    'wavelet_basis', 'quantile_extractor', 'logit'], 'recurrence_clf': [
+                        'recurrence_extractor', 'logit'], 'riemann_clf': [
+                            'riemann_extractor', 'logit'], 'topological_clf': [
+                                'topological_extractor', 'logit'], 'statistical_clf': [
+                                    'quantile_extractor', 'logit'], 'statistical_lgbm': [
+                                        'quantile_extractor', 'lgbm'], 'composite_clf': {
+                                            0: ['quantile_extractor'], 1: ['riemann_extractor'], 2: [
+                                                'fourier_basis', 'quantile_extractor'], 'head': 'mlp'}}
+    VALID_LINEAR_REG_PIPELINE = {
+        'eigen_statistical_reg': [
+            'eigen_basis', 'quantile_extractor', 'treg'], 'channel_filtration_statistical_reg': [
+            'channel_filtration', 'quantile_extractor', 'treg'], 'fourier_statistical_reg': [
+                'fourier_basis', 'quantile_extractor', 'treg'], 'wavelet_statistical_reg': [
+                    'wavelet_basis', 'quantile_extractor', 'treg'], 'recurrence_reg': [
+                        'recurrence_extractor', 'treg'], 'topological_reg': [
+                            'topological_extractor', 'treg'], 'statistical_reg': [
+                                'quantile_extractor', 'treg'], 'statistical_lgbmreg': [
+                                    'quantile_extractor', 'lgbmreg'], 'composite_reg': {
+                                        0: ['quantile_extractor'], 1: ['topological_extractor'], 2: [
+                                            'fourier_basis', 'quantile_extractor'], 'head': 'treg'}}
+    VALID_LINEAR_TSF_PIPELINE = {
+        'stl_arima': ['stl_arima'], 'topological_lgbm': [
+            'topological_extractor', 'lgbmreg'], 'ar': ['ar'], 'eigen_autoregression': [
+            'eigen_basis', 'ar'], 'smoothed_ar': [
+                'smoothing', 'ar'], 'gaussian_ar': [
+                    'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value

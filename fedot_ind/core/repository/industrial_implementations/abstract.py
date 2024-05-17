@@ -179,7 +179,7 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
         # for cross validation split ratio is defined as validation_size /
         # all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
-                1 - 1 / (self.cv_folds + 1))
+            1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:
@@ -433,11 +433,15 @@ def merge_predicts(*args) -> np.array:
 
 
 def fit_topo_extractor(self, input_data: InputData):
-    input_data.features = input_data.features if len(input_data.features.shape) == 0 \
-        else input_data.features.reshape(1, -1)
-    self._window_size = int(input_data.features.shape[1] * self.window_size_as_share)
+    input_data.features = input_data.features if len(
+        input_data.features.shape) == 0 else input_data.features.reshape(1, -1)
+    self._window_size = int(
+        input_data.features.shape[1] *
+        self.window_size_as_share)
     self._window_size = max(self._window_size, 2)
-    self._window_size = min(self._window_size, input_data.features.shape[1] - 2)
+    self._window_size = min(
+        self._window_size,
+        input_data.features.shape[1] - 2)
     return self
 
 
@@ -450,7 +454,8 @@ def transform_topo_extractor(self, input_data: InputData) -> OutputData:
                                         for i in range(0, features.shape[0], 2))
     if len(topological_features) * 2 < features.shape[0]:
         topological_features.append(topological_features[-1])
-    result = np.array(list(chain(*zip(topological_features, topological_features))))
+    result = np.array(
+        list(chain(*zip(topological_features, topological_features))))
     if result.shape[0] > features.shape[0]:
         result = result[:-1, :]
     np.nan_to_num(result, copy=False, nan=0, posinf=0, neginf=0)

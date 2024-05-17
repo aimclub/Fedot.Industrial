@@ -43,18 +43,22 @@ class AbstractPipeline:
                 dataset_name=dataset_name).load_forecast_data(folder=BENCHMARK)
             target = train_data.values[-self.task_params['forecast_length']:].flatten()
             train_data = (train_data, target)
-            input_train = DataCheck(input_data=train_data,
-                                    task=self.task,
-                                    task_params=self.task_params).check_input_data()
+            input_train = DataCheck(
+                input_data=train_data,
+                task=self.task,
+                task_params=self.task_params).check_input_data()
             input_test = None
         else:
-            train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
-            input_train = DataCheck(input_data=train_data,
-                                    task=self.task,
-                                    task_params=self.task_params).check_input_data()
-            input_test = DataCheck(input_data=train_data,
-                                   task=self.task,
-                                   task_params=self.task_params).check_input_data()
+            train_data, test_data = DataLoader(
+                dataset_name=dataset_name).load_data()
+            input_train = DataCheck(
+                input_data=train_data,
+                task=self.task,
+                task_params=self.task_params).check_input_data()
+            input_test = DataCheck(
+                input_data=train_data,
+                task=self.task,
+                task_params=self.task_params).check_input_data()
         return input_train, input_test
 
     def evaluate_pipeline(self, node_list, dataset):

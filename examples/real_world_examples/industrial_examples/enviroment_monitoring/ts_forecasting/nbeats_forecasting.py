@@ -12,13 +12,13 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 
 
 def plot_metrics_and_prediction(
-        test_data: InputData,
-        train_data: InputData,
-        model_prediction: np.array,
-        baseline_prediction: np.array,
-        model_name,
-        dataset_name
-    ):
+    test_data: InputData,
+    train_data: InputData,
+    model_prediction: np.array,
+    baseline_prediction: np.array,
+    model_name,
+    dataset_name
+):
 
     plt.title(dataset_name)
     plt.plot(train_data.idx, test_data.features, label="features")
@@ -41,7 +41,8 @@ model_dict = {
 forecast_length = 13
 
 if __name__ == "__main__":
-    train_data, test_data, dataset_name = get_ts_data("m4_monthly", forecast_length)
+    train_data, test_data, dataset_name = get_ts_data(
+        "m4_monthly", forecast_length)
     baseline = model_dict['baseline'].build()
     del model_dict["baseline"]
 

@@ -9,6 +9,7 @@ from torch.nn import functional as F
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def get_m4_data(backcast_length, forecast_length, is_training=True):
     # https://www.mcompetitions.unic.ac.cy/the-dataset/
 
@@ -39,17 +40,30 @@ def get_m4_data(backcast_length, forecast_length, is_training=True):
         if is_training:
             time_series_cleaned_forlearning_x = np.zeros((1, backcast_length))
             time_series_cleaned_forlearning_y = np.zeros((1, forecast_length))
-            j = np.random.randint(backcast_length, time_series_cleaned.shape[0] + 1 - forecast_length)
-            time_series_cleaned_forlearning_x[0, :] = time_series_cleaned[j - backcast_length: j]
-            time_series_cleaned_forlearning_y[0, :] = time_series_cleaned[j:j + forecast_length]
+            j = np.random.randint(
+                backcast_length,
+                time_series_cleaned.shape[0] +
+                1 -
+                forecast_length)
+            time_series_cleaned_forlearning_x[0,
+                                              :] = time_series_cleaned[j - backcast_length: j]
+            time_series_cleaned_forlearning_y[0,
+                                              :] = time_series_cleaned[j:j + forecast_length]
         else:
             time_series_cleaned_forlearning_x = np.zeros(
                 (time_series_cleaned.shape[0] + 1 - (backcast_length + forecast_length), backcast_length))
             time_series_cleaned_forlearning_y = np.zeros(
                 (time_series_cleaned.shape[0] + 1 - (backcast_length + forecast_length), forecast_length))
-            for j in range(backcast_length, time_series_cleaned.shape[0] + 1 - forecast_length):
-                time_series_cleaned_forlearning_x[j - backcast_length, :] = time_series_cleaned[j - backcast_length:j]
-                time_series_cleaned_forlearning_y[j - backcast_length, :] = time_series_cleaned[j: j + forecast_length]
+            for j in range(
+                    backcast_length,
+                    time_series_cleaned.shape[0] +
+                    1 -
+                    forecast_length):
+                time_series_cleaned_forlearning_x[j -
+                                                  backcast_length, :] = time_series_cleaned[j -
+                                                                                            backcast_length:j]
+                time_series_cleaned_forlearning_y[j - backcast_length,
+                                                  :] = time_series_cleaned[j: j + forecast_length]
         x = np.vstack((x, time_series_cleaned_forlearning_x))
         y = np.vstack((y, time_series_cleaned_forlearning_y))
 
@@ -105,11 +119,20 @@ def train(network, no_lora):
         # train.
         network.train()
         train_loss = []
-        for x_train_batch, y_train_batch in data_generator(x_train, y_train, batch_size):
+        for x_train_batch, y_train_batch in data_generator(
+                x_train, y_train, batch_size):
             grad_step += 1
             optimiser.zero_grad()
-            _, forecast = network(torch.tensor(x_train_batch, dtype=torch.float).to(network.device))
-            loss = F.mse_loss(forecast, torch.tensor(y_train_batch, dtype=torch.float).to(network.device))
+            _, forecast = network(
+                torch.tensor(
+                    x_train_batch, dtype=torch.float).to(
+                    network.device))
+            loss = F.mse_loss(
+                forecast,
+                torch.tensor(
+                    y_train_batch,
+                    dtype=torch.float).to(
+                    network.device))
             train_loss.append(loss.item())
 
             loss.backward()
@@ -120,19 +143,35 @@ def train(network, no_lora):
         # test.
         network.eval()
         _, forecast = network(torch.tensor(x_test, dtype=torch.float))
-        test_loss = F.mse_loss(forecast, torch.tensor(y_test, dtype=torch.float)).item()
+        test_loss = F.mse_loss(
+            forecast, torch.tensor(
+                y_test, dtype=torch.float)).item()
         p = forecast.detach().numpy()
         if epoch % 100 == 0:
             subplots = [221, 222, 223, 224]
             plt.figure(1)
             plt.subplots(figsize=(8, 8))
-            for plot_id, i in enumerate(np.random.choice(range(len(x_test)), size=4, replace=False)):
-                ff, xx, yy = p[i] * norm_constant, x_test[i] * norm_constant, y_test[i] * norm_constant
+            for plot_id, i in enumerate(np.random.choice(
+                    range(len(x_test)), size=4, replace=False)):
+                ff, xx, yy = p[i] * norm_constant, x_test[i] * \
+                    norm_constant, y_test[i] * norm_constant
                 plt.subplot(subplots[plot_id])
                 plt.grid()
                 plot_scatter(range(0, backcast_length), xx, color="#000000")
-                plot_scatter(range(backcast_length, backcast_length + forecast_length), yy, color="#1535f3")
-                plot_scatter(range(backcast_length, backcast_length + forecast_length), ff, color="#b512b8")
+                plot_scatter(
+                    range(
+                        backcast_length,
+                        backcast_length +
+                        forecast_length),
+                    yy,
+                    color="#1535f3")
+                plot_scatter(
+                    range(
+                        backcast_length,
+                        backcast_length +
+                        forecast_length),
+                    ff,
+                    color="#b512b8")
             plt.show()
 
             print(

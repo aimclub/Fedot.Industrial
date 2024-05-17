@@ -14,49 +14,72 @@ DATASET_NAME = 'D2600'
 
 
 def test_stl_arima_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['stl_arima']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
 def test_lagged_lgbm(node_list=VALID_LINEAR_TSF_PIPELINE['topological_lgbm']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
-def test_topological_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['topological_lgbm']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, 'Q2124')
+def test_topological_tsf(
+        node_list=VALID_LINEAR_TSF_PIPELINE['topological_lgbm']):
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, 'Q2124')
     assert result_dict is not None
 
 
 def test_ar(node_list=VALID_LINEAR_TSF_PIPELINE['ar']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
 def test_smoothing_ar(node_list=VALID_LINEAR_TSF_PIPELINE['smoothed_ar']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
 def test_gaussian_ar(node_list=VALID_LINEAR_TSF_PIPELINE['gaussian_ar']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
-def test_eigen_autoregression(node_list=VALID_LINEAR_TSF_PIPELINE['eigen_autoregression']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+def test_eigen_autoregression(
+        node_list=VALID_LINEAR_TSF_PIPELINE['eigen_autoregression']):
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
 def test_glm_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['glm']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
 
 def test_nbeats_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['nbeats']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None
 
+
 def test_composite_tsf_pipeline(node_list=VALID_LINEAR_TSF_PIPELINE['nbeats']):
-    result_dict = AbstractPipeline(task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(node_list, DATASET_NAME)
+    result_dict = AbstractPipeline(
+        task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
+        node_list, DATASET_NAME)
     assert result_dict is not None

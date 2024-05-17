@@ -100,7 +100,8 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
         model.fit(train_data)
         return model
 
-    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+    def predict(self, trained_operation, predict_data: InputData,
+                output_mode: str = 'default') -> OutputData:
         """
         This method used for prediction of the target data during predict stage.
 
@@ -114,7 +115,11 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
         converted = self._convert_to_output(prediction, predict_data)
         return converted
 
-    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'default') -> OutputData:
+    def predict_for_fit(
+            self,
+            trained_operation,
+            predict_data: InputData,
+            output_mode: str = 'default') -> OutputData:
         """
         This method used for prediction of the target data during fit stage.
 
@@ -124,7 +129,8 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
         :return OutputData: passed data with new predicted target
         """
 
-        prediction = trained_operation.predict_for_fit(predict_data, output_mode)
+        prediction = trained_operation.predict_for_fit(
+            predict_data, output_mode)
         converted = self._convert_to_output(prediction, predict_data)
         return converted
 

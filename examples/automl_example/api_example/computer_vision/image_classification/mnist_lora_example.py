@@ -148,10 +148,12 @@ def test():
 test()
 
 # Let's visualize how many parameters are in the original network, before introducing the LoRA matrices.
-# Size of the weights matrices of the network and save total number of parameters
+# Size of the weights matrices of the network and save total number of
+# parameters
 total_parameters_original = 0
 
-for index, layer in enumerate([docnn_model.linear1, docnn_model.linear2, docnn_model.linear3]):
+for index, layer in enumerate(
+        [docnn_model.linear1, docnn_model.linear2, docnn_model.linear3]):
     total_parameters_original += layer.weight.nelement() + layer.bias.nelement()
 
     print(f"Layer {index + 1}: W: {layer.weight.shape} + B: {layer.bias.shape}")
@@ -179,15 +181,19 @@ parametrize.register_parametrization(
 
 
 def enable_disable_lora(enabled=True):
-    for layer in [docnn_model.linear1, docnn_model.linear2, docnn_model.linear3]:
+    for layer in [
+            docnn_model.linear1,
+            docnn_model.linear2,
+            docnn_model.linear3]:
         layer.parametrizations["weight"][0].enabled = enabled
 
 
 total_parameters_lora = 0
 total_parameters_non_lora = 0
-for index, layer in enumerate([docnn_model.linear1, docnn_model.linear2, docnn_model.linear3]):
-    total_parameters_lora += layer.parametrizations["weight"][0].lora_A.nelement() + layer.parametrizations["weight"][
-        0].lora_B.nelement()
+for index, layer in enumerate(
+        [docnn_model.linear1, docnn_model.linear2, docnn_model.linear3]):
+    total_parameters_lora += layer.parametrizations["weight"][0].lora_A.nelement(
+    ) + layer.parametrizations["weight"][0].lora_B.nelement()
     total_parameters_non_lora += layer.weight.nelement() + layer.bias.nelement()
 
     print(
@@ -196,7 +202,8 @@ for index, layer in enumerate([docnn_model.linear1, docnn_model.linear2, docnn_m
 # The non-LoRA parameters count must match the original network
 assert total_parameters_non_lora == total_parameters_original
 print(f"Params (original): {total_parameters_non_lora:,}")
-print(f"Params (original + LoRA): {total_parameters_lora + total_parameters_non_lora:,}")
+print(
+    f"Params (original + LoRA): {total_parameters_lora + total_parameters_non_lora:,}")
 print(f"Params introduced by LoRA: {total_parameters_lora:,}")
 
 parameters_growth = (total_parameters_lora / total_parameters_non_lora) * 100
@@ -234,25 +241,34 @@ train(train_loader, docnn_model, epochs=1, total_iterations_limit=100)
 
 # Verify that the fine-tuning didn't alter the original weights, but only the ones introduced by LoRA.
 # Check that the frozen parameters are still unchanged by the fine-tuning
-assert torch.all(docnn_model.linear1.parametrizations.weight.original == original_weights["linear1.weight"])
-assert torch.all(docnn_model.linear2.parametrizations.weight.original == original_weights["linear2.weight"])
-assert torch.all(docnn_model.linear3.parametrizations.weight.original == original_weights["linear3.weight"])
+assert torch.all(docnn_model.linear1.parametrizations.weight.original ==
+                 original_weights["linear1.weight"])
+assert torch.all(docnn_model.linear2.parametrizations.weight.original ==
+                 original_weights["linear2.weight"])
+assert torch.all(docnn_model.linear3.parametrizations.weight.original ==
+                 original_weights["linear3.weight"])
 
 enable_disable_lora(enabled=True)
 # The new linear1.weight is obtained by the "forward" function of our LoRA parametrization
 # The original weights have been moved to net.linear1.parametrizations.weight.original
-# More info here: https://pytorch.org/tutorials/intermediate/parametrizations.html#inspecting-a-parametrized-module
-assert torch.equal(docnn_model.linear1.weight, docnn_model.linear1.parametrizations.weight.original + (docnn_model.linear1.parametrizations.weight[0].lora_B @ docnn_model.linear1.parametrizations.weight[0].lora_A) * docnn_model.linear1.parametrizations.weight[0].scale)
+# More info here:
+# https://pytorch.org/tutorials/intermediate/parametrizations.html#inspecting-a-parametrized-module
+assert torch.equal(docnn_model.linear1.weight, docnn_model.linear1.parametrizations.weight.original +
+                   (docnn_model.linear1.parametrizations.weight[0].lora_B @ docnn_model.linear1.parametrizations.weight[0].lora_A) *
+                   docnn_model.linear1.parametrizations.weight[0].scale)
 
 enable_disable_lora(enabled=False)
 # If we disable LoRA, the linear1.weight is the original one
-assert torch.equal(docnn_model.linear1.weight, original_weights["linear1.weight"])
+assert torch.equal(
+    docnn_model.linear1.weight,
+    original_weights["linear1.weight"])
 
 
 # Test the network with LoRA enabled (the digit 9 should be classified better)
 enable_disable_lora(enabled=True)
 test()
 
-# Test the network with LoRA disabled (the accuracy and errors counts must be the same as the original network)
+# Test the network with LoRA disabled (the accuracy and errors counts must
+# be the same as the original network)
 enable_disable_lora(enabled=False)
 test()

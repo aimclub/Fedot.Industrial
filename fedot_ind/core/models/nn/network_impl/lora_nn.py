@@ -36,7 +36,8 @@ NEURAL_MODEL = {
 }
 
 
-def linear_layer_parameterization_with_info(updated_weight, device, rank=1, lora_alpha=1):
+def linear_layer_parameterization_with_info(
+        updated_weight, device, rank=1, lora_alpha=1):
     # Only add the parameterization to the weight matrix, ignore the Bias
 
     # From section 4.2 of the paper:
@@ -44,9 +45,11 @@ def linear_layer_parameterization_with_info(updated_weight, device, rank=1, lora
     #   and freeze the MLP modules (so they are not trained in downstream tasks)
     #   both for simplicity and parameter-efficiency.
     #   [...]
-    #   We leave the empirical investigation of [...], and biases to a future work.
+    # We leave the empirical investigation of [...], and biases to a future
+    # work.
 
-    return LoRAParametrizationWithInfo(updated_weight, rank=rank, alpha=lora_alpha)
+    return LoRAParametrizationWithInfo(
+        updated_weight, rank=rank, alpha=lora_alpha)
 
 
 class LoRAParametrizationWithInfo(nn.Module):
@@ -63,8 +66,14 @@ class LoRAParametrizationWithInfo(nn.Module):
 
     def forward(self, original_weights):
         if self.enabled:
-            return (original_weights + torch.matmul(self.lora_B, self.lora_A).view(
-                original_weights.shape) * self.scale).to(torch.float32)
+            return (
+                original_weights +
+                torch.matmul(
+                    self.lora_B,
+                    self.lora_A).view(
+                    original_weights.shape) *
+                self.scale).to(
+                torch.float32)
         else:
             return original_weights
 
@@ -101,9 +110,12 @@ class LoraModel(BaseNeuralModel):
 
     def _save_and_clear_cache(self):
         pass
+
     def _init_model(self, input_data):
-        self.model = self.industrial_impl(input_dim=input_data.features.shape[1],
-                                          output_dim=self.num_classes).to(default_device())
+        self.model = self.industrial_impl(
+            input_dim=input_data.features.shape[1],
+            output_dim=self.num_classes).to(
+            default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         if input_data.task.task_type.value == 'classification':
             if input_data.num_classes == 2:
@@ -118,26 +130,48 @@ class LoraModel(BaseNeuralModel):
         updated_weight = []
         if self.lora_init == 'residual_lora':
             for spectrum in spectrum_by_layer:
-                _a = torch.tensor(spectrum[0][:, :self.rank] @ spectrum[1][:self.rank])
-                _b = torch.tensor(spectrum[1][:self.rank] @ spectrum[2][:self.rank, :])
+                _a = torch.tensor(
+                    spectrum[0][:, :self.rank] @ spectrum[1][:self.rank])
+                _b = torch.tensor(
+                    spectrum[1][:self.rank] @ spectrum[2][:self.rank, :])
 
-                lora_A = nn.Parameter(torch.unsqueeze(_a, 1)).to(default_device())
-                lora_B = nn.Parameter(torch.unsqueeze(_b, 0)).to(default_device())
+                lora_A = nn.Parameter(
+                    torch.unsqueeze(
+                        _a, 1)).to(
+                    default_device())
+                lora_B = nn.Parameter(
+                    torch.unsqueeze(
+                        _b, 0)).to(
+                    default_device())
                 updated_weight.append((lora_B, lora_A))
         elif self.lora_init == 'random':
             for spectrum in spectrum_by_layer:
                 features_in = spectrum[0].shape[0]
                 features_out = spectrum[2].shape[0]
-                lora_A = nn.Parameter(torch.zeros((self.rank, features_out)).to(default_device()))
-                lora_B = nn.Parameter(torch.zeros((features_in, self.rank)).to(default_device()))
+                lora_A = nn.Parameter(
+                    torch.zeros(
+                        (self.rank, features_out)).to(
+                        default_device()))
+                lora_B = nn.Parameter(
+                    torch.zeros(
+                        (features_in, self.rank)).to(
+                        default_device()))
                 lora_B = nn.init.normal_(lora_B, mean=0, std=1)
                 updated_weight.append((lora_B, lora_A))
         elif self.lora_init == 'residual_core':
             for spectrum in spectrum_by_layer:
-                _a = torch.tensor(spectrum[0][:, self.rank:] @ spectrum[1][self.rank:])
-                _b = torch.tensor(spectrum[1][self.rank:] @ spectrum[2][self.rank:, :])
-                lora_A = nn.Parameter(torch.unsqueeze(_a, 1)).to(default_device())
-                lora_B = nn.Parameter(torch.unsqueeze(_b, 0)).to(default_device())
+                _a = torch.tensor(
+                    spectrum[0][:, self.rank:] @ spectrum[1][self.rank:])
+                _b = torch.tensor(
+                    spectrum[1][self.rank:] @ spectrum[2][self.rank:, :])
+                lora_A = nn.Parameter(
+                    torch.unsqueeze(
+                        _a, 1)).to(
+                    default_device())
+                lora_B = nn.Parameter(
+                    torch.unsqueeze(
+                        _b, 0)).to(
+                    default_device())
                 updated_weight.append((lora_B, lora_A))
         return updated_weight
 
@@ -145,20 +179,24 @@ class LoraModel(BaseNeuralModel):
         spectrum_by_layer = []
         for name, param in self.model.named_parameters():
             if name.__contains__('weight'):
-                spectrum_by_layer.append(self.rsvd.rsvd(tensor=param.clone().cpu().detach().numpy(),
-                                                        approximation=self.use_approx))
+                spectrum_by_layer.append(
+                    self.rsvd.rsvd(
+                        tensor=param.clone().cpu().detach().numpy(),
+                        approximation=self.use_approx))
 
         return spectrum_by_layer
 
     def _create_lora(self, updated_weight):
 
-        parametrize_by_layer = [parametrize.register_parametrization(self.model.linear1,
-                                                                     "weight",
-                                                                     linear_layer_parameterization_with_info(
-                                                                         weight,
-                                                                         default_device(),
-                                                                         self.rank),
-                                                                     unsafe=True) for weight in updated_weight]
+        parametrize_by_layer = [
+            parametrize.register_parametrization(
+                self.model.linear1,
+                "weight",
+                linear_layer_parameterization_with_info(
+                    weight,
+                    default_device(),
+                    self.rank),
+                unsafe=True) for weight in updated_weight]
 
     def enable_disable_lora(self, enabled=True):
         for name, param in self.model.named_parameters():

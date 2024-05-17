@@ -77,11 +77,11 @@ class DataCheck:
 
         if self.data_convertor.is_tuple:
             if self.data_convertor.is_torchvision_dataset:
-                features, target, is_multivariate_data = self.input_data[0].data.cpu().detach().numpy(), \
-                                                         self.input_data[0].targets.cpu().detach().numpy(), True
+                features, target, is_multivariate_data = self.input_data[0].data.cpu(
+                ).detach().numpy(), self.input_data[0].targets.cpu().detach().numpy(), True
             else:
-                features, is_multivariate_data, target = self.__check_features_and_target(self.input_data[0],
-                                                                                          self.input_data[1])
+                features, is_multivariate_data, target = self.__check_features_and_target(
+                    self.input_data[0], self.input_data[1])
         else:
             features, is_multivariate_data, target = self.__check_features_and_target(
                 self.input_data.features, self.input_data.target)
@@ -91,7 +91,6 @@ class DataCheck:
             if isinstance(target[0], np.str_):
                 self.label_encoder = LabelEncoder()
                 target = self.label_encoder.fit_transform(target)
-
 
         if is_multivariate_data and not self.data_convertor.is_torchvision_dataset:
             self.input_data = InputData(idx=np.arange(len(features)),
@@ -110,8 +109,8 @@ class DataCheck:
             task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
                 forecast_length=self.task_params['forecast_length']))
             if self.industrial_task_params is None:
-                features_array = features_array[:- \
-                    self.task_params['forecast_length']]
+                features_array = features_array[:-
+                                                self.task_params['forecast_length']]
                 target = features_array
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,

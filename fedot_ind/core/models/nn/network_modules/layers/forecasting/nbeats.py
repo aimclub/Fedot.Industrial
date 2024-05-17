@@ -65,8 +65,8 @@ class _NBeatsStack(nn.Module):
                 layer_size=seasonality_layer_size
             )
 
-            self.blocks = [trend_block for _ in range(n_trend_blocks)] + [seasonality_block for _ in
-                                                                          range(n_seasonality_blocks)]
+            self.blocks = [trend_block for _ in range(
+                n_trend_blocks)] + [seasonality_block for _ in range(n_seasonality_blocks)]
 
 
 class _NBeatsBlock(nn.Module):
@@ -88,7 +88,8 @@ class _NBeatsBlock(nn.Module):
             [nn.Linear(in_features=layer_size, out_features=layer_size) for _ in range(layers - 1)]
         )
 
-        self.basis_parameters = nn.Linear(in_features=layer_size, out_features=theta_size)
+        self.basis_parameters = nn.Linear(
+            in_features=layer_size, out_features=theta_size)
         self.basis_function = basis_function
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -132,7 +133,8 @@ class _TrendBasis(nn.Module):
     ):
         super().__init__()
 
-        self.polynomial_size = degree_of_polynomial + 1  # degree of polynomial with constant term
+        self.polynomial_size = degree_of_polynomial + \
+            1  # degree of polynomial with constant term
         self.backcast_time = nn.Parameter(
             torch.tensor(np.concatenate(
                 [np.power(np.arange(backcast_size, dtype=np.float) / backcast_size, i)[None, :] for i in
@@ -181,34 +183,52 @@ class _SeasonalityBasis(_NBeatsBlock):
     ):
         super().__init__()
 
-        self.frequency = np.append(np.zeros(1, dtype=np.float32),
-                                   np.arange(harmonics, harmonics / 2 * forecast_size,
-                                             dtype=np.float32) / harmonics)[None, :]
+        self.frequency = np.append(
+            np.zeros(
+                1,
+                dtype=np.float32),
+            np.arange(
+                harmonics,
+                harmonics /
+                2 *
+                forecast_size,
+                dtype=np.float32) /
+            harmonics)[
+                None,
+            :]
         backcast_grid = -2 * np.pi * (
-                np.arange(backcast_size, dtype=np.float32)[:, None] / forecast_size) * self.frequency
+            np.arange(backcast_size, dtype=np.float32)[:, None] / forecast_size) * self.frequency
 
         forecast_grid = 2 * np.pi * (
-                np.arange(forecast_size, dtype=np.float32)[:, None] / forecast_size) * self.frequency
+            np.arange(forecast_size, dtype=np.float32)[:, None] / forecast_size) * self.frequency
 
         self.backcast_cos_template = nn.Parameter(
-            torch.tensor(np.transpose(np.cos(backcast_grid)), dtype=torch.float32),
-            requires_grad=False
-        )
+            torch.tensor(
+                np.transpose(
+                    np.cos(backcast_grid)),
+                dtype=torch.float32),
+            requires_grad=False)
 
         self.backcast_sin_template = nn.Parameter(
-            torch.tensor(np.transpose(np.sin(backcast_grid)), dtype=torch.float32),
-            requires_grad=False
-        )
+            torch.tensor(
+                np.transpose(
+                    np.sin(backcast_grid)),
+                dtype=torch.float32),
+            requires_grad=False)
 
         self.forecast_cos_template = nn.Parameter(
-            torch.tensor(np.transpose(np.cos(forecast_grid)), dtype=torch.float32),
-            requires_grad=False
-        )
+            torch.tensor(
+                np.transpose(
+                    np.cos(forecast_grid)),
+                dtype=torch.float32),
+            requires_grad=False)
 
         self.forecast_sin_template = nn.Parameter(
-            torch.tensor(np.transpose(np.sin(forecast_grid)), dtype=torch.float32),
-            requires_grad=False
-        )
+            torch.tensor(
+                np.transpose(
+                    np.sin(forecast_grid)),
+                dtype=torch.float32),
+            requires_grad=False)
 
     def forward(self, theta: torch.Tensor):
         params_per_harmonic = theta.shape[1] // 4
@@ -285,12 +305,14 @@ class NBeatsNet(nn.Module):
 
     def create_stack(self, stack_id):
         stack_type = self.stack_types[stack_id]
-        print(f"| --  Stack {stack_type.title()} (#{stack_id}) (share_weights_in_stack={self.share_weights_in_stack})")
+        print(
+            f"| --  Stack {stack_type.title()} (#{stack_id}) (share_weights_in_stack={self.share_weights_in_stack})")
         blocks = []
         for block_id in range(self.nb_blocks_per_stack):
             block_init = NBeatsNet.select_block(stack_type)
             if self.share_weights_in_stack and block_id != 0:
-                block = blocks[-1]  # pick up the last one when we share weights.
+                # pick up the last one when we share weights.
+                block = blocks[-1]
             else:
                 block = block_init(
                     self.hidden_layer_units, self.thetas_dim[stack_id],
@@ -353,7 +375,13 @@ class NBeatsNet(nn.Module):
         self._opt = opt_
         self._loss = loss_
 
-    def fit(self, x_train, y_train, validation_data=None, epochs=10, batch_size=32):
+    def fit(
+            self,
+            x_train,
+            y_train,
+            validation_data=None,
+            epochs=10,
+            batch_size=32):
         def split(arr, size):
             arrays = []
             while len(arr) > size:
@@ -377,8 +405,15 @@ class NBeatsNet(nn.Module):
             for batch_id in shuffled_indices:
                 batch_x, batch_y = x_train_list[batch_id], y_train_list[batch_id]
                 self._opt.zero_grad()
-                _, forecast = self(torch.tensor(batch_x, dtype=torch.float).to(self.device))
-                loss = self._loss(forecast, squeeze_last_dim(torch.tensor(batch_y, dtype=torch.float).to(self.device)))
+                _, forecast = self(
+                    torch.tensor(
+                        batch_x, dtype=torch.float).to(
+                        self.device))
+                loss = self._loss(
+                    forecast, squeeze_last_dim(
+                        torch.tensor(
+                            batch_y, dtype=torch.float).to(
+                            self.device)))
                 train_loss.append(loss.item())
                 loss.backward()
                 self._opt.step()
@@ -390,15 +425,23 @@ class NBeatsNet(nn.Module):
             if validation_data is not None:
                 x_test, y_test = validation_data
                 self.eval()
-                _, forecast = self(torch.tensor(x_test, dtype=torch.float).to(self.device))
-                test_loss = self._loss(forecast, squeeze_last_dim(torch.tensor(y_test, dtype=torch.float).to(self.device))).item()
+                _, forecast = self(
+                    torch.tensor(
+                        x_test, dtype=torch.float).to(
+                        self.device))
+                test_loss = self._loss(
+                    forecast, squeeze_last_dim(
+                        torch.tensor(
+                            y_test, dtype=torch.float).to(
+                            self.device))).item()
 
             num_samples = len(x_train_list)
             time_per_step = int(elapsed_time / num_samples * 1000)
             print(f"Epoch {str(epoch + 1).zfill(len(str(epochs)))}/{epochs}")
-            print(f"{num_samples}/{num_samples} [==============================] - "
-                  f"{int(elapsed_time)}s {time_per_step}ms/step - "
-                  f"loss: {train_loss:.4f} - val_loss: {test_loss:.4f}")
+            print(
+                f"{num_samples}/{num_samples} [==============================] - "
+                f"{int(elapsed_time)}s {time_per_step}ms/step - "
+                f"loss: {train_loss:.4f} - val_loss: {test_loss:.4f}")
 
     def predict(self, x, return_backcast=False):
         self.eval()
@@ -416,15 +459,23 @@ class NBeatsNet(nn.Module):
         return "NBeatsNetPytorch"
 
     def get_generic_and_interpretable_outputs(self):
-        g_pred = sum([a["value"][0] for a in self._intermediary_outputs if "generic" in a["layer"].lower()])
-        i_pred = sum([a["value"][0] for a in self._intermediary_outputs if "generic" not in a["layer"].lower()])
-        outputs = {o["layer"]: o['value'][0] for o in self._intermediary_outputs}
+        g_pred = sum([a["value"][0]
+                     for a in self._intermediary_outputs if "generic" in a["layer"].lower()])
+        i_pred = sum([a["value"][0]
+                     for a in self._intermediary_outputs if "generic" not in a["layer"].lower()])
+        outputs = {o["layer"]: o['value'][0]
+                   for o in self._intermediary_outputs}
         return g_pred, i_pred, outputs
 
     def forward(self, backcast):
         self._intermediary_outputs = []
         backcast = squeeze_last_dim(backcast)
-        forecast = torch.zeros(size=(backcast.size()[0], self.forecast_length,))  # maybe batch size here.
+        # maybe batch size here.
+        forecast = torch.zeros(
+            size=(
+                backcast.size()[0],
+                self.forecast_length,
+            ))
 
         for stack_id in range(len(self.stacks)):
             for block_id in range(len(self.stacks[stack_id])):
@@ -435,13 +486,15 @@ class NBeatsNet(nn.Module):
                 layer_name = f"stack_{stack_id}-{block_type}_{block_id}"
 
                 if self._gen_intermediate_outputs:
-                    self._intermediary_outputs.append({"value": f.detach().numpy(), "layer": layer_name})
+                    self._intermediary_outputs.append(
+                        {"value": f.detach().numpy(), "layer": layer_name})
 
         return backcast, forecast
 
 
 def squeeze_last_dim(tensor):
-    if len(tensor.shape) == 3 and tensor.shape[-1] == 1:  # (128, 10, 1) => (128, 10).
+    # (128, 10, 1) => (128, 10).
+    if len(tensor.shape) == 3 and tensor.shape[-1] == 1:
         return tensor[..., 0]
     return tensor
 
@@ -450,8 +503,10 @@ def seasonality_model(thetas, t, device):
     p = thetas.size()[-1]
     assert p <= thetas.shape[1], "thetas_dim is too big."
     p1, p2 = (p // 2, p // 2) if p % 2 == 0 else (p // 2, p // 2 + 1)
-    s1 = torch.tensor(np.array([np.cos(2 * np.pi * i * t) for i in range(p1)])).float()  # H/2-1
-    s2 = torch.tensor(np.array([np.sin(2 * np.pi * i * t) for i in range(p2)])).float()
+    s1 = torch.tensor(np.array([np.cos(2 * np.pi * i * t)
+                      for i in range(p1)])).float()  # H/2-1
+    s2 = torch.tensor(np.array([np.sin(2 * np.pi * i * t)
+                      for i in range(p2)])).float()
     S = torch.cat([s1, s2])
     return thetas.mm(S.to(device))
 
@@ -474,8 +529,16 @@ class Block(nn.Module):
     Each block is responsible for predicting a specific aspect of the time series,
     such as trend, seasonality, or residuals.
     """
-    def __init__(self, units, thetas_dim, device, backcast_length=10, forecast_length=5, share_thetas=False,
-                 nb_harmonics=None):
+
+    def __init__(
+            self,
+            units,
+            thetas_dim,
+            device,
+            backcast_length=10,
+            forecast_length=5,
+            share_thetas=False,
+            nb_harmonics=None):
         super(Block, self).__init__()
         self.units = units
         self.thetas_dim = thetas_dim
@@ -487,11 +550,14 @@ class Block(nn.Module):
         self.fc3 = nn.Linear(units, units)
         self.fc4 = nn.Linear(units, units)
         self.device = device
-        self.backcast_linspace = linear_space(backcast_length, forecast_length, is_forecast=False)
-        self.forecast_linspace = linear_space(backcast_length, forecast_length, is_forecast=True)
+        self.backcast_linspace = linear_space(
+            backcast_length, forecast_length, is_forecast=False)
+        self.forecast_linspace = linear_space(
+            backcast_length, forecast_length, is_forecast=True)
 
         if share_thetas:
-            self.theta_f_fc = self.theta_b_fc = nn.Linear(units, thetas_dim, bias=False)
+            self.theta_f_fc = self.theta_b_fc = nn.Linear(
+                units, thetas_dim, bias=False)
         else:
             self.theta_b_fc = nn.Linear(units, thetas_dim, bias=False)
             self.theta_f_fc = nn.Linear(units, thetas_dim, bias=False)
@@ -517,8 +583,23 @@ class GenericBlock(Block):
     that may not fit into the trend or seasonality categories.
     It can be used to model residual patterns or other irregular fluctuations in the data.
     """
-    def __init__(self, units, thetas_dim, device, backcast_length=10, forecast_length=5, nb_harmonics=None):
-        super(GenericBlock, self).__init__(units, thetas_dim, device, backcast_length, forecast_length)
+
+    def __init__(
+            self,
+            units,
+            thetas_dim,
+            device,
+            backcast_length=10,
+            forecast_length=5,
+            nb_harmonics=None):
+        super(
+            GenericBlock,
+            self).__init__(
+            units,
+            thetas_dim,
+            device,
+            backcast_length,
+            forecast_length)
 
         self.backcast_fc = nn.Linear(thetas_dim, backcast_length)
         self.forecast_fc = nn.Linear(thetas_dim, forecast_length)
@@ -541,18 +622,46 @@ class SeasonalityBlock(Block):
     Class refers to a block that captures the seasonal patterns in the time series data.
     It models the recurring patterns that occur at regular intervals, such as daily, weekly, or monthly cycles.
     """
-    def __init__(self, units, thetas_dim, device, backcast_length=10, forecast_length=5, nb_harmonics=None):
+
+    def __init__(
+            self,
+            units,
+            thetas_dim,
+            device,
+            backcast_length=10,
+            forecast_length=5,
+            nb_harmonics=None):
         if nb_harmonics:
-            super(SeasonalityBlock, self).__init__(units, nb_harmonics, device, backcast_length,
-                                                   forecast_length, share_thetas=True)
+            super(
+                SeasonalityBlock,
+                self).__init__(
+                units,
+                nb_harmonics,
+                device,
+                backcast_length,
+                forecast_length,
+                share_thetas=True)
         else:
-            super(SeasonalityBlock, self).__init__(units, forecast_length, device, backcast_length,
-                                                   forecast_length, share_thetas=True)
+            super(
+                SeasonalityBlock,
+                self).__init__(
+                units,
+                forecast_length,
+                device,
+                backcast_length,
+                forecast_length,
+                share_thetas=True)
 
     def forward(self, x):
         x = super(SeasonalityBlock, self).forward(x)
-        backcast = seasonality_model(self.theta_b_fc(x), self.backcast_linspace, self.device)
-        forecast = seasonality_model(self.theta_f_fc(x), self.forecast_linspace, self.device)
+        backcast = seasonality_model(
+            self.theta_b_fc(x),
+            self.backcast_linspace,
+            self.device)
+        forecast = seasonality_model(
+            self.theta_f_fc(x),
+            self.forecast_linspace,
+            self.device)
         return backcast, forecast
 
 
@@ -561,12 +670,33 @@ class TrendBlock(Block):
     Class refers to a block that is designed to capture the trend component of the time series data.
     It models the overall increasing or decreasing pattern in the data.
     """
-    def __init__(self, units, thetas_dim, device, backcast_length=10, forecast_length=5, nb_harmonics=None):
-        super(TrendBlock, self).__init__(units, thetas_dim, device, backcast_length,
-                                         forecast_length, share_thetas=True)
+
+    def __init__(
+            self,
+            units,
+            thetas_dim,
+            device,
+            backcast_length=10,
+            forecast_length=5,
+            nb_harmonics=None):
+        super(
+            TrendBlock,
+            self).__init__(
+            units,
+            thetas_dim,
+            device,
+            backcast_length,
+            forecast_length,
+            share_thetas=True)
 
     def forward(self, x):
         x = super(TrendBlock, self).forward(x)
-        backcast = trend_model(self.theta_b_fc(x), self.backcast_linspace, self.device)
-        forecast = trend_model(self.theta_f_fc(x), self.forecast_linspace, self.device)
+        backcast = trend_model(
+            self.theta_b_fc(x),
+            self.backcast_linspace,
+            self.device)
+        forecast = trend_model(
+            self.theta_f_fc(x),
+            self.forecast_linspace,
+            self.device)
         return backcast, forecast

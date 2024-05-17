@@ -88,7 +88,10 @@ class IndustrialModels:
                 '_update_column_types', update_column_types)
         setattr(LaggedImplementation, 'transform', transform_lagged)
         setattr(TopologicalFeaturesImplementation, 'fit', fit_topo_extractor)
-        setattr(TopologicalFeaturesImplementation, 'transform', transform_topo_extractor)
+        setattr(
+            TopologicalFeaturesImplementation,
+            'transform',
+            transform_topo_extractor)
         setattr(LaggedImplementation, 'transform_for_fit',
                 transform_lagged_for_fit)
         setattr(LaggedImplementation, '_check_and_correct_window_size',

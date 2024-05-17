@@ -39,7 +39,8 @@ class NBeatsModel(BaseNeuralModel):
     """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
-        self.is_generic_architecture = params.get("is_generic_architecture", True)
+        self.is_generic_architecture = params.get(
+            "is_generic_architecture", True)
         self.epochs = params.get("n_stacks", 10)
         self.batch_size = params.get("layers", 16)
         self.loss = params.get("loss", 'mse')
@@ -57,7 +58,8 @@ class NBeatsModel(BaseNeuralModel):
 
         self.n_seasonality_blocks = params.get("n_seasonality_blocks", 3)
         self.n_seasonality_layers = params.get("n_seasonality_layers", 4)
-        self.seasonality_layer_size = params.get("seasonality_layer_size", 2048)
+        self.seasonality_layer_size = params.get(
+            "seasonality_layer_size", 2048)
         self.n_of_harmonics = params.get("n_of_harmonics", 1)
 
     def _init_model(self, ts):
@@ -101,16 +103,14 @@ class NBeatsModel(BaseNeuralModel):
             ts.features[:self.split_ratio], ts_val.features[:self.split_ratio]
         self.norm_constant = np.max(ts.features)
         _, train_transformed, train_target = transform_features_and_target_into_lagged(
-            ts,
-            self.forecast_length,
-            self.backcast_length)
-        x_train, y_train = train_transformed / self.norm_constant, train_target / self.norm_constant
+            ts, self.forecast_length, self.backcast_length)
+        x_train, y_train = train_transformed / \
+            self.norm_constant, train_target / self.norm_constant
 
         _, val_transformed, val_target = transform_features_and_target_into_lagged(
-            ts_val,
-            self.forecast_length,
-            self.backcast_length)
-        val_transformed, val_target = val_transformed / self.norm_constant, val_target / self.norm_constant
+            ts_val, self.forecast_length, self.backcast_length)
+        val_transformed, val_target = val_transformed / \
+            self.norm_constant, val_target / self.norm_constant
 
         self.is_training = False
 
@@ -123,8 +123,9 @@ class NBeatsModel(BaseNeuralModel):
     def _predict_model(self, x_test, output_mode: str = 'default'):
         x_test_lagged = self._create_predict_data(x_test)
         x_predict_lagged = self.model.predict(x_test_lagged)
-        forecast = x_predict_lagged[-1:,:].flatten()
+        forecast = x_predict_lagged[-1:, :].flatten()
         return forecast
+
 
 class NBeats(nn.Module):
     """
@@ -208,7 +209,10 @@ class NBeats(nn.Module):
 
         self.blocks = nn.ModuleList(self.stacks)
 
-    def forward(self, x: torch.Tensor, input_mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self,
+            x: torch.Tensor,
+            input_mask: torch.Tensor) -> torch.Tensor:
         residuals = x.flip(dims=(1,))
         input_mask = input_mask.flip(dims=(1,))
         forecast = x[:, -1:]

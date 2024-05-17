@@ -7,7 +7,7 @@ class DummyOverComplicatedNeuralNetwork(nn.Module):
                  output_dim=10):
         super(DummyOverComplicatedNeuralNetwork, self).__init__()
         self.input_dim = input_dim
-        self.linear1 = nn.Linear(self.input_dim*self.input_dim, 1000)
+        self.linear1 = nn.Linear(self.input_dim * self.input_dim, 1000)
         self.linear2 = nn.Linear(1000, 2000)
         self.linear3 = nn.Linear(2000, output_dim)
         self.relu = nn.ReLU()
