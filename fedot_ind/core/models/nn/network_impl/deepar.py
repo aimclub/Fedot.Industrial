@@ -7,7 +7,8 @@ import torch.optim as optim
 from torch.nn import LSTM, GRU, Linear, Module, RNN
 import torch
 from fedot_ind.core.models.nn.network_modules.layers.special import RevIN
-from fedot_ind.core.models.nn.network_modules.losses import NormalDistributionLoss
+from fedot_ind.core.models.nn.network_modules.losses import (NormalDistributionLoss, CauchyDistributionLoss,
+        LogNormDistributionLoss, InverseGaussDistributionLoss, BetaDistributionLoss)
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
@@ -30,26 +31,36 @@ class _TSScaler(Module):
         super().__init__()
         self.factors = None
         self.eps = 1e-10
+        self.fitted = False
     
-    def forward(self, x, normalize=True):
+    def forward(self, x: torch.Tensor, normalize: bool=True) -> torch.Tensor:
         if normalize:
+            self.fitted = True
             self.means = x.mean(dim=-1, keepdim=True)
             self.factors = torch.sqrt(x.std(dim=-1, keepdim=True, # True results in really strange behavior of affine transformer
                              unbiased=False)) + self.eps
             return (x - self.means) / self.factors
         else:
+            assert self.fitted, 'Unknown scale! Fit this'
             factors, means = self.factors, self.means
             if len(x.size()) == 4:
                 factors = factors[..., None]
                 means == factors[..., None]
             return x * factors + means
         
-    def scale(self, x):
+    def scale(self, x: torch.Tensor) -> torch.Tensor:
         return (x - self.means) / self.factors
+    
+    def upscale(self, x: torch.Tensor) -> torch.Tensor:
+        return self(x, False)
 
 class DeepARModule(Module):
     _loss_fns = {
-        'normal': NormalDistributionLoss
+        'normal': NormalDistributionLoss,
+        'cauchy': CauchyDistributionLoss,
+        'lognorm': LogNormDistributionLoss,
+        'inverse_gamma': InverseGaussDistributionLoss,
+        'beta': BetaDistributionLoss,
     }
 
     def __init__(self, cell_type: str, input_size: int, hidden_size: int, 
@@ -71,52 +82,52 @@ class DeepARModule(Module):
             self.projector = Linear(self.hidden_size, 2)
             
 
-    def _encode(self, ts: torch.Tensor):
+    def encode(self, ts: torch.Tensor, hidden_state: torch.Tensor=None):
         """
         Encode sequence into hidden state
         ts.size = (length, hidden)
         """
         _, hidden_state = self.rnn(
-            ts,
+            ts, hidden_state
         )  
         return hidden_state
     
-    def _decode_whole_seq(self, ts: torch.Tensor, hidden_state: torch.Tensor):
-        """ used for next value predition"""
+    def _decode_whole_seq(self, ts: torch.Tensor, hidden_state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ used for next value prediction"""
         output, hidden_state = self.rnn(
             ts, hidden_state
         )
         output = self.projector(output)
         return output, hidden_state
 
-    def forecast(self, prefix: torch.Tensor, horizon: int, 
+    def forecast(self, prefix: torch.Tensor, horizon: int, hidden_state=None,
                  mode: str='lagged', output_mode: str='quantiles', **mode_kw):
         self.eval()
         forecast = []
+        # outputs = []
         if self.rnn.input_size != 1 or mode == 'lagged':
             with torch.no_grad():
                 for i in range(horizon):
-                    output = self(prefix)[0]
+                    output = self(prefix, hidden_state)[0]
+                    # outputs.append(output.detach().cpu())
                     forecast.append(self._transform_params(output, mode=output_mode, **mode_kw).detach().cpu())
                     prediction = self._transform_params(output, mode='predictions')
                     prefix = torch.roll(prefix, -1, dims=-1)
                     prefix[..., [-1]] = prediction
             forecast = torch.stack(forecast, dim=1).squeeze(-1)#.squeeze(1).permute(1, 2, 0)
         elif self.rnn.input_size == 1 or mode == 'auto':
+            print('AUTOREGRESSIVE MODE')
             # assert self.rnn.input_size == 1, "autoregressive mode requires the features not to be lagged"
             forecast = self._autoregressive(prefix, horizon, hidden_state=None,
                                             output_mode=output_mode, **mode_kw)
         else:
             raise ValueError('Unknown forecasting type!')
-
         return forecast
     
     def _autoregressive(self, prefix: torch.Tensor, 
                         horizon: int, hidden_state: torch.Tensor=None, 
                         output_mode: str='quantiles', **mode_kw):
-        if hidden_state is None:
-            hidden_state = self._encode(prefix)
-            # hidden_state = hidden_state[:, [-1], :]
+        hidden_state = self.encode(prefix, hidden_state)
         outputs = [] 
         x = prefix[[-1], ...] # what's the order of rnn processing?
         for i in range(horizon):
@@ -127,7 +138,7 @@ class DeepARModule(Module):
         return outputs 
 
 
-    def forward(self, x: torch.Tensor,
+    def forward(self, x: torch.Tensor, hidden_state=None,
                    mode='raw', **mode_kw) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass
@@ -135,7 +146,7 @@ class DeepARModule(Module):
         """
         # encode
         x = self.scaler(x, normalize=True)
-        hidden_state = self._encode(x)
+        hidden_state = self.encode(x, hidden_state=hidden_state)
         # decode
         if self.training:
             assert mode == 'raw', "cannot use another mode, but 'raw' while training"
@@ -149,15 +160,15 @@ class DeepARModule(Module):
         if quantiles is None:
             quantiles = self.quantiles
         distr = self.distribution.map_x_to_distribution(params)
-        return distr.icdf(quantiles).unsqueeze(1)
+        return distr.icdf(quantiles).unsqueeze(1) # batch_size x 1 x n_quantiles
     
     def to_samples(self, params: torch.Tensor, n_samples=100) -> torch.Tensor:
         distr = self.distribution.map_x_to_distribution(params)
-        return distr.sample((n_samples,)).permute(1, 2, 0) # distr_n x n_samples
+        return distr.sample((n_samples,)).permute(1, 2, 0) # batch_size x n_ts x n_samples
 
     def to_predictions(self, params: torch.Tensor) -> torch.Tensor:
         distr = self.distribution.map_x_to_distribution(params)
-        return distr.sample((1,)).permute(1, 2, 0) # distr_n x 1
+        return distr.sample((1,)).permute(1, 2, 0) # batch_size x n_ts x 1
     
     def _transform_params(self, distr_params, mode='raw', **mode_kw) -> torch.Tensor:
         if mode == 'raw':
@@ -171,7 +182,6 @@ class DeepARModule(Module):
         else:
             raise ValueError('Unexpected forecast mode!')
         transformed = self.scaler(transformed, False)
-
         return transformed
         
 
@@ -179,16 +189,15 @@ class DeepAR(BaseNeuralModel):
     """No exogenous variable support
     Variational Inference + Probable Anomaly detection"""
 
-
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
         #INSIDE super
         # self.epochs = params.get('epochs', 100)
         # self.batch_size = params.get('batch_size', 16)
-        # self.activation = params.get('activation', 'ReLU')
         # self.learning_rate = 0.001
         
         # architecture settings
+        self.activation = params.get('activation', 'tanh')
         self.cell_type = params.get('cell_type', 'LSTM')
         self.hidden_size = params.get('hidden_size', 10)
         self.rnn_layers = params.get('rnn_layers', 2)
@@ -248,31 +257,47 @@ class DeepAR(BaseNeuralModel):
                 self.patch_len = 2 * dominant_window_size
             train_loader, val_loader = self._get_train_val_loaders(
                     input_data.features, self.patch_len, split_data, horizon=horizon)
-
         self.test_patch_len = self.patch_len
         return train_loader, val_loader
+    
+    def get_initial_hidden_state(self, data_loader: data.DataLoader,):
+        model = self.model # place for model and model_for_inference switch
+        hidden_state = None
+        n = len(data_loader)
+        for i, (x, *_) in enumerate(data_loader, 1):
+            if i == n:
+                break
+            hidden_state = model.encode(x, hidden_state)
+        initial_hidden_state = hidden_state
+        if initial_hidden_state:
+            initial_hidden_state = (initial_hidden_state[0][:, [-1], :], initial_hidden_state[1][:, [-1], :])
+        return initial_hidden_state
 
     def predict(self,
                 test_data: InputData,
                 output_mode: str = None):
         if not output_mode:
             output_mode = self.forecast_mode
-        # test_loader = self._get_test_loader(test_data)
-        self.horizon = test_data.task.task_params.forecast_length
-        test_loader, _ = self._prepare_data(test_data, False, 0)
-        last_patch = test_loader.dataset[-1][0][None, ...]
-        fcs = self._predict(last_patch, output_mode) #
+        # horizon = test_data.task.task_params.forecast_length or self.horizon
+        # test_loader, _ = self._prepare_data(test_data, False, 0)
 
-        # forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
-        #                                  stop=test_data.idx[-self.horizon] +
-        #                                  self.horizon,
-        #                                  step=1)
+        # initial_hidden_state = self.get_initial_hidden_state(test_loader)
+        # last_patch, last_target = test_loader.dataset[-1]
+        # if len(last_target) == 1:
+        #     last_patch = torch.roll(last_patch, -1, dim=-1)
+        #     last_patch[..., -1] = last_target.squeeze()
+        # last_patch = last_patch[None, ...]
+
+        initial_hidden_state = None
+
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.horizon,
                                          step=1)
+        
         # some logic to select needed ts
-        prediction = fcs[:, ...].flatten()
-        print('predict', fcs.size(), prediction.size())
+        # fcs = self._predict(test_data, output_mode, horizon, initial_hidden_state)
+        fcs = self._predict(test_data, output_mode)
+        prediction = fcs[0, ...].squeeze().numpy()#.flatten()
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
@@ -283,37 +308,41 @@ class DeepAR(BaseNeuralModel):
         return predict
         
         
-    def _predict(self, x, output_mode, **output_kw):
+    def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
         mode = 'lagged' if self.preprocess_to_lagged else 'auto'
-        x = x.to(default_device())
-        print(self.horizon)
-        fc = self.model.forecast(x, self.horizon, mode, output_mode, **output_kw)
-        print(fc.size())
+
+        horizon = test_data.task.task_params.forecast_length or self.horizon
+        # fcs = self._predict(test_loader, output_mode, horizon)
+
+        test_loader, _ = self._prepare_data(test_data, False, 0)
+        initial_hidden_state = hidden_state or self.get_initial_hidden_state(test_loader)
+        last_patch, last_target = test_loader.dataset[-1]
+        if len(last_target) == 1:
+            last_patch = torch.roll(last_patch, -1, dims=-1)
+            last_patch[..., -1] = last_target.squeeze()
+        last_patch = last_patch[None, ...]
+
+        last_patch = last_patch.to(default_device())
+        fc = self.model.forecast(last_patch, horizon, 
+                                 mode=mode, output_mode=output_mode, 
+                                 hidden_state=initial_hidden_state, **output_kw)
         return fc
 
     def predict_for_fit(self,
                         test_data,
                         output_mode: str = 'predictions'): # will here signature conflict raise in case I drop kw?
         output_mode = 'predictions' 
-        # test_loader = self._get_test_loader(test_data)
-        fcs = self._predict(test_loader, output_mode)
-
-        test_loader, _ = self._prepare_data(test_data, False, 0)
-        last_patch = test_loader.dataset[-1][0][None, ...]
-        fcs = self._predict(last_patch, output_mode)
-
-        # some logic to select needed ts
-
-        # forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
-        #                                  stop=test_data.idx[-self.horizon] +
-        #                                  self.horizon,
-        #                                  step=1)
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.horizon,
                                          step=1)
-        prediction = fcs.squeeze().numpy()
-        print('predict_for_fit', fcs.size(), prediction.shape)
 
+        # initial_hidden_state = None
+
+        # fcs = self._predict(test_data, output_mode, horizon, initial_hidden_state)
+        fcs = self._predict(test_data, output_mode)
+
+        # some logic to select needed ts
+        prediction = fcs[0, ...].squeeze().numpy()
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
@@ -352,7 +381,6 @@ class DeepAR(BaseNeuralModel):
                 batch_x = batch_x.float().to(default_device())
                 batch_y = batch_y[:, ..., [0]].float().to(default_device()) # only first entrance
                 outputs, *hidden_state = model(batch_x)
-                # return batch_x, outputs, batch_y
 
                 loss = loss_fn(outputs, batch_y, self.model.scaler)
                 train_loss.append(loss.item())
@@ -404,7 +432,7 @@ class DeepAR(BaseNeuralModel):
                       split_data: bool = True,
                       validation_blocks: int = None, 
                       horizon=None):
-        if not horizon:
+        if horizon is None:
             horizon = self.horizon
         if patch_len is None:
             patch_len = self.patch_len

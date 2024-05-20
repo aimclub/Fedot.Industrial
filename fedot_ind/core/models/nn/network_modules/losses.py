@@ -392,7 +392,7 @@ class BetaDistributionLoss(DistributionLoss):
 
     @classmethod
     def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
-        concentration0 = x[..., -2]
+        concentration0 = F.softplus(x[..., -2])
         concentration1 = F.softplus(x[..., -1])
         distr = self.distribution_class(concentration0=concentration0, concentration1=concentration1)
         return distr
