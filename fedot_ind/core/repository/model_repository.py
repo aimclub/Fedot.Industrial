@@ -53,6 +53,7 @@ from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
+from fedot_ind.core.models.ts_forecasting.markov_ar import MarkovAR
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
@@ -176,7 +177,8 @@ class AtomizedModel(Enum):
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
-        'glm': GLMIndustrial
+        'glm': GLMIndustrial,
+        'markov_ar': MarkovAR
     }
 
     FORECASTING_PREPROC = {

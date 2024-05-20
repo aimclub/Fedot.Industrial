@@ -311,6 +311,17 @@
       ],
 	  "input_type": "[DataTypesEnum.ts]"
     },
+    "markov_ar": {
+      "meta": "ts_model",
+      "presets": ["fast_train", "ts"],
+      "tags": [
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "linear"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
+    },
     "arima": {
       "meta": "ts_model",
       "presets": ["ts"],
