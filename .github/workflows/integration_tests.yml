@@ -39,7 +39,7 @@ jobs:
         run: poetry install
 
       - name: Run tests with pytest
-        run: poetry run pytest --cov=fedot -s tests/integration
+        run: poetry run pytest --cov=fedot_ind -s tests/integration
 
       - name: Codecov-coverage
         uses: codecov/codecov-action@v3
