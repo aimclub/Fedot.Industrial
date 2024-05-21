@@ -33,7 +33,10 @@ def run_industrial_model(model_type: str = 'basic'):
         data_path=os.path.join(DATASETS_PATH, 'test/images'))
     image = random.choice(list(predict.keys()))
     fig = draw_sample_with_bboxes(
-        image=image, target=predict[image], prediction=predict_proba[image], threshold=0.2)
+        image=image,
+        target=predict[image],
+        prediction=predict_proba[image],
+        threshold=0.2)
 
     return trained_model
 

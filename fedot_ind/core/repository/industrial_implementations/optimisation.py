@@ -7,7 +7,6 @@ from typing import Sequence
 from typing import Tuple
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.operations.atomized_model import AtomizedModel
 from fedot.core.composer.gp_composer.specific_operators import boosting_mutation, parameter_change_mutation
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
@@ -24,7 +23,7 @@ from golem.core.dag.verification_rules import ERROR_PREFIX
 from golem.core.optimisers.advisor import RemoveType
 from golem.core.optimisers.genetic.gp_operators import equivalent_subtree, replace_subtrees
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
-from golem.core.optimisers.genetic.operators.crossover import CrossoverCallable, CrossoverTypesEnum
+from golem.core.optimisers.genetic.operators.crossover import CrossoverTypesEnum
 from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
 from golem.core.optimisers.graph import OptGraph, OptNode
 from golem.core.optimisers.opt_node_factory import OptNodeFactory
@@ -32,10 +31,8 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
-from fedot.core.operations.atomized_model import AtomizedModel as Atom
 from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
-from fedot_ind.core.repository.model_repository import AtomizedModel, TEMPORARY_EXCLUDED, \
-    default_industrial_availiable_operation
+from fedot_ind.core.repository.model_repository import TEMPORARY_EXCLUDED, default_industrial_availiable_operation
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -49,13 +46,14 @@ class IndustrialMutations:
         self.node_adapter = PipelineAdapter()
         self.task_type = Task(task_type)
         self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
-        self.industrial_data_operations = default_industrial_availiable_operation(self.task_type.task_type.value)
+        self.industrial_data_operations = default_industrial_availiable_operation(
+            self.task_type.task_type.value)
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
         self.excluded = self.excluded + self.excluded_mutation
-        self.industrial_data_operations = [operation for operation in self.industrial_data_operations if operation
-                                           not in self.excluded]
+        self.industrial_data_operations = [
+            operation for operation in self.industrial_data_operations if operation not in self.excluded]
 
     def transform_to_pipeline_node(self, node):
         return self.node_adapter._transform_to_pipeline_node(node)
@@ -169,8 +167,10 @@ class IndustrialMutations:
         if new_node_child:
             graph.connect_nodes(node_parent=new_node,
                                 node_child=new_node_child)
-            graph.disconnect_nodes(node_parent=node_to_mutate, node_child=new_node_child,
-                                   clean_up_leftovers=True)
+            graph.disconnect_nodes(
+                node_parent=node_to_mutate,
+                node_child=new_node_child,
+                clean_up_leftovers=True)
 
         return graph
 
@@ -241,9 +241,8 @@ class IndustrialMutations:
         if removal_type == RemoveType.with_direct_children:
             # TODO refactor workaround with data_source
             graph.delete_node(node_to_del)
-            nodes_to_delete = \
-                [n for n in graph.nodes
-                 if n.descriptive_id.count('data_source') == 1 and node_name in n.descriptive_id]
+            nodes_to_delete = [n for n in graph.nodes if n.descriptive_id.count(
+                'data_source') == 1 and node_name in n.descriptive_id]
             for child_node in nodes_to_delete:
                 graph.delete_node(child_node, reconnect=ReconnectType.all)
         elif removal_type == RemoveType.with_parents:
@@ -266,7 +265,8 @@ class IndustrialMutations:
             task=self.task_type, mode='data_operation', tags=["basis"])
         extractors = get_operations_for_task(
             task=self.task_type, mode='data_operation', tags=["extractor"])
-        extractors = [x for x in extractors if x in self.industrial_data_operations]
+        extractors = [
+            x for x in extractors if x in self.industrial_data_operations]
         models = get_operations_for_task(task=self.task_type, mode='model')
         models = [x for x in models if x not in self.excluded_mutation]
         basis_model = PipelineNode(choice(basis_models))
@@ -289,12 +289,17 @@ class IndustrialMutations:
         if 'lagged' in current_operation:
             return pipeline
         else:
-            pipeline = PipelineBuilder().add_sequence(*lagged, branch_idx=0).\
-                add_sequence(*current_operation, branch_idx=1).join_branches('ridge').build()
+            pipeline = PipelineBuilder().add_sequence(
+                *lagged,
+                branch_idx=0). add_sequence(
+                *current_operation,
+                branch_idx=1).join_branches('ridge').build()
             return pipeline
 
 
-def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Sequence[MutationTypesEnum]:
+def _get_default_industrial_mutations(
+        task_type: TaskTypesEnum,
+        params) -> Sequence[MutationTypesEnum]:
     ind_mutations = IndustrialMutations(task_type=task_type)
     mutations = [
         parameter_change_mutation,
@@ -307,7 +312,7 @@ def _get_default_industrial_mutations(task_type: TaskTypesEnum, params) -> Seque
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
         mutations.append(boosting_mutation)
-        #mutations.append(ind_mutations.add_lagged)
+        # mutations.append(ind_mutations.add_lagged)
         mutations.remove(ind_mutations.add_preprocessing)
         mutations.remove(ind_mutations.single_add)
     # TODO remove workaround after validation fix
@@ -321,7 +326,9 @@ class IndustrialCrossover:
     def subtree_crossover(self,
                           graph_1: OptGraph,
                           graph_2: OptGraph,
-                          max_depth: int, inplace: bool = True) -> Tuple[OptGraph, OptGraph]:
+                          max_depth: int,
+                          inplace: bool = True) -> Tuple[OptGraph,
+                                                         OptGraph]:
         """Performed by the replacement of random subtree
         in first selected parent to random subtree from the second parent"""
 
@@ -342,8 +349,14 @@ class IndustrialCrossover:
         node_from_graph_second = choice(nodes_from_layer(
             graph_2, random_layer_in_graph_second))
 
-        replace_subtrees(graph_1, graph_2, node_from_graph_first, node_from_graph_second,
-                         random_layer_in_graph_first, random_layer_in_graph_second, max_depth)
+        replace_subtrees(
+            graph_1,
+            graph_2,
+            node_from_graph_first,
+            node_from_graph_second,
+            random_layer_in_graph_first,
+            random_layer_in_graph_second,
+            max_depth)
 
         return graph_1, graph_2
 
@@ -360,12 +373,18 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                                   node_depth(node_from_graph_first)
+                node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                                    node_depth(node_from_graph_second)
+                node_depth(node_from_graph_second)
 
-            replace_subtrees(graph_first, graph_second, node_from_graph_first, node_from_graph_second,
-                             layer_in_graph_first, layer_in_graph_second, max_depth)
+            replace_subtrees(
+                graph_first,
+                graph_second,
+                node_from_graph_first,
+                node_from_graph_second,
+                layer_in_graph_first,
+                layer_in_graph_second,
+                max_depth)
         return graph_first, graph_second
 
     @register_native
@@ -421,8 +440,11 @@ class IndustrialCrossover:
         return graph_first, graph_second
 
     @register_native
-    def exchange_parents_one_crossover(self,
-                                       graph_first: OptGraph, graph_second: OptGraph, max_depth: int):
+    def exchange_parents_one_crossover(
+            self,
+            graph_first: OptGraph,
+            graph_second: OptGraph,
+            max_depth: int):
         """For the selected node for the first parent, change the parent nodes to
         the parent nodes of the same node of the second parent. Thus, the first child is obtained.
         The second child is a copy of the second parent"""
@@ -462,8 +484,11 @@ class IndustrialCrossover:
         return graph_first, graph_second
 
     @register_native
-    def exchange_parents_both_crossover(self,
-                                        graph_first: OptGraph, graph_second: OptGraph, max_depth: int):
+    def exchange_parents_both_crossover(
+            self,
+            graph_first: OptGraph,
+            graph_second: OptGraph,
+            max_depth: int):
         """For the selected node for the first parent, change the parent nodes to
         the parent nodes of the same node of the second parent. Thus, the first child is obtained.
         The second child is formed in a similar way"""
@@ -539,7 +564,7 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
                     f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination')
             # There are several parents for current node or at least 1
             for parent in parent_nodes:
-                parent_operation = parent.operation.operation_type
+                parent.operation.operation_type
                 if current_operation in basis_models and \
                         pipeline.nodes[idx + 1].operation.operation_type not in extractor:
                     raise ValueError(
@@ -552,5 +577,5 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
 
 def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> None:
-    ind_crossover = IndustrialCrossover()
+    IndustrialCrossover()
     return None

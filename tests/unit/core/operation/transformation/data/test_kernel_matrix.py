@@ -1,10 +1,8 @@
-import json
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
 from scipy.spatial.distance import pdist
 
-from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
 from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
@@ -53,7 +51,7 @@ def test_binarization(ts_transformer, params):
     bin_matrix = ts_transformer.binarization(dist_matrix, threshold=None)
 
     assert len(bin_matrix.shape) == 1
-    assert len(np.unique(bin_matrix)) <=2
+    assert len(np.unique(bin_matrix)) <= 2
 
 
 def test_get_recurrence_metrics(ts_transformer, params):

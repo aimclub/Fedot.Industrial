@@ -9,10 +9,8 @@ from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGe
 
 
 def dataset(binary):
-    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=100,
-                                                                       max_ts_len=24,
-                                                                       binary=True,
-                                                                       test_size=0.5).generate_data()
+    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(
+        num_samples=100, max_ts_len=24, binary=True, test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 
 

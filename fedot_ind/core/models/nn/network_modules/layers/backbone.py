@@ -7,12 +7,32 @@ from fedot_ind.core.models.nn.network_modules.layers.special import _TSTiEncoder
 
 
 class _PatchTST_backbone(nn.Module):
-    def __init__(self, input_dim, seq_len, pred_dim, patch_len, stride,
-                 n_layers=3, d_model=128, n_heads=16, d_k=None, d_v=None,
-                 d_ff=256, norm='BatchNorm', attn_dropout=0., dropout=0.,
-                 act="GELU", res_attention=True, pre_norm=False, store_attn=False,
-                 padding_patch=True, individual=False,
-                 revin=True, affine=True, subtract_last=False, preprocess_to_lagged=False):
+    def __init__(
+            self,
+            input_dim,
+            seq_len,
+            pred_dim,
+            patch_len,
+            stride,
+            n_layers=3,
+            d_model=128,
+            n_heads=16,
+            d_k=None,
+            d_v=None,
+            d_ff=256,
+            norm='BatchNorm',
+            attn_dropout=0.,
+            dropout=0.,
+            act="GELU",
+            res_attention=True,
+            pre_norm=False,
+            store_attn=False,
+            padding_patch=True,
+            individual=False,
+            revin=True,
+            affine=True,
+            subtract_last=False,
+            preprocess_to_lagged=False):
 
         super().__init__()
 
@@ -36,10 +56,22 @@ class _PatchTST_backbone(nn.Module):
         self.patch_len = patch_len
 
         # Backbone
-        self.backbone = _TSTiEncoder(input_dim=input_dim, patch_num=patch_num, patch_len=patch_len,
-                                     n_layers=n_layers, d_model=d_model, n_heads=n_heads, d_k=d_k, d_v=d_v, d_ff=d_ff,
-                                     attn_dropout=attn_dropout, dropout=dropout, act=act,
-                                     res_attention=res_attention, pre_norm=pre_norm, store_attn=store_attn)
+        self.backbone = _TSTiEncoder(
+            input_dim=input_dim,
+            patch_num=patch_num,
+            patch_len=patch_len,
+            n_layers=n_layers,
+            d_model=d_model,
+            n_heads=n_heads,
+            d_k=d_k,
+            d_v=d_v,
+            d_ff=d_ff,
+            attn_dropout=attn_dropout,
+            dropout=dropout,
+            act=act,
+            res_attention=res_attention,
+            pre_norm=pre_norm,
+            store_attn=store_attn)
 
         # Head
         self.head_nf = d_model * patch_num

@@ -3,7 +3,6 @@ from functools import partial
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fastai.layers import *
 from fastai.torch_core import Module
 from fastcore.basics import snake2camel
 from torch import Tensor
@@ -163,9 +162,8 @@ class View(Module):
         self.shape = shape
 
     def forward(self, x):
-        return x.view(x.shape[0], -1).contiguous() if not self.shape else x.view(-1).contiguous() if self.shape == (
-            -1,) else \
-            x.view(x.shape[0], *self.shape).contiguous()
+        return x.view(x.shape[0], -1).contiguous() if not self.shape else x.view(-1).contiguous(
+        ) if self.shape == (-1,) else x.view(x.shape[0], *self.shape).contiguous()
 
     def __repr__(
         self): return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
@@ -176,8 +174,8 @@ class Reshape(Module):
         self.shape = shape
 
     def forward(self, x):
-        return x.reshape(x.shape[0], -1) if not self.shape else x.reshape(-1) if self.shape == (-1,) else x.reshape(
-            x.shape[0], *self.shape)
+        return x.reshape(x.shape[0], -1) if not self.shape else x.reshape(
+            -1) if self.shape == (-1,) else x.reshape(x.shape[0], *self.shape)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({', '.join(['bs'] + [str(s) for s in self.shape])})"
@@ -297,8 +295,13 @@ class FlattenHead(nn.Module):
             try:
                 return self.layer(x)
             except Exception:
-                self.layer = nn.Sequential(nn.Flatten(start_dim=-2),
-                                           nn.Linear(x.shape[3] * self.nf, self.pred_dim, device=default_device()))
+                self.layer = nn.Sequential(
+                    nn.Flatten(
+                        start_dim=-2),
+                    nn.Linear(
+                        x.shape[3] * self.nf,
+                        self.pred_dim,
+                        device=default_device()))
                 return self.layer(x)
 
 

@@ -1,4 +1,3 @@
-import pandas as pd
 import pytest
 from fedot.core.data.data import InputData, OutputData
 from fedot_ind.api.utils.data import init_input_data
@@ -9,10 +8,8 @@ from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGe
 
 
 def dataset(binary):
-    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
-                                                                       max_ts_len=50,
-                                                                       binary=True,
-                                                                       test_size=0.5).generate_data()
+    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(
+        num_samples=20, max_ts_len=50, binary=True, test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 
 

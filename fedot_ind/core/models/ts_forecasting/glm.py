@@ -6,7 +6,7 @@ from fedot.core.repository.metrics_repository import RegressionMetricsEnum
 from golem.core.tuning.optuna_tuner import OptunaTuner
 from scipy.stats import kurtosis, skew
 from statsmodels.genmod.families import Gamma, Gaussian, InverseGaussian
-from statsmodels.genmod.families.links import identity, inverse_power, inverse_squared, log as lg
+from statsmodels.genmod.families.links import inverse_squared, log as lg
 from statsmodels.genmod.generalized_linear_model import GLM
 
 from fedot.core.data.data import InputData, OutputData
@@ -31,8 +31,12 @@ class GLMIndustrial(ModelImplementation):
         self.model = None
         self.family_link = None
         self.auto_reg = PipelineBuilder().add_node('ar').build()
-        self.ar_tuning_params = dict(tuner=OptunaTuner, metric=RegressionMetricsEnum.RMSE, tuning_timeout=3,
-                                     tuning_early_stop=20, tuning_iterations=50)
+        self.ar_tuning_params = dict(
+            tuner=OptunaTuner,
+            metric=RegressionMetricsEnum.RMSE,
+            tuning_timeout=3,
+            tuning_early_stop=20,
+            tuning_iterations=50)
 
     @property
     def family(self) -> str:
@@ -43,7 +47,11 @@ class GLMIndustrial(ModelImplementation):
         return self.params.get('link')
 
     def _check_glm_params(self, mean_kurtosis, mean_skew):
-        if np.logical_or(mean_kurtosis < -1, mean_kurtosis > 1) and np.logical_or(mean_skew < -0.2, mean_skew > 0.2):
+        if np.logical_or(
+                mean_kurtosis < -1,
+                mean_kurtosis > 1) and np.logical_or(
+                mean_skew < -0.2,
+                mean_skew > 0.2):
             family = 'gamma'
         elif np.logical_or(mean_kurtosis < -2, mean_kurtosis > 2) and np.logical_or(mean_skew < -0.5, mean_skew > 0.5):
             family = "inverse_gaussian"
@@ -52,13 +60,15 @@ class GLMIndustrial(ModelImplementation):
         return family
 
     def fit(self, input_data):
-        pipeline_tuner, tuned_model = build_tuner(self, self.auto_reg, self.ar_tuning_params, input_data, 'head')
+        pipeline_tuner, tuned_model = build_tuner(
+            self, self.auto_reg, self.ar_tuning_params, input_data, 'head')
         self.auto_reg = tuned_model
         residual = self.auto_reg.root_node.fitted_operation[0].autoreg.resid
         residual = np.nan_to_num(residual, nan=0, posinf=0, neginf=0)
         family = self._check_glm_params(kurtosis(residual), skew(residual))
         self.family_link = self.family_distribution[family]
-        self.exog_residual = sm.add_constant(np.arange(0, residual.shape[0]).astype("float64")).reshape(-1, 2)
+        self.exog_residual = sm.add_constant(
+            np.arange(0, residual.shape[0]).astype("float64")).reshape(-1, 2)
         self.model = GLM(
             exog=self.exog_residual,
             endog=residual.astype("float64").reshape(-1, 1),
@@ -71,10 +81,10 @@ class GLMIndustrial(ModelImplementation):
         input_data = copy(input_data)
         parameters = input_data.task.task_params
         forecast_length = parameters.forecast_length
-        old_idx = input_data.idx
+        input_data.idx
         if forecast_length == 1:
-            predictions = self.model.predict(np.concatenate([np.array([1]),
-                                                             input_data.idx.astype("float64")]).reshape(-1, 2))
+            predictions = self.model.predict(np.concatenate(
+                [np.array([1]), input_data.idx.astype("float64")]).reshape(-1, 2))
         else:
             predictions = self.model.predict(self.exog_residual)
         predictions = predictions[-forecast_length:]

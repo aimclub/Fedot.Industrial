@@ -21,7 +21,6 @@ from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPl
 from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-from fedot_ind.core.models.topological.topofeatures import *
 from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
@@ -30,7 +29,8 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
 def beta_thr(beta):
-    return 0.56 * np.power(beta, 3) - 0.95 * np.power(beta, 2) + 1.82 * beta + 1.43
+    return 0.56 * np.power(beta, 3) - 0.95 * \
+        np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 class ComputationalConstant(Enum):
@@ -65,8 +65,7 @@ class KernelsConstant(Enum):
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
 
     KERNEL_BASELINE_NODE_LIST = {
-        # 'minirocket_extractor': (None, 'minirocket_extractor'),
-        'quantile_extractor': (None,  'quantile_extractor'),
+        'quantile_extractor': (None, 'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
         'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
         'fourier_extractor': ('fourier_basis', 'quantile_extractor'),
@@ -124,22 +123,21 @@ class FeatureConstant(Enum):
                     'minkowski': minkowski
                     }
 
-    PERSISTENCE_DIAGRAM_FEATURES = {'HolesNumberFeature': HolesNumberFeature(),
-                                    'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
-                                    'RelevantHolesNumber': RelevantHolesNumber(),
-                                    'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
-                                    'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
-                                    'PersistenceEntropyFeature': PersistenceEntropyFeature(),
-                                    'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
-                                    'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
-                                    'BettiNumbersSumFeature': BettiNumbersSumFeature(),
-                                    'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
+    PERSISTENCE_DIAGRAM_FEATURES = {
+        'HolesNumberFeature': HolesNumberFeature(),
+        'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
+        'RelevantHolesNumber': RelevantHolesNumber(),
+        'AverageHoleLifetimeFeature': AverageHoleLifetimeFeature(),
+        'SumHoleLifetimeFeature': SumHoleLifetimeFeature(),
+        'PersistenceEntropyFeature': PersistenceEntropyFeature(),
+        'SimultaneousAliveHolesFeature': SimultaneousAliveHolesFeature(),
+        'AveragePersistenceLandscapeFeature': AveragePersistenceLandscapeFeature(),
+        'BettiNumbersSumFeature': BettiNumbersSumFeature(),
+        'RadiusAtMaxBNFeature': RadiusAtMaxBNFeature()}
 
-    PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(takens_embedding_dim=1,
-                                                                 takens_embedding_delay=2,
-                                                                 homology_dimensions=(
-                                                                     0, 1),
-                                                                 parallel=False)
+    PERSISTENCE_DIAGRAM_EXTRACTOR = PersistenceDiagramsExtractor(
+        takens_embedding_dim=1, takens_embedding_delay=2, homology_dimensions=(
+            0, 1), parallel=False)
     DISCRETE_WAVELETS = pywt.wavelist(kind='discrete')
     CONTINUOUS_WAVELETS = pywt.wavelist(kind='continuous')
     WAVELET_SCALES = [2, 4, 10, 20]
@@ -149,10 +147,12 @@ class FeatureConstant(Enum):
 
 class FedotOperationConstant(Enum):
     EXCLUDED_OPERATION = ['fast_ica']
-    FEDOT_TASK = {'classification': Task(TaskTypesEnum.classification),
-                  'regression': Task(TaskTypesEnum.regression),
-                  'ts_forecasting': Task(TaskTypesEnum.ts_forecasting,
-                                         TsForecastingParams(forecast_length=1))}
+    FEDOT_TASK = {
+        'classification': Task(
+            TaskTypesEnum.classification), 'regression': Task(
+            TaskTypesEnum.regression), 'ts_forecasting': Task(
+                TaskTypesEnum.ts_forecasting, TsForecastingParams(
+                    forecast_length=1))}
     EXCLUDED_OPERATION_MUTATION = {
         'regression': ['inception_model',
                        'resnet_model',
@@ -182,50 +182,48 @@ class FedotOperationConstant(Enum):
             'bernb',
             'qda',
         ]}
-    FEDOT_API_PARAMS = default_param_values_dict = dict(problem=None,
-                                                        task_params=None,
-                                                        timeout=None,
-                                                        n_jobs=-1,
-                                                        logging_level=50,
-                                                        seed=42,
-                                                        parallelization_mode='populational',
-                                                        show_progress=True,
-                                                        max_depth=6,
-                                                        max_arity=3,
-                                                        pop_size=20,
-                                                        num_of_generations=None,
-                                                        keep_n_best=1,
-                                                        available_operations=None,
-                                                        metric=None,
-                                                        cv_folds=2,
-                                                        genetic_scheme=None,
-                                                        early_stopping_iterations=None,
-                                                        early_stopping_timeout=10,
-                                                        optimizer=None,
-                                                        collect_intermediate_metric=False,
-                                                        max_pipeline_fit_time=None,
-                                                        initial_assumption=None,
-                                                        preset=None,
-                                                        use_pipelines_cache=True,
-                                                        use_preprocessing_cache=True,
-                                                        use_input_preprocessing=True,
-                                                        use_auto_preprocessing=False,
-                                                        use_meta_rules=False,
-                                                        cache_dir=None,
-                                                        keep_history=True,
-                                                        history_dir=None,
-                                                        with_tuning=True
-                                                        )
+    FEDOT_API_PARAMS = default_param_values_dict = dict(
+        problem=None,
+        task_params=None,
+        timeout=None,
+        n_jobs=-1,
+        logging_level=50,
+        seed=42,
+        parallelization_mode='populational',
+        show_progress=True,
+        max_depth=6,
+        max_arity=3,
+        pop_size=20,
+        num_of_generations=None,
+        keep_n_best=1,
+        available_operations=None,
+        metric=None,
+        cv_folds=2,
+        genetic_scheme=None,
+        early_stopping_iterations=None,
+        early_stopping_timeout=10,
+        optimizer=None,
+        collect_intermediate_metric=False,
+        max_pipeline_fit_time=None,
+        initial_assumption=None,
+        preset=None,
+        use_pipelines_cache=True,
+        use_preprocessing_cache=True,
+        use_input_preprocessing=True,
+        use_auto_preprocessing=False,
+        use_meta_rules=False,
+        cache_dir=None,
+        keep_history=True,
+        history_dir=None,
+        with_tuning=True)
     FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
                          'ts_forecasting': calculate_forecasting_metric,
                          'classification': calculate_classification_metric}
-    FEDOT_TUNING_METRICS = {'classification': ClassificationMetricsEnum.accuracy,
-                            'ts_forecasting': RegressionMetricsEnum.RMSE,
-                            'regression': RegressionMetricsEnum.RMSE}
+    FEDOT_TUNING_METRICS = {
+        'classification': ClassificationMetricsEnum.accuracy,
+        'ts_forecasting': RegressionMetricsEnum.RMSE,
+        'regression': RegressionMetricsEnum.RMSE}
     FEDOT_TUNER_STRATEGY = {
-        # 'sequential': partial(SequentialTuner, inverse_node_order=True),
-        # 'simultaneous': SimultaneousTuner,
-        #  'IOptTuner': IOptTuner,
         'optuna': OptunaTuner
     }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
@@ -252,21 +250,22 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration').
-        add_node('quantile_extractor').add_node('xgboost'),
+        'classification': PipelineBuilder().add_node('channel_filtration'). add_node('quantile_extractor').add_node('xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-        'ts_forecasting': PipelineBuilder().add_node('eigen_basis', params={'low_rank_approximation': False,
-                                                                            'rank_regularization': 'explained_dispersion'}).add_node(
-            'ar')}
+        'ts_forecasting': PipelineBuilder().add_node(
+            'eigen_basis',
+            params={
+                'low_rank_approximation': False,
+                'rank_regularization': 'explained_dispersion'}).add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        # 'lagged_ridge': PipelineBuilder().add_node('lagged').add_node('ridge'),
-        'eigen_ar': PipelineBuilder().add_node('eigen_basis',
-                                               params={'low_rank_approximation': False,
-                                                       'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-       # 'topological_ridge': PipelineBuilder().add_node('lagged').add_node('topological_extractor').add_node('ridge'),
-       'glm': PipelineBuilder().add_node('glm')
-    }
+        'arima': PipelineBuilder().add_node('stl_arima'),
+        'eigen_ar': PipelineBuilder().add_node(
+            'eigen_basis',
+            params={
+                'low_rank_approximation': False,
+                'rank_regularization': 'explained_dispersion'}).add_node('ar'),
+        'glm': PipelineBuilder().add_node('glm')}
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
@@ -609,6 +608,40 @@ class BenchmarkDatasets(Enum):
     ]
 
 
+class UnitTestConstant(Enum):
+    VALID_LINEAR_CLF_PIPELINE = {
+        'eigen_statistical': [
+            'eigen_basis', 'quantile_extractor', 'logit'], 'channel_filtration_statistical': [
+            'channel_filtration', 'quantile_extractor', 'logit'], 'fourier_statistical': [
+                'fourier_basis', 'quantile_extractor', 'logit'], 'wavelet_statistical': [
+                    'wavelet_basis', 'quantile_extractor', 'logit'], 'recurrence_clf': [
+                        'recurrence_extractor', 'logit'], 'riemann_clf': [
+                            'riemann_extractor', 'logit'], 'topological_clf': [
+                                'topological_extractor', 'logit'], 'statistical_clf': [
+                                    'quantile_extractor', 'logit'], 'statistical_lgbm': [
+                                        'quantile_extractor', 'lgbm'], 'composite_clf': {
+                                            0: ['quantile_extractor'], 1: ['riemann_extractor'], 2: [
+                                                'fourier_basis', 'quantile_extractor'], 'head': 'mlp'}}
+    VALID_LINEAR_REG_PIPELINE = {
+        'eigen_statistical_reg': [
+            'eigen_basis', 'quantile_extractor', 'treg'], 'channel_filtration_statistical_reg': [
+            'channel_filtration', 'quantile_extractor', 'treg'], 'fourier_statistical_reg': [
+                'fourier_basis', 'quantile_extractor', 'treg'], 'wavelet_statistical_reg': [
+                    'wavelet_basis', 'quantile_extractor', 'treg'], 'recurrence_reg': [
+                        'recurrence_extractor', 'treg'], 'topological_reg': [
+                            'topological_extractor', 'treg'], 'statistical_reg': [
+                                'quantile_extractor', 'treg'], 'statistical_lgbmreg': [
+                                    'quantile_extractor', 'lgbmreg'], 'composite_reg': {
+                                        0: ['quantile_extractor'], 1: ['topological_extractor'], 2: [
+                                            'fourier_basis', 'quantile_extractor'], 'head': 'treg'}}
+    VALID_LINEAR_TSF_PIPELINE = {
+        'stl_arima': ['stl_arima'], 'topological_lgbm': [
+            'topological_extractor', 'lgbmreg'], 'ar': ['ar'], 'eigen_autoregression': [
+            'eigen_basis', 'ar'], 'smoothed_ar': [
+                'smoothing', 'ar'], 'gaussian_ar': [
+                    'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
+
+
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
 STAT_METHODS_GLOBAL = FeatureConstant.STAT_METHODS_GLOBAL.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
@@ -676,3 +709,7 @@ MULTI_CLF_BENCH = BenchmarkDatasets.MULTI_CLF_BENCH.value
 M4_FORECASTING_BENCH = BenchmarkDatasets.M4_FORECASTING_BENCH.value
 M4_FORECASTING_LENGTH = BenchmarkDatasets.M4_FORECASTING_LENGTH.value
 M4_PREFIX = BenchmarkDatasets.M4_PREFIX.value
+
+VALID_LINEAR_CLF_PIPELINE = UnitTestConstant.VALID_LINEAR_CLF_PIPELINE.value
+VALID_LINEAR_REG_PIPELINE = UnitTestConstant.VALID_LINEAR_REG_PIPELINE.value
+VALID_LINEAR_TSF_PIPELINE = UnitTestConstant.VALID_LINEAR_TSF_PIPELINE.value

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Union
 
 import pandas as pd
 from sklearn.metrics import f1_score, roc_auc_score
@@ -38,10 +39,12 @@ def compare_forecast_with_sota(dataset_name, horizon):
     n_beats = pd.read_csv(n_beats)
     autogluon = pd.read_csv(autogluon)
 
-    n_beats_forecast = calculate_forecasting_metric(target=n_beats['value'].values,
-                                                    labels=n_beats['predict'].values)
-    autogluon_forecast = calculate_forecasting_metric(target=autogluon['value'].values,
-                                                      labels=autogluon['predict'].values)
+    n_beats_forecast = calculate_forecasting_metric(
+        target=n_beats['value'].values,
+        labels=n_beats['predict'].values)
+    autogluon_forecast = calculate_forecasting_metric(
+        target=autogluon['value'].values,
+        labels=autogluon['predict'].values)
     return n_beats['predict'].values, n_beats_forecast, autogluon['predict'].values, autogluon_forecast
 
 
@@ -66,8 +69,9 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
         for forecat_model, predict in labels.items():
             industrial.predicted_labels = predict
             best_model = forecat_model
-            current_metric = industrial.get_metrics(target=target,
-                                                    metric_names=('smape', 'rmse', 'median_absolute_error'))
+            current_metric = industrial.get_metrics(
+                target=target, metric_names=(
+                    'smape', 'rmse', 'median_absolute_error'))
             current_rmse = current_metric['rmse'].values[0]
 
             if current_rmse < val:
@@ -78,26 +82,42 @@ def industrial_forecasting_modelling_loop(dataset_name: str = None,
 
         industrial.solver = industrial.solver[best_model]
     else:
-        metrics = industrial.get_metrics(target=target,
-                                         metric_names=('smape', 'rmse', 'median_absolute_error'))
+        metrics = industrial.get_metrics(
+            target=target, metric_names=(
+                'smape', 'rmse', 'median_absolute_error'))
     return industrial, labels, metrics, target
 
 
-def industrial_common_modelling_loop(dataset_name: str = None,
-                                     finetune: bool = False,
-                                     api_config: dict = None,
-                                     metric_names: tuple = ('r2', 'rmse', 'mae')):
+def industrial_common_modelling_loop(
+        dataset_name: Union[str, dict] = None,
+        finetune: bool = False,
+        api_config: dict = None,
+        metric_names: tuple = (
+            'r2',
+            'rmse',
+            'mae')):
     industrial = FedotIndustrial(**api_config)
-
-    train_data, test_data = DataLoader(dataset_name=dataset_name).load_data()
+    if api_config['problem'] == 'ts_forecasting':
+        train_data, _ = DataLoader(
+            dataset_name=dataset_name['dataset']).load_forecast_data(
+            dataset_name['benchmark'])
+        target = train_data.values[-api_config['task_params']
+                                   ['forecast_length']:].flatten()
+        train_data = (train_data, target)
+        test_data = train_data
+    else:
+        train_data, test_data = DataLoader(
+            dataset_name=dataset_name).load_data()
     if finetune:
         industrial.finetune(train_data, tuning_params={
-                            'tuning_timeout': api_config['timeout']})
+            'tuning_timeout': api_config['timeout']})
     else:
         industrial.fit(train_data)
 
     labels = industrial.predict(test_data)
-    probs = industrial.predict_proba(test_data)
+    if api_config['problem'] != 'ts_forecasting':
+        industrial.predict_proba(test_data)
+
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=metric_names)
@@ -123,8 +143,17 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = pd.concat(df)
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
-    df_full['Difference_industrial'] = (
+    df_full['Difference_industrial_All'] = (
         df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
-    df_full['industrial_Wins'] = df_full.apply(lambda row: 'Win' if row.loc['Difference_industrial'] > 0 else 'Loose',
-                                               axis=1)
+    df_full['Difference_industrial_AG'] = (
+        df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+    df_full['Difference_industrial_NBEATS'] = (
+        df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
+    df_full['industrial_Wins_All'] = df_full.apply(
+        lambda row: 'Win' if row.loc['Difference_industrial_All'] > 0 else 'Loose', axis=1)
+    df_full['industrial_Wins_AG'] = df_full.apply(
+        lambda row: 'Win' if row.loc['Difference_industrial_AG'] > 0 else 'Loose', axis=1)
+    df_full['industrial_Wins_NBEATS'] = df_full.apply(
+        lambda row: 'Win' if row.loc['Difference_industrial_NBEATS'] > 0 else 'Loose',
+        axis=1)
     return df_full

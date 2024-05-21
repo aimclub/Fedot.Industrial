@@ -42,9 +42,9 @@ class HankelMatrix:
             self.__window_length = int(self.__ts_length / 3)
 
     def __convert_ts_to_array(self):
-        if type(self.__time_series) == pd.DataFrame:
+        if isinstance(self.__time_series, pd.DataFrame):
             self.__time_series = self.__time_series.values.reshape(-1, 1)
-        elif type(self.__time_series) == list:
+        elif isinstance(self.__time_series, list):
             self.__time_series = np.array(self.__time_series)
         else:
             self.__time_series = self.__time_series
@@ -59,12 +59,11 @@ class HankelMatrix:
 
     def __get_2d_trajectory_matrix(self):
         if self.__strides > 1:
-            return [self.__strided_trajectory_matrix(time_series) for time_series
-                    in self.__time_series]
+            return [self.__strided_trajectory_matrix(
+                time_series) for time_series in self.__time_series]
         else:
-            return [backend_scipy.hankel(time_series[:self.__window_length + 1], time_series[self.__window_length:]) for
-                    time_series
-                    in self.__time_series]
+            return [backend_scipy.hankel(time_series[:self.__window_length + 1],
+                                         time_series[self.__window_length:]) for time_series in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):
         shape = (time_series.shape[0] -

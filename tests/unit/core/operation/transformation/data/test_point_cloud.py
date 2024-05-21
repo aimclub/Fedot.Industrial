@@ -32,7 +32,8 @@ def test_TSTransformer(basic_periodic_data):
 #     assert len(topological_transformer.time_series_rolling_betti_ripser(basic_periodic_data)) != 0
 
 
-def test_TopologicalTransformation_time_series_to_point_cloud(basic_periodic_data):
+def test_TopologicalTransformation_time_series_to_point_cloud(
+        basic_periodic_data):
     topological_transformer = TopologicalTransformation(
         time_series=basic_periodic_data,
         max_simplex_dim=1,

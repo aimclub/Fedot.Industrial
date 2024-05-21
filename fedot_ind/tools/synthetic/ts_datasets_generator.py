@@ -58,7 +58,9 @@ class TimeSeriesDatasetsGenerator:
         if self.multivariate:
             n_classes = len(self.selected_classes)
             features = self.create_features(
-                self.num_samples * n_classes, self.max_ts_len, self.multivariate)
+                self.num_samples * n_classes,
+                self.max_ts_len,
+                self.multivariate)
 
             if self.task == 'classification':
                 target = np.random.randint(

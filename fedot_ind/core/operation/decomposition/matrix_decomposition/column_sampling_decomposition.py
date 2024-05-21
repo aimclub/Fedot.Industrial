@@ -1,8 +1,6 @@
 from typing import Tuple
 
-import matplotlib.pyplot as plt
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from sklearn.preprocessing import MinMaxScaler
 
 
 class CURDecomposition:
@@ -54,7 +52,8 @@ class CURDecomposition:
             TS_comps[:, i] = eigenvector
         return TS_comps
 
-    def select_rows_cols(self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def select_rows_cols(
+            self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
         col_norms = np.sum(matrix ** 2, axis=0)
         row_norms = np.sum(matrix ** 2, axis=1)
@@ -116,7 +115,6 @@ def get_random_sparse_matrix(size: tuple):
 
 if __name__ == '__main__':
     from fedot_ind.tools.loader import DataLoader
-    from tqdm import tqdm
 
     arr = np.array([[1, 1, 1, 0, 0],
                     [3, 3, 3, 0, 0],

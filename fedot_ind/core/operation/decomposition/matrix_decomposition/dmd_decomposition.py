@@ -69,7 +69,7 @@ def symmetric_decompose(X, Y, rank):
     C = np.dot(Ux.T, np.dot(Y, V))
     C1 = C
     if rank is None:
-        r = np.linalg.matrix_rank(X)
+        np.linalg.matrix_rank(X)
     Ux = Ux[:, :rank]
     Yf = np.zeros((rank, rank))
     for i in range(rank):

@@ -1,4 +1,3 @@
-from fedot_ind.core.models.automl.fedot_implementation import FedotClassificationImplementation, FedotRegressionImplementation
 #
 #
 # def test_fedot_classification_implementation():

@@ -8,8 +8,6 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 @from_maximised_metric
 def metric_f1(reference: InputData, predicted: OutputData) -> float:
     n_classes = reference.num_classes
-    default_value = 0
-    output_mode = 'labels'
     binary_averaging_mode = 'binary'
     multiclass_averaging_mode = 'weighted'
     if n_classes > 2:
@@ -33,7 +31,9 @@ def metric_f1(reference: InputData, predicted: OutputData) -> float:
 def metric_acc(reference: InputData, predicted: OutputData) -> float:
     try:
         if len(predicted.predict.shape) >= 2:
-            if len(reference.target.shape) <= 2 <= len(predicted.predict.shape):
+            if len(
+                    reference.target.shape) <= 2 <= len(
+                    predicted.predict.shape):
                 predicted.predict = np.argmax(predicted.predict, axis=1)
             else:
                 predicted.predict = predicted.predict.squeeze()
@@ -41,6 +41,8 @@ def metric_acc(reference: InputData, predicted: OutputData) -> float:
         elif len(predicted.predict.shape) <= 2 and predicted.predict.dtype.name in ['float', 'float64']:
             predicted.predict = np.round(predicted.predict)
 
-        return accuracy_score(y_true=reference.target, y_pred=predicted.predict)
+        return accuracy_score(
+            y_true=reference.target,
+            y_pred=predicted.predict)
     except Exception:
         _ = 1

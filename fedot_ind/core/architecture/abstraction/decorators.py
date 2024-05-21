@@ -11,7 +11,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 
 def fedot_data_type(func):
     def decorated_func(self, *args):
-        if type(args[0]) is not InputData:
+        if not isinstance(args[0], InputData):
             args[0] = DataConverter(data=args[0])
         features = args[0].features
 
@@ -31,7 +31,7 @@ def convert_to_4d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
         data = DataConverter(data=init_data).convert_to_4d_torch_format()
-        if type(init_data) is InputData:
+        if isinstance(init_data, InputData):
             init_data.features = data
         else:
             init_data = data
@@ -44,7 +44,7 @@ def convert_to_3d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
         data = DataConverter(data=init_data).convert_to_torch_format()
-        if type(init_data) is InputData:
+        if isinstance(init_data, InputData):
             init_data.features = data
         else:
             init_data = data

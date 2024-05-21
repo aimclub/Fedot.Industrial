@@ -1,5 +1,3 @@
-import pytest
-from fedot.core.data.data import OutputData
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -8,19 +6,14 @@ from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGe
 
 
 def dataset_uni():
-    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
-                                                                       max_ts_len=50,
-                                                                       binary=True,
-                                                                       test_size=0.5).generate_data()
+    (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(
+        num_samples=20, max_ts_len=50, binary=True, test_size=0.5).generate_data()
     return X_train, y_train, X_test, y_test
 
 
 def dataset_multi():
     (X_train, y_train), (X_test, y_test) = TimeSeriesDatasetsGenerator(num_samples=20,
-                                                                       max_ts_len=50,
-                                                                       binary=True,
-                                                                       test_size=0.5,
-                                                                       multivariate=True).generate_data()
+                                                                       max_ts_len=50, binary=True, test_size=0.5, multivariate=True).generate_data()
 
     return X_train, y_train, X_test, y_test
 

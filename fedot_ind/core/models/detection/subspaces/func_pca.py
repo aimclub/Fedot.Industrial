@@ -17,14 +17,14 @@ class FunctionalPCA:
                         regularization: Regularization object to be applied.
                         basis_of_function: .
     Attributes:
-        components\_: this contains the principal components.
-        explained_variance\_ : The amount of variance explained by
+        components\\_: this contains the principal components.
+        explained_variance\\_ : The amount of variance explained by
             each of the selected components.
-        explained_variance_ratio\_ : this contains the percentage
+        explained_variance_ratio\\_ : this contains the percentage
             of variance explained by each principal component.
-        singular_values\_: The singular values corresponding to each of the
+        singular_values\\_: The singular values corresponding to each of the
             selected components.
-        mean\_: mean of the train data.
+        mean\\_: mean of the train data.
     Examples:
 
     time_series = np.array([1,2,3,4,5,6])
@@ -50,7 +50,7 @@ class FunctionalPCA:
             self.basis_function = model_hyperparams['basis_function']
 
     def _delete_mean(self, X):
-        if type(X) is not np.ndarray:
+        if not isinstance(X, np.ndarray):
             X = X.values
         mean_centred = np.allclose(X, X - np.mean(X, axis=0))
         if not mean_centred:
@@ -87,7 +87,7 @@ class FunctionalPCA:
             J = np.dot(X, self.basis_function)
         else:
             # If no other basis is specified we use the same basis as the
-            components_basis = X.copy()
+            X.copy()
             # G = pairwise_distance(X.T)
             G = X.T.dot(X)
             J = G
@@ -184,7 +184,7 @@ class FunctionalPCA:
 
     def predict(self, test_features, threshold: float = 0.99):
 
-        if type(test_features) == list:
+        if isinstance(test_features, list):
             list_of_projection, list_of_outliers = [], []
             for window_slice in test_features:
                 current_projection, current_outlier = self._predict(

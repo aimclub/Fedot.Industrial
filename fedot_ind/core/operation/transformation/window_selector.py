@@ -63,7 +63,10 @@ class WindowSizeSelector:
         self.window_min = None
         self.length_ts = None
 
-    def apply(self, time_series: Union[pd.DataFrame, np.array], average: str = 'median') -> int:
+    def apply(self,
+              time_series: Union[pd.DataFrame,
+                                 np.array],
+              average: str = 'median') -> int:
         """Method to run WSS class over bunch of time series.
 
         Args:
@@ -99,9 +102,15 @@ class WindowSizeSelector:
         self.length_ts = len(time_series)
 
         self.window_max = int(
-            round(self.length_ts * self.window_range[1] / 100))  # in real values
+            round(
+                self.length_ts *
+                self.window_range[1] /
+                100))  # in real values
         self.window_min = int(
-            round(self.length_ts * self.window_range[0] / 100))  # in real values
+            round(
+                self.length_ts *
+                self.window_range[0] /
+                100))  # in real values
 
         window_size_selected = self.dict_methods[self.wss_algorithm](
             time_series=time_series)
@@ -116,7 +125,7 @@ class WindowSizeSelector:
         """
         fourier = np.fft.fft(time_series)
         freq = np.fft.fftfreq(time_series.shape[0], 1)
-        l = int(len(freq) // 2)
+        int(len(freq) // 2)
         magnitudes, window_sizes = [], []
 
         for coef, freq in zip(fourier, freq):
@@ -143,7 +152,8 @@ class WindowSizeSelector:
             peaks >= self.window_min, peaks < self.window_max)]
         corrs = acf_values[peaks]
 
-        # if there is no peaks in range (window_min, window_max) return window_min
+        # if there is no peaks in range (window_min, window_max) return
+        # window_min
         if peaks.shape[0] == 0:
             return self.window_min
         return peaks[np.argmax(corrs)]
@@ -188,7 +198,10 @@ class WindowSizeSelector:
         moving_avg[w:] = moving_avg[w:] - moving_avg[:-w]
         return moving_avg[w - 1:] / w
 
-    def summary_statistics_subsequence(self, time_series: np.array, threshold=.89) -> int:
+    def summary_statistics_subsequence(
+            self,
+            time_series: np.array,
+            threshold=.89) -> int:
         """Method to find the window size that maximizes the subsequence unsupervised similarity score (SUSS). It is
         based on the assumption that the window size that best captures the periodicity of the time series is the one
         that maximizes the similarity between subsequences of the time series.
@@ -206,7 +219,9 @@ class WindowSizeSelector:
         max_score = self.suss_score(
             time_series=time_series, window_size=1, stats=stats)
         min_score = self.suss_score(
-            time_series=time_series, window_size=time_series.shape[0] - 1, stats=stats)
+            time_series=time_series,
+            window_size=time_series.shape[0] - 1,
+            stats=stats)
 
         exp = 0
 

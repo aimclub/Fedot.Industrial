@@ -11,6 +11,8 @@ from torch import Tensor
 from torch.optim import lr_scheduler
 from typing import Optional
 
+from tqdm import tqdm
+
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
     convert_to_4d_torch_array, fedot_data_type
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -119,7 +121,7 @@ class BaseNeuralModel:
             self.model.train()
             total = 0
             correct = 0
-            for batch in train_loader:
+            for batch in tqdm(train_loader):
                 optimizer.zero_grad()
                 inputs, targets = batch
                 output = self.model(inputs)
@@ -167,16 +169,20 @@ class BaseNeuralModel:
             self.model = best_model
 
     @fedot_data_type
-    def predict(self,
-                input_data: InputData, output_mode: str = 'default') -> np.array:
+    def predict(
+            self,
+            input_data: InputData,
+            output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """
         return self._predict_model(input_data, output_mode)
 
     @fedot_data_type
-    def predict_for_fit(self,
-                        input_data: InputData, output_mode: str = 'default') -> np.array:
+    def predict_for_fit(
+            self,
+            input_data: InputData,
+            output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """

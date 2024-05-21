@@ -1,11 +1,8 @@
 import numpy as np
 import pandas as pd
 import pytest
-from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.operation.interfaces.industrial_model_strategy import FedotNNClassificationStrategy, \
-    FedotNNRegressionStrategy
 from fedot_ind.core.repository.model_repository import AtomizedModel
 
 NN_MODELS = AtomizedModel.NEURAL_MODEL.value
@@ -15,14 +12,20 @@ NN_MODELS = AtomizedModel.NEURAL_MODEL.value
 def torch_classification_data():
     features = np.random.rand(10, 10)
     target = np.random.randint(2, size=10)
-    return init_input_data(X=pd.DataFrame(features), y=target, task='classification')
+    return init_input_data(
+        X=pd.DataFrame(features),
+        y=target,
+        task='classification')
 
 
 @pytest.fixture()
 def torch_regression_data():
     features = np.random.rand(10, 10)
     target = np.random.rand(10, 1)
-    return init_input_data(X=pd.DataFrame(features), y=target, task='regression')
+    return init_input_data(
+        X=pd.DataFrame(features),
+        y=target,
+        task='regression')
 
 #
 # # TODO: add more models from NN_MODELS

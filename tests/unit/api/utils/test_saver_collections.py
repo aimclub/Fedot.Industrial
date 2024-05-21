@@ -22,7 +22,11 @@ def sample_results():
     baseline_metrics = {'roc_auc': np.random.rand(1),
                         'f1': np.random.rand(1),
                         'accuracy': np.random.rand(1)}
-    return {'labels': labels, 'probs': probs, 'metrics': metrics, 'baseline_metrics': baseline_metrics}
+    return {
+        'labels': labels,
+        'probs': probs,
+        'metrics': metrics,
+        'baseline_metrics': baseline_metrics}
 
 
 @pytest.mark.parametrize('path', [CUSTOM_PATH, DEFAULT_PATH_RESULTS])
@@ -46,7 +50,8 @@ def test_init_result_saver(path):
         shutil.rmtree(Path(saver.output_dir))
 
 
-@pytest.mark.parametrize('prediction_type', ('labels', 'probs', 'metrics', 'baseline_metrics'))
+@pytest.mark.parametrize('prediction_type', ('labels',
+                         'probs', 'metrics', 'baseline_metrics'))
 def test_save(prediction_type, sample_results):
     results = sample_results
     dataset_name = 'name'
@@ -58,7 +63,8 @@ def test_save(prediction_type, sample_results):
     saver = ResultSaver(dataset_name=dataset_name,
                         generator_name=generator_name, output_dir=output_dir)
     saver.save(
-        predicted_data=results[prediction_type], prediction_type=prediction_type)
+        predicted_data=results[prediction_type],
+        prediction_type=prediction_type)
 
     assert os.path.isfile(expected_file_path)
     saved_data = pd.read_csv(expected_file_path, index_col=0)

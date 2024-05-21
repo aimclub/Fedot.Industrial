@@ -3,7 +3,11 @@ from typing import List, Tuple
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
-def weighted_inner_product(F_i: np.ndarray, F_j: np.ndarray, window_length: int, ts_length: int) -> float:
+def weighted_inner_product(
+        F_i: np.ndarray,
+        F_j: np.ndarray,
+        window_length: int,
+        ts_length: int) -> float:
     """Calculate the weighted inner product of two vectors.
 
     Args:
@@ -22,7 +26,10 @@ def weighted_inner_product(F_i: np.ndarray, F_j: np.ndarray, window_length: int,
     return float(w.dot(F_i * F_j))
 
 
-def calculate_matrix_norms(TS_comps: np.ndarray, window_length: int, ts_length: int) -> np.ndarray:
+def calculate_matrix_norms(
+        TS_comps: np.ndarray,
+        window_length: int,
+        ts_length: int) -> np.ndarray:
     """Calculate matrix norms for the time series components.
 
     Args:
@@ -67,7 +74,8 @@ def calculate_corr_matrix(ts_comps: np.ndarray,
     return Wcorr, [i for i in range(Wcorr.shape[0])]
 
 
-def combine_eigenvectors(ts_comps: np.ndarray, window_length: int) -> List[np.ndarray]:
+def combine_eigenvectors(ts_comps: np.ndarray,
+                         window_length: int) -> List[np.ndarray]:
     """Combine eigenvectors based on the w-correlation matrix for the time series.
 
     Args:

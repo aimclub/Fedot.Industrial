@@ -76,32 +76,41 @@ class DataCheck:
         # is_multivariate_data = False
 
         if self.data_convertor.is_tuple:
-            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data[0],
-                                                                                      self.input_data[1])
+            if self.data_convertor.is_torchvision_dataset:
+                features, target, is_multivariate_data = self.input_data[0].data.cpu(
+                ).detach().numpy(), self.input_data[0].targets.cpu().detach().numpy(), True
+            else:
+                features, is_multivariate_data, target = self.__check_features_and_target(
+                    self.input_data[0], self.input_data[1])
         else:
-            features, is_multivariate_data, target = self.__check_features_and_target(self.input_data.features,
-                                                                                      self.input_data.target)
+            features, is_multivariate_data, target = self.__check_features_and_target(
+                self.input_data.features, self.input_data.target)
 
-        if self.label_encoder is None and self.task == 'classification':
-            # x, y = self.input_data.features, self.input_data.target
-            if type(target[0]) is np.str_:
+        if np.logical_and(self.label_encoder is None,
+                          self.task == 'classification'):
+            if isinstance(target[0], np.str_):
                 self.label_encoder = LabelEncoder()
                 target = self.label_encoder.fit_transform(target)
-            # else:
-            #     self.label_encoder = self.label_encoder
 
-        if is_multivariate_data:
+        if is_multivariate_data and not self.data_convertor.is_torchvision_dataset:
             self.input_data = InputData(idx=np.arange(len(features)),
+                                        features=features,
+                                        target=target,
+                                        task=self.task_dict[self.task],
+                                        data_type=DataTypesEnum.image)
+        elif self.data_convertor.is_torchvision_dataset:
+            self.input_data = InputData(idx=np.arange(features.shape[0]),
                                         features=features,
                                         target=target,
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
         elif self.task == 'ts_forecasting':
             features_array = self.data_convertor.convert_to_1d_array()
-            task = Task(TaskTypesEnum.ts_forecasting,
-                        TsForecastingParams(forecast_length=self.task_params['forecast_length']))
+            task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
+                forecast_length=self.task_params['forecast_length']))
             if self.industrial_task_params is None:
-                features_array = features_array[:-self.task_params['forecast_length']]
+                features_array = features_array[:-
+                                                self.task_params['forecast_length']]
                 target = features_array
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,
@@ -137,8 +146,9 @@ class DataCheck:
         - Converts features to torch format using NumpyConverter.
 
         """
-        if self.input_data.target is not None and type(
-                self.input_data.target.ravel()[0]) is np.str_ and self.task == 'regression':
+        if self.input_data.target is not None and isinstance(
+                self.input_data.target.ravel()[0],
+                np.str_) and self.task == 'regression':
             self.input_data.target = self.input_data.target.astype(float)
 
         elif self.task == 'regression':
@@ -163,8 +173,9 @@ class DataCheck:
         """
 
         self._init_input_data()
-        self._check_input_data_features()
-        self._check_input_data_target()
+        if not self.data_convertor.is_torchvision_dataset:
+            self._check_input_data_features()
+            self._check_input_data_target()
         return self.input_data
 
     def get_target_encoder(self):

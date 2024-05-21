@@ -17,7 +17,7 @@ class RiemannExtractor(BaseExtractor):
 
     Attributes:
         estimator (str): estimator for covariance matrix, 'corr', 'cov', 'lwf', 'mcd', 'hub'
-        distance_metric (str): metric for tangent space, 'riemann', 'logeuclid', 'euclid'
+        tangent_metric (str): metric for tangent space, 'riemann', 'logeuclid', 'euclid'
 
     Example:
         To use this class you need to import it and call needed methods::
@@ -45,40 +45,38 @@ class RiemannExtractor(BaseExtractor):
                            'tangent': self.extract_riemann_features,
                            'ensemble': self._ensemble_features}
 
-        self.n_filter = params.get('nfilter', 2)
         self.estimator = params.get('estimator', 'scm')
-        self.covariance_metric = params.get('SPD_metric', 'riemann')
-        self.distance_metric = params.get('tangent_metric', 'riemann')
-        self.extraction_strategy = params.get(
-            'extraction_strategy ', 'ensemble')
+        self.spd_metric = params.get('SPD_metric', 'riemann')
+        self.tangent_metric = params.get('tangent_metric', 'riemann')
+        self.extraction_strategy = 'ensemble'
 
-        self.covariance_transformer = params.get('SPD_space', None)
-        self.tangent_projector = params.get('tangent_space', None)
-        if np.any([self.covariance_transformer, self.tangent_projector]) is None:
+        self.spd_space = params.get('SPD_space', None)
+        self.tangent_space = params.get('tangent_space', None)
+        if np.any([self.spd_space, self.tangent_space]) is None:
             self._init_spaces()
             self.fit_stage = True
         self.extraction_func = extraction_dict[self.extraction_strategy]
 
         self.logging_params.update({
             'estimator': self.estimator,
-            'tangent_space_metric': self.distance_metric,
-            'SPD_space_metric': self.covariance_metric})
+            'tangent_space_metric': self.tangent_metric,
+            'SPD_space_metric': self.spd_metric})
 
     def _init_spaces(self):
-        self.covariance_transformer = Covariances(estimator='scm')
-        self.tangent_projector = TangentSpace(metric=self.distance_metric)
+        self.spd_space = Covariances(estimator='scm')
+        self.tangent_space = TangentSpace(metric=self.tangent_metric)
         self.shrinkage = Shrinkage()
 
     def extract_riemann_features(self, input_data: InputData) -> InputData:
         if not self.fit_stage:
-            SPD = self.covariance_transformer.transform(input_data.features)
+            SPD = self.spd_space.transform(input_data.features)
             SPD = self.shrinkage.transform(SPD)
-            ref_point = self.tangent_projector.transform(SPD)
+            ref_point = self.tangent_space.transform(SPD)
         else:
-            SPD = self.covariance_transformer.fit_transform(
+            SPD = self.spd_space.fit_transform(
                 input_data.features, input_data.target)
             SPD = self.shrinkage.fit_transform(SPD)
-            ref_point = self.tangent_projector.fit_transform(SPD)
+            ref_point = self.tangent_space.fit_transform(SPD)
             self.fit_stage = False
             self.classes_ = np.unique(input_data.target)
         return ref_point
@@ -86,19 +84,19 @@ class RiemannExtractor(BaseExtractor):
     def extract_centroid_distance(self, input_data: InputData):
         input_data.target = input_data.target.astype(int)
         if self.fit_stage:
-            SPD = self.covariance_transformer.fit_transform(
+            SPD = self.spd_space.fit_transform(
                 input_data.features, input_data.target)
             SPD = self.shrinkage.transform(SPD)
 
         else:
-            SPD = self.covariance_transformer.transform(input_data.features)
+            SPD = self.spd_space.transform(input_data.features)
             SPD = self.shrinkage.fit_transform(SPD)
 
-        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
-                                          metric=self.covariance_metric) for ll in self.classes_]
+        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten(
+        )], metric=self.spd_metric) for ll in self.classes_]
 
         n_centroids = len(self.covmeans_)
-        dist = [distance(SPD, self.covmeans_[m], self.distance_metric)
+        dist = [distance(SPD, self.covmeans_[m], self.tangent_metric)
                 for m in range(n_centroids)]
         dist = np.concatenate(dist, axis=1)
         feature_matrix = softmax(-dist ** 2)

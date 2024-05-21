@@ -2,7 +2,6 @@ import logging
 from enum import Enum
 from typing import Dict, List
 
-from sklearn import preprocessing
 
 from fedot_ind.core.metrics.metrics_implementation import *
 
@@ -38,7 +37,7 @@ class PerformanceAnalyzer:
                           target_metrics: list = None) -> Dict:
         self.logger.info(f'Calculating metrics: {target_metrics}')
         try:
-            if type(target[0]) is not float:
+            if not isinstance(target[0], float):
                 labels_diff = max(target) - max(predicted_labels)
 
                 if min(predicted_labels) != min(target):

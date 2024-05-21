@@ -38,8 +38,12 @@ class TransformerModule(Module):
         self.permute = Permute(2, 0, 1)
         self.inlinear = nn.Linear(input_dim, d_model)
         self.relu = nn.ReLU()
-        encoder_layer = TransformerEncoderLayer(d_model, n_head, dim_feedforward=d_ffn, dropout=dropout,
-                                                activation=activation)
+        encoder_layer = TransformerEncoderLayer(
+            d_model,
+            n_head,
+            dim_feedforward=d_ffn,
+            dropout=dropout,
+            activation=activation)
         encoder_norm = nn.LayerNorm(d_model)
         self.transformer_encoder = TransformerEncoder(
             encoder_layer, n_layers, norm=encoder_norm)
@@ -90,8 +94,10 @@ class TransformerModel(BaseNeuralModel):
         self.batch_size = params.get('batch_size', 20)
 
     def _init_model(self, ts):
-        self.model = TransformerModule(input_dim=ts.features.shape[1],
-                                       output_dim=self.num_classes).to(default_device())
+        self.model = TransformerModule(
+            input_dim=ts.features.shape[1],
+            output_dim=self.num_classes).to(
+            default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         loss_fn = nn.CrossEntropyLoss()
         return loss_fn, optimizer
