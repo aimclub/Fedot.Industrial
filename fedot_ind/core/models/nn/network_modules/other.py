@@ -64,7 +64,7 @@ def test_module_to_torchscript(
             if serialize:
                 file_path = Path(f"test_traced_{m_name}.pt")
                 torch.jit.save(traced_m, file_path)
-                traced_mod = torch.jit.load(file_path)
+                torch.jit.load(file_path)
                 file_path.unlink()
             traced_output = traced_m(
                 *inputs) if inp_is_tuple else traced_m(inputs)
@@ -87,7 +87,7 @@ def test_module_to_torchscript(
             if serialize:
                 file_path = Path(f"test_scripted_{m_name}.pt")
                 torch.jit.save(scripted_m, file_path)
-                scripted_mod = torch.jit.load(file_path)
+                torch.jit.load(file_path)
                 file_path.unlink()
             scripted_output = scripted_m(
                 *inputs) if inp_is_tuple else scripted_m(inputs)
@@ -175,7 +175,8 @@ class DropPath(nn.Module):
             torch.rand(shape, dtype=x.dtype, device=x.device)
         random_tensor.floor_()
         output = x.div(keep_prob) * random_tensor
-        #         output = x.div(random_tensor.mean()) * random_tensor # divide by the actual mean to mantain the input mean?
+        # output = x.div(random_tensor.mean()) * random_tensor # divide by the
+        # actual mean to mantain the input mean?
         return output
 
 
@@ -318,8 +319,17 @@ def get_act_fn(act, **act_kwargs):
 class SqueezeExciteBlock(Module):
     def __init__(self, ni, reduction=16):
         self.avg_pool = GAP1d(1)
-        self.fc = nn.Sequential(nn.Linear(ni, ni // reduction, bias=False), nn.ReLU(),
-                                nn.Linear(ni // reduction, ni, bias=False), nn.Sigmoid())
+        self.fc = nn.Sequential(
+            nn.Linear(
+                ni,
+                ni // reduction,
+                bias=False),
+            nn.ReLU(),
+            nn.Linear(
+                ni // reduction,
+                ni,
+                bias=False),
+            nn.Sigmoid())
 
     def forward(self, x):
         y = self.avg_pool(x)
@@ -398,13 +408,21 @@ class TSEmbedding(nn.Embedding):
 
 
 class MultiEmbedding(Module):
-    def __init__(self, c_in, n_cat_embeds, cat_embed_dims=None, cat_pos=None, std=0.01, cat_padding_idxs=None):
+    def __init__(
+            self,
+            c_in,
+            n_cat_embeds,
+            cat_embed_dims=None,
+            cat_pos=None,
+            std=0.01,
+            cat_padding_idxs=None):
         cat_n_embeds = listify(n_cat_embeds)
         if cat_padding_idxs is None:
             cat_padding_idxs = [None]
         else:
             cat_padding_idxs = listify(cat_padding_idxs)
-        if len(cat_padding_idxs) == 1 and len(cat_padding_idxs) < len(cat_n_embeds):
+        if len(cat_padding_idxs) == 1 and len(
+                cat_padding_idxs) < len(cat_n_embeds):
             cat_padding_idxs = cat_padding_idxs * len(cat_n_embeds)
         assert len(cat_n_embeds) == len(cat_padding_idxs)
         if cat_embed_dims is None:
@@ -422,8 +440,11 @@ class MultiEmbedding(Module):
         cont_pos = torch.tensor(
             [p for p in torch.arange(c_in) if p not in self.cat_pos])
         self.register_buffer("cont_pos", cont_pos)
-        self.cat_embed = nn.ModuleList([TSEmbedding(n, d, std=std, padding_idx=p) for n, d, p in
-                                        zip(cat_n_embeds, cat_embed_dims, cat_padding_idxs)])
+        self.cat_embed = nn.ModuleList(
+            [
+                TSEmbedding(
+                    n, d, std=std, padding_idx=p) for n, d, p in zip(
+                    cat_n_embeds, cat_embed_dims, cat_padding_idxs)])
 
     def forward(self, x):
         if isinstance(x, tuple):

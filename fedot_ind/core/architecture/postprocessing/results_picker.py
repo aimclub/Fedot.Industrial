@@ -20,7 +20,7 @@ class ResultsPicker:
     Examples:
         >>> from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
         >>> collector = ResultsPicker(path='to_your_results_folder', launch_type='max')
-        >>> metrics_df = parser.run(get_metrics_df=True)
+        >>> metrics_df = collector.run(get_metrics_df=True)
         >>> metrics_df.to_csv('metrics.csv')
 
     """
@@ -51,7 +51,11 @@ class ResultsPicker:
             if add_info:
                 metrics_df = self._create_metrics_df(metric_dict)
                 datasets_info = self.get_datasets_info()
-                return pd.merge(metrics_df, datasets_info, how='left', on='dataset')
+                return pd.merge(
+                    metrics_df,
+                    datasets_info,
+                    how='left',
+                    on='dataset')
             return self._create_metrics_df(metric_dict)
 
         return proba_dict, metric_dict
@@ -62,13 +66,17 @@ class ResultsPicker:
         for ds in metric_dict.keys():
             for exp in metric_dict[ds].keys():
                 metrics = metric_dict[ds][exp].to_dict(orient='records')[0]
-                metrics_df = metrics_df.append({'dataset': ds, 'experiment': exp,
-                                                'f1': metrics.get('f1'), 'roc_auc': metrics.get('roc_auc'),
-                                                'accuracy': metrics.get('accuracy'), 'precision': metrics.get('precision'),
-                                                'logloss': metrics.get('logloss')}, ignore_index=True)
+                metrics_df = metrics_df.append({'dataset': ds,
+                                                'experiment': exp,
+                                                'f1': metrics.get('f1'),
+                                                'roc_auc': metrics.get('roc_auc'),
+                                                'accuracy': metrics.get('accuracy'),
+                                                'precision': metrics.get('precision'),
+                                                'logloss': metrics.get('logloss')},
+                                               ignore_index=True)
 
-        metrics_df = pd.concat([metrics_df[['dataset', 'experiment']],
-                                metrics_df[[col for col in metrics_df.columns if col not in columns]]], axis=1)
+        metrics_df = pd.concat([metrics_df[['dataset', 'experiment']], metrics_df[[
+                               col for col in metrics_df.columns if col not in columns]]], axis=1)
         return metrics_df
 
     def get_metrics_and_proba(self):
@@ -82,7 +90,8 @@ class ResultsPicker:
             if ds_list is None:
                 continue
 
-            for metric, proba, dataset in zip(metrics_list, proba_list, ds_list):
+            for metric, proba, dataset in zip(
+                    metrics_list, proba_list, ds_list):
                 if dataset not in proba_dict.keys() and proba is not None:
                     proba_dict[dataset] = {}
                 if dataset not in metric_dict.keys() and proba is not None:

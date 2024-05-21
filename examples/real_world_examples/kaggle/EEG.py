@@ -2,7 +2,6 @@ import gc
 
 import matplotlib
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-from joblib import delayed, Parallel
 from sklearn.preprocessing import LabelEncoder
 
 from tqdm import tqdm
@@ -37,25 +36,31 @@ EEG_PATH_SAVE_TEST = PROJECT_PATH + \
 # industrial experiment params
 label_encoder = LabelEncoder()
 ml_task = 'classification'
-experiment_setup = {'problem': ml_task,
-                    'metric': 'f1',
-                    'timeout': 180,
-                    'num_of_generations': 15,
-                    'pop_size': 10,
-                    'logging_level': 10,
-                    'n_jobs': 4,
-                    'output_folder': './automl',
-                    'industrial_preprocessing': False,
-                    'RAF_workers': 4,
-                    'max_pipeline_fit_time': 15,
-                    'initial_assumption': PipelineBuilder().add_node('quantile_extractor', params={'window_size': 10,
-                                                                                                   'stride': 1}).
-                    add_node('kernel_pca', params={'n_components': 20,
-                                                   'kernel': 'rbf'}).add_node('logit'),
-                    'with_tuning': False,
-                    'early_stopping_iterations': 10,
-                    'early_stopping_timeout': 120,
-                    'optimizer': IndustrialEvoOptimizer}
+experiment_setup = {
+    'problem': ml_task,
+    'metric': 'f1',
+    'timeout': 180,
+    'num_of_generations': 15,
+    'pop_size': 10,
+    'logging_level': 10,
+    'n_jobs': 4,
+    'output_folder': './automl',
+    'industrial_preprocessing': False,
+    'RAF_workers': 4,
+    'max_pipeline_fit_time': 15,
+    'initial_assumption': PipelineBuilder().add_node(
+        'quantile_extractor',
+        params={
+            'window_size': 10,
+            'stride': 1}). add_node(
+                'kernel_pca',
+                params={
+                    'n_components': 20,
+                    'kernel': 'rbf'}).add_node('logit'),
+    'with_tuning': False,
+    'early_stopping_iterations': 10,
+    'early_stopping_timeout': 120,
+    'optimizer': IndustrialEvoOptimizer}
 
 
 def butter_lowpass_filter(data, cutoff_freq=20, sampling_rate=200, order=4):
@@ -122,7 +127,8 @@ def load_eeg(EEG_PATH, CREATE_EEGS, EEG_IDS, df_target, EGG_PATH_SAVE):
             if i == DISPLAY:
                 if CREATE_EEGS:
                     print(
-                        f'Processing {df_target.eeg_id.nunique()} eeg parquets... ', end='')
+                        f'Processing {df_target.eeg_id.nunique()} eeg parquets... ',
+                        end='')
                 else:
                     print(f'Reading {len(EEG_IDS)} eeg NumPys from disk.')
                     break
@@ -132,7 +138,12 @@ def load_eeg(EEG_PATH, CREATE_EEGS, EEG_IDS, df_target, EGG_PATH_SAVE):
     return all_eegs
 
 
-def load_and_preproc_eeg(all_eegs, target_df, window_size=10, train_fold: int = 0, test_fold: int = 1):
+def load_and_preproc_eeg(
+        all_eegs,
+        target_df,
+        window_size=10,
+        train_fold: int = 0,
+        test_fold: int = 1):
     train_eeg_id = target_df[target_df['fold'] == train_fold]['eeg_id'].values
     test_eeg_id = target_df[target_df['fold'] == test_fold]['eeg_id'].values
     train_labels = target_df[target_df['fold'] == train_fold]['target'].values

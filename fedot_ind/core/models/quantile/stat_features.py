@@ -103,7 +103,8 @@ def ben_corr(x):
     data_distribution = np.array([(x == n).mean() for n in range(1, 10)])
 
     # np.corrcoef outputs the normalized covariance (correlation) between benford_distribution and data_distribution.
-    # In this case returns a 2x2 matrix, the  [0, 1] and [1, 1] are the values between the two arrays
+    # In this case returns a 2x2 matrix, the  [0, 1] and [1, 1] are the values
+    # between the two arrays
     return np.corrcoef(benford_distribution, data_distribution)[0, 1]
 
 
@@ -194,10 +195,11 @@ def hjorth_complexity(array):
     M2 = np.sum(np.power(diff_sequence, 2)) / len(diff_sequence)
     # Calculate the total power of the time series
     TP = np.sum(np.power(array, 2)) / len(array)
-    # Calculate the fourth central moment of the first-order differential sequence
+    # Calculate the fourth central moment of the first-order differential
+    # sequence
     try:
-        M4 = sum([(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in range(1, len(diff_sequence))]) / len(
-            diff_sequence)
+        M4 = sum([(diff_sequence[i] - diff_sequence[i - 1]) **
+                 2 for i in range(1, len(diff_sequence))]) / len(diff_sequence)
     except Exception:
         M4 = 1
     # Calculate Hjorth complexity

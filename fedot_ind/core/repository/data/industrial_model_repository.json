@@ -265,6 +265,14 @@
       "tags": [
       ]
     },
+    "lora_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
     "resnet_model": {
       "meta": "fedot_NN_classification",
       "presets": [
@@ -473,6 +481,14 @@
         "non_multi",
         "linear"
       ]
+    },
+    "nbeats_model": {
+      "meta": "fedot_NN_forecasting",
+      "presets": ["fast_train", "best_quality", "ts"],
+      "tags": [
+        "deep", "ts_model"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
     },
     "qda": {
       "meta": "custom_class",

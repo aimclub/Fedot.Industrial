@@ -52,9 +52,8 @@ class SSAForecasterImplementation(ModelImplementation):
                          'tuning_timeout': 20,
                          'tuning_early_stop': 20,
                          'tuner': SimultaneousTuner}
-        component_mode_dict = {
-            'topological': PipelineBuilder().add_node('lagged').add_node('topological_features').add_node('treg'),
-            'ar': PipelineBuilder().add_node('ar')}
+        component_mode_dict = {'topological': PipelineBuilder().add_node('lagged').add_node(
+            'topological_features').add_node('treg'), 'ar': PipelineBuilder().add_node('ar')}
 
         self.window_size_method = params.get('window_size_method')
         self.history_lookback = max(params.get('history_lookback', 0), 100)
@@ -86,14 +85,13 @@ class SSAForecasterImplementation(ModelImplementation):
 
     def _combine_trajectory(self, U, VT, n_components):
         if len(self._rank_thr) > 2:
-            self.PCT = np.concatenate([U[:, 0].reshape(1, -1),
-                                       np.array([np.sum([U[:, i], U[:, i + 1]], axis=0) for i in self._rank_thr if
-                                                 i != 0 and i % 2 != 0])]).T
+            self.PCT = np.concatenate([U[:, 0].reshape(1, -
+                                                       1), np.array([np.sum([U[:, i], U[:, i +
+                                                                                        1]], axis=0) for i in self._rank_thr if i != 0 and i %
+                                                                     2 != 0])]).T
 
-            current_dynamics = np.concatenate([VT[0, :].reshape(1, -1),
-                                               np.array(
-                                                   [np.sum([VT[i, :], VT[i + 1, :]], axis=0) for i in self._rank_thr
-                                                    if i != 0 and i % 2 != 0])])
+            current_dynamics = np.concatenate([VT[0, :].reshape(1, -1), np.array([np.sum(
+                [VT[i, :], VT[i + 1, :]], axis=0) for i in self._rank_thr if i != 0 and i % 2 != 0])])
         else:
             self.PCT, current_dynamics = U[:,
                                            :n_components], VT[:n_components, :]
@@ -101,8 +99,9 @@ class SSAForecasterImplementation(ModelImplementation):
         return current_dynamics
 
     def predict(self, input_data: InputData) -> OutputData:
-        hankel_matrix = HankelMatrix(time_series=input_data.features,
-                                     window_size=self._decomposer.window_size).trajectory_matrix
+        hankel_matrix = HankelMatrix(
+            time_series=input_data.features,
+            window_size=self._decomposer.window_size).trajectory_matrix
         U, s, VT = np.linalg.svd(hankel_matrix)
         n_components = max(2, len(self._rank_thr))
         current_dynamics = self._combine_trajectory(U, VT, n_components)
@@ -119,12 +118,11 @@ class SSAForecasterImplementation(ModelImplementation):
             reconstructed_forecast, self.model_by_channel = self._tune_component_model(
                 self.trend_model.build(), comp)
         elif self.mode == 'channel_independent':
-            forecast_by_channel, self.model_by_channel = self._predict_channel(input_data,
-                                                                               current_dynamics,
-                                                                               self.horizon)
+            forecast_by_channel, self.model_by_channel = self._predict_channel(
+                input_data, current_dynamics, self.horizon)
 
-            self.forecasted_dynamics = np.concatenate([current_dynamics,
-                                                       np.vstack(list(forecast_by_channel.values()))], axis=1)
+            self.forecasted_dynamics = np.concatenate(
+                [current_dynamics, np.vstack(list(forecast_by_channel.values()))], axis=1)
             basis = reconstruct_basis(U=self.PCT,
                                       Sigma=s[:self.PCT.shape[1]],
                                       VT=self.forecasted_dynamics,
@@ -134,9 +132,10 @@ class SSAForecasterImplementation(ModelImplementation):
             reconstructed_forecast = summed_basis[-self.horizon:]
 
         prediction = reconstructed_forecast
-        predict_data = FedotConverter(input_data).convert_to_output_data(prediction=prediction,
-                                                                         predict_data=input_data,
-                                                                         output_data_type=input_data.data_type)
+        predict_data = FedotConverter(input_data).convert_to_output_data(
+            prediction=prediction,
+            predict_data=input_data,
+            output_data_type=input_data.data_type)
         return predict_data
 
     def fit(self, input_data: InputData):
@@ -165,12 +164,18 @@ class SSAForecasterImplementation(ModelImplementation):
             )
         else:
             self.history_lookback = None
-        self._decomposer = EigenBasisImplementation({'low_rank_approximation': self.low_rank_approximation,
-                                                     'rank_regularization': 'explained_dispersion'})
+        self._decomposer = EigenBasisImplementation(
+            {
+                'low_rank_approximation': self.low_rank_approximation,
+                'rank_regularization': 'explained_dispersion'})
         predict = self.__predict_for_fit(input_data)
         return predict
 
-    def _predict_channel(self, input_data: InputData, component_dynamics, forecast_length: int):
+    def _predict_channel(
+            self,
+            input_data: InputData,
+            component_dynamics,
+            forecast_length: int):
         comp = deepcopy(input_data)
         comp.features, comp.target, comp.idx = component_dynamics, component_dynamics, \
             np.arange(component_dynamics.shape[1])
@@ -189,4 +194,5 @@ class SSAForecasterImplementation(ModelImplementation):
         return forecast_by_channel, model_by_channel
 
     def reconstruct_basis(self, U, s, VT):
-        return Either.insert([U, s, VT]).then(self._decomposer.data_driven_basis).value[0]
+        return Either.insert([U, s, VT]).then(
+            self._decomposer.data_driven_basis).value[0]

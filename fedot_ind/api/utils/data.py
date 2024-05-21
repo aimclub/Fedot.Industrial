@@ -18,7 +18,7 @@ def check_multivariate_data(data: pd.DataFrame) -> tuple:
     Returns:
         bool: True if the DataFrame contains multivariate data (nested columns), False otherwise.
     """
-    if type(data) is not pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
         return len(data.shape) > 2, data
     else:
         return isinstance(data.iloc[0, 0], pd.Series), data.values
@@ -44,10 +44,11 @@ def init_input_data(X: pd.DataFrame,
     task_dict = {'classification': Task(TaskTypesEnum.classification),
                  'regression': Task(TaskTypesEnum.regression)}
 
-    if y is not None and type(y[0]) is np.str_ and task == 'classification':
+    if y is not None and isinstance(
+            y[0], np.str_) and task == 'classification':
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(y)
-    elif y is not None and type(y[0]) is np.str_ and task == 'regression':
+    elif y is not None and isinstance(y[0], np.str_) and task == 'regression':
         y = y.astype(float)
 
     data_type = DataTypesEnum.image if is_multivariate_data else DataTypesEnum.table

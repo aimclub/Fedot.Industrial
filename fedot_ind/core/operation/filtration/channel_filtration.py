@@ -95,7 +95,8 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
 
     def eval_distance_from_centroid(self, centroid_frame):
         """Create distance matrix."""
-        # distance from each class to each without repetitions. Number of pairs is n_cls(n_cls-1)/2
+        # distance from each class to each without repetitions. Number of pairs
+        # is n_cls(n_cls-1)/2
         distance_pair = list(itertools.combinations(
             range(0, centroid_frame.shape[0]), 2))
         # distance_metrics = []
@@ -119,7 +120,8 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
         """Create the centroid for each class."""
         n_samples, n_channels, n_points = X.shape
         centroids = []
-        for dim in range(n_channels):  # for each channel evaluate distance to class centroid
+        for dim in range(
+                n_channels):  # for each channel evaluate distance to class centroid
             # choose channel. Input matrix is n_samples x 1 x n_points
             train = X[:, dim, :]
             clf = NearestCentroid(metric=self.centroid_metric,

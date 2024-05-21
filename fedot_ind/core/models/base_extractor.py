@@ -46,7 +46,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         transformed_features = self.transform(
             input_data, use_cache=self.use_cache)
         try:
-            return pd.DataFrame(transformed_features.predict, columns=self.relevant_features)
+            return pd.DataFrame(
+                transformed_features.predict,
+                columns=self.relevant_features)
         except ValueError:
             return pd.DataFrame(transformed_features.predict)
 
@@ -78,10 +80,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         predict = np.where(np.isinf(predict), 0, predict)
         return predict
 
-    def generate_features_from_ts(self, ts_frame: np.array, window_length: int = None) -> np.array:
+    def generate_features_from_ts(
+            self,
+            ts_frame: np.array,
+            window_length: int = None) -> np.array:
         """Method responsible for generation of features from time series.
         """
-        pass
 
     @convert_to_input_data
     def get_statistical_features(self,
@@ -133,8 +137,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                                   strides=self.stride)
             subseq_set = trajectory_transformer.trajectory_matrix
         else:
-            subseq_set = np.lib.stride_tricks.sliding_window_view(ts_data,
-                                                                  ts_data.shape[0] - window_size)
+            subseq_set = np.lib.stride_tricks.sliding_window_view(
+                ts_data, ts_data.shape[0] - window_size)
 
         for i in range(0, subseq_set.shape[1]):
             slice_ts = subseq_set[:, i]

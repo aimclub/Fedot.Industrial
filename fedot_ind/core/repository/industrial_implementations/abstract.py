@@ -1,10 +1,13 @@
 from copy import copy
 from functools import partial
+from itertools import chain
+from typing import List, Optional, Union
 
 import pandas as pd
 from fedot.core.constants import default_data_split_ratio_by_task
 from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.cv_folds import cv_generator
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import _split_input_data_by_indexes
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -15,17 +18,17 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
 from fedot.preprocessing.data_types import TYPE_TO_ID
+from joblib import delayed, Parallel
 from sklearn.model_selection import train_test_split
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
-from typing import Optional, Tuple, Union, Sequence, List, Dict
-from fedot.core.data.data import InputData, OutputData
+
 
 def split_time_series(data: InputData,
-                       validation_blocks: Optional[int] = None,
-                       **kwargs):
+                      validation_blocks: Optional[int] = None,
+                      **kwargs):
     """ Split time series data into train and test parts
 
     :param data: InputData object to split
@@ -37,9 +40,16 @@ def split_time_series(data: InputData,
         forecast_length *= validation_blocks
 
     target_length = len(data.target)
-    train_data = _split_input_data_by_indexes(data, index=np.arange(0, target_length - forecast_length),)
-    test_data = _split_input_data_by_indexes(data, index=np.arange(target_length - forecast_length, target_length),
-                                             retain_first_target=True)
+    train_data = _split_input_data_by_indexes(
+        data, index=np.arange(
+            0, target_length - forecast_length),)
+    test_data = _split_input_data_by_indexes(
+        data,
+        index=np.arange(
+            target_length -
+            forecast_length,
+            target_length),
+        retain_first_target=True)
 
     if validation_blocks is None:
         # for in-sample
@@ -49,6 +59,8 @@ def split_time_series(data: InputData,
         test_data.features = data.features
 
     return train_data, test_data
+
+
 def split_any(data: InputData,
               split_ratio: float,
               shuffle: bool,
@@ -87,7 +99,8 @@ def split_any(data: InputData,
     return train_data, test_data
 
 
-def _are_stratification_allowed(data: Union[InputData, MultiModalData], split_ratio: float) -> bool:
+def _are_stratification_allowed(
+        data: Union[InputData, MultiModalData], split_ratio: float) -> bool:
     """ Check that stratification may be done
         :param data: data for split
         :param split_ratio: relation between train data length and all data length
@@ -100,7 +113,8 @@ def _are_stratification_allowed(data: Union[InputData, MultiModalData], split_ra
         return True
 
 
-def _are_cv_folds_allowed(data: Union[InputData, MultiModalData], split_ratio: float, cv_folds: int) -> bool:
+def _are_cv_folds_allowed(
+        data: Union[InputData, MultiModalData], split_ratio: float, cv_folds: int) -> bool:
     try:
         # fast way
         classes = np.unique(data.target, return_counts=True)
@@ -117,9 +131,10 @@ def _are_cv_folds_allowed(data: Union[InputData, MultiModalData], split_ratio: f
             # stratification is disabled for tests
             return None
         else:
-            raise ValueError(("There is the only value for some classes:"
-                              f" {', '.join(str(val) for val, count in zip(*classes) if count == 1)}."
-                              f" Data split can not be done for {data.task.task_type.name} task."))
+            raise ValueError(
+                ("There is the only value for some classes:"
+                 f" {', '.join(str(val) for val, count in zip(*classes) if count == 1)}."
+                 f" Data split can not be done for {data.task.task_type.name} task."))
 
     # check that split ratio allows to set all classes to both samples
     test_size = round(len(data.target) * (1. - split_ratio))
@@ -144,8 +159,9 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
         if self.cv_folds < 2:
             self.cv_folds = None
         if self.cv_folds > data.target.shape[0] - 1:
-            raise ValueError((f"cv_folds ({self.cv_folds}) is greater than"
-                              f" the maximum allowed count {data.target.shape[0] - 1}"))
+            raise ValueError(
+                (f"cv_folds ({self.cv_folds}) is greater than"
+                 f" the maximum allowed count {data.target.shape[0] - 1}"))
 
     # Calculate the number of validation blocks for timeseries forecasting
     if data.task.task_type is TaskTypesEnum.ts_forecasting and self.validation_blocks is None:
@@ -158,7 +174,8 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
 
     if data.task.task_type is not TaskTypesEnum.ts_forecasting and self.stratify:
         # check that stratification can be done
-        # for cross validation split ratio is defined as validation_size / all_data_size
+        # for cross validation split ratio is defined as validation_size /
+        # all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
             1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
@@ -190,13 +207,19 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
 
 
 def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
-    pipeline_tuner = TunerBuilder(train_data.task) \
-        .with_tuner(tuning_params['tuner']) \
-        .with_metric(tuning_params['metric']) \
-        .with_timeout(tuning_params.get('tuning_timeout', 20)) \
-        .with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 50)) \
-        .with_iterations(tuning_params.get('tuning_iterations', 200)) \
-        .build(train_data)
+    pipeline_tuner = TunerBuilder(
+        train_data.task) .with_tuner(
+        tuning_params['tuner']) .with_metric(
+            tuning_params['metric']) .with_timeout(
+                tuning_params.get(
+                    'tuning_timeout',
+                    20)) .with_early_stopping_rounds(
+                        tuning_params.get(
+                            'tuning_early_stop',
+                            50)) .with_iterations(
+                                tuning_params.get(
+                                    'tuning_iterations',
+                                    200)) .build(train_data)
     if mode == 'full':
         batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
                            automl_branch.name in FEDOT_HEAD_ENSEMBLE]
@@ -221,13 +244,15 @@ def transform_lagged(self, input_data: InputData):
     # Correct window size parameter
     self._check_and_correct_window_size(train_data.features, forecast_length)
     window_size = self.window_size
-    new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(train_data,
-                                                                                      forecast_length,
-                                                                                      window_size)
+    new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
+        train_data, forecast_length, window_size)
 
     # Update target for Input Data
-    train_data.target = new_target
-    train_data.idx = new_idx
+    if new_target.shape[0] != 0:
+        train_data.target = new_target
+        train_data.idx = new_idx
+    else:
+        train_data = input_data
     output_data = self._convert_to_output(train_data,
                                           transformed_cols,
                                           data_type=DataTypesEnum.image)
@@ -264,7 +289,10 @@ def transform_smoothing(self, input_data: InputData) -> OutputData:
     return output_data
 
 
-def _check_and_correct_window_size(self, time_series: np.ndarray, forecast_length: int):
+def _check_and_correct_window_size(
+        self,
+        time_series: np.ndarray,
+        forecast_length: int):
     """ Method check if the length of the time series is not enough for
         lagged transformation
 
@@ -277,22 +305,30 @@ def _check_and_correct_window_size(self, time_series: np.ndarray, forecast_lengt
         """
     max_allowed_window_size = max(
         1, round((len(time_series) - forecast_length - 1) * 0.25))
-    window_list = list(range(3 * forecast_length,
-                             max_allowed_window_size, round(1.5 * forecast_length)))
+    window_list = list(
+        range(
+            3 *
+            forecast_length,
+            max_allowed_window_size,
+            round(
+                1.5 *
+                forecast_length)))
 
     if self.window_size == 0 or self.window_size > max_allowed_window_size:
         try:
             window_size = np.random.choice(window_list)
         except Exception:
             window_size = 3 * forecast_length
-        self.log.message((f"Window size of lagged transformation was changed "
-                          f"by WindowSizeSelector from {self.params.get('window_size')} to {window_size}"))
+        self.log.message(
+            (f"Window size of lagged transformation was changed "
+             f"by WindowSizeSelector from {self.params.get('window_size')} to {window_size}"))
         self.params.update(window_size=window_size)
 
     # Minimum threshold
     if self.window_size < self.window_size_minimum:
-        self.log.info((f"Warning: window size of lagged transformation was changed "
-                       f"from {self.params.get('window_size')} to {self.window_size_minimum}"))
+        self.log.info(
+            (f"Warning: window size of lagged transformation was changed "
+             f"from {self.params.get('window_size')} to {self.window_size_minimum}"))
         self.params.update(window_size=self.window_size_minimum)
 
 
@@ -313,9 +349,7 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
         new_input_data.features, forecast_length)
     window_size = self.window_size
     new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
-        input_data,
-        forecast_length,
-        window_size)
+        input_data, forecast_length, window_size)
 
     # Update target for Input Data
     new_input_data.target = new_target
@@ -362,7 +396,8 @@ def merge_targets(self) -> np.array:
     filtered_main_target = self.main_output.target
     # if target has the same form as index
     #  then it makes sense to extract target with common indices
-    if filtered_main_target is not None and len(self.main_output.idx) == len(filtered_main_target):
+    if filtered_main_target is not None and len(
+            self.main_output.idx) == len(filtered_main_target):
         filtered_main_target = self.select_common(
             self.main_output.idx, filtered_main_target)
     return filtered_main_target
@@ -391,11 +426,47 @@ def merge_predicts(*args) -> np.array:
     else:
         prediction_2d = np.concatenate(
             [x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
-        return prediction_2d.reshape(prediction_2d.shape[0], 1, prediction_2d.shape[1])
+        return prediction_2d.reshape(
+            prediction_2d.shape[0], 1, prediction_2d.shape[1])
 
 
-def predict_operation(self, fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
-                      output_mode: str = 'default', is_fit_stage: bool = False):
+def fit_topo_extractor(self, input_data: InputData):
+    input_data.features = input_data.features if len(
+        input_data.features.shape) == 0 else input_data.features.reshape(1, -1)
+    self._window_size = int(
+        input_data.features.shape[1] *
+        self.window_size_as_share)
+    self._window_size = max(self._window_size, 2)
+    self._window_size = min(
+        self._window_size,
+        input_data.features.shape[1] - 2)
+    return self
+
+
+def transform_topo_extractor(self, input_data: InputData) -> OutputData:
+    features = input_data.features if len(input_data.features.shape) == 0 \
+        else input_data.features.reshape(1, -1)
+    with Parallel(n_jobs=self.n_jobs, prefer='processes') as parallel:
+        topological_features = parallel(delayed(self._extract_features)
+                                        (np.mean(features[i:i + 2, ::self.stride], axis=0))
+                                        for i in range(0, features.shape[0], 2))
+    if len(topological_features) * 2 < features.shape[0]:
+        topological_features.append(topological_features[-1])
+    result = np.array(
+        list(chain(*zip(topological_features, topological_features))))
+    if result.shape[0] > features.shape[0]:
+        result = result[:-1, :]
+    np.nan_to_num(result, copy=False, nan=0, posinf=0, neginf=0)
+    return result
+
+
+def predict_operation(
+        self,
+        fitted_operation,
+        data: InputData,
+        params: Optional[OperationParameters] = None,
+        output_mode: str = 'default',
+        is_fit_stage: bool = False):
     is_main_target = data.supplementary_data.is_main_target
     data_flow_length = data.supplementary_data.data_flow_length
     self._init(data.task, output_mode=output_mode, params=params,
@@ -421,7 +492,11 @@ def predict_operation(self, fitted_operation, data: InputData, params: Optional[
     return prediction
 
 
-def predict(self, fitted_operation, data: InputData, params: Optional[Union[OperationParameters, dict]] = None,
+def predict(self,
+            fitted_operation,
+            data: InputData,
+            params: Optional[Union[OperationParameters,
+                                   dict]] = None,
             output_mode: str = 'labels'):
     """This method is used for defining and running of the evaluation strategy
     to predict with the data provided
@@ -433,11 +508,20 @@ def predict(self, fitted_operation, data: InputData, params: Optional[Union[Oper
         output_mode: string with information about output of operation,
         for example, is the operation predict probabilities or class labels
     """
-    return self._predict(fitted_operation, data, params, output_mode, is_fit_stage=False)
+    return self._predict(
+        fitted_operation,
+        data,
+        params,
+        output_mode,
+        is_fit_stage=False)
 
 
-def predict_for_fit(self, fitted_operation, data: InputData, params: Optional[OperationParameters] = None,
-                    output_mode: str = 'default'):
+def predict_for_fit(
+        self,
+        fitted_operation,
+        data: InputData,
+        params: Optional[OperationParameters] = None,
+        output_mode: str = 'default'):
     """This method is used for defining and running of the evaluation strategy
     to predict with the data provided during fit stage
 
@@ -448,4 +532,9 @@ def predict_for_fit(self, fitted_operation, data: InputData, params: Optional[Op
         output_mode: string with information about output of operation,
             for example, is the operation predict probabilities or class labels
     """
-    return self._predict(fitted_operation, data, params, output_mode, is_fit_stage=True)
+    return self._predict(
+        fitted_operation,
+        data,
+        params,
+        output_mode,
+        is_fit_stage=True)

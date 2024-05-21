@@ -20,13 +20,12 @@ def uni_data():
 
 
 @pytest.mark.parametrize('data, strategy',
-                         [itertools.combinations([uni_data, multi_data], ['federated_automl',
-                                                                          'kernel_automl',
-                                                                          'forecasting_assumptions',
-                                                                          'forecasting_exogenous']
-                                                 )
-                          ]
-                         )
+                         [itertools.combinations([uni_data,
+                                                  multi_data],
+                                                 ['federated_automl',
+                                                  'kernel_automl',
+                                                  'forecasting_assumptions',
+                                                  'forecasting_exogenous'])])
 def strategy_tsc_test(data, strategy):
     train_data, test_data = data
 

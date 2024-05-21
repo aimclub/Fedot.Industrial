@@ -24,7 +24,8 @@ class MySerializer(Serializer):
         Serializer.CODERS_BY_TYPE[Individual] = individual_binding
 
 
-def update_parent_operator(cls: Type[ParentOperator], json_obj: Dict[str, Any]):
+def update_parent_operator(
+        cls: Type[ParentOperator], json_obj: Dict[str, Any]):
     json_obj['type_'] = json_obj.pop('operator_type')
     json_obj['operators'] = (json_obj.pop('operator_name'),)
     deserialized = parent_operator_from_json(cls, json_obj)
@@ -56,8 +57,9 @@ class RenameUnpickler(pickle.Unpickler):
         changed_import_list = [
             'fedot_ind.core.repository.initializer_industrial_models']
         if module in changed_import_list:
-            renamed_module = module.replace("golem.core.utilities",
-                                            "fedot_ind.core.repository.industrial_implementations.optimisation")
+            renamed_module = module.replace(
+                "golem.core.utilities",
+                "fedot_ind.core.repository.industrial_implementations.optimisation")
         return super(RenameUnpickler, self).find_class(renamed_module, name)
 
 

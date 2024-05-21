@@ -23,9 +23,10 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
         self.fourier_approx = 'exact'
         self.explained_dispersion = 0.9
         self.reduction_dim = None
-        self.method_dict = {'EigenBasisImplementation': self.filter_dimension_num,
-                            'FourierBasisImplementation': self.filter_signal,
-                            'LargeFeatureSpace': self.filter_feature_num}
+        self.method_dict = {
+            'EigenBasisImplementation': self.filter_dimension_num,
+            'FourierBasisImplementation': self.filter_signal,
+            'LargeFeatureSpace': self.filter_feature_num}
         self.model = None
 
     def _transform(self, operation):
@@ -54,7 +55,8 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
             self.reduction_dim = min(minimal_dim, dominant_dim)
         grouped_predict = [x[:self.reduction_dim, :]
                            for x in grouped_components]
-        return np.stack(grouped_predict) if len(grouped_predict) > 1 else grouped_predict[0]
+        return np.stack(grouped_predict) if len(
+            grouped_predict) > 1 else grouped_predict[0]
 
     def _compute_component_corr(self, sample):
         component_idx_list = list(range(sample.shape[0]))
@@ -73,7 +75,8 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
                         break
                     else:
                         component_idx_list.remove(index)
-                        for correlation_level, component in zip(correlation_matrix, sample[1:, :]):
+                        for correlation_level, component in zip(
+                                correlation_matrix, sample[1:, :]):
                             if len(component_idx_list) == 0:
                                 break
                             grouped_v = component
@@ -133,7 +136,7 @@ class FeatureSpaceReducer:
             Dataframe with reduced feature space.
 
         """
-        init_feature_space_size = features.shape[1]
+        features.shape[1]
 
         features = self._drop_stable_features(features, var_threshold)
         features_new = self._drop_correlated_features(corr_threshold, features)
@@ -237,8 +240,11 @@ class VarianceSelector:
         for PCT in range(projected_data.shape[1]):
             correlation_df = pd.DataFrame.corrwith(
                 model_data, pd.Series(projected_data[:, PCT]), axis=0, drop=False)
-            discriminative_feature_list = [k for k, x in zip(correlation_df.index.values, correlation_df.values) if
-                                           abs(x) > correlation_level]
+            discriminative_feature_list = [
+                k for k,
+                x in zip(
+                    correlation_df.index.values,
+                    correlation_df.values) if abs(x) > correlation_level]
             discriminative_feature.update(
                 {f'{PCT + 1} principal components': discriminative_feature_list})
         return discriminative_feature

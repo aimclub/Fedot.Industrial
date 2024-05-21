@@ -44,21 +44,22 @@ class QuantileExtractor(BaseExtractor):
         self.logging_params.update({'Wsize': self.window_size,
                                     'Stride': self.stride,
                                     # 'VarTh': self.var_threshold
-                                   }
+                                    }
                                    )
 
-    def _concatenate_global_and_local_feature(self, global_features: InputData,
-                                              window_stat_features: InputData) -> InputData:
+    def _concatenate_global_and_local_feature(
+            self,
+            global_features: InputData,
+            window_stat_features: InputData) -> InputData:
 
-        if type(window_stat_features.features[0]) is list:
+        if isinstance(window_stat_features.features[0], list):
             window_stat_features.features = np.concatenate(
                 window_stat_features.features, axis=0)
             window_stat_features.supplementary_data['feature_name'] = list(
                 chain(*window_stat_features.supplementary_data['feature_name']))
 
-        window_stat_features.features = np.concatenate([global_features.features,
-                                                        window_stat_features.features],
-                                                       axis=0)
+        window_stat_features.features = np.concatenate(
+            [global_features.features, window_stat_features.features], axis=0)
         window_stat_features.features = np.nan_to_num(
             window_stat_features.features)
 
@@ -71,12 +72,14 @@ class QuantileExtractor(BaseExtractor):
         global_features = self.get_statistical_features(
             ts, add_global_features=True)
         if self.window_size != 0:
-            window_stat_features = self.apply_window_for_stat_feature(ts_data=ts,
-                                                                      feature_generator=self.get_statistical_features,
-                                                                      window_size=self.window_size)
+            window_stat_features = self.apply_window_for_stat_feature(
+                ts_data=ts,
+                feature_generator=self.get_statistical_features,
+                window_size=self.window_size)
         else:
             window_stat_features = self.get_statistical_features(ts)
-        return self._concatenate_global_and_local_feature(global_features, window_stat_features)
+        return self._concatenate_global_and_local_feature(
+            global_features, window_stat_features)
 
     def generate_features_from_ts(self,
                                   ts: np.array,

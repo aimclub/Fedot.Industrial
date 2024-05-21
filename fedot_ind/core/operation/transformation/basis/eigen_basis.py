@@ -1,3 +1,5 @@
+from typing import Optional, TypeVar
+
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -6,7 +8,6 @@ from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
-from typing import Optional, TypeVar
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -68,7 +69,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def _convert_basis_to_predict(self, basis, input_data):
 
-        if input_data.features.shape[0] == 1 and len(input_data.features.shape) == 3:
+        if input_data.features.shape[0] == 1 and len(
+                input_data.features.shape) == 3:
             self.predict = basis[np.newaxis, :, :]
         else:
             self.predict = basis
@@ -94,7 +96,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         features = NumpyConverter(data=features).convert_to_torch_format()
 
         def tensor_decomposition(x):
-            return ListMonad(self._get_multidim_basis(x)) if self.tensor_approximation else self._channel_decompose(x)
+            return ListMonad(self._get_multidim_basis(
+                x)) if self.tensor_approximation else self._channel_decompose(x)
 
         basis = np.array(Either.insert(features).then(
             tensor_decomposition).value[0])
@@ -114,9 +117,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                               Monoid[2]])
 
         def svd(x):
-            return ListMonad(self.svd_estimator.rsvd(tensor=x,
-                                                     approximation=self.low_rank_approximation,
-                                                     regularized_rank=self.SV_threshold))
+            return ListMonad(
+                self.svd_estimator.rsvd(
+                    tensor=x,
+                    approximation=self.low_rank_approximation,
+                    regularized_rank=self.SV_threshold))
 
         basis = Either.insert(data).then(svd).then(
             threshold).then(data_driven_basis).value[0]
@@ -129,22 +134,17 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         def tensor_decomposition(x): return ListMonad(
             parafac(tl.tensor(x), rank=rank).factors)
 
-        def multi_threshold(x): return singular_value_hard_threshold(singular_values=x,
-                                                                     beta=beta,
-                                                                     threshold=None)
+        def multi_threshold(x): return singular_value_hard_threshold(
+            singular_values=x, beta=beta, threshold=None)
 
-        def threshold(Monoid): return ListMonad([Monoid[0],
-                                                 list(
-                                                     map(multi_threshold, Monoid[1])),
-                                                 Monoid[2].T])
+        def threshold(Monoid): return ListMonad(
+            [Monoid[0], list(map(multi_threshold, Monoid[1])), Monoid[2].T])
 
-        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(Monoid[0],
-                                                                          Monoid[1],
-                                                                          Monoid[2],
-                                                                          ts_length=data.shape[2]))
+        def data_driven_basis(Monoid): return ListMonad(reconstruct_basis(
+            Monoid[0], Monoid[1], Monoid[2], ts_length=data.shape[2]))
 
-        basis = np.array(
-            Either.insert(data).then(tensor_decomposition).then(threshold).then(data_driven_basis).value[0])
+        basis = np.array(Either.insert(data).then(tensor_decomposition).then(
+            threshold).then(data_driven_basis).value[0])
 
         basis = basis.reshape(basis.shape[1], -1)
 
@@ -184,8 +184,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def estimate_singular_values(self, data):
         def svd(x):
-            reg_type = self.rank_regularization if hasattr(self, 'rank_regularization') else \
-                'hard_thresholding'
+            reg_type = self.rank_regularization if hasattr(
+                self, 'rank_regularization') else 'hard_thresholding'
             return ListMonad(self.svd_estimator.rsvd(
                 tensor=x,
                 approximation=self.low_rank_approximation,

@@ -16,7 +16,9 @@ def kl_divergence(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
     return entropy(probs_before, qk=probs_after)
 
 
-def jensen_shannon_divergence(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
+def jensen_shannon_divergence(
+        probs_before: np.ndarray,
+        probs_after: np.ndarray) -> float:
     """
     Jensen-Shannon Divergence is a symmetric and smoothed version of KL Divergence, measuring
     the similarity between two distributions.
@@ -30,7 +32,9 @@ def jensen_shannon_divergence(probs_before: np.ndarray, probs_after: np.ndarray)
     return 0.5 * (entropy(probs_before, qk=p) + entropy(probs_after, qk=p))
 
 
-def total_variation_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
+def total_variation_distance(
+        probs_before: np.ndarray,
+        probs_after: np.ndarray) -> float:
     """
     Total Variation Distance measures the discrepancy between two probability distributions.
     It is also half the absolute area between the two curves
@@ -43,7 +47,9 @@ def total_variation_distance(probs_before: np.ndarray, probs_after: np.ndarray) 
     return 0.5 * np.sum(np.abs(probs_before - probs_after))
 
 
-def energy_distance_measure(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
+def energy_distance_measure(
+        probs_before: np.ndarray,
+        probs_after: np.ndarray) -> float:
     """
     Energy Distance measures the distance between the characteristic functions of two distributions.
 
@@ -55,7 +61,9 @@ def energy_distance_measure(probs_before: np.ndarray, probs_after: np.ndarray) -
     return energy_distance(probs_before, probs_after)
 
 
-def hellinger_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
+def hellinger_distance(
+        probs_before: np.ndarray,
+        probs_after: np.ndarray) -> float:
     """
     Hellinger Distance measures the similarity between two probability distributions.
 
@@ -64,10 +72,14 @@ def hellinger_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> flo
         probs_after: The probability distribution after the same event.
 
     """
-    return np.sqrt(np.sum((np.sqrt(probs_before) - np.sqrt(probs_after)) ** 2)) / np.sqrt(2)
+    return np.sqrt(
+        np.sum(
+            (np.sqrt(probs_before) - np.sqrt(probs_after)) ** 2)) / np.sqrt(2)
 
 
-def cosine_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
+def cosine_distance(
+        probs_before: np.ndarray,
+        probs_after: np.ndarray) -> float:
     """
     Cosine Distance measures the cosine of the angle between two vectors, indicating their similarity.
 
@@ -79,7 +91,9 @@ def cosine_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
     return cosine(probs_before, probs_after)
 
 
-def euclidean_distance(probs_before: np.ndarray, probs_after: np.ndarray) -> float:
+def euclidean_distance(
+        probs_before: np.ndarray,
+        probs_after: np.ndarray) -> float:
     """
     Euclidean Distance is the straight-line distance between two points in space.
 

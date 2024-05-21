@@ -93,8 +93,16 @@ def spectrogram_from_eeg(parquet_path, display=False):
             signals.append(x)
 
             # RAW SPECTROGRAM
-            mel_spec = melspectrogram(y=x, sr=200, hop_length=len(x) // 256,
-                                      n_fft=1024, n_mels=128, fmin=0, fmax=20, win_length=128)
+            mel_spec = melspectrogram(
+                y=x,
+                sr=200,
+                hop_length=len(x) //
+                256,
+                n_fft=1024,
+                n_mels=128,
+                fmin=0,
+                fmax=20,
+                win_length=128)
             # LOG TRANSFORM
             width = (mel_spec.shape[1] // 32) * 32
             mel_spec_db = power_to_db(
@@ -126,7 +134,9 @@ class ReadData:
         return pd.read_parquet(PATH)
 
     def read_spectrogram_data(self, spectrogram_id):
-        return self._read_data('spectrograms', spectrogram_id).set_index('time')
+        return self._read_data(
+            'spectrograms',
+            spectrogram_id).set_index('time')
 
     def read_eeg_data(self, eeg_id) -> pd.DataFrame:
         return self._read_data('eegs', eeg_id)
@@ -159,8 +169,9 @@ class ReadData:
         return dataframe
 
     def read_test_data(self):
-        TEST_PATH = PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
-        return pd.read_csv("/kaggle/input/hms-harmful-brain-activity-classification/test.csv")
+        PROJECT_PATH + '/data/hms-harmful-brain-activity-classification/test.csv'
+        return pd.read_csv(
+            "/kaggle/input/hms-harmful-brain-activity-classification/test.csv")
 
 
 class FeatureEngineerData(ReadData):
@@ -238,7 +249,8 @@ class FeatureEngineerData(ReadData):
         """
         Returns a dataframe with only the correlation across the same frequency
         """
-        return corr_df[[col for col in corr_df.columns if col.split('_')[2] == col.split('_')[4]]]
+        return corr_df[[col for col in corr_df.columns if col.split('_')[
+            2] == col.split('_')[4]]]
 
     def filter_eegspectrogram_corr(self, corr_df) -> pd.DataFrame:
         pass
@@ -272,7 +284,9 @@ class EEGFeatures(FeatureEngineerData):
         if self.metadata.get('right_eeg_index') is None:
             return [0, 10000]
         else:
-            return [self.metadata['left_eeg_index'], self.metadata['right_eeg_index']]
+            return [
+                self.metadata['left_eeg_index'],
+                self.metadata['right_eeg_index']]
 
     def format_eeg_data(self, window_sizes={}):
 

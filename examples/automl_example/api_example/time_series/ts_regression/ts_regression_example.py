@@ -9,7 +9,6 @@ if __name__ == "__main__":
                       n_jobs=2,
                       logging_level=20)
     metric_names = ('r2', 'rmse', 'mae')
-    model, labels, metrics = industrial_common_modelling_loop(api_config=api_config,
-                                                              dataset_name=dataset_name,
-                                                              finetune=finetune)
+    model, labels, metrics = industrial_common_modelling_loop(
+        api_config=api_config, dataset_name=dataset_name, finetune=finetune)
     print(metrics)

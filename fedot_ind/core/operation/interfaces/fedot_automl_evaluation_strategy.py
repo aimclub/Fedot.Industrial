@@ -20,7 +20,10 @@ class FedotAutoMLClassificationStrategy(EvaluationStrategy):
             raise ValueError(
                 f'Impossible to obtain custom preprocessing strategy for {operation_type}')
 
-    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+    def __init__(
+            self,
+            operation_type: str,
+            params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
         super().__init__(operation_type, params)
 
@@ -29,13 +32,18 @@ class FedotAutoMLClassificationStrategy(EvaluationStrategy):
         model.fit(train_data)
         return model
 
-    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+    def predict(self, trained_operation, predict_data: InputData,
+                output_mode: str = 'labels') -> OutputData:
         prediction = trained_operation.model.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
         return converted
 
-    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+    def predict_for_fit(
+            self,
+            trained_operation,
+            predict_data: InputData,
+            output_mode: str = 'labels') -> OutputData:
         prediction = trained_operation.model.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
@@ -54,7 +62,10 @@ class FedotAutoMLRegressionStrategy(EvaluationStrategy):
             raise ValueError(
                 f'Impossible to obtain custom preprocessing strategy for {operation_type}')
 
-    def __init__(self, operation_type: str, params: Optional[OperationParameters] = None):
+    def __init__(
+            self,
+            operation_type: str,
+            params: Optional[OperationParameters] = None):
         self.operation_impl = self._convert_to_operation(operation_type)
         super().__init__(operation_type, params)
 
@@ -63,13 +74,18 @@ class FedotAutoMLRegressionStrategy(EvaluationStrategy):
         model.fit(train_data)
         return model
 
-    def predict(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+    def predict(self, trained_operation, predict_data: InputData,
+                output_mode: str = 'labels') -> OutputData:
         prediction = trained_operation.model.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)
         return converted
 
-    def predict_for_fit(self, trained_operation, predict_data: InputData, output_mode: str = 'labels') -> OutputData:
+    def predict_for_fit(
+            self,
+            trained_operation,
+            predict_data: InputData,
+            output_mode: str = 'labels') -> OutputData:
         prediction = trained_operation.model.predict(predict_data, output_mode)
         converted = self._convert_to_output(
             prediction, predict_data, predict_data.data_type)

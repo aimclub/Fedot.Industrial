@@ -22,7 +22,10 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
         self.data_type = DataTypesEnum.image
 
-    def _convert_to_fedot_datatype(self, input_data=None, transformed_features=None):
+    def _convert_to_fedot_datatype(
+            self,
+            input_data=None,
+            transformed_features=None):
         if not isinstance(input_data, InputData):
             input_data = InputData(idx=np.arange(len(transformed_features)),
                                    features=transformed_features,
@@ -30,7 +33,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                                    task='no_task',
                                    data_type=DataTypesEnum.table)
 
-        if type(transformed_features) is OutputData:
+        if isinstance(transformed_features, OutputData):
             transformed_features = transformed_features.predict
 
         predict = OutputData(idx=input_data.idx,
@@ -49,13 +52,15 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         Returns:
             np.array: The decomposition of the given data.
         """
-        pass
 
     def try_load_from_cache(self, hashed_info: str) -> np.array:
         predict = self.cacher.load_data_from_cache(hashed_info=hashed_info)
         return predict
 
-    def transform(self, input_data: InputData, use_cache: bool = False) -> OutputData:
+    def transform(
+            self,
+            input_data: InputData,
+            use_cache: bool = False) -> OutputData:
         """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
 
         Args:
@@ -67,16 +72,20 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
         """
         if use_cache:
-            class_params = {k: v for k, v in self.__dict__.items() if k not in ['cacher',
-                                                                                'data_type',
-                                                                                'params',
-                                                                                'n_processes',
-                                                                                'logging_params',
-                                                                                'logger',
-                                                                                'relevant_features']}
+            class_params = {
+                k: v for k,
+                v in self.__dict__.items() if k not in [
+                    'cacher',
+                    'data_type',
+                    'params',
+                    'n_processes',
+                    'logging_params',
+                    'logger',
+                    'relevant_features']}
 
-            hashed_info = self.cacher.hash_info(data=input_data.features,
-                                                operation_info=class_params.__repr__())
+            hashed_info = self.cacher.hash_info(
+                data=input_data.features,
+                operation_info=class_params.__repr__())
             try:
                 predict = self.try_load_from_cache(hashed_info)
             except FileNotFoundError:

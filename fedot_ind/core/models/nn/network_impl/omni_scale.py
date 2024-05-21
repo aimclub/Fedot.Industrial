@@ -23,10 +23,8 @@ class OmniScaleCNN(Module):
                  activation='ReLU'):
 
         receptive_field_shape = max(seq_len // 4, 1)
-        layer_parameter_list = self.generate_layer_parameter_list(1,
-                                                                  receptive_field_shape,
-                                                                  layers,
-                                                                  input_dim=input_dim)
+        layer_parameter_list = self.generate_layer_parameter_list(
+            1, receptive_field_shape, layers, input_dim=input_dim)
         self.few_shot = few_shot
         self.layer_parameter_list = layer_parameter_list
         self.layer_list = []
@@ -137,10 +135,12 @@ class OmniScaleModel(BaseNeuralModel):
         return "OmniNN"
 
     def _init_model(self, ts):
-        self.model = OmniScaleCNN(input_dim=ts.features.shape[1],
-                                  output_dim=self.num_classes,
-                                  seq_len=ts.features.shape[2],
-                                  activation=self.activation).to(default_device())
+        self.model = OmniScaleCNN(
+            input_dim=ts.features.shape[1],
+            output_dim=self.num_classes,
+            seq_len=ts.features.shape[2],
+            activation=self.activation).to(
+            default_device())
         self.model_for_inference = OmniScaleCNN(input_dim=ts.features.shape[1],
                                                 output_dim=self.num_classes,
                                                 seq_len=ts.features.shape[2],

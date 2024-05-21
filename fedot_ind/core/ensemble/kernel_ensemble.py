@@ -1,5 +1,4 @@
 from copy import deepcopy
-from functools import partial
 from typing import Optional, Any
 
 import pandas as pd
@@ -16,7 +15,6 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
     KERNEL_BASELINE_NODE_LIST
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from itertools import chain
 
 
 class KernelEnsembler(BaseExtractor):
@@ -77,16 +75,22 @@ class KernelEnsembler(BaseExtractor):
         self.classes_misses_by_generator = {gen: [i for i in self.all_classes if
                                                   i not in self.classes_described_by_generator[gen]]
                                             for gen in top_n_generators}
-        self.mapper_dict = {gen: {k: v for k, v in
-                                  zip(self.classes_described_by_generator[gen],
-                                      np.arange(0, len(self.classes_described_by_generator[gen])+1))} for gen in
-                            top_n_generators}
+        self.mapper_dict = {
+            gen: {
+                k: v for k, v in zip(
+                    self.classes_described_by_generator[gen], np.arange(
+                        0, len(
+                            self.classes_described_by_generator[gen]) + 1))} for gen in top_n_generators}
         return top_n_generators, self.classes_described_by_generator
 
     def _map_target_for_generator(self, entry, mapper_dict):
         return mapper_dict[entry] if entry in mapper_dict else entry
 
-    def _create_kernel_ensemble(self, input_data, top_n_generators, classes_described_by_generator):
+    def _create_kernel_ensemble(
+            self,
+            input_data,
+            top_n_generators,
+            classes_described_by_generator):
         kernel_ensemble = {}
         kernel_data = {}
         for i, gen in enumerate(top_n_generators):
@@ -99,14 +103,14 @@ class KernelEnsembler(BaseExtractor):
             train_fold.target = mp(
                 entry=train_fold.target, mapper_dict=self.mapper_dict[gen])
             train_fold.target[not_described_idx] = max(
-                list(self.mapper_dict[gen].values()))+1
+                list(self.mapper_dict[gen].values())) + 1
             basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
             if basis is None:
-                kernel_ensemble.update(
-                    {gen: PipelineBuilder().add_node(generator).add_node('xgboost').build()})
+                kernel_ensemble.update({gen: PipelineBuilder().add_node(
+                    generator).add_node('xgboost').build()})
             else:
-                kernel_ensemble.update(
-                    {gen: PipelineBuilder().add_node(basis).add_node(generator).add_node('xgboost').build()})
+                kernel_ensemble.update({gen: PipelineBuilder().add_node(
+                    basis).add_node(generator).add_node('xgboost').build()})
             kernel_data.update({gen: train_fold})
         return kernel_ensemble, kernel_data
 
@@ -132,8 +136,11 @@ class KernelEnsembler(BaseExtractor):
         for model in self.feature_extractor:
             model = KERNEL_BASELINE_FEATURE_GENERATORS[model].build()
             self.feature_matrix_train.append(model.fit(input_data).predict)
-        self.feature_matrix_train = [x.reshape(x.shape[0], x.shape[1] * x.shape[2])
-                                     for x in self.feature_matrix_train]
+        self.feature_matrix_train = [
+            x.reshape(
+                x.shape[0],
+                x.shape[1] *
+                x.shape[2]) for x in self.feature_matrix_train]
         KLtr = [squareform(pdist(X=feature, metric=self.distance_metric))
                 for feature in self.feature_matrix_train]
         return KLtr
