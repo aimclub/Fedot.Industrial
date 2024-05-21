@@ -1,8 +1,10 @@
 from copy import copy
 
 import numpy as np
+import pandas as pd
 import statsmodels.api as sm
 from statsmodels.tsa.ar_model import AutoReg
+from statsmodels.tsa.regime_switching.markov_autoregression import MarkovAutoregression
 from statsmodels.tsa.exponential_smoothing.ets import ETSModel
 
 from fedot.core.data.data import InputData, OutputData
@@ -10,7 +12,9 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot_ind.core.models.ts_forecasting.markov_extension import MSARExtension
 
+from sklearn.preprocessing import StandardScaler
 
 class MarkovAR(ModelImplementation):
 
@@ -18,6 +22,7 @@ class MarkovAR(ModelImplementation):
         super().__init__(params)
         self.autoreg = None
         self.actual_ts_len = None
+        self.scaler = StandardScaler()
 
     def fit(self, input_data):
         """ Class fit ar model on data
@@ -25,10 +30,16 @@ class MarkovAR(ModelImplementation):
         :param input_data: data with features, target and ids to process
         """
 
-        source_ts = np.array(input_data.features)
+        source_ts = pd.DataFrame(input_data.features)
+        # source_ts = pd.DataFrame(self.scaler.fit_transform(input_data.features.reshape(-1, 1)))
+        
         self.actual_ts_len = len(source_ts)
 
-        self.autoreg = sm.tsa.MarkovAutoregression(source_ts, k_regimes=2, order=4, switching_ar=False).fit()
+        self.autoreg = MarkovAutoregression(source_ts, 
+                        k_regimes=2, 
+                        order=4,
+                        switching_variance=True).fit()
+        
         self.actual_ts_len = input_data.idx.shape[0]
 
         return self.autoreg
@@ -47,7 +58,11 @@ class MarkovAR(ModelImplementation):
         self.handle_new_data(input_data)
         start_id = self.actual_ts_len
         end_id = start_id + forecast_length - 1
-        predicted = self.autoreg.predict(start=start_id, end=end_id)
+        # predicted = self.autoreg.predict(start=start_id, end=end_id)
+
+        predicted = MSARExtension(self.autoreg).predict_out_of_sample()
+
+        # predict = np.array(self.scaler.inverse_transform(predicted).ravel())[0].reshape(1, -1)
         predict = np.array(predicted).reshape(1, -1)
 
         output_data = self._convert_to_output(input_data,
