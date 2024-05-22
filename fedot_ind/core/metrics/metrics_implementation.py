@@ -2,6 +2,8 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+from fedot.core.data.data import InputData
+from golem.core.dag.graph import Graph
 from sklearn.metrics import (accuracy_score, f1_score,
                              log_loss, mean_absolute_error,
                              mean_absolute_percentage_error,
@@ -46,10 +48,12 @@ class QualityMetric:
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
-                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                         'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
-        if len(predicted_labels.shape) >= 2:
+        labels_as_matrix = len(predicted_labels.shape) >= 2
+        labels_as_one_dim = min(predicted_labels.shape) == 1
+        if labels_as_matrix and not labels_as_one_dim:
             self.predicted_labels = np.argmax(predicted_labels, axis=1)
         else:
             self.predicted_labels = np.array(predicted_labels).flatten()
@@ -80,8 +84,8 @@ class RMSE(QualityMetric):
 class SMAPE(QualityMetric):
     def metric(self):
         return 1 / len(self.predicted_labels) \
-            * np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
-                                                                        + np.abs(self.target)) * 100)
+               * np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
+                                                                           + np.abs(self.target)) * 100)
 
 
 class MSE(QualityMetric):
@@ -139,6 +143,12 @@ class MAE(QualityMetric):
 class R2(QualityMetric):
     def metric(self) -> float:
         return r2_score(y_true=self.target, y_pred=self.predicted_labels)
+
+
+def maximised_r2(graph: Graph, reference_data: InputData, **kwargs):
+    result = graph.predict(reference_data)
+    r2_value = r2_score(y_true=reference_data.target, y_pred=result.predict)
+    return 1 - r2_value
 
 
 class ROCAUC(QualityMetric):
@@ -229,7 +239,7 @@ def calculate_regression_metric(target,
 
     df = pd.DataFrame({name: func(target,
                                   labels) for name,
-                       func in metric_dict.items() if name in metric_names},
+                                              func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
@@ -255,20 +265,20 @@ def calculate_forecasting_metric(target,
 
     df = pd.DataFrame({name: func(target,
                                   labels) for name,
-                       func in metric_dict.items() if name in metric_names},
+                                              func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
 
 def calculate_classification_metric(
-    target,
-    labels,
-    probs,
-    rounding_order=3,
-    metric_names=(
-        'f1',
-        # 'roc_auc',
-        'accuracy')):
+        target,
+        labels,
+        probs,
+        rounding_order=3,
+        metric_names=(
+                'f1',
+                # 'roc_auc',
+                'accuracy')):
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
                    # 'roc_auc': ROCAUC,

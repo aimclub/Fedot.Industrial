@@ -590,19 +590,19 @@ def get_industrial_search_space(self):
         'lgbmreg': {
             'num_leaves': {
                 'hyperopt-dist': hp.uniformint,
-                'sampling-scope': [2, 256],
+                'sampling-scope': [128, 1024],
                 'type': 'discrete'},
             'learning_rate': {
                 'hyperopt-dist': hp.loguniform,
-                'sampling-scope': [0.01, 0.2],
+                'sampling-scope': [0.001, 0.1],
                 'type': 'continuous'},
             'colsample_bytree': {
                 'hyperopt-dist': hp.uniform,
-                'sampling-scope': [0.4, 1],
+                'sampling-scope': [0.1, 1],
                 'type': 'continuous'},
             'subsample': {
                 'hyperopt-dist': hp.uniform,
-                'sampling-scope': [0.4, 1],
+                'sampling-scope': [0.1, 1],
                 'type': 'continuous'},
             'reg_alpha': {
                 'hyperopt-dist': hp.loguniform,

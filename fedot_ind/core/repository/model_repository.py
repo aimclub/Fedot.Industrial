@@ -12,12 +12,13 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     LinearClassFSImplementation, NonLinearClassFSImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
-
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
     TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
+    FedotCatBoostRegressionImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
     FedotKnnRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
@@ -26,6 +27,7 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
     CGRUImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation
+from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
     GradientBoostingClassifier, \
     RandomForestClassifier, RandomForestRegressor
@@ -36,14 +38,13 @@ from sklearn.linear_model import (
     Ridge as SklearnRidgeReg,
     SGDRegressor as SklearnSGD
 )
-from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
-    FedotCatBoostRegressionImplementation
-from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
+from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
@@ -198,6 +199,11 @@ class AtomizedModel(Enum):
         'exog_ts': ExogDataTransformationImplementation,
     }
 
+    ANOMALY_DETECTION_MODELS = {
+        'sst': SingularSpectrumTransformation,
+        'unscented_kalman_filter': UnscentedKalmanFilter
+    }
+
     NEURAL_MODEL = {
         # fundamental models
         'inception_model': InceptionTimeModel,
@@ -245,6 +251,7 @@ INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
+ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value
 SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
