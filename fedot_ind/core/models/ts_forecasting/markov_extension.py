@@ -43,8 +43,8 @@ class MSARExtension():
             mat2 = self.last_nobs.iloc[::-1]
             mat2 = pd.concat([pd.Series([1]), mat2])# adding constant
             
-            mat1['value'] = mat2.iloc[:, 0].tolist()
-            mat1['product'] = mat1.value * mat1.estimate # dot product step 1
+            mat1.loc[:, 'value'] = mat2.iloc[:, 0]#.tolist()
+            mat1.loc[:, 'product'] = mat1['value'] * mat1['estimate'] # dot product step 1
             self.perRegime_forecasts.append(mat1['product'].sum())
         
         # also pull up transition matrix
