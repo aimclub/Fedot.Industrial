@@ -1,4 +1,4 @@
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -294,9 +294,14 @@ class DistributionLoss(nn.Module):
                 class attribute ``distribution_class``
         """
         distr = cls._map_x_to_distribution(x)
+        transforms = []
         if cls.need_affine:
-            scaler = distributions.AffineTransform(loc=x[..., 0], scale=x[..., 1])
-            distr = distributions.TransformedDistribution(distr, [scaler])
+            loc = x[..., 0]
+            scale = x[..., 1]
+            scaler_from_output = distributions.AffineTransform(loc=loc, scale=scale)
+            transforms.append(scaler_from_output)
+        if transforms:
+            distr = distributions.TransformedDistribution(distr, transforms)
         return distr
     
     @classmethod
@@ -304,7 +309,7 @@ class DistributionLoss(nn.Module):
         raise NotImplemented
     
 
-    def forward(self, y_pred: torch.Tensor, y_actual: torch.Tensor) -> torch.Tensor:
+    def forward(self, param_pred: torch.Tensor, target: torch.Tensor, scaler=None) -> torch.Tensor:
         """
         Calculate negative likelihood
 
@@ -315,8 +320,10 @@ class DistributionLoss(nn.Module):
         Returns:
             torch.Tensor: metric value on which backpropagation can be applied
         """
-        distribution = self.map_x_to_distribution(y_pred)
-        loss = -distribution.log_prob(y_actual)
+        distribution = self.map_x_to_distribution(param_pred)
+        if scaler:
+            target = scaler.scale(target)
+        loss = -distribution.log_prob(target)
         loss = self.reduction(loss)
         return loss
 
@@ -328,8 +335,6 @@ class NormalDistributionLoss(DistributionLoss):
 
     distribution_class = distributions.Normal
     distribution_arguments = ["loc", "scale"]
-    scale_dependent_idx = (1,)
-    loc_dependent_idx = (0,)
     need_affine=False
 
     @classmethod
@@ -338,5 +343,62 @@ class NormalDistributionLoss(DistributionLoss):
         scale = F.softplus(x[..., -1])
         distr = self.distribution_class(loc=loc, scale=scale)
         return distr
+
+
+class CauchyDistributionLoss(DistributionLoss):
+    distribution_class = distributions.Cauchy
+    distribution_arguments = ["loc", "scale"]
+    need_affine=False
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        loc = x[..., -2]
+        scale = F.softplus(x[..., -1])
+        distr = self.distribution_class(loc=loc, scale=scale)
+        return distr
+    
+class LogNormDistributionLoss(DistributionLoss):
+    distribution_class = distributions.LogNormal
+    distribution_arguments = ["loc", "scale"]
+    need_affine = False
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        loc = x[..., -2]
+        scale = F.softplus(x[..., -1])
+        distr = self.distribution_class(loc=loc, scale=scale)
+        return distr
+    
+class SkewNormDistributionLoss(DistributionLoss):
+    # TODO
+    pass
+
+class InverseGaussDistributionLoss(DistributionLoss):
+    distribution_class = distributions.InverseGamma
+    distribution_arguments = ["loc", "scale", "concentration", "rate"] # need for discrete of 'scale' rate is questionable
+    need_affine=True
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        concentration = F.softplus(x[..., -2])
+        rate = F.softplus(x[..., -1])
+        distr = self.distribution_class(concentration=concentration, rate=rate)
+        return distr
+
+class BetaDistributionLoss(DistributionLoss):
+    distribution_class = distributions.Beta
+    distribution_arguments = ["loc", "scale", 'concentration0', 'concentration1']
+    need_affine = True
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        concentration0 = F.softplus(x[..., -2])
+        concentration1 = F.softplus(x[..., -1])
+        distr = self.distribution_class(concentration0=concentration0, concentration1=concentration1)
+        return distr
+    
+
+
+
         
         
