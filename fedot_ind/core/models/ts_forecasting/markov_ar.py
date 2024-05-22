@@ -2,6 +2,8 @@ from copy import copy
 
 import numpy as np
 import pandas as pd
+from scipy import stats
+from scipy.special import boxcox, inv_boxcox
 import statsmodels.api as sm
 from statsmodels.tsa.ar_model import AutoReg
 from statsmodels.tsa.regime_switching.markov_autoregression import MarkovAutoregression
@@ -12,6 +14,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.utilities.ts_gapfilling import SimpleGapFiller
 from fedot_ind.core.models.ts_forecasting.markov_extension import MSARExtension
 
 from sklearn.preprocessing import StandardScaler
@@ -23,6 +26,11 @@ class MarkovAR(ModelImplementation):
         self.autoreg = None
         self.actual_ts_len = None
         self.scaler = StandardScaler()
+        self.lambda_param = None
+        self.scope = None
+        self.k_regimes = params.get('k_regimes', 2)
+        self.order = params.get('order', 2)
+        self.trend = params.get('trend', 'ct')
 
     def fit(self, input_data):
         """ Class fit ar model on data
@@ -30,18 +38,16 @@ class MarkovAR(ModelImplementation):
         :param input_data: data with features, target and ids to process
         """
 
-        source_ts = pd.DataFrame(input_data.features)
-        source_ts = pd.DataFrame(self.scaler.fit_transform(input_data.features.reshape(-1, 1)))
+        source_ts = self.scaler.fit_transform(input_data.features.reshape(-1, 1)).flatten()
         
         self.actual_ts_len = len(source_ts)
 
         self.autoreg = MarkovAutoregression(source_ts, 
-                        k_regimes=2, 
-                        order=4,
-                        switching_variance=True).fit()
+                        k_regimes=self.k_regimes, 
+                        order=self.order,
+                        trend = self.trend,
+                        switching_variance=False).fit()
         
-        self.actual_ts_len = input_data.idx.shape[0]
-
         return self.autoreg
 
     def predict(self, input_data):
@@ -50,7 +56,7 @@ class MarkovAR(ModelImplementation):
         :param input_data: data with features, target and ids to process
         :return output_data: output data with smoothed time series
         """
-        input_data = copy(input_data)
+        # input_data = copy(input_data)
         parameters = input_data.task.task_params
         forecast_length = parameters.forecast_length
 
@@ -58,13 +64,10 @@ class MarkovAR(ModelImplementation):
         self.handle_new_data(input_data)
         start_id = self.actual_ts_len
         end_id = start_id + forecast_length - 1
-        # predicted = self.autoreg.predict(start=start_id, end=end_id)
 
         predicted = MSARExtension(self.autoreg).predict_out_of_sample()
-        # print('Pred. shaper', predicted.shape)
 
         predict = self.scaler.inverse_transform(np.array([predicted]).ravel().reshape(1, -1))
-        # predict = np.array(predicted).reshape(1, -1)
 
         output_data = self._convert_to_output(input_data,
                                               predict=predict,
@@ -96,6 +99,38 @@ class MarkovAR(ModelImplementation):
                                               predict=predict,
                                               data_type=DataTypesEnum.table)
         return output_data
+
+    # def predict_for_fit(self, input_data: InputData) -> OutputData:
+    #     parameters = input_data.task.task_params
+    #     forecast_length = parameters.forecast_length
+    #     idx = input_data.idx
+    #     target = input_data.target
+        
+    #     fitted_values = self.autoreg.predict(start=idx[0], end=idx[-1])
+    #     diff = int(self.actual_ts_len) - len(fitted_values)
+    #     # If first elements skipped
+    #     if diff != 0:
+    #         # Fill nans with first values
+    #         first_element = fitted_values[0]
+    #         first_elements = [first_element] * diff
+    #         first_elements.extend(list(fitted_values))
+
+    #         fitted_values = np.array(first_elements)
+
+    #     _, predict = ts_to_table(idx=idx,
+    #                              time_series=fitted_values,
+    #                              window_size=forecast_length)
+
+    #     new_idx, target_columns = ts_to_table(idx=idx,
+    #                                           time_series=target,
+    #                                           window_size=forecast_length)
+
+    #     input_data.idx = new_idx
+    #     input_data.target = target_columns
+    #     output_data = self._convert_to_output(input_data,
+    #                                           predict=predict,
+    #                                           data_type=DataTypesEnum.table)
+    #     return output_data
 
     def handle_new_data(self, input_data: InputData):
         """
