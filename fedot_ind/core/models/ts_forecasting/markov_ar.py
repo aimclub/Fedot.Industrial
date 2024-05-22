@@ -31,7 +31,7 @@ class MarkovAR(ModelImplementation):
         """
 
         source_ts = pd.DataFrame(input_data.features)
-        # source_ts = pd.DataFrame(self.scaler.fit_transform(input_data.features.reshape(-1, 1)))
+        source_ts = pd.DataFrame(self.scaler.fit_transform(input_data.features.reshape(-1, 1)))
         
         self.actual_ts_len = len(source_ts)
 
@@ -61,9 +61,10 @@ class MarkovAR(ModelImplementation):
         # predicted = self.autoreg.predict(start=start_id, end=end_id)
 
         predicted = MSARExtension(self.autoreg).predict_out_of_sample()
+        # print('Pred. shaper', predicted.shape)
 
-        # predict = np.array(self.scaler.inverse_transform(predicted).ravel())[0].reshape(1, -1)
-        predict = np.array(predicted).reshape(1, -1)
+        predict = self.scaler.inverse_transform(np.array([predicted]).ravel().reshape(1, -1))
+        # predict = np.array(predicted).reshape(1, -1)
 
         output_data = self._convert_to_output(input_data,
                                               predict=predict,
