@@ -5,29 +5,6 @@
     "low_rank_approximation": true,
     "tensor_approximation": false
   },
-  "wavelet_basis": {
-    "n_components": 2,
-    "wavelet": "mexh"
-  },
-  "fourier_basis": {
-    "threshold": 20000
-  },
-  "topological_extractor": {
-    "window_size_as_share": 0.33,
-    "max_homology_dimension": 1,
-    "metric": "euclidean",
-    "window_size": 25,
-    "stride": 5
-  },
-  "quantile_extractor": {
-    "stride": 1,
-    "window_size": 0
-  },
-  "riemann_extractor": {
-    "estimator": "scm",
-    "tangent_metric": "riemann",
-    "SPD_metric": "riemann"
-  },
   "recurrence_extractor": {
     "window_size": 0,
     "stride": 1,
@@ -36,15 +13,6 @@
   },
   "minirocket_extractor": {
     "num_features": 10000
-  },
-  "chronos_extractor": {
-    "num_features": 10000
-  },
-  "channel_filtration": {
-    "distance": "euclidean",
-    "shrink": 1e-5,
-    "centroid_metric": "euclidean",
-    "selection_strategy": "sum"
   },
   "patch_tst_model": {
     "epochs": 100,
@@ -190,11 +158,6 @@
     "lag_2": 12,
     "trend": "c"
   },
-  "arima": {
-    "p": 2,
-    "d": 0,
-    "q": 2
-  },
   "ets": {
     "error": "add",
     "trend": null,
@@ -325,21 +288,6 @@
     "min_df": 0.1,
     "max_df": 0.9
   },
-  "polyfit": {
-    "degree": 2
-  },
-  "ransac_lin_reg": {
-    "min_samples": 0.4,
-    "residual_threshold": 10,
-    "max_trials": 100,
-    "max_skips": 1000
-  },
-  "ransac_non_lin_reg": {
-    "min_samples": 0.4,
-    "residual_threshold": 10,
-    "max_trials": 100,
-    "max_skips": 1000
-  },
   "h2o_regr": {
     "timeout": 20,
     "seed": 42,
@@ -360,39 +308,8 @@
     "generations": 3,
     "population_size": 3
   },
-  "resample": {
-    "balance": "expand_minority",
-    "replace": false,
-    "balance_ratio": 1
-  },
-  "pca": {
-    "svd_solver": "full",
-    "n_components": 0.7
-  },
-  "kernel_pca": {
-    "n_components": null,
-    "kernel": "rbf"
-  },
-  "ts_naive_average": {
-    "part_for_averaging": 1.0
-  },
-  "locf": {
-    "part_for_repeat": -1
-  },
-  "word2vec_pretrained": {
-    "model_name": "glove-twitter-25"
-  },
-  "tfidf": {
-    "min_df": 0.1,
-    "max_df": 0.9
-  },
   "fast_ica": {
     "whiten": "unit-variance"
-  },
-  "eigen_basis": {
-    "window_size": 25,
-    "sv_selector": "median",
-    "rank_regularization": "hard_thresholding"
   },
   "channel_filtration": {
     "distance": "euclidean",
@@ -419,17 +336,6 @@
     "tangent_metric": "riemann",
     "SPD_metric": "riemann"
   },
-  "recurrence_extractor": {
-    "window_size": 20,
-    "window_mode": true,
-    "min_signal_ratio": 0.5,
-    "max_signal_ratio": 0.75,
-    "rec_metric": "euclidean",
-    "image_mode": false},
-  "ssa_forecaster": {
-    "window_size_method": "hac",
-    "history_lookback": 30
-  },
   "fedot_cls": {
     "timeout": 10,
     "with_tuning": true
@@ -438,33 +344,11 @@
     "timeout": 10,
     "with_tuning": true
   },
-  "minirocket_extractor": {
-    "num_features": 10000
-  },
-  "chronos_extractor": {
-    "num_features": 10000
-  },
-  "inception_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "omniscale_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
   "tst_model": {
     "epochs": 100,
     "batch_size": 32
   },
-  "resnet_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
   "xcm_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "patch_tst_model": {
     "epochs": 100,
     "batch_size": 32
   },
