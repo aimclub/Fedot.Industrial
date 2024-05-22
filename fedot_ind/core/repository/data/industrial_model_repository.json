@@ -165,6 +165,22 @@
       ],
       "description": "Implementations of fedot NN classification strategy"
     },
+    "fedot_anomaly_detection": {
+      "tasks": "[TaskTypesEnum.classification]",
+      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.industrial_model_strategy",
+        "IndustrialAnomalyDetectionStrategy"
+      ],
+      "tags": [
+      ],
+      "description": "Implementations of fedot anomaly_detection strategy"
+    },
     "fedot_NN_regression": {
       "tasks": "[TaskTypesEnum.regression]",
       "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
@@ -259,6 +275,14 @@
     },
     "tst_model": {
       "meta": "fedot_NN_classification",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "sst": {
+      "meta": "fedot_anomaly_detection",
       "presets": [
         "best_quality"
       ],

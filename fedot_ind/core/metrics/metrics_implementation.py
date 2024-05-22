@@ -1,8 +1,10 @@
+from typing import Optional
 from typing import Union
 
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
+from fedot.core.operations.operation_parameters import OperationParameters
 from golem.core.dag.graph import Graph
 from sklearn.metrics import (accuracy_score, f1_score,
                              log_loss, mean_absolute_error,
@@ -13,6 +15,9 @@ from sklearn.metrics import d2_absolute_error_score, explained_variance_score, m
 from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+# from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
+from fedot_ind.core.metrics.anomaly_detection.function import single_average_delay, \
+    single_evaluate_nab, single_detecting_boundaries, check_errors
 
 
 class ParetoMetrics:
@@ -290,6 +295,7 @@ def calculate_classification_metric(
     return df.round(rounding_order)
 
 
+
 def kl_divergence(solution: pd.DataFrame,
                   submission: pd.DataFrame,
                   epsilon: float = 0.001,
@@ -335,3 +341,262 @@ def kl_divergence(solution: pd.DataFrame,
         return np.average(solution.sum(axis=1), weights=sample_weights)
     else:
         return np.average(solution.mean())
+
+
+class AnomalyMetric(QualityMetric):
+
+    def __init__(self,
+                 target,
+                 predicted_labels,
+                 params: Optional[OperationParameters] = None):
+
+        """
+        Parameters
+        ----------
+        self.target: variants:
+            or: if one dataset : pd.Series with binary int labels (1 is
+            anomaly, 0 is not anomaly);
+
+            or: if one dataset : list of pd.Timestamp of self.target labels, or []
+            if haven't labels ;
+
+            or: if one dataset : list of list of t1,t2: left and right
+            detection, boundaries of pd.Timestamp or [[]] if haven't labels
+
+            or: if many datasets: list (len of number of datasets) of pd.Series
+            with binary int labels;
+
+            or: if many datasets: list of list of pd.Timestamp of self.target labels, or
+            self.target = [ts,[]] if haven't labels for specific dataset;
+
+            or: if many datasets: list of list of list of t1,t2: left and right
+            detection boundaries of pd.Timestamp;
+            If we haven't self.target labels for specific dataset then we must insert
+            empty list of labels: self.target = [[[]],[[t1,t2],[t1,t2]]].
+
+            __True labels of anomalies or changepoints.
+            It is important to have appropriate labels (CP or
+            anomaly) for corresponding self.metric (See later "self.metric")
+
+        self.predicted_labels: variants:
+            or: if one dataset : pd.Series with binary int labels
+            (1 is anomaly, 0 is not anomaly);
+
+            or: if many datasets: list (len of number of datasets)
+            of pd.Series with binary int labels.
+
+            __Predicted labels of anomalies or changepoints.
+            It is important to have appropriate labels (CP or
+            anomaly) for corresponding self.metric (See later "self.metric")
+
+        self.metric: {'nab', 'binary', 'average_time', 'confusion_matrix'}.
+            Default='nab'
+            Affects to output (see later: Returns)
+            Changepoint problem: {'nab', 'average_time'}.
+            Standard AD problem: {'binary', 'confusion_matrix'}.
+            'nab' is Numenta Anomaly Benchmark self.metric
+
+            'average_time' is both average delay or time to failure
+            depend on situation.
+
+            'binary': FAR, MAR, F1.
+
+            'confusion_matrix' standard confusion_matrix for any point.
+
+        window_width: 'str' for pd.Timedelta
+            Width of detection window. Default=None.
+
+        share : float, default=0.1
+            The share is needed if window_width = None.
+            The width of the detection window in this case is equal
+            to a share of the width of the length of self.predicted_labels divided
+            by the number of real CPs in this dataset. Default=0.1.
+
+        anomaly_window_destination: {'lefter', 'righter', 'center'}. Default='right'
+            The parameter of the location of the detection window relative to the anomaly.
+            'lefter'  : the detection window will be on the left side of the anomaly
+            'righter' : the detection window will be on the right side of the anomaly
+            'center'  : the scoring window will be positioned relative to the center of anom.
+
+        self.clear_anomalies_mode : boolean, default=True.
+            True : then the `left value of a Scoring function is Atp and the
+            `right is Afp. Only the `first value inside the detection window is taken.
+            False: then the `right value of a Scoring function is Atp and the
+            `left is Afp. Only the `last value inside the detection window is taken.
+
+        intersection_mode: {'cut left window', 'cut right window', 'both'}.
+            Default='cut right window'
+            The parameter will be used if the detection windows overlap for
+            self.target changepoints, which is generally undesirable and requires a
+            different approach than simply cropping the scoring window using
+            this parameter.
+            'cut left window' : will cut the overlapping part of the left window
+            'cut right window': will cut the intersecting part of the right window
+            'both'            : will crop the intersecting self.share of both the left
+            and right windows
+
+        verbose:  boolean, default=True.
+            If True, then output useful information
+
+        plot_figure : boolean, default=False.
+            If True, then drawing the score fuctions, detection windows and self.predicted_labelss
+            It is used for example, for calibration the self.scale_val.
+
+         self.table_val (self.metric='nab'): pd.DataFrame of specific form. See bellow.
+            Application profiles of NAB self.metric.If Default is None:
+             self.table_val = pd.DataFrame([[1.0,-0.11,1.0,-1.0],
+                                          [1.0,-0.22,1.0,-1.0],
+                                          [1.0,-0.11,1.0,-2.0]])
+             self.table_val.index = ['Standard','LowFP','LowFN']
+             self.table_val.index.name = "Metric"
+             self.table_val.columns = ['A_tp','A_fp','A_tn','A_fn']
+
+        scale (metric='nab'): "default" of "improved". Default="improved".
+            Scoring function in NAB self.metric.
+            'default'  : standard NAB scoring function
+            'improved' : Our function for resolving disadvantages
+            of standard NAB scoring function
+
+        scale_val : float > 0. Default=1.0.
+            Smoothing factor. The smaller it is,
+            the smoother the scoring function is.
+
+        Returns
+        ----------
+        metrics : value of metrics, depend on metric
+            'nab': tuple
+                - Standard profile, float
+                - Low FP profile, float
+                - Low FN profile
+            'average_time': tuple
+                - Average time (average delay, or time to failure)
+                - Missing changepoints, int
+                - FPs, int
+                - Number of self.target changepoints, int
+            'binary': tuple
+                - F1 self.metric, float
+                - False alarm rate, %, float
+                - Missing Alarm Rate, %, float
+            'binary': tuple
+                - TPs, int
+                - TNs, int
+                - FPs, int
+                - FNS, int
+
+        """
+        super().__init__(target=target, predicted_labels=predicted_labels)
+        self.metric = params.get('self.metric', 'nab')
+        self.anomaly_window_destination = params.get('anomaly_window_destination', 'lefter')
+        self.intersection_mode = params.get('intersection_mode', 'cut right window')
+        self.scale = params.get('scale', 'improved')
+        self.anomaly_window_destination = params.get('anomaly_window_destination', 'lefter')
+        self.intersection_mode = params.get('intersection_mode', 'cut right window')
+        self.scale = params.get('scale', 'improved')
+
+        self.share = params.get('self.share', 0.1)
+        self.scale_val = params.get('self.scale_val', 1)
+
+        self.table_val = params.get(' self.table_val', None)
+        self.window_width = params.get('self.window_width', None)
+        self.clear_anomalies_mode = params.get('self.clear_anomalies_mode', True)
+
+        # self.target_converter = DataConverter(data=self.target)
+        # self.labels_converter = DataConverter(data=self.predicted_labels)
+
+    def _check_sort(self, my_list, input_variant):
+        for dataset in my_list:
+            if input_variant == 2:
+                assert all(np.sort(dataset) == np.array(dataset))
+            elif input_variant == 3:
+                assert all(np.sort(np.concatenate(dataset)) == np.concatenate(dataset))
+            elif input_variant == 1:
+                assert all(dataset.index.values == dataset.sort_index().index.values)
+
+    # def __conditional_check(self):
+    #     target_list = self.target_converter.is_list
+    #     target_series = self.target_converter.is_pandas_series
+    #     label_series = self.labels_converter.is_pandas_series
+    #     unequal_target_labels = len(self.target) == len(self.predicted_labels)
+    #     if any([target_list, target_series, label_series, unequal_target_labels]):
+    #         return True
+    #     else:
+    #         return False
+
+    def __evaluate_nab(self, detecting_boundaries):
+        matrix = np.zeros((3, 3))
+        result = {}
+        metric_names = ['Standard', 'LowFP', 'LowFN']
+
+        for i in range(len(self.predicted_labels)):
+            matrix_ = single_evaluate_nab(detecting_boundaries[i],
+                                          self.predicted_labels[i],
+                                          table_of_val=self.table_val,
+                                          clear_anomalies_mode=self.clear_anomalies_mode,
+                                          scale=self.scale,
+                                          scale_val=self.scale_val)
+            matrix = matrix + matrix_
+
+        for t, profile_name in enumerate(metric_names):
+            val = round(100 * (matrix[0, t] - matrix[1, t]) / (matrix[2, t] - matrix[1, t]), 2)
+            result.update({profile_name: val})
+        return result
+
+    def __evaluate_average_time(self, detecting_boundaries):
+        missing, detectHistory, FP, all_target_anom = 0, [], 0, 0
+        for i in range(len(self.predicted_labels)):
+            missing_, detectHistory_, FP_, all_target_anom_ = \
+                single_average_delay(detecting_boundaries[i], self.predicted_labels[i],
+                                     anomaly_window_destination=self.anomaly_window_destination,
+                                     clear_anomalies_mode=self.clear_anomalies_mode)
+            missing, detectHistory, FP, all_target_anom = missing + missing_, \
+                                                          detectHistory + detectHistory_, FP + FP_, \
+                                                          all_target_anom + all_target_anom_
+
+        result = dict(false_positive=int(FP),
+                      missed_anomaly=missing,
+                      all_detection_hist=np.mean(detectHistory),
+                      all_anomaly_history=all_target_anom)
+        return result
+
+    def _detect_boundary(self):
+        target_map_dict = {1: (self.target, None),
+                           2: (None, self.target),
+                           3: (None, None)}
+        target_series, target_list_ts = target_map_dict[self.input_variant]
+        detecting_boundaries = [single_detecting_boundaries(target_series=target_series[i],
+                                                            target_list_ts=target_list_ts,
+                                                            predicted_labels=self.predicted_labels[i],
+                                                            window_width=self.window_width,
+                                                            share=self.share,
+                                                            anomaly_window_destination=self.anomaly_window_destination,
+                                                            intersection_mode=self.intersection_mode)
+                                for i in range(len(self.target))]
+        return detecting_boundaries
+
+    def metric(self):
+        # step 1. Check target and labels
+        # if self.__conditional_check():
+        #     raise Exception('Incorrect format for self.predicted_labels')
+        _metric_dict = {'nab': self.__evaluate_nab,
+                        'average_time': self.__evaluate_average_time}
+        # final check
+        self.input_variant = check_errors(self.target)
+
+        self._check_sort(self.target, self.input_variant)
+        self._check_sort(self.predicted_labels, 1)
+
+        # step 2. Detect boundaries
+        detecting_boundaries = self._detect_boundary()
+
+        metric_dict = _metric_dict[self.metric](detecting_boundaries)
+        return metric_dict
+
+
+def calculate_detection_metric(
+        target,
+        labels,
+        probs=None,
+        rounding_order=3,
+        metric_names=('nab')):
+    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
+    return metric_dict

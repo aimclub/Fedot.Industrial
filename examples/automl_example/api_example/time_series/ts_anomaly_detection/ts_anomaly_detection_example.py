@@ -1,10 +1,11 @@
 from fedot_ind.tools.example_utils import industrial_common_modelling_loop
 
 if __name__ == "__main__":
-    dataset_name = 'Handwriting'
+    dataset_name = dict(benchmark='valve1',
+                        dataset='1')
     finetune = False
-    metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
-    api_config = dict(problem='classification',
+    metric_names = ('nab')
+    api_config = dict(problem='anomaly_detection',
                       metric='f1',
                       timeout=2,
                       pop_size=10,

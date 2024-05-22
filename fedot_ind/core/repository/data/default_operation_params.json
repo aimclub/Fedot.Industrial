@@ -380,5 +380,17 @@
     "window_size_as_share": 0.33,
     "max_homology_dimension": 1,
     "metric": "euclidean"
+  },
+  "sst": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
+  "unscented_kalman_filter": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
   }
 }

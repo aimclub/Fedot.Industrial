@@ -64,7 +64,8 @@ from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
-from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
+from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION, \
+    AVAILABLE_ANOMALY_DETECTION_OPERATIONS
 
 TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_CLF_PREPROC_MODEL': {
@@ -224,7 +225,8 @@ class AtomizedModel(Enum):
 def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
                       'ts_forecasting': FORECASTING_MODELS.keys(),
-                      'classification': SKLEARN_CLF_MODELS.keys()}
+                      'classification': SKLEARN_CLF_MODELS.keys(),
+                      'anomaly_detection': ANOMALY_DETECTION_MODELS.keys()}
 
     if problem == 'ts_forecasting':
         available_operations = [operation_dict[problem],
@@ -232,6 +234,9 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                 SKLEARN_REG_MODELS.keys(),
                                 INDUSTRIAL_PREPROC_MODEL.keys(),
                                 ]
+    elif problem == 'anomaly_detection':
+        available_operations = AVAILABLE_ANOMALY_DETECTION_OPERATIONS
+
     else:
         available_operations = [operation_dict[problem],
                                 NEURAL_MODEL.keys(),

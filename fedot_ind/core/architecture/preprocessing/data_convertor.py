@@ -536,6 +536,14 @@ class DataConverter(TensorConverter, NumpyConverter):
         return isinstance(self.data, np.ndarray)
 
     @property
+    def is_pandas_series(self):
+        return isinstance(self.data, pd.Series)
+
+    @property
+    def is_list(self):
+        return isinstance(self.data, list)
+
+    @property
     def is_tensor(self):
         return isinstance(self.data, torch.Tensor)
 
