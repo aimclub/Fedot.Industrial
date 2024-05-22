@@ -63,11 +63,11 @@ class MarkovAR(ModelImplementation):
         self.handle_new_data(input_data)
         start_id = self.actual_ts_len
         end_id = start_id + forecast_length - 1
-        predicted = self.autoreg.predict(start=start_id, end=end_id)
+        # predicted = self.autoreg.predict(start=start_id, end=end_id)
         # predicted = []
         # for t in range(start_id, end_id):
         #     self.autoreg = self.autoreg(input_data[start_id:t])
-        #     predicted = MSARExtension(self.autoreg).predict_out_of_sample()
+        predicted = MSARExtension(self.autoreg).predict_out_of_sample()
 
         predict = self.scaler.inverse_transform(np.array([predicted]).ravel().reshape(1, -1))
         # predict = np.array(predicted).reshape(1, -1)
