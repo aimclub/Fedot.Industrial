@@ -82,11 +82,13 @@ class DeepARModule(Module):
             self.projector = Linear(self.hidden_size, 2)
             
 
-    def encode(self, ts: torch.Tensor, hidden_state: torch.Tensor=None):
+    def encode(self, ts: torch.Tensor, hidden_state: torch.Tensor=None, scaled: bool=True):
         """
         Encode sequence into hidden state
         ts.size = (length, hidden)
         """
+        if not scaled:
+            ts = self.scaler(ts)
         _, hidden_state = self.rnn(
             ts, hidden_state
         )  
@@ -104,20 +106,17 @@ class DeepARModule(Module):
                  mode: str='lagged', output_mode: str='quantiles', **mode_kw):
         self.eval()
         forecast = []
-        # outputs = []
         if self.rnn.input_size != 1 or mode == 'lagged':
             with torch.no_grad():
                 for i in range(horizon):
-                    output = self(prefix, hidden_state)[0]
-                    # outputs.append(output.detach().cpu())
+                    output, hidden_state = self(prefix, hidden_state)
                     forecast.append(self._transform_params(output, mode=output_mode, **mode_kw).detach().cpu())
                     prediction = self._transform_params(output, mode='predictions')
                     prefix = torch.roll(prefix, -1, dims=-1)
                     prefix[..., [-1]] = prediction
             forecast = torch.stack(forecast, dim=1).squeeze(-1)#.squeeze(1).permute(1, 2, 0)
         elif self.rnn.input_size == 1 or mode == 'auto':
-            print('AUTOREGRESSIVE MODE')
-            # assert self.rnn.input_size == 1, "autoregressive mode requires the features not to be lagged"
+            # print('AUTOREGRESSIVE MODE')
             forecast = self._autoregressive(prefix, horizon, hidden_state=None,
                                             output_mode=output_mode, **mode_kw)
         else:
@@ -146,7 +145,7 @@ class DeepARModule(Module):
         """
         # encode
         x = self.scaler(x, normalize=True)
-        hidden_state = self.encode(x, hidden_state=hidden_state)
+        hidden_state = self.encode(x, hidden_state=hidden_state, scaled=True)
         # decode
         if self.training:
             assert mode == 'raw', "cannot use another mode, but 'raw' while training"
@@ -191,11 +190,11 @@ class DeepAR(BaseNeuralModel):
 
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
-        #INSIDE super
-        # self.epochs = params.get('epochs', 100)
-        # self.batch_size = params.get('batch_size', 16)
-        # self.learning_rate = 0.001
-        
+        # training settings
+        self.epochs = params.get('epochs', 100)
+        self.learning_rate = 0.001
+        self.batch_size = params.get('batch_size', 16)
+
         # architecture settings
         self.activation = params.get('activation', 'tanh')
         self.cell_type = params.get('cell_type', 'LSTM')
@@ -212,10 +211,14 @@ class DeepAR(BaseNeuralModel):
         self.quantiles = params.get('quantiles', None)
         self.test_patch_len = None
 
+        # additional
+        self.print_training_progress = params.get('print_training_progress', False)
+        self.__use_collate_fn = params.get('use_collate_fn', True)
+
     
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
-        input_size = self.patch_len or ts.features.shape[-1]
+        input_size = self.patch_len or ts.features.shape[-1] # .reshape(ts.features.shape[0], -1)
         self.patch_len = input_size
         self.model = DeepARModule(input_size=input_size,
                                    hidden_size=self.hidden_size,
@@ -245,18 +248,23 @@ class DeepAR(BaseNeuralModel):
                         )
         return self
 
-    def _prepare_data(self, input_data: InputData, split_data, horizon=None):
+    def _prepare_data(self, input_data: InputData, split_data, horizon=None, collate_fn=None):
+        # features = input_data.features
+        # input_data.features = features.reshape(features.shape[0], -1)
         val_loader = None
+        collate_fn = self._flatten_feature_vector if self.__use_collate_fn else None
         if self.preprocess_to_lagged:
             self.patch_len = input_data.features.shape[-1]
-            train_loader = self.__create_torch_loader(input_data)
+            train_loader = self._create_torch_loader(input_data)
         else:
             if self.patch_len is None:
                 dominant_window_size = WindowSizeSelector(
                     method='dff').get_window_size(input_data.features)
                 self.patch_len = 2 * dominant_window_size
             train_loader, val_loader = self._get_train_val_loaders(
-                    input_data.features, self.patch_len, split_data, horizon=horizon)
+                    input_data.features, self.patch_len, split_data, horizon=horizon, collate_fn=collate_fn)
+        # since model shifted towards different basises patch_len is not a patch anymore, but 1 obs length
+        # self.patch_len = next(iter(train_loader))[0].size(-1)
         self.test_patch_len = self.patch_len
         return train_loader, val_loader
     
@@ -267,7 +275,7 @@ class DeepAR(BaseNeuralModel):
         for i, (x, *_) in enumerate(data_loader, 1):
             if i == n:
                 break
-            hidden_state = model.encode(x, hidden_state)
+            hidden_state = model.encode(x, hidden_state, False)
         initial_hidden_state = hidden_state
         if initial_hidden_state:
             initial_hidden_state = (initial_hidden_state[0][:, [-1], :], initial_hidden_state[1][:, [-1], :])
@@ -278,24 +286,10 @@ class DeepAR(BaseNeuralModel):
                 output_mode: str = None):
         if not output_mode:
             output_mode = self.forecast_mode
-        # horizon = test_data.task.task_params.forecast_length or self.horizon
-        # test_loader, _ = self._prepare_data(test_data, False, 0)
-
-        # initial_hidden_state = self.get_initial_hidden_state(test_loader)
-        # last_patch, last_target = test_loader.dataset[-1]
-        # if len(last_target) == 1:
-        #     last_patch = torch.roll(last_patch, -1, dim=-1)
-        #     last_patch[..., -1] = last_target.squeeze()
-        # last_patch = last_patch[None, ...]
-
-        initial_hidden_state = None
-
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.horizon,
                                          step=1)
-        
         # some logic to select needed ts
-        # fcs = self._predict(test_data, output_mode, horizon, initial_hidden_state)
         fcs = self._predict(test_data, output_mode)
         prediction = fcs[0, ...].squeeze().numpy()#.flatten()
         predict = OutputData(
@@ -304,25 +298,46 @@ class DeepAR(BaseNeuralModel):
             predict=prediction,
             target=self.target,
             data_type=DataTypesEnum.table)
-        
         return predict
-        
-        
+
+    @staticmethod
+    def _flatten_feature_vector(ts):
+        def __flatten_feature_vector(ts: torch.Tensor):
+            ts = ts.squeeze()
+            if len(ts.size()) > 1:
+                ts = ts.flatten(start_dim=1)
+            return ts[None, :]
+        x, y = zip(*ts)
+        y = torch.stack(y)
+        x = torch.stack([__flatten_feature_vector(x_)for x_ in x], dim=0)
+        return x, y
+
+
     def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
         mode = 'lagged' if self.preprocess_to_lagged else 'auto'
-
         horizon = test_data.task.task_params.forecast_length or self.horizon
-        # fcs = self._predict(test_loader, output_mode, horizon)
+        collate_fn = self._flatten_feature_vector if self.__use_collate_fn else None
 
-        test_loader, _ = self._prepare_data(test_data, False, 0)
+        test_loader, _ = self._prepare_data(test_data,
+                                            split_data=False,
+                                            horizon=1,    
+                                            collate_fn=collate_fn,
+                                            )
+        # print('batch:size', next(iter(test_loader))[0].size())
+
         initial_hidden_state = hidden_state or self.get_initial_hidden_state(test_loader)
         last_patch, last_target = test_loader.dataset[-1]
+        if collate_fn:
+            last_patch, last_target = self._flatten_feature_vector([(last_patch, last_target)])
+
         if len(last_target) == 1:
             last_patch = torch.roll(last_patch, -1, dims=-1)
             last_patch[..., -1] = last_target.squeeze()
-        last_patch = last_patch[None, ...]
 
         last_patch = last_patch.to(default_device())
+        print('mean', last_patch.mean())
+        print('mean', test_data.features.flatten()[-self.patch_len:].mean())
+
         fc = self.model.forecast(last_patch, horizon, 
                                  mode=mode, output_mode=output_mode, 
                                  hidden_state=initial_hidden_state, **output_kw)
@@ -337,10 +352,7 @@ class DeepAR(BaseNeuralModel):
                                          step=1)
 
         # initial_hidden_state = None
-
-        # fcs = self._predict(test_data, output_mode, horizon, initial_hidden_state)
         fcs = self._predict(test_data, output_mode)
-
         # some logic to select needed ts
         prediction = fcs[0, ...].squeeze().numpy()
         predict = OutputData(
@@ -351,7 +363,6 @@ class DeepAR(BaseNeuralModel):
             data_type=DataTypesEnum.table)   
         return predict
     
-
     def _train_loop(self, model,
                     train_loader,
                     loss_fn,
@@ -378,7 +389,7 @@ class DeepAR(BaseNeuralModel):
             for i, (batch_x, batch_y) in enumerate(train_loader):
                 iter_count += 1
                 optimizer.zero_grad()
-                batch_x = batch_x.float().to(default_device())
+                batch_x = (batch_x.float()).to(default_device())
                 batch_y = batch_y[:, ..., [0]].float().to(default_device()) # only first entrance
                 outputs, *hidden_state = model(batch_x)
 
@@ -408,35 +419,40 @@ class DeepAR(BaseNeuralModel):
                     best_model = copy.deepcopy(model)
 
             train_loss = np.average(train_loss)
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
+            if self.print_training_progress:
+                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
                 epoch + 1, train_steps, train_loss))
             if early_stopping.early_stop:
-                print("Early stopping")
+                if self.print_training_progress:
+                    print("Early stopping")
                 break
-            print('Updating learning rate to {}'.format(
-                scheduler.get_last_lr()[0]))
+            last_lr = scheduler.get_last_lr()[0]
+            if self.print_training_progress:
+                print('Updating learning rate to {}'.format(last_lr))
         return best_model
 
 
-    @convert_inputdata_to_torch_time_series_dataset
-    def _create_dataset(self,
-                        ts: InputData,
-                        flag: str = 'test',
-                        batch_size: int = 16,
-                        freq: int = 1):
-        return ts
+    # @convert_inputdata_to_torch_time_series_dataset
+    # def _create_dataset(self,
+    #                     ts: InputData,
+    #                     flag: str = 'test',
+    #                     batch_size: int = 16,
+    #                     freq: int = 1):
+    #     return ts
     
     def _get_train_val_loaders(self,
                       ts,
                       patch_len=None,
                       split_data: bool = True,
                       validation_blocks: int = None, 
-                      horizon=None):
+                      horizon=None,
+                      collate_fn=None):
         if horizon is None:
             horizon = self.horizon
         if patch_len is None:
             patch_len = self.patch_len
         train_data = self.__ts_to_input_data(ts)
+        # print('_get_train_val_loaders', train_data.features.shape)
         if split_data:
             raise NotImplementedError('Problem with lagged_data splitting')
             train_data, val_data = train_test_data_setup(
@@ -447,14 +463,15 @@ class DeepAR(BaseNeuralModel):
             _, val_data.features, val_data.target = transform_features_and_target_into_lagged(val_data,
                                                                                               horizon,
                                                                                               patch_len)
-            val_loader = self.__create_torch_loader(val_data)
-            train_loader = self.__create_torch_loader(train_data)
+            val_loader = self._create_torch_loader(val_data)
+            train_loader = self._create_torch_loader(train_data)
             return train_loader, val_loader
         else:
             _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
                                                                                                   horizon,
                                                                                                   patch_len)
-        train_loader = self.__create_torch_loader(train_data)
+            # print('transform_features_and_target_into_lagged', train_data.features.shape, train_data.target.shape)
+        train_loader = self._create_torch_loader(train_data, collate_fn=collate_fn)
         return train_loader, None
 
 
@@ -483,11 +500,17 @@ class DeepAR(BaseNeuralModel):
         
         return train_input
 
-    def __create_torch_loader(self, train_data):
-        train_dataset = self._create_dataset(train_data)
+    def _create_torch_loader(self, train_data, collate_fn=None):
+        # train_dataset = self._create_dataset(train_data, batch_size=self.batch_size)
+        # print(train_data.features.shape, train_data.target.shape)
+        if not isinstance(train_data.features, torch.Tensor):
+            features = torch.tensor(train_data.features).float()
+            target = torch.tensor(train_data.target).float()
         train_loader = torch.utils.data.DataLoader(
-            data.TensorDataset(train_dataset.x, train_dataset.y),
-            batch_size=self.batch_size, shuffle=False)
+            data.TensorDataset(features, target),
+            batch_size=self.batch_size, shuffle=False,
+            collate_fn=collate_fn
+            )
         return train_loader
     
     
