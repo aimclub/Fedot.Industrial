@@ -1,14 +1,17 @@
 from fedot_ind.tools.example_utils import evaluate_metric
+from fedot_ind.tools.example_utils import get_ts_data
 import pytest
 
 
-@pytest.mark.parametrize('name', ['m4_yearly', 'm4_weekly', 'm4_daily', 'm4_monthly', 'm4_quarterly'])
+@pytest.mark.parametrize('name', ['m4_daily', 'm4_weekly', 'm4_monthly', 'm4_quarterly', 'm4_yearly'])
 def test_get_ts_data(name):
-    from fedot_ind.tools.example_utils import get_ts_data
-    train_data, test_data, label = get_ts_data(name, 30, 1)
+    ds_ids = {'d': 3530, 'w':124, 'm':14148, 'q':12090, 'y':3917} 
+    idx = str.find(name, '_')
+    ds_name = str.capitalize(name[idx+1])+str(ds_ids[name[idx+1]])
+    train_data, test_data, label = get_ts_data(name, 30, f'{ds_name}')
     assert train_data is not None
     assert test_data is not None
-    assert label == 1
+    assert label == ds_name
 
 
 def test_evaluate_metric():
