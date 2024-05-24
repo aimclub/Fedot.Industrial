@@ -3,12 +3,14 @@ from fedot_ind.tools.example_utils import industrial_common_modelling_loop
 if __name__ == "__main__":
     dataset_name = dict(benchmark='valve1',
                         dataset='1')
+    prediction_window = 10
     finetune = False
     metric_names = ('nab')
     api_config = dict(problem='anomaly_detection',
                       metric='f1',
                       timeout=2,
                       pop_size=10,
+                      task_params={'forecast_length': prediction_window},
                       with_tunig=False,
                       n_jobs=2,
                       logging_level=20)

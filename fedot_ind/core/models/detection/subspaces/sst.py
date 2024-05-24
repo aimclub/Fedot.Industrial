@@ -140,18 +140,35 @@ class SingularSpectrumTransformation:
     def __init__(self, params: Optional[OperationParameters] = None):
 
         self.n_components = params.get('n_components', 2)
-        self.window_length = params.get('window_length', 30)
-        self.trajectory_window_length = params.get('.trajectory_window_length', 10)
+        self.length_of_detection_window = params.get('window_length', 30)
+        self.trajectory_window_length = params.get('trajectory_window_length', 10)
         self.dynamic_mode = params.get('n_components', False)
-        self.lag = params.get('delay_lag', np.round(self.window_length / 2))
+        self.intersection_lag = params.get('delay_lag', 5)
 
     def _scale_ts(self, time_series: np.ndarray):
         time_series_scaled = MinMaxScaler(feature_range=(1, 2)) \
                                  .fit_transform(time_series.reshape(-1, 1))[:, 0]
         return time_series_scaled
 
+    def _online_detection(self,
+                          train_features,
+                          start_idx,
+                          end_idx):
+        self.model = []
+        test_features = []
+        for t in range(start_idx, end_idx):
+            start_idx_hist, end_idx_hist = t - self.window_length - self.lag, t - self.lag
+            start_idx_test, end_idx_test = t - self.window_length, t
+            x_history = HankelMatrix(time_series=train_features[start_idx_hist:end_idx_hist],
+                                     window_size=self.trajectory_window_length)
+            x_test = HankelMatrix(time_series=train_features[start_idx_test:end_idx_test],
+                                  window_size=self.trajectory_window_length)
+            self.model.append(x_history)
+            test_features.append(x_test)
+        return test_features
+
     def fit(self, input_data: InputData) -> list:
-        if len(input_data.features.shape) > 3:
+        if len(input_data.features.shape) >= 3:
             list_of_history, list_of_current = [], []
             for time_series in input_data.features:
                 history_state, current_state = self._fit(train_features=time_series)
@@ -172,28 +189,24 @@ class SingularSpectrumTransformation:
             score: 1d array change point score with 1 and 0 if view True.
 
         """
-        start_idx, end_idx = self.window_length + self.lag + 1, train_features.shape[0] + 1
-        test_features = []
-        if self.dynamic_mode:
-            self.model = []
-            for t in range(start_idx, end_idx):
-                start_idx_hist, end_idx_hist = t - self.window_length - self.lag, t - self.lag
-                start_idx_test, end_idx_test = t - self.window_length, t
-                x_history = HankelMatrix(time_series=train_features[start_idx_hist:end_idx_hist],
-                                         window_size=self.trajectory_window_length)
-                x_test = HankelMatrix(time_series=train_features[start_idx_test:end_idx_test],
-                                      window_size=self.trajectory_window_length)
-                self.model.append(x_history)
-                test_features.append(x_test)
 
-        else:
-            self.model = HankelMatrix(time_series=train_features[:start_idx],
+        self.length_of_detection_window = round(train_features.shape[0] * (self.length_of_detection_window / 100))
+        self.trajectory_window_length = round(self.length_of_detection_window * (self.trajectory_window_length / 100))
+        self.intersection_lag = round(self.trajectory_window_length * (self.intersection_lag / 100))
+        end_of_train_data, end_of_test_data = self.length_of_detection_window + self.intersection_lag + 1, \
+                                              train_features.shape[0] + 1
+
+        if not self.dynamic_mode:
+            test_features = []
+            self.model = HankelMatrix(time_series=train_features[:end_of_train_data],
                                       window_size=self.trajectory_window_length)
-            for t in range(start_idx, end_idx):
-                start_idx_test, end_idx_test = t - self.lag, t
+            for t in range(end_of_train_data, end_of_test_data):
+                start_idx_test, end_idx_test = t - self.intersection_lag, t
                 x_test = HankelMatrix(time_series=train_features[start_idx_test:end_idx_test],
                                       window_size=self.trajectory_window_length)
                 test_features.append(x_test)
+        else:
+            test_features = self._online_detection(train_features, end_of_train_data, end_of_test_data)
 
         return test_features
 

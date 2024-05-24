@@ -82,6 +82,7 @@ class CustomDatasetCLF:
 class FedotConverter:
     def __init__(self, data):
         self.input_data = self.convert_to_input_data(data)
+        self.data_type_condition = DataConverter(data=data)
 
     def convert_to_input_data(self, data):
         if isinstance(data, InputData):
@@ -184,14 +185,13 @@ class FedotConverter:
                 supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
             feats = self.input_data.features
-            flat_input = self.input_data.features.shape[0] == 1
-            if len(self.input_data.features.shape) == 1:
+            if self.data_type_condition.is_numpy_flatten:
                 feats = self.input_data.features.reshape(1, -1)
-            elif len(self.input_data.features.shape) == 3 and self.input_data.features.shape[0] == 1:
+            elif self.data_type_condition.is_numpy_tensor and self.data_type_condition.have_one_sample:
                 feats = self.input_data.features.reshape(
                     self.input_data.features.shape[1],
                     1 * self.input_data.features.shape[2])
-            elif not flat_input:
+            elif not self.data_type_condition.have_one_sample:
                 feats = self.input_data.features.swapaxes(1, 0)
             input_data = [
                 InputData(
@@ -544,8 +544,28 @@ class DataConverter(TensorConverter, NumpyConverter):
         return isinstance(self.data, list)
 
     @property
-    def is_tensor(self):
+    def is_torch_tensor(self):
         return isinstance(self.data, torch.Tensor)
+
+    @property
+    def have_one_sample(self):
+        return self.numpy_data.shape[0] == 1
+
+    @property
+    def have_one_channel(self):
+        return self.numpy_data.shape[1] == 1
+
+    @property
+    def is_numpy_tensor(self):
+        return len(self.numpy_data.shape) == 3
+
+    @property
+    def is_numpy_matrix(self):
+        return len(self.numpy_data.shape) == 2
+
+    @property
+    def is_numpy_flatten(self):
+        return len(self.numpy_data.shape) == 1
 
     @property
     def is_zarr(self):
