@@ -179,18 +179,6 @@ class IndustrialSkLearnClassificationStrategy(
         super().__init__(operation_type, params)
 
 
-class IndustrialAnomalyDetectionStrategy(
-    IndustrialSkLearnEvaluationStrategy):
-    """ Strategy for applying classification algorithms from Sklearn library """
-    _operations_by_types = ANOMALY_DETECTION_MODELS
-
-    def __init__(
-            self,
-            operation_type: str,
-            params: Optional[OperationParameters] = None):
-        super().__init__(operation_type, params)
-
-
 class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying regression algorithms from Sklearn library """
     _operations_by_types = SKLEARN_REG_MODELS
@@ -273,3 +261,14 @@ class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
         return self.multi_dim_dispatcher.fit(train_data)
+
+
+class IndustrialAnomalyDetectionStrategy(IndustrialSkLearnForecastingStrategy):
+    """ Strategy for applying classification algorithms from Sklearn library """
+    _operations_by_types = ANOMALY_DETECTION_MODELS
+
+    def __init__(
+            self,
+            operation_type: str,
+            params: Optional[OperationParameters] = None):
+        super().__init__(operation_type, params)

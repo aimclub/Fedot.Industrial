@@ -34,15 +34,17 @@ def split_time_series(data: InputData,
     :param data: InputData object to split
     :param validation_blocks: validation blocks are used for test
     """
-
-    forecast_length = data.task.task_params.forecast_length
+    if isinstance(data.task.task_params, dict):
+        forecast_length = data.task.task_params['forecast_length']
+    else:
+        forecast_length = data.task.task_params.forecast_length
     if validation_blocks is not None:
         forecast_length *= validation_blocks
 
     target_length = len(data.target)
     train_data = _split_input_data_by_indexes(
         data, index=np.arange(
-            0, target_length - forecast_length),)
+            0, target_length - forecast_length), )
     test_data = _split_input_data_by_indexes(
         data,
         index=np.arange(

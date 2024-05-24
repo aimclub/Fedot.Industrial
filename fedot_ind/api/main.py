@@ -138,8 +138,9 @@ class FedotIndustrial(Fedot):
         if self.task_params is not None and self.config_dict['problem'] == 'ts_forecasting':
             self.config_dict['task_params'] = TsForecastingParams(
                 forecast_length=self.task_params['forecast_length'])
+
         elif self.config_dict['problem'] == 'anomaly_detection':
-            self.config_dict['problem'] = 'classification'
+            self.config_dict['problem'] = 'ts_forecasting'
 
         # create API subclasses for side task
         self.__init_experiment_setup()
