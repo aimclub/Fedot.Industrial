@@ -410,7 +410,8 @@ class ConditionConverter:
 
     @property
     def is_one_class_operation(self):
-        return isinstance(self.operation_implementation, (StatisticalDetector, OneClassSVM))
+        return isinstance(self.operation_implementation,
+                          (StatisticalDetector, OneClassSVM))
 
     @property
     def is_industrial_detector(self):
@@ -473,9 +474,11 @@ class ConditionConverter:
 
     def output_mode_converter(self, output_mode, n_classes):
         if output_mode == 'labels' and n_classes != 1:
-            return self.operation_example.predict(self.train_data.features).reshape(-1, 1)
+            return self.operation_example.predict(
+                self.train_data.features).reshape(-1, 1)
         elif output_mode == 'labels' and n_classes == 1:
-            return self.operation_example.predict(self.train_data).reshape(-1, 1)
+            return self.operation_example.predict(
+                self.train_data).reshape(-1, 1)
         else:
             return self.probs_prediction_converter(output_mode, n_classes)
 
@@ -490,9 +493,11 @@ class ConditionConverter:
             prediction = self.operation_example.predict_proba(features)
         else:
             try:
-                prediction = self.operation_example.predict_proba(self.train_data.features)
+                prediction = self.operation_example.predict_proba(
+                    self.train_data.features)
             except Exception:
-                prediction = self.operation_example.predict_proba(self.train_data.features.T)
+                prediction = self.operation_example.predict_proba(
+                    self.train_data.features.T)
 
         if n_classes == 2 and output_mode != 'probs':
             if self.is_multi_output_target:
