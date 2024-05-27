@@ -23,8 +23,8 @@ def test_load_multivariate_data():
     train_data, test_data = DataLoader('Epilepsy').load_data()
     x_train, y_train = train_data
     x_test, y_test = test_data
-    assert x_train.shape == (137, 3)
-    assert x_test.shape == (138, 3)
+    assert x_train.shape == (137, 3, 206)
+    assert x_test.shape == (138, 3, 206)
     assert y_train.shape == (137,)
     assert y_test.shape == (138,)
 
