@@ -142,7 +142,9 @@ class BaseNeuralModel:
                 training_loss += loss.data.item() * inputs.size(0)
 
             training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Training Loss: {:.2f}'.format(epoch, training_loss))
+            print(
+                'Epoch: {}, Training Loss: {:.2f}'.format(
+                    epoch, training_loss))
 
             if val_loader is not None:
                 self.model.eval()
@@ -199,16 +201,20 @@ class BaseNeuralModel:
         self._save_and_clear_cache()
 
     @fedot_data_type
-    def predict(self,
-                input_data: InputData, output_mode: str = 'default') -> np.array:
+    def predict(
+            self,
+            input_data: InputData,
+            output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """
         return self._predict_model(input_data, output_mode)
 
     @fedot_data_type
-    def predict_for_fit(self,
-                        input_data: InputData, output_mode: str = 'default') -> np.array:
+    def predict_for_fit(
+            self,
+            input_data: InputData,
+            output_mode: str = 'default') -> np.array:
         """
         Method for feature generation for all series
         """

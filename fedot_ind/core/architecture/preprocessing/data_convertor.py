@@ -52,8 +52,11 @@ class CustomDatasetCLF:
                 self.label_encoder = None
 
             try:
-                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
-                                                     num_classes=self.classes).to(default_device()).squeeze(1)
+                self.y = torch.nn.functional.one_hot(
+                    torch.from_numpy(
+                        ts.target).long(),
+                    num_classes=self.classes).to(
+                    default_device()).squeeze(1)
             except Exception:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(
                     ts.target).long()).to(default_device()).squeeze(1)
@@ -89,7 +92,7 @@ class FedotConverter:
         else:
             try:
                 return torch.tensor(data)
-            except:
+            except BaseException:
                 print(f"Can't convert {type(data)} to InputData", Warning)
 
     def __init_input_data(self, features: pd.DataFrame,
@@ -124,25 +127,27 @@ class FedotConverter:
             output_data = prediction
         elif type(prediction) is list:
             output_data = prediction[0]
-            target = NumpyConverter(
-                data=np.concatenate([p.target for p in prediction], axis=0)).convert_to_torch_format()
-            predict = NumpyConverter(
-                data=np.concatenate([p.predict for p in prediction], axis=0)).convert_to_torch_format()
-            output_data = OutputData(idx=predict_data.idx,
-                                     features=predict_data.features,
-                                     predict=predict,
-                                     task=predict_data.task,
-                                     target=target,
-                                     data_type=output_data_type,
-                                     supplementary_data=predict_data.supplementary_data)
+            target = NumpyConverter(data=np.concatenate(
+                [p.target for p in prediction], axis=0)).convert_to_torch_format()
+            predict = NumpyConverter(data=np.concatenate(
+                [p.predict for p in prediction], axis=0)).convert_to_torch_format()
+            output_data = OutputData(
+                idx=predict_data.idx,
+                features=predict_data.features,
+                predict=predict,
+                task=predict_data.task,
+                target=target,
+                data_type=output_data_type,
+                supplementary_data=predict_data.supplementary_data)
         else:
-            output_data = OutputData(idx=predict_data.idx,
-                                     features=predict_data.features,
-                                     predict=prediction,
-                                     task=predict_data.task,
-                                     target=predict_data.target,
-                                     data_type=output_data_type,
-                                     supplementary_data=predict_data.supplementary_data)
+            output_data = OutputData(
+                idx=predict_data.idx,
+                features=predict_data.features,
+                predict=prediction,
+                task=predict_data.task,
+                target=predict_data.target,
+                data_type=output_data_type,
+                supplementary_data=predict_data.supplementary_data)
         return output_data
 
     def unwrap_list_to_output(self):
@@ -164,33 +169,36 @@ class FedotConverter:
                 array.reshape(array.shape[0], array.shape[1] * array.shape[2])
                 if array is not None and len(array.shape) > 2 else array
                 for array in [self.input_data.features, self.input_data.target]]
-            input_data = InputData(idx=self.input_data.idx,
-                                   features=new_features,
-                                   target=new_target,
-                                   task=self.input_data.task,
-                                   data_type=self.input_data.data_type,
-                                   supplementary_data=self.input_data.supplementary_data)
+            input_data = InputData(
+                idx=self.input_data.idx,
+                features=new_features,
+                target=new_target,
+                task=self.input_data.task,
+                data_type=self.input_data.data_type,
+                supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
             flat_input = self.input_data.features.shape[0] == 1 or len(
                 self.input_data.features.shape) == 1
             feats = self.input_data.features if flat_input else \
                 self.input_data.features.swapaxes(1, 0)
-            input_data = [InputData(idx=self.input_data.idx,
-                                    features=features,
-                                    target=self.input_data.target,
-                                    task=self.input_data.task,
-                                    data_type=self.input_data.data_type,
-                                    supplementary_data=self.input_data.supplementary_data) for features in
-                          feats]
+            input_data = [
+                InputData(
+                    idx=self.input_data.idx,
+                    features=features,
+                    target=self.input_data.target,
+                    task=self.input_data.task,
+                    data_type=self.input_data.data_type,
+                    supplementary_data=self.input_data.supplementary_data) for features in feats]
         elif mode == 'multi_dimensional':
             features = NumpyConverter(
                 data=self.input_data.features).convert_to_torch_format()
-            input_data = InputData(idx=self.input_data.idx,
-                                   features=features,
-                                   target=self.input_data.target,
-                                   task=self.input_data.task,
-                                   data_type=DataTypesEnum.image,
-                                   supplementary_data=self.input_data.supplementary_data)
+            input_data = InputData(
+                idx=self.input_data.idx,
+                features=features,
+                target=self.input_data.target,
+                task=self.input_data.task,
+                data_type=DataTypesEnum.image,
+                supplementary_data=self.input_data.supplementary_data)
 
         return input_data
 
@@ -263,7 +271,7 @@ class NumpyConverter:
         else:
             try:
                 return np.asarray(data)
-            except:
+            except BaseException:
                 print(f"Can't convert {type(data)} to np.array", Warning)
 
     def convert_to_1d_array(self):
@@ -378,31 +386,46 @@ class ConditionConverter:
 
     @property
     def have_predict_atr(self):
-        return 'predict' in vars(self.operation_implementation[0]) if self.is_operation_is_list_container else False
+        return 'predict' in vars(
+            self.operation_implementation[0]) if self.is_operation_is_list_container else False
 
     @property
     def is_fit_input_fedot(self):
-        return str(list(signature(self.operation_implementation.fit).parameters.keys())[0]) == 'input_data'
+        return str(
+            list(
+                signature(
+                    self.operation_implementation.fit).parameters.keys())[0]) == 'input_data'
 
     @property
     def is_transform_input_fedot(self):
-        return str(list(signature(self.operation_implementation.transform).parameters.keys())[0]) == 'input_data'
+        return str(
+            list(
+                signature(
+                    self.operation_implementation.transform).parameters.keys())[0]) == 'input_data'
 
     @property
     def is_predict_input_fedot(self):
-        return str(list(signature(self.operation_implementation.predict).parameters.keys())[0]) == 'input_data'
+        return str(
+            list(
+                signature(
+                    self.operation_implementation.predict).parameters.keys())[0]) == 'input_data'
 
     @property
     def is_regression_of_forecasting_task(self):
-        return self.train_data.task.task_type.value in ['regression', 'ts_forecasting']
+        return self.train_data.task.task_type.value in [
+            'regression', 'ts_forecasting']
 
     @property
     def is_multi_output_target(self):
         return isinstance(self.operation_implementation.classes_, list)
 
     def output_mode_converter(self, output_mode, n_classes):
-        return self.operation_implementation.predict(self.train_data.features).reshape(-1, 1) if output_mode == 'labels' \
-            else self.probs_prediction_converter(output_mode, n_classes)
+        return self.operation_implementation.predict(
+            self.train_data.features).reshape(
+            -1,
+            1) if output_mode == 'labels' else self.probs_prediction_converter(
+            output_mode,
+            n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
         prediction = self.operation_implementation.predict_proba(
@@ -479,9 +502,10 @@ class DataConverter(TensorConverter, NumpyConverter):
         else:
             try:
                 return list(self.data)
-            except:
-                print(f'passed object needs to be of type L, list, np.ndarray or torch.Tensor but is {type(self.data)}',
-                      Warning)
+            except BaseException:
+                print(
+                    f'passed object needs to be of type L, list, np.ndarray or torch.Tensor but is {type(self.data)}',
+                    Warning)
 
     def convert_data_to_1d(self):
         if self.data.ndim == 1:

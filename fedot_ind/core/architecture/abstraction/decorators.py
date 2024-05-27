@@ -44,7 +44,7 @@ def convert_to_4d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
         data = DataConverter(data=init_data).convert_to_4d_torch_format()
-        if type(init_data) is InputData:
+        if isinstance(init_data, InputData):
             init_data.features = data
         else:
             init_data = data
@@ -57,7 +57,7 @@ def convert_to_4d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
         data = DataConverter(data=init_data).convert_to_4d_torch_format()
-        if type(init_data) is InputData:
+        if isinstance(init_data, InputData):
             init_data.features = data
         else:
             init_data = data
@@ -70,7 +70,7 @@ def convert_to_4d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
         data = DataConverter(data=init_data).convert_to_4d_torch_format()
-        if type(init_data) is InputData:
+        if isinstance(init_data, InputData):
             init_data.features = data
         else:
             init_data = data
