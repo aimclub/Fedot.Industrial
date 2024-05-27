@@ -11,10 +11,11 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
     LinearClassFSImplementation, NonLinearClassFSImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
-
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
-    TopologicalFeaturesImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import \
+    *
+from fedot.core.operations.evaluation.operation_implementations. \
+    data_operations.topological.fast_topological_extractor import \
+    FastTopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -24,10 +25,11 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
     CGRUImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.naive import \
+    RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
-    AutoRegImplementation, ExpSmoothingImplementation
+    AutoRegImplementation, ExpSmoothingImplementation, GLMImplementation
 from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
-    GradientBoostingClassifier, \
     RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
@@ -36,34 +38,26 @@ from sklearn.linear_model import (
     Ridge as SklearnRidgeReg,
     SGDRegressor as SklearnSGD
 )
-from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
-    FedotCatBoostRegressionImplementation
-from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from xgboost import XGBRegressor
+from xgboost import XGBClassifier, XGBRegressor
 
-from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
-from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
-from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
-from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
-from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
+from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
+from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
-from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
-from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
 
 TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_CLF_PREPROC_MODEL': {
@@ -73,22 +67,19 @@ TEMPORARY_EXCLUDED = {
     'FEDOT_PREPROC_MODEL': {'pca': PCAImplementation,
                             'fast_ica': FastICAImplementation,
                             'poly_features': PolyFeaturesImplementation,
+                            'topological_extractor': TopologicalExtractor,
                             'exog_ts': ExogDataTransformationImplementation,
                             # categorical encoding
                             'one_hot_encoding': OneHotEncodingImplementation,
                             'label_encoding': LabelEncodingImplementation
                             },
-    'FORECASTING_PREPROC': {'exog_ts': ExogDataTransformationImplementation},
-    'INDUSTRIAL_PREPROC_MODEL': {
-        'cat_features': DummyOperation,
-        'dimension_reduction': FeatureFilter,
-        # 'signal_extractor': SignalExtractor,
-        # isolation_forest forest
-        'isolation_forest_class': IsolationForestClassImplementation,
-        'isolation_forest_reg': IsolationForestRegImplementation,
-        # 'chronos_extractor': ChronosExtractor,
-        'riemann_extractor': RiemannExtractor,
-    },
+    'INDUSTRIAL_PREPROC_MODEL': {'cat_features': DummyOperation,
+                                 'dimension_reduction': FeatureFilter,
+                                 # 'signal_extractor': SignalExtractor,
+                                 # isolation_forest forest
+                                 'isolation_forest_class': IsolationForestClassImplementation,
+                                 'isolation_forest_reg': IsolationForestRegImplementation,
+                                 },
     'SKLEARN_REG_MODELS': {
         'gbr': GradientBoostingRegressor,
         'rfr': RandomForestRegressor,
@@ -101,8 +92,6 @@ TEMPORARY_EXCLUDED = {
                            'knn': FedotKnnClassImplementation
                            },
     'NEURAL_MODELS': {'resnet_model': ResNetModel,
-                      "nbeats_model": NBeatsModel,
-                      'omniscale_model': OmniScaleModel,
                       # transformer models
                       'tst_model': TSTModel,
                       # explainable models
@@ -121,7 +110,7 @@ class AtomizedModel(Enum):
     }
     SKLEARN_CLF_MODELS = {
         # boosting models (bid datasets)
-        'xgboost': GradientBoostingClassifier,
+        'xgboost': XGBClassifier,
         # solo linear models
         'logit': SklearnLogReg,
         # solo tree models
@@ -129,9 +118,7 @@ class AtomizedModel(Enum):
         # ensemble tree models
         'rf': RandomForestClassifier,
         # solo nn models
-        'mlp': MLPClassifier,
-        # external models
-        'lgbm': LGBMClassifier
+        'mlp': MLPClassifier
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization
@@ -142,11 +129,10 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        'topological_extractor': TopologicalFeaturesImplementation
+        'topological_features': FastTopologicalFeaturesImplementation,
+
     }
     INDUSTRIAL_PREPROC_MODEL = {
-        # data filtration
-        'channel_filtration': ChannelCentroidFilter,
         # data projection onto different basis
         'eigen_basis': EigenBasisImplementation,
         'wavelet_basis': WaveletBasisImplementation,
@@ -154,12 +140,8 @@ class AtomizedModel(Enum):
         # feature extraction algorithm
         'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
-        'riemann_extractor': RiemannExtractor,
-        # feature generation
-        'topological_extractor': TopologicalFeaturesImplementation,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
-        # 'chronos_extractor': ChronosExtractor,
         # isolation_forest forest
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,
@@ -175,10 +157,7 @@ class AtomizedModel(Enum):
         'ridge': SklearnRidgeReg,
         'lasso': SklearnLassoReg,
         # solo tree models (small datasets)
-        'dtreg': DecisionTreeRegressor,
-        # external models
-        'lgbmreg': LGBMRegressor,
-        "catboostreg": FedotCatBoostRegressionImplementation
+        'dtreg': DecisionTreeRegressor
     }
 
     FORECASTING_MODELS = {
@@ -187,15 +166,16 @@ class AtomizedModel(Enum):
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
-        'glm': GLMIndustrial
+        'glm': GLMImplementation,
+        'locf': RepeatLastValueImplementation,
+        'ssa_forecaster': SSAForecasterImplementation
     }
 
     FORECASTING_PREPROC = {
         'lagged': LaggedTransformationImplementation,
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
-        'gaussian_filter': GaussianFilterImplementation,
-        'exog_ts': ExogDataTransformationImplementation,
+        'gaussian_filter': GaussianFilterImplementation
     }
 
     NEURAL_MODEL = {
@@ -203,15 +183,10 @@ class AtomizedModel(Enum):
         'inception_model': InceptionTimeModel,
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
-        'nbeats_model': NBeatsModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models
-        'xcm_model': XCModel,
-        # linear_dummy_model
-        'dummy': DummyOverComplicatedNeuralNetwork,
-        # linear_dummy_model
-        'lora_model': LoraModel
+        'xcm_model': XCModel
     }
 
 
@@ -223,8 +198,7 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     if problem == 'ts_forecasting':
         available_operations = [operation_dict[problem],
                                 FORECASTING_PREPROC.keys(),
-                                SKLEARN_REG_MODELS.keys(),
-                                INDUSTRIAL_PREPROC_MODEL.keys(),
+                                SKLEARN_REG_MODELS.keys()
                                 ]
     else:
         available_operations = [operation_dict[problem],
@@ -234,10 +208,39 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
 
     available_operations = list(
         chain(*[list(x) for x in available_operations]))
-    excluded_operations = list(
-        chain(*[list(TEMPORARY_EXCLUDED[x]) for x in TEMPORARY_EXCLUDED.keys()]))
-    available_operations = [x for x in available_operations
-                            if x not in EXCLUDED_OPERATION_MUTATION[problem] and x not in excluded_operations]
+    excluded_operation = {'regression': ['one_hot_encoding',
+                                         'label_encoding',
+                                         'isolation_forest_class',
+                                         'tst_model',
+                                         'xcm_model',
+                                         'resnet_model',
+                                         'signal_extractor',
+                                         'recurrence_extractor'
+                                         ],
+                          'ts_forecasting': [
+                              'one_hot_encoding',
+                              'label_encoding',
+                              'isolation_forest_class'
+                              'xgbreg',
+                              'sgdr',
+                              'treg',
+                              'knnreg',
+                              'dtreg'
+    ],
+        'classification': [
+                              'isolation_forest_reg',
+                              'tst_model',
+                              'resnet_model',
+                              'xcm_model',
+                              'one_hot_encoding',
+                              'label_encoding',
+                              'isolation_forest_class',
+                              'signal_extractor',
+                               'knnreg',
+                              'recurrence_extractor'
+    ]}
+    available_operations = [
+        x for x in available_operations if x not in excluded_operation[problem]]
     return available_operations
 
 

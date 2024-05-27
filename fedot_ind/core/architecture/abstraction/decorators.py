@@ -53,6 +53,32 @@ def convert_to_4d_torch_array(func):
     return decorated_func
 
 
+def convert_to_4d_torch_array(func):
+    def decorated_func(self, *args):
+        init_data = args[0]
+        data = DataConverter(data=init_data).convert_to_4d_torch_format()
+        if type(init_data) is InputData:
+            init_data.features = data
+        else:
+            init_data = data
+        return func(self, init_data)
+
+    return decorated_func
+
+
+def convert_to_4d_torch_array(func):
+    def decorated_func(self, *args):
+        init_data = args[0]
+        data = DataConverter(data=init_data).convert_to_4d_torch_format()
+        if type(init_data) is InputData:
+            init_data.features = data
+        else:
+            init_data = data
+        return func(self, init_data)
+
+    return decorated_func
+
+
 def convert_to_3d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
