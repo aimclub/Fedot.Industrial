@@ -1,5 +1,6 @@
 from functools import partial
 
+import numpy as np
 from hyperopt import hp
 
 from fedot_ind.core.repository.constanst_repository import DISTANCE_METRICS
@@ -102,7 +103,11 @@ industrial_search_space = {
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['hac', 'dff']]},
-         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]}, }
+         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]}},
+    'stat_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
 }
 
 

@@ -166,8 +166,8 @@
       "description": "Implementations of fedot NN classification strategy"
     },
     "fedot_anomaly_detection": {
-      "tasks": "[TaskTypesEnum.classification]",
-      "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
+      "tasks": "[TaskTypesEnum.ts_forecasting, TaskTypesEnum.classification]",
+      "input_type": "[DataTypesEnum.ts, DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table, DataTypesEnum.image]",
       "accepted_node_types": [
         "any"
@@ -282,6 +282,14 @@
       ]
     },
     "sst": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
+    "stat_detector": {
       "meta": "fedot_anomaly_detection",
       "presets": [
         "best_quality"
@@ -484,12 +492,28 @@
       "meta": "sklearn_regr",
       "presets": ["fast_train", "ts"],
       "tags": [
-        "simple", "linear", "interpretable"
+        "simple",
+        "linear",
+        "interpretable"
       ]
     },
     "logit": {
       "meta": "sklearn_class",
-      "presets": ["fast_train"],
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "simple",
+        "linear",
+        "interpretable",
+        "non_multi"
+      ]
+    },
+    "one_class_svm": {
+      "meta": "sklearn_class",
+      "presets": [
+        "fast_train"
+      ],
       "tags": [
         "simple",
         "linear",

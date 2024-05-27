@@ -283,7 +283,7 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
             'xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-        'anomaly_detection': PipelineBuilder().add_node('sst'),
+        'anomaly_detection': PipelineBuilder().add_node('stat_detector'),
         'ts_forecasting': PipelineBuilder().add_node(
             'eigen_basis',
             params={
@@ -673,8 +673,10 @@ class UnitTestConstant(Enum):
             'smoothing', 'ar'], 'gaussian_ar': [
             'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
     VALID_LINEAR_DETECTION_PIPELINE = {
-        'sst': ['sst'], 'unscented_kalman_filter': [
-            'unscented_kalman_filter']}
+        'sst': ['sst'],
+        'unscented_kalman_filter': ['unscented_kalman_filter'],
+        'stat_detector': ['quantile_extractor', 'one_class_svm'],
+        'topo_detector': ['topological_extractor', 'xgboost']}
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
@@ -749,3 +751,4 @@ M4_PREFIX = BenchmarkDatasets.M4_PREFIX.value
 VALID_LINEAR_CLF_PIPELINE = UnitTestConstant.VALID_LINEAR_CLF_PIPELINE.value
 VALID_LINEAR_REG_PIPELINE = UnitTestConstant.VALID_LINEAR_REG_PIPELINE.value
 VALID_LINEAR_TSF_PIPELINE = UnitTestConstant.VALID_LINEAR_TSF_PIPELINE.value
+VALID_LINEAR_DETECTION_PIPELINE = UnitTestConstant.VALID_LINEAR_DETECTION_PIPELINE.value
