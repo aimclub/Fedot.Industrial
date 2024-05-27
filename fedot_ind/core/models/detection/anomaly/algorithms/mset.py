@@ -37,7 +37,7 @@ class MSET:
         dxx_obs = self.otimes(self.D, x_obs)
         try:
             W = spla.lu_solve(self.LU_factors, dxx_obs)
-        except:
+        except BaseException:
             W = np.linalg.solve(self.DxD, dxx_obs)
 
         return W
@@ -96,7 +96,8 @@ class MSET:
         if all(x == y):
             return 1.
         else:
-            return 1. - np.linalg.norm(x - y) / (np.linalg.norm(x) + np.linalg.norm(y))
+            return 1. - np.linalg.norm(x - y) / \
+                (np.linalg.norm(x) + np.linalg.norm(y))
 
     def fit(self, df, train_start=None, train_stop=None):
         """
@@ -138,6 +139,10 @@ class MSET:
         pred = np.zeros(X_obs.T.shape)
 
         for i in range(X_obs.shape[1]):
-            pred[[i], :] = (self.D @ self.calc_W(X_obs[:, i].reshape([-1, 1]))).T
+            pred[[i], :] = (
+                self.D @ self.calc_W(X_obs[:, i].reshape([-1, 1]))).T
 
-        return pd.DataFrame(self.SS.inverse_transform(pred), index=data.index, columns=data.columns)
+        return pd.DataFrame(
+            self.SS.inverse_transform(pred),
+            index=data.index,
+            columns=data.columns)

@@ -52,7 +52,8 @@ class VanillaLSTM:
         self.n_features = input_array.shape[2]
         self.model = self._build_model()
         early_stopping = EarlyStopping(patience=10, verbose=0)
-        reduce_lr = ReduceLROnPlateau(factor=0.1, patience=5, min_lr=0.0001, verbose=0)
+        reduce_lr = ReduceLROnPlateau(
+            factor=0.1, patience=5, min_lr=0.0001, verbose=0)
         self.model.fit(
             input_array,
             y,

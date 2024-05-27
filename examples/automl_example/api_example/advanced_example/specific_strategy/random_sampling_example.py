@@ -33,7 +33,8 @@ def create_features(train_data, test_data):
         df['fkurtosis'] = df[initial_features].kurtosis(axis=1)
 
         for i in [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0]:
-            df['q_{}'.format(int(i * 100))] = df[initial_features].quantile(i, axis=1)
+            df['q_{}'.format(int(i * 100))
+               ] = df[initial_features].quantile(i, axis=1)
 
         for v in unique_vals:
             df['cnt_{}'.format(v)] = (df[initial_features] == v).sum(axis=1)
@@ -64,7 +65,8 @@ if dataset == 'kaggle':
 
     sub_X = pd.read_csv('./examples/big_dataset/test.csv')
     train_X, sub_X = create_features(train_data=train_X, test_data=sub_X)
-    train_X, sub_X = train_X.iloc[:, 1:].values.astype(float), sub_X.iloc[:, 1:].values.astype(float)
+    train_X, sub_X = train_X.iloc[:, 1:].values.astype(
+        float), sub_X.iloc[:, 1:].values.astype(float)
     test_X = train_X
     sub_X_input = InputData(idx=np.arange(len(sub_X)),
                             features=sub_X,
@@ -80,12 +82,21 @@ if dataset == 'kaggle':
     # sampling_range = [0.1, 0.2, 0.35, 0.5]
     sampling_range = [0.6, 0.75, 0.9]
 else:
-    train_X = np.load('./examples/big_dataset/train_airlinescodrnaadult_fold0.npy')
-    train_y = np.load('./examples/big_dataset/trainy_airlinescodrnaadult_fold0.npy')
-    test_X = np.load('./examples/big_dataset/test_airlinescodrnaadult_fold0.npy')
-    test_y = np.load('./examples/big_dataset/testy_airlinescodrnaadult_fold0.npy')
+    train_X = np.load(
+        './examples/big_dataset/train_airlinescodrnaadult_fold0.npy')
+    train_y = np.load(
+        './examples/big_dataset/trainy_airlinescodrnaadult_fold0.npy')
+    test_X = np.load(
+        './examples/big_dataset/test_airlinescodrnaadult_fold0.npy')
+    test_y = np.load(
+        './examples/big_dataset/testy_airlinescodrnaadult_fold0.npy')
     metric = 'f1'
-    model_list = dict(logit=['logit'], scaling_rf=['scaling', 'rf'], xgboost=['xgboost'])
+    model_list = dict(
+        logit=['logit'],
+        scaling_rf=[
+            'scaling',
+            'rf'],
+        xgboost=['xgboost'])
     task = 'classification'
     sampling_range = [0.001, 0.01, 0.15, 0.3]
 
@@ -94,7 +105,8 @@ for model_assumption in model_list.keys():
     iter_dict = {}
     print(f'model-{model_assumption}')
     for share in sampling_range:
-        train_X_sampled, train_y_sampled = cur_sampling(tensor=train_X, target=train_y, projection_rank=share)
+        train_X_sampled, train_y_sampled = cur_sampling(
+            tensor=train_X, target=train_y, projection_rank=share)
         data_dict = dict(train_data=(train_X_sampled, train_y_sampled),
                          test_data=(test_X, test_y))
         pipeline = AbstractPipeline(task=task,
@@ -104,10 +116,13 @@ for model_assumption in model_list.keys():
         if dataset == 'kaggle':
             r2 = result['quality_metric']
             if r2 > 0:
-                result['fitted_model'] = pipeline.tune_pipeline(model_to_tune=result['fitted_model'],
-                                                                tuning_params=tuning_params)
-                sub_df['FloodProbability'] = result['fitted_model'].predict(sub_X_input).predict
-                sub_df.to_csv(f'./{model_assumption}_sample_percent_{share}_R2_on_train_{r2}.csv', index=False)
+                result['fitted_model'] = pipeline.tune_pipeline(
+                    model_to_tune=result['fitted_model'], tuning_params=tuning_params)
+                sub_df['FloodProbability'] = result['fitted_model'].predict(
+                    sub_X_input).predict
+                sub_df.to_csv(
+                    f'./{model_assumption}_sample_percent_{share}_R2_on_train_{r2}.csv',
+                    index=False)
         print(f'sampled_rate-{share}')
         print(f'quality_metric_{metric}')
         print(result['quality_metric'])

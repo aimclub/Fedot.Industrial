@@ -18,12 +18,13 @@ class VanillaAutoEncoder:
             - Number of neurons in the first decoder layer
             - Learning rate for the optimizer
             - Batch size for training
-            
+
     Attributes
     ----------
     model : tensorflow.keras.models.Model
         The autoencoder model.
     """
+
     def __init__(self, params):
         self.model = None
         self.shape = None
@@ -46,12 +47,23 @@ class VanillaAutoEncoder:
         x = Activation('relu')(x)
         out = Dense(self.shape, activation='linear')(x)
         model = Model(input_dots, out)
-        model.compile(optimizer=Adam(self.param[3]), loss='mae', metrics=["mse"])
+        model.compile(
+            optimizer=Adam(
+                self.param[3]),
+            loss='mae',
+            metrics=["mse"])
         self.model = model
 
         return model
 
-    def fit(self, data, early_stopping=True, validation_split=0.2, epochs=40, verbose=0, shuffle=True):
+    def fit(
+            self,
+            data,
+            early_stopping=True,
+            validation_split=0.2,
+            epochs=40,
+            verbose=0,
+            shuffle=True):
         """
         Train the autoencoder model on the provided data.
 

@@ -105,18 +105,19 @@ class DataCheck:
                                         task=self.task_dict[self.task],
                                         data_type=DataTypesEnum.image)
         elif self.task == 'ts_forecasting':
-            if self.data_convertor.is_numpy_matrix and any([self.data_convertor.have_one_sample,
-                                                            self.data_convertor.have_one_channel]):
+            if self.data_convertor.is_numpy_matrix and any(
+                    [self.data_convertor.have_one_sample, self.data_convertor.have_one_channel]):
                 features_array = self.data_convertor.convert_to_1d_array()
             else:
                 features_array = self.data_convertor.numpy_data
-            task = Task(TaskTypesEnum.ts_forecasting,
-                        TsForecastingParams(forecast_length=self.task_params['forecast_length']))
+            task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
+                forecast_length=self.task_params['forecast_length']))
             # if self.industrial_task_params is None and self.data_convertor.is_numpy_matrix:
             #     features_array = features_array[:-self.task_params['forecast_length'],:]
             #     target = features_array
             if self.industrial_task_params is None:
-                features_array = features_array[:-self.task_params['forecast_length']]
+                features_array = features_array[:-
+                                                self.task_params['forecast_length']]
                 target = features_array
             self.input_data = InputData.from_numpy_time_series(
                 features_array=features_array,

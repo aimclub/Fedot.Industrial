@@ -53,7 +53,7 @@ class QualityMetric:
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
-                         'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         labels_as_matrix = len(predicted_labels.shape) >= 2
@@ -89,8 +89,8 @@ class RMSE(QualityMetric):
 class SMAPE(QualityMetric):
     def metric(self):
         return 1 / len(self.predicted_labels) \
-               * np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
-                                                                           + np.abs(self.target)) * 100)
+            * np.sum(2 * np.abs(self.target - self.predicted_labels) / (np.abs(self.predicted_labels)
+                                                                        + np.abs(self.target)) * 100)
 
 
 class MSE(QualityMetric):
@@ -244,7 +244,7 @@ def calculate_regression_metric(target,
 
     df = pd.DataFrame({name: func(target,
                                   labels) for name,
-                                              func in metric_dict.items() if name in metric_names},
+                       func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
@@ -270,7 +270,7 @@ def calculate_forecasting_metric(target,
 
     df = pd.DataFrame({name: func(target,
                                   labels) for name,
-                                              func in metric_dict.items() if name in metric_names},
+                       func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
@@ -281,9 +281,9 @@ def calculate_classification_metric(
         probs,
         rounding_order=3,
         metric_names=(
-                'f1',
-                # 'roc_auc',
-                'accuracy')):
+            'f1',
+            # 'roc_auc',
+            'accuracy')):
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
                    # 'roc_auc': ROCAUC,
@@ -293,7 +293,6 @@ def calculate_classification_metric(
     df = pd.DataFrame({name: func(target, labels, probs).metric(
     ) for name, func in metric_dict.items() if name in metric_names}, index=[0])
     return df.round(rounding_order)
-
 
 
 def kl_divergence(solution: pd.DataFrame,
@@ -349,7 +348,6 @@ class AnomalyMetric(QualityMetric):
                  target,
                  predicted_labels,
                  params: Optional[OperationParameters] = None):
-
         """
         Parameters
         ----------
@@ -486,11 +484,15 @@ class AnomalyMetric(QualityMetric):
         """
         super().__init__(target=target, predicted_labels=predicted_labels)
         self.metric = params.get('self.metric', 'nab')
-        self.anomaly_window_destination = params.get('anomaly_window_destination', 'lefter')
-        self.intersection_mode = params.get('intersection_mode', 'cut right window')
+        self.anomaly_window_destination = params.get(
+            'anomaly_window_destination', 'lefter')
+        self.intersection_mode = params.get(
+            'intersection_mode', 'cut right window')
         self.scale = params.get('scale', 'improved')
-        self.anomaly_window_destination = params.get('anomaly_window_destination', 'lefter')
-        self.intersection_mode = params.get('intersection_mode', 'cut right window')
+        self.anomaly_window_destination = params.get(
+            'anomaly_window_destination', 'lefter')
+        self.intersection_mode = params.get(
+            'intersection_mode', 'cut right window')
         self.scale = params.get('scale', 'improved')
 
         self.share = params.get('self.share', 0.1)
@@ -498,7 +500,8 @@ class AnomalyMetric(QualityMetric):
 
         self.table_val = params.get(' self.table_val', None)
         self.window_width = params.get('self.window_width', None)
-        self.clear_anomalies_mode = params.get('self.clear_anomalies_mode', True)
+        self.clear_anomalies_mode = params.get(
+            'self.clear_anomalies_mode', True)
 
         # self.target_converter = DataConverter(data=self.target)
         # self.labels_converter = DataConverter(data=self.predicted_labels)
@@ -508,9 +511,11 @@ class AnomalyMetric(QualityMetric):
             if input_variant == 2:
                 assert all(np.sort(dataset) == np.array(dataset))
             elif input_variant == 3:
-                assert all(np.sort(np.concatenate(dataset)) == np.concatenate(dataset))
+                assert all(np.sort(np.concatenate(dataset))
+                           == np.concatenate(dataset))
             elif input_variant == 1:
-                assert all(dataset.index.values == dataset.sort_index().index.values)
+                assert all(dataset.index.values ==
+                           dataset.sort_index().index.values)
 
     # def __conditional_check(self):
     #     target_list = self.target_converter.is_list
@@ -528,16 +533,18 @@ class AnomalyMetric(QualityMetric):
         metric_names = ['Standard', 'LowFP', 'LowFN']
 
         for i in range(len(self.predicted_labels)):
-            matrix_ = single_evaluate_nab(detecting_boundaries[i],
-                                          self.predicted_labels[i],
-                                          table_of_val=self.table_val,
-                                          clear_anomalies_mode=self.clear_anomalies_mode,
-                                          scale=self.scale,
-                                          scale_val=self.scale_val)
+            matrix_ = single_evaluate_nab(
+                detecting_boundaries[i],
+                self.predicted_labels[i],
+                table_of_val=self.table_val,
+                clear_anomalies_mode=self.clear_anomalies_mode,
+                scale=self.scale,
+                scale_val=self.scale_val)
             matrix = matrix + matrix_
 
         for t, profile_name in enumerate(metric_names):
-            val = round(100 * (matrix[0, t] - matrix[1, t]) / (matrix[2, t] - matrix[1, t]), 2)
+            val = round(
+                100 * (matrix[0, t] - matrix[1, t]) / (matrix[2, t] - matrix[1, t]), 2)
             result.update({profile_name: val})
         return result
 
@@ -549,8 +556,8 @@ class AnomalyMetric(QualityMetric):
                                      anomaly_window_destination=self.anomaly_window_destination,
                                      clear_anomalies_mode=self.clear_anomalies_mode)
             missing, detectHistory, FP, all_target_anom = missing + missing_, \
-                                                          detectHistory + detectHistory_, FP + FP_, \
-                                                          all_target_anom + all_target_anom_
+                detectHistory + detectHistory_, FP + FP_, \
+                all_target_anom + all_target_anom_
 
         result = dict(false_positive=int(FP),
                       missed_anomaly=missing,
@@ -563,14 +570,17 @@ class AnomalyMetric(QualityMetric):
                            2: (None, self.target),
                            3: (None, None)}
         target_series, target_list_ts = target_map_dict[self.input_variant]
-        detecting_boundaries = [single_detecting_boundaries(target_series=target_series[i],
-                                                            target_list_ts=target_list_ts,
-                                                            predicted_labels=self.predicted_labels[i],
-                                                            window_width=self.window_width,
-                                                            share=self.share,
-                                                            anomaly_window_destination=self.anomaly_window_destination,
-                                                            intersection_mode=self.intersection_mode)
-                                for i in range(len(self.target))]
+        detecting_boundaries = [
+            single_detecting_boundaries(
+                target_series=target_series[i],
+                target_list_ts=target_list_ts,
+                predicted_labels=self.predicted_labels[i],
+                window_width=self.window_width,
+                share=self.share,
+                anomaly_window_destination=self.anomaly_window_destination,
+                intersection_mode=self.intersection_mode) for i in range(
+                len(
+                    self.target))]
         return detecting_boundaries
 
     def metric(self):
@@ -598,5 +608,7 @@ def calculate_detection_metric(
         probs=None,
         rounding_order=3,
         metric_names=('nab')):
-    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
+    metric_dict = AnomalyMetric(
+        target=target,
+        predicted_labels=labels).metric()
     return metric_dict

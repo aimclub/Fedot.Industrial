@@ -36,7 +36,11 @@ class MSCRED:
         self.params = params
 
     def _build_model(self):
-        input_size = (self.params[2], self.params[0], self.params[0], self.params[1])
+        input_size = (
+            self.params[2],
+            self.params[0],
+            self.params[0],
+            self.params[1])
         inputs = Input(input_size)
 
         if self.params[0] % 8 != 0:
@@ -47,46 +51,113 @@ class MSCRED:
         paddings = tf.constant([[0, 0], [0, 0], [0, self.sensor_n_pad - self.params[0]],
                                 [0, self.sensor_n_pad - self.params[0]], [0, 0]])
         inputs_pad = tf.pad(inputs, paddings)
-        conv1 = TimeDistributed(Conv2D(filters=32, kernel_size=3, strides=1,
-                                       kernel_initializer='glorot_uniform', padding='same',
-                                       activation='selu', name='conv1'))(inputs_pad)
-        conv2 = TimeDistributed(Conv2D(filters=64, kernel_size=3, strides=2,
-                                       kernel_initializer='glorot_uniform', padding='same',
-                                       activation='selu', name='conv2'))(conv1)
-        conv3 = TimeDistributed(Conv2D(filters=128, kernel_size=2, strides=2,
-                                       kernel_initializer='glorot_uniform', padding='same',
-                                       activation='selu', name='conv3'))(conv2)
-        conv4 = TimeDistributed(Conv2D(filters=256, kernel_size=2, strides=2,
-                                       kernel_initializer='glorot_uniform', padding='same',
-                                       activation='selu', name='conv4'))(conv3)
-        conv_lstm1 = ConvLSTM2D(filters=32, kernel_size=2, padding='same',
-                                return_sequences=True, name="conv_lstm1")(conv1)
+        conv1 = TimeDistributed(
+            Conv2D(
+                filters=32,
+                kernel_size=3,
+                strides=1,
+                kernel_initializer='glorot_uniform',
+                padding='same',
+                activation='selu',
+                name='conv1'))(inputs_pad)
+        conv2 = TimeDistributed(
+            Conv2D(
+                filters=64,
+                kernel_size=3,
+                strides=2,
+                kernel_initializer='glorot_uniform',
+                padding='same',
+                activation='selu',
+                name='conv2'))(conv1)
+        conv3 = TimeDistributed(
+            Conv2D(
+                filters=128,
+                kernel_size=2,
+                strides=2,
+                kernel_initializer='glorot_uniform',
+                padding='same',
+                activation='selu',
+                name='conv3'))(conv2)
+        conv4 = TimeDistributed(
+            Conv2D(
+                filters=256,
+                kernel_size=2,
+                strides=2,
+                kernel_initializer='glorot_uniform',
+                padding='same',
+                activation='selu',
+                name='conv4'))(conv3)
+        conv_lstm1 = ConvLSTM2D(
+            filters=32,
+            kernel_size=2,
+            padding='same',
+            return_sequences=True,
+            name="conv_lstm1")(conv1)
         conv_lstm1_out = self.attention(conv_lstm1, 1)
-        conv_lstm2 = ConvLSTM2D(filters=64, kernel_size=2, padding='same',
-                                return_sequences=True, name="conv_lstm2")(conv2)
+        conv_lstm2 = ConvLSTM2D(
+            filters=64,
+            kernel_size=2,
+            padding='same',
+            return_sequences=True,
+            name="conv_lstm2")(conv2)
         conv_lstm2_out = self.attention(conv_lstm2, 2)
-        conv_lstm3 = ConvLSTM2D(filters=128, kernel_size=2, padding='same',
-                                return_sequences=True, name="conv_lstm3")(conv3)
+        conv_lstm3 = ConvLSTM2D(
+            filters=128,
+            kernel_size=2,
+            padding='same',
+            return_sequences=True,
+            name="conv_lstm3")(conv3)
         conv_lstm3_out = self.attention(conv_lstm3, 4)
-        conv_lstm4 = ConvLSTM2D(filters=256, kernel_size=2, padding='same',
-                                return_sequences=True, name="conv_lstm4")(conv4)
+        conv_lstm4 = ConvLSTM2D(
+            filters=256,
+            kernel_size=2,
+            padding='same',
+            return_sequences=True,
+            name="conv_lstm4")(conv4)
         conv_lstm4_out = self.attention(conv_lstm4, 8)
-        deconv4 = Conv2DTranspose(filters=128, kernel_size=2, strides=2,
-                                  kernel_initializer='glorot_uniform', padding='same',
-                                  activation='selu', name='deconv4')(conv_lstm4_out)
-        deconv4_out = tf.concat([deconv4, conv_lstm3_out], axis=3, name='concat3')
-        deconv3 = Conv2DTranspose(filters=64, kernel_size=2, strides=2,
-                                  kernel_initializer='glorot_uniform', padding='same',
-                                  activation='selu', name='deconv3')(deconv4_out)
-        deconv3_out = tf.concat([deconv3, conv_lstm2_out], axis=3, name='concat2')
-        deconv2 = Conv2DTranspose(filters=32, kernel_size=3, strides=2,
-                                  kernel_initializer='glorot_uniform', padding='same',
-                                  activation='selu', name='deconv2')(deconv3_out)
-        deconv2_out = tf.concat([deconv2, conv_lstm1_out], axis=3, name='concat1')
-        deconv1 = Conv2DTranspose(filters=self.params[1], kernel_size=3, strides=1,
-                                  kernel_initializer='glorot_uniform', padding='same',
-                                  activation='selu', name='deconv1')(deconv2_out)
-        model = Model(inputs=inputs, outputs=deconv1[:, :self.params[0], :self.params[0], :])
+        deconv4 = Conv2DTranspose(
+            filters=128,
+            kernel_size=2,
+            strides=2,
+            kernel_initializer='glorot_uniform',
+            padding='same',
+            activation='selu',
+            name='deconv4')(conv_lstm4_out)
+        deconv4_out = tf.concat(
+            [deconv4, conv_lstm3_out], axis=3, name='concat3')
+        deconv3 = Conv2DTranspose(
+            filters=64,
+            kernel_size=2,
+            strides=2,
+            kernel_initializer='glorot_uniform',
+            padding='same',
+            activation='selu',
+            name='deconv3')(deconv4_out)
+        deconv3_out = tf.concat(
+            [deconv3, conv_lstm2_out], axis=3, name='concat2')
+        deconv2 = Conv2DTranspose(
+            filters=32,
+            kernel_size=3,
+            strides=2,
+            kernel_initializer='glorot_uniform',
+            padding='same',
+            activation='selu',
+            name='deconv2')(deconv3_out)
+        deconv2_out = tf.concat(
+            [deconv2, conv_lstm1_out], axis=3, name='concat1')
+        deconv1 = Conv2DTranspose(
+            filters=self.params[1],
+            kernel_size=3,
+            strides=1,
+            kernel_initializer='glorot_uniform',
+            padding='same',
+            activation='selu',
+            name='deconv1')(deconv2_out)
+        model = Model(inputs=inputs,
+                      outputs=deconv1[:,
+                                      :self.params[0],
+                                      :self.params[0],
+                                      :])
 
         return model
 
@@ -109,10 +180,12 @@ class MSCRED:
 
         attention_w = []
         for k in range(self.params[2]):
-            attention_w.append(
-                tf.reduce_sum(tf.multiply(outputs[:, k], outputs[:, -1]), axis=(1, 2, 3)) / self.params[2])
-        attention_w = tf.reshape(tf.nn.softmax(tf.stack(attention_w, axis=1)), [-1, 1, self.params[2]])
-        outputs = tf.reshape(outputs, [-1, self.params[2], tf.reduce_prod(outputs.shape.as_list()[2:])])
+            attention_w.append(tf.reduce_sum(tf.multiply(
+                outputs[:, k], outputs[:, -1]), axis=(1, 2, 3)) / self.params[2])
+        attention_w = tf.reshape(tf.nn.softmax(
+            tf.stack(attention_w, axis=1)), [-1, 1, self.params[2]])
+        outputs = tf.reshape(
+            outputs, [-1, self.params[2], tf.reduce_prod(outputs.shape.as_list()[2:])])
         outputs = tf.matmul(attention_w, outputs)
         outputs = tf.reshape(outputs,
                              [-1,
