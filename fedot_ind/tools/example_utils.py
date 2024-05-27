@@ -93,16 +93,16 @@ def industrial_common_modelling_loop(
         finetune: bool = False,
         api_config: dict = None,
         metric_names: tuple = (
-                'r2',
-                'rmse',
-                'mae')):
+            'r2',
+            'rmse',
+            'mae')):
     industrial = FedotIndustrial(**api_config)
     if api_config['problem'] == 'ts_forecasting':
         train_data, _ = DataLoader(
             dataset_name=dataset_name['dataset']).load_forecast_data(
             dataset_name['benchmark'])
         target = train_data.values[-api_config['task_params']
-        ['forecast_length']:].flatten()
+                                   ['forecast_length']:].flatten()
         train_data = (train_data, target)
         test_data = train_data
     if api_config['problem'] == 'anomaly_detection':
@@ -150,11 +150,11 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
     df_full['Difference_industrial_All'] = (
-            df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
+        df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
     df_full['Difference_industrial_AG'] = (
-            df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+        df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
     df_full['Difference_industrial_NBEATS'] = (
-            df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
+        df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
     df_full['industrial_Wins_All'] = df_full.apply(
         lambda row: 'Win' if row.loc['Difference_industrial_All'] > 0 else 'Loose', axis=1)
     df_full['industrial_Wins_AG'] = df_full.apply(

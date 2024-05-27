@@ -39,8 +39,8 @@ def single_detecting_boundaries(target_series,
         raise Exception('Choose the type')
     #
     detecting_boundaries = []
-    td = pd.Timedelta(window_width) if window_width is not None else \
-        pd.Timedelta((predicted_labels.index[-1] - predicted_labels.index[0]) / (len(target_timestamps) + 1) * share)
+    td = pd.Timedelta(window_width) if window_width is not None else pd.Timedelta(
+        (predicted_labels.index[-1] - predicted_labels.index[0]) / (len(target_timestamps) + 1) * share)
     for val in target_timestamps:
         if anomaly_window_destination == 'lefter':
             detecting_boundaries.append([val - td, val])
@@ -52,7 +52,8 @@ def single_detecting_boundaries(target_series,
             raise ('choose anomaly_window_destination')
 
     # block for resolving intersection problem:
-    # important to watch right boundary to be never included to avoid windows intersection
+    # important to watch right boundary to be never included to avoid windows
+    # intersection
     if len(detecting_boundaries) == 0:
         return detecting_boundaries
 
@@ -66,7 +67,8 @@ def single_detecting_boundaries(target_series,
             if intersection_mode == 'cut left window':
                 new_detecting_boundaries[i][1] = new_detecting_boundaries[i + 1][0]
             elif intersection_mode == 'cut right window':
-                new_detecting_boundaries[i + 1][0] = new_detecting_boundaries[i][1]
+                new_detecting_boundaries[i +
+                                         1][0] = new_detecting_boundaries[i][1]
             elif intersection_mode == 'cut both':
                 _a = new_detecting_boundaries[i][1]
                 new_detecting_boundaries[i][1] = new_detecting_boundaries[i + 1][0]
@@ -97,9 +99,9 @@ def check_errors(my_list):
 
     def check_error(my_list):
         return not (
-                (all(isinstance(my_el, list) for my_el in my_list)) or
-                (all(isinstance(my_el, pd.Series) for my_el in my_list)) or
-                (all(isinstance(my_el, pd.Timestamp) for my_el in my_list))
+            (all(isinstance(my_el, list) for my_el in my_list)) or
+            (all(isinstance(my_el, pd.Series) for my_el in my_list)) or
+            (all(isinstance(my_el, pd.Timestamp) for my_el in my_list))
         )
 
     def recurse(my_list, level=1):
@@ -107,7 +109,8 @@ def check_errors(my_list):
         nonlocal level_list
 
         if check_error(my_list):
-            raise Exception(f"Non uniform data format in level {level}: {my_list}")
+            raise Exception(
+                f"Non uniform data format in level {level}: {my_list}")
 
         if level not in level_list.keys():
             level_list[level] = []  # for checking format
@@ -121,16 +124,22 @@ def check_errors(my_list):
     recurse(my_list)
     for level in level_list:
         if check_error(level_list[level]):
-            raise Exception(f"Non uniform data format in level {level}: {my_list}")
+            raise Exception(
+                f"Non uniform data format in level {level}: {my_list}")
 
     if 3 in level_list:
         for el in level_list[2]:
             if not ((len(el) == 2) or (len(el) == 0)):
-                raise Exception(f"Non uniform data format in level {2}: {my_list}")
+                raise Exception(
+                    f"Non uniform data format in level {2}: {my_list}")
     return mx
 
 
-def extract_cp_confusion_matrix(detecting_boundaries, predicted_labels, point=0, binary=False):
+def extract_cp_confusion_matrix(
+        detecting_boundaries,
+        predicted_labels,
+        point=0,
+        binary=False):
     """
     predicted_labels: pd.Series
 
@@ -147,7 +156,8 @@ def extract_cp_confusion_matrix(detecting_boundaries, predicted_labels, point=0,
             _detecting_boundaries.append(couple)
     detecting_boundaries = _detecting_boundaries
 
-    times_pred = predicted_labels[predicted_labels.dropna() == 1].sort_index().index
+    times_pred = predicted_labels[predicted_labels.dropna(
+    ) == 1].sort_index().index
 
     my_dict = {}
     my_dict['TPs'] = {}
@@ -155,12 +165,13 @@ def extract_cp_confusion_matrix(detecting_boundaries, predicted_labels, point=0,
     my_dict['FNs'] = []
 
     if len(detecting_boundaries) != 0:
-        my_dict['FPs'].append(times_pred[times_pred < detecting_boundaries[0][0]])  # left
+        my_dict['FPs'].append(
+            times_pred[times_pred < detecting_boundaries[0][0]])  # left
         for i in range(len(detecting_boundaries)):
             times_pred_window = times_pred[(times_pred >= detecting_boundaries[i][0]) &
                                            (times_pred <= detecting_boundaries[i][1])]
             times_predicted_labels_in_window = predicted_labels[
-                                               detecting_boundaries[i][0]:detecting_boundaries[i][1]].index
+                detecting_boundaries[i][0]:detecting_boundaries[i][1]].index
             if len(times_pred_window) == 0:
                 if not binary:
                     my_dict['FNs'].append(i)
@@ -168,16 +179,18 @@ def extract_cp_confusion_matrix(detecting_boundaries, predicted_labels, point=0,
                     my_dict['FNs'].append(times_predicted_labels_in_window)
             else:
                 my_dict['TPs'][i] = [detecting_boundaries[i][0],
-                                     times_pred_window[point] if not binary else times_pred_window,  # attention
+                                     # attention
+                                     times_pred_window[point] if not binary else times_pred_window,
                                      detecting_boundaries[i][1]]
                 if binary:
                     my_dict['FNs'].append(
                         times_predicted_labels_in_window[~times_predicted_labels_in_window.isin(times_pred_window)])
             if len(detecting_boundaries) > i + 1:
-                my_dict['FPs'].append(times_pred[(times_pred > detecting_boundaries[i][1]) & \
-                                                 (times_pred < detecting_boundaries[i + 1][0])])
+                my_dict['FPs'].append(times_pred[(times_pred > detecting_boundaries[i][1]) & (
+                    times_pred < detecting_boundaries[i + 1][0])])
 
-        my_dict['FPs'].append(times_pred[times_pred > detecting_boundaries[i][1]])  # right
+        my_dict['FPs'].append(
+            times_pred[times_pred > detecting_boundaries[i][1]])  # right
     else:
         my_dict['FPs'].append(times_pred)
 
@@ -208,13 +221,18 @@ def confusion_matrix(true, predicted_labels):
     return TP, TN, FP, FN
 
 
-def single_average_delay(detecting_boundaries, predicted_labels, anomaly_window_destination, clear_anomalies_mode):
+def single_average_delay(
+        detecting_boundaries,
+        predicted_labels,
+        anomaly_window_destination,
+        clear_anomalies_mode):
     """
     anomaly_window_destination: 'lefter', 'righter', 'center'. Default='right'
     """
     detecting_boundaries = filter_detecting_boundaries(detecting_boundaries)
     point = 0 if clear_anomalies_mode else -1
-    dict_cp_confusion = extract_cp_confusion_matrix(detecting_boundaries, predicted_labels, point=point)
+    dict_cp_confusion = extract_cp_confusion_matrix(
+        detecting_boundaries, predicted_labels, point=point)
 
     missing = 0
     detectHistory = []
@@ -223,7 +241,8 @@ def single_average_delay(detecting_boundaries, predicted_labels, anomaly_window_
 
     FP += len(dict_cp_confusion['FPs'])
     missing += len(dict_cp_confusion['FNs'])
-    all_target_anom += len(dict_cp_confusion['TPs']) + len(dict_cp_confusion['FNs'])
+    all_target_anom += len(dict_cp_confusion['TPs']) + \
+        len(dict_cp_confusion['FNs'])
 
     if anomaly_window_destination == 'lefter':
         def average_time(output_cp_cm_tp):
@@ -233,12 +252,15 @@ def single_average_delay(detecting_boundaries, predicted_labels, anomaly_window_
             return output_cp_cm_tp[1] - output_cp_cm_tp[0]
     elif anomaly_window_destination == 'center':
         def average_time(output_cp_cm_tp):
-            return output_cp_cm_tp[1] - (output_cp_cm_tp[0] + (output_cp_cm_tp[2] - output_cp_cm_tp[0]) / 2)
+            return output_cp_cm_tp[1] - (output_cp_cm_tp[0] +
+                                         (output_cp_cm_tp[2] - output_cp_cm_tp[0]) / 2)
     else:
         raise Exception("Choose anomaly_window_destination")
 
     for fp_case_window in dict_cp_confusion['TPs']:
-        detectHistory.append(average_time(dict_cp_confusion['TPs'][fp_case_window]))
+        detectHistory.append(
+            average_time(
+                dict_cp_confusion['TPs'][fp_case_window]))
     return missing, detectHistory, FP, all_target_anom
 
 
@@ -254,9 +276,10 @@ def my_scale(fp_case_window=None,
     """
     x = np.linspace(-np.pi / 2, np.pi / 2, detalization)
     x = x if clear_anomalies_mode else x[::-1]
-    y = (A_tp - A_fp) / 2 * -1 * np.tanh(koef * x) / (np.tanh(np.pi * koef / 2)) + (A_tp - A_fp) / 2 + A_fp
+    y = (A_tp - A_fp) / 2 * -1 * np.tanh(koef * x) / \
+        (np.tanh(np.pi * koef / 2)) + (A_tp - A_fp) / 2 + A_fp
     if not plot_figure:
-        event = int((fp_case_window[1] - fp_case_window[0]) / \
+        event = int((fp_case_window[1] - fp_case_window[0]) /
                     (fp_case_window[-1] - fp_case_window[0]) * detalization)
         if event >= len(x):
             event = len(x) - 1
@@ -330,7 +353,8 @@ def single_evaluate_nab(detecting_boundaries,
 
     # GO
     point = 0 if clear_anomalies_mode else -1
-    dict_cp_confusion = extract_cp_confusion_matrix(detecting_boundaries, predicted_labels, point=point)
+    dict_cp_confusion = extract_cp_confusion_matrix(
+        detecting_boundaries, predicted_labels, point=point)
 
     Scores, Scores_perfect, Scores_null = [], [], []
     for profile in ['Standard', 'LowFP', 'LowFN']:
@@ -349,4 +373,5 @@ def single_evaluate_nab(detecting_boundaries,
         Scores_perfect.append(len(detecting_boundaries) * A_tp)
         Scores_null.append(len(detecting_boundaries) * A_fn)
 
-    return np.array([np.array(Scores), np.array(Scores_null), np.array(Scores_perfect)])
+    return np.array([np.array(Scores), np.array(
+        Scores_null), np.array(Scores_perfect)])
