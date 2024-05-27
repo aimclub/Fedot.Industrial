@@ -9,6 +9,7 @@ from statsmodels.tsa.ar_model import AutoReg
 from statsmodels.tsa.regime_switching.markov_autoregression import MarkovAutoregression
 from statsmodels.tsa.regime_switching.markov_regression import MarkovRegression
 
+
 from statsmodels.tsa.exponential_smoothing.ets import ETSModel
 
 from fedot.core.data.data import InputData, OutputData
@@ -21,16 +22,68 @@ from fedot_ind.core.models.ts_forecasting.markov_extension import MSARExtension
 
 from sklearn.preprocessing import StandardScaler
 
+class _BoxCoxTransformer:
+    def fit_transform(self, source_ts):
+        min_value = np.min(source_ts)
+        if min_value > 0:
+            pass
+        else:
+            # Making a shift to positive values
+            self.scope = abs(min_value) + 1
+            source_ts = source_ts + self.scope
+
+        _, self.lambda_value = stats.boxcox(source_ts)
+        transformed_ts = boxcox(source_ts, self.lambda_value)
+
+        return transformed_ts
+
+    def inverse_transform(self, predicted, lambda_param=0):
+        """ Method apply inverse Box-Cox transformation """
+        lambda_param = self.lambda_value or lambda_param
+        if lambda_param == 0:
+            res = np.exp(predicted)
+        else:
+            res = inv_boxcox(predicted, lambda_param)
+            res = self._filling_gaps(res)
+        res = self._inverse_shift(res)
+        return res
+
+    def _inverse_shift(self, values):
+        """ Method apply inverse shift operation """
+        if self.scope is None:
+            pass
+        else:
+            values = values - self.scope
+
+        return values
+
+    @staticmethod
+    def _filling_gaps(res):
+        nan_ind = np.argwhere(np.isnan(res))
+        res[nan_ind] = -100.0
+
+        # Gaps in first and last elements fills with mean value
+        if 0 in nan_ind:
+            res[0] = np.mean(res)
+        if int(len(res) - 1) in nan_ind:
+            res[int(len(res) - 1)] = np.mean(res)
+
+        # Gaps in center of timeseries fills with linear interpolation
+        if len(np.ravel(np.argwhere(np.isnan(res)))) != 0:
+            gf = SimpleGapFiller()
+            res = gf.linear_interpolation(res)
+        return res
+
+
 class MarkovSwitchBase(ModelImplementation):
     def __init__(self, params: OperationParameters):
         super().__init__(params)
-        self.autoreg = None
+        self.model = None
         self.actual_ts_len = None
-        self.scaler = StandardScaler()
+        self.scaler = StandardScaler() if params.get('scaler', 'standard') else _BoxCoxTransformer()
         self.lambda_param = None
         self.scope = None
         self.k_regimes = params.get('k_regimes', 2)
-        self.order = params.get('order', 2)
         self.trend = params.get('trend', 'c')
         self.switching_variance = params.get('switching_variance', True)
 
@@ -67,11 +120,10 @@ class MarkovSwitchBase(ModelImplementation):
         endog, exog = self._prepare_data(input_data, idx_target=idx_target, vars_first=vars_first)
         # self.scaler.fit_transform(input_data.features.reshape(-1, 1)).flatten()
         self.actual_ts_len = len(endog)
-        self.autoreg = self._init_fit(endog, exog)
-        return self.autoreg
+        self.model = self._init_fit(endog, exog)
+        return self.model
     
     
-
     def predict(self, input_data):
         """ Method for time series prediction on forecast length
 
@@ -87,7 +139,7 @@ class MarkovSwitchBase(ModelImplementation):
         start_id = self.actual_ts_len
         end_id = start_id + forecast_length - 1
 
-        predicted = MSARExtension(self.autoreg).predict_out_of_sample()
+        predicted = MSARExtension(self.model).predict_out_of_sample()
 
         predict = self.scaler.inverse_transform(np.array([predicted]).ravel().reshape(1, -1))
 
@@ -103,7 +155,7 @@ class MarkovSwitchBase(ModelImplementation):
         forecast_length = parameters.forecast_length
         idx = input_data.idx
         target = input_data.target
-        predicted = self.autoreg.predict(start=idx[0], end=idx[-1])
+        predicted = self.model.predict(start=idx[0], end=idx[-1])
         # adding nan to target as in predicted
         nan_mask = np.isnan(predicted)
         target = target.astype(float)
@@ -123,19 +175,51 @@ class MarkovSwitchBase(ModelImplementation):
                                               data_type=DataTypesEnum.table)
         return output_data
     
-    def handle_new_data(self, input_data: InputData):
-        """
-        Method to update x samples inside a model (used when we want to use old model to a new data)
+    def _get_out_of_sample(self, state: int, fitted_model, offset: int=0, noisy=False):
+        # assert trend == 'ct'
+        table = fitted_model.summary().tables[1 + state].data
+        const = float(table[1][1])
+        x1 = float(table[2][1])
 
-        :param input_data: new input_data
-        """
-        if input_data.idx[0] > self.actual_ts_len:
-            self.autoreg.model.endog = input_data.features[-self.actual_ts_len:]
-            self.autoreg.model._setup_regressors()
+        noise = 0
+        if self.switching_variance and noisy:
+            sigma2 = float(table[3][1])
+            noise = np.random.normal(0, np.sqrt(sigma2), 1).item()
+        
+        pred = const + (fitted_model.nobs + offset) * x1  + noise
+        return pred
+
+    @staticmethod
+    def _get_next_state(fitted_model):
+        return np.random.choice(np.arange(fitted_model.k_regimes), 
+                  size=1,
+                  p=fitted_model.predicted_marginal_probabilities[-1, :]
+                ).item()
+    
+    def forecast(self, horizon, noisy=False, max_iter=20):
+        model = self.model
+        endog = model.data.endog
+        preds = []
+        while max_iter:
+            max_iter -= 1
+            try:
+                state = self._get_next_state(model)
+                pred = self._get_out_of_sample(state=state, fitted_model=model, offset=0, noisy=noisy)
+                endog = np.append(endog, pred)
+                model = self._init_fit(endog, None)
+                preds.append(pred)
+                if len(preds) == horizon:
+                    break
+            except:
+                print('SVD failed to converge')
+        return preds
+
 
 class MarkovAR(MarkovSwitchBase):
     def __init__(self, params: OperationParameters):
         super().__init__(params)
+        self.order = params.get('order', 2)
+
 
     def _init_fit(self, endog, exog=None):
         return MarkovAutoregression(endog, 
@@ -152,7 +236,6 @@ class MarkovReg(MarkovSwitchBase):
     def _init_fit(self, endog, exog=None):
         return MarkovRegression(endog, 
                         k_regimes=self.k_regimes, 
-                        order=self.order,
                         trend = self.trend,
                         exog=exog,
                         switching_variance=self.switching_variance).fit()
