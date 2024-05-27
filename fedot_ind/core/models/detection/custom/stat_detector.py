@@ -37,19 +37,23 @@ class StatisticalDetector(ModelImplementation):
         return model_impl
 
     def _convert_input_data(self, input_data, fit_stage: bool = True):
-        feature_matrix = np.concatenate([HankelMatrix(time_series=ts,
-                                                      window_size=self.window_size).trajectory_matrix.T for ts in
-                                         input_data.features.T],
-                                        axis=1)
+        feature_matrix = np.concatenate(
+            [
+                HankelMatrix(
+                    time_series=ts,
+                    window_size=self.window_size).trajectory_matrix.T for ts in input_data.features.T],
+            axis=1)
         if fit_stage:  # shrink target
             target = input_data.target[:feature_matrix.shape[0]]
         else:  # augmented predict
             target = input_data.target
-        converted_input_data = InputData(idx=np.arange(feature_matrix.shape[0]),
-                                         features=feature_matrix,
-                                         target=target,
-                                         task=FEDOT_TASK['anomaly_detection'],
-                                         data_type=DataTypesEnum.table)
+        converted_input_data = InputData(
+            idx=np.arange(
+                feature_matrix.shape[0]),
+            features=feature_matrix,
+            target=target,
+            task=FEDOT_TASK['anomaly_detection'],
+            data_type=DataTypesEnum.table)
         converted_input_data.supplementary_data.is_auto_preprocessed = True
         return converted_input_data
 
@@ -58,24 +62,31 @@ class StatisticalDetector(ModelImplementation):
 
     def fit(self, input_data: InputData):
         self.model_impl = self._build_model()
-        self.window_size = round(input_data.features.shape[0] * (self.length_of_detection_window / 100))
+        self.window_size = round(
+            input_data.features.shape[0] * (self.length_of_detection_window / 100))
         self.train_data = self._convert_input_data(input_data)
         self.model_impl.fit(self.train_data)
 
     def predict(self, input_data: InputData):
-        converted_input_data = self._convert_input_data(input_data, fit_stage=False)
+        converted_input_data = self._convert_input_data(
+            input_data, fit_stage=False)
         probs = self.model_impl.predict(converted_input_data).predict
-        labels = np.apply_along_axis(self._convert_probs_to_labels, 1, probs).reshape(-1, 1)
+        labels = np.apply_along_axis(
+            self._convert_probs_to_labels, 1, probs).reshape(-1, 1)
         prediction = np.zeros(converted_input_data.target.shape)
-        start_idx, end_idx = prediction.shape[0] - labels.shape[0], prediction.shape[0]
+        start_idx, end_idx = prediction.shape[0] - \
+            labels.shape[0], prediction.shape[0]
         prediction[np.arange(start_idx, end_idx), :] = labels
         return prediction
 
     def predict_proba(self, input_data: InputData):
-        converted_input_data = self._convert_input_data(input_data, fit_stage=False)
+        converted_input_data = self._convert_input_data(
+            input_data, fit_stage=False)
         probs = self.model_impl.predict(converted_input_data).predict
-        prediction = np.zeros((converted_input_data.target.shape[0], probs.shape[1]))
-        start_idx, end_idx = prediction.shape[0] - probs.shape[0], prediction.shape[0]
+        prediction = np.zeros(
+            (converted_input_data.target.shape[0], probs.shape[1]))
+        start_idx, end_idx = prediction.shape[0] - \
+            probs.shape[0], prediction.shape[0]
         prediction[np.arange(start_idx, end_idx), :] = probs
         return prediction
 
