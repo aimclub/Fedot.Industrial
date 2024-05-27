@@ -19,7 +19,7 @@ class ConvolutionalAutoEncoder:
     model : Sequential
         The trained convolutional autoencoder model.
     """
-    
+
     def __init__(self):
         self.model = None
         self.shape = None
@@ -47,7 +47,7 @@ class ConvolutionalAutoEncoder:
         )
         model.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
         return model
-    
+
     def fit(self, input_array: np.array):
         """
         Train the convolutional autoencoder model on the provided data.
@@ -57,7 +57,7 @@ class ConvolutionalAutoEncoder:
         input_array : np.ndarray
             Input data for training the autoencoder model.
         """
-        
+
         self.shape = input_array.shape
         self.model = self._build_model()
 
@@ -69,8 +69,11 @@ class ConvolutionalAutoEncoder:
             validation_split=0.1,
             verbose=0,
             callbacks=[
-                EarlyStopping(monitor="val_loss", patience=5, mode="min", verbose=0)
-            ],
+                EarlyStopping(
+                    monitor="val_loss",
+                    patience=5,
+                    mode="min",
+                    verbose=0)],
         )
 
     def predict(self, input_array: np.array):
@@ -87,5 +90,5 @@ class ConvolutionalAutoEncoder:
         numpy.ndarray
             Predicted output data.
         """
-        
+
         return self.model.predict(input_array)

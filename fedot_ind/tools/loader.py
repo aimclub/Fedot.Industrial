@@ -69,11 +69,18 @@ class DataLoader:
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
     def local_skab_load(self, directory='other', group=None):
-        path_to_result = PROJECT_PATH + f'/examples/data/detection/data/{directory}'
+        path_to_result = PROJECT_PATH + \
+            f'/examples/data/detection/data/{directory}'
         folder_dict = {'other': [i for i in range(15)],
                        'valve1': [i for i in range(16)],
                        'valve2': [i for i in range(4)]}
-        df = pd.read_csv(Path(path_to_result, f'{group}.csv'), index_col='datetime', sep=';', parse_dates=True)
+        df = pd.read_csv(
+            Path(
+                path_to_result,
+                f'{group}.csv'),
+            index_col='datetime',
+            sep=';',
+            parse_dates=True)
         x_train = df.iloc[:120, :-2].values
         y_train = df.iloc[:120, -2].values
         x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
@@ -398,8 +405,8 @@ class DataLoader:
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                                                          not has_univariate_tag or not has_target_labels_tag or \
-                                                          not has_data_tag
+                            not has_univariate_tag or not has_target_labels_tag or \
+                            not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
@@ -795,7 +802,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                                            and has_target_labels_tag and has_data_tag
+                and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag

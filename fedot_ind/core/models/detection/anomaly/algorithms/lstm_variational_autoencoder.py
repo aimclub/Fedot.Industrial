@@ -31,7 +31,8 @@ class LSTMVariationalAutoEncoder:
         h = LSTM(intermediate_dim)(x)
         self.z_mean = Dense(latent_dim)(h)
         self.z_log_sigma = Dense(latent_dim)(h)
-        z = Lambda(self.sampling, output_shape=(latent_dim,))([self.z_mean, self.z_log_sigma])
+        z = Lambda(self.sampling, output_shape=(latent_dim,))(
+            [self.z_mean, self.z_log_sigma])
         decoder_h = LSTM(intermediate_dim, return_sequences=True)
         decoder_mean = LSTM(input_dim, return_sequences=True)
         h_decoded = RepeatVector(timesteps)(z)
@@ -86,7 +87,8 @@ class LSTMVariationalAutoEncoder:
         """
         mse = losses.MeanSquaredError()
         xent_loss = mse(x, x_decoded_mean)
-        kl_loss = - 0.5 * K.mean(1 + self.z_log_sigma - K.square(self.z_mean) - K.exp(self.z_log_sigma))
+        kl_loss = - 0.5 * K.mean(1 + self.z_log_sigma -
+                                 K.square(self.z_mean) - K.exp(self.z_log_sigma))
         loss = xent_loss + kl_loss
         return loss
 
@@ -127,7 +129,12 @@ class LSTMVariationalAutoEncoder:
 
         callbacks = []
         if early_stopping:
-            callbacks.append(EarlyStopping(monitor="val_loss", patience=5, mode="min", verbose=0))
+            callbacks.append(
+                EarlyStopping(
+                    monitor="val_loss",
+                    patience=5,
+                    mode="min",
+                    verbose=0))
 
         self.model.fit(
             input_array,

@@ -46,8 +46,10 @@ class CURDecomposition:
         # plt.legend()
         # plt.show()
 
-    def fit_transform(self, feature_tensor: np.ndarray, target: np.ndarray = None) -> tuple:
-        self.selection_rank = self._get_selection_rank(self.rank, feature_tensor)
+    def fit_transform(self, feature_tensor: np.ndarray,
+                      target: np.ndarray = None) -> tuple:
+        self.selection_rank = self._get_selection_rank(
+            self.rank, feature_tensor)
         # create sub matrices for CUR-decompostion
         array = np.array(feature_tensor.copy())
         c, w, r = self.select_rows_cols(array)
@@ -61,7 +63,7 @@ class CURDecomposition:
             # aprox U using pseudoinverse
             u = y_T.T @ Sigma_plus @ Sigma_plus @ X.T
             sampled_tensor = (c, u, r)
-            error = self.get_aproximation_error(feature_tensor, sampled_tensor)
+            self.get_aproximation_error(feature_tensor, sampled_tensor)
         if target is not None:
             target = target[self.row_indices]
         return sampled_tensor, target
@@ -104,9 +106,9 @@ class CURDecomposition:
         self.row_indices = selected_rows
         self.column_indices = selected_cols
         row_scale_factors = 1 / \
-                            np.sqrt(self.selection_rank * row_probs[selected_rows])
+            np.sqrt(self.selection_rank * row_probs[selected_rows])
         col_scale_factors = 1 / \
-                            np.sqrt(self.selection_rank * col_probs[selected_cols])
+            np.sqrt(self.selection_rank * col_probs[selected_cols])
 
         C_matrix = matrix[:, selected_cols] * col_scale_factors
         R_matrix = matrix[selected_rows, :] * row_scale_factors[:, np.newaxis]

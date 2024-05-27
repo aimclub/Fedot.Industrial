@@ -11,7 +11,7 @@ class IsolationForest:
     ----------
     params : list
         A list containing three parameters: random_state, n_jobs, and contamination.
-        
+
     Attributes
     ----------
     random_state : int

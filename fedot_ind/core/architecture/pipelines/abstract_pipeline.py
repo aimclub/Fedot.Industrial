@@ -42,10 +42,15 @@ class AbstractPipeline:
                 pipeline.add_node(node)
         return pipeline.build()
 
-    def tune_pipeline(self, model_to_tune, tuning_params, tune_data: InputData = None):
+    def tune_pipeline(
+            self,
+            model_to_tune,
+            tuning_params,
+            tune_data: InputData = None):
         if tune_data is None:
             tune_data = self.train_data
-        pipeline_tuner, tuned_model = build_tuner(self, model_to_tune, tuning_params, tune_data, 'head')
+        pipeline_tuner, tuned_model = build_tuner(
+            self, model_to_tune, tuning_params, tune_data, 'head')
         return tuned_model
 
     def create_input_data(self, dataset_name):

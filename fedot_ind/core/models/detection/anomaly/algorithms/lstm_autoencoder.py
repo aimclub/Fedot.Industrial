@@ -41,7 +41,7 @@ class LSTMAutoEncoder:
 
         model = Model(inputs, decoded)
         # TODO: not used
-        encoder = Model(inputs, encoded)
+        Model(inputs, encoded)
 
         model.compile(optimizer='adam', loss='mae', metrics=["mse"])
 
