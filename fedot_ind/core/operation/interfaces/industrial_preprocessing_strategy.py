@@ -72,11 +72,13 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             return trained_operation.predict(predict_data).predict if self.operation_condition.is_predict_input_fedot \
                 else trained_operation.predict(predict_data.features).flatten()
         else:
-            n_classes = len(
-                trained_operation.classes_[0]) if self.operation_condition.is_multi_output_target else len(
-                trained_operation.classes_)
-            prediction = self.operation_condition.output_mode_converter(
-                output_mode, n_classes)
+            if self.operation_condition.is_one_class_operation:
+                n_classes = 1
+            elif self.operation_condition.is_multi_output_target:
+                n_classes = len(trained_operation.classes_[0])
+            else:
+                n_classes = len(trained_operation.classes_)
+            prediction = self.operation_condition.output_mode_converter(output_mode, n_classes)
             return prediction
 
     def _convert_input_data(self, train_data, mode: str = None):

@@ -112,9 +112,6 @@ class DataCheck:
                 features_array = self.data_convertor.numpy_data
             task = Task(TaskTypesEnum.ts_forecasting,
                         TsForecastingParams(forecast_length=self.task_params['forecast_length']))
-            # if self.industrial_task_params is None and self.data_convertor.is_numpy_matrix:
-            #     features_array = features_array[:-self.task_params['forecast_length'],:]
-            #     target = features_array
             if self.industrial_task_params is None:
                 features_array = features_array[:-self.task_params['forecast_length']]
                 target = features_array
@@ -182,6 +179,7 @@ class DataCheck:
         if not self.data_convertor.is_torchvision_dataset:
             self._check_input_data_features()
             self._check_input_data_target()
+        self.input_data.supplementary_data.is_auto_preprocessed = True
         return self.input_data
 
     def get_target_encoder(self):

@@ -40,9 +40,11 @@ from sklearn.linear_model import (
 )
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
+from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
@@ -133,7 +135,9 @@ class AtomizedModel(Enum):
         # solo nn models
         'mlp': MLPClassifier,
         # external models
-        'lgbm': LGBMClassifier
+        'lgbm': LGBMClassifier,
+        # for detection
+        'one_class_svm': OneClassSVM
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization
@@ -202,7 +206,9 @@ class AtomizedModel(Enum):
 
     ANOMALY_DETECTION_MODELS = {
         'sst': SingularSpectrumTransformation,
-        'unscented_kalman_filter': UnscentedKalmanFilter
+        'unscented_kalman_filter': UnscentedKalmanFilter,
+        'stat_detector': StatisticalDetector,
+        # 'topo_detector': UnscentedKalmanFilter
     }
 
     NEURAL_MODEL = {

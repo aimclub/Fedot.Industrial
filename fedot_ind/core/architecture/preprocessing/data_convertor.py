@@ -12,10 +12,12 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
 from sklearn.preprocessing import LabelEncoder
+from sklearn.svm import OneClassSVM
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.repository.constanst_repository import MATRIX, MULTI_ARRAY
 
 
@@ -173,9 +175,6 @@ class FedotConverter:
                 array.reshape(array.shape[0], array.shape[1] * array.shape[2])
                 if array is not None and len(array.shape) > 2 else array
                 for array in [self.input_data.features, self.input_data.target]]
-            # if new_features.shape[0] != new_target.shape[0]:
-            #     min_samples = min(new_features.shape[0], new_target.shape[0])
-            #     new_features, new_target = new_features[:min_samples], new_target[:min_samples]
             input_data = InputData(
                 idx=self.input_data.idx,
                 features=new_features,
@@ -186,11 +185,13 @@ class FedotConverter:
         elif mode == 'channel_independent':
             feats = self.input_data.features
             if self.data_type_condition.is_numpy_flatten:
-                feats = self.input_data.features.reshape(1, -1)
+                feats = feats.reshape(1, -1)
             elif self.data_type_condition.is_numpy_tensor and self.data_type_condition.have_one_sample:
-                feats = self.input_data.features.reshape(
-                    self.input_data.features.shape[1],
-                    1 * self.input_data.features.shape[2])
+                feats = feats.reshape(
+                    feats.shape[1],
+                    1 * feats.shape[2])
+            elif self.data_type_condition.is_numpy_tensor and self.data_type_condition.have_one_channel:
+                feats = feats.squeeze().swapaxes(1, 0)
             elif not self.data_type_condition.have_one_sample:
                 feats = self.input_data.features.swapaxes(1, 0)
             input_data = [
@@ -408,6 +409,18 @@ class ConditionConverter:
         return self.mode == 'multi_dimensional'
 
     @property
+    def is_one_class_operation(self):
+        return isinstance(self.operation_implementation, (StatisticalDetector, OneClassSVM))
+
+    @property
+    def is_industrial_detector(self):
+        return isinstance(self.operation_implementation, StatisticalDetector)
+
+    @property
+    def is_sklearn_detector(self):
+        return isinstance(self.operation_implementation, OneClassSVM)
+
+    @property
     def is_list_container(self):
         return type(self.train_data) is list
 
@@ -459,28 +472,35 @@ class ConditionConverter:
         return self.operation_example is None
 
     def output_mode_converter(self, output_mode, n_classes):
-        if output_mode == 'labels':
-            return self.operation_example.predict(
-                self.train_data.features).reshape(-1, 1)
+        if output_mode == 'labels' and n_classes != 1:
+            return self.operation_example.predict(self.train_data.features).reshape(-1, 1)
+        elif output_mode == 'labels' and n_classes == 1:
+            return self.operation_example.predict(self.train_data).reshape(-1, 1)
         else:
             return self.probs_prediction_converter(output_mode, n_classes)
 
     def probs_prediction_converter(self, output_mode, n_classes):
-        try:
-            prediction = self.operation_example.predict_proba(
-                self.train_data.features)
-        except Exception:
-            prediction = self.operation_example.predict_proba(
-                self.train_data.features.T)
-        if n_classes < 2:
-            raise ValueError(
-                'Data set contain only 1 target class. Please reformat your data.')
-        elif n_classes == 2 and output_mode != 'probs':
+        if n_classes == 1 and output_mode != 'probs':
+            features = self.train_data.features if self.is_sklearn_detector else self.train_data
+            probs = self.operation_example.score_samples(features)
+            anomaly_probs = 1 - probs
+            prediction = np.vstack([probs, anomaly_probs]).T
+        elif n_classes == 1 and output_mode == 'probs':
+            features = self.train_data.features if self.is_sklearn_detector else self.train_data
+            prediction = self.operation_example.predict_proba(features)
+        else:
+            try:
+                prediction = self.operation_example.predict_proba(self.train_data.features)
+            except Exception:
+                prediction = self.operation_example.predict_proba(self.train_data.features.T)
+
+        if n_classes == 2 and output_mode != 'probs':
             if self.is_multi_output_target:
                 prediction = np.stack([pred[:, 1]
                                        for pred in prediction]).T
             else:
                 prediction = prediction[:, 1]
+
         return prediction
 
 

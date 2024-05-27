@@ -5,8 +5,7 @@ from math import ceil
 from random import choice, sample
 from typing import Sequence
 from typing import Tuple
-from fedot.core.pipelines.node import PipelineNode
-from fedot.core.pipelines.pipeline import Pipeline
+
 from fedot.core.composer.gp_composer.specific_operators import boosting_mutation, parameter_change_mutation
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
@@ -31,6 +30,7 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
+
 from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
 from fedot_ind.core.repository.model_repository import TEMPORARY_EXCLUDED, default_industrial_availiable_operation
 

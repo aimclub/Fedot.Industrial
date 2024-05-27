@@ -6,9 +6,10 @@ if __name__ == "__main__":
     prediction_window = 10
     finetune = False
     metric_names = ('nab')
+    metric_names = ('accuracy')
     api_config = dict(problem='anomaly_detection',
                       metric='f1',
-                      timeout=2,
+                      timeout=1,
                       pop_size=10,
                       task_params={'forecast_length': prediction_window},
                       with_tunig=False,
@@ -16,5 +17,5 @@ if __name__ == "__main__":
                       logging_level=20)
 
     model, labels, metrics = industrial_common_modelling_loop(
-        api_config=api_config, dataset_name=dataset_name, finetune=finetune)
+        api_config=api_config, dataset_name=dataset_name, finetune=finetune, metric_names=metric_names)
     print(metrics)

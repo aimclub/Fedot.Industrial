@@ -14,7 +14,6 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
     KERNEL_BASELINE_NODE_LIST
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 class KernelEnsembler(BaseExtractor):
@@ -35,7 +34,6 @@ class KernelEnsembler(BaseExtractor):
                                'two_step': self.__two_stage_kernel
                                }
 
-        self.repo = IndustrialModels().setup_repository()
         self.feature_matrix_train = []
         self.feature_matrix_test = []
 

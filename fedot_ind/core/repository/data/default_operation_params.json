@@ -392,5 +392,19 @@
     "window_size_as_share": 0.33,
     "max_homology_dimension": 1,
     "metric": "euclidean"
+  },
+  "stat_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9
+  },
+  "topo_detector": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
+  "one_class_svm": {
+    "kernel": "rbf",
+    "gamma": "auto"
   }
 }

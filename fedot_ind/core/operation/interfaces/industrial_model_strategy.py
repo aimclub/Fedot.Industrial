@@ -263,7 +263,7 @@ class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         return self.multi_dim_dispatcher.fit(train_data)
 
 
-class IndustrialAnomalyDetectionStrategy(IndustrialSkLearnForecastingStrategy):
+class IndustrialAnomalyDetectionStrategy(IndustrialSkLearnClassificationStrategy):
     """ Strategy for applying classification algorithms from Sklearn library """
     _operations_by_types = ANOMALY_DETECTION_MODELS
 
