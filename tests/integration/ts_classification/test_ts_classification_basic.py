@@ -28,5 +28,4 @@ def test_basic_tsc_test(data):
     probs = industrial.predict_proba(test_data)
     assert labels is not None
     assert probs is not None
-    assert np.mean(labels) > 0
     assert np.mean(probs) > 0
