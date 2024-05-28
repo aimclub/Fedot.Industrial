@@ -250,7 +250,7 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration'). add_node('quantile_extractor').add_node('xgboost'),
+        'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node('xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
         'ts_forecasting': PipelineBuilder().add_node(
             'eigen_basis',
