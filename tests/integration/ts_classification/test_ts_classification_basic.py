@@ -5,24 +5,22 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.tools.loader import DataLoader
 
 
-@pytest.fixture
 def multi_data():
     train_data, test_data = DataLoader(dataset_name='Epilepsy').load_data()
     return train_data, test_data
 
 
-@pytest.fixture
 def uni_data():
     train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
     return train_data, test_data
 
 
 @pytest.mark.parametrize('data', [multi_data, uni_data])
-def basic_tsc_test(data):
-    train_data, test_data = data
+def test_basic_tsc_test(data):
+    train_data, test_data = data()
 
-    industrial = FedotIndustrial(task='classification',
-                                 timeout=2,
+    industrial = FedotIndustrial(problem='classification',
+                                 timeout=0.1,
                                  n_jobs=-1)
 
     industrial.fit(train_data)

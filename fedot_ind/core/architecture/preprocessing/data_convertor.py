@@ -562,7 +562,8 @@ class DataConverter(TensorConverter, NumpyConverter):
     @property
     def is_torchvision_dataset(self):
         if self.is_tuple:
-            return self.data[1] == 'torchvision_dataset'
+            return np.all(self.data[1] == 'torchvision_dataset')
+            # return self.data[1] == 'torchvision_dataset'
         else:
             return False
 
