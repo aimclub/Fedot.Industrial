@@ -66,8 +66,7 @@ from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
-from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION, \
-    AVAILABLE_ANOMALY_DETECTION_OPERATIONS
+from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
 
 TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_CLF_PREPROC_MODEL': {
@@ -208,6 +207,9 @@ class AtomizedModel(Enum):
         'sst': SingularSpectrumTransformation,
         'unscented_kalman_filter': UnscentedKalmanFilter,
         'stat_detector': StatisticalDetector,
+        'channel_filtration': ChannelCentroidFilter,
+        'gaussian_filter': GaussianFilterImplementation,
+        'smoothing': TsSmoothingImplementation,
         # 'topo_detector': UnscentedKalmanFilter
     }
 
@@ -241,7 +243,7 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                 INDUSTRIAL_PREPROC_MODEL.keys(),
                                 ]
     elif problem == 'anomaly_detection':
-        available_operations = AVAILABLE_ANOMALY_DETECTION_OPERATIONS
+        available_operations = [operation_dict[problem]]
 
     else:
         available_operations = [operation_dict[problem],
