@@ -1,6 +1,4 @@
-import numpy as np
 
-from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
 
 
