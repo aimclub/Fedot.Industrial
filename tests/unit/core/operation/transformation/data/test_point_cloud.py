@@ -23,13 +23,15 @@ def test_TSTransformer(basic_periodic_data):
     assert result.shape[0] > 0 and result.shape[1] > 0
 
 
-def test_TopologicalTransformation_time_series_rolling_betti_ripser(basic_periodic_data):
+def test_TopologicalTransformation_time_series_rolling_betti_ripser(
+        basic_periodic_data):
     topological_transformer = TopologicalTransformation(
         time_series=basic_periodic_data,
         max_simplex_dim=1,
         epsilon=3,
         window_length=400)
-    assert len(topological_transformer.time_series_rolling_betti_ripser(basic_periodic_data)) != 0
+    assert len(topological_transformer.time_series_rolling_betti_ripser(
+        basic_periodic_data)) != 0
 
 
 def test_TopologicalTransformation_time_series_to_point_cloud(

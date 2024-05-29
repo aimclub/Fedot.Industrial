@@ -34,13 +34,15 @@ def classification_data():
 def test_fedot_automl_classification_strategy_fit(classification_data):
     operation_type = 'fedot_cls'
     params = OperationParameters()
-    params._parameters.update({'problem': 'classification', 'timeout': 0.1, 'n_jobs': 1})
+    params._parameters.update(
+        {'problem': 'classification', 'timeout': 0.1, 'n_jobs': 1})
     strategy = FedotAutoMLClassificationStrategy(operation_type=operation_type,
                                                  params=params)
     trained_operation = strategy.fit(classification_data)
 
     predict = strategy.predict(trained_operation, classification_data)
-    predict_for_fit = strategy.predict_for_fit(trained_operation, classification_data)
+    predict_for_fit = strategy.predict_for_fit(
+        trained_operation, classification_data)
 
     assert predict.predict is not None
     assert predict_for_fit.predict is not None
@@ -51,13 +53,15 @@ def test_fedot_automl_classification_strategy_fit(classification_data):
 def test_fedot_automl_regression_strategy_fit(regression_data):
     operation_type = 'fedot_regr'
     params = OperationParameters()
-    params._parameters.update({'problem': 'regression', 'timeout': 0.1, 'n_jobs': 1})
+    params._parameters.update(
+        {'problem': 'regression', 'timeout': 0.1, 'n_jobs': 1})
     strategy = FedotAutoMLRegressionStrategy(operation_type=operation_type,
                                              params=params)
     trained_operation = strategy.fit(regression_data)
-    
+
     predict = strategy.predict(trained_operation, regression_data)
-    predict_for_fit = strategy.predict_for_fit(trained_operation, regression_data)
+    predict_for_fit = strategy.predict_for_fit(
+        trained_operation, regression_data)
 
     assert predict.predict is not None
     assert predict_for_fit.predict is not None

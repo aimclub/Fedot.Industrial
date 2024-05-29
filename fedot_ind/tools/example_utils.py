@@ -163,6 +163,7 @@ def create_comprasion_df(df, metric: str = 'rmse'):
         axis=1)
     return df_full
 
+
 def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
     time_series = pd.read_csv(ts_datasets[dataset])
 
