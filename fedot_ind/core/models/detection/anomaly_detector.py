@@ -23,13 +23,12 @@ class AnomalyDetector(ModelImplementation):
     def classes_(self) -> int:
         return 1
 
-    @staticmethod
-    def convert_input_data(input_data: InputData, window_size: int, fit_stage: bool = True) -> InputData:
+    def convert_input_data(self, input_data: InputData, fit_stage: bool = True) -> InputData:
         feature_matrix = np.concatenate(
             [
                 HankelMatrix(
                     time_series=ts,
-                    window_size=window_size
+                    window_size=self.window_size
                 ).trajectory_matrix.T for ts in input_data.features.T
             ],
             axis=1
@@ -47,24 +46,27 @@ class AnomalyDetector(ModelImplementation):
             data_type=DataTypesEnum.table
         )
         converted_input_data.supplementary_data.is_auto_preprocessed = True
-        return converted_input_data
+        return self.convert_data_for_model(converted_input_data, fit_stage=fit_stage)
 
     @abstractmethod
     def build_model(self):
         raise AbstractMethodNotImplementError
 
+    @staticmethod
+    @abstractmethod
+    def convert_data_for_model(input_data: InputData, fit_stage: bool = True):
+        raise AbstractMethodNotImplementError
+
     def fit(self, input_data: InputData) -> None:
         self.model_impl = self.build_model()
         self.window_size = round(input_data.features.shape[0] * (self.length_of_detection_window / 100))
-        self.model_impl.fit(self.convert_input_data(input_data, self.window_size))
+        converted_input_data = self.convert_input_data(input_data)
+        self.model_impl.fit(converted_input_data)
 
     def predict(self, input_data: InputData) -> np.ndarray:
-        converted_input_data = self.convert_input_data(
-            input_data,
-            window_size=self.window_size,
-            fit_stage=False
-        )
+        converted_input_data = self.convert_input_data(input_data, fit_stage=False)
         probs = self.model_impl.predict(converted_input_data).predict
+        # TODO: use a broader interface for predict calls
         labels = np.apply_along_axis(self.convert_probs_to_labels, 1, probs).reshape(-1, 1)
         prediction = np.zeros(converted_input_data.target.shape)
         start_idx, end_idx = prediction.shape[0] - labels.shape[0], prediction.shape[0]
@@ -72,11 +74,7 @@ class AnomalyDetector(ModelImplementation):
         return prediction
 
     def predict_proba(self, input_data: InputData) -> np.ndarray:
-        converted_input_data = self.convert_input_data(
-            input_data,
-            window_size=self.window_size,
-            fit_stage=False
-        )
+        converted_input_data = self.convert_input_data(input_data, fit_stage=False)
         probs = self.model_impl.predict(converted_input_data).predict
         prediction = np.zeros((converted_input_data.target.shape[0], probs.shape[1]))
         start_idx, end_idx = prediction.shape[0] - probs.shape[0], prediction.shape[0]
@@ -90,4 +88,4 @@ class AnomalyDetector(ModelImplementation):
         return self.predict_for_fit(input_data).predict
 
     def predict_for_fit(self, input_data: InputData):
-        return self.model_impl.predict(self.convert_input_data(input_data, self.window_size))
+        return self.model_impl.predict(self.convert_input_data(input_data))
