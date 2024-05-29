@@ -59,8 +59,10 @@ class ExpWeightedLoss(nn.Module):
             loss_normalized (torch.Tensor): loss, where regularization parameters are 1.
         """
         # res = torch.sum(input ** 2, dim=0).reshape(self.n_t, -1)
-        res = torch.mean(input_, axis=0).reshape(self.n_t, -1)
-        target = torch.mean(target, axis=0).reshape(self.n_t, -1)
+        res = torch.sum(input_ ** 2, dim=1).reshape(self.n_t, -1)
+
+        # target = torch.mean(target, axis=0).reshape(self.n_t, -1)
+        target = torch.mean(target.reshape(self.n_t, -1), axis=0)
         m = torch.triu(
             torch.ones(
                 (self.n_t,
