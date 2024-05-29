@@ -97,22 +97,24 @@ def industrial_common_modelling_loop(
             'rmse',
             'mae')):
     industrial = FedotIndustrial(**api_config)
-    if api_config['problem'] == 'ts_forecasting':
-        train_data, _ = DataLoader(
-            dataset_name=dataset_name['dataset']).load_forecast_data(
-            dataset_name['benchmark'])
-        target = train_data.values[-api_config['task_params']
-                                   ['forecast_length']:].flatten()
-        train_data = (train_data, target)
-        test_data = train_data
-    if api_config['problem'] == 'anomaly_detection':
-        train_data, test_data = DataLoader(
-            dataset_name=dataset_name['dataset']).load_detection_data(
-            dataset_name['benchmark'])
-
+    if isinstance(dataset_name, dict):
+        train_data, test_data = dataset_name['train_data'], dataset_name['test_data']
     else:
-        train_data, test_data = DataLoader(
-            dataset_name=dataset_name).load_data()
+        if api_config['problem'] == 'ts_forecasting':
+            train_data, _ = DataLoader(
+                dataset_name=dataset_name['dataset']).load_forecast_data(
+                dataset_name['benchmark'])
+            target = train_data.values[-api_config['task_params']
+                                       ['forecast_length']:].flatten()
+            train_data = (train_data, target)
+            test_data = train_data
+        if api_config['problem'] == 'anomaly_detection':
+            train_data, test_data = DataLoader(
+                dataset_name=dataset_name['dataset']).load_detection_data(
+                dataset_name['benchmark'])
+        else:
+            train_data, test_data = DataLoader(
+                dataset_name=dataset_name).load_data()
 
     if finetune:
         industrial.finetune(train_data, tuning_params={
