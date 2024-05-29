@@ -245,6 +245,10 @@ class FedotOperationConstant(Enum):
         'classification': ClassificationMetricsEnum.accuracy,
         'ts_forecasting': RegressionMetricsEnum.RMSE,
         'regression': RegressionMetricsEnum.RMSE}
+    FEDOT_DATA_TYPE = {
+        'tensor': DataTypesEnum.image,
+        'time_series': DataTypesEnum.ts,
+        'table': DataTypesEnum.table}
     FEDOT_TUNER_STRATEGY = {
         'optuna': OptunaTuner
     }
@@ -709,6 +713,7 @@ FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
 FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
+FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
