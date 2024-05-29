@@ -52,8 +52,8 @@ class DataCheck:
 
     def __check_features_and_target(self, input_data, data_type):
         if data_type == 'torchvision':
-            X, multi_features, y = input_data[0].data.cpu().detach().numpy(), True, \
-                                   input_data[0].targets.cpu().detach().numpy()
+            X, multi_features, y = input_data[0].data.cpu().detach(
+            ).numpy(), True, input_data[0].targets.cpu().detach().numpy()
         elif self.data_convertor.is_tuple:
             X, y = input_data[0], input_data[1]
         else:
@@ -93,17 +93,31 @@ class DataCheck:
             forecast_length=self.task_params['forecast_length']))
         if self.industrial_task_params is None:
             features_array = features_array[:-
-            self.task_params['forecast_length']]
+                                            self.task_params['forecast_length']]
             target = features_array
-        return InputData.from_numpy_time_series(features_array=features_array, target_array=target, task=task)
+        return InputData.from_numpy_time_series(
+            features_array=features_array, target_array=target, task=task)
 
     def _transformation_for_other_task(self, data_list):
-        encoder_condition = all([self.label_encoder is None, self.task == 'classification',
-                                 isinstance(data_list[1][0], np.str_)])
-        input_data = Either(value=data_list, monoid=[data_list, encoder_condition]).either(
-            left_function=lambda l: ListMonad(l), right_function=ListMonad(self._encode_target)).value
-        idx = Either(value=input_data, monoid=[data_list, not self.data_convertor.is_torchvision_dataset]).either(
-            left_function=lambda l: np.arange(l[0].shape[0]), right_function=lambda r: np.arange(len(data_list[0])))
+        encoder_condition = all([self.label_encoder is None,
+                                 self.task == 'classification',
+                                 isinstance(data_list[1][0],
+                                            np.str_)])
+        input_data = Either(
+            value=data_list,
+            monoid=[
+                data_list,
+                encoder_condition]).either(
+            left_function=lambda l: ListMonad(l),
+            right_function=ListMonad(
+                self._encode_target)).value
+        idx = Either(
+            value=input_data, monoid=[
+                data_list, not self.data_convertor.is_torchvision_dataset]).either(
+            left_function=lambda l: np.arange(
+                l[0].shape[0]), right_function=lambda r: np.arange(
+                    len(
+                        data_list[0])))
 
         return InputData(idx=idx,
                          features=input_data[0],
@@ -130,9 +144,17 @@ class DataCheck:
             left_function=lambda l: ListMonad('torchvision')). \
             then(lambda data_type: self.__check_features_and_target(self.input_data, data_type))
 
-        self.input_data = Either(value=[features, target],
-                                 monoid=[[features, target], self.task != 'ts_forecasting']).either(
-            left_function=self._transformation_for_ts_forecasting, right_function=self._transformation_for_other_task)
+        self.input_data = Either(
+            value=[
+                features,
+                target],
+            monoid=[
+                [
+                    features,
+                    target],
+                self.task != 'ts_forecasting']).either(
+            left_function=self._transformation_for_ts_forecasting,
+            right_function=self._transformation_for_other_task)
 
     def _check_input_data_features(self):
         """Checks and preprocesses the features in the input data.
