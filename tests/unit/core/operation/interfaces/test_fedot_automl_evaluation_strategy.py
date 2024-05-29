@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 import pytest
 from fedot.core.operations.operation_parameters import OperationParameters
 
@@ -15,8 +13,8 @@ def regression_data():
     # target = np.random.rand(10, 1)
     train_data, _ = DataLoader('Lightning7').load_data()
     return init_input_data(
-        X=pd.DataFrame(train_data[0]),
-        y=np.array(train_data[1]),
+        X=train_data[0],
+        y=train_data[1],
         task='regression')
 
 
@@ -26,8 +24,8 @@ def classification_data():
     # target = np.random.randint(2, size=10)
     train_data, _ = DataLoader('Lightning7').load_data()
     return init_input_data(
-        X=pd.DataFrame(train_data[0]),
-        y=np.array(train_data[1]),
+        X=train_data[0],
+        y=train_data[1],
         task='classification')
 
 
