@@ -48,8 +48,7 @@ def convert_to_3d_torch_array(func):
             init_data.features = data
         else:
             init_data = data
-        return func(self, init_data, args[1])
-
+        return func(self, init_data, *args[1:])
     return decorated_func
 
 
@@ -65,7 +64,6 @@ def convert_inputdata_to_torch_time_series_dataset(func):
     def decorated_func(self, *args):
         ts = args[0]
         return func(self, CustomDatasetTS(ts))
-
     return decorated_func
 
 
