@@ -10,7 +10,7 @@ from fedot_ind.core.models.nn.network_modules.layers.special import RevIN
 from fedot_ind.core.models.nn.network_modules.losses import (NormalDistributionLoss, CauchyDistributionLoss,
         LogNormDistributionLoss, InverseGaussDistributionLoss, BetaDistributionLoss)
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
+from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset, convert_to_3d_torch_array
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 import pandas as pd
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
@@ -204,16 +204,16 @@ class DeepAR(BaseNeuralModel):
         self.expected_distribution = params.get('expected_distribution', 'normal')
         self.patch_len = params.get('patch_len', None)
         self.preprocess_to_lagged = False
+        self.horizon = params.get('horizon', 1)
 
         # forecasting settings
-        self.horizon = params.get('horizon', 1)
         self.forecast_mode = params.get('forecast_mode', 'predictions')
         self.quantiles = params.get('quantiles', None)
         self.test_patch_len = None
+        self.forecast_length = params.get('forecast_length', 1)
 
         # additional
         self.print_training_progress = params.get('print_training_progress', False)
-        self.__use_collate_fn = params.get('use_collate_fn', True)
 
     
     def _init_model(self, ts) -> tuple:
@@ -231,15 +231,19 @@ class DeepAR(BaseNeuralModel):
                                    cell_type=self.cell_type,
                                    dropout=self.dropout,
                                    rnn_layers=self.rnn_layers,
-                                   distribution=self.expected_distribution)
+                                   distribution=self.expected_distribution).to(default_device())
         self._evaluate_num_of_epochs(ts)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         return self.loss_fn, self.optimizer
 
     def fit(self, input_data: InputData, split_data: bool = False):
-        train_loader, val_loader = self._prepare_data(input_data, split_data=split_data, horizon=1)
+        train_loader, val_loader = self._prepare_data(input_data, 
+                                                      split_data=split_data, 
+                                                      horizon=1,
+                                                      is_train=True)
         loss_fn, optimizer = self._init_model(input_data)
+        
         self._train_loop(model=self.model, 
                         train_loader=train_loader,
                         loss_fn=loss_fn, 
@@ -248,23 +252,22 @@ class DeepAR(BaseNeuralModel):
                         )
         return self
 
-    def _prepare_data(self, input_data: InputData, split_data, horizon=None, collate_fn=None):
-        # features = input_data.features
-        # input_data.features = features.reshape(features.shape[0], -1)
+    def _prepare_data(self, input_data: InputData, split_data, horizon=None, is_train=True):
         val_loader = None
-        collate_fn = self._flatten_feature_vector if self.__use_collate_fn else None
         if self.preprocess_to_lagged:
             self.patch_len = input_data.features.shape[-1]
-            train_loader = self._create_torch_loader(input_data)
+            train_loader = self._create_torch_loader(input_data, is_train)
         else:
             if self.patch_len is None:
                 dominant_window_size = WindowSizeSelector(
                     method='dff').get_window_size(input_data.features)
                 self.patch_len = 2 * dominant_window_size
             train_loader, val_loader = self._get_train_val_loaders(
-                    input_data.features, self.patch_len, split_data, horizon=horizon, collate_fn=collate_fn)
-        # since model shifted towards different basises patch_len is not a patch anymore, but 1 obs length
-        # self.patch_len = next(iter(train_loader))[0].size(-1)
+                    input_data.features, self.patch_len,
+                    split_data, horizon=horizon,
+                    is_train=is_train
+                    )
+
         self.test_patch_len = self.patch_len
         return train_loader, val_loader
     
@@ -275,10 +278,10 @@ class DeepAR(BaseNeuralModel):
         for i, (x, *_) in enumerate(data_loader, 1):
             if i == n:
                 break
-            hidden_state = model.encode(x, hidden_state, False)
+            hidden_state = model.encode(x, hidden_state, scaled=True)
         initial_hidden_state = hidden_state
-        if initial_hidden_state:
-            initial_hidden_state = (initial_hidden_state[0][:, [-1], :], initial_hidden_state[1][:, [-1], :])
+        if initial_hidden_state is not None:
+            initial_hidden_state = (initial_hidden_state[0][:, -self.horizon:, :], initial_hidden_state[1][:, -self.horizon:, :])
         return initial_hidden_state
 
     def predict(self,
@@ -287,7 +290,7 @@ class DeepAR(BaseNeuralModel):
         if not output_mode:
             output_mode = self.forecast_mode
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
-                                         stop=test_data.idx[-1] + self.horizon,
+                                         stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
         # some logic to select needed ts
         fcs = self._predict(test_data, output_mode)
@@ -315,32 +318,27 @@ class DeepAR(BaseNeuralModel):
 
     def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
         mode = 'lagged' if self.preprocess_to_lagged else 'auto'
-        horizon = test_data.task.task_params.forecast_length or self.horizon
-        collate_fn = self._flatten_feature_vector if self.__use_collate_fn else None
+        self.forecast_length = test_data.task.task_params.forecast_length or self.forecast_length
 
         test_loader, _ = self._prepare_data(test_data,
                                             split_data=False,
                                             horizon=1,    
-                                            collate_fn=collate_fn,
+                                            is_train=False,
                                             )
-        # print('batch:size', next(iter(test_loader))[0].size())
 
         initial_hidden_state = hidden_state or self.get_initial_hidden_state(test_loader)
-        last_patch, last_target = test_loader.dataset[-1]
-        if collate_fn:
-            last_patch, last_target = self._flatten_feature_vector([(last_patch, last_target)])
-
-        if len(last_target) == 1:
+        last_patch, last_target = test_loader.dataset[[-1]]
+        if len(last_target) == 1: #rewrite for horizon != 1 
             last_patch = torch.roll(last_patch, -1, dims=-1)
             last_patch[..., -1] = last_target.squeeze()
 
         last_patch = last_patch.to(default_device())
-        print('mean', last_patch.mean())
-        print('mean', test_data.features.flatten()[-self.patch_len:].mean())
 
-        fc = self.model.forecast(last_patch, horizon, 
+
+        fc = self.model.forecast(last_patch, self.forecast_length, 
                                  mode=mode, output_mode=output_mode, 
-                                 hidden_state=initial_hidden_state, **output_kw)
+                                #  hidden_state=initial_hidden_state, 
+                                 **output_kw)
         return fc
 
     def predict_for_fit(self,
@@ -348,7 +346,7 @@ class DeepAR(BaseNeuralModel):
                         output_mode: str = 'predictions'): # will here signature conflict raise in case I drop kw?
         output_mode = 'predictions' 
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
-                                         stop=test_data.idx[-1] + self.horizon,
+                                         stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
 
         # initial_hidden_state = None
@@ -370,6 +368,7 @@ class DeepAR(BaseNeuralModel):
                     optimizer):
         train_steps = len(train_loader)
         early_stopping = EarlyStopping()
+
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
@@ -399,8 +398,6 @@ class DeepAR(BaseNeuralModel):
                 loss.backward()
                 optimizer.step()
 
-                # adjust_learning_rate(optimizer, scheduler,
-                #                      epoch, learning_rate=, printout=False, **kwargs)
                 scheduler.step()
             if val_loader is not None and epoch % val_interval == 0:
                 model.eval()
@@ -430,29 +427,27 @@ class DeepAR(BaseNeuralModel):
             if self.print_training_progress:
                 print('Updating learning rate to {}'.format(last_lr))
         return best_model
-
-
-    # @convert_inputdata_to_torch_time_series_dataset
-    # def _create_dataset(self,
-    #                     ts: InputData,
-    #                     flag: str = 'test',
-    #                     batch_size: int = 16,
-    #                     freq: int = 1):
-    #     return ts
     
     def _get_train_val_loaders(self,
                       ts,
                       patch_len=None,
                       split_data: bool = True,
-                      validation_blocks: int = None, 
+                    #   validation_blocks: int = None, 
+                      val_size: float = 0.2,
                       horizon=None,
-                      collate_fn=None):
+                      is_train=True,
+                      ):
+        train_data = self.__ts_to_input_data(ts)
         if horizon is None:
             horizon = self.horizon
         if patch_len is None:
             patch_len = self.patch_len
-        train_data = self.__ts_to_input_data(ts)
-        # print('_get_train_val_loaders', train_data.features.shape)
+
+        if patch_len + horizon > train_data.features.shape[0]:
+            self.patch_len = train_data.features.shape[0] - horizon
+            patch_len = self.patch_len
+            print('Lowering patch_len')
+        
         if split_data:
             raise NotImplementedError('Problem with lagged_data splitting')
             train_data, val_data = train_test_data_setup(
@@ -467,11 +462,12 @@ class DeepAR(BaseNeuralModel):
             train_loader = self._create_torch_loader(train_data)
             return train_loader, val_loader
         else:
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  horizon,
-                                                                                                  patch_len)
-            # print('transform_features_and_target_into_lagged', train_data.features.shape, train_data.target.shape)
-        train_loader = self._create_torch_loader(train_data, collate_fn=collate_fn)
+            _, train_data.features, train_data.target =\
+                  transform_features_and_target_into_lagged(train_data,
+                                                            horizon,
+                                                            patch_len
+                                                            )
+        train_loader = self._create_torch_loader(train_data, is_train)
         return train_loader, None
 
 
@@ -502,42 +498,21 @@ class DeepAR(BaseNeuralModel):
                                 data_type=DataTypesEnum.ts)
         
         return train_input
+    
 
-    def _create_torch_loader(self, train_data, collate_fn=None):
-        # train_dataset = self._create_dataset(train_data, batch_size=self.batch_size)
-        # print(train_data.features.shape, train_data.target.shape)
+    @convert_to_3d_torch_array
+    def _create_torch_loader(self, train_data, is_train):
+        batch_size = self.batch_size if is_train else self.forecast_length
+
         if not isinstance(train_data.features, torch.Tensor):
             features = torch.tensor(train_data.features).float()
             target = torch.tensor(train_data.target).float()
+        else:
+            features, target = train_data.features, train_data.target
+
         train_loader = torch.utils.data.DataLoader(
             data.TensorDataset(features, target),
-            batch_size=self.batch_size, shuffle=False,
-            collate_fn=collate_fn
+            batch_size=batch_size, shuffle=False,
             )
         return train_loader
-    
-    
-    def _get_test_loader(self,
-                      test_data: Union[InputData, torch.Tensor]):
-        test_data = self.__ts_to_input_data(test_data)
-        if len(test_data.features.shape) == 1:
-            test_data.features = test_data.features[None, ...]
-        
-        if not self.preprocess_to_lagged:
-            features = HankelMatrix(time_series=test_data.features,
-                                    window_size=self.test_patch_len or self.patch_len).trajectory_matrix
-            features = torch.from_numpy(DataConverter(data=features).
-                                        convert_to_torch_format()).float().permute(2, 1, 0)
-            target = torch.from_numpy(DataConverter(
-                data=features).convert_to_torch_format()).float()
-        else:
-            features = test_data.features
-            features = torch.from_numpy(DataConverter(data=features).
-                                        convert_to_torch_format()).float()
-            target = torch.from_numpy(DataConverter(
-                data=features).convert_to_torch_format()).float()
-        test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
-                                                  batch_size=self.batch_size, shuffle=False)
-        return test_loader
-    
     
