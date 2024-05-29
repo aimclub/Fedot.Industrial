@@ -8,7 +8,8 @@ api_config = dict(problem='ts_forecasting',
                   timeout=15,
                   with_tuning=False,
                   industrial_strategy='forecasting_assumptions',
-                  industrial_strategy_params={},
+                  industrial_strategy_params={'industrial_task': 'ts_forecasting',
+                                              'data_type': 'time_series'},
                   logging_level=20)
 train_data, test_data = DataLoader(dataset_name).load_data()
 industrial = FedotIndustrial(**api_config)

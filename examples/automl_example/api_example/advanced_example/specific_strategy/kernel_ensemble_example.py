@@ -9,7 +9,8 @@ api_config = dict(problem='classification',
                   n_jobs=2,
                   with_tuning=False,
                   industrial_strategy='kernel_automl',
-                  industrial_strategy_params={},
+                  industrial_strategy_params={'industrial_task': 'classification',
+                                              'data_type': 'time_series'},
                   logging_level=20)
 train_data, test_data = DataLoader(dataset_name).load_data()
 industrial = FedotIndustrial(**api_config)
