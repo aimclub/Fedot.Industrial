@@ -297,6 +297,14 @@
       "tags": [
       ]
     },
+    "iforest_detector": {
+      "meta": "fedot_anomaly_detection",
+      "presets": [
+        "best_quality"
+      ],
+      "tags": [
+      ]
+    },
     "lora_model": {
       "meta": "fedot_NN_classification",
       "presets": [

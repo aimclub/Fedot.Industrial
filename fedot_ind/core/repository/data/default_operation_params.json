@@ -412,6 +412,13 @@
     "max_homology_dimension": 1,
     "metric": "euclidean"
   },
+  "iforest_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "n_jobs": 2,
+    "contamination": 0.0005,
+    "random_state": 42
+  },
   "one_class_svm": {
     "kernel": "rbf",
     "gamma": "auto"
