@@ -1,7 +1,7 @@
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Union
 
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -26,7 +26,7 @@ class AnomalyDetector(ModelImplementation):
     def convert_input_data(
             self,
             input_data: InputData,
-            fit_stage: bool = True) -> InputData:
+            fit_stage: bool = True) -> Union[InputData, np.ndarray]:
         feature_matrix = np.concatenate(
             [
                 HankelMatrix(
@@ -49,16 +49,10 @@ class AnomalyDetector(ModelImplementation):
             data_type=DataTypesEnum.table
         )
         converted_input_data.supplementary_data.is_auto_preprocessed = True
-        return self.convert_data_for_model(
-            converted_input_data, fit_stage=fit_stage)
+        return converted_input_data
 
     @abstractmethod
     def build_model(self):
-        raise AbstractMethodNotImplementError
-
-    @staticmethod
-    @abstractmethod
-    def convert_data_for_model(input_data: InputData, fit_stage: bool = True):
         raise AbstractMethodNotImplementError
 
     def fit(self, input_data: InputData) -> None:
@@ -72,12 +66,10 @@ class AnomalyDetector(ModelImplementation):
         converted_input_data = self.convert_input_data(
             input_data, fit_stage=False)
         probs = self.model_impl.predict(converted_input_data).predict
-        # TODO: use a broader interface for predict calls
         labels = np.apply_along_axis(
             self.convert_probs_to_labels, 1, probs).reshape(-1, 1)
         prediction = np.zeros(converted_input_data.target.shape)
-        start_idx, end_idx = prediction.shape[0] - \
-            labels.shape[0], prediction.shape[0]
+        start_idx, end_idx = prediction.shape[0] - labels.shape[0], prediction.shape[0]
         prediction[np.arange(start_idx, end_idx), :] = labels
         return prediction
 
@@ -87,8 +79,7 @@ class AnomalyDetector(ModelImplementation):
         probs = self.model_impl.predict(converted_input_data).predict
         prediction = np.zeros(
             (converted_input_data.target.shape[0], probs.shape[1]))
-        start_idx, end_idx = prediction.shape[0] - \
-            probs.shape[0], prediction.shape[0]
+        start_idx, end_idx = prediction.shape[0] - probs.shape[0], prediction.shape[0]
         prediction[np.arange(start_idx, end_idx), :] = probs
         return prediction
 
@@ -96,7 +87,10 @@ class AnomalyDetector(ModelImplementation):
         return 1 if prob_matrix_row[1] > self.anomaly_threshold else 0
 
     def score_samples(self, input_data: InputData) -> np.ndarray:
-        return self.predict_for_fit(input_data).predict
+        predict_for_fit = self.predict_for_fit(input_data)
+        if isinstance(predict_for_fit, OutputData):
+            return predict_for_fit.predict
+        return predict_for_fit
 
     def predict_for_fit(self, input_data: InputData):
         return self.model_impl.predict(self.convert_input_data(input_data))

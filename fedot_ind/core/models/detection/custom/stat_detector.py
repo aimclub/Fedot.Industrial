@@ -23,10 +23,6 @@ class StatisticalDetector(AnomalyDetector):
         self.node_list = VALID_LINEAR_DETECTION_PIPELINE['stat_detector']
         self.scale_ts = self.params.get('scale', False)
 
-    @staticmethod
-    def convert_data_for_model(input_data: InputData, fit_stage=True):
-        return input_data
-
     def build_model(self):
         model_impl = PipelineBuilder()
         if self.scale_ts:
