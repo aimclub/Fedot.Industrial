@@ -44,6 +44,14 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from fedot_ind.core.models.anomaly.sota.conv_ae import Conv_AE
+from fedot_ind.core.models.anomaly.sota.isolation_forest import Isolation_Forest
+from fedot_ind.core.models.anomaly.sota.lstm_ae import LSTM_AE
+from fedot_ind.core.models.anomaly.sota.lstm_vae import LSTM_VAE
+from fedot_ind.core.models.anomaly.sota.mscred import MSCRED
+from fedot_ind.core.models.anomaly.sota.mset import MSET
+from fedot_ind.core.models.anomaly.sota.vanilla_ae import Vanilla_AE
+from fedot_ind.core.models.anomaly.sota.vanilla_lstm import Vanilla_LSTM
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
@@ -69,6 +77,16 @@ TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_CLF_PREPROC_MODEL': {
         'rfe_lin_class': LinearClassFSImplementation,
         'rfe_non_lin_class': NonLinearClassFSImplementation,
+    },
+    'ANOMALY_SOTA': {
+        'conv_ae': Conv_AE,
+        'isolation_forest': Isolation_Forest,
+        'lstm_ae': LSTM_AE,
+        'lstm_vae': LSTM_VAE,
+        'mscred': MSCRED,
+        'mset': MSET,
+        'vanilla_ae': Vanilla_AE,
+        'vanilla_lstm': Vanilla_LSTM,
     },
     'FEDOT_PREPROC_MODEL': {'pca': PCAImplementation,
                             'fast_ica': FastICAImplementation,
