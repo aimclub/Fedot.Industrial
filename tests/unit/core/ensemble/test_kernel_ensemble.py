@@ -12,17 +12,17 @@ def classification_data():
     train_input_data = init_input_data(
         train_data[0],
         train_data[1],
-        task = 'classification')
+        task='classification')
 
     test_input_data = init_input_data(
         test_data[0],
         test_data[1],
-        task = 'classification')
+        task='classification')
 
     return train_input_data, test_input_data
-    
+
+
 def test_kernel_ensemble():
-    metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
     api_config = dict(problem='classification',
                       metric='f1',
                       timeout=0.1,
@@ -34,5 +34,5 @@ def test_kernel_ensemble():
     train_data, test_data = classification_data()
     industrial.fit(train_data)
     predict = industrial.predict(test_data)
-    
+
     assert predict is not None

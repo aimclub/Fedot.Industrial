@@ -16,7 +16,7 @@ def classification_data():
     return init_input_data(
         train_data[0],
         train_data[1],
-        task = 'classification')
+        task='classification')
 
 
 @pytest.fixture()
@@ -29,7 +29,7 @@ def regression_data():
     return init_input_data(
         train_data[0],
         train_data[1],
-        task = 'regression')
+        task='regression')
 
 
 def test_fedot_automl_classification_strategy_fit(classification_data):
