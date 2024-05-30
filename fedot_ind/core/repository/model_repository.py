@@ -44,6 +44,7 @@ from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
@@ -207,6 +208,7 @@ class AtomizedModel(Enum):
         'sst': SingularSpectrumTransformation,
         'unscented_kalman_filter': UnscentedKalmanFilter,
         'stat_detector': StatisticalDetector,
+        'iforest_detector': IsolationForestDetector,
         'channel_filtration': ChannelCentroidFilter,
         'gaussian_filter': GaussianFilterImplementation,
         'smoothing': TsSmoothingImplementation,
