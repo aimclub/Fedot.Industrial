@@ -18,3 +18,7 @@ DS_INFO_PATH = os.path.join(
     'ucr_datasets.json')
 
 DEFAULT_PATH_RESULTS = os.path.join(PROJECT_PATH, 'results_of_experiments')
+
+DEFAULT_PATH_MODELS = os.path.join(
+    PROJECT_PATH,
+    '/fedot_ind/core/repository/model_repository.py')
