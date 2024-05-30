@@ -1,32 +1,35 @@
 import pytest
 from fedot.core.operations.operation_parameters import OperationParameters
-
+from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy import FedotAutoMLClassificationStrategy, \
     FedotAutoMLRegressionStrategy
-from fedot_ind.tools.loader import DataLoader
-
-
-@pytest.fixture()
-def regression_data():
-    # features = np.random.rand(10, 10)
-    # target = np.random.rand(10, 1)
-    train_data, _ = DataLoader('Lightning7').load_data()
-    return init_input_data(
-        X=train_data[0],
-        y=train_data[1],
-        task='regression')
 
 
 @pytest.fixture()
 def classification_data():
-    # features = np.random.rand(10, 10)
-    # target = np.random.randint(2, size=10)
-    train_data, _ = DataLoader('Lightning7').load_data()
+    generator = TimeSeriesDatasetsGenerator(task='classification',
+                                            binary=True,
+                                            multivariate=False)
+    train_data, _ = generator.generate_data()
+
     return init_input_data(
-        X=train_data[0],
-        y=train_data[1],
-        task='classification')
+        train_data[0],
+        train_data[1],
+        task = 'classification')
+
+
+@pytest.fixture()
+def regression_data():
+    generator = TimeSeriesDatasetsGenerator(task='regression',
+                                            binary=True,
+                                            multivariate=False)
+    train_data, _ = generator.generate_data()
+
+    return init_input_data(
+        train_data[0],
+        train_data[1],
+        task = 'regression')
 
 
 def test_fedot_automl_classification_strategy_fit(classification_data):
