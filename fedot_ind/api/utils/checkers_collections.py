@@ -110,7 +110,7 @@ class DataCheck:
                 encoder_condition]).either(
             left_function=lambda l: ListMonad(l),
             right_function=ListMonad(
-                self._encode_target)).value
+                self._encode_target)).value[0]
         idx = Either(
             value=input_data, monoid=[
                 data_list, not self.data_convertor.is_torchvision_dataset]).either(

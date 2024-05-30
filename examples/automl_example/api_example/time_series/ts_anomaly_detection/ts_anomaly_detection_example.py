@@ -12,8 +12,8 @@ if __name__ == "__main__":
         metric='accuracy',
         timeout=1,
         pop_size=10,
+        industrial_strategy='anomaly_detection',
         industrial_task_params={
-            'industrial_task': 'anomaly_detection',
             'detection_window': prediction_window,
             'data_type': 'time_series'},
         with_tunig=False,
