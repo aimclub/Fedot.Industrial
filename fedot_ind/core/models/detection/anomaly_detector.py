@@ -18,6 +18,7 @@ class AnomalyDetector(ModelImplementation):
         super().__init__(params)
         self.length_of_detection_window = self.params.get('window_length', 10)
         self.anomaly_threshold = self.params.get('anomaly_thr', 0.9)
+        self.transformation_mode = 'lagged'
 
     @property
     def classes_(self) -> int:
@@ -27,19 +28,24 @@ class AnomalyDetector(ModelImplementation):
             self,
             input_data: InputData,
             fit_stage: bool = True) -> Union[InputData, np.ndarray]:
-        feature_matrix = np.concatenate(
-            [
-                HankelMatrix(
-                    time_series=ts,
-                    window_size=self.window_size
-                ).trajectory_matrix.T for ts in input_data.features.T
-            ],
-            axis=1
-        )
-        if fit_stage:  # shrink target
-            target = input_data.target[:feature_matrix.shape[0]]
-        else:  # augmented predict
-            target = input_data.target
+        if self.transformation_mode == 'lagged':
+            feature_matrix = np.concatenate(
+                [
+                    HankelMatrix(
+                        time_series=ts,
+                        window_size=self.window_size
+                    ).trajectory_matrix.T for ts in input_data.features.T
+                ],
+                axis=1
+            )
+            if fit_stage:  # shrink target
+                target = input_data.target[:feature_matrix.shape[0]]
+            else:  # augmented predict
+                target = input_data.target
+        elif self.transformation_mode == 'full':
+            return input_data.features
+        elif self.transformation_mode == 'batch':
+            feature_matrix, target = input_data.features, input_data.target
 
         converted_input_data = InputData(
             idx=np.arange(feature_matrix.shape[0]),

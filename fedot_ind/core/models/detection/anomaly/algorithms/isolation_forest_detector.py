@@ -1,12 +1,11 @@
-import pandas as pd
 from typing import Optional
 
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.ensemble import IsolationForest as SklearnIsolationForest
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-
 from fedot_ind.core.models.detection.anomaly_detector import AnomalyDetector
 
 
@@ -30,15 +29,12 @@ class IsolationForestDetector(AnomalyDetector):
         self.random_state = self.params.get('random_state', 0)
         self.n_jobs = self.params.get('n_jobs', -1)
         self.contamination = self.params.get('contamination', 0.0005)
+        self.transformation_mode = 'full'
 
     def build_model(self):
         return SklearnIsolationForest(random_state=self.random_state,
                                       n_jobs=self.n_jobs,
                                       contamination=self.contamination)
-
-    def convert_input_data(self, input_data: InputData, fit_stage: bool = True):
-        print(fit_stage, input_data.features.shape, input_data.features,)
-        return input_data.features
 
     def predict(self, input_array: InputData) -> np.ndarray:
         converted_input_data = self.convert_input_data(input_array, fit_stage=False)
