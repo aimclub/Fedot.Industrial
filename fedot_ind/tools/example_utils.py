@@ -98,7 +98,13 @@ def industrial_common_modelling_loop(
             'mae')):
     industrial = FedotIndustrial(**api_config)
     if isinstance(dataset_name, dict):
-        train_data, test_data = dataset_name['train_data'], dataset_name['test_data']
+        if 'train_data' in dataset_name.keys():
+            train_data, test_data = dataset_name['train_data'], dataset_name['test_data']
+        elif api_config['industrial_task_params'] is not None:
+            if api_config['industrial_task_params']['industrial_task'] == 'anomaly_detection':
+                train_data, test_data = DataLoader(
+                    dataset_name=dataset_name['dataset']).load_detection_data(
+                    dataset_name['benchmark'])
     else:
         if api_config['problem'] == 'ts_forecasting':
             train_data, _ = DataLoader(
@@ -108,10 +114,6 @@ def industrial_common_modelling_loop(
                                        ['forecast_length']:].flatten()
             train_data = (train_data, target)
             test_data = train_data
-        if api_config['problem'] == 'anomaly_detection':
-            train_data, test_data = DataLoader(
-                dataset_name=dataset_name['dataset']).load_detection_data(
-                dataset_name['benchmark'])
         else:
             train_data, test_data = DataLoader(
                 dataset_name=dataset_name).load_data()
