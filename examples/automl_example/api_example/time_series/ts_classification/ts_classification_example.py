@@ -6,7 +6,7 @@ if __name__ == "__main__":
     metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
     api_config = dict(problem='classification',
                       metric='f1',
-                      timeout=2,
+                      timeout=1,
                       pop_size=10,
                       with_tunig=False,
                       n_jobs=2,

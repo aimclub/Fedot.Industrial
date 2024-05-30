@@ -9,10 +9,12 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
+from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.tasks import TsForecastingParams
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
+from pymonad.either import Either
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
@@ -24,7 +26,7 @@ from fedot_ind.core.operation.transformation.splitter import TSTransformer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
     FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, \
-    FEDOT_API_PARAMS, FEDOT_ASSUMPTIONS, FEDOT_TUNER_STRATEGY
+    FEDOT_API_PARAMS, FEDOT_TUNER_STRATEGY, fedot_init_assumptions
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
@@ -128,16 +130,14 @@ class FedotIndustrial(Fedot):
                 self.config_dict['problem'])
         )
 
-        self.config_dict['optimizer'] = kwargs.get(
-            'optimizer', IndustrialEvoOptimizer)
+        self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
 
-        if self.industrial_strategy is not None and self.industrial_strategy == 'anomaly_detection':
-            self.config_dict['initial_assumption'] = kwargs.get(
-                'initial_assumption', FEDOT_ASSUMPTIONS[self.industrial_strategy])
-            self.industrial_strategy = None
-        else:
-            self.config_dict['initial_assumption'] = kwargs.get(
-                'initial_assumption', FEDOT_ASSUMPTIONS[self.config_dict['problem']])
+        self.config_dict['initial_assumption'] = Either(value=self.industrial_strategy,
+                                                        monoid=[self.config_dict['problem'],
+                                                                self.industrial_strategy == 'anomaly_detection']). \
+            either(left_function=fedot_init_assumptions,
+                   right_function=fedot_init_assumptions)
+
         self.config_dict['use_input_preprocessing'] = kwargs.get(
             'use_input_preprocessing', False)
 
@@ -152,7 +152,9 @@ class FedotIndustrial(Fedot):
             api_config=self.config_dict,
             industrial_strategy=self.industrial_strategy,
             industrial_strategy_params=self.industrial_strategy_params,
-        )
+            logger=self.logger)
+        self.industrial_strategy = self.industrial_strategy \
+            if self.industrial_strategy != 'anomaly_detection' else None
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
@@ -160,7 +162,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -205,11 +207,40 @@ class FedotIndustrial(Fedot):
         self.train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
         self.__init_solver()
-        if self.industrial_strategy is not None:
+        if self.industrial_strategy is not None and self.industrial_strategy != 'anomaly_detection':
             self.solver = self.industrial_strategy_class.fit(self.train_data)
         else:
             self.solver.fit(self.train_data)
         self.is_finetuned = False
+
+    def __predict_for_ensemble(self):
+        predict = self.industrial_strategy_class.predict(
+            self.predict_data, 'probs')
+        ensemble_strat = self.industrial_strategy_class.ensemble_strategy
+        predict = {strategy: np.argmax(self.industrial_strategy_class.ensemble_predictions(predict, strategy), axis=1)
+                   for strategy in ensemble_strat}
+        return predict
+
+    def __abstract_predict(self, predict_mode):
+        have_encoder = self.condition_check.solver_have_target_encoder(self.target_encoder)
+        labels_output = predict_mode in ['labels', 'default']
+        predict_function = Either(value=self.solver.predict,
+                                  monoid=[self.solver.predict_proba, labels_output]).either(left_function=lambda l: l,
+                                                                                            right_function=lambda r: r)
+
+        def _inverse_encoder_transform(predict):
+            predicted_labels = self.target_encoder.inverse_transform(
+                predict)
+            self.predict_data.target = self.target_encoder.inverse_transform(
+                self.predict_data.target)
+            return predicted_labels
+
+        predict = Either(value=self.predict_data,
+                         monoid=[predict_mode,
+                                 self.industrial_strategy is None]).map(function=predict_function). \
+            then(lambda x: self.industrial_strategy_class.predict(x, predict_mode) if isinstance(x, InputData) else x). \
+            then(lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
+        return predict
 
     def predict(self,
                 predict_data: tuple,
@@ -226,47 +257,13 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        self.predict_data = deepcopy(
-            predict_data)  # we do not want to make inplace changes
+        self.predict_data = deepcopy(predict_data)  # we do not want to make inplace changes
         self.predict_data = DataCheck(
             input_data=self.predict_data,
             task=self.config_dict['problem'],
             task_params=self.task_params,
             industrial_task_params=self.industrial_strategy_params).check_input_data()
-        if self.industrial_strategy is not None and not self.is_finetuned:
-            if predict_mode == 'ensemble':
-                predict = self.industrial_strategy_class.predict(
-                    self.predict_data, 'probs')
-                ensemble_strat = self.industrial_strategy_class.ensemble_strategy
-                predict = {
-                    strategy: np.argmax(
-                        self.industrial_strategy_class.ensemble_predictions(
-                            predict,
-                            strategy),
-                        axis=1) for strategy in ensemble_strat}
-            else:
-                predict = self.industrial_strategy_class.predict(
-                    self.predict_data, 'labels')
-            self.predicted_labels = predict
-        else:
-            if self.condition_check.solver_is_fedot_class(self.solver):
-                predict = self.solver.predict(self.predict_data)
-            else:
-                predict = self.solver.predict(
-                    self.predict_data, 'labels').predict
-                if self.condition_check.is_multiclf_with_labeling_problem(
-                        self.config_dict['problem'], self.predict_data.target, predict):
-                    predict = predict + \
-                        (self.predict_data.target.min() - predict.min())
-
-            if self.condition_check.solver_have_target_encoder(
-                    self.target_encoder):
-                self.predicted_labels = self.target_encoder.inverse_transform(
-                    predict)
-                self.predict_data.target = self.target_encoder.inverse_transform(
-                    self.predict_data.target)
-            else:
-                self.predicted_labels = predict
+        self.predicted_labels = self.__abstract_predict(predict_mode)
         return self.predicted_labels
 
     def predict_proba(self,
@@ -291,25 +288,7 @@ class FedotIndustrial(Fedot):
             task=self.config_dict['problem'],
             task_params=self.task_params,
             industrial_task_params=self.industrial_strategy_params).check_input_data()
-        if self.industrial_strategy is not None and not self.is_finetuned:
-            predict = self.industrial_strategy_class.predict(
-                self.predict_data, 'probs')
-            if predict_mode == 'ensemble':
-                ensemble_strat = self.industrial_strategy_class.ensemble_strategy
-                predict = {
-                    strategy: self.industrial_strategy_class.ensemble_predictions(
-                        predict, strategy) for strategy in ensemble_strat}
-        else:
-            if self.condition_check.solver_is_fedot_class(self.solver):
-                predict = self.solver.predict_proba(self.predict_data)
-            else:
-                predict = self.solver.predict(
-                    self.predict_data, 'probs').predict
-                if self.condition_check.is_multiclf_with_labeling_problem(
-                        self.config_dict['problem'], self.predict_data.target, predict):
-                    predict = predict + \
-                        (self.predict_data.target.min() - predict.min())
-        self.predicted_probs = predict
+        self.predicted_probs = self.__abstract_predict(predict_mode)
         return self.predicted_probs
 
     def finetune(self,
@@ -409,7 +388,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
@@ -545,8 +524,8 @@ class FedotIndustrial(Fedot):
                     save_path='fitness_by_generation.png', best_fraction=1)), 'models': (
                 history_visualizer.operations_animated_bar, dict(
                     save_path='operations_animated_bar.gif', show_fitness=True)), 'diversity': (
-                        history_visualizer.diversity_population, dict(
-                            save_path='diversity_population.gif', fps=1))}
+                history_visualizer.diversity_population, dict(
+                    save_path='diversity_population.gif', fps=1))}
         if mode == 'all':
             for func, params in vis_func.values():
                 func(**params)
