@@ -287,7 +287,7 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
             'xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
-        'anomaly_detection': PipelineBuilder().add_node('stat_detector'),
+        'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node(
             'eigen_basis',
             params={
@@ -680,6 +680,7 @@ class UnitTestConstant(Enum):
         'sst': ['sst'],
         'unscented_kalman_filter': ['unscented_kalman_filter'],
         'stat_detector': ['quantile_extractor', 'one_class_svm'],
+        'iforest_detector': ['iforest_detector'],
         'topo_detector': ['topological_extractor', 'xgboost']}
 
 

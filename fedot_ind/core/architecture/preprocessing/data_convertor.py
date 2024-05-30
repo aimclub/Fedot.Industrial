@@ -17,6 +17,7 @@ from sklearn.svm import OneClassSVM
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.repository.constanst_repository import MATRIX, MULTI_ARRAY
 
@@ -411,11 +412,11 @@ class ConditionConverter:
     @property
     def is_one_class_operation(self):
         return isinstance(self.operation_implementation,
-                          (StatisticalDetector, OneClassSVM))
+                          (IsolationForestDetector, OneClassSVM))
 
     @property
     def is_industrial_detector(self):
-        return isinstance(self.operation_implementation, StatisticalDetector)
+        return isinstance(self.operation_implementation, IsolationForestDetector)
 
     @property
     def is_sklearn_detector(self):
