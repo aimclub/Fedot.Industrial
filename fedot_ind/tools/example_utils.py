@@ -100,8 +100,8 @@ def industrial_common_modelling_loop(
     if isinstance(dataset_name, dict):
         if 'train_data' in dataset_name.keys():
             train_data, test_data = dataset_name['train_data'], dataset_name['test_data']
-        elif api_config['industrial_task_params'] is not None:
-            if api_config['industrial_task_params']['industrial_task'] == 'anomaly_detection':
+        elif 'industrial_strategy' in api_config.keys():
+            if api_config['industrial_strategy'] == 'anomaly_detection':
                 train_data, test_data = DataLoader(
                     dataset_name=dataset_name['dataset']).load_detection_data(
                     dataset_name['benchmark'])

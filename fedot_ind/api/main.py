@@ -130,8 +130,14 @@ class FedotIndustrial(Fedot):
 
         self.config_dict['optimizer'] = kwargs.get(
             'optimizer', IndustrialEvoOptimizer)
-        self.config_dict['initial_assumption'] = kwargs.get(
-            'initial_assumption', FEDOT_ASSUMPTIONS[self.config_dict['problem']])
+
+        if self.industrial_strategy is not None and self.industrial_strategy == 'anomaly_detection':
+            self.config_dict['initial_assumption'] = kwargs.get(
+                'initial_assumption', FEDOT_ASSUMPTIONS[self.industrial_strategy])
+            self.industrial_strategy = None
+        else:
+            self.config_dict['initial_assumption'] = kwargs.get(
+                'initial_assumption', FEDOT_ASSUMPTIONS[self.config_dict['problem']])
         self.config_dict['use_input_preprocessing'] = kwargs.get(
             'use_input_preprocessing', False)
 
