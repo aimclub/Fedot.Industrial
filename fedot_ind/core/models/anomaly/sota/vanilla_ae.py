@@ -3,8 +3,15 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
+from typing import Optional
 
-class Vanilla_AE:
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
+
+class Vanilla_AE(DataOperationImplementation):
     """
     Feed-forward neural network with autoencoder architecture for anomaly detection using reconstruction error as an anomaly score.
 
@@ -31,7 +38,7 @@ class Vanilla_AE:
     >>> predictions = autoencoder.predict(test_data)
     """
     
-    def __init__(self, params):
+    def __init__(self, params: Optional[OperationParameters] = None):
         self.param = params
 
         
@@ -79,7 +86,7 @@ class Vanilla_AE:
         import tensorflow as tf
         tf.random.set_seed(seed_value)
     
-    def fit(self, data, early_stopping=True, validation_split=0.2, epochs=40, verbose=0, shuffle=True):
+    def fit(self, data: InputData, early_stopping=True, validation_split=0.2, epochs=40, verbose=0, shuffle=True):
         """
         Train the autoencoder model on the provided data.
 
@@ -113,7 +120,7 @@ class Vanilla_AE:
                        callbacks=callbacks
                       )
     
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained autoencoder model.
 
