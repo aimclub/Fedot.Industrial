@@ -4,9 +4,14 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras import backend as K
 from tensorflow.keras import losses
 from tensorflow.python.framework.ops import disable_eager_execution
+
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 disable_eager_execution()
 
-class LSTM_VAE:
+class LSTM_VAE(DataOperationImplementation):
     """
     A reconstruction LSTM variational autoencoder model to detect anomalies in timeseries data using reconstruction error as an anomaly score.
 
@@ -126,7 +131,7 @@ class LSTM_VAE:
         loss = xent_loss + kl_loss
         return loss
     
-    def fit(self, data, epochs=20, validation_split=0.1, BATCH_SIZE = 1, early_stopping = True):
+    def fit(self, data: InputData, epochs=20, validation_split=0.1, BATCH_SIZE = 1, early_stopping = True):
         """
         Train the LSTM variational autoencoder model on the provided data.
 
@@ -170,7 +175,7 @@ class LSTM_VAE:
             verbose=0,
             callbacks=callbacks)
     
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained LSTM variational autoencoder model.
 
