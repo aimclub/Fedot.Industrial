@@ -2,8 +2,14 @@ from tensorflow.keras.layers import Input, LSTM, Dense, RepeatVector, TimeDistri
 from tensorflow.keras import Model
 from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
+from typing import Optional
 
-class LSTM_AE:
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+
+class LSTM_AE(DataOperationImplementation):
     """
     A reconstruction sequence-to-sequence (LSTM-based) autoencoder model to detect anomalies in timeseries data using reconstruction error as an anomaly score.
 
@@ -32,7 +38,7 @@ class LSTM_AE:
     >>> predictions = model.predict(test_data)
     """
     
-    def __init__(self, params):
+    def __init__(self, params: Optional[OperationParameters] = None):
         self.params = params
         
     def _Random(self, seed_value):
@@ -66,7 +72,7 @@ class LSTM_AE:
         
         return model
     
-    def fit(self, X):
+    def fit(self, X: InputData):
         """
         Train the sequence-to-sequence (LSTM-based) autoencoder model on the provided data.
 
@@ -91,7 +97,7 @@ class LSTM_AE:
                   callbacks=[early_stopping]
                   )
     
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained sequence-to-sequence (LSTM-based) autoencoder model.
 
