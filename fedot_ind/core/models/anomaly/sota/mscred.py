@@ -4,8 +4,14 @@ from tensorflow.keras import Model
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 import tensorflow as tf
 import math
+from typing import Optional
 
-class MSCRED: 
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+
+class MSCRED(DataOperationImplementation): 
     """
     MSCRED - Multi-Scale Convolutional Recurrent Encoder-Decoder first constructs multi-scale (resolution) signature matrices to characterize multiple levels of the system statuses across different time steps.  In particular, different levels of the system statuses are used to indicate the severity of different abnormal incidents. Subsequently, given the signature matrices, a convolutional encoder is employed to encode the inter-sensor (time series) correlations patterns and an attention based Convolutional Long-Short Term Memory (ConvLSTM) network is developed to capture the temporal patterns. Finally, with the feature maps which encode the inter-sensor correlations and temporal information, a convolutional decoder is used to reconstruct the signature matrices and the residual signature matrices are further utilized to detect and diagnose anomalies. The intuition is that MSCRED may not reconstruct the signature matrices well if it never observes similar system statuses before.
 
@@ -28,7 +34,7 @@ class MSCRED:
     >>> prediction = model.predict(test_data)
     """
     
-    def __init__(self, params):
+    def __init__(self, params: Optional[OperationParameters] = None):
         self.params = params
         
     def _build_model(self):
@@ -146,7 +152,7 @@ class MSCRED:
     
         return tf.reduce_mean(tf.square(y_true - y_pred))
     
-    def fit(self, X_train, Y_train, X_test, Y_test, batch_size=200, epochs=25): 
+    def fit(self, X_train: InputData, Y_train: InputData, X_test: InputData, Y_test: InputData, batch_size=200, epochs=25): 
         """
         Train the MSCRED model on the provided data.
 
@@ -178,7 +184,7 @@ class MSCRED:
                        validation_data = (X_test, Y_test),
                        callbacks=reduce_lr)
 
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained MSCRED model.
 
