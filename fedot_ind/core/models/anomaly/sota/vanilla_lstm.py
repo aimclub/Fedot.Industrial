@@ -2,8 +2,14 @@ from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import tensorflow as tf
+from typing import Optional
 
-class Vanilla_LSTM:
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+
+class Vanilla_LSTM(DataOperationImplementation):
     """
     LSTM-based neural network for anomaly detection using reconstruction error as an anomaly score.
 
@@ -26,7 +32,7 @@ class Vanilla_LSTM:
     >>> predictions = lstm_model.predict(test_data)
     """
     
-    def __init__(self, params):
+    def __init__(self, params: Optional[OperationParameters] = None):
         self.params = params
         
     def _Random(self, seed_value):
@@ -59,7 +65,7 @@ class Vanilla_LSTM:
                       metrics=["mse"])
         return model
     
-    def fit(self, X, y):
+    def fit(self, X: InputData, y: InputData):
         """
         Train the LSTM model on the provided data.
 
@@ -90,7 +96,7 @@ class Vanilla_LSTM:
                   callbacks=[early_stopping, reduce_lr]
                   )
     
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained LSTM model.
 
