@@ -4,7 +4,7 @@ import pandas as pd
 import tensorflow as tf
 from scipy import linalg as spla
 
-class MSET: 
+class MSET(DataOperationImplementation): 
     """
     MSET - multivariate state estimation technique is a non-parametric and statistical modeling method, which calculates the estimated values based on the weighted average of historical data. In terms of procedure, MSET is similar to some nonparametric regression methods, such as, auto-associative kernel regression.
 
@@ -126,7 +126,7 @@ class MSET:
         else:
             return 1. - np.linalg.norm(x-y)/(np.linalg.norm(x) + np.linalg.norm(y))
     
-    def fit(self, df, train_start = None, train_stop = None): 
+    def fit(self, df: InputData, train_start = None, train_stop = None): 
         """
         Train the MSET model on the provided data.
 
@@ -152,7 +152,7 @@ class MSET:
         self.DxD = self.otimes(self.D, self.D)
         self.LU_factors = spla.lu_factor(self.DxD)
 
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained MSET model.
 
