@@ -10,7 +10,7 @@ readme = "README_en.rst"
 python = ">=3.9,<3.12"
 fedot = "^0.7.3"
 catboost = [
-    {version = "1.1.1", markers = "sys_platform == 'Darwin'"},
+    {version = "1.1.1", markers = "sys_platform == 'darwin'"},
     {version = "*", markers = "sys_platform != 'Darwin'"}
 ]
 mklpy = "0.6"
