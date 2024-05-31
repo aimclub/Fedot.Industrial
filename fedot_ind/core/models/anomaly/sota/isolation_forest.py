@@ -1,7 +1,13 @@
 from sklearn.ensemble import IsolationForest
 import tensorflow as tf
 
-class Isolation_Forest:
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
+
+class Isolation_Forest(DataOperationImplementation):
     """
     Isolation Forest or iForest builds an ensemble of iTrees for a given data set, then anomalies are those instances which have short average path lengths on the iTrees.
 
@@ -28,7 +34,7 @@ class Isolation_Forest:
     >>> predictions = model.predict(test_data)
     """
     
-    def __init__(self, params):
+    def __init__(self, params: Optional[OperationParameters] = None):
         self.params = params
         self.random_state = self.params[0]
         self.n_jobs = self.params[1]
@@ -56,7 +62,7 @@ class Isolation_Forest:
                                 contamination=self.contamination)
         return model
     
-    def fit(self, X):
+    def fit(self, X: InputData):
         """
         Train the Isolation Forest model on the provided data.
 
@@ -70,7 +76,7 @@ class Isolation_Forest:
 
         self.model.fit(X)
     
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained Isolation Forest model.
 
