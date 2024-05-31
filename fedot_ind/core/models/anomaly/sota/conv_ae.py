@@ -3,8 +3,14 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
+from typing import Optional
 
-class Conv_AE: 
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
+    DataOperationImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
+
+class Conv_AE(DataOperationImplementation): 
     """
     A reconstruction convolutional autoencoder model to detect anomalies in timeseries data using reconstruction error as an anomaly score.
 
@@ -25,7 +31,7 @@ class Conv_AE:
     >>> prediction = CAutoencoder.predict(test_data)
     """
     
-    def __init__(self):
+    def __init__(self, params: Optional[OperationParameters] = None):
         self._Random(0)
         
     def _Random(self, seed_value): 
@@ -68,7 +74,7 @@ class Conv_AE:
         
         return model
     
-    def fit(self, data):
+    def fit(self, data: InputData):
         """
         Train the convolutional autoencoder model on the provided data.
 
@@ -93,7 +99,7 @@ class Conv_AE:
             ],
         )
 
-    def predict(self, data):
+    def predict(self, data: InputData) -> OutputData:
         """
         Generate predictions using the trained convolutional autoencoder model.
 
