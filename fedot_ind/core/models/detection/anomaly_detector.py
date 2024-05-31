@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Optional, Union
 
+import pandas as pd
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -19,6 +20,7 @@ class AnomalyDetector(ModelImplementation):
         self.length_of_detection_window = self.params.get('window_length', 10)
         self.anomaly_threshold = self.params.get('anomaly_thr', 0.9)
         self.transformation_mode = 'lagged'
+        self.transformation_type = None
 
     @property
     def classes_(self) -> int:
@@ -43,6 +45,8 @@ class AnomalyDetector(ModelImplementation):
             else:  # augmented predict
                 target = input_data.target
         elif self.transformation_mode == 'full':
+            if self.transformation_type == pd.DataFrame:
+                return pd.DataFrame(input_data.features)
             return input_data.features
         elif self.transformation_mode == 'batch':
             feature_matrix, target = input_data.features, input_data.target
@@ -96,6 +100,8 @@ class AnomalyDetector(ModelImplementation):
         predict_for_fit = self.predict_for_fit(input_data)
         if isinstance(predict_for_fit, OutputData):
             return predict_for_fit.predict
+        if isinstance(predict_for_fit, pd.DataFrame):
+            return predict_for_fit.values
         return predict_for_fit
 
     def predict_for_fit(self, input_data: InputData):
