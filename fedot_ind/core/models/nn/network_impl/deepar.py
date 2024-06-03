@@ -24,7 +24,9 @@ import torch.utils.data as data
 from fedot_ind.core.architecture.settings.computational import default_device
 import torch.optim.lr_scheduler as lr_scheduler 
 from fedot.core.data.data_split import train_test_data_setup
+from copy import deepcopy
 
+__all__ = ['DeepAR']
 
 class _TSScaler(Module):
     def __init__(self):
@@ -102,39 +104,20 @@ class DeepARModule(Module):
         output = self.projector(output)
         return output, hidden_state
 
-    def forecast(self, prefix: torch.Tensor, horizon: int, hidden_state=None,
-                 mode: str='lagged', output_mode: str='quantiles', **mode_kw):
+    def forecast(self, prefix: torch.Tensor, forecast_length: int, hidden_state=None,
+                output_mode: str='quantiles', **mode_kw):
         self.eval()
         forecast = []
-        if self.rnn.input_size != 1 or mode == 'lagged':
-            with torch.no_grad():
-                for i in range(horizon):
+        with torch.no_grad():
+            for i in range(forecast_length):
                     output, hidden_state = self(prefix, hidden_state)
                     forecast.append(self._transform_params(output, mode=output_mode, **mode_kw).detach().cpu())
                     prediction = self._transform_params(output, mode='predictions')
                     prefix = torch.roll(prefix, -1, dims=-1)
                     prefix[..., [-1]] = prediction
-            forecast = torch.stack(forecast, dim=1).squeeze(-1)#.squeeze(1).permute(1, 2, 0)
-        elif self.rnn.input_size == 1 or mode == 'auto':
-            # print('AUTOREGRESSIVE MODE')
-            forecast = self._autoregressive(prefix, horizon, hidden_state=None,
-                                            output_mode=output_mode, **mode_kw)
-        else:
-            raise ValueError('Unknown forecasting type!')
+            forecast = torch.stack(forecast, dim=1).squeeze(-1)
         return forecast
     
-    def _autoregressive(self, prefix: torch.Tensor, 
-                        horizon: int, hidden_state: torch.Tensor=None, 
-                        output_mode: str='quantiles', **mode_kw):
-        hidden_state = self.encode(prefix, hidden_state)
-        outputs = [] 
-        x = prefix[[-1], ...] # what's the order of rnn processing?
-        for i in range(horizon):
-            output, hidden_state = self.rnn(x, hidden_state)
-            outputs.append(self._transform_params(output, mode=output_mode, **mode_kw).detach().cpu())
-            x = self._transform_params(output, mode='predictions')
-        outputs = torch.stack(outputs, dim=1)
-        return outputs 
 
 
     def forward(self, x: torch.Tensor, hidden_state=None,
@@ -175,7 +158,7 @@ class DeepARModule(Module):
         elif mode == 'quantiles':
             transformed = self.to_quantiles(distr_params, **mode_kw)
         elif mode == 'predictions':
-            transformed = self.to_predictions(distr_params, **mode_kw)
+            transformed = self.to_predictions(distr_params)
         elif mode == 'samples':
             transformed = self.to_samples(distr_params, **mode_kw)
         else:
@@ -188,11 +171,12 @@ class DeepAR(BaseNeuralModel):
     """No exogenous variable support
     Variational Inference + Probable Anomaly detection"""
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
-        super().__init__()
+    def __init__(self, params: Optional[OperationParameters]=None):
+        if not params:
+            params = {}
         # training settings
-        self.epochs = params.get('epochs', 100)
-        self.learning_rate = 0.001
+        self.epochs = params.get('epochs', 50)
+        self.learning_rate = params.get('learning_rate', 0.1)
         self.batch_size = params.get('batch_size', 16)
 
         # architecture settings
@@ -204,11 +188,13 @@ class DeepAR(BaseNeuralModel):
         self.expected_distribution = params.get('expected_distribution', 'normal')
         self.patch_len = params.get('patch_len', None)
         self.preprocess_to_lagged = False
-        self.horizon = params.get('horizon', 1)
+        self.horizon = 1 # params.get('horizon', 1) for future extension
+        self.task_type = 'ts_forecsting'
 
         # forecasting settings
         self.forecast_mode = params.get('forecast_mode', 'predictions')
-        self.quantiles = params.get('quantiles', None)
+        self.quantiles = torch.tensor(params.get('quantiles', [0.25, 0.5, 0.75]))
+        self.n_samples = params.get('n_samples', 10)
         self.test_patch_len = None
         self.forecast_length = params.get('forecast_length', 1)
 
@@ -237,9 +223,9 @@ class DeepAR(BaseNeuralModel):
 
         return self.loss_fn, self.optimizer
 
-    def fit(self, input_data: InputData, split_data: bool = False):
+    def fit(self, input_data: InputData):
         train_loader, val_loader = self._prepare_data(input_data, 
-                                                      split_data=split_data, 
+                                                      split_data=False, 
                                                       horizon=1,
                                                       is_train=True)
         loss_fn, optimizer = self._init_model(input_data)
@@ -295,19 +281,24 @@ class DeepAR(BaseNeuralModel):
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
         # some logic to select needed ts
-        fcs = self._predict(test_data, output_mode)
+        if output_mode == 'quantiles':
+            kwargs = dict(quantiles=self.quantiles)
+        elif output_mode == 'samples':
+            kwargs = dict(n_samples=self.n_samples)
+        else:
+            kwargs = {}
+        fcs = self._predict(test_data, output_mode, **kwargs)
         prediction = fcs[0, ...].squeeze().numpy()
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
             predict=prediction,
-            target=self.target,
+            target=test_data.target,
             data_type=DataTypesEnum.table)
         return predict
 
 
     def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
-        mode = 'lagged' if self.preprocess_to_lagged else 'auto'
         self.forecast_length = test_data.task.task_params.forecast_length or self.forecast_length
 
         test_loader, _ = self._prepare_data(test_data,
@@ -326,28 +317,25 @@ class DeepAR(BaseNeuralModel):
 
 
         fc = self.model.forecast(last_patch, self.forecast_length, 
-                                 mode=mode, output_mode=output_mode, 
+                                 output_mode=output_mode, 
                                  hidden_state=initial_hidden_state, 
                                  **output_kw)
         return fc
 
-    def predict_for_fit(self,
-                        test_data,
-                        output_mode: str = 'predictions'): # will here signature conflict raise in case I drop kw?
+    def predict_for_fit(self, test_data):
         output_mode = 'predictions' 
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
 
-        # initial_hidden_state = None
         fcs = self._predict(test_data, output_mode)
-        # some logic to select needed ts
-        prediction = fcs[0, ...].squeeze().numpy()
+        # some logic to select needed ts for other modes
+        prediction = fcs.squeeze().numpy()
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
             predict=prediction,
-            target=self.target,
+            target=test_data.target,
             data_type=DataTypesEnum.table)   
         return predict
     
@@ -367,7 +355,8 @@ class DeepAR(BaseNeuralModel):
 
         best_model = None
         best_val_loss = float('inf')
-
+        if self.print_training_progress:
+            print('Total epochs:', self.epochs)
         for epoch in range(self.epochs):
             iter_count = 0
             train_loss = []
@@ -403,7 +392,7 @@ class DeepAR(BaseNeuralModel):
                 valid_loss /= total
                 if valid_loss < best_val_loss:
                     best_val_loss = valid_loss
-                    best_model = copy.deepcopy(model)
+                    best_model = deepcopy(model)
 
             train_loss = np.average(train_loss)
             if self.print_training_progress:
@@ -422,7 +411,6 @@ class DeepAR(BaseNeuralModel):
                       ts,
                       patch_len=None,
                       split_data: bool = True,
-                    #   validation_blocks: int = None, 
                       val_size: float = 0.2,
                       horizon=None,
                       is_train=True,
@@ -436,27 +424,15 @@ class DeepAR(BaseNeuralModel):
         if patch_len + horizon > train_data.features.shape[0]:
             self.patch_len = train_data.features.shape[0] - horizon
             patch_len = self.patch_len
-            print('Lowering patch_len')
+            # print('Lowering patch_len')
         
-        if split_data:
-            raise NotImplementedError('Problem with lagged_data splitting')
-            train_data, val_data = train_test_data_setup(
-                train_data, validation_blocks=validation_blocks)
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  horizon,
-                                                                                                  patch_len)
-            _, val_data.features, val_data.target = transform_features_and_target_into_lagged(val_data,
-                                                                                              horizon,
-                                                                                              patch_len)
-            val_loader = self._create_torch_loader(val_data)
-            train_loader = self._create_torch_loader(train_data)
-            return train_loader, val_loader
-        else:
+        if not split_data:
             _, train_data.features, train_data.target =\
                   transform_features_and_target_into_lagged(train_data,
                                                             horizon,
-                                                            patch_len
-                                                            )
+                                                            patch_len                                                            )
+        else:
+            raise NotImplementedError('Problem with lagged_data splitting')
         train_loader = self._create_torch_loader(train_data, is_train)
         return train_loader, None
 
@@ -466,7 +442,7 @@ class DeepAR(BaseNeuralModel):
             return input_data
         
         task = Task(TaskTypesEnum.ts_forecasting,
-                    TsForecastingParams(forecast_length=self.horizon))
+                    TsForecastingParams(forecast_length=self.forecast_length))
         
         if  isinstance(input_data, pd.DataFrame):
             time_series = input_data
