@@ -225,14 +225,12 @@ if __name__ == '__main__':
         'window_size': 300
     }
 
-    for config in [
-            sin_config,
-            random_walk_config,
-            auto_regression_config,
-            smooth_normal_config]:
+    for config in [sin_config, random_walk_config, auto_regression_config, smooth_normal_config]:
         ts_generator = TimeSeriesGenerator(config)
         ts = ts_generator.get_ts()
         plt.plot(ts)
 
     plt.show()
     _ = 1
+
+
