@@ -28,7 +28,7 @@ def regression_data():
 
     return init_input_data(
         train_data[0],
-        train_data[1],
+        train_data[1].reshape(-1, 1),
         task='regression')
 
 

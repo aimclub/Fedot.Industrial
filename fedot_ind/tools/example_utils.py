@@ -98,16 +98,16 @@ def industrial_common_modelling_loop(
         finetune: bool = False,
         api_config: dict = None,
         metric_names: tuple = (
-            'r2',
-            'rmse',
-            'mae')):
+                'r2',
+                'rmse',
+                'mae')):
     industrial = FedotIndustrial(**api_config)
     if api_config['problem'] == 'ts_forecasting':
         train_data, _ = DataLoader(
             dataset_name=dataset_name['dataset']).load_forecast_data(
             dataset_name['benchmark'])
         target = train_data.values[-api_config['task_params']
-                                   ['forecast_length']:].flatten()
+        ['forecast_length']:].flatten()
         train_data = (train_data, target)
         test_data = train_data
     else:
@@ -149,11 +149,11 @@ def create_comprasion_df(df, metric: str = 'rmse'):
     df_full = df_full[df_full['Unnamed: 0'] == metric]
     df_full = df_full.drop('Unnamed: 0', axis=1)
     df_full['Difference_industrial_All'] = (
-        df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
+            df_full.iloc[:, 1:3].min(axis=1) - df_full['industrial'])
     df_full['Difference_industrial_AG'] = (
-        df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
+            df_full.iloc[:, 1:2].min(axis=1) - df_full['industrial'])
     df_full['Difference_industrial_NBEATS'] = (
-        df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
+            df_full.iloc[:, 2:3].min(axis=1) - df_full['industrial'])
     df_full['industrial_Wins_All'] = df_full.apply(
         lambda row: 'Win' if row.loc['Difference_industrial_All'] > 0 else 'Loose', axis=1)
     df_full['industrial_Wins_AG'] = df_full.apply(
@@ -165,28 +165,48 @@ def create_comprasion_df(df, metric: str = 'rmse'):
 
 
 def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
-    time_series = pd.read_csv(ts_datasets[dataset])
+    import datasetsforecast
+    ds, group = dataset.split('_')
+    ds = ds.lower()
+    if ds == 'm4':
+        from datasetsforecast.m4 import M4 as bench
+    elif ds == 'm5':
+        from datasetsforecast.m5 import M5 as bench
+    else:
+        raise ValueError('Dataset not found')
+
+    df_ts, _, ids = bench.load(directory=PROJECT_PATH + '/examples/data/ts',
+                               group=group.capitalize(),
+                               cache=True)
+
+    if m4_id is None:
+        m4_id = random.choice(ids['unique_id'].unique())
+
+    time_series = df_ts[df_ts['unique_id'] == m4_id]['y']
+    # time_series = pd.read_csv(ts_datasets[dataset])
 
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=horizon))
-    if not m4_id:
-        label = random.choice(np.unique(time_series['label']))
-    else:
-        label = m4_id
-    print(label)
-    time_series = time_series[time_series['label'] == label]
+    # if not m4_id:
+    #     label = random.choice(np.unique(time_series['label']))
+    # else:
+    #     label = m4_id
+    # print(label)
+    # time_series = time_series[time_series['label'] == label]
 
-    if 'datetime' in time_series.columns:
-        idx = pd.to_datetime(time_series['datetime'].values)
-    else:
-        # non datetime indexes
-        idx = time_series['idx'].values
+    # if 'datetime' in time_series.columns:
+    #     idx = pd.to_datetime(time_series['datetime'].values)
+    # else:
+    #     # non datetime indexes
+    #     idx = time_series['idx'].values
 
-    time_series = time_series['value'].values
-    train_input = InputData(idx=idx,
-                            features=time_series,
-                            target=time_series,
+    # time_series = time_series['value'].values
+    # train_input = InputData(idx=idx,
+    train_input = InputData(idx=time_series.index,
+                            features=time_series.values,
+                            target=time_series.values,
                             task=task,
                             data_type=DataTypesEnum.ts)
     train_data, test_data = train_test_data_setup(train_input)
-    return train_data, test_data, label
+    return train_data, test_data, m4_id
+    # return train_data, test_data, label
