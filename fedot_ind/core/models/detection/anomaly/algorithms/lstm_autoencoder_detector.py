@@ -26,10 +26,10 @@ class LSTMEncoder(Module):
         self.n_steps, self.n_features = n_steps, n_features
         self.embedding_dim, self.hidden_dim = embedding_dim, 2 * embedding_dim
         self.lstm1 = LSTM(
-          input_size=n_features,
-          hidden_size=self.hidden_dim,
-          num_layers=1,
-          batch_first=True
+            input_size=n_features,
+            hidden_size=self.hidden_dim,
+            num_layers=1,
+            batch_first=True
         )
 
     def forward(self, x):
@@ -43,10 +43,10 @@ class LSTMDecoder(Module):
         self.n_steps, self.input_dim = n_steps, input_dim
         self.hidden_dim, self.n_features = 2 * input_dim, n_features
         self.lstm1 = LSTM(
-          input_size=self.hidden_dim,
-          hidden_size=self.input_dim,
-          num_layers=1,
-          batch_first=True
+            input_size=self.hidden_dim,
+            hidden_size=self.input_dim,
+            num_layers=1,
+            batch_first=True
         )
         self.output_layer = Linear(input_dim, n_features)
 
