@@ -36,9 +36,9 @@ class IsolationForestDetector(AnomalyDetector):
                                       n_jobs=self.n_jobs,
                                       contamination=self.contamination)
 
-    def predict(self, input_array: InputData) -> np.ndarray:
-        converted_input_data = self.convert_input_data(input_array, fit_stage=False)
-        prediction = np.zeros(input_array.target.shape)
+    def predict(self, input_data: InputData) -> np.ndarray:
+        converted_input_data = self.convert_input_data(input_data, fit_stage=False)
+        prediction = np.zeros(input_data.target.shape)
         labels = pd.Series(self.model_impl.predict(converted_input_data) * (-1)) \
             .rolling(3).median().fillna(0).replace(-1, 0).values.reshape(-1, 1)
         start_idx, end_idx = prediction.shape[0] - labels.shape[0], prediction.shape[0]
