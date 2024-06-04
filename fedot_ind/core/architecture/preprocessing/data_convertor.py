@@ -270,6 +270,8 @@ class TensorConverter:
 class NumpyConverter:
     def __init__(self, data):
         self.numpy_data = self.convert_to_array(data)
+        if self.numpy_data.ndim > 3:
+            self.numpy_data = self.numpy_data.squeeze()
         self.numpy_data = np.where(
             np.isnan(self.numpy_data), 0, self.numpy_data)
         self.numpy_data = np.where(
@@ -343,19 +345,19 @@ class NumpyConverter:
                                            self.numpy_data.shape[2])
 
     def convert_to_torch_format(self):
+        add_1_channel = self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1
+        add_1_sample = self.numpy_data.ndim == 2 and self.numpy_data.shape[0] != 1
         if self.numpy_data.ndim == 3:
             return self.numpy_data
         elif self.numpy_data.ndim == 1:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            1)
-        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] != 1:
-            # add 1 channel
-            return self.numpy_data.reshape(self.numpy_data.shape[0],
-                                           1,
+        elif add_1_sample:
+            return self.numpy_data.reshape(1,
+                                           self.numpy_data.shape[0],
                                            self.numpy_data.shape[1])
-        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1:
-            # add 1 channel
+        elif add_1_channel:
             return self.numpy_data.reshape(1,
                                            1,
                                            self.numpy_data.shape[1])

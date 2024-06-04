@@ -70,7 +70,7 @@ class DataLoader:
 
     def local_skab_load(self, directory='other', group=None):
         path_to_result = PROJECT_PATH + \
-            f'/examples/data/detection/data/{directory}'
+                         f'/examples/data/detection/data/{directory}'
         folder_dict = {'other': [i for i in range(15)],
                        'valve1': [i for i in range(16)],
                        'valve2': [i for i in range(4)]}
@@ -85,6 +85,34 @@ class DataLoader:
         y_train = df.iloc[:120, -2].values
         x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
         return (x_train, y_train), (x_test, y_test)
+
+    def _load_benchmark_data(self, specific_strategy):
+        if specific_strategy == 'anomaly_detection':
+            bench = self.dataset_name['benchmark']
+            self.dataset_name = self.dataset_name['dataset']
+            train_data, test_data = self.load_detection_data(bench)
+        elif specific_strategy == 'ts_forecasting':
+            bench = self.dataset_name['benchmark']
+            self.dataset_name = self.dataset_name['dataset']
+            train_data, test_data = self.load_forecast_data(bench)
+            target = train_data.values[-self.dataset_name['task_params']['forecast_length']:].flatten()
+            train_data = (train_data, target)
+            test_data = train_data
+        return train_data, test_data
+
+    def load_custom_data(self, specific_strategy):
+        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting']
+        dict_dataset = isinstance(self.dataset_name, dict)
+
+        if dict_dataset:
+            if 'train_data' in self.dataset_name.keys():
+                return self.dataset_name['train_data'], self.dataset_name['test_data']
+        elif custom_strategy:
+            train_data, test_data = self._load_benchmark_data(specific_strategy)
+        else:
+            train_data, test_data = None, None
+
+        return train_data, test_data
 
     def load_data(self, shuffle=True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
@@ -405,8 +433,8 @@ class DataLoader:
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                            not has_univariate_tag or not has_target_labels_tag or \
-                            not has_data_tag
+                                                          not has_univariate_tag or not has_target_labels_tag or \
+                                                          not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
@@ -802,7 +830,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                and has_target_labels_tag and has_data_tag
+                                            and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag
