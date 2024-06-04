@@ -163,7 +163,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-                            set(FEDOT_API_PARAMS.keys())
+            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -399,7 +399,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                                                   probs in self.predicted_probs.items()}
+                probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
