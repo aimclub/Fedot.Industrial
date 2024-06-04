@@ -31,7 +31,7 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-           np.power(beta, 2) + 1.82 * beta + 1.43
+        np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 class ComputationalConstant(Enum):
