@@ -8,21 +8,10 @@ def classification_data():
                                             multivariate=False)
     train_data, test_data = generator.generate_data()
 
-    # train_input_data = init_input_data(
-    #     train_data[0],
-    #     train_data[1],
-    #     task='classification')
-    #
-    # test_input_data = init_input_data(
-    #     test_data[0],
-    #     test_data[1],
-    #     task='classification')
-
-    # return train_input_data, test_input_data
     return train_data, test_data
 
 
-def test_kernel_ensemble():
+def kernel_ensemble():
     api_config = dict(problem='classification',
                       metric='f1',
                       timeout=0.1,

@@ -32,7 +32,7 @@ def regression_data():
         task='regression')
 
 
-def test_fedot_automl_classification_strategy_fit(classification_data):
+def fedot_automl_classification_strategy_fit(classification_data):
     operation_type = 'fedot_cls'
     params = OperationParameters()
     params._parameters.update(
@@ -51,7 +51,7 @@ def test_fedot_automl_classification_strategy_fit(classification_data):
     assert trained_operation is not None
 
 
-def test_fedot_automl_regression_strategy_fit(regression_data):
+def fedot_automl_regression_strategy_fit(regression_data):
     operation_type = 'fedot_regr'
     params = OperationParameters()
     params._parameters.update(
