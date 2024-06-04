@@ -85,10 +85,8 @@ class SSAForecasterImplementation(ModelImplementation):
 
     def _combine_trajectory(self, U, VT, n_components):
         if len(self._rank_thr) > 2:
-            self.PCT = np.concatenate([U[:, 0].reshape(1, -
-                                                       1), np.array([np.sum([U[:, i], U[:, i +
-                                                                                        1]], axis=0) for i in self._rank_thr if i != 0 and i %
-                                                                     2 != 0])]).T
+            self.PCT = np.concatenate([U[:, 0].reshape(
+                1, - 1), np.array([np.sum([U[:, i], U[:, i + 1]], axis=0) for i in self._rank_thr if i != 0 and i % 2 != 0])]).T
 
             current_dynamics = np.concatenate([VT[0, :].reshape(1, -1), np.array([np.sum(
                 [VT[i, :], VT[i + 1, :]], axis=0) for i in self._rank_thr if i != 0 and i % 2 != 0])])
