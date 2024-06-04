@@ -323,7 +323,7 @@
   },
   "fourier_basis": {
     "spectrum_type": "smoothed",
-    "threshold": 20000
+    "threshold": 0.9
   },
   "quantile_extractor": {
     "window_size": 0,

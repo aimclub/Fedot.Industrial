@@ -4,6 +4,7 @@ from multiprocessing import cpu_count
 
 import numpy as np
 import pywt
+import spectrum
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -30,7 +31,7 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-        np.power(beta, 2) + 1.82 * beta + 1.43
+           np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 class ComputationalConstant(Enum):
@@ -122,6 +123,16 @@ class FeatureConstant(Enum):
                     # 'mahalanobis': mahalanobis,
                     'minkowski': minkowski
                     }
+
+    SPECTRUM_ESTIMATORS = dict(ma=spectrum.ma,
+                               non_parametric=spectrum.Periodogram,
+                               parma=spectrum.parma,
+                               yule=spectrum.pyule,
+                               burg=spectrum.pburg,
+                               covar=spectrum.pcovar,
+                               minvar=spectrum.pminvar,
+                               eigen=spectrum.pev,
+                               )
 
     PERSISTENCE_DIAGRAM_FEATURES = {
         'HolesNumberFeature': HolesNumberFeature(),
@@ -694,6 +705,7 @@ WAVELET_SCALES = FeatureConstant.WAVELET_SCALES.value
 SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
+SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
@@ -762,3 +774,12 @@ VALID_LINEAR_DETECTION_PIPELINE = UnitTestConstant.VALID_LINEAR_DETECTION_PIPELI
 
 def fedot_init_assumptions(problem):
     return FEDOT_ASSUMPTIONS[problem]
+
+
+def fedot_task(task, task_params: dict = None):
+    fedot_task = FEDOT_TASK[task]
+    if task_params is not None:
+        fedot_task.task_params.forecast_length = task_params
+        return fedot_task
+    else:
+        return fedot_task

@@ -11,7 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.repository.constanst_repository import FEDOT_TASK, FEDOT_DATA_TYPE
+from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
 
 
 class DataCheck:
@@ -47,7 +47,6 @@ class DataCheck:
 
         self.task = task
         self.task_params = task_params
-        self.task_dict = FEDOT_TASK
         self.label_encoder = None
 
     def __check_features_and_target(self, input_data, data_type):
@@ -93,7 +92,7 @@ class DataCheck:
             forecast_length=self.task_params['forecast_length']))
         if self.industrial_task_params is None:
             features_array = features_array[:-
-                                            self.task_params['forecast_length']]
+            self.task_params['forecast_length']]
             target = features_array
         return InputData.from_numpy_time_series(
             features_array=features_array, target_array=target, task=task)
@@ -116,13 +115,20 @@ class DataCheck:
                 data_list, not self.data_convertor.is_torchvision_dataset]).either(
             left_function=lambda l: np.arange(
                 l[0].shape[0]), right_function=lambda r: np.arange(
-                    len(
-                        data_list[0])))
+                len(
+                    data_list[0])))
 
+        have_predict_horizon = all([self.industrial_task_params is not None,
+                                    self.industrial_task_params['data_type'] == 'time_series',
+                                    'detection_window' in self.industrial_task_params.keys()])
+        task = Either(
+            value=fedot_task(self.task), monoid=[
+                fedot_task('ts_forecasting', self.industrial_task_params['detection_window']),
+                not have_predict_horizon]).either(left_function=lambda l: l, right_function=lambda r: r)
         return InputData(idx=idx,
                          features=input_data[0],
                          target=input_data[1],
-                         task=self.task_dict[self.task],
+                         task=task,
                          data_type=self.data_type)
 
     def _init_input_data(self) -> None:

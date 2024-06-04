@@ -131,12 +131,13 @@ class FedotIndustrial(Fedot):
         )
 
         self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
-
-        self.config_dict['initial_assumption'] = Either(value=self.industrial_strategy,
-                                                        monoid=[self.config_dict['problem'],
-                                                                self.industrial_strategy == 'anomaly_detection']). \
-            either(left_function=fedot_init_assumptions,
-                   right_function=fedot_init_assumptions)
+        self.config_dict['initial_assumption'] = kwargs.get('initial_assumption', None)
+        if self.config_dict['initial_assumption'] is None:
+            self.config_dict['initial_assumption'] = Either(value=self.industrial_strategy,
+                                                            monoid=[self.config_dict['problem'],
+                                                                    self.industrial_strategy == 'anomaly_detection']). \
+                either(left_function=fedot_init_assumptions,
+                       right_function=fedot_init_assumptions)
 
         self.config_dict['use_input_preprocessing'] = kwargs.get(
             'use_input_preprocessing', False)
@@ -162,7 +163,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -207,10 +208,10 @@ class FedotIndustrial(Fedot):
         self.train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
         self.__init_solver()
-        if self.industrial_strategy is not None and self.industrial_strategy != 'anomaly_detection':
-            self.solver = self.industrial_strategy_class.fit(self.train_data)
-        else:
-            self.solver.fit(self.train_data)
+        custom_fit = all([self.industrial_strategy is not None, self.industrial_strategy != 'anomaly_detection'])
+        fit_function = Either(value=self.train_data,
+                              monoid=[self.train_data, custom_fit]) \
+            .either(left_function=self.solver.fit, right_function=self.industrial_strategy_class.fit, )
         self.is_finetuned = False
 
     def __predict_for_ensemble(self):
@@ -240,13 +241,13 @@ class FedotIndustrial(Fedot):
             monoid=[
                 predict_mode,
                 self.industrial_strategy is None]).map(
-            function=predict_function). then(
-                lambda x: self.industrial_strategy_class.predict(
-                    x,
-                    predict_mode) if isinstance(
-                        x,
-                        InputData) else x). then(
-                            lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
+            function=predict_function).then(
+            lambda x: self.industrial_strategy_class.predict(
+                x,
+                predict_mode) if isinstance(
+                x,
+                InputData) else x).then(
+            lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
         return predict
 
     def predict(self,
@@ -275,7 +276,7 @@ class FedotIndustrial(Fedot):
 
     def predict_proba(self,
                       predict_data: tuple,
-                      predict_mode: str = 'default',
+                      predict_mode: str = 'probs',
                       **kwargs):
         """
         Method to obtain prediction probabilities from trained Industrial model.
@@ -295,7 +296,10 @@ class FedotIndustrial(Fedot):
             task=self.config_dict['problem'],
             task_params=self.task_params,
             industrial_task_params=self.industrial_strategy_params).check_input_data()
-        self.predicted_probs = self.__abstract_predict(predict_mode)
+
+        self.predicted_probs = self.predicted_labels if self.config_dict['problem'] == 'ts_forecasting' \
+            else self.__abstract_predict(predict_mode)
+
         return self.predicted_probs
 
     def finetune(self,
@@ -395,7 +399,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
