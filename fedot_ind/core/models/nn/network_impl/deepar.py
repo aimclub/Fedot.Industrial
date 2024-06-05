@@ -11,6 +11,7 @@ from fedot_ind.core.models.nn.network_modules.losses import (NormalDistributionL
         LogNormDistributionLoss, InverseGaussDistributionLoss, BetaDistributionLoss)
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset, convert_to_3d_torch_array
+from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset, convert_to_3d_torch_array
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 import pandas as pd
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
@@ -197,6 +198,7 @@ class DeepAR(BaseNeuralModel):
         self.n_samples = params.get('n_samples', 10)
         self.test_patch_len = None
         self.forecast_length = params.get('forecast_length', 1)
+        self.forecast_length = params.get('forecast_length', 1)
 
         # additional
         self.print_training_progress = params.get('print_training_progress', False)
@@ -218,6 +220,7 @@ class DeepAR(BaseNeuralModel):
                                    dropout=self.dropout,
                                    rnn_layers=self.rnn_layers,
                                    distribution=self.expected_distribution).to(default_device())
+                                   distribution=self.expected_distribution).to(default_device())
         self._evaluate_num_of_epochs(ts)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
@@ -230,6 +233,7 @@ class DeepAR(BaseNeuralModel):
                                                       is_train=True)
         loss_fn, optimizer = self._init_model(input_data)
         
+        
         self._train_loop(model=self.model, 
                         train_loader=train_loader,
                         loss_fn=loss_fn, 
@@ -239,9 +243,11 @@ class DeepAR(BaseNeuralModel):
         return self
 
     def _prepare_data(self, input_data: InputData, split_data, horizon=None, is_train=True):
+    def _prepare_data(self, input_data: InputData, split_data, horizon=None, is_train=True):
         val_loader = None
         if self.preprocess_to_lagged:
             self.patch_len = input_data.features.shape[-1]
+            train_loader = self._create_torch_loader(input_data, is_train)
             train_loader = self._create_torch_loader(input_data, is_train)
         else:
             if self.patch_len is None:
@@ -249,6 +255,11 @@ class DeepAR(BaseNeuralModel):
                     method='dff').get_window_size(input_data.features)
                 self.patch_len = 2 * dominant_window_size
             train_loader, val_loader = self._get_train_val_loaders(
+                    input_data.features, self.patch_len,
+                    split_data, horizon=horizon,
+                    is_train=is_train
+                    )
+
                     input_data.features, self.patch_len,
                     split_data, horizon=horizon,
                     is_train=is_train
@@ -270,6 +281,8 @@ class DeepAR(BaseNeuralModel):
         initial_hidden_state = hidden_state
         if initial_hidden_state is not None:
             initial_hidden_state = (initial_hidden_state[0][:, -self.horizon:, :], initial_hidden_state[1][:, -self.horizon:, :])
+        if initial_hidden_state is not None:
+            initial_hidden_state = (initial_hidden_state[0][:, -self.horizon:, :], initial_hidden_state[1][:, -self.horizon:, :])
         return initial_hidden_state
 
     def predict(self,
@@ -278,6 +291,7 @@ class DeepAR(BaseNeuralModel):
         if not output_mode:
             output_mode = self.forecast_mode
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
+                                         stop=test_data.idx[-1] + self.forecast_length,
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
         # some logic to select needed ts
@@ -305,15 +319,19 @@ class DeepAR(BaseNeuralModel):
                                             split_data=False,
                                             horizon=1,    
                                             is_train=False,
+                                            is_train=False,
                                             )
 
         initial_hidden_state = hidden_state or self.get_initial_hidden_state(test_loader)
+        last_patch, last_target = test_loader.dataset[[-1]]
+        if len(last_target) == 1: #rewrite for horizon != 1 
         last_patch, last_target = test_loader.dataset[[-1]]
         if len(last_target) == 1: #rewrite for horizon != 1 
             last_patch = torch.roll(last_patch, -1, dims=-1)
             last_patch[..., -1] = last_target.squeeze()
 
         last_patch = last_patch.to(default_device())
+
 
 
         fc = self.model.forecast(last_patch, self.forecast_length, 
@@ -346,6 +364,7 @@ class DeepAR(BaseNeuralModel):
                     optimizer):
         train_steps = len(train_loader)
         early_stopping = EarlyStopping()
+
 
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
@@ -413,6 +432,9 @@ class DeepAR(BaseNeuralModel):
                       split_data: bool = True,
                       val_size: float = 0.2,
                       horizon=None,
+                      is_train=True,
+                      ):
+        train_data = self.__ts_to_input_data(ts)
                       is_train=True,
                       ):
         train_data = self.__ts_to_input_data(ts)
