@@ -424,6 +424,12 @@
     "contamination": 0.0005,
     "random_state": 42
   },
+  "conv_ae_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ucl_quantile": 0.999,
+    "n_steps_share": 0.15
+  },
   "one_class_svm": {
     "kernel": "rbf",
     "gamma": "auto"
