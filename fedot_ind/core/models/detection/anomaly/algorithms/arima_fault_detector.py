@@ -209,6 +209,7 @@ class OnlineTANH:
     project, optional (default=True)
         If True, make projection on resolved solution
     """
+
     def __init__(self, order=4, lrate=0.001, random_state=42, project=True):
         self.order = order
         self.lrate = lrate
@@ -337,6 +338,7 @@ class DifferentialIntegrationModule:
     This class is needed to bring series to stationarity
     and perform inverse operation.
     """
+
     def __init__(self, seasons: List[int]):
         self.seasons = seasons
 
@@ -400,7 +402,7 @@ class DifferentialIntegrationModule:
         j = 0
         for i in range(len(self.seasons) - 1, -1, -1):
             self.sum_instead_minuend[i] = self.sum_instead_minuend[i + 1] + self.subtrahend[i][
-                                                                              sum(self.seasons[::-1][:j]):]
+                sum(self.seasons[::-1][:j]):]
             j += 1
         return self.sum_instead_minuend[0]
 
