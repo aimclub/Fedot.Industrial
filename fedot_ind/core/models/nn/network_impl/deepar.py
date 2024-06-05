@@ -344,6 +344,7 @@ class DeepAR(BaseNeuralModel):
         output_mode = 'predictions' 
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
+                                         stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
 
         fcs = self._predict(test_data, output_mode)
@@ -492,14 +493,24 @@ class DeepAR(BaseNeuralModel):
     def _create_torch_loader(self, train_data, is_train):
         batch_size = self.batch_size if is_train else self.forecast_length
 
+    
+
+    @convert_to_3d_torch_array
+    def _create_torch_loader(self, train_data, is_train):
+        batch_size = self.batch_size if is_train else self.forecast_length
+
         if not isinstance(train_data.features, torch.Tensor):
             features = torch.tensor(train_data.features).float()
             target = torch.tensor(train_data.target).float()
         else:
             features, target = train_data.features, train_data.target
 
+        else:
+            features, target = train_data.features, train_data.target
+
         train_loader = torch.utils.data.DataLoader(
             data.TensorDataset(features, target),
+            batch_size=batch_size, shuffle=False,
             batch_size=batch_size, shuffle=False,
             )
         return train_loader
