@@ -107,6 +107,10 @@ industrial_search_space = {
         {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    'arima_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'iforest_detector':
         {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,

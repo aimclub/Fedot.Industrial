@@ -412,6 +412,11 @@
     "max_homology_dimension": 1,
     "metric": "euclidean"
   },
+  "arima_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ar_order": 3
+  },
   "iforest_detector": {
     "window_length": 10,
     "anomaly_thr": 0.9,
