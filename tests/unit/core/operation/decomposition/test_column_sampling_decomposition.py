@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition, get_random_sparse_matrix
+from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition, \
+    get_random_sparse_matrix
 
 
 @pytest.fixture
@@ -15,12 +16,12 @@ def sample_ts():
 
 
 def test_fit_transform(sample_matrix):
-    cur = CURDecomposition(rank=2)
-    result = cur.fit_transform(matrix=sample_matrix)
-    c, u, r = result
-    approximated = c @ u @ r
+    rank = 2
+    cur = CURDecomposition(rank)
+    result = cur.fit_transform(sample_matrix)
+    approximated = result[0]
     assert isinstance(result, tuple)
-    assert approximated.shape == sample_matrix.shape
+    assert approximated.shape[0] == rank
 
 
 def test_ts_to_matrix(sample_ts):
