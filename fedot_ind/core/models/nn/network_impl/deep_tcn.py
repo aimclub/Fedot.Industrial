@@ -6,6 +6,8 @@ import pandas as pd
 import torch
 import torch.utils.data as data
 import torch.nn.functional as F
+from torch import nn, optim
+from torch.optim import lr_scheduler
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -13,10 +15,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-from torch import nn, optim, Tensor
-from torch.optim import lr_scheduler
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -143,19 +142,22 @@ class TCNModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
         self.epochs = params.get("epochs", 100)
-        self.batch_size = params.get("batch_size", 16)
-        self.activation = params.get('activation', 'tanh')
+        self.batch_size = params.get("batch_size", 32)
+        self.activation = params.get('activation', 'ReLU')
+        self.learning_rate = params.get("learning_rate", 1e-3)
+
         self.kernel_size = params.get("kernel_size", 3)
-        self.num_filters = params.get("num_filters", 4)
-        self.num_layers = params.get("num_layers", 2)
+        self.num_filters = params.get("num_filters", 5)
+        self.num_layers = params.get("num_layers", 3)
         self.dilation_base = params.get("dilation_base", 2)
         self.dropout = params.get("dropout", 0.2)
-        self.weight_norm = params.get("weight_norm", True)
-        self.learning_rate = params.get("learning_rate", 1e-3)
+        self.weight_norm = params.get("weight_norm", False)
+        
+        self.split = params.get("split_data", False)
         self.patch_len = params.get("patch_len", None)
         self.horizon = params.get("horizon", None)
-        self.split = params.get("split_data", False)
         self.window_size = params.get("window_size", None)
+
         self.model_list = []
 
     def _init_model(self, ts):
@@ -247,7 +249,7 @@ class TCNModel(BaseNeuralModel):
     def _create_dataset(self,
                         ts: InputData,
                         flag: str = 'test',
-                        batch_size: int = 16,
+                        batch_size: int = 32,
                         freq: int = 1):
         return ts
 
