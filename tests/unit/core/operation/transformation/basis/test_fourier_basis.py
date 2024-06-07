@@ -22,14 +22,14 @@ def input_train(dataset):
 
 
 def test_transform(input_train):
-    basis = FourierBasisImplementation()
+    basis = FourierBasisImplementation({})
     train_features = basis.transform(input_data=input_train)
     assert isinstance(train_features, OutputData)
     assert train_features.features.shape[0] == input_train.features.shape[0]
 
 
 def test_transform_one_sample(input_train):
-    basis = FourierBasisImplementation()
+    basis = FourierBasisImplementation({})
     sample = input_train.features[0]
     transformed_sample = basis._transform_one_sample(sample)
     assert isinstance(transformed_sample, np.ndarray)
@@ -37,7 +37,7 @@ def test_transform_one_sample(input_train):
 
 
 def test_decompose_signal(input_train):
-    basis = FourierBasisImplementation()
+    basis = FourierBasisImplementation({})
     sample = input_train.features[0]
     transformed_sample = basis._decompose_signal(sample)
     assert isinstance(transformed_sample, np.ndarray)
