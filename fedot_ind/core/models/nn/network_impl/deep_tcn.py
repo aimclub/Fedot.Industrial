@@ -332,7 +332,7 @@ class TCNModel(BaseNeuralModel):
                     batch_x = batch_x.float().to(default_device())
                     batch_y = batch_y.float().to(default_device())
                     outputs.append(model(batch_x))
-                return torch.cat(outputs).cpu().numpy().flatten()
+                return torch.cat(outputs).cpu().numpy()
             else:
                 last_patch = test_loader.dataset[0][-1]
                 c, s = last_patch.size()
