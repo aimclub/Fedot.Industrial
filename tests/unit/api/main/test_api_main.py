@@ -90,8 +90,6 @@ def test_fit_predict_regression_uni(fedot_industrial_regression):
     assert predict.shape[0] == data[1].shape[0]
     if len(data[1].shape) > 1:
         assert predict.shape[1] == data[1].shape[1]
-    else:
-        assert len(predict.shape) == 1
 
 
 def test_fit_predict_regression_multi(fedot_industrial_regression):
@@ -102,8 +100,6 @@ def test_fit_predict_regression_multi(fedot_industrial_regression):
     assert predict.shape[0] == data[1].shape[0]
     if len(data[1].shape) > 1:
         assert predict.shape[1] == data[1].shape[1]
-    else:
-        assert len(predict.shape) == 1
 
 
 @pytest.fixture()

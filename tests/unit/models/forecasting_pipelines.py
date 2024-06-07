@@ -19,7 +19,7 @@ def test_stl_arima_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['stl_arima']):
 def test_lagged_lgbm(node_list=VALID_LINEAR_TSF_PIPELINE['topological_lgbm']):
     result_dict = AbstractPipeline(
         task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
-        node_list, DATASET_NAME)
+        node_list, 'Q2124')
     assert result_dict is not None
 
 

@@ -151,10 +151,8 @@ class IndustrialSkLearnEvaluationStrategy(
 
     def predict(self, trained_operation, predict_data: InputData,
                 output_mode: str = 'default') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
-        return self.multi_dim_dispatcher.predict(
-            trained_operation, predict_data, output_mode=output_mode)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode=output_mode)
 
     def predict_for_fit(
             self,

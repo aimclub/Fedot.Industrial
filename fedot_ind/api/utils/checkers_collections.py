@@ -92,7 +92,7 @@ class DataCheck:
             forecast_length=self.task_params['forecast_length']))
         if self.industrial_task_params is None:
             features_array = features_array[:-
-                                            self.task_params['forecast_length']]
+            self.task_params['forecast_length']]
             target = features_array
         return InputData.from_numpy_time_series(
             features_array=features_array, target_array=target, task=task)
@@ -118,13 +118,15 @@ class DataCheck:
                 len(
                     data_list[0])))
 
-        have_predict_horizon = all([self.industrial_task_params is not None,
-                                    self.industrial_task_params['data_type'] == 'time_series',
-                                    'detection_window' in self.industrial_task_params.keys()])
+        have_predict_horizon = Either(value=False, monoid=[True, self.industrial_task_params is None]).either(
+            left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
+                                    'detection_window' in self.industrial_task_params.keys(),
+            right_function=lambda r: r)
+
         task = Either(
-            value=fedot_task(self.task), monoid=[
-                fedot_task('ts_forecasting', self.industrial_task_params['detection_window']),
-                not have_predict_horizon]).either(left_function=lambda l: l, right_function=lambda r: r)
+            value=fedot_task(self.task), monoid=['ts_forecasting', not have_predict_horizon]).either(
+            left_function=lambda l: fedot_task(l, self.industrial_task_params['detection_window']),
+            right_function=lambda r: r)
         return InputData(idx=idx,
                          features=input_data[0],
                          target=input_data[1],
@@ -159,7 +161,7 @@ class DataCheck:
                     features,
                     target],
                 self.task != 'ts_forecasting']).either(
-            left_function=self._transformation_for_ts_forecasting,
+            left_function=lambda l: self._transformation_for_ts_forecasting(),
             right_function=self._transformation_for_other_task)
 
     def _check_input_data_features(self):
