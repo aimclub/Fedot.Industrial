@@ -29,6 +29,7 @@ from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
+
 class _ResidualBlock(nn.Module):
 
     def __init__(self,
@@ -52,10 +53,15 @@ class _ResidualBlock(nn.Module):
 
         input_dim = input_size if nr_blocks_below == 0 else num_filters
         output_dim = target_size if nr_blocks_below == num_layers - 1 else num_filters
-        self.conv1 = nn.Conv1d(input_dim, num_filters, kernel_size, dilation=(dilation_base ** nr_blocks_below))
-        self.conv2 = nn.Conv1d(num_filters, output_dim, kernel_size, dilation=(dilation_base ** nr_blocks_below))
+        self.conv1 = nn.Conv1d(
+            input_dim, num_filters, kernel_size, dilation=(
+                dilation_base ** nr_blocks_below))
+        self.conv2 = nn.Conv1d(
+            num_filters, output_dim, kernel_size, dilation=(
+                dilation_base ** nr_blocks_below))
         if weight_norm:
-            self.conv1, self.conv2 = nn.utils.weight_norm(self.conv1), nn.utils.weight_norm(self.conv2)
+            self.conv1, self.conv2 = nn.utils.weight_norm(
+                self.conv1), nn.utils.weight_norm(self.conv2)
 
         if nr_blocks_below == 0 or nr_blocks_below == num_layers - 1:
             self.conv3 = nn.Conv1d(input_dim, output_dim, 1)
@@ -64,7 +70,8 @@ class _ResidualBlock(nn.Module):
         residual = x
 
         # first step
-        left_padding = (self.dilation_base ** self.nr_blocks_below) * (self.kernel_size - 1)
+        left_padding = (self.dilation_base **
+                        self.nr_blocks_below) * (self.kernel_size - 1)
         x = F.pad(x, (left_padding, 0))
         x = self.dropout_fn(F.relu(self.conv1(x)))
 
@@ -81,6 +88,7 @@ class _ResidualBlock(nn.Module):
         x += residual
 
         return x
+
 
 class TCNModule(nn.Module):
     def __init__(self,
@@ -107,21 +115,31 @@ class TCNModule(nn.Module):
         self.dilation_base = dilation_base
         self.dropout = nn.Dropout(p=dropout)
 
-        # If num_layers is not passed, compute number of layers needed for full history coverage
+        # If num_layers is not passed, compute number of layers needed for full
+        # history coverage
         if num_layers is None and dilation_base > 1:
-            num_layers = math.ceil(math.log((input_chunk_length - 1) * (dilation_base - 1) / (kernel_size - 1) / 2 + 1,
-                                            dilation_base))
+            num_layers = math.ceil(math.log(
+                (input_chunk_length - 1) * (dilation_base - 1) / (kernel_size - 1) / 2 + 1, dilation_base))
             # logger.info("Number of layers chosen: " + str(num_layers))
         elif num_layers is None:
-            num_layers = math.ceil((input_chunk_length - 1) / (kernel_size - 1) / 2)
+            num_layers = math.ceil(
+                (input_chunk_length - 1) / (kernel_size - 1) / 2)
             # logger.info("Number of layers chosen: " + str(num_layers))
         self.num_layers = num_layers
 
         # Building TCN module
         self.res_blocks_list = []
         for i in range(num_layers):
-            res_block = _ResidualBlock(num_filters, kernel_size, dilation_base,
-                                       self.dropout, weight_norm, i, num_layers, self.input_size, target_size)
+            res_block = _ResidualBlock(
+                num_filters,
+                kernel_size,
+                dilation_base,
+                self.dropout,
+                weight_norm,
+                i,
+                num_layers,
+                self.input_size,
+                target_size)
             self.res_blocks_list.append(res_block)
         self.res_blocks = nn.ModuleList(self.res_blocks_list)
 
@@ -138,6 +156,7 @@ class TCNModule(nn.Module):
 
         return x
 
+
 class TCNModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
@@ -152,7 +171,7 @@ class TCNModel(BaseNeuralModel):
         self.dilation_base = params.get("dilation_base", 2)
         self.dropout = params.get("dropout", 0.2)
         self.weight_norm = params.get("weight_norm", False)
-        
+
         self.split = params.get("split_data", False)
         self.patch_len = params.get("patch_len", None)
         self.horizon = params.get("horizon", None)
@@ -182,8 +201,8 @@ class TCNModel(BaseNeuralModel):
     def _fit_model(self, input_data: InputData, split_data: bool):
         if self.patch_len is None:
             if self.window_size is None:
-                self.window_size = WindowSizeSelector(
-                    method='hac').get_window_size(input_data.features) # fft sometimes makes window larger than possible
+                self.window_size = WindowSizeSelector(method='hac').get_window_size(
+                    input_data.features)  # fft sometimes makes window larger than possible
                 self.patch_len = self.window_size
             else:
                 self.patch_len = self.window_size
@@ -210,12 +229,15 @@ class TCNModel(BaseNeuralModel):
     def __create_torch_loader(self, train_data):
 
         train_dataset = self._create_dataset(train_data)
-        train_loader = torch.utils.data.DataLoader(data.TensorDataset(train_dataset.x, train_dataset.y),
-                                                   batch_size=self.batch_size, 
-                                                   shuffle=False,
-                                                   num_workers=0,
-                                                   pin_memory=True,
-                                                   drop_last=False)
+        train_loader = torch.utils.data.DataLoader(
+            data.TensorDataset(
+                train_dataset.x,
+                train_dataset.y),
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=True,
+            drop_last=False)
         return train_loader
 
     def fit(self,
@@ -262,16 +284,13 @@ class TCNModel(BaseNeuralModel):
         if split_data:
             train_data, val_data = train_test_data_setup(
                 train_data, validation_blocks=validation_blocks)
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  self.horizon,
-                                                                                                  patch_len)
-            _, val_data.features, val_data.target = transform_features_and_target_into_lagged(val_data,
-                                                                                              self.horizon,
-                                                                                              patch_len)
+            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(
+                train_data, self.horizon, patch_len)
+            _, val_data.features, val_data.target = transform_features_and_target_into_lagged(
+                val_data, self.horizon, patch_len)
         else:
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  self.horizon,
-                                                                                                  patch_len)
+            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(
+                train_data, self.horizon, patch_len)
         train_loader = self.__create_torch_loader(train_data)
         return train_loader
 
@@ -304,10 +323,10 @@ class TCNModel(BaseNeuralModel):
                 loss.backward()
                 model.float()
                 optimizer.step()
-                adjust_learning_rate(optimizer, 
+                adjust_learning_rate(optimizer,
                                      scheduler,
-                                     epoch + 1, 
-                                     learning_rate=self.learning_rate, 
+                                     epoch + 1,
+                                     learning_rate=self.learning_rate,
                                      printout=False,
                                      lradj='constant')
                 scheduler.step()
@@ -354,11 +373,13 @@ class TCNModel(BaseNeuralModel):
         start_point = self.target[-1]
         shift = y_pred[0] - start_point
         y_pred -= shift
-        
+
         if test_idx is None:
-            forecast_idx_predict = np.arange(start=test_data.idx.shape[0],
-                                        stop=test_data.idx.shape[0] + self.horizon,
-                                        step=1)
+            forecast_idx_predict = np.arange(
+                start=test_data.idx.shape[0],
+                stop=test_data.idx.shape[0] +
+                self.horizon,
+                step=1)
         else:
             forecast_idx_predict = test_idx
 
@@ -375,17 +396,23 @@ class TCNModel(BaseNeuralModel):
         if len(test_data.features.shape) == 1:
             test_data.features = test_data.features.reshape(1, -1)
 
-        features = HankelMatrix(time_series=test_data.features,
-                                window_size=self.test_patch_len).trajectory_matrix
-        features = torch.from_numpy(DataConverter(data=features).
-                                    convert_to_torch_format()).float().permute(2, 1, 0)
+        features = HankelMatrix(
+            time_series=test_data.features,
+            window_size=self.test_patch_len).trajectory_matrix
+        features = torch.from_numpy(
+            DataConverter(
+                data=features). convert_to_torch_format()).float().permute(
+            2, 1, 0)
         target = torch.from_numpy(DataConverter(
             data=features).convert_to_torch_format()).float()
-            
-        test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
-                                                  batch_size=self.batch_size, 
-                                                  shuffle=False,
-                                                  num_workers=0,
-                                                  pin_memory=False,
-                                                  drop_last=False)
+
+        test_loader = torch.utils.data.DataLoader(
+            data.TensorDataset(
+                features,
+                target),
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=False,
+            drop_last=False)
         return self._predict(model, test_loader)

@@ -102,15 +102,15 @@ TEMPORARY_EXCLUDED = {
                            'knn': FedotKnnClassImplementation
                            },
     'NEURAL_MODELS': {
-                      'resnet_model': ResNetModel,
-                      'nbeats_model': NBeatsModel,
-                      'omniscale_model': OmniScaleModel,
-                      'tcn_model': TCNModel,
-                      # transformer models
-                      'tst_model': TSTModel,
-                      # explainable models
-                      'xcm_model': XCModel
-                      }
+        'resnet_model': ResNetModel,
+        'nbeats_model': NBeatsModel,
+        'omniscale_model': OmniScaleModel,
+        'tcn_model': TCNModel,
+        # transformer models
+        'tst_model': TSTModel,
+        # explainable models
+        'xcm_model': XCModel
+    }
 }
 
 
