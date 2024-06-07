@@ -46,12 +46,12 @@ def multivariate_regression_data():
 
 @pytest.fixture
 def fedot_industrial_classification():
-    return FedotIndustrial(problem='classification', timeout=0.1)
+    return FedotIndustrial(problem='classification', timeout=0.1, logging_level=50)
 
 
 @pytest.fixture
 def fedot_industrial_regression():
-    return FedotIndustrial(problem='regression', timeout=0.1)
+    return FedotIndustrial(problem='regression', timeout=0.1, logging_level=50)
 
 
 def test_fit_predict_classification_multi(fedot_industrial_classification):
