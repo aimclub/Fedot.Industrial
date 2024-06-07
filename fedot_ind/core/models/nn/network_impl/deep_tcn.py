@@ -150,11 +150,12 @@ class TCNModel(BaseNeuralModel):
         self.num_layers = params.get("num_layers", 2)
         self.dilation_base = params.get("dilation_base", 2)
         self.dropout = params.get("dropout", 0.2)
-        self.weight_norm = params.get("weight_norm", False)
-        self.learning_rate = params.get("learning_rate", 0.001)
+        self.weight_norm = params.get("weight_norm", True)
+        self.learning_rate = params.get("learning_rate", 1e-3)
         self.patch_len = params.get("patch_len", None)
         self.horizon = params.get("horizon", None)
         self.split = params.get("split_data", False)
+        self.window_size = params.get("window_size", None)
         self.model_list = []
 
     def _init_model(self, ts):
@@ -178,11 +179,15 @@ class TCNModel(BaseNeuralModel):
 
     def _fit_model(self, input_data: InputData, split_data: bool):
         if self.patch_len is None:
-            dominant_window_size = WindowSizeSelector(
-                method='dff').get_window_size(input_data.features)
-            self.patch_len = 2 * dominant_window_size
-            train_loader = self._prepare_data(
-                input_data.features, self.patch_len, split_data)
+            if self.window_size is None:
+                self.window_size = WindowSizeSelector(
+                    method='hac').get_window_size(input_data.features) # fft sometimes makes window larger than possible
+                self.patch_len = self.window_size
+            else:
+                self.patch_len = self.window_size
+
+        train_loader = self._prepare_data(
+            input_data.features, self.patch_len, split_data)
         self.test_patch_len = self.patch_len
         model, loss_fn, optimizer = self._init_model(input_data)
         model = self._train_loop(model, train_loader, loss_fn, optimizer)
@@ -249,7 +254,7 @@ class TCNModel(BaseNeuralModel):
     def _prepare_data(self,
                       ts,
                       patch_len,
-                      split_data: bool = True,
+                      split_data,
                       validation_blocks: int = None):
         train_data = self.split_data(ts)
         if split_data:
@@ -324,44 +329,37 @@ class TCNModel(BaseNeuralModel):
                     batch_x = batch_x.float().to(default_device())
                     batch_y = batch_y.float().to(default_device())
                     outputs.append(model(batch_x))
-                return torch.cat(outputs).cpu().numpy().flatten()
+                return torch.cat(outputs).cpu().numpy()
             else:
                 last_patch = test_loader.dataset[0][-1]
                 c, s = last_patch.size()
                 last_patch = last_patch.reshape(1, c, s).to(default_device())
                 outputs = model(last_patch)
-                return outputs.cpu().numpy().flatten()
+                return outputs.cpu().numpy()
 
     def predict(self,
-                input_data,
-                output_mode: str = 'labels'):
-        test_data = self.__preprocess_for_fedot(input_data)
+                test_data,
+                test_idx: str = None):
         y_pred = []
         self.forecast_mode = 'out_of_sample'
-        model = self.model_list[-1]
-        y_pred.append(self._predict_loop(model, test_data))
-        y_pred = np.array(y_pred)
-        y_pred = y_pred.squeeze()
-        forecast_idx_predict = test_data.idx
-        predict = OutputData(
-            idx=forecast_idx_predict,
-            task=self.task_type,
-            predict=y_pred,
-            target=self.target,
-            data_type=DataTypesEnum.table)
-        return predict
-
-    def predict_for_fit(self,
-                        input_data,
-                        output_mode: str = 'labels'):
-        test_data = self.__preprocess_for_fedot(input_data)
-        y_pred = []
-        self.forecast_mode = 'in_sample'
         for model in self.model_list:
             y_pred.append(self._predict_loop(model, test_data))
         y_pred = np.array(y_pred)
         y_pred = y_pred.squeeze()
-        forecast_idx_predict = test_data.idx
+
+        # Workaround for prediction starting point shift
+        # TODO: find out what triggers prediction starting point shift
+        start_point = self.target[-1]
+        shift = y_pred[0] - start_point
+        y_pred -= shift
+        
+        if test_idx is None:
+            forecast_idx_predict = np.arange(start=test_data.idx.shape[0],
+                                        stop=test_data.idx.shape[0] + self.horizon,
+                                        step=1)
+        else:
+            forecast_idx_predict = test_idx
+
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
@@ -386,6 +384,6 @@ class TCNModel(BaseNeuralModel):
                                                   batch_size=self.batch_size, 
                                                   shuffle=False,
                                                   num_workers=0,
-                                                  pin_memory=True,
+                                                  pin_memory=False,
                                                   drop_last=False)
         return self._predict(model, test_loader)
