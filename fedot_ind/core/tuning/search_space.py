@@ -84,8 +84,8 @@ industrial_search_space = {
     'tcn_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
             'activation': {'hyperopt-dist': hp.choice,
-                        'sampling-scope': [
-                            ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+                           'sampling-scope': [
+                               ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'nbeats_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(50, 200, 20)]]},
          'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32]]},
