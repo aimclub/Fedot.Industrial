@@ -48,6 +48,7 @@ from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
+from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
