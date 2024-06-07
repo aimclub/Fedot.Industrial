@@ -300,7 +300,7 @@
 	  "input_type": "[DataTypesEnum.ts]"
     },    
     "tcn_model": {
-      "meta": "fedot_NN_forecasting",
+      "meta": "ts_model",
       "presets": ["fast_train", "best_quality", "ts"],
       "tags": [
         "deep", "ts_model"
