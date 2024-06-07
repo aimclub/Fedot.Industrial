@@ -104,7 +104,11 @@ TEMPORARY_EXCLUDED = {
     'NEURAL_MODELS': {
                       'resnet_model': ResNetModel,
                       'nbeats_model': NBeatsModel,
+    'NEURAL_MODELS': {
+                      'resnet_model': ResNetModel,
+                      'nbeats_model': NBeatsModel,
                       'omniscale_model': OmniScaleModel,
+                      'tcn_model': TCNModel,
                       'tcn_model': TCNModel,
                       # transformer models
                       #'tst_model': TSTModel,
@@ -192,6 +196,8 @@ class AtomizedModel(Enum):
         'cgru': CGRUImplementation,
         'glm': GLMIndustrial,
         'tcn_model': TCNModel
+        'glm': GLMIndustrial,
+        'tcn_model': TCNModel
     }
 
     FORECASTING_PREPROC = {
@@ -199,6 +205,7 @@ class AtomizedModel(Enum):
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
+        'exog_ts': ExogDataTransformationImplementation
         'exog_ts': ExogDataTransformationImplementation
     }
 
@@ -208,6 +215,7 @@ class AtomizedModel(Enum):
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
         'nbeats_model': NBeatsModel,
+        'tcn_model': TCNModel,
         'tcn_model': TCNModel,
         # transformer models
         'tst_model': TSTModel,
