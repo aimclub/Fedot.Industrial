@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional
+from typing import Optional, Union
 import math
 
 import pandas as pd
@@ -16,7 +16,7 @@ from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch import nn, optim, Tensor
 from torch.optim import lr_scheduler
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -25,7 +25,8 @@ from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
-from fedot_ind.core.repository.constanst_repository import RMSE
+from fedot_ind.core.repository.constanst_repository import MSE
+from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -82,8 +83,7 @@ class _ResidualBlock(nn.Module):
 
         return x
 
-
-class _TCNModule(nn.Module):
+class TCNModule(nn.Module):
     def __init__(self,
                  input_size: int,
                  input_chunk_length: int,
@@ -96,7 +96,7 @@ class _TCNModule(nn.Module):
                  target_length: int,
                  dropout: float):
 
-        super(_TCNModule, self).__init__()
+        super(TCNModule, self).__init__()
 
         # Defining parameters
         self.input_size = input_size
@@ -141,68 +141,48 @@ class _TCNModule(nn.Module):
 
 class TCNModel(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = {}):
-        # input_chunk_length: int
-        # output_chunk_length: int
-        # kernel_size: int = 3
-        # num_filters: int = 3
-        # num_layers: Optional[int] = None
-        # dilation_base: int = 2
-        # weight_norm: bool = False
-        # dropout: float = 0.2
-
-        self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 16)
-        self.activation = params.get('activation', 'GELU')
-        self.learning_rate = params.get('learning_rate', 0.001)
-        self.use_amp = params.get('use_amp', False)
-        self.horizon = params.get('forecast_length', None)
-        self.patch_len = params.get('patch_len', None)
-        self.output_attention = params.get('output_attention', False)
-        self.test_patch_len = self.patch_len
-        self.preprocess_to_lagged = False
-        self.forecast_mode = params.get('forecast_mode', 'out_of_sample')
+        super().__init__()
+        self.epochs = params.get("epochs", 100)
+        self.batch_size = params.get("batch_size", 16)
+        self.activation = params.get('activation', 'tanh')
+        self.kernel_size = params.get("kernel_size", 3)
+        self.num_filters = params.get("num_filters", 4)
+        self.num_layers = params.get("num_layers", 2)
+        self.dilation_base = params.get("dilation_base", 2)
+        self.dropout = params.get("dropout", 0.2)
+        self.weight_norm = params.get("weight_norm", False)
+        self.learning_rate = params.get("learning_rate", 0.001)
+        self.patch_len = params.get("patch_len", None)
+        self.horizon = params.get("horizon", None)
+        self.split = params.get("split_data", False)
         self.model_list = []
 
-        # self.input_chunk_length = input_chunk_length
-        # self.output_chunk_length = output_chunk_length
-
-        self.kernel_size = params.get('kernel_size', 3)
-        self.num_filters = params.get('num_filters', 3)
-        self.num_layers = params.get('num_layers', None)
-        self.dilation_base = params.get('dilation_base', 2)
-        self.dropout = params.get('dropout', 0.2)
-        self.weight_norm = params.get('weight_norm', False)
-
     def _init_model(self, ts):
-        model = _TCNModule(input_size=ts.features.shape[0],
-                          input_chunk_length=self.seq_len,
+        input_size = self.patch_len or ts.features.shape[-1]
+        self.patch_len = input_size
+        model = TCNModule(input_size=input_size,
+                          input_chunk_length=ts.features.shape[0],
                           target_size=self.horizon,
                           kernel_size=self.kernel_size,
                           num_filters=self.num_filters,
                           num_layers=self.num_layers,
                           dilation_base=self.dilation_base,
-                          target_length=self.seq_len,
+                          target_length=self.patch_len,
                           dropout=self.dropout,
-                          weight_norm=self.weight_norm)
+                          weight_norm=self.weight_norm).to(default_device())
+        self._evaluate_num_of_epochs(ts)
+
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
-        loss_fn = RMSE()
+        loss_fn = MSE()
         return model, loss_fn, optimizer
 
-    # @property
-    # def first_prediction_index(self) -> int:
-    #     return -self.seq_len
-
-    def _fit_model(self, input_data: InputData, split_data: bool = True):
-        if self.preprocess_to_lagged:
-            self.patch_len = input_data.features.shape[1]
-            train_loader = self.__create_torch_loader(input_data)
-        else:
-            if self.patch_len is None:
-                dominant_window_size = WindowSizeSelector(
-                    method='dff').get_window_size(input_data.features)
-                self.patch_len = 2 * dominant_window_size
-                train_loader = self._prepare_data(
-                    input_data.features, self.patch_len, False)
+    def _fit_model(self, input_data: InputData, split_data: bool):
+        if self.patch_len is None:
+            dominant_window_size = WindowSizeSelector(
+                method='dff').get_window_size(input_data.features)
+            self.patch_len = 2 * dominant_window_size
+            train_loader = self._prepare_data(
+                input_data.features, self.patch_len, split_data)
         self.test_patch_len = self.patch_len
         model, loss_fn, optimizer = self._init_model(input_data)
         model = self._train_loop(model, train_loader, loss_fn, optimizer)
@@ -214,15 +194,8 @@ class TCNModel(BaseNeuralModel):
             self.horizon = input_data.task.task_params.forecast_length
         if len(input_data.features.shape) == 1:
             input_data.features = input_data.features.reshape(1, -1)
-        else:
-            if input_data.features.shape[1] != 1:
-                self.preprocess_to_lagged = True
 
-        if self.preprocess_to_lagged:
-            self.seq_len = input_data.features.shape[0] + \
-                input_data.features.shape[1]
-        else:
-            self.seq_len = input_data.features.shape[1]
+        self.seq_len = input_data.features.shape[1]
         self.target = input_data.target
         self.task_type = input_data.task
         return input_data
@@ -230,9 +203,12 @@ class TCNModel(BaseNeuralModel):
     def __create_torch_loader(self, train_data):
 
         train_dataset = self._create_dataset(train_data)
-        train_loader = torch.utils.data.DataLoader(
-            data.TensorDataset(train_dataset.x, train_dataset.y),
-            batch_size=self.batch_size, shuffle=False)
+        train_loader = torch.utils.data.DataLoader(data.TensorDataset(train_dataset.x, train_dataset.y),
+                                                   batch_size=self.batch_size, 
+                                                   shuffle=False,
+                                                   num_workers=0,
+                                                   pin_memory=True,
+                                                   drop_last=False)
         return train_loader
 
     def fit(self,
@@ -241,7 +217,7 @@ class TCNModel(BaseNeuralModel):
         Method for feature generation for all series
         """
         input_data = self.__preprocess_for_fedot(input_data)
-        self._fit_model(input_data)
+        self._fit_model(input_data, split_data=self.split)
 
     def split_data(self, input_data):
 
@@ -302,7 +278,6 @@ class TCNModel(BaseNeuralModel):
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
-        args = {'lradj': 'type2'}
 
         for epoch in range(self.epochs):
             iter_count = 0
@@ -316,18 +291,18 @@ class TCNModel(BaseNeuralModel):
 
                 batch_y = batch_y.float().to(default_device())
 
-                # decoder input
-                dec_inp = torch.zeros_like(batch_y).float()
-                dec_inp = torch.cat([batch_y, dec_inp],
-                                    dim=1).float().to(default_device())
                 outputs = model(batch_x)
                 loss = loss_fn(outputs, batch_y)
                 train_loss.append(loss.item())
                 loss.backward()
                 model.float()
                 optimizer.step()
-                adjust_learning_rate(optimizer, scheduler,
-                                     epoch + 1, args, printout=False)
+                adjust_learning_rate(optimizer, 
+                                     scheduler,
+                                     epoch + 1, 
+                                     learning_rate=self.learning_rate, 
+                                     printout=False,
+                                     lradj='constant')
                 scheduler.step()
             train_loss = np.average(train_loss)
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
@@ -348,56 +323,38 @@ class TCNModel(BaseNeuralModel):
                 for i, (batch_x, batch_y) in enumerate(test_loader):
                     batch_x = batch_x.float().to(default_device())
                     batch_y = batch_y.float().to(default_device())
-                    # decoder input
-                    dec_inp = torch.zeros_like(batch_y[:, :, :]).float()
-                    dec_inp = torch.cat([batch_y[:, :, :], dec_inp], dim=1).float().to(
-                        default_device())
-                    # encoder - decoder
                     outputs.append(model(batch_x))
-                return torch.cat(outputs).cpu().numpy()
+                return torch.cat(outputs).cpu().numpy().flatten()
             else:
                 last_patch = test_loader.dataset[0][-1]
                 c, s = last_patch.size()
                 last_patch = last_patch.reshape(1, c, s).to(default_device())
                 outputs = model(last_patch)
-                return outputs.flatten().cpu().numpy()
-
-    def _encoder_decoder_transition(self, batch_x, batch_x_mark, dec_inp, batch_y_mark):
-        # encoder - decoder
-        if 'Linear' in self.model or 'TST' in self.model:
-            outputs = self.model(batch_x)
-        else:
-            if self.output_attention:
-                outputs = self.model(batch_x, batch_x_mark,
-                                     dec_inp, batch_y_mark)[0]
-            else:
-                outputs = self.model(batch_x, batch_x_mark,
-                                     dec_inp, batch_y_mark)
-        return outputs
+                return outputs.cpu().numpy().flatten()
 
     def predict(self,
-                test_data,
+                input_data,
                 output_mode: str = 'labels'):
+        test_data = self.__preprocess_for_fedot(input_data)
         y_pred = []
         self.forecast_mode = 'out_of_sample'
-        for model in self.model_list:
-            y_pred.append(self._predict_loop(model, test_data))
+        model = self.model_list[-1]
+        y_pred.append(self._predict_loop(model, test_data))
         y_pred = np.array(y_pred)
-        forecast_idx_predict = np.arange(start=test_data.idx[-self.horizon],
-                                         stop=test_data.idx[-self.horizon] +
-                                         y_pred.shape[1],
-                                         step=1)
+        y_pred = y_pred.squeeze()
+        forecast_idx_predict = test_data.idx
         predict = OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
-            predict=y_pred.reshape(1, -1),
+            predict=y_pred,
             target=self.target,
             data_type=DataTypesEnum.table)
         return predict
 
     def predict_for_fit(self,
-                        test_data,
+                        input_data,
                         output_mode: str = 'labels'):
+        test_data = self.__preprocess_for_fedot(input_data)
         y_pred = []
         self.forecast_mode = 'in_sample'
         for model in self.model_list:
@@ -415,31 +372,20 @@ class TCNModel(BaseNeuralModel):
 
     def _predict_loop(self, model,
                       test_data):
-
         if len(test_data.features.shape) == 1:
             test_data.features = test_data.features.reshape(1, -1)
 
-        if not self.preprocess_to_lagged:
-            features = HankelMatrix(time_series=test_data.features,
-                                    window_size=self.test_patch_len).trajectory_matrix
-            features = torch.from_numpy(DataConverter(data=features).
-                                        convert_to_torch_format()).float().permute(2, 1, 0)
-            target = torch.from_numpy(DataConverter(
-                data=features).convert_to_torch_format()).float()
-
-        else:
-            features = test_data.features
-            features = torch.from_numpy(DataConverter(data=features).
-                                        convert_to_torch_format()).float()
-            target = torch.from_numpy(DataConverter(
-                data=features).convert_to_torch_format()).float()
+        features = HankelMatrix(time_series=test_data.features,
+                                window_size=self.test_patch_len).trajectory_matrix
+        features = torch.from_numpy(DataConverter(data=features).
+                                    convert_to_torch_format()).float().permute(2, 1, 0)
+        target = torch.from_numpy(DataConverter(
+            data=features).convert_to_torch_format()).float()
+            
         test_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
-                                                  batch_size=self.batch_size, shuffle=False)
+                                                  batch_size=self.batch_size, 
+                                                  shuffle=False,
+                                                  num_workers=0,
+                                                  pin_memory=True,
+                                                  drop_last=False)
         return self._predict(model, test_loader)
-
-    @convert_to_4d_torch_array
-    def _predict_model(self, x_test):
-        self.model.eval()
-        x_test = Tensor(x_test).to(default_device())
-        pred = self.model(x_test)
-        return self._convert_predict(pred)
