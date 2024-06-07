@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional
+from typing import Optional, Union
 import math
 
 import pandas as pd
@@ -16,7 +16,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -332,7 +332,7 @@ class TCNModel(BaseNeuralModel):
                     batch_x = batch_x.float().to(default_device())
                     batch_y = batch_y.float().to(default_device())
                     outputs.append(model(batch_x))
-                return torch.cat(outputs).cpu().numpy()
+                return torch.cat(outputs).cpu().numpy().flatten()
             else:
                 last_patch = test_loader.dataset[0][-1]
                 c, s = last_patch.size()
