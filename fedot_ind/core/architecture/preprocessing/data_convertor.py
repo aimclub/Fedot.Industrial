@@ -221,7 +221,7 @@ class TensorConverter:
         self.tensor_data = self.convert_to_tensor(data)
 
     def convert_to_tensor(self, data):
-        if isinstance(data, tuple):
+        if isinstance(data, tuple) or isinstance(data, list):
             data = data[0]
 
         if isinstance(data, torch.Tensor):
@@ -346,13 +346,19 @@ class NumpyConverter:
 
     def convert_to_torch_format(self):
         add_1_channel = self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1
-        add_1_sample = self.numpy_data.ndim == 2 and self.numpy_data.shape[0] != 1
+        add_1_sample = self.numpy_data.ndim == 2 and self.numpy_data.shape[1] != 1
+        matrix_type = self.numpy_data.ndim == 2 and all([self.numpy_data.shape[0] != 1,
+                                                         self.numpy_data.shape[1] != 1])
         if self.numpy_data.ndim == 3:
             return self.numpy_data
         elif self.numpy_data.ndim == 1:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            1)
+        elif matrix_type:
+            return self.numpy_data.reshape(self.numpy_data.shape[0],
+                                           1,
+                                           self.numpy_data.shape[1])
         elif add_1_sample:
             return self.numpy_data.reshape(1,
                                            self.numpy_data.shape[0],
@@ -424,8 +430,12 @@ class ConditionConverter:
         return isinstance(self.operation_implementation, OneClassSVM)
 
     @property
-    def is_list_container(self):
+    def input_data_is_list_container(self):
         return type(self.train_data) is list
+
+    @property
+    def input_data_is_fedot_data(self):
+        return isinstance(self.train_data, InputData)
 
     @property
     def is_operation_is_list_container(self):
@@ -445,17 +455,23 @@ class ConditionConverter:
 
     @property
     def is_transform_input_fedot(self):
-        return str(
-            list(
-                signature(
-                    self.operation_example.transform).parameters.keys())[0]) == 'input_data'
+        if self.have_transform_method:
+            return str(
+                list(
+                    signature(
+                        self.operation_example.transform).parameters.keys())[0]) == 'input_data'
+        else:
+            False
 
     @property
     def is_predict_input_fedot(self):
-        return str(
-            list(
-                signature(
-                    self.operation_example.predict).parameters.keys())[0]) == 'input_data'
+        if self.have_predict_method:
+            return str(
+                list(
+                    signature(
+                        self.operation_example.predict).parameters.keys())[0]) == 'input_data'
+        else:
+            False
 
     @property
     def is_regression_of_forecasting_task(self):
@@ -474,39 +490,20 @@ class ConditionConverter:
     def solver_is_none(self):
         return self.operation_example is None
 
-    def output_mode_converter(self, output_mode, n_classes):
-        if output_mode == 'labels' and n_classes != 1:
-            return self.operation_example.predict(
-                self.train_data.features).reshape(-1, 1)
-        elif output_mode == 'labels' and n_classes == 1:
-            return self.operation_example.predict(
-                self.train_data).reshape(-1, 1)
+    def output_mode_converter(self, predict_data, output_mode, n_classes):
+        if output_mode == 'labels' and self.is_regression_of_forecasting_task:
+            prediction = self.operation_example.predict(predict_data).reshape(-1, 1)
+        elif output_mode == 'labels':
+            prediction = self.operation_example.predict(predict_data)
+        elif n_classes == 1 and output_mode in ['default', 'probs']:
+            prediction = self.operation_example.score_samples(predict_data)
         else:
-            return self.probs_prediction_converter(output_mode, n_classes)
+            prediction = self.operation_example.predict_proba(predict_data)
+            # prediction self.operation_example.predict_proba(predict_data.T)
 
-    def probs_prediction_converter(self, output_mode, n_classes):
-        if n_classes == 1 and output_mode != 'probs':
-            features = self.train_data.features if self.is_sklearn_detector else self.train_data
-            probs = self.operation_example.score_samples(features)
-            anomaly_probs = 1 - probs
-            prediction = np.vstack([probs, anomaly_probs]).T
-        elif n_classes == 1 and output_mode == 'probs':
-            features = self.train_data.features if self.is_sklearn_detector else self.train_data
-            prediction = self.operation_example.predict_proba(features)
-        else:
-            try:
-                prediction = self.operation_example.predict_proba(
-                    self.train_data.features)
-            except Exception:
-                prediction = self.operation_example.predict_proba(
-                    self.train_data.features.T)
-
-        if n_classes == 2 and output_mode != 'probs':
-            if self.is_multi_output_target:
-                prediction = np.stack([pred[:, 1]
-                                       for pred in prediction]).T
-            else:
-                prediction = prediction[:, 1]
+        # if n_classes == 2 and output_mode != 'probs':
+        #     prediction = np.stack([pred[:, 1] for pred in prediction]).T \
+        #             if self.is_multi_output_target else prediction[:, 1]
 
         return prediction
 
@@ -626,7 +623,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         return self.data is None
 
     @property
-    def is_fedot_data(self):
+    def input_data_is_fedot_data(self):
         return isinstance(self.data, InputData)
 
     @property
@@ -677,7 +674,7 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_tensor()
 
     def convert_to_monad_data(self):
-        if self.is_fedot_data:
+        if self.input_data_is_fedot_data:
             features = np.array(ListMonad(*self.data.features.tolist()).value)
         else:
             features = np.array(ListMonad(*self.data.tolist()).value)
@@ -691,7 +688,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         return features
 
     def convert_to_eigen_basis(self):
-        if self.is_fedot_data:
+        if self.input_data_is_fedot_data:
             features = self.data.features
         else:
             features = np.array(ListMonad(*self.data.values.tolist()).value)

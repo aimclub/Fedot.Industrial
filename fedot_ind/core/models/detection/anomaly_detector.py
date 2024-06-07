@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Optional, Union
 
 import pandas as pd
-from fedot.core.data.data import InputData, OutputData
+from fedot.core.data.data import InputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -86,7 +86,7 @@ class AnomalyDetector(ModelImplementation):
     def predict_proba(self, input_data: InputData) -> np.ndarray:
         converted_input_data = self.convert_input_data(
             input_data, fit_stage=False)
-        probs = self.model_impl.predict(converted_input_data).predict
+        probs = self.model_impl.predict(converted_input_data)
         prediction = np.zeros(
             (converted_input_data.target.shape[0], probs.shape[1]))
         start_idx, end_idx = prediction.shape[0] - probs.shape[0], prediction.shape[0]
@@ -94,15 +94,19 @@ class AnomalyDetector(ModelImplementation):
         return prediction
 
     def convert_probs_to_labels(self, prob_matrix_row) -> int:
-        return 1 if prob_matrix_row[1] > self.anomaly_threshold else 0
+        anomaly_sample = prob_matrix_row[0] < 0 and prob_matrix_row[0] < -self.anomaly_threshold
+        return 1 if anomaly_sample else 0
+
+    def _convert_scores_to_probs(self, prob_matrix_row) -> int:
+        anomaly_sample = prob_matrix_row[0] < 0
+        prob = np.array([prob_matrix_row[0], 0]) if not anomaly_sample else np.array([0, abs(prob_matrix_row[0])])
+        return prob
 
     def score_samples(self, input_data: InputData) -> np.ndarray:
-        predict_for_fit = self.predict_for_fit(input_data)
-        if isinstance(predict_for_fit, OutputData):
-            return predict_for_fit.predict
-        if isinstance(predict_for_fit, pd.DataFrame):
-            return predict_for_fit.values
-        return predict_for_fit
+        converted_input_data = self.convert_input_data(input_data, fit_stage=False)
+        scores = self.model_impl.score_samples(converted_input_data).reshape(-1, 1)
+        prediction = np.apply_along_axis(self._convert_scores_to_probs, 1, scores)
+        return prediction
 
     def predict_for_fit(self, input_data: InputData):
         return self.model_impl.predict(self.convert_input_data(input_data))
