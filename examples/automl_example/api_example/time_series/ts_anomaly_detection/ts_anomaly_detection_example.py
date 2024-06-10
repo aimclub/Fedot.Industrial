@@ -5,8 +5,7 @@ if __name__ == "__main__":
                         dataset='1')
     prediction_window = 10
     finetune = False
-    metric_names = ('nab')
-    metric_names = ('accuracy')
+    metric_names = tuple(('nab', 'accuracy'))
     api_config = dict(
         problem='classification',
         metric='accuracy',
@@ -16,7 +15,7 @@ if __name__ == "__main__":
         industrial_task_params={
             'detection_window': prediction_window,
             'data_type': 'time_series'},
-        with_tunig=False,
+        with_tuning=False,
         n_jobs=2,
         logging_level=20)
 
