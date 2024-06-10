@@ -45,7 +45,6 @@ class ARIMAFaultDetector(AnomalyDetector):
         return ARIMAAnomalyDetector(ar_order=self.ar_order)
 
 
-
 class ARIMAAnomalyDetector:
     """
     Anomaly detection application of modernized ARIMA model
@@ -407,7 +406,7 @@ class DifferentialIntegrationModule:
         j = 0
         for i in range(len(self.seasons) - 1, -1, -1):
             self.sum_instead_minuend[i] = self.sum_instead_minuend[i + 1] + self.subtrahend[i][
-                                                                            sum(self.seasons[::-1][:j]):]
+                sum(self.seasons[::-1][:j]):]
             j += 1
         return self.sum_instead_minuend[0]
 
