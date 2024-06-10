@@ -36,16 +36,6 @@ class CURDecomposition:
         C, U, R = cur_matrices
         return np.linalg.norm(original_tensor - C @ U @ R)
 
-    def _plot_aproximation_error(self):
-        pass
-        # f,a = plt.subplots(2, 1, figsize=(10, 10))
-        # # a[0].plot(ranks, svd_errors, label='svd')
-        # a[1].plot(ranks, cur_errors, label='cur')
-        # a[0].set_title('svd')
-        # a[1].set_title('cur')
-        # plt.legend()
-        # plt.show()
-
     def fit_transform(self, feature_tensor: np.ndarray,
                       target: np.ndarray = None) -> tuple:
         self.selection_rank = self._get_selection_rank(
