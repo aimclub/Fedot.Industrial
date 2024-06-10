@@ -11,12 +11,18 @@ from fedot_ind.core.models.detection.anomaly_detector import AnomalyDetector
 
 
 class ARIMAFaultDetector(AnomalyDetector):
-    """
-    ARIMA fault detection algorithm. The idea behind this is to use ARIMA weights
+    """ARIMA fault detection algorithm. The idea behind this is to use ARIMA weights
     as features for the anomaly detection algorithm. Using discrete differences of weight coefficients
     for different heuristic methods for obtaining function, which characterized the state using a threshold.
-
     arimafd source: https://github.com/waico/arimafd
+
+
+    Args:
+        params: additional parameters for IsolationForest model
+
+            .. details:: Possible parameters:
+
+                    - ``ar_order`` -> order of an AutoRegression model
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):

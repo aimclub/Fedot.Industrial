@@ -14,6 +14,11 @@ from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
 
 
 class AnomalyDetector(ModelImplementation):
+    """An abstract class for anomaly detectors.
+
+    Args:
+        params: additional parameters for an encapsulated model
+    """
 
     def __init__(self, params: Optional[OperationParameters] = None) -> None:
         super().__init__(params)
