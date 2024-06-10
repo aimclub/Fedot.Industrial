@@ -410,7 +410,7 @@
   },
   "iforest_detector": {
     "window_length": 10,
-    "anomaly_thr": 0.9,
+    "anomaly_thr": null,
     "n_jobs": 2,
     "contamination": 0.0005,
     "random_state": 42

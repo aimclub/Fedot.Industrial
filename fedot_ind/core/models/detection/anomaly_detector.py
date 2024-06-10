@@ -18,7 +18,6 @@ class AnomalyDetector(ModelImplementation):
     def __init__(self, params: Optional[OperationParameters] = None) -> None:
         super().__init__(params)
         self.length_of_detection_window = self.params.get('window_length', 10)
-        self.anomaly_threshold = self.params.get('anomaly_thr', 0.9)
         self.transformation_mode = 'lagged'
         self.transformation_type = None
 
@@ -65,6 +64,29 @@ class AnomalyDetector(ModelImplementation):
     def build_model(self):
         raise AbstractMethodNotImplementError
 
+    def _detect_anomaly_sample(self, score_matrix_row):
+        outlier_score = score_matrix_row[0]
+        anomaly_sample = outlier_score < 0 and abs(outlier_score) > self.anomaly_threshold
+        return anomaly_sample
+
+    def _convert_scores_to_labels(self, prob_matrix_row) -> int:
+        anomaly_sample = self._detect_anomaly_sample(prob_matrix_row)
+        return 1 if anomaly_sample else 0
+
+    def _convert_scores_to_probs(self, prob_matrix_row) -> int:
+        outlier_score = prob_matrix_row[0]
+        anomaly_sample = self._detect_anomaly_sample(prob_matrix_row)
+        prob = np.array([abs(outlier_score), 0]) if not anomaly_sample else np.array([0, abs(outlier_score)])
+        return prob
+
+    def _predict(self, input_data: InputData, output_mode: str = 'default') -> np.ndarray:
+        converted_input_data = self.convert_input_data(input_data, fit_stage=False)
+        scores = self.model_impl.score_samples(converted_input_data).reshape(-1, 1)
+        if output_mode in ['probs', 'default']:
+            return self.model_impl.score_samples(converted_input_data).reshape(-1, 1)
+        else:
+            return np.apply_along_axis(self._convert_scores_to_labels, 1, scores)
+
     def fit(self, input_data: InputData) -> None:
         self.model_impl = self.build_model()
         self.window_size = round(
@@ -73,40 +95,18 @@ class AnomalyDetector(ModelImplementation):
         self.model_impl.fit(converted_input_data)
 
     def predict(self, input_data: InputData) -> np.ndarray:
-        converted_input_data = self.convert_input_data(
-            input_data, fit_stage=False)
-        probs = self.model_impl.predict(converted_input_data).predict
-        labels = np.apply_along_axis(
-            self.convert_probs_to_labels, 1, probs).reshape(-1, 1)
-        prediction = np.zeros(converted_input_data.target.shape)
-        start_idx, end_idx = prediction.shape[0] - labels.shape[0], prediction.shape[0]
-        prediction[np.arange(start_idx, end_idx), :] = labels
-        return prediction
+        return self._predict(input_data, 'labels')
+
+    def predict_for_fit(self, input_data: InputData):
+        return self._predict(input_data)
 
     def predict_proba(self, input_data: InputData) -> np.ndarray:
-        converted_input_data = self.convert_input_data(
-            input_data, fit_stage=False)
-        probs = self.model_impl.predict(converted_input_data)
-        prediction = np.zeros(
-            (converted_input_data.target.shape[0], probs.shape[1]))
-        start_idx, end_idx = prediction.shape[0] - probs.shape[0], prediction.shape[0]
-        prediction[np.arange(start_idx, end_idx), :] = probs
-        return prediction
-
-    def convert_probs_to_labels(self, prob_matrix_row) -> int:
-        anomaly_sample = prob_matrix_row[0] < 0 and prob_matrix_row[0] < -self.anomaly_threshold
-        return 1 if anomaly_sample else 0
-
-    def _convert_scores_to_probs(self, prob_matrix_row) -> int:
-        anomaly_sample = prob_matrix_row[0] < 0
-        prob = np.array([prob_matrix_row[0], 0]) if not anomaly_sample else np.array([0, abs(prob_matrix_row[0])])
-        return prob
+        return self.score_samples(input_data)
 
     def score_samples(self, input_data: InputData) -> np.ndarray:
         converted_input_data = self.convert_input_data(input_data, fit_stage=False)
         scores = self.model_impl.score_samples(converted_input_data).reshape(-1, 1)
+        self.anomaly_threshold = self.anomaly_threshold if self.anomaly_threshold is not None \
+            else abs(np.quantile(scores, 0.01))
         prediction = np.apply_along_axis(self._convert_scores_to_probs, 1, scores)
         return prediction
-
-    def predict_for_fit(self, input_data: InputData):
-        return self.model_impl.predict(self.convert_input_data(input_data))
