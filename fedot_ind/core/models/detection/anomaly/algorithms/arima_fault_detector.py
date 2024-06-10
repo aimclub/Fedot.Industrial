@@ -58,32 +58,12 @@ class ARIMAAnomalyDetector:
 
     def fit(self, history_dataset: Union[pd.Series, pd.DataFrame],
             window: int = None, window_insensitivity: int = 100) -> pd.Series:
-        """
-        Fit ARIMA Anomaly detection
+        """Fit ARIMA Anomaly detection
 
-        Parameters
-        ----------
-        history_dataset: pd.Series or pd.DataFrame
-            The researched time series or sequences array.
-            Desire: dataset without anomalies for computing
-            appropriate weights.
-
-        window : int (default=100)
-            Time window for calculating metric.
-            It will be better if it is equal to
-            half the width of the physical process.
-
-        window_insensitivity : int (default=100)
-            Аfter the new detected changepoint,
-            the following 'window_insensitivity' points
-            is guaranteed not to be changepoints.
-
-
-        Returns
-        -------
-        bin_metric: pandas array, shape (n_samples), float
-            Labeled pandas series, where value 1 is the anomaly,
-            0 is not the anomaly.
+        Args:
+            history_dataset: researched time series or sequences array
+            window: time window for calculating metric
+            window_insensitivity: following 'window_insensitivity' points guaranteed not to be changepoints.
         """
         self.data = history_dataset
         self.indices = history_dataset.index
@@ -95,29 +75,13 @@ class ARIMAAnomalyDetector:
         return self.predict(data)
 
     def predict(self, data: Union[pd.Series, pd.DataFrame]) -> pd.Series:
-        """
-        Predicts anomalies by ARIMA
+        """Predicts anomalies by ARIMA
 
-        Parameters
-        ----------
-        data: pd.Series or pd.DataFrame
-            The researched time series or sequences array
+        Args:
+            data: researched series
 
-        window : int (default=100)
-            Time window for calculating metric.
-            It will be better if it is equal to
-            half the width of the physical process.
-
-        window_insensitivity : int (default=100)
-            Аfter the new detected changepoint,
-            the following 'window_insensitivity' points
-            is guaranteed not to be changepoints.
-
-        Returns
-        -------
-        bin_metric: pandas array, shape (n_samples), float
-            Labeled pandas series, where value 1 is the anomaly,
-            0 is not the anomaly.
+        Returns:
+            bin_metric: Labeled pandas series, where value 1 is the anomaly, 0 is not the anomaly
         """
         self.data = data
         self.indices = data.index
@@ -162,28 +126,8 @@ class ARIMAAnomalyDetector:
 
     def proc_tensor(self):
         """
-        Processing tensor of weights and calcute metric
-        and binary labels
-
-        Parameters
-        ----------
-        window : int (default=100)
-            Time window for calculating metric.
-            It will be better if it is equal to
-            half the width of the physical process.
-
-        window_insensitivity : int (default=100)
-            Аfter the new detected changepoint,
-            the following 'window_insensitivity' points
-            is guaranteed not to be changepoints.
-
-        Returns
-        -------
-        bin_metric: pandas array, shape (n_samples), float
-            Labeled pandas series, where value 1 is the anomaly,
-            0 is not the anomaly.
+        Processing tensor of weights and calcute metric and binary labels
         """
-
         tensor = self.tensor.copy()
         df = pd.DataFrame(tensor.reshape(len(tensor), -1), index=self.indices[-len(tensor):])
         scores = (df.rolling(self.window_size).max().abs() / df.rolling(self.window_size).std().abs()). \
@@ -195,25 +139,14 @@ class ARIMAAnomalyDetector:
 
 
 class OnlineTANH:
+    """A class for online arima with stochastic gradient descent and log-cosh loss function
+
+    Args:
+        order: order of autoregression
+        lrate: value of gradient descent rate
+        random_state: random_state is the random number generator
+        project: flag whether to make projection on resolved solution or not
     """
-    A class for online arima with stochastic gradient
-    descent and log-cosh loss function
-
-    Parameters
-    ----------
-    order : array-like, shape (default=4)
-        Order of autoregression
-
-    lrate : float
-        Value of gradient descent rate
-
-    random_state : int, (default=42)
-        Random_state is the random number generator
-
-    project, optional (default=True)
-        If True, make projection on resolved solution
-    """
-
     def __init__(self, order=4, lrate=0.001, random_state=42, project=True):
         self.order = order
         self.lrate = lrate
@@ -221,20 +154,12 @@ class OnlineTANH:
         self.project = project
 
     def fit(self, data, init_w=None):
+        """Fit the AR model according to the given historical data.
+
+        Args:
+            data: training data, where n_samples is the number of samples
+            init_w: initial array of weights, where n_weight is the number of weights
         """
-        Fit the AR model according to the given historical data.
-        It will be better if data represent normal operation mode
-
-        Parameters
-        ----------
-        data : array-like, shape (n_samples,)
-            Training data, where n_samples is the number of samples
-
-        init_w : array-like, shape (n_weight,), (default=None)
-            Initial array of weights, where n_weight is the number of weights
-            If None the weights are initialized randomly
-        """
-
         data = np.array(data)
         self.data = data
         np.random.seed(self.random_state)
@@ -257,25 +182,15 @@ class OnlineTANH:
         self.pred[-1] = self.w[:-1] @ data[-self.order:] + self.w[-1]
 
     def predict(self, point_get=None, predict_size=1, return_predict=True):
-        """
-        Make forecasting series from data to predict_size points
+        """Make forecasting series from data to predict_size points
 
-        Parameters
-        ----------
-        point_get : float (default=None)
-            Add new for next iteration of stochastic gradiend descent
+        Args:
+            point_get: add new for next iteration of stochastic gradient descent
+            predict_size: the number of out of sample forecasts from the end of the sample
+            return_predict: returns array of forecasting values
 
-        predict_size: float
-            The number of out of sample forecasts from the end of the sample
-
-        return_predict: bool (default=True)
-            Returns array of forecasting values
-
-        Returns
-        -------
-        If return_diff = True: data_new : array-like, shape (n_samples - sum_seasons,)
-            where sum_seasons is sum of all lags
-
+        Returns:
+            data_new: array-like, shape (n_samples - sum_seasons,) where sum_seasons is sum of all lags
         """
         if point_get is not None:
             self.data = np.append(self.data, point_get)
@@ -303,19 +218,13 @@ class OnlineTANH:
 
     @staticmethod
     def projection(w, circle=1.01):
-        """
-        Function for projection weights
+        """Function for projection weights
 
-        Parameters
-        ----------
-        w : array-like, shape (n_weights,)
-            List of initial weights, where n_weights is the number of weights
+        Args:
+            w: list of initial weights, where n_weights is the number of weights
 
-        Returns
-        -------
-        new_w : array-like, shape (n_weights,)
-            List of weights resolved solution area,
-            where n_weights is the number of weights.
+        Returns:
+            new_w: list of weights resolved solution area, where n_weights is the number of weights
         """
         w = w[::-1]
         roots = np.roots(w)
@@ -338,11 +247,7 @@ class OnlineTANH:
 class DifferentialIntegrationModule:
     """
     Differentiation and Integration Module
-
-    This class is needed to bring series to stationarity
-    and perform inverse operation.
     """
-
     def __init__(self, seasons: List[int]):
         self.seasons = seasons
 
@@ -350,18 +255,12 @@ class DifferentialIntegrationModule:
         """
         Fit the model and transform data according to the given training data.
 
-        Parameters
-        ----------
-        data : array-like, shape (n_samples,)
-            Training data, where n_samples is the number of samples
+        Args:
+            data: training data, where n_samples is the number of samples
+            return_diff: flag whether return the differentiated array or not
 
-        return_diff: optional (default=True)
-            Returns the differentiated array
-
-        Returns
-        -------
-        If return_diff = True: data_new : array-like, shape (n_samples - sum_seasons,)
-            where sum_seasons is sum of all lags
+        Returns:
+            data_new: array-like, shape (n_samples - sum_seasons,) where sum_seasons is sum of all lags
         """
 
         self.data = np.array(data)
@@ -387,16 +286,14 @@ class DifferentialIntegrationModule:
             return self.difference[len(self.seasons) - 1]
 
     def transform(self, point: float):
-        """
-        Differentiation to the series data that were
-        in method fit_transform and plus all the points that
-        were in this method.
+        """Differentiation to the series data that were in method fit_transform and plus
+        all the points that were in this method.
 
-        Returns
-        -------
-        Array-like, shape (n_samples + n*n_points - sum_seasons,)
+        Returns:
+            transformed: array with a shape (n_samples + n*n_points - sum_seasons,)
         """
-        return self.fit_transform(np.append(self.data, point), return_diff=True)[-1]
+        transformed = self.fit_transform(np.append(self.data, point), return_diff=True)[-1]
+        return transformed
 
     def inverse_fit_transform0(self):
         """
@@ -412,9 +309,8 @@ class DifferentialIntegrationModule:
 
     def inverse_transform(self, new_value: float) -> float:
         """
-        Return last element after integration.
-        (Forecasting value in initial dimension)
-       """
+        Return last element after integration (Forecasting value in initial dimension)
+        """
         self.new_value = new_value
         self.sum_instead_minuend[len(self.seasons)] = self.new_value
         for i in range(len(self.seasons) - 1, -1, -1):
