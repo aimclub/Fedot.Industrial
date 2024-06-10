@@ -16,11 +16,11 @@ class LSTMAutoEncoderDetector(AutoEncoderDetector):
     """
 
     def build_model(self):
-        return LSTMAutoEncoder(n_steps=self.n_steps, n_features=8).to(device)
+        return LSTMAutoEncoder(n_steps=self.n_steps, n_features=8, learning_rate=self.learning_rate).to(device)
 
 
 class LSTMEncoder(Module):
-    def __init__(self, n_steps, n_features, embedding_dim=100):
+    def __init__(self, n_steps: int, n_features: int, embedding_dim: int = 100):
         super(LSTMEncoder, self).__init__()
         self.n_steps, self.n_features = n_steps, n_features
         self.embedding_dim, self.hidden_dim = embedding_dim, 2 * embedding_dim
@@ -37,7 +37,7 @@ class LSTMEncoder(Module):
 
 
 class LSTMDecoder(Module):
-    def __init__(self, n_steps, input_dim=100, n_features=1):
+    def __init__(self, n_steps: int, input_dim: int = 100, n_features: int = 1):
         super(LSTMDecoder, self).__init__()
         self.n_steps, self.input_dim = n_steps, input_dim
         self.hidden_dim, self.n_features = 2 * input_dim, n_features
@@ -56,10 +56,9 @@ class LSTMDecoder(Module):
 
 
 class LSTMAutoEncoder(Module):
-    def __init__(self, n_steps, n_features, embedding_dim=100):
+    def __init__(self, n_steps: int, n_features: int, learning_rate: float = 0.001, embedding_dim: int = 100):
         super(LSTMAutoEncoder, self).__init__()
-        self.n_steps = n_steps
-        self.n_features = n_features
+        self.n_steps, self.n_features, self.learning_rate = n_steps, n_features, learning_rate
         self.encoder = LSTMEncoder(self.n_steps, self.n_features, embedding_dim)
         self.decoder = LSTMDecoder(self.n_steps, embedding_dim, self.n_features)
 
@@ -68,7 +67,7 @@ class LSTMAutoEncoder(Module):
         x = self.decoder(x)
         return x
 
-    def fit(self, dataset, epochs=100, batch_size=32, val_ratio=0.1):
+    def fit(self, dataset, epochs: int = 100, batch_size: int = 32):
         train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         criterion = MSELoss()
         optimizer = Adam(self.parameters(), lr=self.learning_rate)

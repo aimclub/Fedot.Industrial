@@ -15,12 +15,13 @@ class ConvolutionalAutoEncoderDetector(AutoEncoderDetector):
     """
 
     def build_model(self):
-        return ConvolutionalAutoEncoder(n_steps=self.n_steps).to(device)
+        return ConvolutionalAutoEncoder(n_steps=self.n_steps, learning_rate=self.learning_rate).to(device)
 
 
 class ConvolutionalAutoEncoder(Module):
-    def __init__(self, n_steps: int):
+    def __init__(self, n_steps: int, learning_rate: float = 0.001):
         super(ConvolutionalAutoEncoder, self).__init__()
+        self.learning_rate = learning_rate
         self.encoder = Sequential(
             Conv1d(in_channels=n_steps, out_channels=32, kernel_size=7, stride=2, padding=3),
             ReLU(),
@@ -43,7 +44,7 @@ class ConvolutionalAutoEncoder(Module):
         x = self.decoder(x)
         return x
 
-    def fit(self, data, epochs=100, batch_size=32, validation_split=0.1):
+    def fit(self, data, epochs: int = 100, batch_size: int = 32, validation_split: float = 0.1):
         dataset = TensorDataset(Tensor(data))
         optimizer = Adam(self.parameters(), lr=self.learning_rate)
         criterion = MSELoss()
