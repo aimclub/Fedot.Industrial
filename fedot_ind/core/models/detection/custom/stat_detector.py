@@ -8,13 +8,14 @@ from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_DETECTIO
 
 
 class StatisticalDetector(AnomalyDetector):
-    """
-    Statistical anomaly detector is build on QuantileExtractor and sklearn.OneClassSVM.
+    """Statistical anomaly detector is build on QuantileExtractor and sklearn.OneClassSVM.
 
-    Attributes
-    ----------
-    scale_ts : bool
-        A flag indicating whether to add a scaling node or not.
+    Args:
+        params: additional parameters for a statistical model
+
+            .. details:: Possible parameters:
+
+                    - ``scale_ts`` -> a flag indicating whether to add a scaling node or not
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
