@@ -1,10 +1,9 @@
-import pandas as pd
-from sympy import Symbol, poly
 from typing import Optional, Union, List
 
-from fedot.core.data.data import InputData
+import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sympy import Symbol, poly
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.detection.anomaly_detector import AnomalyDetector
@@ -24,17 +23,21 @@ class ARIMAFaultDetector(AnomalyDetector):
         self.ar_order = self.params.get('ar_order', 3)
         self.transformation_mode = 'full'
         self.transformation_type = pd.DataFrame
+        self.anomaly_threshold = None
+
+    def _convert_scores_to_labels(self, prob_matrix_row) -> int:
+        labeled_scores = self._detect_anomaly_sample(prob_matrix_row)
+        return 1 if labeled_scores else 0
+
+    def _detect_anomaly_sample(self, score_matrix_row):
+        outlier_score = score_matrix_row[0]
+        anomaly_sample = any([outlier_score > self.model_impl.upper_metric_bound,
+                              outlier_score < self.model_impl.lower_metric_bound])
+        return anomaly_sample
 
     def build_model(self):
         return ARIMAAnomalyDetector(ar_order=self.ar_order)
 
-    def predict(self, input_array: InputData) -> np.ndarray:
-        converted_input_data = self.convert_input_data(input_array, fit_stage=False)
-        prediction = np.zeros(input_array.target.shape)
-        labels = self.model_impl.predict(converted_input_data).values.reshape(-1, 1)
-        start_idx, end_idx = prediction.shape[0] - labels.shape[0], prediction.shape[0]
-        prediction[np.arange(start_idx, end_idx), :] = labels
-        return prediction
 
 
 class ARIMAAnomalyDetector:
@@ -45,9 +48,11 @@ class ARIMAAnomalyDetector:
     def __init__(self, ar_order: Optional[int] = None):
         self.ar_order = ar_order
         self.scaler = StandardScaler()
+        self.scores_scaler = MinMaxScaler()
+        self.fitted_score_scaler = False
 
     def fit(self, history_dataset: Union[pd.Series, pd.DataFrame],
-            window: int = 100, window_insensitivity: int = 100) -> pd.Series:
+            window: int = None, window_insensitivity: int = 100) -> pd.Series:
         """
         Fit ARIMA Anomaly detection
 
@@ -77,11 +82,14 @@ class ARIMAAnomalyDetector:
         """
         self.data = history_dataset
         self.indices = history_dataset.index
+        self.window_size = round(self.data.values.shape[0] * 0.1) if window is None else window
         self.generate_tensor(self.ar_order)
-        return self.proc_tensor(window=window, window_insensitivity=window_insensitivity)
+        return self.proc_tensor()
 
-    def predict(self, data: Union[pd.Series, pd.DataFrame],
-                window: int = 100, window_insensitivity: int = 100) -> pd.Series:
+    def score_samples(self, data: Union[pd.Series, pd.DataFrame]) -> pd.Series:
+        return self.predict(data)
+
+    def predict(self, data: Union[pd.Series, pd.DataFrame]) -> pd.Series:
         """
         Predicts anomalies by ARIMA
 
@@ -115,14 +123,12 @@ class ARIMAAnomalyDetector:
                            data.shape[1],
                            self.ar_order + 1))
         for i in range(data.shape[1]):
-            for value in data[:, i]:
-                new_val = self.diffrs[i].transform(value)
-                self.models[i].predict(new_val)
-
+            prediction = [self.models[i].predict(self.diffrs[i].transform(value))
+                          for value in data[:, i]]
             tensor[:, i, :] = self.models[i].dif_w.values[-len(data[:, i]):]
         self.tensor = tensor
 
-        return self.proc_tensor(window=window, window_insensitivity=window_insensitivity)
+        return self.proc_tensor()
 
     def generate_tensor(self, ar_order=None):
         """
@@ -149,7 +155,7 @@ class ARIMAAnomalyDetector:
         self.tensor = tensor
         return tensor
 
-    def proc_tensor(self, window=100, window_insensitivity=100):
+    def proc_tensor(self):
         """
         Processing tensor of weights and calcute metric
         and binary labels
@@ -175,19 +181,12 @@ class ARIMAAnomalyDetector:
 
         tensor = self.tensor.copy()
         df = pd.DataFrame(tensor.reshape(len(tensor), -1), index=self.indices[-len(tensor):])
-        metric = (df.rolling(window).max().abs() / df.rolling(window).std().abs()).mean(axis=1)
-        ucl = metric.mean() + 3 * metric.std()
-        lcl = metric.mean() - 3 * metric.std()
-        self.metric = metric
-        self.ucl = ucl
-        self.lcl = lcl
-        bin_metric = ((metric > ucl) | (metric < lcl)).astype(int)
-        winn = window_insensitivity
-        for i in range(len(bin_metric) - winn):
-            if (bin_metric.iloc[i] == 1.0) & (bin_metric[i:i + winn].sum() > 1.0):
-                bin_metric[i + 1:i + winn] = np.zeros(winn - 1)
-        self.bin_metric = bin_metric
-        return bin_metric
+        scores = (df.rolling(self.window_size).max().abs() / df.rolling(self.window_size).std().abs()). \
+            bfill().mean(axis=1)
+        self.upper_metric_bound = np.quantile(scores.values, 0.95)
+        self.lower_metric_bound = np.quantile(scores.values, 0.05)
+        scores = scores.values.reshape(-1, 1)
+        return scores
 
 
 class OnlineTANH:
@@ -402,7 +401,7 @@ class DifferentialIntegrationModule:
         j = 0
         for i in range(len(self.seasons) - 1, -1, -1):
             self.sum_instead_minuend[i] = self.sum_instead_minuend[i + 1] + self.subtrahend[i][
-                sum(self.seasons[::-1][:j]):]
+                                                                            sum(self.seasons[::-1][:j]):]
             j += 1
         return self.sum_instead_minuend[0]
 
