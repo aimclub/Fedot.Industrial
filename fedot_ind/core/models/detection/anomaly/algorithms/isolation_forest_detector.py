@@ -7,18 +7,17 @@ from fedot_ind.core.models.detection.anomaly_detector import AnomalyDetector
 
 
 class IsolationForestDetector(AnomalyDetector):
-    """
-    Isolation Forest or iForest builds an ensemble of iTrees for a given data set, then anomalies are those
+    """Isolation Forest or iForest builds an ensemble of iTrees for a given data set, then anomalies are those
     instances which have short average path lengths on the iTrees.
 
-    Attributes
-    ----------
-    random_state : int
-        The random seed used for reproducibility.
-    n_jobs : int
-        The number of CPU cores to use for parallelism.
-    contamination : float
-        The expected proportion of anomalies in the dataset.
+    Args:
+        params: additional parameters for a IsolationForest model
+
+            .. details:: Possible parameters:
+
+                    - ``random_state`` -> random seed used for reproducibility
+                    - ``n_jobs`` -> number of CPU cores to use for parallelism
+                    - ``contamination`` -> expected proportion of anomalies in the dataset
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):

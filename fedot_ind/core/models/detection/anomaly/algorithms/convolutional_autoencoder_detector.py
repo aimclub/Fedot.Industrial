@@ -10,8 +10,7 @@ device = device("cuda:0" if cuda.is_available() else "cpu")
 
 
 class ConvolutionalAutoEncoderDetector(AutoEncoderDetector):
-    """
-    A reconstruction convolutional autoencoder model to detect anomalies
+    """A reconstruction convolutional autoencoder model to detect anomalies
     in timeseries data using reconstruction error as an anomaly score.
     """
 
@@ -46,7 +45,7 @@ class ConvolutionalAutoEncoder(Module):
 
     def fit(self, data, epochs=100, batch_size=32, validation_split=0.1):
         dataset = TensorDataset(Tensor(data))
-        optimizer = Adam(self.parameters(), lr=0.001)
+        optimizer = Adam(self.parameters(), lr=self.learning_rate)
         criterion = MSELoss()
 
         num_train = len(dataset)

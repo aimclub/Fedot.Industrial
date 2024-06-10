@@ -16,9 +16,18 @@ device = device("cuda:0" if cuda.is_available() else "cpu")
 
 
 class AutoEncoderDetector(AnomalyDetector):
-    """
-    A reconstruction autoencoder model to detect anomalies
+    """A reconstruction autoencoder model to detect anomalies
     in timeseries data using reconstruction error as an anomaly score.
+
+
+    Args:
+        params: additional parameters for an encapsulated autoencoder model
+
+            .. details:: Possible parameters:
+
+                    - ``learning_rate`` -> learning rate for an optimizer
+                    - ``ucl_quantile`` -> upper control limit quantile
+                    - ``n_steps_share`` -> share of an n_steps to define n_steps window
     """
 
     def __init__(self, params: Optional[OperationParameters]):

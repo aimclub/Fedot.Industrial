@@ -11,8 +11,7 @@ device = device("cuda:0" if cuda.is_available() else "cpu")
 
 
 class LSTMAutoEncoderDetector(AutoEncoderDetector):
-    """
-    A reconstruction sequence-to-sequence (LSTM-based) autoencoder model to detect anomalies in timeseries data
+    """A reconstruction sequence-to-sequence (LSTM-based) autoencoder model to detect anomalies in timeseries data
     using reconstruction error as an anomaly score.
     """
 
@@ -72,7 +71,7 @@ class LSTMAutoEncoder(Module):
     def fit(self, dataset, epochs=100, batch_size=32, val_ratio=0.1):
         train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         criterion = MSELoss()
-        optimizer = Adam(self.parameters(), lr=1e-3)
+        optimizer = Adam(self.parameters(), lr=self.learning_rate)
 
         for epoch in range(epochs):
             for seq_true in train_loader:
