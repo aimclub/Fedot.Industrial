@@ -17,7 +17,7 @@ class ARIMAFaultDetector(AnomalyDetector):
 
 
     Args:
-        params: additional parameters for IsolationForest model
+        params: additional parameters for an ARIMA fault detector model
 
             .. details:: Possible parameters:
 
