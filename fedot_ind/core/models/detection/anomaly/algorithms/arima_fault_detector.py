@@ -147,6 +147,7 @@ class OnlineTANH:
         random_state: random_state is the random number generator
         project: flag whether to make projection on resolved solution or not
     """
+
     def __init__(self, order=4, lrate=0.001, random_state=42, project=True):
         self.order = order
         self.lrate = lrate
@@ -248,6 +249,7 @@ class DifferentialIntegrationModule:
     """
     Differentiation and Integration Module
     """
+
     def __init__(self, seasons: List[int]):
         self.seasons = seasons
 
