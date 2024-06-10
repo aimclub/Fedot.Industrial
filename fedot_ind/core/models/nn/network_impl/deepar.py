@@ -1,30 +1,28 @@
-from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from typing import Optional, Callable, Any, List, Union, Tuple
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.data.data import InputData, OutputData
-from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY
-import torch.optim as optim
-from torch.nn import LSTM, GRU, Linear, Module, RNN
-import torch
-from fedot_ind.core.models.nn.network_modules.layers.special import RevIN
-from fedot_ind.core.models.nn.network_modules.losses import (NormalDistributionLoss, CauchyDistributionLoss,
-        LogNormDistributionLoss, InverseGaussDistributionLoss, BetaDistributionLoss)
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset, convert_to_3d_torch_array
-from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
+from copy import deepcopy
+from typing import Optional, Tuple, Union
+
 import pandas as pd
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
-from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
-from fedot.core.repository.dataset_types import DataTypesEnum
+import torch
+import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
+import torch.utils.data as data
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     transform_features_and_target_into_lagged
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
-import torch.utils.data as data
+from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from torch.nn import LSTM, GRU, Linear, Module, RNN
+
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
-import torch.optim.lr_scheduler as lr_scheduler 
-from fedot.core.data.data_split import train_test_data_setup
-from copy import deepcopy
+from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_modules.layers.special import EarlyStopping
+from fedot_ind.core.models.nn.network_modules.losses import (NormalDistributionLoss, CauchyDistributionLoss,
+                                                             LogNormDistributionLoss, InverseGaussDistributionLoss,
+                                                             BetaDistributionLoss)
+from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 
 __all__ = ['DeepAR']
 
@@ -172,6 +170,7 @@ class DeepAR(BaseNeuralModel):
     Variational Inference + Probable Anomaly detection"""
 
     def __init__(self, params: Optional[OperationParameters]=None):
+        super().__init__()
         if not params:
             params = {}
         # training settings
@@ -247,11 +246,11 @@ class DeepAR(BaseNeuralModel):
                 dominant_window_size = WindowSizeSelector(
                     method='dff').get_window_size(input_data.features)
                 self.patch_len = 2 * dominant_window_size
-            train_loader, val_loader = self._get_train_val_loaders(
-                    input_data.features, self.patch_len,
-                    split_data, horizon=horizon,
-                    is_train=is_train
-                    )
+            train_loader, val_loader = self._get_train_val_loaders(input_data.features,
+                                                                   self.patch_len,
+                                                                   split_data,
+                                                                   horizon=horizon,
+                                                                   is_train=is_train)
 
         self.test_patch_len = self.patch_len
         return train_loader, val_loader
@@ -324,7 +323,6 @@ class DeepAR(BaseNeuralModel):
     def predict_for_fit(self, test_data):
         output_mode = 'predictions' 
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
-                                         stop=test_data.idx[-1] + self.forecast_length,
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
 
@@ -425,22 +423,8 @@ class DeepAR(BaseNeuralModel):
         if patch_len + horizon > train_data.features.shape[0]:
             self.patch_len = train_data.features.shape[0] - horizon
             patch_len = self.patch_len
-            print('Lowering patch_len')
-        
-        if split_data:
-            raise NotImplementedError('Problem with lagged_data splitting')
-            train_data, val_data = train_test_data_setup(
-                train_data, validation_blocks=validation_blocks)
-            _, train_data.features, train_data.target = transform_features_and_target_into_lagged(train_data,
-                                                                                                  horizon,
-                                                                                                  patch_len)
-            _, val_data.features, val_data.target = transform_features_and_target_into_lagged(val_data,
-                                                                                              horizon,
-                                                                                              patch_len)
-            val_loader = self._create_torch_loader(val_data)
-            train_loader = self._create_torch_loader(train_data)
-            return train_loader, val_loader
-        else:
+
+        if not split_data:
             _, train_data.features, train_data.target =\
                   transform_features_and_target_into_lagged(train_data,
                                                             horizon,
@@ -492,13 +476,8 @@ class DeepAR(BaseNeuralModel):
         else:
             features, target = train_data.features, train_data.target
 
-        else:
-            features, target = train_data.features, train_data.target
-
-        train_loader = torch.utils.data.DataLoader(
-            data.TensorDataset(features, target),
-            batch_size=batch_size, shuffle=False,
-            batch_size=batch_size, shuffle=False,
-            )
+        train_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
+                                                   batch_size=batch_size, shuffle=False
+                                                   )
         return train_loader
     
