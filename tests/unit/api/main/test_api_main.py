@@ -60,11 +60,12 @@ def test_fit_predict_classification_multi(fedot_industrial_classification):
     predict = fedot_industrial_classification.predict(data)
     predict_proba = fedot_industrial_classification.predict_proba(data)
     metrics = fedot_industrial_classification.get_metrics(target=data[1])
-    num_unique = np.unique(data[1])
+    np.unique(data[1])
 
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
+
 
 def test_fit_predict_classification_uni(fedot_industrial_classification):
     data = univariate_clf_data()
@@ -72,7 +73,7 @@ def test_fit_predict_classification_uni(fedot_industrial_classification):
     predict = fedot_industrial_classification.predict(data)
     predict_proba = fedot_industrial_classification.predict_proba(data)
     metrics = fedot_industrial_classification.get_metrics(target=data[1])
-    num_unique = np.unique(data[1])
+    np.unique(data[1])
 
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
