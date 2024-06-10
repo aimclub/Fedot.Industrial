@@ -32,4 +32,3 @@ class IsolationForestDetector(AnomalyDetector):
         return SklearnIsolationForest(random_state=self.random_state,
                                       n_jobs=self.n_jobs,
                                       contamination=self.contamination)
-
