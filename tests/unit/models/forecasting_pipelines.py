@@ -1,12 +1,11 @@
-
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_TSF_PIPELINE
 
-
-BENCHMARK = 'M4'
 TASK = 'ts_forecasting'
 TASK_PARAMS = {'forecast_length': 14}
-DATASET_NAME = 'D2600'
+DATASET_NAME = {'benchmark': 'M4',
+                'dataset': 'D2600',
+                'task_params': {'forecast_length': 14}}
 
 
 def test_stl_arima_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['stl_arima']):
@@ -19,7 +18,9 @@ def test_stl_arima_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['stl_arima']):
 def test_lagged_lgbm(node_list=VALID_LINEAR_TSF_PIPELINE['topological_lgbm']):
     result_dict = AbstractPipeline(
         task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
-        node_list, 'Q2124')
+        node_list, {'benchmark': 'M4',
+                    'dataset': 'Q2124',
+                    'task_params': {'forecast_length': 6}})
     assert result_dict is not None
 
 
@@ -27,7 +28,9 @@ def test_topological_tsf(
         node_list=VALID_LINEAR_TSF_PIPELINE['topological_lgbm']):
     result_dict = AbstractPipeline(
         task=TASK, task_params=TASK_PARAMS).evaluate_pipeline(
-        node_list, 'Q2124')
+        node_list, {'benchmark': 'M4',
+                    'dataset': 'Q2124',
+                    'task_params': {'forecast_length': 6}})
     assert result_dict is not None
 
 

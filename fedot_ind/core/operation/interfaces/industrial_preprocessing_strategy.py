@@ -150,16 +150,18 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             task_type=train_data.task.task_type, tags=['non_multi'])
         not_fedot_input_data = len(signature(self.operation_condition.operation_implementation.fit).parameters) > 1
         is_multi_target = is_multi_output_task(train_data)
+        model_multi_adaptation = all([is_model_not_support_multi, is_multi_target])
 
         operation_implementation = Either(value=train_data,
-                                          monoid=[train_data, all([is_model_not_support_multi, is_multi_target])]). \
+                                          monoid=[train_data, model_multi_adaptation]). \
             either(
             left_function=lambda data: self.operation_condition.operation_implementation.fit(
                 data.features, data.target) if not_fedot_input_data else
             self.operation_condition.operation_implementation.fit(data),
             right_function=lambda data:
             convert_to_multivariate_model(self.operation_condition.operation_implementation, data))
-
+        operation_implementation = operation_implementation if model_multi_adaptation \
+            else self.operation_condition.operation_implementation
         return operation_implementation
 
     def _init_impl(self, channel_params):

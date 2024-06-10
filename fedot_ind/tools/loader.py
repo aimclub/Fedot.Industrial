@@ -48,10 +48,11 @@ class DataLoader:
 
     def load_forecast_data(self, folder=None):
         loader = self.forecast_data_source[folder]
+        dataset_name = self.dataset_name['dataset']
         group_df = loader(directory='data',
-                          group=f'{M4_PREFIX[self.dataset_name[0]]}')
+                          group=f'{M4_PREFIX[dataset_name[0]]}')
         # 'M3_Monthly_M10'
-        ts_df = group_df[group_df['label'] == self.dataset_name]
+        ts_df = group_df[group_df['label'] == dataset_name]
         del ts_df['label']
         ts_df = ts_df.set_index(
             'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
@@ -87,13 +88,11 @@ class DataLoader:
         return (x_train, y_train), (x_test, y_test)
 
     def _load_benchmark_data(self, specific_strategy):
+        bench = self.dataset_name['benchmark']
         if specific_strategy == 'anomaly_detection':
-            bench = self.dataset_name['benchmark']
             self.dataset_name = self.dataset_name['dataset']
             train_data, test_data = self.load_detection_data(bench)
         elif specific_strategy == 'ts_forecasting':
-            bench = self.dataset_name['benchmark']
-            self.dataset_name = self.dataset_name['dataset']
             train_data, test_data = self.load_forecast_data(bench)
             target = train_data.values[-self.dataset_name['task_params']['forecast_length']:].flatten()
             train_data = (train_data, target)
@@ -104,11 +103,11 @@ class DataLoader:
         custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting']
         dict_dataset = isinstance(self.dataset_name, dict)
 
-        if dict_dataset:
+        if custom_strategy:
+            train_data, test_data = self._load_benchmark_data(specific_strategy)
+        elif dict_dataset:
             if 'train_data' in self.dataset_name.keys():
                 return self.dataset_name['train_data'], self.dataset_name['test_data']
-        elif custom_strategy:
-            train_data, test_data = self._load_benchmark_data(specific_strategy)
         else:
             train_data, test_data = None, None
 

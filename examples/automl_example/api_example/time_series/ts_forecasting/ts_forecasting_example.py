@@ -4,7 +4,8 @@ from fedot_ind.tools.example_utils import industrial_common_modelling_loop
 
 if __name__ == "__main__":
     dataset_name = {'benchmark': 'M4',
-                    'dataset': 'D3257'}
+                    'dataset': 'D3257',
+                    'task_params': {'forecast_length': 14}}
     finetune = False
     initial_assumptions = {
         'nbeats': PipelineBuilder().add_node('nbeats_model'),

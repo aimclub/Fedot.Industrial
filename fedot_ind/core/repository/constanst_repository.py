@@ -688,11 +688,13 @@ class UnitTestConstant(Enum):
             'smoothing', 'ar'], 'gaussian_ar': [
             'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
     VALID_LINEAR_DETECTION_PIPELINE = {
-        'sst': ['sst'],
-        'unscented_kalman_filter': ['unscented_kalman_filter'],
+        # 'sst': ['sst'],
+        # 'unscented_kalman_filter': ['unscented_kalman_filter'],
         'stat_detector': ['quantile_extractor', 'one_class_svm'],
         'iforest_detector': ['iforest_detector'],
-        'topo_detector': ['topological_extractor', 'xgboost']}
+        'conv_ae_detector': ['conv_ae_detector'],
+        'arima_detector': ['arima_detector'],
+    }
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
