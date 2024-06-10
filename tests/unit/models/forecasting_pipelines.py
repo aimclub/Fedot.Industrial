@@ -1,11 +1,11 @@
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_TSF_PIPELINE
 
-
-BENCHMARK = 'M4'
 TASK = 'ts_forecasting'
 TASK_PARAMS = {'forecast_length': 14}
-DATASET_NAME = 'D2600'
+DATASET_NAME = {'benchmark': 'M4',
+                'dataset': 'D2600',
+                'task_params': {'forecast_length': 14}}
 
 
 def test_stl_arima_tsf(node_list=VALID_LINEAR_TSF_PIPELINE['stl_arima']):
