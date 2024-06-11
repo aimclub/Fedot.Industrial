@@ -1,5 +1,9 @@
+from collections import OrderedDict
+from typing import Optional
+
+from fedot.core.operations.operation_parameters import OperationParameters
 from torch import Tensor, cuda, device, no_grad
-from torch.nn import Conv1d, ConvTranspose1d, Dropout, Module, MSELoss, Sequential, ReLU
+from torch.nn import Conv1d, ConvTranspose1d, Module, MSELoss, Sequential, ReLU
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 
@@ -15,36 +19,73 @@ class ConvolutionalAutoEncoderDetector(AutoEncoderDetector):
     """
 
     def build_model(self):
-        return ConvolutionalAutoEncoder(n_steps=self.n_steps, learning_rate=self.learning_rate).to(device)
+        CAE_params = dict(n_steps=self.n_steps,
+                          learning_rate=self.learning_rate)
+        return ConvolutionalAutoEncoder(CAE_params).to(device)
 
 
 class ConvolutionalAutoEncoder(Module):
-    def __init__(self, n_steps: int, learning_rate: float = 0.001):
+    def __init__(self,
+                 params: Optional[OperationParameters] = None):
         super(ConvolutionalAutoEncoder, self).__init__()
-        self.learning_rate = learning_rate
-        self.encoder = Sequential(
-            Conv1d(in_channels=n_steps, out_channels=32, kernel_size=7, stride=2, padding=3),
-            ReLU(),
-            Dropout(0.2),
-            Conv1d(in_channels=32, out_channels=16, kernel_size=7, stride=2, padding=3),
-            ReLU()
-        )
+        self.learning_rate = params.get('learning_rate', 0.001)
+        self.n_steps = params.get('n_steps', 10)
+        self.encoder_layers = params.get('num_encoder_layers', 2)
+        self.decoder_layers = params.get('num_decoder_layers', 2)
+        self.latent_layer_params = params.get('latent_layer', 16)
+        self.convolutional_params = params.get('convolutional_params',
+                                               dict(kernel_size=7, stride=2, padding=3))
+        self.activation_func = params.get('act_func', ReLU)
+        self.dropout_rate = params.get('dropout_rate', 0.5)
+        self._build_encoder()
+        self._build_decoder()
 
-        self.decoder = Sequential(
-            ConvTranspose1d(in_channels=16, out_channels=16, kernel_size=7, stride=2, padding=3, output_padding=1),
-            ReLU(),
-            Dropout(0.2),
-            ConvTranspose1d(in_channels=16, out_channels=32, kernel_size=7, stride=2, padding=3, output_padding=1),
-            ReLU(),
-            ConvTranspose1d(in_channels=32, out_channels=n_steps, kernel_size=7, stride=1, padding=3)
-        )
+    def _build_encoder(self):
+        encoder_layer_dict = OrderedDict()
+        for i in range(self.encoder_layers):
+            if i == 0:
+                in_channels = self.n_steps
+                out_channels = self.latent_layer_params
+            elif i == self.encoder_layers - 1:
+                out_channels = self.latent_layer_params
+            else:
+                out_channels = 32
+            encoder_layer_dict.update({f'conv{i}': Conv1d(in_channels=in_channels,
+                                                          out_channels=out_channels,
+                                                          **self.convolutional_params)})
+            encoder_layer_dict.update({f'relu{i}': self.activation_func()})
+            in_channels = out_channels
+        self.encoder = Sequential(encoder_layer_dict)
+
+    def _build_decoder(self):
+        decoder_layer_dict = OrderedDict()
+        for i in range(self.decoder_layers):
+            if i == 0:
+                in_channels = self.latent_layer_params
+                out_channels = self.n_steps
+            elif i == self.encoder_layers - 1:
+                out_channels = self.n_steps
+            else:
+                out_channels = 32
+
+            decoder_layer_dict.update({f'conv{i}':
+                                           ConvTranspose1d(in_channels=in_channels,
+                                                           out_channels=out_channels,
+                                                           output_padding=1, **self.convolutional_params)})
+            decoder_layer_dict.update({f'relu{i}': self.activation_func()})
+            in_channels = out_channels
+        self.decoder = Sequential(decoder_layer_dict)
 
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
 
-    def fit(self, data, epochs: int = 100, batch_size: int = 32, validation_split: float = 0.1):
+    def fit(self,
+            data,
+            epochs: int = 100,
+            batch_size: int = 32,
+            validation_split: float = 0.1):
         dataset = TensorDataset(Tensor(data))
         optimizer = Adam(self.parameters(), lr=self.learning_rate)
         criterion = MSELoss()
@@ -72,7 +113,7 @@ class ConvolutionalAutoEncoder(Module):
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-
+            print(f'Loss- {loss}')
             self.eval()
             valid_loss = 0.0
             with no_grad():
@@ -87,3 +128,9 @@ class ConvolutionalAutoEncoder(Module):
             data_torch = Tensor(data)
             predictions = self.forward(data_torch)
             return predictions.numpy()
+
+    def score_samples(self, data):
+        train_prediction = self.predict(data)
+        residuals = np.abs(data - train_prediction)
+        residuals = np.mean(residuals, axis=1).sum(axis=1)
+        return residuals

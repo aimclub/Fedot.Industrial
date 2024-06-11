@@ -84,13 +84,27 @@ class AnomalyDetector(ModelImplementation):
         prob = np.array([abs(outlier_score), 0]) if not anomaly_sample else np.array([0, abs(outlier_score)])
         return prob
 
+    def _convert_to_output(self,
+                           input_data: InputData,
+                           predict: np.array,
+                           data_type: DataTypesEnum = DataTypesEnum.table):
+        if input_data.features.shape[0] == predict.shape[0]:
+            return predict
+        else:
+            prediction = np.zeros((input_data.features.shape[0], predict.shape[1]))
+            start_idx = prediction.shape[0] - predict.shape[0]
+            prediction[start_idx:, :] = predict
+            return prediction
+
     def _predict(self, input_data: InputData, output_mode: str = 'default') -> np.ndarray:
         converted_input_data = self.convert_input_data(input_data, fit_stage=False)
         scores = self.model_impl.score_samples(converted_input_data).reshape(-1, 1)
         if output_mode in ['probs', 'default']:
-            return self.model_impl.score_samples(converted_input_data).reshape(-1, 1)
+            return scores
         else:
-            return np.apply_along_axis(self._convert_scores_to_labels, 1, scores)
+            prediction = np.apply_along_axis(self._convert_scores_to_labels, 1, scores).reshape(-1, 1)
+            prediction = self._convert_to_output(input_data, prediction)
+            return prediction
 
     def fit(self, input_data: InputData) -> None:
         self.model_impl = self.build_model()
@@ -114,4 +128,5 @@ class AnomalyDetector(ModelImplementation):
         self.anomaly_threshold = self.anomaly_threshold if self.anomaly_threshold is not None \
             else abs(np.quantile(scores, 0.01))
         prediction = np.apply_along_axis(self._convert_scores_to_probs, 1, scores)
+        prediction = self._convert_to_output(input_data, prediction)
         return prediction
