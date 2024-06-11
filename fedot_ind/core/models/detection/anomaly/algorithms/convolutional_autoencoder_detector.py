@@ -69,9 +69,9 @@ class ConvolutionalAutoEncoder(Module):
                 out_channels = 32
 
             decoder_layer_dict.update({f'conv{i}':
-                                           ConvTranspose1d(in_channels=in_channels,
-                                                           out_channels=out_channels,
-                                                           output_padding=1, **self.convolutional_params)})
+                                       ConvTranspose1d(in_channels=in_channels,
+                                                       out_channels=out_channels,
+                                                       output_padding=1, **self.convolutional_params)})
             decoder_layer_dict.update({f'relu{i}': self.activation_func()})
             in_channels = out_channels
         self.decoder = Sequential(decoder_layer_dict)
