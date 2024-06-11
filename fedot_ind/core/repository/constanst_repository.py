@@ -690,10 +690,10 @@ class UnitTestConstant(Enum):
     VALID_LINEAR_DETECTION_PIPELINE = {
         # 'sst': ['sst'],
         # 'unscented_kalman_filter': ['unscented_kalman_filter'],
-        'stat_detector': ['quantile_extractor', 'one_class_svm'],
+        'stat_detector': ['stat_detector'],
         'iforest_detector': ['iforest_detector'],
         'conv_ae_detector': ['conv_ae_detector'],
-        'arima_detector': ['arima_detector'],
+        'arima_detector': ['arima_detector']
     }
 
 
