@@ -4,7 +4,7 @@ from fedot_ind.api.main import FedotIndustrial
 
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
-STRATEGY = ['federated_automl', 'lora_strategy', 'kernel_automl', 'forecasting_assumptions', 'forecasting_exogenous']
+STRATEGY = ['federated_automl', 'lora_strategy', 'kernel_automl', 'forecasting_assumptions']
 
 CONFIGS = {'federated_automl': {'problem': 'classification',
                                 'metric': 'f1',
