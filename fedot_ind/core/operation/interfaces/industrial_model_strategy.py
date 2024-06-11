@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -5,13 +6,13 @@ from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStrategy
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
-import warnings
+
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
     IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
-    SKLEARN_REG_MODELS
+    SKLEARN_REG_MODELS, ANOMALY_DETECTION_MODELS
 
 
 class FedotNNClassificationStrategy(EvaluationStrategy):
@@ -150,10 +151,8 @@ class IndustrialSkLearnEvaluationStrategy(
 
     def predict(self, trained_operation, predict_data: InputData,
                 output_mode: str = 'default') -> OutputData:
-        predict_data = self.multi_dim_dispatcher._convert_input_data(
-            predict_data)
-        return self.multi_dim_dispatcher.predict(
-            trained_operation, predict_data, output_mode=output_mode)
+        predict_data = self.multi_dim_dispatcher._convert_input_data(predict_data)
+        return self.multi_dim_dispatcher.predict(trained_operation, predict_data, output_mode=output_mode)
 
     def predict_for_fit(
             self,
@@ -260,3 +259,15 @@ class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
     def fit(self, train_data: InputData):
         train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
         return self.multi_dim_dispatcher.fit(train_data)
+
+
+class IndustrialAnomalyDetectionStrategy(
+        IndustrialSkLearnClassificationStrategy):
+    """ Strategy for applying classification algorithms from Sklearn library """
+    _operations_by_types = ANOMALY_DETECTION_MODELS
+
+    def __init__(
+            self,
+            operation_type: str,
+            params: Optional[OperationParameters] = None):
+        super().__init__(operation_type, params)

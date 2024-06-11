@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Union
 
 import pandas as pd
+from pymonad.either import Either
 from sklearn.metrics import f1_score, roc_auc_score
 
 from fedot_ind.api.main import FedotIndustrial
@@ -97,27 +98,25 @@ def industrial_common_modelling_loop(
             'rmse',
             'mae')):
     industrial = FedotIndustrial(**api_config)
-    if api_config['problem'] == 'ts_forecasting':
-        train_data, _ = DataLoader(
-            dataset_name=dataset_name['dataset']).load_forecast_data(
-            dataset_name['benchmark'])
-        target = train_data.values[-api_config['task_params']
-                                   ['forecast_length']:].flatten()
-        train_data = (train_data, target)
-        test_data = train_data
-    else:
-        train_data, test_data = DataLoader(
-            dataset_name=dataset_name).load_data()
-    if finetune:
-        industrial.finetune(train_data, tuning_params={
-            'tuning_timeout': api_config['timeout']})
-    else:
-        industrial.fit(train_data)
+    dataset_is_dict = isinstance(dataset_name, dict)
+    custom_dataset_strategy = api_config['industrial_strategy'] if 'industrial_strategy' in api_config.keys() \
+        else api_config['problem'] if api_config['problem'] == 'ts_forecasting' else None
+    loader = DataLoader(dataset_name=dataset_name)
+
+    train_data, test_data = Either(value=dataset_name,
+                                   monoid=[dataset_name,
+                                           dataset_is_dict]). \
+        either(left_function=loader.load_data,
+               right_function=lambda dataset_dict: loader.load_custom_data(custom_dataset_strategy))
+
+    Either(value=train_data, monoid=[dict(train_data=train_data,
+                                          tuning_params={'tuning_timeout': api_config['timeout']}),
+                                     not finetune]). \
+        either(left_function=lambda tuning_data: industrial.finetune(**tuning_data),
+               right_function=industrial.fit)
 
     labels = industrial.predict(test_data)
-    if api_config['problem'] != 'ts_forecasting':
-        industrial.predict_proba(test_data)
-
+    industrial.predict_proba(test_data)
     metrics = industrial.get_metrics(target=test_data[1],
                                      rounding_order=3,
                                      metric_names=metric_names)

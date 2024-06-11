@@ -220,9 +220,8 @@ class PoolingLayer(Module):
         elif self.method == 'mean':
             return torch.mean(x, -1) if self.seq_last else torch.mean(x, 1)
         elif self.method == 'max-mean':
-            return torch.cat([torch.max(x, -
-                                        1)[0] if self.seq_last else torch.max(x, 1)[0], torch.mean(x, -
-                                                                                                   1) if self.seq_last else torch.mean(x, 1)], 1)
+            return torch.cat([torch.max(x, - 1)[0] if self.seq_last else torch.max(x, 1)[0],
+                             torch.mean(x, - 1) if self.seq_last else torch.mean(x, 1)], 1)
         elif self.method == 'flatten':
             return x.flatten(1)
         elif self.method == 'linear' or self.method == 'conv1d':

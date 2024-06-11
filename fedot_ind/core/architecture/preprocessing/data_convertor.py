@@ -12,10 +12,16 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
 from sklearn.preprocessing import LabelEncoder
+from sklearn.svm import OneClassSVM
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
+from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
+from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
+    ConvolutionalAutoEncoderDetector
+from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
+from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.repository.constanst_repository import MATRIX, MULTI_ARRAY
 
 
@@ -82,6 +88,7 @@ class CustomDatasetCLF:
 class FedotConverter:
     def __init__(self, data):
         self.input_data = self.convert_to_input_data(data)
+        self.data_type_condition = DataConverter(data=data)
 
     def convert_to_input_data(self, data):
         if isinstance(data, InputData):
@@ -172,9 +179,6 @@ class FedotConverter:
                 array.reshape(array.shape[0], array.shape[1] * array.shape[2])
                 if array is not None and len(array.shape) > 2 else array
                 for array in [self.input_data.features, self.input_data.target]]
-            # if new_features.shape[0] != new_target.shape[0]:
-            #     min_samples = min(new_features.shape[0], new_target.shape[0])
-            #     new_features, new_target = new_features[:min_samples], new_target[:min_samples]
             input_data = InputData(
                 idx=self.input_data.idx,
                 features=new_features,
@@ -184,14 +188,15 @@ class FedotConverter:
                 supplementary_data=self.input_data.supplementary_data)
         elif mode == 'channel_independent':
             feats = self.input_data.features
-            flat_input = self.input_data.features.shape[0] == 1
-            if len(self.input_data.features.shape) == 1:
-                feats = self.input_data.features.reshape(1, -1)
-            elif len(self.input_data.features.shape) == 3 and self.input_data.features.shape[0] == 1:
-                feats = self.input_data.features.reshape(
-                    self.input_data.features.shape[1],
-                    1 * self.input_data.features.shape[2])
-            elif not flat_input:
+            if self.data_type_condition.is_numpy_flatten:
+                feats = feats.reshape(1, -1)
+            elif self.data_type_condition.is_numpy_tensor and self.data_type_condition.have_one_sample:
+                feats = feats.reshape(
+                    feats.shape[1],
+                    1 * feats.shape[2])
+            elif self.data_type_condition.is_numpy_tensor and self.data_type_condition.have_one_channel:
+                feats = feats.squeeze().swapaxes(1, 0)
+            elif not self.data_type_condition.have_one_sample:
                 feats = self.input_data.features.swapaxes(1, 0)
             input_data = [
                 InputData(
@@ -220,7 +225,7 @@ class TensorConverter:
         self.tensor_data = self.convert_to_tensor(data)
 
     def convert_to_tensor(self, data):
-        if isinstance(data, tuple):
+        if isinstance(data, tuple) or isinstance(data, list):
             data = data[0]
 
         if isinstance(data, torch.Tensor):
@@ -269,6 +274,8 @@ class TensorConverter:
 class NumpyConverter:
     def __init__(self, data):
         self.numpy_data = self.convert_to_array(data)
+        if self.numpy_data.ndim > 3:
+            self.numpy_data = self.numpy_data.squeeze()
         self.numpy_data = np.where(
             np.isnan(self.numpy_data), 0, self.numpy_data)
         self.numpy_data = np.where(
@@ -342,19 +349,25 @@ class NumpyConverter:
                                            self.numpy_data.shape[2])
 
     def convert_to_torch_format(self):
+        add_1_channel = self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1
+        add_1_sample = self.numpy_data.ndim == 2 and self.numpy_data.shape[1] != 1
+        matrix_type = self.numpy_data.ndim == 2 and all([self.numpy_data.shape[0] != 1,
+                                                         self.numpy_data.shape[1] != 1])
         if self.numpy_data.ndim == 3:
             return self.numpy_data
         elif self.numpy_data.ndim == 1:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            1)
-        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] != 1:
-            # add 1 channel
+        elif matrix_type:
             return self.numpy_data.reshape(self.numpy_data.shape[0],
                                            1,
                                            self.numpy_data.shape[1])
-        elif self.numpy_data.ndim == 2 and self.numpy_data.shape[0] == 1:
-            # add 1 channel
+        elif add_1_sample:
+            return self.numpy_data.reshape(1,
+                                           self.numpy_data.shape[0],
+                                           self.numpy_data.shape[1])
+        elif add_1_channel:
             return self.numpy_data.reshape(1,
                                            1,
                                            self.numpy_data.shape[1])
@@ -408,8 +421,30 @@ class ConditionConverter:
         return self.mode == 'multi_dimensional'
 
     @property
-    def is_list_container(self):
+    def is_one_class_operation(self):
+        detector_models = (IsolationForestDetector,
+                           OneClassSVM,
+                           StatisticalDetector,
+                           ARIMAFaultDetector,
+                           ConvolutionalAutoEncoderDetector,
+                           )
+        return isinstance(self.operation_implementation, detector_models)
+
+    @property
+    def is_industrial_detector(self):
+        return isinstance(self.operation_implementation, IsolationForestDetector)
+
+    @property
+    def is_sklearn_detector(self):
+        return isinstance(self.operation_implementation, OneClassSVM)
+
+    @property
+    def input_data_is_list_container(self):
         return type(self.train_data) is list
+
+    @property
+    def input_data_is_fedot_data(self):
+        return isinstance(self.train_data, InputData)
 
     @property
     def is_operation_is_list_container(self):
@@ -429,17 +464,23 @@ class ConditionConverter:
 
     @property
     def is_transform_input_fedot(self):
-        return str(
-            list(
-                signature(
-                    self.operation_example.transform).parameters.keys())[0]) == 'input_data'
+        if self.have_transform_method:
+            return str(
+                list(
+                    signature(
+                        self.operation_example.transform).parameters.keys())[0]) == 'input_data'
+        else:
+            False
 
     @property
     def is_predict_input_fedot(self):
-        return str(
-            list(
-                signature(
-                    self.operation_example.predict).parameters.keys())[0]) == 'input_data'
+        if self.have_predict_method:
+            return str(
+                list(
+                    signature(
+                        self.operation_example.predict).parameters.keys())[0]) == 'input_data'
+        else:
+            False
 
     @property
     def is_regression_of_forecasting_task(self):
@@ -458,29 +499,21 @@ class ConditionConverter:
     def solver_is_none(self):
         return self.operation_example is None
 
-    def output_mode_converter(self, output_mode, n_classes):
-        if output_mode == 'labels':
-            return self.operation_example.predict(
-                self.train_data.features).reshape(-1, 1)
+    def output_mode_converter(self, predict_data, output_mode, n_classes):
+        if output_mode == 'labels' and self.is_regression_of_forecasting_task:
+            prediction = self.operation_example.predict(predict_data).reshape(-1, 1)
+        elif output_mode == 'labels':
+            prediction = self.operation_example.predict(predict_data)
+        elif n_classes == 1 and output_mode in ['default', 'probs']:
+            prediction = self.operation_example.score_samples(predict_data)
         else:
-            return self.probs_prediction_converter(output_mode, n_classes)
+            prediction = self.operation_example.predict_proba(predict_data)
+            # prediction self.operation_example.predict_proba(predict_data.T)
 
-    def probs_prediction_converter(self, output_mode, n_classes):
-        try:
-            prediction = self.operation_example.predict_proba(
-                self.train_data.features)
-        except Exception:
-            prediction = self.operation_example.predict_proba(
-                self.train_data.features.T)
-        if n_classes < 2:
-            raise ValueError(
-                'Data set contain only 1 target class. Please reformat your data.')
-        elif n_classes == 2 and output_mode != 'probs':
-            if self.is_multi_output_target:
-                prediction = np.stack([pred[:, 1]
-                                       for pred in prediction]).T
-            else:
-                prediction = prediction[:, 1]
+        # if n_classes == 2 and output_mode != 'probs':
+        #     prediction = np.stack([pred[:, 1] for pred in prediction]).T \
+        #             if self.is_multi_output_target else prediction[:, 1]
+
         return prediction
 
 
@@ -536,8 +569,36 @@ class DataConverter(TensorConverter, NumpyConverter):
         return isinstance(self.data, np.ndarray)
 
     @property
-    def is_tensor(self):
+    def is_pandas_series(self):
+        return isinstance(self.data, pd.Series)
+
+    @property
+    def is_list(self):
+        return isinstance(self.data, list)
+
+    @property
+    def is_torch_tensor(self):
         return isinstance(self.data, torch.Tensor)
+
+    @property
+    def have_one_sample(self):
+        return self.numpy_data.shape[0] == 1
+
+    @property
+    def have_one_channel(self):
+        return self.numpy_data.shape[1] == 1
+
+    @property
+    def is_numpy_tensor(self):
+        return len(self.numpy_data.shape) == 3
+
+    @property
+    def is_numpy_matrix(self):
+        return len(self.numpy_data.shape) == 2
+
+    @property
+    def is_numpy_flatten(self):
+        return len(self.numpy_data.shape) == 1
 
     @property
     def is_zarr(self):
@@ -571,7 +632,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         return self.data is None
 
     @property
-    def is_fedot_data(self):
+    def input_data_is_fedot_data(self):
         return isinstance(self.data, InputData)
 
     @property
@@ -622,7 +683,7 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_tensor()
 
     def convert_to_monad_data(self):
-        if self.is_fedot_data:
+        if self.input_data_is_fedot_data:
             features = np.array(ListMonad(*self.data.features.tolist()).value)
         else:
             features = np.array(ListMonad(*self.data.tolist()).value)
@@ -636,7 +697,7 @@ class DataConverter(TensorConverter, NumpyConverter):
         return features
 
     def convert_to_eigen_basis(self):
-        if self.is_fedot_data:
+        if self.input_data_is_fedot_data:
             features = self.data.features
         else:
             features = np.array(ListMonad(*self.data.values.tolist()).value)

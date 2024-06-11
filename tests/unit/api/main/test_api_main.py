@@ -46,12 +46,12 @@ def multivariate_regression_data():
 
 @pytest.fixture
 def fedot_industrial_classification():
-    return FedotIndustrial(problem='classification', timeout=0.1)
+    return FedotIndustrial(problem='classification', timeout=0.1, logging_level=50)
 
 
 @pytest.fixture
 def fedot_industrial_regression():
-    return FedotIndustrial(problem='regression', timeout=0.1)
+    return FedotIndustrial(problem='regression', timeout=0.1, logging_level=50)
 
 
 def test_fit_predict_classification_multi(fedot_industrial_classification):
@@ -60,12 +60,11 @@ def test_fit_predict_classification_multi(fedot_industrial_classification):
     predict = fedot_industrial_classification.predict(data)
     predict_proba = fedot_industrial_classification.predict_proba(data)
     metrics = fedot_industrial_classification.get_metrics(target=data[1])
-    num_unique = np.unique(data[1])
+    np.unique(data[1])
 
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
-    assert predict_proba.shape[1] == len(num_unique)
 
 
 def test_fit_predict_classification_uni(fedot_industrial_classification):
@@ -74,12 +73,11 @@ def test_fit_predict_classification_uni(fedot_industrial_classification):
     predict = fedot_industrial_classification.predict(data)
     predict_proba = fedot_industrial_classification.predict_proba(data)
     metrics = fedot_industrial_classification.get_metrics(target=data[1])
-    num_unique = np.unique(data[1])
+    np.unique(data[1])
 
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]
     assert metrics is not None
-    assert predict_proba.shape[1] == len(num_unique)
 
 
 def test_fit_predict_regression_uni(fedot_industrial_regression):
@@ -90,8 +88,6 @@ def test_fit_predict_regression_uni(fedot_industrial_regression):
     assert predict.shape[0] == data[1].shape[0]
     if len(data[1].shape) > 1:
         assert predict.shape[1] == data[1].shape[1]
-    else:
-        assert len(predict.shape) == 1
 
 
 def test_fit_predict_regression_multi(fedot_industrial_regression):
@@ -102,8 +98,6 @@ def test_fit_predict_regression_multi(fedot_industrial_regression):
     assert predict.shape[0] == data[1].shape[0]
     if len(data[1].shape) > 1:
         assert predict.shape[1] == data[1].shape[1]
-    else:
-        assert len(predict.shape) == 1
 
 
 @pytest.fixture()

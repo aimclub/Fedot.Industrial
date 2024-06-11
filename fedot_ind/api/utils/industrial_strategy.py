@@ -14,7 +14,6 @@ from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS, \
     FEDOT_TASK
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 class IndustrialStrategy:
@@ -52,7 +51,6 @@ class IndustrialStrategy:
         self.random_label = None
         self.config_dict = api_config
         self.logger = logger
-        self.repo = IndustrialModels().setup_repository()
         self.kernel_ensembler = KernelEnsembler
         self.RAF_workers = None
         self.solver = None

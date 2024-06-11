@@ -4,6 +4,7 @@ from multiprocessing import cpu_count
 
 import numpy as np
 import pywt
+import spectrum
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -15,7 +16,7 @@ from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, ch
 from torch import nn
 
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
-    calculate_forecasting_metric
+    calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
 from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
@@ -123,6 +124,16 @@ class FeatureConstant(Enum):
                     'minkowski': minkowski
                     }
 
+    SPECTRUM_ESTIMATORS = dict(ma=spectrum.ma,
+                               non_parametric=spectrum.Periodogram,
+                               parma=spectrum.parma,
+                               yule=spectrum.pyule,
+                               burg=spectrum.pburg,
+                               covar=spectrum.pcovar,
+                               minvar=spectrum.pminvar,
+                               eigen=spectrum.pev,
+                               )
+
     PERSISTENCE_DIAGRAM_FEATURES = {
         'HolesNumberFeature': HolesNumberFeature(),
         'MaxHoleLifeTimeFeature': MaxHoleLifeTimeFeature(),
@@ -151,13 +162,33 @@ class FedotOperationConstant(Enum):
         'classification': Task(
             TaskTypesEnum.classification), 'regression': Task(
             TaskTypesEnum.regression), 'ts_forecasting': Task(
-                TaskTypesEnum.ts_forecasting, TsForecastingParams(
-                    forecast_length=1))}
+            TaskTypesEnum.ts_forecasting, TsForecastingParams(
+                forecast_length=1)), 'anomaly_detection': Task(
+            TaskTypesEnum.classification)}
     EXCLUDED_OPERATION_MUTATION = {
         'regression': ['inception_model',
                        'resnet_model',
                        'recurrence_extractor',
                        ],
+        'anomaly_detection': ['inception_model',
+                              'resnet_model',
+                              'recurrence_extractor',
+                              'xgbreg',
+                              'sgdr',
+                              'kernel_pca',
+                              'resample',
+                              'inception_model',
+                              'simple_imputation',
+                              'channel_filtration',
+                              'recurrence_extractor',
+                              'quantile_extractor',
+                              'riemann_extractor',
+                              'minirocket_extractor',
+                              'treg',
+                              'knnreg',
+                              'resnet_model',
+                              'dtreg'
+                              ],
         'ts_forecasting': [
             'xgbreg',
             'sgdr',
@@ -218,11 +249,17 @@ class FedotOperationConstant(Enum):
         with_tuning=True)
     FEDOT_GET_METRICS = {'regression': calculate_regression_metric,
                          'ts_forecasting': calculate_forecasting_metric,
-                         'classification': calculate_classification_metric}
+                         'classification': calculate_classification_metric,
+                         'anomaly_detection': calculate_detection_metric
+                         }
     FEDOT_TUNING_METRICS = {
         'classification': ClassificationMetricsEnum.accuracy,
         'ts_forecasting': RegressionMetricsEnum.RMSE,
         'regression': RegressionMetricsEnum.RMSE}
+    FEDOT_DATA_TYPE = {
+        'tensor': DataTypesEnum.image,
+        'time_series': DataTypesEnum.ts,
+        'table': DataTypesEnum.table}
     FEDOT_TUNER_STRATEGY = {
         'optuna': OptunaTuner
     }
@@ -240,6 +277,14 @@ class FedotOperationConstant(Enum):
         'mlp',
         'kernel_pca']
 
+    AVAILABLE_ANOMALY_DETECTION_OPERATIONS = [
+        'sst',
+        'unscented_kalman_filter',
+        'channel_filtration',
+        'gaussian_filter',
+        'smoothing'
+    ]
+
     AVAILABLE_REG_OPERATIONS = [
         'scaling',
         'normalization',
@@ -250,8 +295,10 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration'). add_node('quantile_extractor').add_node('xgboost'),
+        'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
+            'xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
+        'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node(
             'eigen_basis',
             params={
@@ -613,33 +660,41 @@ class UnitTestConstant(Enum):
         'eigen_statistical': [
             'eigen_basis', 'quantile_extractor', 'logit'], 'channel_filtration_statistical': [
             'channel_filtration', 'quantile_extractor', 'logit'], 'fourier_statistical': [
-                'fourier_basis', 'quantile_extractor', 'logit'], 'wavelet_statistical': [
-                    'wavelet_basis', 'quantile_extractor', 'logit'], 'recurrence_clf': [
-                        'recurrence_extractor', 'logit'], 'riemann_clf': [
-                            'riemann_extractor', 'logit'], 'topological_clf': [
-                                'topological_extractor', 'logit'], 'statistical_clf': [
-                                    'quantile_extractor', 'logit'], 'statistical_lgbm': [
-                                        'quantile_extractor', 'lgbm'], 'composite_clf': {
-                                            0: ['quantile_extractor'], 1: ['riemann_extractor'], 2: [
-                                                'fourier_basis', 'quantile_extractor'], 'head': 'mlp'}}
+            'fourier_basis', 'quantile_extractor', 'logit'], 'wavelet_statistical': [
+            'wavelet_basis', 'quantile_extractor', 'logit'], 'recurrence_clf': [
+            'recurrence_extractor', 'logit'], 'riemann_clf': [
+            'riemann_extractor', 'logit'], 'topological_clf': [
+            'topological_extractor', 'logit'], 'statistical_clf': [
+            'quantile_extractor', 'logit'], 'statistical_lgbm': [
+            'quantile_extractor', 'lgbm'], 'composite_clf': {
+            0: ['quantile_extractor'], 1: ['riemann_extractor'], 2: [
+                'fourier_basis', 'quantile_extractor'], 'head': 'mlp'}}
     VALID_LINEAR_REG_PIPELINE = {
         'eigen_statistical_reg': [
             'eigen_basis', 'quantile_extractor', 'treg'], 'channel_filtration_statistical_reg': [
             'channel_filtration', 'quantile_extractor', 'treg'], 'fourier_statistical_reg': [
-                'fourier_basis', 'quantile_extractor', 'treg'], 'wavelet_statistical_reg': [
-                    'wavelet_basis', 'quantile_extractor', 'treg'], 'recurrence_reg': [
-                        'recurrence_extractor', 'treg'], 'topological_reg': [
-                            'topological_extractor', 'treg'], 'statistical_reg': [
-                                'quantile_extractor', 'treg'], 'statistical_lgbmreg': [
-                                    'quantile_extractor', 'lgbmreg'], 'composite_reg': {
-                                        0: ['quantile_extractor'], 1: ['topological_extractor'], 2: [
-                                            'fourier_basis', 'quantile_extractor'], 'head': 'treg'}}
+            'fourier_basis', 'quantile_extractor', 'treg'], 'wavelet_statistical_reg': [
+            'wavelet_basis', 'quantile_extractor', 'treg'], 'recurrence_reg': [
+            'recurrence_extractor', 'treg'], 'topological_reg': [
+            'topological_extractor', 'treg'], 'statistical_reg': [
+            'quantile_extractor', 'treg'], 'statistical_lgbmreg': [
+            'quantile_extractor', 'lgbmreg'], 'composite_reg': {
+            0: ['quantile_extractor'], 1: ['topological_extractor'], 2: [
+                'fourier_basis', 'quantile_extractor'], 'head': 'treg'}}
     VALID_LINEAR_TSF_PIPELINE = {
         'stl_arima': ['stl_arima'], 'topological_lgbm': [
             'topological_extractor', 'lgbmreg'], 'ar': ['ar'], 'eigen_autoregression': [
             'eigen_basis', 'ar'], 'smoothed_ar': [
-                'smoothing', 'ar'], 'gaussian_ar': [
-                    'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
+            'smoothing', 'ar'], 'gaussian_ar': [
+            'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
+    VALID_LINEAR_DETECTION_PIPELINE = {
+        # 'sst': ['sst'],
+        # 'unscented_kalman_filter': ['unscented_kalman_filter'],
+        'stat_detector': ['stat_detector'],
+        'iforest_detector': ['iforest_detector'],
+        'conv_ae_detector': ['conv_ae_detector'],
+        'arima_detector': ['arima_detector']
+    }
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
@@ -652,11 +707,13 @@ WAVELET_SCALES = FeatureConstant.WAVELET_SCALES.value
 SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
+SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
 KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 
+AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMALY_DETECTION_OPERATIONS.value
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
 EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
@@ -671,6 +728,7 @@ FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
 FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
+FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
@@ -713,3 +771,17 @@ M4_PREFIX = BenchmarkDatasets.M4_PREFIX.value
 VALID_LINEAR_CLF_PIPELINE = UnitTestConstant.VALID_LINEAR_CLF_PIPELINE.value
 VALID_LINEAR_REG_PIPELINE = UnitTestConstant.VALID_LINEAR_REG_PIPELINE.value
 VALID_LINEAR_TSF_PIPELINE = UnitTestConstant.VALID_LINEAR_TSF_PIPELINE.value
+VALID_LINEAR_DETECTION_PIPELINE = UnitTestConstant.VALID_LINEAR_DETECTION_PIPELINE.value
+
+
+def fedot_init_assumptions(problem):
+    return FEDOT_ASSUMPTIONS[problem]
+
+
+def fedot_task(task, task_params: dict = None):
+    fedot_task = FEDOT_TASK[task]
+    if task_params is not None:
+        fedot_task.task_params.forecast_length = task_params
+        return fedot_task
+    else:
+        return fedot_task
