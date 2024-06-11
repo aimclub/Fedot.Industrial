@@ -1,4 +1,3 @@
-from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 import pytest
 from fedot_ind.api.main import FedotIndustrial

@@ -75,9 +75,9 @@ class RAFEnsembler:
 
             raf_ensemble.add_node(operation_type=f'data_source_img/{i}',
                                   branch_idx=i)\
-                        .add_node(self.atomized_automl,
-                                  params=self.atomized_automl_params,
-                                  branch_idx=i)
+                .add_node(self.atomized_automl,
+                          params=self.atomized_automl_params,
+                          branch_idx=i)
 
             data_dict.update({f'data_source_img/{i}': train_fold})
         train_multimodal = MultiModalData(data_dict)
