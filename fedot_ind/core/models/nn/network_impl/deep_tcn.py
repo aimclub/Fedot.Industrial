@@ -163,7 +163,7 @@ class TCNModel(BaseNeuralModel):
         self.epochs = params.get("epochs", 100)
         self.batch_size = params.get("batch_size", 32)
         self.activation = params.get('activation', 'ReLU')
-        self.learning_rate = params.get("learning_rate", 1e-3)
+        self.learning_rate = params.get("learning_rate", 0.01)
 
         self.kernel_size = params.get("kernel_size", 3)
         self.num_filters = params.get("num_filters", 5)
