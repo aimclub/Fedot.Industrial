@@ -47,7 +47,7 @@ class DataLoader:
     def load_forecast_data(self, folder=None):
         loader = self.forecast_data_source[folder]
         group_df, _, _ = loader(directory='data',
-                          group=f'{M4_PREFIX[self.dataset_name[0]]}')
+                                group=f'{M4_PREFIX[self.dataset_name[0]]}')
         # 'M3_Monthly_M10'
         ts_df = group_df[group_df['unique_id'] == self.dataset_name]
         del ts_df['unique_id']

@@ -640,7 +640,7 @@ class UnitTestConstant(Enum):
             'eigen_basis', 'ar'], 'smoothed_ar': [
                 'smoothing', 'ar'], 'gaussian_ar': [
                     'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model'],
-                        'tcn': ['tcn_model']}
+        'tcn': ['tcn_model']}
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
