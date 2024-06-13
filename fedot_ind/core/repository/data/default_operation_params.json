@@ -31,6 +31,10 @@
     "activation": "Softmax",
     "num_classes": 1
   },
+  "deepar_model": {
+    "epochs": 100,
+    "batch_size": 16
+  },
   "inception_model": {
     "epochs": 100,
     "batch_size": 32,
@@ -42,6 +46,11 @@
     "batch_size": 32,
     "activation": "Softmax",
     "model_name": "ResNet18"
+  },
+  "tcn_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "activation": "ReLU"
   },
   "ssa_forecaster": {
     "window_size_method": "hac",
@@ -344,27 +353,6 @@
     "timeout": 10,
     "with_tuning": true
   },
-<<<<<<< HEAD
-  "minirocket_extractor": {
-    "num_features": 10000
-  },
-  "chronos_extractor": {
-    "num_features": 10000
-  },
-  "inception_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "omniscale_model": {
-    "epochs": 100,
-    "batch_size": 32
-  },
-  "deepar_model": {
-    "epochs": 100,
-    "batch_size": 16
-  },
-=======
->>>>>>> c5c358ba8f9b87b626014d2da9b2135c82684258
   "tst_model": {
     "epochs": 100,
     "batch_size": 32
