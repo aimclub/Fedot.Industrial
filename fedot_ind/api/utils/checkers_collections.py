@@ -90,10 +90,9 @@ class DataCheck:
             features_array = self.data_convertor.numpy_data
         task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
             forecast_length=self.task_params['forecast_length']))
-        if self.industrial_task_params is None:
-            features_array = features_array[:-
-                                            self.task_params['forecast_length']]
-            target = features_array
+        features_array = features_array[:-
+        self.task_params['forecast_length']]
+        target = features_array
         return InputData.from_numpy_time_series(
             features_array=features_array, target_array=target, task=task)
 

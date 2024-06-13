@@ -9,7 +9,6 @@ import matplotlib
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.tasks import TsForecastingParams
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
@@ -163,7 +162,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -225,7 +224,10 @@ class FedotIndustrial(Fedot):
     def __abstract_predict(self, predict_mode):
         have_encoder = self.condition_check.solver_have_target_encoder(self.target_encoder)
         labels_output = predict_mode in ['labels', 'default']
-        predict_function = Either(value=self.solver.predict,
+        custom_predict = self.solver.predict if self.industrial_strategy \
+                                                is None else self.industrial_strategy_class.predict
+
+        predict_function = Either(value=custom_predict,
                                   monoid=[self.solver.predict_proba, labels_output]).either(left_function=lambda l: l,
                                                                                             right_function=lambda r: r)
 
@@ -237,16 +239,8 @@ class FedotIndustrial(Fedot):
             return predicted_labels
 
         predict = Either(
-            value=self.predict_data,
-            monoid=[
-                predict_mode,
-                self.industrial_strategy is None]).map(
-            function=predict_function).then(
-            lambda x: self.industrial_strategy_class.predict(
-                x,
-                predict_mode) if isinstance(
-                x,
-                InputData) else x).then(
+            value=self.predict_data, monoid=[False, True]).then(
+            function=lambda x: predict_function(x, predict_mode)).then(
             lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
         return predict
 
@@ -349,20 +343,29 @@ class FedotIndustrial(Fedot):
                                 metric_names,
                                 rounding_order):
         valid_shape = target.shape
-        if self.condition_check.solver_have_target_encoder(
-                self.target_encoder):
-            new_target = self.target_encoder.transform(target.flatten())
-            labels = self.target_encoder.transform(
-                predicted_labels).reshape(valid_shape)
+        if isinstance(predicted_labels, dict):
+            metric_dict = {model_name: FEDOT_GET_METRICS[problem](target=target,
+                                                                  metric_names=metric_names,
+                                                                  rounding_order=rounding_order,
+                                                                  labels=model_result,
+                                                                  probs=predicted_probs) for model_name, model_result
+                           in predicted_labels.items()}
+            return metric_dict
         else:
-            new_target = target.flatten()
-            labels = predicted_labels.reshape(valid_shape)
+            if self.condition_check.solver_have_target_encoder(
+                    self.target_encoder):
+                new_target = self.target_encoder.transform(target.flatten())
+                labels = self.target_encoder.transform(
+                    predicted_labels).reshape(valid_shape)
+            else:
+                new_target = target.flatten()
+                labels = predicted_labels.reshape(valid_shape)
 
-        return FEDOT_GET_METRICS[problem](target=new_target,
-                                          metric_names=metric_names,
-                                          rounding_order=rounding_order,
-                                          labels=labels,
-                                          probs=predicted_probs)
+            return FEDOT_GET_METRICS[problem](target=new_target,
+                                              metric_names=metric_names,
+                                              rounding_order=rounding_order,
+                                              labels=labels,
+                                              probs=predicted_probs)
 
     def get_metrics(self,
                     target: Union[list, np.array] = None,
@@ -399,7 +402,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

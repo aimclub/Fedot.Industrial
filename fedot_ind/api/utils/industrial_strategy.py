@@ -8,6 +8,7 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
+from pymonad.maybe import Maybe
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFEnsembler
@@ -62,8 +63,8 @@ class IndustrialStrategy:
         return self.solver
 
     def predict(self, input_data, predict_mode):
-        return self.industrial_strategy_predict[self.industrial_strategy](input_data,
-                                                                          predict_mode)
+        return self.industrial_strategy_predict[self.industrial_strategy](
+            input_data, predict_mode)
 
     def _federated_strategy(self, input_data):
 
@@ -97,16 +98,13 @@ class IndustrialStrategy:
 
     def _forecasting_strategy(self, input_data):
         self.logger.info('TS forecasting algorithm was applied')
-        self.config_dict['timeout'] = round(self.config_dict['timeout'] / 3)
         self.solver = {}
         for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
-            try:
-                self.config_dict['initial_assumption'] = init_assumption.build()
-                industrial = Fedot(**self.config_dict)
-                industrial.fit(input_data)
-                self.solver.update({model_name: industrial})
-            except Exception:
-                self.logger.info(f'Failed during fit stage - {model_name}')
+            self.config_dict['initial_assumption'] = init_assumption.build()
+            industrial = Fedot(**self.config_dict)
+            Maybe(value=industrial.fit(input_data), monoid=True).maybe(
+                default_value=self.logger.info(f'Failed during fit stage - {model_name}')
+                , extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
 
     def _forecasting_exogenous_strategy(self, input_data):
         self.logger.info('TS exogenous forecasting algorithm was applied')

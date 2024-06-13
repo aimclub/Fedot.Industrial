@@ -121,7 +121,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                 self.svd_estimator.rsvd(
                     tensor=x,
                     approximation=self.low_rank_approximation,
-                    regularized_rank=self.SV_threshold))
+                    regularized_rank=self.SV_threshold,
+                    reg_type=self.rank_regularization))
 
         basis = Either.insert(data).then(svd).then(
             threshold).then(data_driven_basis).value[0]
