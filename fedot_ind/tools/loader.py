@@ -9,7 +9,6 @@ import chardet
 import pandas as pd
 from datasets import load_dataset
 from datasetsforecast.m3 import M3
-# from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
 from sktime.datasets import load_from_tsfile_to_dataframe
@@ -51,13 +50,16 @@ class DataLoader:
         dataset_name = self.dataset_name['dataset']
         group_df = loader(directory='data',
                           group=f'{M4_PREFIX[dataset_name[0]]}')
-        # 'M3_Monthly_M10'
+        group_df_test = loader(directory='data',
+                               group=f'{M4_PREFIX[dataset_name[0]]}Test')
         ts_df = group_df[group_df['label'] == dataset_name]
-        del ts_df['label']
+        ts_df_test = group_df_test[group_df_test['label'] == dataset_name]
+        del ts_df['label'], ts_df_test['label']
         ts_df = ts_df.set_index(
             'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
+        ts_df_test = ts_df_test.set_index(
+            'datetime') if 'datetime' in ts_df_test.columns else ts_df_test.set_index('idx')
         return ts_df, None
-
     def load_detection_data(self, folder=None):
         loader = self.detection_data_source['SKAB']
         return loader(directory=folder,
@@ -71,7 +73,7 @@ class DataLoader:
 
     def local_skab_load(self, directory='other', group=None):
         path_to_result = PROJECT_PATH + \
-            f'/examples/data/detection/data/{directory}'
+                         f'/examples/data/detection/data/{directory}'
         folder_dict = {'other': [i for i in range(15)],
                        'valve1': [i for i in range(16)],
                        'valve2': [i for i in range(4)]}
@@ -92,7 +94,7 @@ class DataLoader:
         if specific_strategy == 'anomaly_detection':
             self.dataset_name = self.dataset_name['dataset']
             train_data, test_data = self.load_detection_data(bench)
-        elif specific_strategy == 'ts_forecasting':
+        elif specific_strategy in ['ts_forecasting', 'forecasting_assumptions']:
             train_data, test_data = self.load_forecast_data(bench)
             target = train_data.values[-self.dataset_name['task_params']['forecast_length']:].flatten()
             train_data = (train_data, target)
@@ -100,7 +102,8 @@ class DataLoader:
         return train_data, test_data
 
     def load_custom_data(self, specific_strategy):
-        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting']
+        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting',
+                                                'forecasting_assumptions']
         dict_dataset = isinstance(self.dataset_name, dict)
 
         if custom_strategy:
@@ -432,8 +435,8 @@ class DataLoader:
                     elif data_started:
                         # Check that a full set of metadata has been provided
                         incomplete_regression_meta_data = not has_problem_name_tag or not has_timestamps_tag or \
-                            not has_univariate_tag or not has_target_labels_tag or \
-                            not has_data_tag
+                                                          not has_univariate_tag or not has_target_labels_tag or \
+                                                          not has_data_tag
                         incomplete_classification_meta_data = \
                             not has_problem_name_tag or not has_timestamps_tag \
                             or not has_univariate_tag or not has_class_labels_tag \
@@ -829,7 +832,7 @@ class DataLoader:
         if line_num:
             # Check that the file contained both metadata and data
             complete_regression_meta_data = has_problem_name_tag and has_timestamps_tag and has_univariate_tag \
-                and has_target_labels_tag and has_data_tag
+                                            and has_target_labels_tag and has_data_tag
             complete_classification_meta_data = \
                 has_problem_name_tag and has_timestamps_tag \
                 and has_univariate_tag and has_class_labels_tag and has_data_tag

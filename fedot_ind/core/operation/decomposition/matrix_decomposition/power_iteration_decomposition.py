@@ -36,6 +36,10 @@ class RSVDDecomposition:
             low_rank = sv_to_explained_variance_ratio(spectrum, 3)[1]
         elif reg_type == 'hard_thresholding':
             low_rank = len(singular_value_hard_threshold(spectrum))
+        else:
+            regularized_rank = _detect_knee_point(
+                values=spectrum, indices=list(range(len(spectrum))))
+            low_rank = len(regularized_rank)
         return max(low_rank, 2)
 
     def _matrix_approx_regularization(self, low_rank, Ut, block, tensor):
@@ -52,9 +56,6 @@ class RSVDDecomposition:
             regularized_rank = _detect_knee_point(
                 values=fro_norms, indices=list(range(len(fro_norms))))
             regularized_rank = len(regularized_rank)
-            # deriviate_of_error = abs(np.diff(fro_norms))
-            # regularized_rank = len(
-            #     deriviate_of_error[deriviate_of_error > 1]) + 1
         return regularized_rank
 
     def rsvd(self,

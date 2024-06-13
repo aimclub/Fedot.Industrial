@@ -7,6 +7,7 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
+from pymonad.maybe import Maybe
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
@@ -89,16 +90,13 @@ class IndustrialStrategy:
 
     def _forecasting_strategy(self, input_data):
         self.logger.info('TS forecasting algorithm was applied')
-        self.config_dict['timeout'] = round(self.config_dict['timeout'] / 3)
         self.solver = {}
         for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
-            try:
-                self.config_dict['initial_assumption'] = init_assumption.build()
-                industrial = Fedot(**self.config_dict)
-                industrial.fit(input_data)
-                self.solver.update({model_name: industrial})
-            except Exception:
-                self.logger.info(f'Failed during fit stage - {model_name}')
+            self.config_dict['initial_assumption'] = init_assumption.build()
+            industrial = Fedot(**self.config_dict)
+            Maybe(value=industrial.fit(input_data), monoid=True).maybe(
+                default_value=self.logger.info(f'Failed during fit stage - {model_name}')
+                , extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
 
     def _forecasting_exogenous_strategy(self, input_data):
         self.logger.info('TS exogenous forecasting algorithm was applied')
@@ -173,8 +171,8 @@ class IndustrialStrategy:
         self.predicted_branch_labels = [
             np.argmax(x, axis=1) for x in self.predicted_branch_probs]
         n_samples, n_channels, n_classes = self.predicted_branch_probs[0].shape[0], \
-            len(self.predicted_branch_probs), \
-            self.predicted_branch_probs[0].shape[1]
+                                           len(self.predicted_branch_probs), \
+                                           self.predicted_branch_probs[0].shape[1]
         head_model = deepcopy(self.solver.root_node)
         head_model.nodes_from = []
         input_data.features = np.hstack(
@@ -193,7 +191,7 @@ class IndustrialStrategy:
             k: v.predict(
                 features=input_data,
                 in_sample=mode) for k,
-            v in self.solver.items()}
+                                    v in self.solver.items()}
         return labels_dict
 
     def _lora_predict(self,
@@ -203,7 +201,7 @@ class IndustrialStrategy:
             k: v.predict(
                 features=input_data,
                 in_sample=mode) for k,
-            v in self.solver.items()}
+                                    v in self.solver.items()}
         return labels_dict
 
     def _kernel_predict(self,
@@ -213,7 +211,7 @@ class IndustrialStrategy:
             k: v.predict(
                 input_data,
                 mode).predict for k,
-            v in self.solver.items()}
+                                  v in self.solver.items()}
         return labels_dict
 
     def _check_predictions(self, predictions):
