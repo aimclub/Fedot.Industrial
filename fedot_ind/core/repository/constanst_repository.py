@@ -651,6 +651,7 @@ class UnitTestConstant(Enum):
                                  'tcn': ['tcn_model']
                                  }
 
+
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
 STAT_METHODS_GLOBAL = FeatureConstant.STAT_METHODS_GLOBAL.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
