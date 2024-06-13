@@ -298,6 +298,14 @@
         "deep", "ts_model"
       ],
 	  "input_type": "[DataTypesEnum.ts]"
+    },    
+    "tcn_model": {
+      "meta": "ts_model",
+      "presets": ["fast_train", "best_quality", "ts"],
+      "tags": [
+        "deep", "ts_model"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
     },
     "adareg": {
       "meta": "sklearn_regr",

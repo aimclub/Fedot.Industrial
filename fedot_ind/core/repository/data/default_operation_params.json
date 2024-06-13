@@ -43,6 +43,11 @@
     "activation": "Softmax",
     "model_name": "ResNet18"
   },
+  "tcn_model": {
+    "epochs": 100,
+    "batch_size": 32,
+    "activation": "ReLU"
+  },
   "ssa_forecaster": {
     "window_size_method": "hac",
     "history_lookback": 30
