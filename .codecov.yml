@@ -4,3 +4,9 @@ coverage:
       default:
         threshold: 1%
     patch: false
+
+ignore:
+    - "fedot_ind/__init__.py"
+    - "fedot_ind/core/tuning/search_space.py"
+    - "fedot_ind/core/repository/model_repository.py"
+    - "fedot_ind/core/repository/constanst_repository.py"
