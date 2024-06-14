@@ -48,6 +48,7 @@ from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
@@ -101,14 +102,16 @@ TEMPORARY_EXCLUDED = {
                            'multinb': SklearnMultinomialNB,
                            'knn': FedotKnnClassImplementation
                            },
-    'NEURAL_MODELS': {'resnet_model': ResNetModel,
-                      "nbeats_model": NBeatsModel,
-                      'omniscale_model': OmniScaleModel,
-                      # transformer models
-                      'tst_model': TSTModel,
-                      # explainable models
-                      'xcm_model': XCModel
-                      }
+    'NEURAL_MODELS': {
+        'resnet_model': ResNetModel,
+        'nbeats_model': NBeatsModel,
+        'omniscale_model': OmniScaleModel,
+        'tcn_model': TCNModel,
+        # transformer models
+        'tst_model': TSTModel,
+        # explainable models
+        'xcm_model': XCModel
+    }
 }
 
 
@@ -191,6 +194,7 @@ class AtomizedModel(Enum):
         'glm': GLMIndustrial,
         # variational
         'deepar_model': DeepAR,
+        'tcn_model': TCNModel
     }
 
     FORECASTING_PREPROC = {
@@ -198,7 +202,7 @@ class AtomizedModel(Enum):
         'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
-        'exog_ts': ExogDataTransformationImplementation,
+        'exog_ts': ExogDataTransformationImplementation
     }
 
     NEURAL_MODEL = {
@@ -207,6 +211,7 @@ class AtomizedModel(Enum):
         'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
         'nbeats_model': NBeatsModel,
+        'tcn_model': TCNModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models

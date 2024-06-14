@@ -639,7 +639,8 @@ class UnitTestConstant(Enum):
             'topological_extractor', 'lgbmreg'], 'ar': ['ar'], 'eigen_autoregression': [
             'eigen_basis', 'ar'], 'smoothed_ar': [
                 'smoothing', 'ar'], 'gaussian_ar': [
-                    'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model']}
+                    'gaussian_filter', 'ar'], 'glm': ['glm'], 'nbeats': ['nbeats_model'],
+        'tcn': ['tcn_model']}
 
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value

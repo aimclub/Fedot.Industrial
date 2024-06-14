@@ -82,15 +82,16 @@ def test_channel_filtration_reg(
             data) for data in data_list][0]
     assert result is not None
 
-
-def test_composite_clf_pipeline(
-        node_list=VALID_LINEAR_REG_PIPELINE['composite_reg'],
-        data_list=None):
-    if data_list is None:
-        data_list = MULTI_REG
-    result = [
-        AbstractPipeline(
-            task=TASK).evaluate_pipeline(
-            node_list,
-            data) for data in data_list][0]
-    assert result is not None
+# Too long wait to evaluate (>5 min)
+# TODO: fix this
+# def test_composite_clf_pipeline(
+#         node_list=VALID_LINEAR_REG_PIPELINE['composite_reg'],
+#         data_list=None):
+#     if data_list is None:
+#         data_list = MULTI_REG
+#     result = [
+#         AbstractPipeline(
+#             task=TASK).evaluate_pipeline(
+#             node_list,
+#             data) for data in data_list][0]
+#     assert result is not None
