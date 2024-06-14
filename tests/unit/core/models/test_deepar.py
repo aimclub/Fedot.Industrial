@@ -1,4 +1,3 @@
-import pandas as pd
 import pytest
 import numpy as np
 
@@ -14,7 +13,10 @@ FORECAST_LENGTH = 100
 def ts():
     features = np.random.rand(100)
     target = np.random.rand(100)
-    task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(forecast_length=FORECAST_LENGTH))
+    task = Task(
+        TaskTypesEnum.ts_forecasting,
+        TsForecastingParams(
+            forecast_length=FORECAST_LENGTH))
     inp_data = InputData(idx=np.arange(100),
                          features=features,
                          target=target,
@@ -33,17 +35,23 @@ def test_prepare_data(ts):
                      'patch_len': patch_len,
                      'batch_size': batch_size,
                      'horizon': horizon})
-    train_batch_x, train_batch_y = next(iter(deepar._prepare_data(train_data, split_data=False, horizon=1)[0]))
+    train_batch_x, train_batch_y = next(
+        iter(
+            deepar._prepare_data(
+                train_data, split_data=False, horizon=1)[0]))
     assert train_batch_x.ndim == 3, '3D output expected'
-    assert train_batch_x.size(-1) == patch_len, 'Last dimension doesn\'t correspond patch_len'
-    assert train_batch_x.size(0) == batch_size, 'First dimension doesn\'t correspond to batch_size'
+    assert train_batch_x.size(
+        -1) == patch_len, 'Last dimension doesn\'t correspond patch_len'
+    assert train_batch_x.size(
+        0) == batch_size, 'First dimension doesn\'t correspond to batch_size'
     assert train_batch_y.ndim == 2, '2d output is expected for y'
     assert train_batch_y.size(-1) == 1, 'Last dim should be 1'
 
-    test_batch_x, test_batch_y = next(
-        iter(deepar._prepare_data(ts, split_data=False, horizon=horizon, is_train=True)[0]))
+    test_batch_x, test_batch_y = next(iter(deepar._prepare_data(
+        ts, split_data=False, horizon=horizon, is_train=True)[0]))
     assert test_batch_x.ndim == 3, 'Expected 3D output'
-    assert test_batch_x.size(0) == batch_size, 'First dimension doesn\'t correspond to batch_size'
+    assert test_batch_x.size(
+        0) == batch_size, 'First dimension doesn\'t correspond to batch_size'
     assert test_batch_y.size(1) == horizon, 'Horizon expected to be different!'
 
 
@@ -59,17 +67,20 @@ def test__predict(ts):
     preds = deepar._predict(ts, output_mode='predictions')[0]
     assert preds.ndim == 2, 'Dimensionality is not right'
     assert preds.size(-1) == 1, 'Predictions should have 1 per index'
-    assert preds.size(0) == deepar.forecast_length, 'forecast length doesn\'t correspond'
+    assert preds.size(
+        0) == deepar.forecast_length, 'forecast length doesn\'t correspond'
 
     preds = deepar._predict(ts, output_mode='raw')[0]
     p = len(deepar.loss_fn.distribution_arguments)
     assert preds.ndim == 3, 'Dimensionality is not right'
-    assert preds.size(-1) == p, f'Predictions should have {p} per index for loss {type(deepar.loss_fn)}'
+    assert preds.size(
+        -1) == p, f'Predictions should have {p} per index for loss {type(deepar.loss_fn)}'
 
     preds = deepar._predict(ts, output_mode='quantiles')[0]
     q = len(deepar.model.quantiles)
     assert preds.ndim == 3, 'Dimensionality is not right'
-    assert preds.size(-1) == q, f'Predictions should have {q} per index for quantiles range {deepar.quantiles}'
+    assert preds.size(
+        -1) == q, f'Predictions should have {q} per index for quantiles range {deepar.quantiles}'
 
 
 def test_losses(ts):
@@ -78,7 +89,8 @@ def test_losses(ts):
         deepar.fit(ts)
         preds = deepar._predict(ts, output_mode='raw')
         p = len(deepar.loss_fn.distribution_arguments)
-        assert preds.size(-1) == p, f'Predictions should have {p} per index for loss {loss_fn}'
+        assert preds.size(
+            -1) == p, f'Predictions should have {p} per index for loss {loss_fn}'
 
 
 def test_get_initial_state(ts):

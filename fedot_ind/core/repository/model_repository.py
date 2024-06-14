@@ -216,7 +216,7 @@ class AtomizedModel(Enum):
         'tst_model': TSTModel,
         # explainable models
         'xcm_model': XCModel,
-        #variational models
+        # variational models
         'deepar_model': DeepAR,
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,

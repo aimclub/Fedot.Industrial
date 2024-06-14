@@ -1,4 +1,4 @@
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List
 
 import torch
 import torch.nn.functional as F
@@ -274,7 +274,7 @@ class DistributionLoss(nn.Module):
     distribution_class: distributions.Distribution
     distribution_arguments: List[str]
     quantiles: List[float] = [.05, .25, .5, .75, .95]
-    need_affine=True
+    need_affine = True
     support_real = False
     need_target_scale = True
     _eps = 1e-8
@@ -283,10 +283,12 @@ class DistributionLoss(nn.Module):
         self, reduction="mean",
     ):
         super().__init__()
-        self.reduction = getattr(torch, reduction) if reduction else lambda x: x
+        self.reduction = getattr(
+            torch, reduction) if reduction else lambda x: x
 
     @classmethod
-    def map_x_to_distribution(cls, x: torch.Tensor) -> distributions.Distribution:
+    def map_x_to_distribution(
+            cls, x: torch.Tensor) -> distributions.Distribution:
         """
         Map the a tensor of parameters to a probability distribution.
 
@@ -302,12 +304,13 @@ class DistributionLoss(nn.Module):
         if cls.need_affine:
             loc = x[..., 0]
             scale = F.softplus(x[..., 1])
-            scaler_from_output = distributions.AffineTransform(loc=loc, scale=scale)
+            scaler_from_output = distributions.AffineTransform(
+                loc=loc, scale=scale)
             transforms.append(scaler_from_output)
         if transforms:
             distr = distributions.TransformedDistribution(distr, transforms)
         return distr
-    
+
     @classmethod
     def _map_x_to_distribution(cls, x):
         raise NotImplemented
@@ -318,11 +321,16 @@ class DistributionLoss(nn.Module):
         if transform is None:
             transform = F.softplus
         st = 2 if cls.need_affine else 0
-        pretransformed = torch.concat([x[..., :st], transform(x[..., st:])], dim=-1)
+        pretransformed = torch.concat(
+            [x[..., :st], transform(x[..., st:])], dim=-1)
         assert x.size() == pretransformed.size(), 'size mismatch'
         return pretransformed
 
-    def forward(self, param_pred: torch.Tensor, target: torch.Tensor, scaler=None) -> torch.Tensor:
+    def forward(
+            self,
+            param_pred: torch.Tensor,
+            target: torch.Tensor,
+            scaler=None) -> torch.Tensor:
         """
         Calculate negative likelihood
 
@@ -351,7 +359,7 @@ class DistributionLoss(nn.Module):
         loss = self.reduction(loss)
         return loss
 
- 
+
 class NormalDistributionLoss(DistributionLoss):
     distribution_class = distributions.Normal
     distribution_arguments = ["loc", "scale"]
@@ -364,7 +372,7 @@ class NormalDistributionLoss(DistributionLoss):
         scale = F.softplus(x[..., -1])
         distr = self.distribution_class(loc=loc, scale=scale)
         return distr
-        
+
 
 class CauchyDistributionLoss(DistributionLoss):
     distribution_class = distributions.Cauchy
@@ -380,7 +388,7 @@ class CauchyDistributionLoss(DistributionLoss):
         distr = self.distribution_class(loc=loc, scale=scale)
         return distr
 
-    
+
 class LogNormDistributionLoss(DistributionLoss):
     distribution_class = distributions.LogNormal
     distribution_arguments = ['rescale_loc', 'rescale_scale', "loc", "scale"]
@@ -389,37 +397,45 @@ class LogNormDistributionLoss(DistributionLoss):
     support_real = False
 
     @classmethod
-    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.LogNormal:
+    def _map_x_to_distribution(
+            self, x: torch.Tensor) -> distributions.LogNormal:
         loc = F.softplus(x[..., -2])
         scale = F.softplus(x[..., -1])
         loc[torch.isnan(loc)] = 0
         scale[torch.isnan(scale)] = 1
         distr = self.distribution_class(loc=loc, scale=scale)
         return distr
-    
-    
+
+
 class SkewNormDistributionLoss(DistributionLoss):
     # TODO
     pass
 
+
 class InverseGaussDistributionLoss(DistributionLoss):
     distribution_class = distributions.InverseGamma
-    distribution_arguments = ["loc", "scale", "concentration", "rate"] # need for discrete of 'scale' rate is questionable
+    # need for discrete of 'scale' rate is questionable
+    distribution_arguments = ["loc", "scale", "concentration", "rate"]
     need_affine = True
     support_real = False
     need_target_scale = False
 
     @classmethod
-    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.InverseGamma:
+    def _map_x_to_distribution(
+            self, x: torch.Tensor) -> distributions.InverseGamma:
         concentration = F.softplus(x[..., -2])
         rate = F.softplus(x[..., -1])
         distr = self.distribution_class(concentration=concentration, rate=rate)
         return distr
-        
+
 
 class BetaDistributionLoss(DistributionLoss):
     distribution_class = distributions.Beta
-    distribution_arguments = ["loc", "scale", 'concentration0', 'concentration1']
+    distribution_arguments = [
+        "loc",
+        "scale",
+        'concentration0',
+        'concentration1']
     need_affine = True
     support_real = False
     need_target_scale = False
@@ -428,11 +444,7 @@ class BetaDistributionLoss(DistributionLoss):
     def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Beta:
         concentration0 = F.softplus(x[..., -2])
         concentration1 = F.softplus(x[..., -1])
-        distr = self.distribution_class(concentration0=concentration0, concentration1=concentration1)
+        distr = self.distribution_class(
+            concentration0=concentration0,
+            concentration1=concentration1)
         return distr
-    
-
-
-
-        
-        

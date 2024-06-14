@@ -19,7 +19,8 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.special import EarlyStopping
-from fedot_ind.core.models.nn.network_modules.losses import (NormalDistributionLoss, CauchyDistributionLoss)
+from fedot_ind.core.models.nn.network_modules.losses import (
+    NormalDistributionLoss, CauchyDistributionLoss)
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 
 __all__ = ['DeepAR']
@@ -67,8 +68,16 @@ class DeepARModule(Module):
         # 'lognorm': LogNormDistributionLoss,
     }
 
-    def __init__(self, cell_type: str, input_size: int, hidden_size: int,
-                 rnn_layers: int, dropout: float, distribution: str, quantiles=None, prediction_averaging_factor=65):
+    def __init__(
+            self,
+            cell_type: str,
+            input_size: int,
+            hidden_size: int,
+            rnn_layers: int,
+            dropout: float,
+            distribution: str,
+            quantiles=None,
+            prediction_averaging_factor=65):
         super().__init__()
         self.rnn = {'LSTM': LSTM, 'GRU': GRU, 'RNN': RNN}[cell_type](
             input_size=input_size,
@@ -82,10 +91,17 @@ class DeepARModule(Module):
         self.__prediction_averaging_factor = prediction_averaging_factor
         self.quantiles = quantiles or torch.tensor([0.25, 0.5, 0.75])
         self.distribution = self._loss_fns[distribution]
-        self.projector = Sequential(Linear(self.hidden_size, self.hidden_size),
-                                    Linear(self.hidden_size, len(self.distribution.distribution_arguments)))
+        self.projector = Sequential(
+            Linear(
+                self.hidden_size, self.hidden_size), Linear(
+                self.hidden_size, len(
+                    self.distribution.distribution_arguments)))
 
-    def encode(self, ts: torch.Tensor, hidden_state: torch.Tensor = None, scaled: bool = True):
+    def encode(
+            self,
+            ts: torch.Tensor,
+            hidden_state: torch.Tensor = None,
+            scaled: bool = True):
         """
         Encode sequence into hidden state
         ts.size = (length, hidden)
@@ -97,7 +113,10 @@ class DeepARModule(Module):
         )
         return hidden_state
 
-    def _decode_whole_seq(self, ts: torch.Tensor, hidden_state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _decode_whole_seq(self,
+                          ts: torch.Tensor,
+                          hidden_state: torch.Tensor) -> Tuple[torch.Tensor,
+                                                               torch.Tensor]:
         """ used for next value prediction"""
         output, hidden_state = self.rnn(
             ts, hidden_state
@@ -105,14 +124,23 @@ class DeepARModule(Module):
         output = self.projector(output)
         return output, hidden_state
 
-    def forecast(self, prefix: torch.Tensor, forecast_length: int, hidden_state=None,
-                 output_mode: str = 'quantiles', **mode_kw):
+    def forecast(
+            self,
+            prefix: torch.Tensor,
+            forecast_length: int,
+            hidden_state=None,
+            output_mode: str = 'quantiles',
+            **mode_kw):
         self.eval()
         forecast = []
         with torch.no_grad():
             for i in range(forecast_length):
                 output, hidden_state = self(prefix, hidden_state)
-                forecast.append(self._transform_params(output, mode=output_mode, **mode_kw).detach().cpu())
+                forecast.append(
+                    self._transform_params(
+                        output,
+                        mode=output_mode,
+                        **mode_kw).detach().cpu())
                 prediction = self._transform_params(output, mode='predictions')
                 prefix = torch.roll(prefix, -1, dims=-1)
                 prefix[..., [-1]] = prediction
@@ -137,23 +165,34 @@ class DeepARModule(Module):
             return self._transform_params(output,
                                           mode=mode, **mode_kw), hidden_state
 
-    def to_quantiles(self, params: torch.Tensor, quantiles=None) -> torch.Tensor:
+    def to_quantiles(
+            self,
+            params: torch.Tensor,
+            quantiles=None) -> torch.Tensor:
         if quantiles is None:
             quantiles = self.quantiles
         distr = self.distribution.map_x_to_distribution(params)
-        return distr.icdf(quantiles).unsqueeze(1)  # batch_size x 1 x n_quantiles
+        return distr.icdf(quantiles).unsqueeze(
+            1)  # batch_size x 1 x n_quantiles
 
     def to_samples(self, params: torch.Tensor, n_samples=100) -> torch.Tensor:
         distr = self.distribution.map_x_to_distribution(params)
-        return distr.sample((n_samples,)).permute(1, 2, 0)  # batch_size x n_ts x n_samples
+        return distr.sample(
+            (n_samples,)).permute(
+            1, 2, 0)  # batch_size x n_ts x n_samples
 
     def to_predictions(self, params: torch.Tensor) -> torch.Tensor:
         distr = self.distribution.map_x_to_distribution(params)
         return torch.median(
-            distr.sample((self.__prediction_averaging_factor,)).permute(1, 2, 0),
-            dim=-1, keepdim=True).values  # batch_size x n_ts x 1
+            distr.sample(
+                (self.__prediction_averaging_factor,)).permute(
+                1, 2, 0), dim=-1, keepdim=True).values  # batch_size x n_ts x 1
 
-    def _transform_params(self, distr_params, mode='raw', **mode_kw) -> torch.Tensor:
+    def _transform_params(
+            self,
+            distr_params,
+            mode='raw',
+            **mode_kw) -> torch.Tensor:
         if mode == 'raw':
             return distr_params
         elif mode == 'quantiles':
@@ -188,7 +227,8 @@ class DeepAR(BaseNeuralModel):
         self.hidden_size = params.get('hidden_size', 10)
         self.rnn_layers = params.get('rnn_layers', 2)
         self.dropout = params.get('dropout', 0.1)
-        self.expected_distribution = params.get('expected_distribution', 'normal')
+        self.expected_distribution = params.get(
+            'expected_distribution', 'normal')
         self.patch_len = params.get('patch_len', None)
         self.preprocess_to_lagged = False
         self.horizon = 1  # params.get('horizon', 1) for future extension
@@ -196,36 +236,44 @@ class DeepAR(BaseNeuralModel):
 
         # forecasting settings
         self.forecast_mode = params.get('forecast_mode', 'predictions')
-        self.quantiles = torch.tensor(params.get('quantiles', [0.25, 0.5, 0.75]))
+        self.quantiles = torch.tensor(
+            params.get('quantiles', [0.25, 0.5, 0.75]))
         self.n_samples = params.get('n_samples', 10)
         self.test_patch_len = None
         self.forecast_length = params.get('forecast_length', 1)
 
         # additional
-        self.print_training_progress = params.get('print_training_progress', False)
-        self._prediction_averaging_factor = params.get('prediction_averaging_factor', 17)
+        self.print_training_progress = params.get(
+            'print_training_progress', False)
+        self._prediction_averaging_factor = params.get(
+            'prediction_averaging_factor', 17)
 
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
         input_size = self.patch_len or ts.features.shape[-1]
         self.patch_len = input_size
-        self.model = DeepARModule(input_size=input_size,
-                                  hidden_size=self.hidden_size,
-                                  cell_type=self.cell_type,
-                                  dropout=self.dropout,
-                                  rnn_layers=self.rnn_layers,
-                                  distribution=self.expected_distribution,
-                                  prediction_averaging_factor=self._prediction_averaging_factor).to(default_device())
-        self.model_for_inference = DeepARModule(input_size=input_size,
-                                                hidden_size=self.hidden_size,
-                                                cell_type=self.cell_type,
-                                                dropout=self.dropout,
-                                                rnn_layers=self.rnn_layers,
-                                                distribution=self.expected_distribution,
-                                                prediction_averaging_factor=self._prediction_averaging_factor).to(
+        self.model = DeepARModule(
+            input_size=input_size,
+            hidden_size=self.hidden_size,
+            cell_type=self.cell_type,
+            dropout=self.dropout,
+            rnn_layers=self.rnn_layers,
+            distribution=self.expected_distribution,
+            prediction_averaging_factor=self._prediction_averaging_factor).to(
+            default_device())
+        self.model_for_inference = DeepARModule(
+            input_size=input_size,
+            hidden_size=self.hidden_size,
+            cell_type=self.cell_type,
+            dropout=self.dropout,
+            rnn_layers=self.rnn_layers,
+            distribution=self.expected_distribution,
+            prediction_averaging_factor=self._prediction_averaging_factor).to(
             default_device())
         self._evaluate_num_of_epochs(ts)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = optim.Adam(
+            self.model.parameters(),
+            lr=self.learning_rate)
 
         return self.loss_fn, self.optimizer
 
@@ -244,7 +292,12 @@ class DeepAR(BaseNeuralModel):
                          )
         return self
 
-    def _prepare_data(self, input_data: InputData, split_data, horizon=None, is_train=True):
+    def _prepare_data(
+            self,
+            input_data: InputData,
+            split_data,
+            horizon=None,
+            is_train=True):
         val_loader = None
         if self.preprocess_to_lagged:
             self.patch_len = input_data.features.shape[-1]
@@ -276,7 +329,7 @@ class DeepAR(BaseNeuralModel):
 
         if initial_hidden_state is not None and self.cell_type == 'LSTM':
             initial_hidden_state = (
-            initial_hidden_state[0][:, -self.horizon:, :], initial_hidden_state[1][:, -self.horizon:, :])
+                initial_hidden_state[0][:, -self.horizon:, :], initial_hidden_state[1][:, -self.horizon:, :])
         elif initial_hidden_state is not None:
             initial_hidden_state = initial_hidden_state[:, -self.horizon:, :]
         return initial_hidden_state
@@ -315,7 +368,8 @@ class DeepAR(BaseNeuralModel):
                                             is_train=False,
                                             )
 
-        initial_hidden_state = hidden_state or self.get_initial_hidden_state(test_loader)
+        initial_hidden_state = hidden_state or self.get_initial_hidden_state(
+            test_loader)
         last_patch, last_target = test_loader.dataset[[-1]]
         if len(last_target) == 1:  # rewrite for horizon != 1 in future
             last_patch, last_target = test_loader.dataset[[-1]]
@@ -377,7 +431,8 @@ class DeepAR(BaseNeuralModel):
                 iter_count += 1
                 optimizer.zero_grad()
                 batch_x = (batch_x.float()).to(default_device())
-                batch_y = batch_y[:, ..., [0]].float().to(default_device())  # only first entrance
+                batch_y = batch_y[:, ..., [0]].float().to(
+                    default_device())  # only first entrance
                 outputs, *hidden_state = model(batch_x)
 
                 loss = loss_fn(outputs, batch_y, self.model.scaler)
@@ -472,7 +527,9 @@ class DeepAR(BaseNeuralModel):
 
     @convert_to_3d_torch_array
     def _create_torch_loader(self, train_data, is_train):
-        batch_size = self.batch_size  # if is_train else self.forecast_length # for future development with varying horizon
+        # if is_train else self.forecast_length # for future development with
+        # varying horizon
+        batch_size = self.batch_size
 
         if not isinstance(train_data.features, torch.Tensor):
             features = torch.tensor(train_data.features).float()
@@ -480,7 +537,6 @@ class DeepAR(BaseNeuralModel):
         else:
             features, target = train_data.features, train_data.target
 
-        train_loader = torch.utils.data.DataLoader(data.TensorDataset(features, target),
-                                                   batch_size=batch_size, shuffle=False
-                                                   )
+        train_loader = torch.utils.data.DataLoader(data.TensorDataset(
+            features, target), batch_size=batch_size, shuffle=False)
         return train_loader
