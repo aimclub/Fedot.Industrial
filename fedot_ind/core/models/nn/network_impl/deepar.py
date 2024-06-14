@@ -307,7 +307,6 @@ class DeepAR(BaseNeuralModel):
         return predict
 
     def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
-        mode = 'lagged' if self.preprocess_to_lagged else 'auto'
         self.forecast_length = test_data.task.task_params.forecast_length or self.forecast_length
 
         test_loader, _ = self._prepare_data(test_data,
