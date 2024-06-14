@@ -307,6 +307,12 @@
       ],
 	  "input_type": "[DataTypesEnum.ts]"
     },
+    "deepar_model": {
+      "meta": "ts_model",
+      "presets": ["ts"],
+      "tags": [],
+      "input_type": "[DataTypesEnum.ts]"
+    },
     "adareg": {
       "meta": "sklearn_regr",
       "presets": ["fast_train", "ts", "*tree"],

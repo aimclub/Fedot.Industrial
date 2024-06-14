@@ -26,8 +26,19 @@ def test_load_multivariate_data():
     path_folder = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets')
     train_data, test_data = DataLoader(
         'Blink', folder=path_folder).load_data()  # remove folder=path_folder also
+    # TODO: get back to loading from web when it is fixed
+    # train_data, test_data = DataLoader('Epilepsy').load_data()
+
+    # delete when loading from web is fixed
+    path_folder = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets')
+    train_data, test_data = DataLoader(
+        'Blink', folder=path_folder).load_data()  # remove folder=path_folder also
     x_train, y_train = train_data
     x_test, y_test = test_data
+    assert x_train.shape == (500, 4, 510)
+    assert x_test.shape == (450, 4, 510)
+    assert y_train.shape == (500,)
+    assert y_test.shape == (450,)
     assert x_train.shape == (500, 4, 510)
     assert x_test.shape == (450, 4, 510)
     assert y_train.shape == (500,)
@@ -41,13 +52,27 @@ def test_load_univariate_data():
     path_folder = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets')
     train_data, test_data = DataLoader('ItalyPowerDemand_tsv',  # change to 'DodgerLoopDay' and adjust shapes below
                                        folder=path_folder).load_data()  # remove folder=path_folder also
+    # train_data, test_data = DataLoader('DodgerLoopDay').load_data()
+
+    # delete when loading from web is fixed
+    path_folder = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets')
+    train_data, test_data = DataLoader('ItalyPowerDemand_tsv',  # change to 'DodgerLoopDay' and adjust shapes below
+                                       folder=path_folder).load_data()  # remove folder=path_folder also
     x_train, y_train = train_data
     x_test, y_test = test_data
     assert x_train.shape == (67, 24)
     assert x_test.shape == (67, 24)
     assert y_train.shape == (67,)
     assert y_test.shape == (67,)
+    assert x_train.shape == (67, 24)
+    assert x_test.shape == (67, 24)
+    assert y_train.shape == (67,)
+    assert y_test.shape == (67,)
 
+# TODO: uncomment when loading from web is fixed
+# def test_load_fake_data():
+#     with pytest.raises(FileNotFoundError):
+#         DataLoader('Fake').load_data()
 # TODO: uncomment when loading from web is fixed
 # def test_load_fake_data():
 #     with pytest.raises(FileNotFoundError):
