@@ -27,7 +27,7 @@ if __name__ == "__main__":
     api_config = dict(
         problem='ts_forecasting',
         metric='rmse',
-        timeout=1,
+        timeout=5,
         with_tuning=False,
         industrial_strategy='forecasting_assumptions',
         industrial_strategy_params={

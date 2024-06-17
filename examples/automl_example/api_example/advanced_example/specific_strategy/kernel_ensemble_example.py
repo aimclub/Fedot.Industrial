@@ -21,4 +21,3 @@ predict = industrial.predict(test_data, 'ensemble')
 predict_proba = industrial.predict_proba(test_data, 'ensemble')
 metric = industrial.get_metrics(target=test_data[1],
                                 metric_names=metric_names)
-_ = 1

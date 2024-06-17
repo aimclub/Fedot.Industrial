@@ -224,12 +224,14 @@ class FedotIndustrial(Fedot):
     def __abstract_predict(self, predict_mode):
         have_encoder = self.condition_check.solver_have_target_encoder(self.target_encoder)
         labels_output = predict_mode in ['labels', 'default']
-        custom_predict = self.solver.predict if self.industrial_strategy \
-                                                is None else self.industrial_strategy_class.predict
+        default_fedot_strategy = self.industrial_strategy is None
+        custom_predict = self.solver.predict if default_fedot_strategy else self.industrial_strategy_class.predict
 
         predict_function = Either(value=custom_predict,
-                                  monoid=[self.solver.predict_proba, labels_output]).either(left_function=lambda l: l,
-                                                                                            right_function=lambda r: r)
+                                  monoid=[self.solver.predict_proba, not all([default_fedot_strategy,
+                                                                              labels_output])]).either(
+            left_function=lambda l: l,
+            right_function=lambda r: r)
 
         def _inverse_encoder_transform(predict):
             predicted_labels = self.target_encoder.inverse_transform(

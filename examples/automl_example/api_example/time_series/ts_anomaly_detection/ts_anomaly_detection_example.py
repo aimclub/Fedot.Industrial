@@ -1,11 +1,11 @@
-from fedot_ind.tools.example_utils import industrial_common_modelling_loop
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
 if __name__ == "__main__":
     dataset_name = dict(benchmark='valve1',
                         dataset='1')
     prediction_window = 10
     finetune = False
-    metric_names = tuple(('nab', 'accuracy'))
+    metric_names = ('nab', 'accuracy')
     api_config = dict(
         problem='classification',
         metric='accuracy',
@@ -18,7 +18,6 @@ if __name__ == "__main__":
         with_tuning=False,
         n_jobs=2,
         logging_level=20)
-
-    model, labels, metrics = industrial_common_modelling_loop(
-        api_config=api_config, dataset_name=dataset_name, finetune=finetune, metric_names=metric_names)
-    print(metrics)
+    result_dict = ApiTemplate(api_config=api_config,
+                              metric_list=metric_names).eval(dataset=dataset_name, finetune=finetune)
+    print(result_dict['metrics'])

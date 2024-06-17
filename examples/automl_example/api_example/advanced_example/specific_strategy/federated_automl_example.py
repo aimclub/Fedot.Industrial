@@ -16,4 +16,3 @@ train_data, test_data = DataLoader(dataset_name).load_data()
 industrial = FedotIndustrial(**api_config)
 industrial.fit(train_data)
 predict = industrial.predict(test_data)
-_ = 1
