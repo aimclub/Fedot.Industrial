@@ -1,4 +1,3 @@
-import logging
 from copy import deepcopy
 
 import numpy as np
@@ -11,6 +10,8 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.maybe import Maybe
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
+from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
+from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.ensemble.random_automl_forest import RAFEnsembler
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS, \
@@ -34,6 +35,7 @@ class IndustrialStrategy:
             'forecasting_assumptions': self._forecasting_strategy,
             'forecasting_exogenous': self._forecasting_exogenous_strategy,
             'lora_strategy': self._lora_strategy,
+            'sampling_strategy': self._sampling_strategy
         }
 
         self.industrial_strategy_predict = {
@@ -42,8 +44,10 @@ class IndustrialStrategy:
             'forecasting_assumptions': self._forecasting_predict,
             'forecasting_exogenous': self._forecasting_predict,
             'lora_strategy': self._lora_predict,
+            'sampling_strategy': self._sampling_predict
         }
-
+        self.sampling_algorithm = {'CUR': self.__cur_sampling,
+                                   'Random': self.__random_sampling}
         self.ensemble_strategy_dict = {'MeanEnsemble': np.mean,
                                        'MedianEnsemble': np.median,
                                        'MinEnsemble': np.min,
@@ -57,6 +61,19 @@ class IndustrialStrategy:
         self.kernel_ensembler = KernelEnsembler
         self.RAF_workers = None
         self.solver = None
+
+    def __cur_sampling(self, tensor, target, sampling_rate=0.7):
+        projection_rank = math.ceil(max(tensor.shape) * sampling_rate)
+        decomposer = CURDecomposition(rank=projection_rank)
+        sampled_tensor, sampled_target = decomposer.fit_transform(tensor, target)
+        return decomposer, sampled_tensor, sampled_target
+
+    def __random_sampling(self, tensor, target, sampling_rate=0.7):
+        projection_rank = math.ceil(max(tensor.shape) * sampling_rate)
+        tensor = tensor.squeeze()
+        selected_rows = np.random.choice(tensor.shape[0], size=projection_rank, replace=False)
+        sampled_tensor, sampled_target = tensor[selected_rows, :], target[selected_rows, :]
+        return selected_rows, sampled_tensor, sampled_target
 
     def fit(self, input_data):
         self.industrial_strategy_fit[self.industrial_strategy](input_data)
@@ -105,6 +122,24 @@ class IndustrialStrategy:
             Maybe(value=industrial.fit(input_data), monoid=True).maybe(
                 default_value=self.logger.info(f'Failed during fit stage - {model_name}')
                 , extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
+
+    def _sampling_strategy(self, input_data):
+        self.logger.info('Sampling strategy algorithm was applied')
+        self.solver = {}
+        self.sampler = {}
+        algorithm = self.industrial_strategy_params['sampling_algorithm']
+        for sampling_rate in self.industrial_strategy_params['sampling_range']:
+            decomposer, input_data.features, input_data.target = \
+                self.sampling_algorithm[algorithm](tensor=input_data.features,
+                                                   target=input_data.target,
+                                                   sampling_rate=sampling_rate)
+            input_data.idx = np.arange(len(input_data.features))
+            industrial = Fedot(**self.config_dict)
+            Maybe(value=industrial.fit(input_data), monoid=True).maybe(
+                default_value=self.logger.info(f'Failed during fit stage - {algorithm}')
+                , extraction_function=lambda fitted_model: self.solver.update(
+                    {f'{algorithm}_sampling_rate_{sampling_rate}': industrial}))
+            self.sampler.update({f'{algorithm}_sampling_rate_{sampling_rate}': decomposer})
 
     def _forecasting_exogenous_strategy(self, input_data):
         self.logger.info('TS exogenous forecasting algorithm was applied')
@@ -224,6 +259,21 @@ class IndustrialStrategy:
                 input_data,
                 mode).predict for k,
             v in self.solver.items()}
+        return labels_dict
+
+    def _sampling_predict(self,
+                          input_data,
+                          mode: str = 'labels'):
+        labels_dict = {}
+        labels_output = mode in ['labels', 'default']
+        for sampling_rate, solver in self.solver.items():
+            copy_input = deepcopy(input_data)
+            feature_space = self.sampler[sampling_rate].column_indices \
+                if self.industrial_strategy_params['sampling_algorithm'] == 'CUR' else None
+            copy_input.features = input_data.features.squeeze()[:, feature_space]
+            labels_dict.update({sampling_rate: solver.predict(copy_input, mode) if labels_output
+            else solver.predict_proba(copy_input)})
+            del copy_input
         return labels_dict
 
     def _check_predictions(self, predictions):

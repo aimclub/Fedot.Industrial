@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from numpy import linalg as LA
+from sklearn import preprocessing
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
@@ -38,6 +39,7 @@ class CURDecomposition:
 
     def fit_transform(self, feature_tensor: np.ndarray,
                       target: np.ndarray = None) -> tuple:
+        feature_tensor = feature_tensor.squeeze()
         self.selection_rank = self._get_selection_rank(
             self.rank, feature_tensor)
         # create sub matrices for CUR-decompostion
@@ -77,6 +79,7 @@ class CURDecomposition:
             self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         # Evaluate norms for columns and rows
         matrix = np.nan_to_num(matrix)
+        matrix = preprocessing.MinMaxScaler().fit_transform(matrix)
         col_norms = LA.norm(matrix, axis=0)
         row_norms = LA.norm(matrix, axis=1)
         col_norms = np.nan_to_num(col_norms)
@@ -87,18 +90,21 @@ class CURDecomposition:
         col_probs = col_norms / matrix_norm
         row_probs = row_norms / matrix_norm
 
+        is_matrix_tall = self.selection_rank > matrix.shape[1]
+        col_rank = self.selection_rank if not is_matrix_tall else len([prob for prob in col_probs if prob > 0.1])
+        row_rank = self.selection_rank if is_matrix_tall else col_rank
         # Select k columns and rows based on the probabilities p and q
         # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
         # selected_rows = np.random.choice(matrix.shape[0], size=self.rank, replace=False, p=row_probs)
-        selected_cols = np.sort(np.argsort(col_probs)[-self.selection_rank:])
-        selected_rows = np.sort(np.argsort(row_probs)[-self.selection_rank:])
+        selected_cols = np.sort(np.argsort(col_probs)[-col_rank:])
+        selected_rows = np.sort(np.argsort(row_probs)[-row_rank:])
 
         self.row_indices = selected_rows
         self.column_indices = selected_cols
         row_scale_factors = 1 / \
-            np.sqrt(self.selection_rank * row_probs[selected_rows])
+                            np.sqrt(self.selection_rank * row_probs[selected_rows])
         col_scale_factors = 1 / \
-            np.sqrt(self.selection_rank * col_probs[selected_cols])
+                            np.sqrt(self.selection_rank * col_probs[selected_cols])
 
         C_matrix = matrix[:, selected_cols] * col_scale_factors
         R_matrix = matrix[selected_rows, :] * row_scale_factors[:, np.newaxis]
