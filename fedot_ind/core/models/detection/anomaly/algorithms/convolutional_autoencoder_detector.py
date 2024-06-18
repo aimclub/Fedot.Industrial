@@ -19,14 +19,12 @@ class ConvolutionalAutoEncoderDetector(AutoEncoderDetector):
     """
 
     def build_model(self):
-        CAE_params = dict(n_steps=self.n_steps,
-                          learning_rate=self.learning_rate)
-        return ConvolutionalAutoEncoder(CAE_params).to(device)
+        self.params.update({'n_steps': self.n_steps, 'learning_rate': self.learning_rate})
+        return ConvolutionalAutoEncoder(self.params).to(device)
 
 
 class ConvolutionalAutoEncoder(Module):
-    def __init__(self,
-                 params: Optional[OperationParameters] = None):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super(ConvolutionalAutoEncoder, self).__init__()
         self.learning_rate = params.get('learning_rate', 0.001)
         self.n_steps = params.get('n_steps', 10)
