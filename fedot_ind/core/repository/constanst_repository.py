@@ -306,7 +306,7 @@ class FedotOperationConstant(Enum):
                 'rank_regularization': 'explained_dispersion'}).add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-       # 'arima': PipelineBuilder().add_node('stl_arima'),
+        'nbeats': PipelineBuilder().add_node('nbeats_model'),
         'eigen_ar': PipelineBuilder().add_node(
             'eigen_basis',
             params={

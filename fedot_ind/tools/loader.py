@@ -105,12 +105,10 @@ class DataLoader:
         custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting',
                                                 'forecasting_assumptions']
         dict_dataset = isinstance(self.dataset_name, dict)
-
-        if custom_strategy:
+        if dict_dataset and 'train_data' in self.dataset_name.keys():
+            return self.dataset_name['train_data'], self.dataset_name['test_data']
+        elif custom_strategy:
             train_data, test_data = self._load_benchmark_data(specific_strategy)
-        elif dict_dataset:
-            if 'train_data' in self.dataset_name.keys():
-                return self.dataset_name['train_data'], self.dataset_name['test_data']
         else:
             train_data, test_data = None, None
 

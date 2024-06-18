@@ -17,6 +17,7 @@ class CURDecomposition:
             self.rank = rank
         self.column_indices = None
         self.row_indices = None
+        self.column_space = 'Full'
 
     def _get_selection_rank(self, rank, matrix):
         """
@@ -91,7 +92,8 @@ class CURDecomposition:
         row_probs = row_norms / matrix_norm
 
         is_matrix_tall = self.selection_rank > matrix.shape[1]
-        col_rank = self.selection_rank if not is_matrix_tall else len([prob for prob in col_probs if prob > 0.1])
+        col_rank = self.selection_rank if not is_matrix_tall or self.column_space == 'Full' \
+            else len([prob for prob in col_probs if prob > 0.01])
         row_rank = self.selection_rank if is_matrix_tall else col_rank
         # Select k columns and rows based on the probabilities p and q
         # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
