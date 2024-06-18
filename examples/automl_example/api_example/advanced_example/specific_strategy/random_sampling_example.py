@@ -1,4 +1,7 @@
+import pickle
+
 import numpy as np
+import pandas as pd
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
@@ -15,14 +18,17 @@ def create_big_dataset():
     return dataset_dict
 
 
-model_list = dict(logit=['logit'], xgboost=['xgboost'])
+model_list = dict(logit=['logit'], rf=['rf'], xgboost=['xgboost'])
 finetune = False
 task = 'classification'
 sampling_range = [0.01, 0.15, 0.3, 0.6]
-sampling_algorithm = ['Random', 'CUR']
+sampling_algorithm = [
+    'Random',
+    'CUR']
 if __name__ == "__main__":
     results_of_experiments_dict = {}
     dataset_dict = create_big_dataset()
+    df = pd.read_pickle('./sampling_experiment.pkl')
     for algo in sampling_algorithm:
         api_config = dict(
             problem=task,
@@ -42,6 +48,7 @@ if __name__ == "__main__":
                                       metric_list=('f1', 'accuracy')).eval(dataset=dataset_dict,
                                                                            finetune=finetune,
                                                                            initial_assumption=model)
-            algo_result.update({f'{algo}_{model_name}': result_dict})
+            algo_result.update({f'{algo}_{model_name}': result_dict['metrics']})
         results_of_experiments_dict.update({algo: algo_result})
-    _ = 1
+    with open(f'sampling_experiment.pkl', 'wb') as f:
+        pickle.dump(results_of_experiments_dict, f)

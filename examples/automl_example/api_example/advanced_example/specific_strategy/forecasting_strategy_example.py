@@ -1,16 +1,18 @@
 import pickle
 
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH
-from fedot_ind.tools.example_utils import industrial_common_modelling_loop
 
 finetune = False
 
 
 def forecasting_loop(dataset_dict, api_config):
     metric_names = ('rmse', 'smape')
-    model, labels, metrics = industrial_common_modelling_loop(
-        api_config=api_config, dataset_name=dataset_dict, finetune=finetune, metric_names=metric_names)
-    return model, labels, metrics
+    result_dict = ApiTemplate(api_config=api_config,
+                              metric_list=metric_names).eval(dataset=dataset_dict,
+                                                             finetune=finetune)
+
+    return result_dict
 
 
 def evaluate_for_M4(type: str = 'M'):
@@ -41,9 +43,8 @@ if __name__ == "__main__":
         dataset_dict = {'benchmark': bench,
                         'dataset': dataset_name,
                         'task_params': forecast_params}
-        model, labels, metrics = forecasting_loop(dataset_dict, api_config)
-        result_dict.update({dataset_name: dict(metrics=metrics,
-                                               forecast=labels)})
+        result_dict = forecasting_loop(dataset_dict, api_config)
+        result_dict.update({dataset_name: result_dict})
 
     with open(f'{bench}_{group}_forecast_length_{horizon}.pkl', 'wb') as f:
         pickle.dump(result_dict, f)
