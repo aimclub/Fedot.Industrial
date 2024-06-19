@@ -19,7 +19,7 @@ class ConvolutionalAutoEncoderDetector(AutoEncoderDetector):
     """
 
     def build_model(self):
-        self.params.update({'n_steps': self.n_steps, 'learning_rate': self.learning_rate})
+        self.params.update(**{'n_steps': self.n_steps, 'learning_rate': self.learning_rate})
         return ConvolutionalAutoEncoder(self.params).to(device)
 
 
