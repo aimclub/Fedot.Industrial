@@ -111,7 +111,6 @@ class ConvolutionalAutoEncoder(Module):
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-            print(f'Loss- {loss}')
             self.eval()
             valid_loss = 0.0
             with no_grad():
