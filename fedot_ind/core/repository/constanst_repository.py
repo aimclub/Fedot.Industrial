@@ -693,7 +693,8 @@ class UnitTestConstant(Enum):
         'stat_detector': ['stat_detector'],
         'iforest_detector': ['iforest_detector'],
         'conv_ae_detector': ['conv_ae_detector'],
-        'arima_detector': ['arima_detector']
+        'lstm_ae_detector': ['lstm_ae_detector'],
+        'arima_detector': ['arima_detector'],
     }
 
 

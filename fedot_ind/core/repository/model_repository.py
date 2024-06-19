@@ -48,6 +48,7 @@ from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector imp
 from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
     ConvolutionalAutoEncoderDetector
+from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
@@ -221,6 +222,7 @@ class AtomizedModel(Enum):
         'arima_detector': ARIMAFaultDetector,
         'iforest_detector': IsolationForestDetector,
         'conv_ae_detector': ConvolutionalAutoEncoderDetector,
+        'lstm_ae_detector': LSTMAutoEncoderDetector,
         'channel_filtration': ChannelCentroidFilter,
         'gaussian_filter': GaussianFilterImplementation,
         'smoothing': TsSmoothingImplementation,

@@ -427,7 +427,13 @@
   "conv_ae_detector": {
     "window_length": 10,
     "anomaly_thr": 0.9,
-    "ucl_quantile": 0.999,
+    "ucl_quantile": 0.99,
+    "n_steps_share": 0.15
+  },
+  "lstm_ae_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ucl_quantile": 0.99,
     "n_steps_share": 0.15
   },
   "one_class_svm": {
