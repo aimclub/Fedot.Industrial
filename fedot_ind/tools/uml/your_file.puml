@@ -1,0 +1,101 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+class AtomizedModel {
+    Enum
+}
+
+abstract FEDOT_PREPROC_MODEL
+abstract NEURAL_MODEL
+abstract INDUSTRIAL_PREPROC_MODEL
+abstract SKLEARN_CLF_MODELS
+abstract INDUSTRIAL_CLF_PREPROC_MODEL
+abstract SKLEARN_REG_MODELS
+abstract FORECASTING_PREPROC
+abstract FORECASTING_MODELS
+
+
+INDUSTRIAL_CLF_PREPROC_MODEL --> AtomizedModel
+AtomizedModel <-- SKLEARN_CLF_MODELS
+FEDOT_PREPROC_MODEL --> AtomizedModel
+AtomizedModel <- INDUSTRIAL_PREPROC_MODEL
+SKLEARN_REG_MODELS --> AtomizedModel
+AtomizedModel <-- FORECASTING_MODELS
+FORECASTING_PREPROC -> AtomizedModel
+NEURAL_MODEL -> AtomizedModel
+
+abstract FEDOT_PREPROC_MODEL {
+ScalingImplementation,
+NormalizationImplementation,
+ImputationImplementation,
+KernelPCAImplementation,
+TopologicalFeaturesImplementation
+}
+
+abstract NEURAL_MODEL {
+InceptionTimeModel,
+OmniScaleModel,
+ResNetModel,
+NBeatsModel,
+TSTModel,
+XCModel,
+DummyOverComplicatedNeuralNetwork,
+LoraModel
+}
+
+abstract INDUSTRIAL_PREPROC_MODEL {
+ChannelCentroidFilter,
+EigenBasisImplementation,
+WaveletBasisImplementation,
+FourierBasisImplementation,
+RecurrenceExtractor,
+QuantileExtractor,
+RiemannExtractor,
+TopologicalFeaturesImplementation,
+MiniRocketExtractor,
+ChronosExtractor,
+IsolationForestClassImplementation,
+IsolationForestRegImplementation,
+}
+
+abstract SKLEARN_CLF_MODELS {
+GradientBoostingClassifier,
+SklearnLogReg,
+DecisionTreeClassifier,
+RandomForestClassifier,
+MLPClassifier,
+LGBMClassifier
+}
+
+abstract INDUSTRIAL_CLF_PREPROC_MODEL {
+DecomposerClassImplementation,
+ResampleImplementation,
+}
+
+abstract SKLEARN_REG_MODELS {
+XGBRegressor,
+SklearnSGD,
+ExtraTreesRegressor,
+SklearnRidgeReg,
+SklearnLassoReg,
+DecisionTreeRegressor,
+LGBMRegressor,
+}
+
+abstract FORECASTING_PREPROC {
+LaggedTransformationImplementation,
+SparseLaggedTransformationImplementation,
+TsSmoothingImplementation,
+GaussianFilterImplementation,
+ExogDataTransformationImplementation,
+}
+
+abstract FORECASTING_MODELS {
+AutoRegImplementation,
+STLForecastARIMAImplementation,
+ExpSmoothingImplementation,
+CGRUImplementation,
+GLMIndustrial
+}
+
+@enduml

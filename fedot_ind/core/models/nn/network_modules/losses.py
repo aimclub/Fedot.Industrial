@@ -1,9 +1,11 @@
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import torch
 import torch.nn.functional as F
 from fastai.torch_core import Module
 from torch import nn, Tensor
+import torch.distributions as distributions
+
 
 from fedot_ind.core.architecture.settings.computational import default_device
 
@@ -265,3 +267,186 @@ class RMSELoss(Module):
         criterion = nn.MSELoss()
         loss = torch.sqrt(criterion(input, target))
         return loss
+
+
+class DistributionLoss(nn.Module):
+    """
+    Distribution loss for variational inference
+    """
+    distribution_class: distributions.Distribution
+    distribution_arguments: List[str]
+    quantiles: List[float] = [.05, .25, .5, .75, .95]
+    need_affine = True
+    support_real = False
+    need_target_scale = True
+    _eps = 1e-8
+
+    def __init__(
+        self, reduction="mean",
+    ):
+        super().__init__()
+        self.reduction = getattr(
+            torch, reduction) if reduction else lambda x: x
+
+    @classmethod
+    def map_x_to_distribution(
+            cls, x: torch.Tensor) -> distributions.Distribution:
+        """
+        Map the a tensor of parameters to a probability distribution.
+
+        Args:
+            x (torch.Tensor): parameters for probability distribution. Last dimension will index the parameters
+
+        Returns:
+            distributions.Distribution: torch probability distribution as defined in the
+                class attribute ``distribution_class``
+        """
+        distr = cls._map_x_to_distribution(x)
+        transforms = []
+        if cls.need_affine:
+            loc = x[..., 0]
+            scale = F.softplus(x[..., 1])
+            scaler_from_output = distributions.AffineTransform(
+                loc=loc, scale=scale)
+            transforms.append(scaler_from_output)
+        if transforms:
+            distr = distributions.TransformedDistribution(distr, transforms)
+        return distr
+
+    @classmethod
+    def _map_x_to_distribution(cls, x):
+        raise NotImplemented
+
+    @classmethod
+    def _pretransform(cls, x, transform=None):
+        return x
+        if transform is None:
+            transform = F.softplus
+        st = 2 if cls.need_affine else 0
+        pretransformed = torch.concat(
+            [x[..., :st], transform(x[..., st:])], dim=-1)
+        assert x.size() == pretransformed.size(), 'size mismatch'
+        return pretransformed
+
+    def forward(
+            self,
+            param_pred: torch.Tensor,
+            target: torch.Tensor,
+            scaler=None) -> torch.Tensor:
+        """
+        Calculate negative likelihood
+
+        Args:
+            y_pred: network output
+            y_actual: actual values
+
+        Returns:
+            torch.Tensor: metric value on which backpropagation can be applied
+        """
+        if not self.support_real:
+            param_pred = self._pretransform(param_pred)
+        distribution = self.map_x_to_distribution(param_pred)
+        if scaler and self.need_target_scale:
+            target = scaler.scale(target)
+        if not self.support_real:
+            loc = target.min()
+            C = 50
+            target -= loc
+            target += C
+            distribution = distributions.TransformedDistribution(
+                distribution, [distributions.AffineTransform(loc=-loc + C, scale=1)]
+            )
+
+        loss = -distribution.log_prob(target)
+        loss = self.reduction(loss)
+        return loss
+
+
+class NormalDistributionLoss(DistributionLoss):
+    distribution_class = distributions.Normal
+    distribution_arguments = ["loc", "scale"]
+    need_affine = False
+    support_real = True
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Normal:
+        loc = x[..., -2]
+        scale = F.softplus(x[..., -1])
+        distr = self.distribution_class(loc=loc, scale=scale)
+        return distr
+
+
+class CauchyDistributionLoss(DistributionLoss):
+    distribution_class = distributions.Cauchy
+    distribution_arguments = ["loc", "scale"]
+    need_affine = False
+    support_real = True
+    need_target_scale = True
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Cauchy:
+        loc = x[..., -2]
+        scale = F.softplus(x[..., -1])
+        distr = self.distribution_class(loc=loc, scale=scale)
+        return distr
+
+
+class LogNormDistributionLoss(DistributionLoss):
+    distribution_class = distributions.LogNormal
+    distribution_arguments = ['rescale_loc', 'rescale_scale', "loc", "scale"]
+    need_affine = True
+    need_target_scale = False
+    support_real = False
+
+    @classmethod
+    def _map_x_to_distribution(
+            self, x: torch.Tensor) -> distributions.LogNormal:
+        loc = F.softplus(x[..., -2])
+        scale = F.softplus(x[..., -1])
+        loc[torch.isnan(loc)] = 0
+        scale[torch.isnan(scale)] = 1
+        distr = self.distribution_class(loc=loc, scale=scale)
+        return distr
+
+
+class SkewNormDistributionLoss(DistributionLoss):
+    # TODO
+    pass
+
+
+class InverseGaussDistributionLoss(DistributionLoss):
+    distribution_class = distributions.InverseGamma
+    # need for discrete of 'scale' rate is questionable
+    distribution_arguments = ["loc", "scale", "concentration", "rate"]
+    need_affine = True
+    support_real = False
+    need_target_scale = False
+
+    @classmethod
+    def _map_x_to_distribution(
+            self, x: torch.Tensor) -> distributions.InverseGamma:
+        concentration = F.softplus(x[..., -2])
+        rate = F.softplus(x[..., -1])
+        distr = self.distribution_class(concentration=concentration, rate=rate)
+        return distr
+
+
+class BetaDistributionLoss(DistributionLoss):
+    distribution_class = distributions.Beta
+    distribution_arguments = [
+        "loc",
+        "scale",
+        'concentration0',
+        'concentration1']
+    need_affine = True
+    support_real = False
+    need_target_scale = False
+
+    @classmethod
+    def _map_x_to_distribution(self, x: torch.Tensor) -> distributions.Beta:
+        concentration0 = F.softplus(x[..., -2])
+        concentration1 = F.softplus(x[..., -1])
+        distr = self.distribution_class(
+            concentration0=concentration0,
+            concentration1=concentration1)
+        return distr

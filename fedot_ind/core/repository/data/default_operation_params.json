@@ -31,6 +31,10 @@
     "activation": "Softmax",
     "num_classes": 1
   },
+  "deepar_model": {
+    "epochs": 100,
+    "batch_size": 16
+  },
   "inception_model": {
     "epochs": 100,
     "batch_size": 32,

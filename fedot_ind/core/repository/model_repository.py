@@ -46,6 +46,7 @@ from xgboost import XGBRegressor
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
+from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
@@ -191,6 +192,8 @@ class AtomizedModel(Enum):
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
         'glm': GLMIndustrial,
+        # variational
+        'deepar_model': DeepAR,
         'tcn_model': TCNModel
     }
 
@@ -213,6 +216,8 @@ class AtomizedModel(Enum):
         'tst_model': TSTModel,
         # explainable models
         'xcm_model': XCModel,
+        # variational models
+        'deepar_model': DeepAR,
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,
         # linear_dummy_model
