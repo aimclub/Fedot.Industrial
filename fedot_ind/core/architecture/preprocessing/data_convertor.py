@@ -40,12 +40,17 @@ class CustomDatasetCLF:
             label_1 = max(ts.class_labels)
             label_0 = min(ts.class_labels)
             self.classes = ts.num_classes
-            if self.classes == 2 and label_1 != 1:
-                ts.target[ts.target == label_0] = 0
-                ts.target[ts.target == label_1] = 1
-            elif self.classes == 2 and label_0 != 0:
-                ts.target[ts.target == label_0] = 0
-                ts.target[ts.target == label_1] = 1
+
+            if self.classes == 2:
+                if label_0 != 0 or label_1 != 1:
+                    ts.target[ts.target == label_0] = 0
+                    ts.target[ts.target == label_1] = 1
+            # if self.classes == 2 and label_1 != 1:
+            #     ts.target[ts.target == label_0] = 0
+            #     ts.target[ts.target == label_1] = 1
+            # elif self.classes == 2 and label_0 != 0:
+            #     ts.target[ts.target == label_0] = 0
+            #     ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
             if type(min(ts.target)) is np.str_:
@@ -108,10 +113,8 @@ class FedotConverter:
                      'regression': Task(TaskTypesEnum.regression)}
         if is_multivariate_data:
             input_data = InputData(idx=np.arange(len(features)),
-                                   features=np.array(
-                                       features.values.tolist()).astype(float),
-                                   target=target.astype(
-                                       float).reshape(-1, 1),
+                                   features=np.array(features.values.tolist()).astype(float),
+                                   target=target.astype(float).reshape(-1, 1),
                                    task=task_dict[task],
                                    data_type=MULTI_ARRAY)
         else:
