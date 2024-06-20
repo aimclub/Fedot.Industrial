@@ -30,7 +30,8 @@ def average_delay(boundaries, prediction,
     }
     return detection_history, statistics
     
-
+def tp_transform(tps):
+    return np.diff(tps[[1, 0]], axis=0) / np.diff(tps[[-1, 0]], axis=0)
 
 def extract_cp_cm(boundaries: Union[np.array, pd.DataFrame],
                 prediction: pd.DataFrame,
@@ -49,7 +50,9 @@ def extract_cp_cm(boundaries: Union[np.array, pd.DataFrame],
             anomaly_tsp_in_window = anomaly_tsp_in_window & anomaly_tsp
             if not len(anomaly_tsp_in_window): # why not false positive? do we expect an anomaly to be in every interval?
                 FNs.append(i if use_idx else all_tsp_in_window)
-            TPs[i] = [b_low, anomaly_tsp_in_window[int(use_switch_point)] if use_idx else anomaly_tsp_in_window, b_up]
+            TPs[i] = [b_low, 
+                      anomaly_tsp_in_window[int(use_switch_point)] if use_idx else anomaly_tsp_in_window, 
+                      b_up]
             if not use_idx:
                 FNs.append(all_tsp_in_window - anomaly_tsp_in_window)
         FPs.append(anomaly_tsp[anomaly_tsp > boundaries[-1, -1]]) # right rest
@@ -62,9 +65,8 @@ def extract_cp_cm(boundaries: Union[np.array, pd.DataFrame],
     return dict(
         FP=FPs,
         FN=FNs,
-        TP=TPs
+        TP=np.stack(TPs)
     )
-
 
 # cognate of single_detecting_boundaries
 def get_boundaries(idx, actual_timestamps, window_size:int = None,
@@ -118,5 +120,19 @@ def get_boundaries(idx, actual_timestamps, window_size:int = None,
     boundaries = pd.DataFrame({'lower': boundaries[0], 'upper': boundaries[1]})
     return boundaries
 
-        
+def nab(boundaries, predictions, mode='standard', custom_coefs=None):
+    inner_coefs = {
+        'low_FP': [1.0, -0.11, -1.0],
+        'standard': [1., -0.22, -1.],
+        'lof_FN': [1., -0.11, -2.]
+    }
+    coefs = custom_coefs or inner_coefs[mode]
+    confusion_matrix = extract_cp_cm(boundaries, predictions)
+    
+    tps = confusion_matrix['tps']
+
+    score = np.inner([tps, len(confusion_matrix['FP']), len(confusion_matrix['FN'])], 
+                     coefs)
+    return score
+    
 
