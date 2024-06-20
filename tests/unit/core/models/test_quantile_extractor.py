@@ -19,9 +19,9 @@ def dataset(n_classes):
 
 @pytest.fixture
 def input_data():
-    N_CLASSES = np.random.choice([2, 3])
-    X_train, y_train, X_test, y_test = dataset(N_CLASSES)
-    input_train_data = init_input_data(X_train, y_train)
+    n_classes = np.random.choice([2, 3])
+    x_train, y_train, x_test, y_test = dataset(n_classes)
+    input_train_data = init_input_data(x_train, y_train)
     return input_train_data
 
 
@@ -43,14 +43,9 @@ def test_transform(quantile_extractor, input_data):
 
 
 def test_transform_window(quantile_extractor_window, input_data):
-    train_features_window = quantile_extractor_window.transform(
-        input_data=input_data)
-    quantile_extractor_window.window_size
-    input_data.features.shape[1]
-    # expected_n_features = len(stat_methods_global.keys()) + math.ceil(len_ts / (len_ts*window/100)) * len(stat_methods.keys())
+    train_features_window = quantile_extractor_window.transform(input_data=input_data)
     assert train_features_window is not None
     assert isinstance(train_features_window, OutputData)
-    # assert expected_n_features == train_features_window.predict.shape[1]
 
 
 def test_extract_features(quantile_extractor):
