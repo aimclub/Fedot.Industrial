@@ -20,6 +20,7 @@ def test_init_loader():
 
 
 def test_load_multivariate_data():
+
     train_data, test_data = DataLoader('Epilepsy').load_data()
     x_train, y_train = train_data
     x_test, y_test = test_data
@@ -42,8 +43,18 @@ def test_load_univariate_data():
 def test_load_fake_data():
     with pytest.raises(FileNotFoundError):
         DataLoader('Fake').load_data()
+        
 
+def test_load_univariate_data():
+    train_data, test_data = DataLoader('DodgerLoopDay').load_data()
+    x_train, y_train = train_data
+    x_test, y_test = test_data
+    assert x_train.shape == (78, 288)
+    assert x_test.shape == (80, 288)
+    assert y_train.shape == (78,)
+    assert y_test.shape == (80,)
 
+    
 def test__load_from_tsfile_to_dataframe():
     ds_name = 'name'
     path = '.'
