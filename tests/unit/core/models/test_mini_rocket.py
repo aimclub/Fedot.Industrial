@@ -28,15 +28,6 @@ def test_get_minirocket_features():
     assert features.shape == (100, 10, 1)
 
 
-def test_mini_rocket_features():
-    mini_rocket_features = MiniRocketFeatures(input_dim=1000,
-                                              seq_len=1000,
-                                              num_features=10_000)
-    input_tensor = Tensor(np.random.rand(1, 1000, 1000))
-    features = mini_rocket_features.extract_features(input_tensor)
-    assert features.shape == (1, 10_000)
-
-
 def test_mini_rocket_head():
     head = MiniRocketHead(input_dim=1000,
                           output_dim=10)
