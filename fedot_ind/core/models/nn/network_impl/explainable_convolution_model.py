@@ -1,10 +1,11 @@
+from typing import Optional
+
 import torch
 from fastai.callback.hook import *
 from fastai.layers import BatchNorm, LinBnDrop, SigmoidRange
 from fastai.torch_core import Module
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn, optim
-from typing import Optional
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset
 from fedot_ind.core.architecture.postprocessing.visualisation.gradcam_vis import visualise_gradcam
