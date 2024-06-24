@@ -52,8 +52,10 @@ class SSAForecasterImplementation(ModelImplementation):
                          'tuning_timeout': 20,
                          'tuning_early_stop': 20,
                          'tuner': SimultaneousTuner}
-        component_mode_dict = {'topological': PipelineBuilder().add_node('lagged').add_node(
-            'topological_features').add_node('treg'), 'ar': PipelineBuilder().add_node('ar')}
+        component_mode_dict = {
+            'topological': PipelineBuilder().add_node('lagged').add_node('topological_features').add_node('treg'),
+            'ar': PipelineBuilder().add_node('ar')
+        }
 
         self.window_size_method = params.get('window_size_method')
         self.history_lookback = max(params.get('history_lookback', 0), 100)
@@ -152,7 +154,7 @@ class SSAForecasterImplementation(ModelImplementation):
         reconstructed_features = np.array(components_correlation).sum(axis=0)
         return reconstructed_features
 
-    def predict_for_fit(self, input_data: InputData) -> OutputData:
+    def predict_for_fit(self, input_data: InputData) -> np.ndarray:
         if self.horizon is None:
             self.horizon = input_data.task.task_params.forecast_length
         if input_data.features.shape[0] > self.history_lookback:
@@ -163,9 +165,12 @@ class SSAForecasterImplementation(ModelImplementation):
         else:
             self.history_lookback = None
         self._decomposer = EigenBasisImplementation(
-            {
-                'low_rank_approximation': self.low_rank_approximation,
-                'rank_regularization': 'explained_dispersion'})
+            OperationParameters(
+                low_rank_approximation=self.low_rank_approximation,
+                rank_regularization='explained_dispersion'
+            )
+        )
+
         predict = self.__predict_for_fit(input_data)
         return predict
 
