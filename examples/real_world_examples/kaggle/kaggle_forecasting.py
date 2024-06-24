@@ -1,5 +1,4 @@
 import csv
-import pickle
 from copy import deepcopy
 
 import numpy as np
@@ -56,10 +55,7 @@ def forecasting_loop(dataset_dict):
         result_dict = ApiTemplate(api_config=api_config,
                                   metric_list=metric_names).eval(dataset=copy_data,
                                                                  finetune=finetune)
-        del result_dict['industrial_model']
         ts_dict.update({time_series_id: result_dict})
-    with open(f'kaggle_experiment_fixed_21_06.pkl', 'wb') as f:
-        pickle.dump(ts_dict, f)
 
     test = pd.read_csv("./data/test.csv", parse_dates=["date"])
     test['orders'] = 0

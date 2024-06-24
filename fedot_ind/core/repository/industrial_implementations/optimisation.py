@@ -31,8 +31,8 @@ from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
 
-from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
-from fedot_ind.core.repository.model_repository import TEMPORARY_EXCLUDED, default_industrial_availiable_operation
+from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
+from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 
 
 class MutationStrengthEnumIndustrial(Enum):

@@ -1,16 +1,12 @@
 from enum import Enum
 from itertools import chain
 
-from fedot.core.operations.evaluation.operation_implementations.data_operations.categorical_encoders import \
-    LabelEncodingImplementation, OneHotEncodingImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
     IsolationForestClassImplementation, IsolationForestRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_imbalanced_class import \
     ResampleImplementation
-from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_selectors import \
-    LinearClassFSImplementation, NonLinearClassFSImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
     TopologicalFeaturesImplementation
@@ -19,8 +15,6 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
     FedotCatBoostRegressionImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.knn import FedotKnnClassImplementation, \
-    FedotKnnRegImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
@@ -28,26 +22,23 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation
 from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
-from sklearn.ensemble import AdaBoostRegressor, ExtraTreesRegressor, GradientBoostingRegressor, \
-    GradientBoostingClassifier, \
-    RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import ExtraTreesRegressor, GradientBoostingClassifier, \
+    RandomForestClassifier
 from sklearn.linear_model import (
     Lasso as SklearnLassoReg,
-    LinearRegression as SklearnLinReg,
     LogisticRegression as SklearnLogReg,
     Ridge as SklearnRidgeReg,
     SGDRegressor as SklearnSGD
 )
-from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
 from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
-from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
     ConvolutionalAutoEncoderDetector
+from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
@@ -65,58 +56,11 @@ from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
-from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
-from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
-from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
-
-TEMPORARY_EXCLUDED = {
-    'INDUSTRIAL_CLF_PREPROC_MODEL': {
-        'rfe_lin_class': LinearClassFSImplementation,
-        'rfe_non_lin_class': NonLinearClassFSImplementation,
-    },
-    'FEDOT_PREPROC_MODEL': {'pca': PCAImplementation,
-                            'fast_ica': FastICAImplementation,
-                            'poly_features': PolyFeaturesImplementation,
-                            'exog_ts': ExogDataTransformationImplementation,
-                            # categorical encoding
-                            'one_hot_encoding': OneHotEncodingImplementation,
-                            'label_encoding': LabelEncodingImplementation
-                            },
-    'FORECASTING_PREPROC': {'exog_ts': ExogDataTransformationImplementation},
-    'INDUSTRIAL_PREPROC_MODEL': {
-        'cat_features': DummyOperation,
-        'dimension_reduction': FeatureFilter,
-        # 'signal_extractor': SignalExtractor,
-        # isolation_forest forest
-        'isolation_forest_class': IsolationForestClassImplementation,
-        'isolation_forest_reg': IsolationForestRegImplementation,
-        # 'chronos_extractor': ChronosExtractor,
-        'riemann_extractor': RiemannExtractor,
-    },
-    'SKLEARN_REG_MODELS': {
-        'gbr': GradientBoostingRegressor,
-        'rfr': RandomForestRegressor,
-        'adareg': AdaBoostRegressor,
-        'linear': SklearnLinReg,
-        'knnreg': FedotKnnRegImplementation,
-    },
-    'SKLEARN_CLF_MODELS': {'bernb': SklearnBernoulliNB,
-                           'multinb': SklearnMultinomialNB,
-                           'knn': FedotKnnClassImplementation
-                           },
-    'NEURAL_MODELS': {'resnet_model': ResNetModel,
-                      "nbeats_model": NBeatsModel,
-                      'omniscale_model': OmniScaleModel,
-                      # transformer models
-                      'tst_model': TSTModel,
-                      # explainable models
-                      'xcm_model': XCModel
-                      }
-}
+from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 
 
 class AtomizedModel(Enum):
