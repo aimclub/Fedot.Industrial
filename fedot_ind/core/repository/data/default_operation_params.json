@@ -344,6 +344,10 @@
     "timeout": 10,
     "with_tuning": true
   },
+  "fedot_forecast": {
+    "timeout": 10,
+    "with_tuning": true
+  },
   "tst_model": {
     "epochs": 100,
     "batch_size": 32

@@ -4,10 +4,8 @@ from itertools import chain
 from multiprocessing import cpu_count
 
 from fedot.core.data.data import InputData
-from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
-from typing import Optional
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
@@ -22,7 +20,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     Abstract class responsible for feature generator.
     """
 
-    def __init__(self, params: Optional[OperationParameters] = None):
+    def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.current_window = None
         self.stride = 3
@@ -31,6 +29,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.data_type = DataTypesEnum.table
         self.use_cache = params.get(
             'use_cache', False) if params is not None else False
+        self.use_sliding_window = params.get('use_sliding_window', True)
         self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
@@ -136,6 +135,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                                   window_size=window_size,
                                                   strides=self.stride)
             subseq_set = trajectory_transformer.trajectory_matrix
+        elif not self.use_sliding_window:
+            for i in range(0, ts_data.shape[0], window_size):
+                stat_feature = feature_generator(ts_data[i:window_size + i])
+                features.append(stat_feature.features)
+                names.append([x + f'_on_interval: {i + 1} - {i + 1 + window_size}'
+                              for x in stat_feature.supplementary_data['feature_name']])
+            return features, names
         else:
             subseq_set = np.lib.stride_tricks.sliding_window_view(
                 ts_data, ts_data.shape[0] - window_size)
@@ -155,14 +161,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                             ts: np.array) -> tuple:
 
         multi_ts_stat_features = [extraction_func(x) for x in ts]
+        for component in multi_ts_stat_features:
+            if not isinstance(component.features, np.ndarray):
+                component.features = np.array(component.features)
         features = np.concatenate([component.features.reshape(
             1, -1) for component in multi_ts_stat_features], axis=0)
 
         for index, component in enumerate(multi_ts_stat_features):
-            # try:
-            #     component.supplementary_data['feature_name'] = [f'{x} for component {index}'
-            #                                                     for x in component.supplementary_data['feature_name']]
-            # except Exception as ex:
             component.supplementary_data['feature_name'] = [
                 f'component {index}']
         names = list(chain(*[x.supplementary_data['feature_name']

@@ -1,4 +1,5 @@
 import csv
+import pickle
 from copy import deepcopy
 
 import numpy as np
@@ -16,6 +17,7 @@ warehouse_to_item_id = {
     'Munich_1': 6,
     'Frankfurt_1': 7
 }
+columns = ['id', 'orders']
 item_id_to_warehouse = {v: k for k, v in warehouse_to_item_id.items()}
 cat = ['holiday',
        'shutdown', 'mini_shutdown', 'shops_closed', 'winter_school_holidays',
@@ -34,24 +36,44 @@ def forecasting_loop(dataset_dict):
                                            == time_series_id]['target'].values
         copy_data['train_data'] = (features, features)
         target, historical_data = prepare_target(dataset_dict['train_data'], time_series_id)
+        # copy_data['test_data'] = (features[:-horizon], target[-horizon:])
         copy_data['test_data'] = (features, target[-horizon:])
         forecast_params = {'forecast_length': horizon}
         api_config = dict(
             problem='ts_forecasting',
-            metric='rmse',
+            metric='mape',
             timeout=5,
             with_tuning=False,
             industrial_strategy='forecasting_assumptions',
             industrial_strategy_params={
                 'industrial_task': 'ts_forecasting',
+                'finetune': True,
+                'tuning_params': {'tuning_timeout': 10,
+                                  'tuning_iterations': 100},
                 'data_type': 'time_series'},
             task_params=forecast_params,
             logging_level=50)
         result_dict = ApiTemplate(api_config=api_config,
                                   metric_list=metric_names).eval(dataset=copy_data,
                                                                  finetune=finetune)
+        del result_dict['industrial_model']
         ts_dict.update({time_series_id: result_dict})
+    with open(f'kaggle_experiment_fixed_21_06.pkl', 'wb') as f:
+        pickle.dump(ts_dict, f)
 
+    test = pd.read_csv("./data/test.csv", parse_dates=["date"])
+    test['orders'] = 0
+
+    for warehouse, time_series_id in warehouse_to_item_id.items():
+        test.loc[test['warehouse'] == warehouse, ['orders']] = ts_dict[time_series_id]['labels']['eigen_ar']
+
+    # Конвертация данных DataFrame в формат для csv
+    rows = [columns] + list(zip(test['id'], test['orders']))
+
+    # Запись данных в CSV файл
+    with open('submission.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(rows)
     return ts_dict
 
 

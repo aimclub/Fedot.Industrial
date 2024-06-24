@@ -203,6 +203,7 @@ class FedotIndustrial(Fedot):
             input_data=self.train_data,
             task=self.config_dict['problem'],
             task_params=self.task_params,
+            fit_stage=True,
             industrial_task_params=self.industrial_strategy_params)
         self.train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
@@ -210,7 +211,7 @@ class FedotIndustrial(Fedot):
         custom_fit = all([self.industrial_strategy is not None, self.industrial_strategy != 'anomaly_detection'])
         fit_function = Either(value=self.train_data,
                               monoid=[self.train_data, custom_fit]) \
-            .either(left_function=self.solver.fit, right_function=self.industrial_strategy_class.fit, )
+            .either(left_function=self.solver.fit, right_function=self.industrial_strategy_class.fit)
         self.is_finetuned = False
 
     def __predict_for_ensemble(self):

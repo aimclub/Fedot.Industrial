@@ -10,6 +10,7 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.maybe import Maybe
 
+from fedot_ind.core.architecture.abstraction.client import use_default_fedot_client
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
@@ -26,6 +27,8 @@ class IndustrialStrategy:
                  logger=None
                  ):
         self.industrial_strategy_params = industrial_strategy_params
+        self.finetune = industrial_strategy_params.get('finetune', False)
+        self.finetune_params = industrial_strategy_params.get('tuning_params', {})
         self.industrial_strategy = industrial_strategy
 
         self.industrial_strategy_fit = {
@@ -109,12 +112,18 @@ class IndustrialStrategy:
     def _forecasting_strategy(self, input_data):
         self.logger.info('TS forecasting algorithm was applied')
         self.solver = {}
-        for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
-            self.config_dict['initial_assumption'] = init_assumption.build()
-            industrial = Fedot(**self.config_dict)
-            Maybe(value=industrial.fit(input_data), monoid=True).maybe(
-                default_value=self.logger.info(f'Failed during fit stage - {model_name}')
-                , extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
+        if self.finetune:
+            kernel_data = {model_name: input_data for model_name in FEDOT_TS_FORECASTING_ASSUMPTIONS.keys()}
+            kernel_model = {model_name: model_impl.build() if 'build' in dir(model_impl)
+            else model_impl({}).fit(input_data) for model_name, model_impl in FEDOT_TS_FORECASTING_ASSUMPTIONS.items()}
+            self.solver = self._finetune_loop(kernel_model, kernel_data, self.finetune_params)
+        else:
+            for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
+                self.config_dict['initial_assumption'] = init_assumption.build()
+                industrial = Fedot(**self.config_dict)
+                Maybe(value=industrial.fit(input_data), monoid=True).maybe(
+                    default_value=self.logger.info(f'Failed during fit stage - {model_name}')
+                    , extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
 
     def _sampling_strategy(self, input_data):
         self.logger.info('Sampling strategy algorithm was applied')
@@ -168,31 +177,22 @@ class IndustrialStrategy:
                        kernel_ensemble: dict,
                        kernel_data: dict,
                        tuning_params: dict = {}):
-        tuned_kernels = {}
+        tuned_models = {}
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
         for generator, kernel_model in kernel_ensemble.items():
-            tuned_metric = 0
-            for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-                tuning_params['tuner'] = tuner_type
-                model_to_tune = deepcopy(kernel_model)
-                pipeline_tuner, tuned_kernel_model = build_tuner(
-                    self, model_to_tune, tuning_params, kernel_data[generator], 'head')
-                if abs(pipeline_tuner.obtained_metric) > tuned_metric:
-                    tuned_metric = abs(pipeline_tuner.obtained_metric)
-                    self.solver = tuned_kernel_model
-            tuned_kernels.update({generator: self.solver})
+            tuning_params['tuner'] = FEDOT_TUNER_STRATEGY['optuna']
+            model_to_tune = deepcopy(kernel_model)
+            pipeline_tuner, self.solver = build_tuner(
+                self, model_to_tune, tuning_params, kernel_data[generator], 'head')
+            tuned_models.update({generator: self.solver})
 
-        return tuned_kernels
-
+        return tuned_models
     def _kernel_strategy(self, input_data):
         self.kernel_ensembler = KernelEnsembler(
             self.industrial_strategy_params)
         kernel_ensemble, kernel_data = self.kernel_ensembler.transform(
             input_data).predict
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
-        # tuning_params = {'metric': FEDOT_TUNING_METRICS[self.config_dict['problem']], 'tuner': OptunaTuner}
-        # self.solver
-        # self.solver = build_tuner(self, self.solver, tuning_params, input_data, 'head')
 
     def _lora_strategy(self, input_data):
         self.lora_model = PipelineBuilder().add_node(
@@ -223,11 +223,20 @@ class IndustrialStrategy:
     def _forecasting_predict(self,
                              input_data,
                              mode: str = True):
+        @use_default_fedot_client
+        def _predict_function(forecasting_model):
+            if isinstance(forecasting_model, dict):
+                predict_by_component = {
+                    model_name: model['composite_pipeline'].predict(model['train_fold_data'], mode).predict
+                    for model_name, model in forecasting_model.items()}
+                return np.sum(list(predict_by_component.values()), axis=0)
+            else:
+                return forecasting_model.predict(input_data, mode).predict
+
         labels_dict = {
-            k: v.predict(
-                features=input_data,
-                in_sample=mode) for k,
-                                    v in self.solver.items()}
+            forecasting_strategy: _predict_function(forecasting_model) for forecasting_strategy,
+                                                                           forecasting_model in self.solver.items()}
+
         return labels_dict
 
     def _lora_predict(self,

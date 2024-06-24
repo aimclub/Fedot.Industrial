@@ -2,6 +2,7 @@ from typing import Tuple
 
 from numpy import linalg as LA
 from sklearn import preprocessing
+from sklearn.random_projection import johnson_lindenstrauss_min_dim
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
@@ -31,8 +32,13 @@ class CURDecomposition:
         Returns:
             the selection rank
         """
-
-        return min(rank, max(matrix.shape))
+        tol = [0.5, 0.1, 0.05]
+        n_samples = max(matrix.shape)
+        min_num_samples = johnson_lindenstrauss_min_dim(n_samples, eps=tol).tolist()
+        min_num_samples = [x for x in min_num_samples if x < n_samples]
+        sampling_rate = {f'tolerance_{k}': v for k, v in zip(tol, min_num_samples)}
+        rank = max(min_num_samples)
+        return rank
 
     def get_aproximation_error(self, original_tensor, cur_matrices: tuple):
         C, U, R = cur_matrices
@@ -41,6 +47,7 @@ class CURDecomposition:
     def fit_transform(self, feature_tensor: np.ndarray,
                       target: np.ndarray = None) -> tuple:
         feature_tensor = feature_tensor.squeeze()
+        # transformer = random_projection.SparseRandomProjection().fit_transform(target)
         self.selection_rank = self._get_selection_rank(
             self.rank, feature_tensor)
         # create sub matrices for CUR-decompostion
@@ -90,6 +97,7 @@ class CURDecomposition:
         # Compute the probabilities for selecting columns and rows
         col_probs = col_norms / matrix_norm
         row_probs = row_norms / matrix_norm
+        row_probs = preprocessing.Normalizer(norm='l1').fit_transform(row_probs.reshape(1, -1)).flatten()
 
         is_matrix_tall = self.selection_rank > matrix.shape[1]
         col_rank = self.selection_rank if not is_matrix_tall or self.column_space == 'Full' \
@@ -97,9 +105,9 @@ class CURDecomposition:
         row_rank = self.selection_rank if is_matrix_tall else col_rank
         # Select k columns and rows based on the probabilities p and q
         # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
-        # selected_rows = np.random.choice(matrix.shape[0], size=self.rank, replace=False, p=row_probs)
+        selected_rows = np.random.choice(matrix.shape[0], size=row_rank, replace=False, p=row_probs)
         selected_cols = np.sort(np.argsort(col_probs)[-col_rank:])
-        selected_rows = np.sort(np.argsort(row_probs)[-row_rank:])
+        # selected_rows = np.sort(np.argsort(row_probs)[-row_rank:])
 
         self.row_indices = selected_rows
         self.column_indices = selected_cols

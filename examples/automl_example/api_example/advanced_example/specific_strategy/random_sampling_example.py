@@ -1,7 +1,6 @@
 import pickle
 
 import numpy as np
-import pandas as pd
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
@@ -22,13 +21,12 @@ model_list = dict(logit=['logit'], rf=['rf'], xgboost=['xgboost'])
 finetune = False
 task = 'classification'
 sampling_range = [0.01, 0.15, 0.3, 0.6]
-sampling_algorithm = [
-    'Random',
-    'CUR']
+sampling_algorithm = ['CUR',
+                      'Random', ]
 if __name__ == "__main__":
     results_of_experiments_dict = {}
     dataset_dict = create_big_dataset()
-    df = pd.read_pickle('./sampling_experiment.pkl')
+    # df = pd.read_pickle('./sampling_experiment.pkl')
     for algo in sampling_algorithm:
         api_config = dict(
             problem=task,

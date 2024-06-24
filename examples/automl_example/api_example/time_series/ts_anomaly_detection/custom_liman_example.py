@@ -1,22 +1,43 @@
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
+from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.tools.example_utils import industrial_common_modelling_loop
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
+from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
+# liman experiment setup
+sampling_rate = 4096
+prediction_window = 10
+failure_type = ['bearing_failure', 'rotor_failure', 'stator_failure']
+power_load = ['0%', '20%', '40%', '60%', '80%', '100%']
+
+# paths to data
 dataset_name = 'liman'
-power_load = '20%'
-failure_type = 'stator_failure'
 train_type = 'without_failure'
+
+# industrial setup
 initial_assumptions = {
     'fourier_iforest_detector': PipelineBuilder().add_node(
         'fourier_basis').add_node('iforest_detector'),
     'iforest_detector': PipelineBuilder().add_node('iforest_detector')
 }
-sampling_rate = 4096
+repo = IndustrialModels().setup_repository()
+task = 'classification'
+task_params = FEDOT_TASK[task]
+industrial_strategy = 'anomaly_detection',
+industrial_strategy_params = {
+    'sampling_rate': sampling_rate,
+    'detection_window': prediction_window,
+    'data_type': 'tensor'}
+finetune = False
+metric_names = ('accuracy')
 
 
 def read_data(path_train, path_test, sampling_rate: int = 4096):
@@ -40,13 +61,43 @@ def read_data(path_train, path_test, sampling_rate: int = 4096):
     return (train_data, train_target), (test_data, test_target)
 
 
+def get_train_spectrum(regime_type: str = train_type):
+    spectrum_dict = {}
+    feature_dict = {}
+    for load in power_load:
+        path_train = f'{dataset_name}/{regime_type}/{load}'
+        train_data, test_data = read_data(path_train, path_train)
+        input_preproc = DataCheck(
+            input_data=train_data,
+            task=task,
+            task_params=task_params,
+            industrial_task_params=industrial_strategy_params)
+        train_data = input_preproc.check_input_data()
+        spectrum_model = PipelineBuilder().add_node('fourier_basis',
+                                                    params={'output_format': 'spectrum'}).build()
+
+        spectral_embedings = spectrum_model.fit(train_data)
+        spectral_embedings.features = spectral_embedings.predict
+        stat_model = QuantileExtractor(dict(window_size=10,
+                                            stride=1,
+                                            add_global_features=False,
+                                            use_sliding_window=False))
+        stat_features = stat_model.transform(spectral_embedings)
+        spectrum_dict.update({load: spectral_embedings.predict})
+        feature_dict.update({load: stat_features.predict})
+    return spectrum_dict, feature_dict
+
+
 if __name__ == "__main__":
-    failure_type = ['bearing_failure', 'rotor_failure', 'stator_failure']
-    power_load = ['100%', '20%', '40%', '60%', '80%', '100%']
-    prediction_window = 10
-    finetune = False
-    # metric_names = ('nab')
-    metric_names = ('accuracy')
+    for regime in failure_type:
+        train_spectrum, train_features = get_train_spectrum(regime)
+        with open(f'{regime}_spectrum.pkl', 'wb') as f:
+            pickle.dump(train_spectrum, f)
+            print(f'Saved_{regime}_spectrum')
+        with open(f'{regime}_features.pkl', 'wb') as f:
+            pickle.dump(train_features, f)
+            print(f'Saved_{regime}_features')
+
     for failure in failure_type:
         for load in power_load:
             path_train, path_test = f'{dataset_name}/{train_type}/{load}', \
@@ -69,10 +120,10 @@ if __name__ == "__main__":
                 with_tunig=False,
                 n_jobs=2,
                 logging_level=50)
-
-            model, labels, metrics = industrial_common_modelling_loop(
-                api_config=api_config, dataset_name=data_dict, finetune=finetune, metric_names=metric_names)
+            result_dict = ApiTemplate(api_config=api_config,
+                                      metric_list=metric_names).eval(dataset=dataset_name, finetune=finetune)
+            metric = result_dict['metrics'].values[0]
             print(f'FAILURE_TYPE - {failure}. POWER_LOAD - {load}')
             print(f'___________________________________________________')
-            print(f'ACCURACY_OF_DETECTION - {metrics.values[0]}')
+            print(f'ACCURACY_OF_DETECTION - {metric}')
             print(f'___________________________________________________')

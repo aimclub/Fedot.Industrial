@@ -221,6 +221,9 @@ def smape(a, f, _=None):
                                (np.abs(a) + np.abs(f)) * 100)
 
 
+def mape(A, F):
+    return mean_absolute_percentage_error(A, F)
+
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
@@ -253,7 +256,7 @@ def calculate_forecasting_metric(target,
                                  labels,
                                  rounding_order=3,
                                  metric_names=('smape', 'rmse',
-                                               'median_absolute_error'),
+                                               'mape'),
                                  **kwargs):
     target = target.astype(float)
 
@@ -265,7 +268,8 @@ def calculate_forecasting_metric(target,
         'mae': mean_absolute_error,
         'median_absolute_error': median_absolute_error,
         'smape': smape,
-        'mase': mase
+        'mase': mase,
+        'mape': mape,
     }
 
     df = pd.DataFrame({name: func(target,
