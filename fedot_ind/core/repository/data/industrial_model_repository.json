@@ -149,6 +149,21 @@
       ],
       "description": "Implementations of fedot automl classification strategy"
     },
+    "fedot_automl_forecasting": {
+      "tasks": "[TaskTypesEnum.ts_forecasting]",
+      "input_type": "[DataTypesEnum.ts]",
+      "output_type": "[DataTypesEnum.ts]",
+      "accepted_node_types": [
+        "any"
+      ],
+      "forbidden_node_types": "[]",
+      "strategies": [
+        "fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy",
+        "FedotAutoMLForecastingStrategy"
+      ],
+      "tags": [],
+      "description": "Implementations of fedot automl forecasting strategy"
+    },
     "fedot_NN_classification": {
       "tasks": "[TaskTypesEnum.classification, TaskTypesEnum.regression]",
       "input_type": "[DataTypesEnum.image, DataTypesEnum.table]",
@@ -247,9 +262,18 @@
       "tags": [
         "automl"
       ]
-    },
+     },
     "fedot_regr": {
       "meta": "fedot_automl_regression",
+      "presets": [
+        "auto"
+      ],
+      "tags": [
+        "automl"
+      ]
+    },
+    "fedot_forecast": {
+      "meta": "fedot_automl_forecasting",
       "presets": [
         "auto"
       ],

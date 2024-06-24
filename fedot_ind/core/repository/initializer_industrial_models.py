@@ -1,11 +1,10 @@
 import pathlib
 
-from fedot.api.api_utils.api_composer import ApiComposer
-from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 import fedot.core.data.data_split as fedot_data_split
+from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 from fedot.core.data.merge.data_merger import ImageDataMerger, TSDataMerger
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
-    TopologicalFeaturesImplementation
+from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor \
+    import TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     LaggedImplementation, TsSmoothingImplementation
 from fedot.core.operations.operation import Operation
@@ -15,13 +14,59 @@ from fedot.core.pipelines.verification import class_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.repository.industrial_implementations.abstract import merge_predicts, preprocess_predicts, \
-    predict_for_fit, predict, predict_operation, postprocess_predicts, update_column_types, transform_lagged, \
-    transform_lagged_for_fit, transform_smoothing, _build, split_any, _check_and_correct_window_size, merge_targets, \
-    split_time_series, fit_topo_extractor, transform_topo_extractor
-from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
+from fedot_ind.core.repository.industrial_implementations.abstract import preprocess_industrial_predicts, \
+    transform_lagged_for_fit_industrial, transform_smoothing_industrial, transform_lagged_industrial, \
+    merge_industrial_predicts, merge_industrial_targets, build_industrial, postprocess_industrial_predicts, \
+    split_any_industrial, split_time_series_industrial, predict_operation_industrial, predict_industrial, \
+    predict_for_fit_industrial, update_column_types_industrial, _check_and_correct_window_size_industrial, \
+    fit_topo_extractor_industrial, transform_topo_extractor_industrial
+from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations
+from fedot_ind.core.repository.industrial_implementations.optimisation import \
     has_no_data_flow_conflicts_in_industrial_pipeline
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
+
+FEDOT_METHOD_TO_REPLACE = [(PipelineSearchSpace, "get_parameters_dict"),
+                           (ApiParamsRepository, "_get_default_mutations"),
+                           (ImageDataMerger, "preprocess_predicts"),
+                           (ImageDataMerger, "merge_predicts"),
+                           (TSDataMerger, "merge_predicts"),
+                           (TSDataMerger, "merge_targets"),
+                           (TSDataMerger, 'postprocess_predicts'),
+                           (DataSourceSplitter, "build"),
+                           (fedot_data_split, "_split_any"),
+                           (fedot_data_split, "_split_time_series"),
+                           (Operation, "_predict"),
+                           (Operation, "predict"),
+                           (Operation, "predict_for_fit"),
+                           (LaggedImplementation, '_update_column_types'),
+                           (LaggedImplementation, 'transform'),
+                           (TopologicalFeaturesImplementation, 'fit'),
+                           (TopologicalFeaturesImplementation, 'transform'),
+                           (LaggedImplementation, 'transform_for_fit'),
+                           (LaggedImplementation, '_check_and_correct_window_size'),
+                           (TsSmoothingImplementation, 'transform')]
+INDUSTRIAL_REPLACE_METHODS = [get_industrial_search_space,
+                              _get_default_industrial_mutations,
+                              preprocess_industrial_predicts,
+                              merge_industrial_predicts,
+                              merge_industrial_predicts,
+                              merge_industrial_targets,
+                              postprocess_industrial_predicts,
+                              build_industrial,
+                              split_any_industrial,
+                              split_time_series_industrial,
+                              predict_operation_industrial,
+                              predict_industrial,
+                              predict_for_fit_industrial,
+                              update_column_types_industrial,
+                              transform_lagged_industrial,
+                              fit_topo_extractor_industrial,
+                              transform_topo_extractor_industrial,
+                              transform_lagged_for_fit_industrial,
+                              _check_and_correct_window_size_industrial,
+                              transform_smoothing_industrial]
+DEFAULT_METHODS = [getattr(class_impl[0], class_impl[1])
+                   for class_impl in FEDOT_METHOD_TO_REPLACE]
 
 
 class IndustrialModels:
@@ -45,6 +90,14 @@ class IndustrialModels:
             'industrial_model_repository.json')
         self.base_model_path = pathlib.Path('model_repository.json')
 
+    def _replace_operation(self, to_industrial=True):
+        if to_industrial:
+            method = INDUSTRIAL_REPLACE_METHODS
+        else:
+            method = DEFAULT_METHODS
+        for class_impl, method_to_replace in zip(FEDOT_METHOD_TO_REPLACE, method):
+            setattr(class_impl[0], class_impl[1], method_to_replace)
+
     def setup_repository(self):
         OperationTypesRepository.__repository_dict__.update(
             {'data_operation': {'file': self.industrial_data_operation_path,
@@ -61,69 +114,12 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo(
             'model', self.industrial_model_path)
         # replace mutations
-        setattr(PipelineSearchSpace, "get_parameters_dict",
-                get_industrial_search_space)
-        setattr(ApiParamsRepository, "_get_default_mutations",
-                _get_default_industrial_mutations)
-        # setattr(Crossover, '_crossover_by_type', _crossover_by_type)
-        # replace data merger
-        setattr(ImageDataMerger, "preprocess_predicts", preprocess_predicts)
-        setattr(ImageDataMerger, "merge_predicts", merge_predicts)
-        setattr(TSDataMerger, "merge_predicts", merge_predicts)
-        setattr(TSDataMerger, "merge_targets", merge_targets)
-        setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
-        # replace data split
-        setattr(DataSourceSplitter, "build", _build)
-        setattr(fedot_data_split, "_split_any", split_any)
-        setattr(fedot_data_split, "_split_time_series", split_time_series)
-        # setattr(TSDataMerger, 'postprocess_predicts', postprocess_predicts)
-        # replace predict operations
-        setattr(Operation, "_predict", predict_operation)
-        setattr(Operation, "predict", predict)
-        setattr(Operation, "predict_for_fit", predict_for_fit)
-        # replace ts forecasting operations
-        setattr(LaggedImplementation,
-                '_update_column_types', update_column_types)
-        setattr(LaggedImplementation, 'transform', transform_lagged)
-        setattr(TopologicalFeaturesImplementation, 'fit', fit_topo_extractor)
-        setattr(
-            TopologicalFeaturesImplementation,
-            'transform',
-            transform_topo_extractor)
-        setattr(LaggedImplementation, 'transform_for_fit',
-                transform_lagged_for_fit)
-        setattr(LaggedImplementation, '_check_and_correct_window_size',
-                _check_and_correct_window_size)
-        setattr(TsSmoothingImplementation, 'transform', transform_smoothing)
+        self._replace_operation(to_industrial=True)
 
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
         return OperationTypesRepository
 
-    def __enter__(self):
-        """
-        Switching to industrial models
-        """
-        OperationTypesRepository.__repository_dict__.update(
-            {'data_operation': {'file': self.industrial_data_operation_path,
-                                'initialized_repo': True,
-                                'default_tags': []}})
-
-        OperationTypesRepository.assign_repo(
-            'data_operation', self.industrial_data_operation_path)
-
-        OperationTypesRepository.__repository_dict__.update(
-            {'model': {'file': self.industrial_model_path,
-                       'initialized_repo': True,
-                       'default_tags': []}})
-        OperationTypesRepository.assign_repo(
-            'model', self.industrial_model_path)
-
-        setattr(PipelineSearchSpace, "get_parameters_dict",
-                get_industrial_search_space)
-        setattr(ApiComposer, "_get_default_mutations",
-                _get_default_industrial_mutations)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def setup_default_repository(self):
         """
         Switching to fedot models.
         """
@@ -140,3 +136,5 @@ class IndustrialModels:
                        'initialized_repo': None,
                        'default_tags': []}})
         OperationTypesRepository.assign_repo('model', self.base_model_path)
+        self._replace_operation(to_industrial=False)
+        return OperationTypesRepository

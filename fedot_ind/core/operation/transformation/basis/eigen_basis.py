@@ -40,7 +40,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         self.rank_regularization = params.get(
             'rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
-        self.explained_dispersion = []
+        self.explained_dispersion = None
         self.SV_threshold = None
         self.svd_estimator = RSVDDecomposition()
 
@@ -51,7 +51,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         number_of_dim = list(range(features.shape[1]))
         predict = []
         if self.SV_threshold is None:
-            self.SV_threshold = max(self.get_threshold(data=features), 2)
+            self.SV_threshold = self.get_threshold(data=features)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         if len(number_of_dim) == 1:
@@ -105,6 +105,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return predict
 
     def _get_1d_basis(self, data):
+        ill_cond = self.explained_dispersion == 'ill_conditioned'
+
         def data_driven_basis(Monoid):
             return ListMonad(reconstruct_basis(Monoid[0],
                                                Monoid[1],
@@ -112,9 +114,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                                                ts_length=self.ts_length))
 
         def threshold(Monoid):
-            return ListMonad([Monoid[0],
-                              Monoid[1][:self.SV_threshold],
-                              Monoid[2]])
+            return ListMonad([Monoid[0], Monoid[1][:self.SV_threshold], Monoid[2]]) \
+                if not ill_cond else ListMonad([Monoid[0], self.explained_dispersion, Monoid[2]])
 
         def svd(x):
             return ListMonad(
@@ -173,8 +174,9 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return mode_func(svd_numbers)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
+        window_size = round(series.shape[0] * (self.window_size / 100))
         trajectory_transformer = HankelMatrix(
-            time_series=series, window_size=self.window_size)
+            time_series=series, window_size=window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
         rank = self.estimate_singular_values(data)
@@ -193,8 +195,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                 reg_type=reg_type))
 
         basis = Either.insert(data).then(svd).value[0]
-        spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
-        rank = len(spectrum)
-        self.explained_dispersion.append(
-            [round(x / sum(spectrum) * 100) for x in spectrum])
+        if basis[1] == 'ill_conditioned':
+            self.explained_dispersion, rank = basis[1], basis[1]
+        else:
+            spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
+            rank = len(spectrum)
+            self.explained_dispersion = str(sum([round(x / sum(spectrum) * 100) for x in spectrum]))
         return rank

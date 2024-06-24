@@ -31,8 +31,9 @@ class DataCheck:
 
     def __init__(self,
                  input_data: Union[tuple, InputData] = None,
+                 task_params: dict = {},
                  task: str = None,
-                 task_params=None,
+                 fit_stage=False,
                  industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.industrial_task_params = industrial_task_params
@@ -47,6 +48,7 @@ class DataCheck:
 
         self.task = task
         self.task_params = task_params
+        self.fit_stage = fit_stage
         self.label_encoder = None
 
     def __check_features_and_target(self, input_data, data_type):
@@ -90,9 +92,14 @@ class DataCheck:
             features_array = self.data_convertor.numpy_data
         task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
             forecast_length=self.task_params['forecast_length']))
-        features_array = features_array[:-
-        self.task_params['forecast_length']]
-        target = features_array
+        if self.fit_stage:
+            features_array = features_array
+            target = features_array
+            # features_array = features_array[:-self.task_params['forecast_length']]
+            # target = features_array[-self.task_params['forecast_length']:]
+        else:
+            features_array = features_array
+            target = features_array
         return InputData.from_numpy_time_series(
             features_array=features_array, target_array=target, task=task)
 
@@ -119,7 +126,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, self.industrial_task_params is None]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-            'detection_window' in self.industrial_task_params.keys(),
+                                    'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(

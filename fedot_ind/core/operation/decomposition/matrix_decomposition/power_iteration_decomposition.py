@@ -33,14 +33,16 @@ class RSVDDecomposition:
                                  spectrum: np.array,
                                  reg_type: str = 'hard_thresholding'):
         if reg_type == 'explained_dispersion':
-            low_rank = sv_to_explained_variance_ratio(spectrum, 3)[1]
+            explained_disperesion, low_rank = sv_to_explained_variance_ratio(spectrum, 3)
+            if explained_disperesion < 90 and low_rank < 3:
+                low_rank = 'ill_conditioned'
         elif reg_type == 'hard_thresholding':
             low_rank = len(singular_value_hard_threshold(spectrum))
         else:
             regularized_rank = _detect_knee_point(
                 values=spectrum, indices=list(range(len(spectrum))))
-            low_rank = len(regularized_rank)
-        return max(low_rank, 2)
+            low_rank = min(len(regularized_rank), 4)
+        return low_rank
 
     def _matrix_approx_regularization(self, low_rank, Ut, block, tensor):
         if low_rank == 1:
@@ -84,8 +86,13 @@ class RSVDDecomposition:
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)
             if regularized_rank is not None:
                 low_rank = regularized_rank
-            # Return first n eigen components.
-            U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]
+            if low_rank == 'ill_conditioned':
+                U_ = Ut[:, :1], St[:1], Vt[:1, :]  # dominant_component
+                S_ = low_rank  # spectrum
+                V_ = Ut[:, 1:], St[1:], Vt[1:, :]  # noise
+            else:
+                # Return first n eigen components.
+                U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]
             return [U_, S_, V_]
         else:
             # First step. Initialize random matrix params.

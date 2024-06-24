@@ -26,9 +26,9 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 
 
-def split_time_series(data: InputData,
-                      validation_blocks: Optional[int] = None,
-                      **kwargs):
+def split_time_series_industrial(data: InputData,
+                                 validation_blocks: Optional[int] = None,
+                                 **kwargs):
     """ Split time series data into train and test parts
 
     :param data: InputData object to split
@@ -63,12 +63,12 @@ def split_time_series(data: InputData,
     return train_data, test_data
 
 
-def split_any(data: InputData,
-              split_ratio: float,
-              shuffle: bool,
-              stratify: bool,
-              random_seed: int,
-              **kwargs):
+def split_any_industrial(data: InputData,
+                         split_ratio: float,
+                         shuffle: bool,
+                         stratify: bool,
+                         random_seed: int,
+                         **kwargs):
     """ Split any data except timeseries into train and test parts
 
     :param data: InputData object to split
@@ -147,7 +147,7 @@ def _are_cv_folds_allowed(
         return cv_folds
 
 
-def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
+def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource:
     # define split_ratio
     self.split_ratio = self.split_ratio or default_data_split_ratio_by_task[
         data.task.task_type]
@@ -179,7 +179,7 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
         # for cross validation split ratio is defined as validation_size /
         # all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
-            1 - 1 / (self.cv_folds + 1))
+                1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:
@@ -209,37 +209,51 @@ def _build(self, data: Union[InputData, MultiModalData]) -> DataSource:
 
 
 def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
-    pipeline_tuner = TunerBuilder(
-        train_data.task) .with_tuner(
-        tuning_params['tuner']) .with_metric(
-            tuning_params['metric']) .with_timeout(
-                tuning_params.get(
-                    'tuning_timeout',
-                    20)) .with_early_stopping_rounds(
-                        tuning_params.get(
-                            'tuning_early_stop',
-                            50)) .with_iterations(
-                                tuning_params.get(
-                                    'tuning_iterations',
-                                    200)) .build(train_data)
-    if mode == 'full':
-        batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
-                           automl_branch.name in FEDOT_HEAD_ENSEMBLE]
-        for b_pipeline in batch_pipelines:
-            b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(
-                b_pipeline.fitted_operation.current_pipeline)
-            b_pipeline.fitted_operation.current_pipeline.fit(train_data)
-    model_to_tune = pipeline_tuner.tune(model_to_tune)
-    model_to_tune.fit(train_data)
+    def _create_tuner(tuning_params, tuning_data):
+        pipeline_tuner = TunerBuilder(
+            train_data.task).with_tuner(
+            tuning_params['tuner']).with_metric(
+            tuning_params['metric']).with_timeout(
+            tuning_params.get(
+                'tuning_timeout',
+                20)).with_early_stopping_rounds(
+            tuning_params.get(
+                'tuning_early_stop',
+                50)).with_iterations(
+            tuning_params.get(
+                'tuning_iterations',
+                200)).build(tuning_data)
+        return pipeline_tuner
+
+    if isinstance(model_to_tune, dict):
+        for model_name, model in model_to_tune.items():
+            pipeline_tuner = _create_tuner(tuning_params, model['train_fold_data'])
+            branch_model = model['composite_pipeline']
+            if branch_model.is_fitted:
+                model['composite_pipeline'] = branch_model
+            else:
+                branch_model = pipeline_tuner.tune(model['composite_pipeline'])
+                branch_model.fit(model['train_fold_data'])
+    else:
+        pipeline_tuner = _create_tuner(tuning_params, train_data)
+        if mode == 'full':
+            batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
+                               automl_branch.name in FEDOT_HEAD_ENSEMBLE]
+            for b_pipeline in batch_pipelines:
+                b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(
+                    b_pipeline.fitted_operation.current_pipeline)
+                b_pipeline.fitted_operation.current_pipeline.fit(train_data)
+        model_to_tune = pipeline_tuner.tune(model_to_tune)
+        model_to_tune.fit(train_data)
     return pipeline_tuner, model_to_tune
 
 
-def postprocess_predicts(self, merged_predicts: np.array) -> np.array:
+def postprocess_industrial_predicts(self, merged_predicts: np.array) -> np.array:
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts
 
 
-def transform_lagged(self, input_data: InputData):
+def transform_lagged_industrial(self, input_data: InputData):
     train_data = copy(input_data)
     forecast_length = train_data.task.task_params.forecast_length
 
@@ -261,7 +275,7 @@ def transform_lagged(self, input_data: InputData):
     return output_data
 
 
-def transform_smoothing(self, input_data: InputData) -> OutputData:
+def transform_smoothing_industrial(self, input_data: InputData) -> OutputData:
     """Method for smoothing time series
 
     Args:
@@ -291,7 +305,7 @@ def transform_smoothing(self, input_data: InputData) -> OutputData:
     return output_data
 
 
-def _check_and_correct_window_size(
+def _check_and_correct_window_size_industrial(
         self,
         time_series: np.ndarray,
         forecast_length: int):
@@ -334,7 +348,7 @@ def _check_and_correct_window_size(
         self.params.update(window_size=self.window_size_minimum)
 
 
-def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
+def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputData:
     """Method for transformation of time series to lagged form for fit stage
 
     Args:
@@ -362,7 +376,7 @@ def transform_lagged_for_fit(self, input_data: InputData) -> OutputData:
     return output_data
 
 
-def update_column_types(self, output_data: OutputData):
+def update_column_types_industrial(self, output_data: OutputData):
     """Update column types after lagged transformation. All features becomes ``float``
     """
 
@@ -377,7 +391,7 @@ def update_column_types(self, output_data: OutputData):
     output_data.supplementary_data.col_type_ids = col_type_ids
 
 
-def preprocess_predicts(*args) -> List[np.array]:
+def preprocess_industrial_predicts(*args) -> List[np.array]:
     predicts = args[1]
     if len(predicts[0].shape) <= 3:
         return predicts
@@ -394,7 +408,7 @@ def preprocess_predicts(*args) -> List[np.array]:
         return reshaped_predicts
 
 
-def merge_targets(self) -> np.array:
+def merge_industrial_targets(self) -> np.array:
     filtered_main_target = self.main_output.target
     # if target has the same form as index
     #  then it makes sense to extract target with common indices
@@ -405,7 +419,7 @@ def merge_targets(self) -> np.array:
     return filtered_main_target
 
 
-def merge_predicts(*args) -> np.array:
+def merge_industrial_predicts(*args) -> np.array:
     predicts = args[1]
 
     predicts = [NumpyConverter(
@@ -432,7 +446,7 @@ def merge_predicts(*args) -> np.array:
             prediction_2d.shape[0], 1, prediction_2d.shape[1])
 
 
-def fit_topo_extractor(self, input_data: InputData):
+def fit_topo_extractor_industrial(self, input_data: InputData):
     input_data.features = input_data.features if len(
         input_data.features.shape) == 0 else input_data.features.reshape(1, -1)
     self._window_size = int(
@@ -445,7 +459,7 @@ def fit_topo_extractor(self, input_data: InputData):
     return self
 
 
-def transform_topo_extractor(self, input_data: InputData) -> OutputData:
+def transform_topo_extractor_industrial(self, input_data: InputData) -> OutputData:
     features = input_data.features if len(input_data.features.shape) == 0 \
         else input_data.features.reshape(1, -1)
     with Parallel(n_jobs=self.n_jobs, prefer='processes') as parallel:
@@ -462,7 +476,7 @@ def transform_topo_extractor(self, input_data: InputData) -> OutputData:
     return result
 
 
-def predict_operation(
+def predict_operation_industrial(
         self,
         fitted_operation,
         data: InputData,
@@ -494,12 +508,12 @@ def predict_operation(
     return prediction
 
 
-def predict(self,
-            fitted_operation,
-            data: InputData,
-            params: Optional[Union[OperationParameters,
-                                   dict]] = None,
-            output_mode: str = 'labels'):
+def predict_industrial(self,
+                       fitted_operation,
+                       data: InputData,
+                       params: Optional[Union[OperationParameters,
+                                              dict]] = None,
+                       output_mode: str = 'labels'):
     """This method is used for defining and running of the evaluation strategy
     to predict with the data provided
 
@@ -518,7 +532,7 @@ def predict(self,
         is_fit_stage=False)
 
 
-def predict_for_fit(
+def predict_for_fit_industrial(
         self,
         fitted_operation,
         data: InputData,

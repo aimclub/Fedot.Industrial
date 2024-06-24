@@ -26,12 +26,13 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
+from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-        np.power(beta, 2) + 1.82 * beta + 1.43
+           np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 class ComputationalConstant(Enum):
@@ -47,6 +48,7 @@ class ComputationalConstant(Enum):
     FEDOT_WORKER_NUM = 5
     FEDOT_WORKER_TIMEOUT_PARTITION = 4
     PATIENCE_FOR_EARLY_STOP = 15
+
 
 
 class KernelsConstant(Enum):
@@ -165,54 +167,7 @@ class FedotOperationConstant(Enum):
             TaskTypesEnum.ts_forecasting, TsForecastingParams(
                 forecast_length=1)), 'anomaly_detection': Task(
             TaskTypesEnum.classification)}
-    EXCLUDED_OPERATION_MUTATION = {
-        'regression': ['inception_model',
-                       'resnet_model',
-                       'recurrence_extractor',
-                       ],
-        'anomaly_detection': ['inception_model',
-                              'resnet_model',
-                              'recurrence_extractor',
-                              'xgbreg',
-                              'sgdr',
-                              'kernel_pca',
-                              'resample',
-                              'inception_model',
-                              'simple_imputation',
-                              'channel_filtration',
-                              'recurrence_extractor',
-                              'quantile_extractor',
-                              'riemann_extractor',
-                              'minirocket_extractor',
-                              'treg',
-                              'knnreg',
-                              'resnet_model',
-                              'dtreg'
-                              ],
-        'ts_forecasting': [
-            'xgbreg',
-            'sgdr',
-            'kernel_pca',
-            'resample',
-            'inception_model',
-            'simple_imputation',
-            'channel_filtration',
-            'recurrence_extractor',
-            'quantile_extractor',
-            'riemann_extractor',
-            'minirocket_extractor',
-            'treg',
-            'knnreg',
-            'resnet_model',
-            'dtreg'
-        ],
-        'classification': [
-            'resnet_model',
-            'knnreg',
-            'recurrence_extractor',
-            'bernb',
-            'qda',
-        ]}
+
     FEDOT_API_PARAMS = default_param_values_dict = dict(
         problem=None,
         task_params=None,
@@ -254,7 +209,7 @@ class FedotOperationConstant(Enum):
                          }
     FEDOT_TUNING_METRICS = {
         'classification': ClassificationMetricsEnum.accuracy,
-        'ts_forecasting': RegressionMetricsEnum.RMSE,
+        'ts_forecasting': RegressionMetricsEnum.MAPE,
         'regression': RegressionMetricsEnum.RMSE}
     FEDOT_DATA_TYPE = {
         'tensor': DataTypesEnum.image,
@@ -299,20 +254,13 @@ class FedotOperationConstant(Enum):
             'xgboost'),
         'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
-        'ts_forecasting': PipelineBuilder().add_node(
-            'eigen_basis',
-            params={
-                'low_rank_approximation': False,
-                'rank_regularization': 'explained_dispersion'}).add_node('ar')}
+        'ts_forecasting': PipelineBuilder().add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        'nbeats': PipelineBuilder().add_node('nbeats_model'),
-        'eigen_ar': PipelineBuilder().add_node(
-            'eigen_basis',
-            params={
-                'low_rank_approximation': False,
-                'rank_regularization': 'explained_dispersion'}).add_node('ar'),
-        'glm': PipelineBuilder().add_node('glm')}
+        # 'nbeats': PipelineBuilder().add_node('nbeats_model'),
+        'eigen_ar': EigenAR,
+        # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast')
+    }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
@@ -718,7 +666,6 @@ AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMAL
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
 EXCLUDED_OPERATION = FedotOperationConstant.EXCLUDED_OPERATION.value
-EXCLUDED_OPERATION_MUTATION = FedotOperationConstant.EXCLUDED_OPERATION_MUTATION.value
 FEDOT_HEAD_ENSEMBLE = FedotOperationConstant.FEDOT_HEAD_ENSEMBLE.value
 FEDOT_TASK = FedotOperationConstant.FEDOT_TASK.value
 FEDOT_ATOMIZE_OPERATION = FedotOperationConstant.FEDOT_ATOMIZE_OPERATION.value

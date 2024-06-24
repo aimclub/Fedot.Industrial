@@ -60,6 +60,19 @@ def singular_value_hard_threshold(singular_values,
 
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
+    if Sigma == 'ill_conditioned':
+        TS_comps = np.zeros((ts_length, 2))
+        X_dominant = U[1] * np.outer(U[0], U[2])
+        X_noise = VT[1] * VT[0] @ VT[2]
+        X_rev = X_dominant[::-1]
+        dominant_eigenvector = [X_rev.diagonal(
+            j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+        X_rev = X_noise[::-1]
+        noise_eigenvector = [X_rev.diagonal(
+            j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1])]
+        TS_comps[:, 0] = dominant_eigenvector
+        TS_comps[:, 1] = noise_eigenvector
+        return TS_comps
     if len(Sigma.shape) > 1:
         def multi_reconstruction(x):
             return reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)
