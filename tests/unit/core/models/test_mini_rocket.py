@@ -1,10 +1,9 @@
 import numpy as np
-import pandas as pd
 from torch import Tensor
 
 from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocket, MiniRocketFeatures, MiniRocketExtractor, \
-    get_minirocket_features, MiniRocketHead
+from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocket, MiniRocketExtractor, get_minirocket_features, \
+    MiniRocketHead
 
 
 def test_mini_rocket():
