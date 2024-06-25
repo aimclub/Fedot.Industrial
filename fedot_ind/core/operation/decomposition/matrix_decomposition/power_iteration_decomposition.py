@@ -6,7 +6,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
-    sv_to_explained_variance_ratio
+    sv_to_explained_variance_ratio, eigencorr_matrix
 
 
 class RSVDDecomposition:
@@ -87,9 +87,9 @@ class RSVDDecomposition:
             if regularized_rank is not None:
                 low_rank = regularized_rank
             if low_rank == 'ill_conditioned':
-                U_ = Ut[:, :1], St[:1], Vt[:1, :]  # dominant_component
-                S_ = low_rank  # spectrum
-                V_ = Ut[:, 1:], St[1:], Vt[1:, :]  # noise
+                U_ = [Ut, St, Vt]
+                V_ = eigencorr_matrix(Ut, St, Vt)
+                S_ = low_rank  # spectrum # noise
             else:
                 # Return first n eigen components.
                 U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]

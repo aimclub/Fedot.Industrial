@@ -19,6 +19,8 @@ from fedot.core.operations.evaluation.operation_implementations.models.ts_implem
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
     CGRUImplementation
+from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.naive import \
+    RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation
 from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
@@ -141,7 +143,8 @@ class AtomizedModel(Enum):
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
         'cgru': CGRUImplementation,
-        'glm': GLMIndustrial
+        'glm': GLMIndustrial,
+        'locf': RepeatLastValueImplementation
     }
 
     FORECASTING_PREPROC = {

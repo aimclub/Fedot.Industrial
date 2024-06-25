@@ -62,12 +62,10 @@ class FedotForecastingImplementation(FedotAutomlImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         self.model = Fedot
         self.metric = params.get('metric', 'mape')
-        self.timeout = params.get('timeout', 15)
+        self.timeout = params.get('timeout', 5)
         self.finetune = params.get('with_tuning', True)
         self.available_operations = ['ar',
-                                     'dtreg',
                                      'gaussian_filter',
-                                     'glm',
                                      'lagged',
                                      'lasso',
                                      'rfr',
@@ -75,8 +73,7 @@ class FedotForecastingImplementation(FedotAutomlImplementation):
                                      'sgdr',
                                      'smoothing',
                                      'sparse_lagged',
-                                     'svr',
-                                     'ts_naive_average'
+                                     'svr'
                                      ]
 
     @use_default_fedot_client
