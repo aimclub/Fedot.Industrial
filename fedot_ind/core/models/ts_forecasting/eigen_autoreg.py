@@ -3,6 +3,8 @@ from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from pymonad.either import Either
+from pymonad.maybe import Maybe
 from statsmodels import api as sm
 
 
@@ -12,29 +14,40 @@ class EigenAR(ModelImplementation):
     def __init__(self, params: OperationParameters):
         super().__init__(params)
         self.periodicity_length = [5, 7, 14, 29, 30, 31]
+        self.channel_model = params.get('channel_model', 'ar')
 
     def _create_forecasting_model(self,
                                   data_fold_features,
                                   task,
                                   periodicity):
-        if periodicity:
-            composite_pipeline = PipelineBuilder().add_node('locf').build()
-        else:
-            composite_pipeline = PipelineBuilder().add_node('fedot_forecast').build()
         train_fold = InputData.from_numpy_time_series(features_array=data_fold_features,
                                                       target_array=data_fold_features,
                                                       task=task)
-        composite_pipeline.fit(train_fold)
-        model = composite_pipeline.root_node.fitted_operation.model if not periodicity else composite_pipeline
+        period = periodicity[1]
+        weak_stationary_process = round(np.mean(data_fold_features)) == 0
+        deterministic = True if weak_stationary_process else False
+        build_model = lambda params: PipelineBuilder().add_node(**params).build()
+        params_for_periodic = {'deterministic': deterministic,
+                               'trend': 'n',
+                               'seasonal': True,
+                               'period': period}
+        fedot_as_model = self.channel_model == 'fedot_forecast'
+
+        model = Either(value=dict(operation_type=self.channel_model, params=params_for_periodic),
+                       monoid=[dict(operation_type=self.channel_model, params={}), periodicity[0]]) \
+            .either(left_function=build_model,
+                    right_function=build_model)
+        model = Maybe(value=model, monoid=[True, False]).then(function=lambda composite_pipeline:
+        composite_pipeline.fit(train_fold) if fedot_as_model else composite_pipeline).value
         return model, train_fold
 
     def _check_component_periodicity(self, TS_comps):
         def _validate_periodicity(first_peak, second_peak):
             diff = second_peak - first_peak
             if first_peak > 0.8 and second_peak > 0.8 and diff in self.periodicity_length:
-                return True
+                return True, diff
             else:
-                return False
+                return False, diff
 
         acf = [sm.tsa.acf(TS_comps[:, i, :].flatten(), nlags=len(TS_comps[:, i, :].flatten()))
                for i in range(TS_comps.shape[1])]
