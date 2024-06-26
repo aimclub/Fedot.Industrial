@@ -45,6 +45,7 @@ from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detecto
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
+from fedot_ind.core.models.early_tc.teaser import TEASER
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
@@ -88,7 +89,9 @@ class AtomizedModel(Enum):
         # external models
         'lgbm': LGBMClassifier,
         # for detection
-        'one_class_svm': OneClassSVM
+        'one_class_svm': OneClassSVM,
+        # Early classification
+        'teaser': TEASER
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization

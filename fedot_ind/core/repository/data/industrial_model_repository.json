@@ -729,6 +729,17 @@
         "non_linear"
       ]
     },
+    "teaser": {
+      "meta": "ts_model",
+      "presets": ["fast_train", "ts"],
+      "tags": [
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.ts]"
+    },
     "xgboost": {
       "meta": "sklearn_class",
       "presets": ["*tree"],

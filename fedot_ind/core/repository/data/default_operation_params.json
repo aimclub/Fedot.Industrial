@@ -124,6 +124,11 @@
     "min_samples_leaf": 10,
     "bootstrap": false
   },
+  "teaser": {
+    "interval_length": 10,
+    "acceptance_threshold": 3,
+    "hm_shift_to_acc": 2
+  },
   "dt": {
     "max_depth": 5,
     "min_samples_split": 10,
