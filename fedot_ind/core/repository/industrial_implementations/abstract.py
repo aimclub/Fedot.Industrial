@@ -228,12 +228,12 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
     if isinstance(model_to_tune, dict):
         for model_name, model in model_to_tune.items():
             pipeline_tuner = _create_tuner(tuning_params, model['train_fold_data'])
-            branch_model = model['composite_pipeline']
-            if branch_model.is_fitted:
-                model['composite_pipeline'] = branch_model
+            model_to_tune = model['composite_pipeline']
+            if model_to_tune.is_fitted:
+                model['composite_pipeline'] = model_to_tune
             else:
-                branch_model = pipeline_tuner.tune(model['composite_pipeline'])
-                branch_model.fit(model['train_fold_data'])
+                model_to_tune = pipeline_tuner.tune(model['composite_pipeline'])
+                model_to_tune.fit(model['train_fold_data'])
     else:
         pipeline_tuner = _create_tuner(tuning_params, train_data)
         if mode == 'full':

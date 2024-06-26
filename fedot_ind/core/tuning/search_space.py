@@ -427,7 +427,20 @@ def get_industrial_search_space(self):
             'trend': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['n', 'c', 't', 'ct']],
-                'type': 'categorical'}},
+                'type': 'categorical'},
+            'period': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[5, 7, 14, 21, 30, 365]],
+                'type': 'categorical'},
+            'seasonal': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[True, False]],
+                'type': 'categorical'},
+            'deterministic': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[True, False]],
+                'type': 'categorical'}
+        },
         'ets': {
             'error': {
                 'hyperopt-dist': hp.choice,

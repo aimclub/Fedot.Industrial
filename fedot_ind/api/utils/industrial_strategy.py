@@ -194,6 +194,7 @@ class IndustrialStrategy:
             tuned_models.update({generator: self.solver})
 
         return tuned_models
+
     def _kernel_strategy(self, input_data):
         self.kernel_ensembler = KernelEnsembler(
             self.industrial_strategy_params)
