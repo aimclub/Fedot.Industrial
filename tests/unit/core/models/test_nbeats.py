@@ -36,4 +36,3 @@ def test_nbeats_model(ts_input_data):
         model.fit(train)
         forecast = model.predict(test)
         assert len(forecast.predict) == 5
-
