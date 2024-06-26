@@ -60,6 +60,30 @@ industrial_search_space = {
          'selection_strategy': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['sum', 'pairwise']]}
          },
+    'teaser':
+        {'interval_percentage': {'hyperopt-dist': hp.choice,
+                                 'sampling-scope': [[5, 10, 20, 25]]},
+         'acceptance_threshold': {'hyperopt-dist': hp.choice,
+                                  'sampling_scope': [[1, 2, 3, 4, 5]]},
+         'hm_shift_to_acc': {'hyperopt-dist': hp.choice,
+                             'sampling-scope': [0.01, 0.1, 0.5, 1, 5, 10, 100]},
+        },
+    'deepar_model': 
+        {'epochs': {'hyperopt-dist': hp.choice, 
+                    'sampling-scope': [[x for x in range(10, 100, 10)]]},
+         'batch_size': {'hyperopt-dist': hp.choice,
+                        'sampling-scope': [[x for x in range(8, 64, 6)]]},
+        'dropout': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [list(range(0, 0.6, 0.1))]},
+        'rnn_layers':{'hyperopt-dist': hp.choice,
+                                'sampling-scope': [range(1, 6)]},
+        'hidden_size':{'hyperopt-dist': hp.choice,
+                                'sampling-scope': [list(range(10, 101, 10))]},
+        'cell_type':{'hyperopt-dist': hp.choice,
+                                'sampling-scope': [['GRU', 'LSTM', 'RNN']]},
+        'expected_distribution': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [['normal', 'cauchy']]}
+        },
     'patch_tst_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 100, 10)]]},
          'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(8, 64, 6)]]},
