@@ -20,9 +20,9 @@ class Conv2dSame(Module):
 
     def __init__(
             self, ni, nf, ks=(
-                    3, 3), stride=(
-                    1, 1), dilation=(
-                    1, 1), **kwargs):
+                3, 3), stride=(
+                1, 1), dilation=(
+                1, 1), **kwargs):
         if isinstance(ks, Integral):
             ks = (ks, ks)
         if isinstance(stride, Integral):
@@ -57,7 +57,7 @@ def Conv2d(
         **kwargs):
     """conv1d layer with padding='same', 'valid', or any integer (defaults to 'same')"""
     assert not (
-            kernel_size and ks), 'use kernel_size or ks but not both simultaneously'
+        kernel_size and ks), 'use kernel_size or ks but not both simultaneously'
     assert kernel_size is not None or ks is not None, 'you need to pass a ks'
     kernel_size = kernel_size or ks
     if padding == 'same':

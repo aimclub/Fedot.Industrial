@@ -303,9 +303,9 @@ if __name__ == "__main__":
 
         'quantile_rf_model': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
 
-        'composed_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50, 'batch_size': 32})\
-                                           .add_node('quantile_extractor', branch_idx=1)\
-                                           .add_node('rf', branch_idx=1)\
+        'composed_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50, 'batch_size': 32})
+                                           .add_node('quantile_extractor', branch_idx=1)
+                                           .add_node('rf', branch_idx=1)
                                            .join_branches('logit')}
 
     train_data, test_data = DataLoader(dataset_list[0]).load_data()

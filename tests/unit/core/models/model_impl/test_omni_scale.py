@@ -31,5 +31,5 @@ def test_omniscale_model(ts_input_data):
                                            ).build()
 
         model.fit(train)
-        predict = model.predict(test)
+        model.predict(test)
         assert model is not None
