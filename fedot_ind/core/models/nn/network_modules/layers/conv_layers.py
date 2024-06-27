@@ -19,10 +19,10 @@ class Conv2dSame(Module):
     """
 
     def __init__(
-        self, ni, nf, ks=(
-            3, 3), stride=(
-            1, 1), dilation=(
-                1, 1), **kwargs):
+            self, ni, nf, ks=(
+                    3, 3), stride=(
+                    1, 1), dilation=(
+                    1, 1), **kwargs):
         if isinstance(ks, Integral):
             ks = (ks, ks)
         if isinstance(stride, Integral):
@@ -57,7 +57,7 @@ def Conv2d(
         **kwargs):
     """conv1d layer with padding='same', 'valid', or any integer (defaults to 'same')"""
     assert not (
-        kernel_size and ks), 'use kernel_size or ks but not both simultaneously'
+            kernel_size and ks), 'use kernel_size or ks but not both simultaneously'
     assert kernel_size is not None or ks is not None, 'you need to pass a ks'
     kernel_size = kernel_size or ks
     if padding == 'same':
@@ -75,42 +75,37 @@ def Conv2d(
 
 class CausalConv1d(torch.nn.Conv1d):
     def __init__(self, ni, nf, ks, stride=1, dilation=1, groups=1, bias=True):
-        super(
-            CausalConv1d,
-            self).__init__(
-            ni,
-            nf,
-            kernel_size=ks,
-            stride=stride,
-            padding=0,
-            dilation=dilation,
-            groups=groups,
-            bias=bias)
+        super(CausalConv1d, self).__init__(ni,
+                                           nf,
+                                           kernel_size=ks,
+                                           stride=stride,
+                                           padding=0,
+                                           dilation=dilation,
+                                           groups=groups,
+                                           bias=bias)
         self.__padding = (ks - 1) * dilation
 
     def forward(self, input):
-        return super(
-            CausalConv1d, self).forward(
-            F.pad(
-                input, (self.__padding, 0)))
+        return super(CausalConv1d, self).forward(F.pad(input,
+                                                       (self.__padding, 0))
+                                                 )
 
 
 @delegates(nn.Conv1d.__init__)
-def Conv1d(
-        ni,
-        nf,
-        kernel_size=None,
-        ks=None,
-        stride=1,
-        padding='same',
-        dilation=1,
-        init='auto',
-        bias_std=0.01,
-        **kwargs):
+def Conv1d(ni,
+           nf,
+           kernel_size=None,
+           ks=None,
+           stride=1,
+           padding='same',
+           dilation=1,
+           init='auto',
+           bias_std=0.01,
+           **kwargs):
     """conv1d layer with padding='same', 'causal', 'valid', or any integer (defaults to 'same')"""
-    assert not (
-        kernel_size and ks), 'use kernel_size or ks but not both simultaneously'
+    assert not (kernel_size and ks), 'use kernel_size or ks but not both simultaneously'
     assert kernel_size is not None or ks is not None, 'you need to pass a ks'
+
     kernel_size = kernel_size or ks
     if padding == 'same':
         if kernel_size % 2 == 1:
@@ -119,9 +114,7 @@ def Conv1d(
                 nf,
                 kernel_size,
                 stride=stride,
-                padding=kernel_size //
-                2 *
-                dilation,
+                padding=kernel_size // 2 * dilation,
                 dilation=dilation,
                 **kwargs)
         else:

@@ -17,4 +17,8 @@ def test_pass_through():
 def test_if_module_to_torchscript():
     module = nn.Linear(4, 11)
     tensor = Tensor(np.random.rand(11, 11, 4))
-    assert if_module_to_torchscript(m=module, inputs=tensor)
+    assert if_module_to_torchscript(m=module,
+                                    inputs=tensor,
+                                    script=True,
+                                    verbose=True,
+                                    serialize=True)

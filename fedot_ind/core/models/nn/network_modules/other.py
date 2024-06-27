@@ -187,7 +187,7 @@ class TimeDistributed(nn.Module):
         return y
 
 
-class Temp_Scale(Module):
+class TempScale(Module):
     """Used to perform Temperature Scaling (dirichlet=False) or Single-parameter Dirichlet calibration
     (dirichlet=True)"""
 
@@ -237,13 +237,13 @@ def get_calibrator(calibrator=None, n_classes=1, **kwargs):
     if calibrator is None or not calibrator:
         return Noop
     elif calibrator.lower() == 'temp':
-        return Temp_Scale(dirichlet=False, **kwargs)
+        return TempScale(dirichlet=False, **kwargs)
     elif calibrator.lower() == 'vector':
         return VectorScale(n_classes=n_classes, dirichlet=False, **kwargs)
     elif calibrator.lower() == 'matrix':
         return MatrixScale(n_classes=n_classes, dirichlet=False, **kwargs)
     elif calibrator.lower() == 'dtemp':
-        return Temp_Scale(dirichlet=True, **kwargs)
+        return TempScale(dirichlet=True, **kwargs)
     elif calibrator.lower() == 'dvector':
         return VectorScale(n_classes=n_classes, dirichlet=True, **kwargs)
     elif calibrator.lower() == 'dmatrix':
