@@ -773,6 +773,16 @@
       ],
 	  "input_type": "[DataTypesEnum.table]"
     },
+    "proba_threshold_etc": {
+      "meta": "sklearn_class",
+      "tags": [
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
     "xgboost": {
       "meta": "sklearn_class",
       "presets": ["*tree"],
