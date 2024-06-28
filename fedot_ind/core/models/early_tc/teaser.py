@@ -13,6 +13,8 @@ class TEASER(BaseETC):
 
     def _init_model(self, X, y):
         super()._init_model(X, y)
+    def _init_model(self, X, y):
+        super()._init_model(X, y)
         self.oc_estimators = [None] * self.n_pred
 
     def _fit_one_interval(self, X, y, i):
