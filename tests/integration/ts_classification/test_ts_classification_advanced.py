@@ -1,5 +1,6 @@
-
+from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.tools.loader import DataLoader
+from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
 def multi_data():
@@ -16,29 +17,29 @@ def combinations(data, strategy):
     return [[d, s] for d in data for s in strategy]
 
 
-# def test_kernel_automl_strategy_clf():
-#
-#     dataset_name = 'Lightning7'
-#     api_config = dict(problem='classification',
-#                       metric='f1',
-#                       timeout=5,
-#                       n_jobs=2,
-#                       with_tuning=False,
-#                       industrial_strategy='kernel_automl',
-#                       industrial_strategy_params={},
-#                       logging_level=20)
-#     train_data, test_data = DataLoader(dataset_name).load_data()
-#     industrial = FedotIndustrial(**api_config)
-#     industrial.fit(train_data)
-#     labels = industrial.predict(test_data, 'ensemble')
-#     probs = industrial.predict_proba(test_data, 'ensemble')
-#
-#     assert labels is not None
-#     assert probs is not None
-#     assert np.mean(probs) > 0
+def test_federated_clf():
+    api_config = dict(problem='classification',
+                      metric='f1',
+                      timeout=5,
+                      n_jobs=2,
+                      industrial_strategy='federated_automl',
+                      industrial_strategy_params={},
+                      logging_level=20)
+
+    # Huge synthetic dataset for experiment
+    train_data, test_data = TimeSeriesDatasetsGenerator(num_samples=1800,
+                                                        task='classification',
+                                                        max_ts_len=50,
+                                                        binary=True,
+                                                        test_size=0.5,
+                                                        multivariate=False).generate_data()
+
+    industrial = FedotIndustrial(**api_config)
+    industrial.fit(train_data)
+    predict = industrial.predict(test_data)
+
+    assert predict is not None
 
 
 # ['federated_automl',
-#  'kernel_automl',
-#  'forecasting_assumptions',
-#  'forecasting_exogenous']
+#  'kernel_automl',]
