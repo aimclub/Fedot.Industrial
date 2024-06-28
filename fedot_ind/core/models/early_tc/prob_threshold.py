@@ -1,16 +1,6 @@
-from typing import Union, List, Optional
+from typing import Optional
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
-from fedot.core.data.data import InputData, OutputData
-from sklearn.svm import OneClassSVM
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV
-from sklearn.base import ClassifierMixin, BaseEstimator
-from sktime.classification.dictionary_based import MUSE, WEASEL
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum
 from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
 
 class ProbabilityThresholdClassifier(BaseETC):
