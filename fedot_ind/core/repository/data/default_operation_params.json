@@ -131,8 +131,13 @@
     "bootstrap": false
   },
   "teaser": {
-    "interval_length": 10,
-    "acceptance_threshold": 3,
+    "interval_percentage": 10,
+    "consecutive_predictions": 3,
+    "hm_shift_to_acc": 2
+  },
+  "proba_threshold_etc": {
+    "interval_percentage": 10,
+    "consecutive_predictions": 3,
     "hm_shift_to_acc": 2
   },
   "dt": {
