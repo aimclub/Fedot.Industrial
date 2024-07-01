@@ -14,6 +14,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     transform_features_and_target_into_lagged
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.optimisers.objective import DataSource
+from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
@@ -24,6 +25,7 @@ from sklearn.model_selection import train_test_split
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
+from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 
 def split_time_series_industrial(data: InputData,
@@ -210,30 +212,32 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
 
 def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
     def _create_tuner(tuning_params, tuning_data):
+        custom_search_space = get_industrial_search_space(self)
+        search_space = PipelineSearchSpace(custom_search_space=custom_search_space,
+                                           replace_default_search_space=True)
         pipeline_tuner = TunerBuilder(
-            train_data.task).with_tuner(
-            tuning_params['tuner']).with_metric(
+            train_data.task).with_search_space(search_space).with_tuner(
+            tuning_params['tuner']).with_n_jobs(1).with_metric(
             tuning_params['metric']).with_timeout(
             tuning_params.get(
                 'tuning_timeout',
-                20)).with_early_stopping_rounds(
+                5)).with_early_stopping_rounds(
             tuning_params.get(
                 'tuning_early_stop',
-                50)).with_iterations(
+                30)).with_iterations(
             tuning_params.get(
                 'tuning_iterations',
-                200)).build(tuning_data)
+                100)).build(tuning_data)
         return pipeline_tuner
 
     if isinstance(model_to_tune, dict):
         for model_name, model in model_to_tune.items():
             pipeline_tuner = _create_tuner(tuning_params, model['train_fold_data'])
-            model_to_tune = model['composite_pipeline']
-            if model_to_tune.is_fitted:
-                model['composite_pipeline'] = model_to_tune
-            else:
-                model_to_tune = pipeline_tuner.tune(model['composite_pipeline'])
-                model_to_tune.fit(model['train_fold_data'])
+            tuned_model = model['composite_pipeline']
+            if not tuned_model.is_fitted:
+                tuned_model = pipeline_tuner.tune(tuned_model)
+                tuned_model.fit(model['train_fold_data'])
+            model['composite_pipeline'] = tuned_model
     else:
         pipeline_tuner = _create_tuner(tuning_params, train_data)
         if mode == 'full':
