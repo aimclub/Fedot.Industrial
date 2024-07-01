@@ -4,6 +4,13 @@ import numpy as np
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
+model_list = dict(logit=['logit'], rf=['rf'], xgboost=['xgboost'])
+finetune = False
+task = 'classification'
+sampling_range = [0.01, 0.15, 0.3, 0.6]
+sampling_algorithm = ['CUR',
+                      'Random']
+
 
 def create_big_dataset():
     train_X, test_X = np.load(
@@ -17,12 +24,6 @@ def create_big_dataset():
     return dataset_dict
 
 
-model_list = dict(logit=['logit'], rf=['rf'], xgboost=['xgboost'])
-finetune = False
-task = 'classification'
-sampling_range = [0.01, 0.15, 0.3, 0.6]
-sampling_algorithm = ['CUR',
-                      'Random', ]
 if __name__ == "__main__":
     results_of_experiments_dict = {}
     dataset_dict = create_big_dataset()
@@ -39,7 +40,7 @@ if __name__ == "__main__":
                 'sampling_algorithm': algo,
                 'sampling_range': sampling_range,
                 'data_type': 'table'},
-            logging_level=50)
+            logging_level=30)
         algo_result = {}
         for model_name, model in model_list.items():
             result_dict = ApiTemplate(api_config=api_config,

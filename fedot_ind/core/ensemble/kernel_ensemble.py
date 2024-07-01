@@ -13,18 +13,21 @@ from sklearn.svm import SVC
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.repository.constanst_repository import KERNEL_ALGO, KERNEL_BASELINE_FEATURE_GENERATORS, \
-    KERNEL_BASELINE_NODE_LIST
+    KERNEL_BASELINE_NODE_LIST, KERNEL_DISTANCE_METRIC, get_default_industrial_model_params
 
 
 class KernelEnsembler(BaseExtractor):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.distance_metric = params.get('distance_metric', 'cosine')
+        self.distance_metric = params.get('distance_metric', KERNEL_DISTANCE_METRIC['default_metric'])
         self.kernel_strategy = params.get('kernel_strategy ', 'one_step_cka')
+        self.learning_strategy = params.get('learning_strategy', 'all_classes')
+        self.head_model = params.get('head_model', 'rf')
         self.feature_extractor = params.get('feature_extractor', list(
             KERNEL_BASELINE_FEATURE_GENERATORS.keys()))
+
         self._mapping_dict = {k: v for k,
-                              v in enumerate(self.feature_extractor)}
+                                       v in enumerate(self.feature_extractor)}
         self.lr = params.get('learning_rate', 0.1)
         self.patience = params.get('patience', 5)
         self.epoch = params.get('epoch', 500)
@@ -84,15 +87,9 @@ class KernelEnsembler(BaseExtractor):
     def _map_target_for_generator(self, entry, mapper_dict):
         return mapper_dict[entry] if entry in mapper_dict else entry
 
-    def _create_kernel_ensemble(
-            self,
-            input_data,
-            top_n_generators,
-            classes_described_by_generator):
-        kernel_ensemble = {}
-        kernel_data = {}
-        for i, gen in enumerate(top_n_generators):
-            train_fold = deepcopy(input_data)
+    def _create_kernel_data(self, input_data, classes_described_by_generator, gen):
+        train_fold = deepcopy(input_data)
+        if self.learning_strategy != 'all_classes':
             described_idx, _ = np.where(
                 train_fold.target == classes_described_by_generator[gen])
             not_described_idx = [i for i in np.arange(
@@ -102,14 +99,28 @@ class KernelEnsembler(BaseExtractor):
                 entry=train_fold.target, mapper_dict=self.mapper_dict[gen])
             train_fold.target[not_described_idx] = max(
                 list(self.mapper_dict[gen].values())) + 1
-            basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
-            if basis is None:
-                kernel_ensemble.update({gen: PipelineBuilder().add_node(
-                    generator).add_node('xgboost').build()})
-            else:
-                kernel_ensemble.update({gen: PipelineBuilder().add_node(
-                    basis).add_node(generator).add_node('xgboost').build()})
-            kernel_data.update({gen: train_fold})
+        return train_fold
+
+    def _create_pipeline(self, gen):
+        basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
+        model = PipelineBuilder().add_node(basis, params=get_default_industrial_model_params(basis)). \
+            add_node(generator, params=get_default_industrial_model_params(generator)). \
+            add_node(self.head_model).build() \
+            if basis is not None else PipelineBuilder().add_node(generator,
+                                                                 params=get_default_industrial_model_params(generator)). \
+            add_node(self.head_model).build()
+        return model
+
+    def _create_kernel_ensemble(
+            self,
+            input_data,
+            top_n_generators,
+            classes_described_by_generator):
+        kernel_ensemble = {}
+        kernel_data = {}
+        for i, gen in enumerate(top_n_generators):
+            kernel_data.update({gen: self._create_kernel_data(input_data, classes_described_by_generator, gen)})
+            kernel_ensemble.update({gen: self._create_pipeline(gen)})
         return kernel_ensemble, kernel_data
 
     def _transform(self, input_data: InputData) -> np.array:

@@ -11,6 +11,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.optuna_tuner import OptunaTuner
+from golem.core.tuning.simultaneous import SimultaneousTuner
 from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
     minkowski
 from torch import nn
@@ -29,10 +30,38 @@ from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFe
 from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
+industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
+                                                        'stride': 1,
+                                                        'add_global_features': False},
+                                    wavelet_basis={'n_components': 3,
+                                                   'wavelet': 'mexh'},
+                                    fourier_basis={'low_rank': 5,
+                                                   'output_format': 'signal',
+                                                   'approximation': 'exact',
+                                                   'threshold': 0.9},
+                                    eigen_basis={'window_size': 20,
+                                                 'rank_regularization': 'knee_point',
+                                                 'low_rank_approximation': False,
+                                                 'tensor_approximation': False},
+                                    ar={'trend': 't',
+                                        'seasonal': False},
+                                    ar_periodic={})
+
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
            np.power(beta, 2) + 1.82 * beta + 1.43
+
+
+def get_default_industrial_model_params(model_name):
+    return industrial_model_params_dict[model_name]
+
+
+stat_params = get_default_industrial_model_params('quantile_extractor')
+wavelet_params = get_default_industrial_model_params('wavelet_basis')
+fourier_params = get_default_industrial_model_params('fourier_basis')
+eigen_params = get_default_industrial_model_params('eigen_basis')
+ar_params = get_default_industrial_model_params('ar')
 
 
 class ComputationalConstant(Enum):
@@ -50,7 +79,6 @@ class ComputationalConstant(Enum):
     PATIENCE_FOR_EARLY_STOP = 15
 
 
-
 class KernelsConstant(Enum):
     KERNEL_ALGO = {
         'one_step_heur': FHeuristic,
@@ -61,11 +89,14 @@ class KernelsConstant(Enum):
     }
     KERNEL_BASELINE_FEATURE_GENERATORS = {
         # 'minirocket_extractor': PipelineBuilder().add_node('minirocket_extractor'),
-        'quantile_extractor': PipelineBuilder().add_node('quantile_extractor'),
-        'topological_extractor': PipelineBuilder().add_node('topological_extractor'),
-        'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis').add_node('quantile_extractor'),
-        'fourier_extractor': PipelineBuilder().add_node('fourier_basis').add_node('quantile_extractor'),
-        'eigen_extractor': PipelineBuilder().add_node('eigen_basis').add_node('quantile_extractor')}
+        # 'topological_extractor': PipelineBuilder().add_node('topological_extractor'),
+        'quantile_extractor': PipelineBuilder().add_node('quantile_extractor', params=stat_params),
+        'wavelet_extractor': PipelineBuilder().add_node('wavelet_basis', params=wavelet_params).
+        add_node('quantile_extractor', params=stat_params),
+        'fourier_extractor': PipelineBuilder().add_node('fourier_basis', params=fourier_params).
+        add_node('quantile_extractor', params=stat_params),
+        'eigen_extractor': PipelineBuilder().add_node('eigen_basis', params=eigen_params).
+        add_node('quantile_extractor', params=stat_params), }
 
     KERNEL_BASELINE_NODE_LIST = {
         'quantile_extractor': (None, 'quantile_extractor'),
@@ -73,6 +104,27 @@ class KernelsConstant(Enum):
         'wavelet_extractor': ('wavelet_basis', 'quantile_extractor'),
         'fourier_extractor': ('fourier_basis', 'quantile_extractor'),
         'eigen_extractor': ('eigen_basis', 'quantile_extractor')}
+
+    KERNEL_DISTANCE_METRIC = {'l_metric': [
+        'chebyshev',  # L_inf (max distance by coord)
+        'cityblock',  # L1 metric
+        'correlation',  # pearson correlation
+        'cosine',  # cosine distance
+        'minkowski',  # L metric
+    ],
+        'boolean_metric': ['braycurtis',  # for categorical/binary data
+                           'hamming',  # for categorical/binary data
+                           'dice',  # for categorical/binary data
+                           'canberra',  # weighted L1 metric (for ranked data)
+                           'dice',  # for categorical/binary data
+                           'rogerstanimoto',  # for categorical/binary data
+                           'russellrao',  # for categorical/binary data
+                           'sokalmichener', ],
+        'probability_metric': ['jensenshannon',  # for probability vectors/matrix
+                               'mahalanobis',  # for probability vectors/matrix
+                               ],
+        'default_metric': 'cosine'
+    }
 
 
 class DataTypeConstant(Enum):
@@ -216,7 +268,8 @@ class FedotOperationConstant(Enum):
         'time_series': DataTypesEnum.ts,
         'table': DataTypesEnum.table}
     FEDOT_TUNER_STRATEGY = {
-        'optuna': OptunaTuner
+        'optuna': OptunaTuner,
+        'simultaneous': SimultaneousTuner,
     }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
                            'classification': 'xgboost'}
@@ -250,16 +303,17 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration').add_node('quantile_extractor').add_node(
+        'classification': PipelineBuilder().add_node('channel_filtration').
+        add_node('quantile_extractor', params=stat_params).add_node(
             'xgboost'),
-        'regression': PipelineBuilder().add_node('quantile_extractor').add_node('treg'),
+        'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        # 'nbeats': PipelineBuilder().add_node('nbeats_model'),
+        'nbeats': PipelineBuilder().add_node('nbeats_model'),
         'eigen_ar': EigenAR,
-        # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast')
+        'fedot_forecast': PipelineBuilder().add_node('fedot_forecast')
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
@@ -661,6 +715,7 @@ SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
 KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
+KERNEL_DISTANCE_METRIC = KernelsConstant.KERNEL_DISTANCE_METRIC.value
 
 AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMALY_DETECTION_OPERATIONS.value
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value

@@ -127,7 +127,8 @@ def singular_value_hard_threshold(singular_values,
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
     if Sigma == 'ill_conditioned':
-        rank = min(10, len(VT))
+        # rank = round(len(VT)*0.1)
+        rank = len(VT)
         TS_comps = np.zeros((ts_length, rank))
         U, S, V = U[0], U[1], U[2]
         for idx, (comp, eigen_idx) in enumerate(VT.items()):
@@ -137,7 +138,8 @@ def reconstruct_basis(U, Sigma, VT, ts_length):
                 break
             else:
                 TS_comps[:, idx] = grouped_eigenvector
-
+        TS_comps[:, 1] = np.sum(TS_comps[:, 1:], axis=1)
+        TS_comps = TS_comps[:, :2]
         return TS_comps
     if len(Sigma.shape) > 1:
         def multi_reconstruction(x):

@@ -44,12 +44,17 @@ class CURDecomposition:
         C, U, R = cur_matrices
         return np.linalg.norm(original_tensor - C @ U @ R)
 
+    def _balance_target(self, target):
+        classes = np.unique(target)
+        self.classes_idx = [np.where(target == cls)[0] for cls in classes]
+
     def fit_transform(self, feature_tensor: np.ndarray,
                       target: np.ndarray = None) -> tuple:
         feature_tensor = feature_tensor.squeeze()
         # transformer = random_projection.SparseRandomProjection().fit_transform(target)
         self.selection_rank = self._get_selection_rank(
             self.rank, feature_tensor)
+        self._balance_target(target)
         # create sub matrices for CUR-decompostion
         array = np.array(feature_tensor.copy())
         c, w, r = self.select_rows_cols(array)
@@ -86,39 +91,34 @@ class CURDecomposition:
     def select_rows_cols(
             self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         # Evaluate norms for columns and rows
-        matrix = np.nan_to_num(matrix)
-        matrix = preprocessing.MinMaxScaler().fit_transform(matrix)
-        col_norms = LA.norm(matrix, axis=0)
-        row_norms = LA.norm(matrix, axis=1)
-        col_norms = np.nan_to_num(col_norms)
-        row_norms = np.nan_to_num(row_norms)
+        matrix = preprocessing.MinMaxScaler().fit_transform(np.nan_to_num(matrix))
+        col_norms, row_norms = np.nan_to_num(LA.norm(matrix, axis=0)), np.nan_to_num(LA.norm(matrix, axis=1))
         matrix_norm = LA.norm(matrix, 'fro')  # np.sum(np.power(matrix, 2))
 
         # Compute the probabilities for selecting columns and rows
-        col_probs = col_norms / matrix_norm
-        row_probs = row_norms / matrix_norm
-        row_probs = preprocessing.Normalizer(norm='l1').fit_transform(row_probs.reshape(1, -1)).flatten()
+        col_probs, row_probs = col_norms / matrix_norm, row_norms / matrix_norm
 
         is_matrix_tall = self.selection_rank > matrix.shape[1]
         col_rank = self.selection_rank if not is_matrix_tall or self.column_space == 'Full' \
             else len([prob for prob in col_probs if prob > 0.01])
-        row_rank = self.selection_rank if is_matrix_tall else col_rank
-        # Select k columns and rows based on the probabilities p and q
-        # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
-        selected_rows = np.random.choice(matrix.shape[0], size=row_rank, replace=False, p=row_probs)
-        selected_cols = np.sort(np.argsort(col_probs)[-col_rank:])
-        # selected_rows = np.sort(np.argsort(row_probs)[-row_rank:])
+        row_rank = round(self.selection_rank / len(self.classes_idx)) if is_matrix_tall else col_rank
 
-        self.row_indices = selected_rows
-        self.column_indices = selected_cols
+        self.column_indices = np.sort(np.argsort(col_probs)[-col_rank:])
+        self.row_indices = np.concatenate([np.sort(np.argsort(row_probs[cls_idx])[-row_rank:])
+                                           for cls_idx in self.classes_idx])
+
         row_scale_factors = 1 / \
-                            np.sqrt(self.selection_rank * row_probs[selected_rows])
+                            np.sqrt(self.selection_rank * row_probs[self.row_indices])
         col_scale_factors = 1 / \
-                            np.sqrt(self.selection_rank * col_probs[selected_cols])
+                            np.sqrt(self.selection_rank * col_probs[self.column_indices])
 
-        C_matrix = matrix[:, selected_cols] * col_scale_factors
-        R_matrix = matrix[selected_rows, :] * row_scale_factors[:, np.newaxis]
-        W_matrix = matrix[selected_rows, :][:, selected_cols]
+        C_matrix = matrix[:, self.column_indices] * col_scale_factors
+        R_matrix = matrix[self.row_indices, :] * row_scale_factors[:, np.newaxis]
+        W_matrix = matrix[self.row_indices, :][:, self.column_indices]
+        # Select k columns and rows based on the probabilities p and q
+        # row_probs = preprocessing.Normalizer(norm='l1').fit_transform(row_probs.reshape(1, -1)).flatten()
+        # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
+        # selected_rows = np.random.choice(matrix.shape[0], size=row_rank, replace=False, p=row_probs)
         return C_matrix, W_matrix, R_matrix
 
     @staticmethod

@@ -22,6 +22,16 @@ cat = ['holiday',
        'shutdown', 'mini_shutdown', 'shops_closed', 'winter_school_holidays',
        'school_holidays', 'blackout', 'mov_change', 'frankfurt_shutdown',
        'precipitation', 'snow']
+additional_regressors = [
+    "day_before_closed",
+    "day_after_closed",
+    "winter_school_holidays",
+    "school_holidays",
+    "shutdown",
+    "mini_shutdown",
+    "blackout",
+    "frankfurt_shutdown",
+]
 
 
 def forecasting_loop(dataset_dict):
@@ -47,6 +57,7 @@ def forecasting_loop(dataset_dict):
             industrial_strategy_params={
                 'industrial_task': 'ts_forecasting',
                 'finetune': True,
+                'additional_regressors': additional_regressors,
                 'tuning_params': {'tuning_timeout': 10,
                                   'tuning_iterations': 100},
                 'data_type': 'time_series'},
