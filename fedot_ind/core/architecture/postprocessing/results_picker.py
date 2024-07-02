@@ -61,22 +61,18 @@ class ResultsPicker:
         return proba_dict, metric_dict
 
     def _create_metrics_df(self, metric_dict):
-        columns = ['dataset', 'experiment']
         metrics_df = pd.DataFrame()
         for ds in metric_dict.keys():
             for exp in metric_dict[ds].keys():
                 metrics = metric_dict[ds][exp].to_dict(orient='records')[0]
-                metrics_df = metrics_df.append({'dataset': ds,
-                                                'experiment': exp,
-                                                'f1': metrics.get('f1'),
-                                                'roc_auc': metrics.get('roc_auc'),
-                                                'accuracy': metrics.get('accuracy'),
-                                                'precision': metrics.get('precision'),
-                                                'logloss': metrics.get('logloss')},
-                                               ignore_index=True)
-
-        metrics_df = pd.concat([metrics_df[['dataset', 'experiment']], metrics_df[[
-                               col for col in metrics_df.columns if col not in columns]]], axis=1)
+                df = pd.DataFrame.from_dict({'dataset': ds,
+                                             'experiment': exp,
+                                             'f1': metrics.get('f1'),
+                                             'roc_auc': metrics.get('roc_auc'),
+                                             'accuracy': metrics.get('accuracy'),
+                                             'precision': metrics.get('precision'),
+                                             'logloss': metrics.get('logloss')}, orient='index').T
+                metrics_df = pd.concat([metrics_df, df], axis=0)
         return metrics_df
 
     def get_metrics_and_proba(self):

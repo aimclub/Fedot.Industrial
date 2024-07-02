@@ -111,7 +111,7 @@ class OmniScaleModel(BaseNeuralModel):
                input_data = init_input_data(train_data[0], train_data[1])
                val_data = init_input_data(test_data[0], test_data[1])
                with IndustrialModels():
-                   pipeline = PipelineBuilder().add_node('inception_model', params={'epochs': 100,
+                   pipeline = PipelineBuilder().add_node('omniscale_model', params={'epochs': 100,
                                                                                     'batch_size': 10}).build()
                    pipeline.fit(input_data)
                    target = pipeline.predict(val_data).predict
@@ -152,6 +152,7 @@ class OmniScaleModel(BaseNeuralModel):
             loss_fn = MULTI_CLASS_CROSS_ENTROPY()
         return loss_fn, optimizer
 
+    @convert_to_3d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = False):
         loss_fn, optimizer = self._init_model(ts)
         train_loader, val_loader = self._prepare_data(ts, split_data)

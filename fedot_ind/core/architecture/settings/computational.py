@@ -62,7 +62,7 @@ def global_imports(object_name: str,
         globals()[short_name] = getattr(context_module, object_name)
 
 
-def default_device(device_type: str = 'CUDA'):
+def default_device(device_type: str = 'CPU'):
     """Return or set default device. Modified from fastai.
 
     Args:
@@ -73,7 +73,8 @@ def default_device(device_type: str = 'CUDA'):
 
     """
     if device_type == 'CUDA':
-        device_type = defaults.use_cuda
+        defaults.use_cuda = True
+        return torch.device("cuda")
     elif device_type == 'cpu':
         defaults.use_cuda = False
         return torch.device("cpu")

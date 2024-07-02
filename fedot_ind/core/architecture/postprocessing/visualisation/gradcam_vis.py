@@ -8,7 +8,7 @@ def visualise_gradcam(att_maps,
                       figsize,
                       cmap,
                       **kwargs):
-    matplotlib.use('TKagg')
+    # matplotlib.use('TKagg')
 
     if figsize is None:
         figsize = (12, 4)
@@ -18,16 +18,18 @@ def visualise_gradcam(att_maps,
         att_maps[1] = att_maps[1].mean(1)
 
     idx_plot = list(range(2 + len(median_sample)))
-    fig, axs = plt.subplots(
-        len(idx_plot), 1, figsize=figsize, sharex=True, **kwargs)
+    fig, axs = plt.subplots(len(idx_plot), 1,
+                            figsize=figsize,
+                            sharex=True,
+                            **kwargs)
     for idx, class_number in enumerate(median_sample):
         axs[idx].set_title(f'Median sample of {class_number}')
         sns.lineplot(median_sample[class_number].reshape(-1, 1), ax=axs[idx])
+
     axs[idx_plot[-2]].set_title('Observed Variables')
     axs[idx_plot[-1]].set_title('Attention by the time')
-    sns.heatmap(att_maps[0].numpy(), cbar=False,
-                cmap=cmap, ax=axs[idx_plot[-2]])
-    sns.heatmap(att_maps[1].numpy(), cbar=False,
-                cmap=cmap, ax=axs[idx_plot[-1]])
+
+    sns.heatmap(att_maps[0].numpy(), cbar=False, cmap=cmap, ax=axs[idx_plot[-2]])
+    sns.heatmap(att_maps[1].numpy(), cbar=False, cmap=cmap, ax=axs[idx_plot[-1]])
     fig.tight_layout()
     plt.show()

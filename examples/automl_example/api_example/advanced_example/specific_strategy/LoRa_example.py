@@ -31,7 +31,7 @@ lora_params = dict(rank=2,
 
 api_config = dict(problem='classification',
                   metric='accuracy',
-                  timeout=15,
+                  timeout=0.1,
                   with_tuning=False,
                   industrial_strategy='lora_strategy',
                   industrial_strategy_params=lora_params,

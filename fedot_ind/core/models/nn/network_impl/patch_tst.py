@@ -295,8 +295,13 @@ class PatchTSTModel(BaseNeuralModel):
                 loss.backward()
                 model.float()
                 optimizer.step()
-                adjust_learning_rate(optimizer, scheduler,
-                                     epoch + 1, args, printout=False)
+
+                adjust_learning_rate(optimizer=optimizer,
+                                     scheduler=scheduler,
+                                     epoch=epoch + 1,
+                                     lradj=args['lradj'],
+                                     printout=False,
+                                     learning_rate=self.learning_rate)
                 scheduler.step()
             train_loss = np.average(train_loss)
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(

@@ -208,7 +208,7 @@ def get_minirocket_features(data,
         _features.append(model(oi))
     features = torch.cat(_features).unsqueeze(-1)
     if convert_to_numpy:
-        return features.cpu().numpy()
+        return features.cpu().detach().numpy()
     else:
         return features
 

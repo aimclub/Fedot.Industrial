@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from fedot.core.data.data import InputData
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pyriemann.estimation import Covariances, Shrinkage
 from pyriemann.tangentspace import TangentSpace
@@ -67,37 +67,38 @@ class RiemannExtractor(BaseExtractor):
         self.tangent_space = TangentSpace(metric=self.tangent_metric)
         self.shrinkage = Shrinkage()
 
-    def extract_riemann_features(self, input_data: InputData) -> InputData:
+    def extract_riemann_features(self, input_data: InputData) -> np.ndarray:
         if not self.fit_stage:
             SPD = self.spd_space.transform(input_data.features)
             SPD = self.shrinkage.transform(SPD)
             ref_point = self.tangent_space.transform(SPD)
         else:
-            SPD = self.spd_space.fit_transform(
-                input_data.features, input_data.target)
+            SPD = self.spd_space.fit_transform(input_data.features,
+                                               input_data.target)
             SPD = self.shrinkage.fit_transform(SPD)
             ref_point = self.tangent_space.fit_transform(SPD)
             self.fit_stage = False
             self.classes_ = np.unique(input_data.target)
         return ref_point
 
-    def extract_centroid_distance(self, input_data: InputData):
+    def extract_centroid_distance(self, input_data: InputData) -> np.ndarray:
         input_data.target = input_data.target.astype(int)
         if self.fit_stage:
-            SPD = self.spd_space.fit_transform(
-                input_data.features, input_data.target)
+            SPD = self.spd_space.fit_transform(input_data.features,
+                                               input_data.target)
             SPD = self.shrinkage.transform(SPD)
 
         else:
             SPD = self.spd_space.transform(input_data.features)
             SPD = self.shrinkage.fit_transform(SPD)
 
-        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten(
-        )], metric=self.spd_metric) for ll in self.classes_]
+        self.covmeans_ = [mean_covariance(SPD[np.array(input_data.target == ll).flatten()],
+                                          metric=self.spd_metric) for ll in self.classes_]
 
         n_centroids = len(self.covmeans_)
-        dist = [distance(SPD, self.covmeans_[m], self.tangent_metric)
-                for m in range(n_centroids)]
+        dist = [distance(SPD,
+                         self.covmeans_[m],
+                         self.tangent_metric) for m in range(n_centroids)]
         dist = np.concatenate(dist, axis=1)
         feature_matrix = softmax(-dist ** 2)
         return feature_matrix
@@ -105,11 +106,11 @@ class RiemannExtractor(BaseExtractor):
     def _ensemble_features(self, input_data: InputData):
         tangent_features = self.extract_riemann_features(input_data)
         dist_features = self.extract_centroid_distance(input_data)
-        feature_matrix = np.concatenate(
-            [tangent_features, dist_features], axis=1)
+        feature_matrix = np.concatenate([tangent_features, dist_features],
+                                        axis=1)
         return feature_matrix
 
-    def _transform(self, input_data: InputData) -> np.array:
+    def _transform(self, input_data: InputData) -> OutputData:
         """
         Method for feature generation for all series
         """

@@ -63,7 +63,7 @@ class BaseNeuralModel:
         self._save_and_clear_cache()
 
     @convert_to_4d_torch_array
-    def _fit_model(self, ts: InputData):
+    def _fit_model(self, ts: InputData, split_data: bool = True):
 
         loss_fn, optimizer = self._init_model(ts)
         train_loader, val_loader = self._prepare_data(ts, split_data=True)
@@ -75,7 +75,7 @@ class BaseNeuralModel:
             optimizer=optimizer
         )
 
-    def _init_model(self, ts) -> tuple:
+    def _init_model(self, ts):
         NotImplementedError()
 
     def _prepare_data(self, ts, split_data: bool = True):

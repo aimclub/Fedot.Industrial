@@ -96,11 +96,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         features = NumpyConverter(data=features).convert_to_torch_format()
 
         def tensor_decomposition(x):
-            return ListMonad(self._get_multidim_basis(
-                x)) if self.tensor_approximation else self._channel_decompose(x)
+            return ListMonad(
+                self._get_multidim_basis(x)
+            ) if self.tensor_approximation else self._channel_decompose(x)
 
-        basis = np.array(Either.insert(features).then(
-            tensor_decomposition).value[0])
+        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
         predict = self._convert_basis_to_predict(basis, input_data)
         return predict
 

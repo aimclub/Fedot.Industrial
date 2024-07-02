@@ -1,4 +1,3 @@
-
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_TSF_PIPELINE
 

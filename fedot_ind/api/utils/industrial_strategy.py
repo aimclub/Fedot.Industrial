@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 
 import numpy as np
@@ -9,7 +10,7 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
-from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
+from fedot_ind.core.ensemble.random_automl_forest import RAFEnsembler
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS, \
     FEDOT_TASK
@@ -18,10 +19,10 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 
 
 class IndustrialStrategy:
-    def __init__(self, industrial_strategy_params,
+    def __init__(self,
+                 industrial_strategy_params,
                  industrial_strategy,
                  api_config,
-                 logger=None
                  ):
         self.industrial_strategy_params = industrial_strategy_params
         self.industrial_strategy = industrial_strategy
@@ -51,7 +52,7 @@ class IndustrialStrategy:
         self.ensemble_strategy = list(self.ensemble_strategy_dict.keys())
         self.random_label = None
         self.config_dict = api_config
-        self.logger = logger
+        self.logger = logging.getLogger('IndustrialStrategy')
         self.repo = IndustrialModels().setup_repository()
         self.kernel_ensembler = KernelEnsembler
         self.RAF_workers = None
@@ -62,32 +63,38 @@ class IndustrialStrategy:
         return self.solver
 
     def predict(self, input_data, predict_mode):
-        return self.industrial_strategy_predict[self.industrial_strategy](
-            input_data, predict_mode)
+        return self.industrial_strategy_predict[self.industrial_strategy](input_data,
+                                                                          predict_mode)
 
     def _federated_strategy(self, input_data):
-        if input_data.features.shape[0] > BATCH_SIZE_FOR_FEDOT_WORKER:
+
+        n_samples = input_data.features.shape[0]
+        if n_samples > BATCH_SIZE_FOR_FEDOT_WORKER:
             self.logger.info('RAF algorithm was applied')
 
             if self.RAF_workers is None:
-                batch_size = FEDOT_WORKER_NUM
-            else:
-                batch_size = round(
-                    input_data.features.shape[0] /
-                    self.RAF_workers)
-            # batch_size = round(input_data.features.shape[0] / self.RAF_workers if self.RAF_workers
-            # is not None else FEDOT_WORKER_NUM)
-            batch_timeout = round(
-                self.config_dict['timeout'] /
-                FEDOT_WORKER_TIMEOUT_PARTITION)
-            self.config_dict['timeout'] = batch_timeout
-            self.logger.info(
-                f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
-            self.solver = RAFensembler(composing_params=self.config_dict,
+                self.RAF_workers = FEDOT_WORKER_NUM
+            batch_size = round(input_data.features.shape[0] / self.RAF_workers)
+
+            min_timeout = 0.5
+            selected_timeout = round(self.config_dict['timeout'] / FEDOT_WORKER_TIMEOUT_PARTITION)
+            self.config_dict['timeout'] = max(min_timeout, selected_timeout)
+
+            self.logger.info(f'Batch_size - {batch_size}. Number of batches - {self.RAF_workers}')
+
+            self.solver = RAFEnsembler(composing_params=self.config_dict,
                                        n_splits=self.RAF_workers,
                                        batch_size=batch_size)
             self.logger.info(
                 f'Number of AutoMl models in ensemble - {self.solver.n_splits}')
+
+            self.solver.fit(input_data)
+
+        else:
+            self.logger.info(f'RAF algorithm is not applicable: n_samples={n_samples} < {BATCH_SIZE_FOR_FEDOT_WORKER}. '
+                             f'FEDOT algorithm was applied')
+            self.solver = Fedot(**self.config_dict)
+            self.solver.fit(input_data)
 
     def _forecasting_strategy(self, input_data):
         self.logger.info('TS forecasting algorithm was applied')
@@ -170,23 +177,27 @@ class IndustrialStrategy:
     def _federated_predict(self,
                            input_data,
                            mode: str = 'labels'):
-        self.predicted_branch_probs = [
-            x.predict(input_data).predict for x in self.solver.root_node.nodes_from]
-        self.predicted_branch_labels = [
-            np.argmax(x, axis=1) for x in self.predicted_branch_probs]
-        n_samples, n_channels, n_classes = self.predicted_branch_probs[0].shape[0], \
-            len(self.predicted_branch_probs), \
-            self.predicted_branch_probs[0].shape[1]
-        head_model = deepcopy(self.solver.root_node)
+        valid_nodes = self.solver.current_pipeline.root_node.nodes_from
+        self.predicted_branch_probs = [x.predict(input_data).predict for x in valid_nodes]
+
+        # reshape if binary
+        if len(self.predicted_branch_probs[0].shape) < 2:
+            self.predicted_branch_probs = [np.array([x, 1 - x]).T for x in self.predicted_branch_probs]
+
+        self.predicted_branch_labels = [np.argmax(x, axis=1) for x in self.predicted_branch_probs]
+
+        n_samples = self.predicted_branch_probs[0].shape[0]
+        n_channels = len(self.predicted_branch_probs)
+
+        head_model = deepcopy(self.solver.current_pipeline.root_node)
         head_model.nodes_from = []
-        input_data.features = np.hstack(
-            self.predicted_branch_labels).reshape(
-            n_samples, n_channels, 1)
-        head_predict = head_model.predict(self.predict_data).predict
+        input_data.features = np.hstack(self.predicted_branch_labels).reshape(n_samples,
+                                                                              n_channels,
+                                                                              1)
         if mode == 'labels':
-            return head_predict
+            return head_model.predict(input_data, 'labels').predict
         else:
-            return np.argmax(head_predict, axis=1)
+            return head_model.predict(input_data).predict
 
     def _forecasting_predict(self,
                              input_data,

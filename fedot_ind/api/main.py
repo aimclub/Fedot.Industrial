@@ -146,7 +146,7 @@ class FedotIndustrial(Fedot):
             api_config=self.config_dict,
             industrial_strategy=self.industrial_strategy,
             industrial_strategy_params=self.industrial_strategy_params,
-            logger=self.logger)
+        )
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')

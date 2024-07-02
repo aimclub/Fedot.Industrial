@@ -19,7 +19,6 @@ class BasisTransformations(Enum):
 
 class FeatureGenerator(Enum):
     quantile = QuantileExtractor
-    # signal = SignalExtractor
     topological = TopologicalExtractor
     recurrence = RecurrenceExtractor
 
@@ -64,33 +63,18 @@ class KernelFeatureGenerator(Enum):
                 ]
     wavelet = [
         {'feature_generator_type': 'wavelet',
-         'feature_hyperparams': {
-             'wavelet': "mexh",
-             'n_components': 2
-         }}        # ,
-        # {'feature_generator_type': 'wavelet',
-        #  'feature_hyperparams': {
-        #      'wavelet': "haar",
-        #      'n_components': 2
-        #  }}
-        ,
-        # {'feature_generator_type': 'wavelet',
-        #  'feature_hyperparams': {
-        #      'wavelet': "dmey",
-        #      'n_components': 2
-        #  }
-        #  },
-        {'feature_generator_type': 'wavelet',
-         'feature_hyperparams': {
-             'wavelet': "gaus3",
-             'n_components': 2
-         }
+         'feature_hyperparams': {'wavelet': "mexh",
+                                 'n_components': 2}
          },
+
         {'feature_generator_type': 'wavelet',
-         'feature_hyperparams': {
-             'wavelet': "morl",
-             'n_components': 2
-         }
+         'feature_hyperparams': {'wavelet': "gaus3",
+                                 'n_components': 2}
+         },
+
+        {'feature_generator_type': 'wavelet',
+         'feature_hyperparams': {'wavelet': "morl",
+                                 'n_components': 2}
          }
     ]
     recurrence = []

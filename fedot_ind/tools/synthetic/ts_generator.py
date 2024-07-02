@@ -199,28 +199,36 @@ class SmoothNormal(DefaultTimeSeries):
 
 
 if __name__ == '__main__':
-    ts_config = {
-        'ts_type': 'random_walk',
-        # 'ts_type': 'sin',
+    sin_config = {
+        'ts_type': 'sin',
         'length': 1000,
-
-        # for sin wave
         'amplitude': 10,
-        'period': 500,
+        'period': 500
+    }
 
-        # for random walk
-        'start_val': 36.6,
+    random_walk_config = {
+        'ts_type': 'random_walk',
+        'length': 1000,
+        'start_val': 36.6
+    }
 
-        # for auto regression
+    auto_regression_config = {
+        'ts_type': 'auto_regression',
+        'length': 1000,
         'ar_params': [0.5, -0.3, 0.2],
-        'initial_values': None,
+        'initial_values': None
+    }
 
-        # for smooth normal
-        'window_size': 300}
+    smooth_normal_config = {
+        'ts_type': 'smooth_normal',
+        'length': 1000,
+        'window_size': 300
+    }
 
-    ts_generator = TimeSeriesGenerator(ts_config)
-    ts = ts_generator.get_ts()
+    for config in [sin_config, random_walk_config, auto_regression_config, smooth_normal_config]:
+        ts_generator = TimeSeriesGenerator(config)
+        ts = ts_generator.get_ts()
+        plt.plot(ts)
 
-    plt.plot(ts)
     plt.show()
     _ = 1

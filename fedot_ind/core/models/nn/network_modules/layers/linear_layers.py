@@ -22,13 +22,24 @@ def init_lin_zero(m):
 lin_zero_init = init_lin_zero
 
 
-class Flatten(nn.Module):
-    def __init__(self, out_features):
-        super(Flatten, self).__init__()
-        self.output_dim = out_features
+# class Flatten(nn.Module):
+#     def __init__(self, out_features):
+#         super(Flatten, self).__init__()
+#         self.output_dim = out_features
+#
+#     def forward(self, x):
+#         return x.view(-1, self.output_dim)
+#
+
+class Flatten(Module):
 
     def forward(self, x):
-        return x.view(-1, self.output_dim)
+        bs, c, h, w = x.shape
+        flattened_tensor = x.reshape(bs, c, h * w)
+        return flattened_tensor
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}"
 
 
 class Reshape(nn.Module):
