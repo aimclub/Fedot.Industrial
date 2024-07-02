@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import pytest
 from fedot.core.operations.operation_parameters import OperationParameters
-from matplotlib import get_backend, pyplot as plt
+# from matplotlib import get_backend, pyplot as plt
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
