@@ -29,8 +29,8 @@ def test_xcm_model(input_data):
 
     # switch to non-Gui, preventing plots being displayed
     # suppress UserWarning that agg cannot show plots
-    get_backend()
-    plt.switch_backend("Agg")
+    # get_backend()
+    # plt.switch_backend("Agg")
     warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     model.model_for_inference.explain(train)
 
