@@ -1,13 +1,14 @@
 import itertools
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from pymonad.either import Either
 from sklearn.neighbors import NearestCentroid
 from sktime.dists_kernels import (
     BasePairwiseTransformerPanel, FlatDist, ScipyDist)
-from typing import Optional
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
@@ -134,21 +135,29 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
 
         return centroid_frame
 
-    def _channel_sum(self):
-        self.distance_frame = pd.Series(self.distance_frame.sum(axis=1))
+    def _channel_sum(self, distance_frame):
+        self.distance_frame = pd.Series(distance_frame.sum(axis=1))
         distance = self.distance_frame.sort_values(ascending=False).values
         indices = self.distance_frame.sort_values(ascending=False).index
         self.channels_selected = _detect_knee_point(distance, indices)[0]
 
-    def _channel_pairwise(self, centroids_by_channel):
-        self.distance_frame = self.eval_distance_from_centroid(
-            centroids_by_channel)
+    def _channel_pairwise(self, distance_frame):
+        self.distance_frame = distance_frame
         for pairdistance in self.distance_frame.items():
             distance = pairdistance[1].sort_values(ascending=False).values
             indices = pairdistance[1].sort_values(ascending=False).index
             self.channels_selected.extend(
                 _detect_knee_point(distance, indices)[0])
             self.channels_selected = list(set(self.channels_selected))
+
+    def __convert_target_for_regression(self, input_data):
+        bins = [np.quantile(input_data.target, x)
+                for x in np.arange(0, 1, 0.2)]
+        labels = [x for x in range(len(bins) - 1)]
+        input_data.target = pd.cut(input_data.target,
+                                   bins=bins,
+                                   labels=labels).codes
+        return input_data
 
     def _transform(self, input_data: InputData):
         """Fit ECS to a specified X and y.
@@ -164,26 +173,26 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
         -------
         InputData
         """
-        if input_data.features.shape[1] == 1:
+
+        have_one_channel = input_data.features.shape[1] == 1
+        have_selected_channels = len(self.channels_selected) != 0
+        if have_one_channel or have_selected_channels:
             return input_data.features
         else:
-            if len(self.channels_selected) == 0:
-                if input_data.task.task_type.value == 'regression':
-                    bins = [np.quantile(input_data.target, x)
-                            for x in np.arange(0, 1, 0.2)]
-                    labels = [x for x in range(len(bins) - 1)]
-                    input_data.target = pd.cut(input_data.target,
-                                               bins=bins,
-                                               labels=labels).codes
-                # step 1. create channel centroids
-                centroids_by_channel = self.create_centroid(
-                    input_data.features, input_data.target)
-                # step 2. create distance matrix
-                self.distance_frame = self.eval_distance_from_centroid(
-                    centroids_by_channel)
-                # step 3. choose filtration algo
-                if self.channel_selection_strategy == 'sum':
-                    self._channel_sum()
-                elif self.channel_selection_strategy == 'pairwise':
-                    self._channel_pairwise(centroids_by_channel)
+            regression_task = input_data.task.task_type.value == 'regression'
+            summation_of_channels = self.channel_selection_strategy == 'sum'
+            get_channels = lambda distance_frame: self._channel_sum(distance_frame) if summation_of_channels \
+                else self._channel_pairwise(distance_frame)
+
+            input_data = Either(input_data,
+                                monoid=[input_data, regression_task]). \
+                either(left_function=lambda data: data,
+                       right_function=lambda data: self.__convert_target_for_regression(data))
+
+            self.channels_selected = Either(value=input_data,
+                                            monoid=[input_data, summation_of_channels]).then(
+                lambda data: self.create_centroid(
+                    data.features, data.target)).then(lambda centroids_by_channel: self.eval_distance_from_centroid(
+                centroids_by_channel)).then(get_channels)
+
             return input_data.features[:, self.channels_selected, :]

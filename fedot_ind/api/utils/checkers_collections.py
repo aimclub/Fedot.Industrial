@@ -38,7 +38,7 @@ class DataCheck:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.industrial_task_params = industrial_task_params
 
-        if self.industrial_task_params is not None:
+        if len(self.industrial_task_params) != 0:
             self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']]
         else:
             self.data_type = FEDOT_DATA_TYPE['tensor']
@@ -124,7 +124,7 @@ class DataCheck:
                 len(
                     data_list[0])))
 
-        have_predict_horizon = Either(value=False, monoid=[True, self.industrial_task_params is None]).either(
+        have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
                                     'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)

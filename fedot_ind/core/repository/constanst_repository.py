@@ -32,7 +32,7 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,
-                                                        'add_global_features': False},
+                                                        'add_global_features': True},
                                     wavelet_basis={'n_components': 3,
                                                    'wavelet': 'mexh'},
                                     fourier_basis={'low_rank': 5,
@@ -45,6 +45,11 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                  'tensor_approximation': False},
                                     ar={'trend': 't',
                                         'seasonal': False},
+                                    rf={'random_state': 42,
+                                        'n_jobs': -1,
+                                        'criterion': 'entropy',
+                                        'n_estimators': 300,
+                                        'max_depth': 5},
                                     ar_periodic={})
 
 
@@ -62,6 +67,7 @@ wavelet_params = get_default_industrial_model_params('wavelet_basis')
 fourier_params = get_default_industrial_model_params('fourier_basis')
 eigen_params = get_default_industrial_model_params('eigen_basis')
 ar_params = get_default_industrial_model_params('ar')
+rf_params = get_default_industrial_model_params('rf')
 
 
 class ComputationalConstant(Enum):
@@ -260,7 +266,7 @@ class FedotOperationConstant(Enum):
                          'anomaly_detection': calculate_detection_metric
                          }
     FEDOT_TUNING_METRICS = {
-        'classification': ClassificationMetricsEnum.accuracy,
+        'classification': ClassificationMetricsEnum.f1,
         'ts_forecasting': RegressionMetricsEnum.MAPE,
         'regression': RegressionMetricsEnum.RMSE}
     FEDOT_DATA_TYPE = {
@@ -305,7 +311,7 @@ class FedotOperationConstant(Enum):
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('channel_filtration').
         add_node('quantile_extractor', params=stat_params).add_node(
-            'xgboost'),
+            'rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node('ar')}
@@ -319,6 +325,12 @@ class FedotOperationConstant(Enum):
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
         'regression': PipelineBuilder().add_node('treg')
+    }
+
+    FEDOT_MUTATION_STRATEGY = {
+        'params_mutation_strategy': [0.4, 0.2, 0.2, 0.1, 0.1],
+        'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],
+        'regularization_mutation_strategy': [0.2, 0.3, 0.1, 0.3, 0.1],
     }
 
 
@@ -732,6 +744,7 @@ FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.v
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
 FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
 FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
+FEDOT_MUTATION_STRATEGY = FedotOperationConstant.FEDOT_MUTATION_STRATEGY.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
