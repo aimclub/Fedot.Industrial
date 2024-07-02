@@ -36,5 +36,3 @@ def test_xcm_model(input_data):
 
     assert model is not None
     assert predict.predict.shape[0] == test.target.shape[0]
-
-
