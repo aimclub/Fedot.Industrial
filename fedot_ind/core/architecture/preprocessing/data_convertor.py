@@ -45,12 +45,6 @@ class CustomDatasetCLF:
                 if label_0 != 0 or label_1 != 1:
                     ts.target[ts.target == label_0] = 0
                     ts.target[ts.target == label_1] = 1
-            # if self.classes == 2 and label_1 != 1:
-            #     ts.target[ts.target == label_0] = 0
-            #     ts.target[ts.target == label_1] = 1
-            # elif self.classes == 2 and label_0 != 0:
-            #     ts.target[ts.target == label_0] = 0
-            #     ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
             if type(min(ts.target)) is np.str_:
@@ -60,11 +54,8 @@ class CustomDatasetCLF:
                 self.label_encoder = None
 
             try:
-                self.y = torch.nn.functional.one_hot(
-                    torch.from_numpy(
-                        ts.target).long(),
-                    num_classes=self.classes).to(
-                    default_device()).squeeze(1)
+                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
+                                                     num_classes=self.classes).to(default_device()).squeeze(1)
             except Exception:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(
                     ts.target).long()).to(default_device()).squeeze(1)
