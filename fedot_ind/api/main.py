@@ -74,11 +74,11 @@ class FedotIndustrial(Fedot):
         # init Fedot and Industrial hyperparams and path to results
         self.output_folder = kwargs.get('output_folder', None)
         self.industrial_strategy_params = kwargs.get(
-            'industrial_strategy_params', None)
+            'industrial_strategy_params', {})
         self.industrial_strategy = kwargs.get('industrial_strategy', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.backend_method = kwargs.get('backend', 'cpu')
-        self.task_params = kwargs.get('task_params', None)
+        self.task_params = kwargs.get('task_params', {})
 
         # TODO: unused params
         # self.model_params = kwargs.get('model_params', None)
@@ -128,7 +128,7 @@ class FedotIndustrial(Fedot):
             default_industrial_availiable_operation(
                 self.config_dict['problem'])
         )
-
+        self.config_dict['cv_folds'] = kwargs.get('cv_folds', 3)
         self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
         self.config_dict['initial_assumption'] = kwargs.get('initial_assumption', None)
         if self.config_dict['initial_assumption'] is None:

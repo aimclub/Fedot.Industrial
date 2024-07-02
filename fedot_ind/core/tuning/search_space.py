@@ -19,13 +19,18 @@ industrial_search_space = {
          'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'morl', 'db5', 'sym5']]}},
     'fourier_basis':
-        {'threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]}},
+        {'threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'low_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 30, 3)]]},
+         'approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [['smooth', 'exact']]},
+         'output_format': {'hyperopt-dist': hp.choice, 'sampling-scope': [['signal', 'spectrum']]}
+         },
     'topological_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
     'quantile_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
-         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
+         'add_global_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'riemann_extractor':
         {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
                                                                        'cov', 'lwf', 'mcd', 'hub']]},
@@ -753,12 +758,13 @@ def get_industrial_search_space(self):
     for key in industrial_search_space:
         parameters_per_operation[key] = industrial_search_space[key]
 
-    if self.custom_search_space is not None:
-        for operation in self.custom_search_space.keys():
-            if self.replace_default_search_space:
-                parameters_per_operation[operation] = self.custom_search_space[operation]
-            else:
-                for key, value in self.custom_search_space[operation].items():
-                    parameters_per_operation[operation][key] = value
+    if 'custom_search_space' in dir(self):
+        if self.custom_search_space is not None:
+            for operation in self.custom_search_space.keys():
+                if self.replace_default_search_space:
+                    parameters_per_operation[operation] = self.custom_search_space[operation]
+                else:
+                    for key, value in self.custom_search_space[operation].items():
+                        parameters_per_operation[operation][key] = value
 
     return parameters_per_operation

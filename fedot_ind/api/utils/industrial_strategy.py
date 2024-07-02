@@ -187,7 +187,7 @@ class IndustrialStrategy:
         tuned_models = {}
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
         for generator, kernel_model in kernel_ensemble.items():
-            tuning_params['tuner'] = FEDOT_TUNER_STRATEGY['optuna']
+            tuning_params['tuner'] = FEDOT_TUNER_STRATEGY['simultaneous']
             model_to_tune = deepcopy(kernel_model)
             pipeline_tuner, self.solver = build_tuner(
                 self, model_to_tune, tuning_params, kernel_data[generator], 'head')

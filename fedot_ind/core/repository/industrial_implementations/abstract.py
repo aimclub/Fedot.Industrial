@@ -221,13 +221,13 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
             tuning_params['metric']).with_timeout(
             tuning_params.get(
                 'tuning_timeout',
-                5)).with_early_stopping_rounds(
+                15)).with_early_stopping_rounds(
             tuning_params.get(
                 'tuning_early_stop',
-                30)).with_iterations(
+                50)).with_iterations(
             tuning_params.get(
                 'tuning_iterations',
-                100)).build(tuning_data)
+                150)).build(tuning_data)
         return pipeline_tuner
 
     if isinstance(model_to_tune, dict):

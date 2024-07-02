@@ -1,26 +1,22 @@
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.tools.example_utils import industrial_common_modelling_loop
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
 if __name__ == "__main__":
-    return_history = True
-    opt_hist = PROJECT_PATH + '/examples/data/forecasting/D1679_opt_history/'
     dataset_name = 'Lightning7'
     finetune = False
-    metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
+    metric_names = ('f1', 'accuracy')
     api_config = dict(problem='classification',
                       metric='f1',
-                      timeout=5,
+                      timeout=10,
                       pop_size=10,
                       with_tuning=False,
-                      n_jobs=2,
+                      cv_folds=3,
+                      n_jobs=-1,
                       logging_level=10)
 
-    industrial, labels, metrics = industrial_common_modelling_loop(
-        api_config=api_config, dataset_name=dataset_name, finetune=finetune)
-    if return_history:
-        opt_hist = industrial.save_optimization_history(return_history=True)
-    else:
-        # tutorial sample of opt history
-        opt_hist = PROJECT_PATH + '/examples/data/forecasting/D1679_opt_history/'
-    opt_hist = industrial.vis_optimisation_history(
+    result_dict = ApiTemplate(api_config=api_config,
+                              metric_list=('f1', 'accuracy')).eval(dataset=dataset_name,
+                                                                   finetune=finetune)
+
+    opt_hist = result_dict['industrial_model'].save_optimization_history(return_history=True)
+    opt_hist = result_dict['industrial_model'].vis_optimisation_history(
         opt_history_path=opt_hist, return_history=True)
