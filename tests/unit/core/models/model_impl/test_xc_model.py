@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import pytest
 from fedot.core.operations.operation_parameters import OperationParameters
-# from matplotlib import get_backend, pyplot as plt
+from matplotlib import get_backend, pyplot as plt
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
@@ -19,7 +19,11 @@ def input_data():
 
 
 def test_xcm_model(input_data):
-
+    # switch to non-Gui, preventing plots being displayed
+    # suppress UserWarning that agg cannot show plots
+    get_backend()
+    plt.switch_backend("Agg")
+    warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     train, test = input_data
     model = XCModel(params=OperationParameters(num_classes=2,
                                                epochs=10,
@@ -27,11 +31,6 @@ def test_xcm_model(input_data):
     model._fit_model(train)
     predict = model._predict_model(test.features)
 
-    # switch to non-Gui, preventing plots being displayed
-    # suppress UserWarning that agg cannot show plots
-    # get_backend()
-    # plt.switch_backend("Agg")
-    warnings.filterwarnings("ignore", "Matplotlib is currently using agg")
     model.model_for_inference.explain(train)
 
     assert model is not None

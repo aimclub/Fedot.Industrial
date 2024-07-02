@@ -93,8 +93,8 @@ def test_losses(ts):
             -1) == p, f'Predictions should have {p} per index for loss {loss_fn}'
 
 
-def test_get_initial_state(ts):
-    for cell_type in ['RNN', "LSTM", 'GRU']:
-        deepar = DeepAR({'cell_type': cell_type})
-        deepar.fit(ts)
-        deepar.predict(ts)
+@pytest.mark.parametrize('cell_type', ['RNN', 'LSTM', 'GRU'])
+def test_get_initial_state(ts, cell_type):
+    deepar = DeepAR({'cell_type': cell_type})
+    deepar.fit(ts)
+    deepar.predict(ts)
