@@ -40,12 +40,11 @@ class CustomDatasetCLF:
             label_1 = max(ts.class_labels)
             label_0 = min(ts.class_labels)
             self.classes = ts.num_classes
-            if self.classes == 2 and label_1 != 1:
-                ts.target[ts.target == label_0] = 0
-                ts.target[ts.target == label_1] = 1
-            elif self.classes == 2 and label_0 != 0:
-                ts.target[ts.target == label_0] = 0
-                ts.target[ts.target == label_1] = 1
+
+            if self.classes == 2:
+                if label_0 != 0 or label_1 != 1:
+                    ts.target[ts.target == label_0] = 0
+                    ts.target[ts.target == label_1] = 1
             elif self.classes > 2 and label_0 == 1:
                 ts.target = ts.target - 1
             if type(min(ts.target)) is np.str_:
@@ -55,11 +54,8 @@ class CustomDatasetCLF:
                 self.label_encoder = None
 
             try:
-                self.y = torch.nn.functional.one_hot(
-                    torch.from_numpy(
-                        ts.target).long(),
-                    num_classes=self.classes).to(
-                    default_device()).squeeze(1)
+                self.y = torch.nn.functional.one_hot(torch.from_numpy(ts.target).long(),
+                                                     num_classes=self.classes).to(default_device()).squeeze(1)
             except Exception:
                 self.y = torch.nn.functional.one_hot(torch.from_numpy(
                     ts.target).long()).to(default_device()).squeeze(1)
@@ -108,10 +104,8 @@ class FedotConverter:
                      'regression': Task(TaskTypesEnum.regression)}
         if is_multivariate_data:
             input_data = InputData(idx=np.arange(len(features)),
-                                   features=np.array(
-                                       features.values.tolist()).astype(float),
-                                   target=target.astype(
-                                       float).reshape(-1, 1),
+                                   features=np.array(features.values.tolist()).astype(float),
+                                   target=target.astype(float).reshape(-1, 1),
                                    task=task_dict[task],
                                    data_type=MULTI_ARRAY)
         else:
@@ -168,10 +162,10 @@ class FedotConverter:
 
     def convert_to_industrial_composing_format(self, mode):
         if mode == 'one_dimensional':
-            new_features, new_target = [
-                array.reshape(array.shape[0], array.shape[1] * array.shape[2])
-                if array is not None and len(array.shape) > 2 else array
-                for array in [self.input_data.features, self.input_data.target]]
+            new_features, new_target = [array.reshape(array.shape[0], array.shape[1] * array.shape[2])
+                                        if array is not None and len(array.shape) > 2
+                                        else array
+                                        for array in [self.input_data.features, self.input_data.target]]
             # if new_features.shape[0] != new_target.shape[0]:
             #     min_samples = min(new_features.shape[0], new_target.shape[0])
             #     new_features, new_target = new_features[:min_samples], new_target[:min_samples]
@@ -562,7 +556,8 @@ class DataConverter(TensorConverter, NumpyConverter):
     @property
     def is_torchvision_dataset(self):
         if self.is_tuple:
-            return self.data[1] == 'torchvision_dataset'
+            return np.all(self.data[1] == 'torchvision_dataset')
+            # return self.data[1] == 'torchvision_dataset'
         else:
             return False
 

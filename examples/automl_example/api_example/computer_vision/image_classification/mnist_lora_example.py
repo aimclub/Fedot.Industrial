@@ -252,9 +252,10 @@ enable_disable_lora(enabled=True)
 # The original weights have been moved to net.linear1.parametrizations.weight.original
 # More info here:
 # https://pytorch.org/tutorials/intermediate/parametrizations.html#inspecting-a-parametrized-module
-assert torch.equal(docnn_model.linear1.weight, docnn_model.linear1.parametrizations.weight.original +
-                   (docnn_model.linear1.parametrizations.weight[0].lora_B @ docnn_model.linear1.parametrizations.weight[0].lora_A) *
-                   docnn_model.linear1.parametrizations.weight[0].scale)
+assert torch.equal(
+    docnn_model.linear1.weight, docnn_model.linear1.parametrizations.weight.original +
+    (docnn_model.linear1.parametrizations.weight[0].lora_B @ docnn_model.linear1.parametrizations.weight[0].lora_A) *
+    docnn_model.linear1.parametrizations.weight[0].scale)
 
 enable_disable_lora(enabled=False)
 # If we disable LoRA, the linear1.weight is the original one

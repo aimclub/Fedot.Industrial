@@ -6,8 +6,8 @@ from torch import nn, optim
 from torch.nn.modules.transformer import TransformerEncoder, TransformerEncoderLayer
 
 from fedot_ind.core.architecture.settings.computational import default_device
-from .base_nn_model import BaseNeuralModel
-from ..network_modules.layers.linear_layers import Max, Permute, Transpose
+from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Max, Permute, Transpose
 
 
 class TransformerModule(Module):
@@ -52,11 +52,10 @@ class TransformerModule(Module):
         self.outlinear = nn.Linear(d_model, output_dim)
 
     def forward(self, x):
-        x = self.permute(x)  # bs x nvars x seq_len -> seq_len x bs x nvars
+        x = self.permute(x.squeeze())  # bs x nvars x seq_len -> seq_len x bs x nvars
         x = self.inlinear(x)  # seq_len x bs x nvars -> seq_len x bs x d_model
         x = self.relu(x)
         x = self.transformer_encoder(x)
-        # seq_len x bs x d_model -> bs x seq_len x d_model
         x = self.transpose(x)
         x = self.max(x)
         x = self.relu(x)
@@ -69,35 +68,25 @@ class TransformerModel(BaseNeuralModel):
 
        Attributes:
            self.num_features: int, the number of features.
-
-       Example:
-           To use this operation you can create pipeline as follows::
-               from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-               from examples.fedot.fedot_ex import init_input_data
-               from fedot_ind.tools.loader import DataLoader
-               from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-               train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
-               input_data = init_input_data(train_data[0], train_data[1])
-               val_data = init_input_data(test_data[0], test_data[1])
-               with IndustrialModels():
-                   pipeline = PipelineBuilder().add_node('tst_model', params={'epochs': 100,
-                                                                                    'batch_size': 10}).build()
-                   pipeline.fit(input_data)
-                   target = pipeline.predict(val_data).predict
-                   metric = evaluate_metric(target=test_data[1], prediction=target)
+           self.epoch: int, the number of epochs.
+           self.batch_size: int, the batch size.
 
        """
 
     def __init__(self, params: Optional[OperationParameters] = {}):
+        super().__init__(params)
         self.num_classes = params.get('num_classes', 1)
         self.epochs = params.get('epochs', 10)
         self.batch_size = params.get('batch_size', 20)
 
     def _init_model(self, ts):
         self.model = TransformerModule(
-            input_dim=ts.features.shape[1],
+            input_dim=ts.features.shape[2],
             output_dim=self.num_classes).to(
             default_device())
+
+        self.model_for_inference = self.model
+
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         loss_fn = nn.CrossEntropyLoss()
         return loss_fn, optimizer

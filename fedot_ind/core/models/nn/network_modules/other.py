@@ -22,7 +22,7 @@ def pass_through(X):
     return X
 
 
-def test_module_to_torchscript(
+def if_module_to_torchscript(
         m: torch.nn.Module,
         inputs: Tensor,
         trace: bool = True,
@@ -115,46 +115,6 @@ def init_lin_zero(m):
 lin_zero_init = init_lin_zero
 
 
-# @delegates(nn.Conv2d.__init__)
-
-
-# Conv = named_partial('Conv', ConvBlock, norm=None, act=None)
-# ConvBN = named_partial('ConvBN', ConvBlock, norm='Batch', act=None)
-# CoordConv = named_partial('CoordConv', ConvBlock, norm=None, act=None, coord=True)
-# SepConv = named_partial('SepConv', ConvBlock, norm=None, act=None, separable=True)
-
-
-# class ResBlock1dPlus(Module):
-#     "Resnet block from `ni` to `nh` with `stride`"
-#
-#     @delegates(ConvLayer.__init__)
-#     def __init__(self, expansion, ni, nf, coord=False, stride=1, groups=1, reduction=None, nh1=None, nh2=None, dw=False,
-#                  g2=1,
-#                  sa=False, sym=False, norm='Batch', zero_norm=True, act_cls=defaults.activation, ks=3,
-#                  pool=AvgPool, pool_first=True, **kwargs):
-#         if nh2 is None: nh2 = nf
-#         if nh1 is None: nh1 = nh2
-#         nf, ni = nf * expansion, ni * expansion
-#         k0 = dict(norm=norm, zero_norm=False, act=act_cls, **kwargs)
-#         k1 = dict(norm=norm, zero_norm=zero_norm, act=None, **kwargs)
-#         convpath = [ConvBlock(ni, nh2, ks, coord=coord, stride=stride, groups=ni if dw else groups, **k0),
-#                     ConvBlock(nh2, nf, ks, coord=coord, groups=g2, **k1)
-#                     ] if expansion == 1 else [
-#             ConvBlock(ni, nh1, 1, coord=coord, **k0),
-#             ConvBlock(nh1, nh2, ks, coord=coord, stride=stride, groups=nh1 if dw else groups, **k0),
-#             ConvBlock(nh2, nf, 1, coord=coord, groups=g2, **k1)]
-#         if reduction: convpath.append(SEModule(nf, reduction=reduction, act_cls=act_cls))
-#         if sa: convpath.append(SimpleSelfAttention(nf, ks=1, sym=sym))
-#         self.convpath = nn.Sequential(*convpath)
-#         idpath = []
-#         if ni != nf: idpath.append(ConvBlock(ni, nf, 1, coord=coord, act=None, **kwargs))
-#         if stride != 1: idpath.insert((1, 0)[pool_first], pool(stride, ndim=1, ceil_mode=True))
-#         self.idpath = nn.Sequential(*idpath)
-#         self.act = defaults.activation(inplace=True) if act_cls is defaults.activation else act_cls()
-#
-#     def forward(self, x):
-#         return self.act(self.convpath(x) + self.idpath(x))
-
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
 
@@ -227,7 +187,7 @@ class TimeDistributed(nn.Module):
         return y
 
 
-class Temp_Scale(Module):
+class TempScale(Module):
     """Used to perform Temperature Scaling (dirichlet=False) or Single-parameter Dirichlet calibration
     (dirichlet=True)"""
 
@@ -277,13 +237,13 @@ def get_calibrator(calibrator=None, n_classes=1, **kwargs):
     if calibrator is None or not calibrator:
         return Noop
     elif calibrator.lower() == 'temp':
-        return Temp_Scale(dirichlet=False, **kwargs)
+        return TempScale(dirichlet=False, **kwargs)
     elif calibrator.lower() == 'vector':
         return VectorScale(n_classes=n_classes, dirichlet=False, **kwargs)
     elif calibrator.lower() == 'matrix':
         return MatrixScale(n_classes=n_classes, dirichlet=False, **kwargs)
     elif calibrator.lower() == 'dtemp':
-        return Temp_Scale(dirichlet=True, **kwargs)
+        return TempScale(dirichlet=True, **kwargs)
     elif calibrator.lower() == 'dvector':
         return VectorScale(n_classes=n_classes, dirichlet=True, **kwargs)
     elif calibrator.lower() == 'dmatrix':

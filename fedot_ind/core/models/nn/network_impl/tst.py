@@ -8,6 +8,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from torch import nn, optim, Tensor
 
+from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.activation import get_activation_fn
@@ -16,6 +17,7 @@ from fedot_ind.core.models.nn.network_modules.layers.attention_layers import \
 from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import Flatten, Transpose
 from fedot_ind.core.models.nn.network_modules.layers.padding_layers import Pad1d
+from fedot_ind.tools.loader import DataLoader
 
 
 class _TSTEncoderLayer(Module):
@@ -294,18 +296,25 @@ if __name__ == "__main__":
     dataset_list = ['Lightning2']
     result_dict = {}
     pipeline_dict = {
-        'omniscale_model': PipelineBuilder().add_node(
-            'tst_model',
-            params={
-                'epochs': 50,
-                'batch_size': 32}),
-        'quantile_rf_model': PipelineBuilder() .add_node('quantile_extractor') .add_node('rf'),
-        'composed_model': PipelineBuilder() .add_node(
-            'tst_model',
-            params={
-                'epochs': 50,
-                'batch_size': 32}) .add_node(
-            'quantile_extractor',
-            branch_idx=1) .add_node(
-            'rf',
-            branch_idx=1) .join_branches('logit')}
+        'omniscale_model': PipelineBuilder().add_node('tst_model',
+                                                      params={'epochs': 50,
+                                                              'batch_size': 32}
+                                                      ),
+
+        'quantile_rf_model': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
+
+        'composed_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50, 'batch_size': 32})
+                                           .add_node('quantile_extractor', branch_idx=1)
+                                           .add_node('rf', branch_idx=1)
+                                           .join_branches('logit')}
+
+    train_data, test_data = DataLoader(dataset_list[0]).load_data()
+    input_train = init_input_data(train_data[0], train_data[1])
+    input_test = init_input_data(test_data[0], test_data[1])
+
+    for name, ppl in pipeline_dict.items():
+        print(f'<------{name} pipeline fit------>')
+        ppl = ppl.build()
+        ppl.fit(input_train)
+        pred = ppl.predict(input_test)
+        print(f'<------{name} pipeline fitted------>')
