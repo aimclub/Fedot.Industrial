@@ -75,8 +75,8 @@ class BaseNeuralModel:
             optimizer=optimizer
         )
 
-    def _init_model(self, ts):
-        NotImplementedError()
+    def _init_model(self, ts) -> tuple:
+        raise NotImplementedError()
 
     def _prepare_data(self, ts, split_data: bool = True):
 

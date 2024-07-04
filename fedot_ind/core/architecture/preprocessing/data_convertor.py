@@ -162,10 +162,10 @@ class FedotConverter:
 
     def convert_to_industrial_composing_format(self, mode):
         if mode == 'one_dimensional':
-            new_features, new_target = [
-                array.reshape(array.shape[0], array.shape[1] * array.shape[2])
-                if array is not None and len(array.shape) > 2 else array
-                for array in [self.input_data.features, self.input_data.target]]
+            new_features, new_target = [array.reshape(array.shape[0], array.shape[1] * array.shape[2])
+                                        if array is not None and len(array.shape) > 2
+                                        else array
+                                        for array in [self.input_data.features, self.input_data.target]]
             # if new_features.shape[0] != new_target.shape[0]:
             #     min_samples = min(new_features.shape[0], new_target.shape[0])
             #     new_features, new_target = new_features[:min_samples], new_target[:min_samples]
