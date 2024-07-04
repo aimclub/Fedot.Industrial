@@ -61,7 +61,6 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         verifier = self.graph_generation_params.verifier
         extended_pop = list(pop)
         pop_graphs = [ind.graph for ind in extended_pop]
-
         # Set mutation probabilities to 1.0
         initial_req = deepcopy(self.requirements)
         initial_req.mutation_prob = 1.0
@@ -70,7 +69,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         for iter_num in range(MAX_GRAPH_GEN_ATTEMPTS):
             if len(extended_pop) == target_pop_size:
                 break
-            new_ind = self.mutation(choice(pop))
+            new_ind = self.mutation(choice(pop)).graph
             if new_ind:
                 new_graph = new_ind.graph
                 if new_graph not in pop_graphs and verifier(new_graph):

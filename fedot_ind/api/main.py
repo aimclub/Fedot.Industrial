@@ -316,7 +316,8 @@ class FedotIndustrial(Fedot):
         if not self.condition_check.input_data_is_fedot_type(train_data):
             input_preproc = DataCheck(input_data=train_data,
                                       task=self.config_dict['problem'],
-                                      task_params=self.task_params)
+                                      task_params=self.task_params,
+                                      industrial_task_params=self.industrial_strategy_params)
             train_data = input_preproc.check_input_data()
             self.target_encoder = input_preproc.get_target_encoder()
         tuning_params = ApiConverter.tuning_params_is_none(tuning_params)

@@ -395,19 +395,19 @@ class ConditionConverter:
 
     @property
     def have_transform_method(self):
-        return 'transform' in dir(self.operation_example)
+        return dir(self.operation_example).__contains__('transform')
 
     @property
     def have_fit_method(self):
-        return 'fit' in dir(self.operation_example)
+        return dir(self.operation_example).__contains__('fit')
 
     @property
     def have_predict_method(self):
-        return 'predict' in dir(self.operation_example)
+        return dir(self.operation_example).__contains__('predict')
 
     @property
     def have_predict_for_fit_method(self):
-        return 'predict_for_fit' in dir(self.operation_example)
+        return dir(self.operation_example).__contains__('predict_for_fit')
 
     @property
     def is_one_dim_operation(self):
@@ -442,7 +442,7 @@ class ConditionConverter:
 
     @property
     def input_data_is_list_container(self):
-        return type(self.train_data) is list
+        return isinstance(self.train_data, list)
 
     @property
     def input_data_is_fedot_data(self):
@@ -450,7 +450,7 @@ class ConditionConverter:
 
     @property
     def is_operation_is_list_container(self):
-        return type(self.operation_implementation) is list
+        return isinstance(self.operation_implementation, list)
 
     @property
     def have_predict_atr(self):
