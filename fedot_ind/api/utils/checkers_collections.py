@@ -36,7 +36,7 @@ class DataCheck:
                  fit_stage=False,
                  industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.industrial_task_params = industrial_task_params
+        self.industrial_task_params = industrial_task_params or {}
 
         if len(self.industrial_task_params) != 0:
             self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']]
