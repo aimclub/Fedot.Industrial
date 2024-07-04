@@ -14,7 +14,8 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         self.prediction_mode = params.get('prediction_mode', 'best_by_harmonic_mean')
         self.interval_percentage = params.get('interval_percentage', 10)
         self.consecutive_predictions = params.get('consecutive_predictions', 3)
-        self.hm_shift_to_acc = params.get('hm_shift_to_acc', 1.)
+        self.accuracy_importance = params.get('accuracy_importance', 1.)
+        self.min_ts_length = params.get('min_ts_step', 3)
         self.random_state = params.get('random_state', None)
         self.weasel_params = {}
         assert self.consecutive_predictions < self.interval_percentage, 'Not enough checkpoints for prediction proof'
@@ -58,8 +59,8 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         return probas, np.argmax(probas, axis=-1) 
     
     def _compute_prediction_points(self, n_idx):
-        interval_length = int(n_idx * self.interval_percentage / 100)
-        prediction_idx = np.arange(n_idx - 1, -1, -interval_length)[::-1]
+        interval_length = max(int(n_idx * self.interval_percentage / 100), self.min_ts_length)
+        prediction_idx = np.arange(n_idx - 1, -1, -interval_length)[::-1][1:]
         self.earliness = 1 - prediction_idx / n_idx # /n_idx because else the last hm score is always 0
         return prediction_idx
     
@@ -98,7 +99,7 @@ class BaseETC(ClassifierMixin, BaseEstimator):
 
     def _score(self, X, y, hm_shift_to_acc=None):
         y = np.array(y).flatten()
-        hm_shift_to_acc = hm_shift_to_acc or self.hm_shift_to_acc
+        hm_shift_to_acc = hm_shift_to_acc or self.accuracy_importance
         predictions = self._predict(X)[0]
         prediction_points = predictions.shape[0]
         accuracies = (predictions == np.tile(y, (prediction_points, 1))).sum(axis=1) / len(y)
