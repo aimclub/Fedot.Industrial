@@ -76,11 +76,11 @@ class TEASER(BaseETC):
         # predicted_labels[non_acceptance] = final_verdicts[non_acceptance]
         return predicted_labels # prediction_points x n_instances
     
-    def _score(self, X, y, hm_shift_to_acc=None):
-        scores = super()._score(X, y, hm_shift_to_acc)
+    def _score(self, X, y, accuracy_importance=None):
+        scores = super()._score(X, y, accuracy_importance)
         self._best_estimator_idx = np.argmax(scores)
         return scores
     
     def fit(self, X, y):
         super().fit(X, y)
-        return self._score(X, y, self.hm_shift_to_acc)
+        return self._score(X, y, self.accuracy_importance)

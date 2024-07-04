@@ -36,12 +36,12 @@ class ProbabilityThresholdClassifier(BaseETC):
         non_acceptance[non_acceptance & double_check] = False
         return predicted_labels, predicted_probas, non_acceptance
 
-    def _score(self, X, y, hm_shift_to_acc=None):
-        scores = super()._score(X, y, hm_shift_to_acc)
+    def _score(self, X, y, accuracy_importance=None):
+        scores = super()._score(X, y, accuracy_importance)
         self._best_estimator_idx = np.argmax(scores)
         return scores
     
     def fit(self, X, y):
         super().fit(X, y)
-        return self._score(X, y, self.hm_shift_to_acc)
+        return self._score(X, y, self.accuracy_importance)
 
