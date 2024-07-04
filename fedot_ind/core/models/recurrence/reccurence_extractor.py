@@ -83,7 +83,7 @@ class RecurrenceExtractor(BaseExtractor):
 
     def generate_recurrence_features(self, ts: np.array) -> InputData:
 
-        if len(ts.shape) == 1:
+        if len(ts.shape) < 3:
             aggregation_df = self._generate_features_from_ts(ts)
         else:
             aggregation_df = self._get_feature_matrix(

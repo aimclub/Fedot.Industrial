@@ -42,7 +42,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         return converted_data
 
     def __operation_multidim_adapter(self, trained_operation, predict_data):
-        predict_data = predict_data.features if self.operation_condition.input_data_is_fedot_data else predict_data
         return_operation_as_predict = self.operation_condition.have_predict_atr \
             and self.operation_condition.is_operation_input_data_is_list_container
 
@@ -100,7 +99,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         self.operation_condition_for_channel_independent = ConditionConverter(
             predict_data, trained_operation[0], self.mode)
         predict_method = self.operation_condition_for_channel_independent.have_predict_method
-        self.operation_condition_for_channel_independent.have_transform_method
         fedot_input = self.operation_condition_for_channel_independent.is_transform_input_fedot
         lagged_operation = self.operation_type == 'lagged' or self.operation_type == 'sparse_lagged'
 
@@ -219,7 +217,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # fit_method_is_not_implemented = operation_implementation[0] is None
 
     def _abstract_predict(self, predict_data, trained_operation, output_mode):
-
+        predict_data = predict_data.features if self.operation_condition.input_data_is_fedot_data else predict_data
         # If model is classical sklearn model we use classical sklearn predict method
         predict_one_dim = curry(2)(lambda operation, init_state: self._sklearn_compatible_prediction(
             operation, init_state, output_mode) if self.operation_condition.is_one_dim_operation else init_state)

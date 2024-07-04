@@ -68,7 +68,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         individuals_evaluated = Maybe(individuals,
                                       monoid=[individuals, True]).then(
             lambda generation: self._multithread_eval(generation)). \
-            then(lambda eval_res: self.apply_evaluation_results(individuals_to_evaluate, eval_res))
+            then(lambda eval_res: self.apply_evaluation_results(individuals_to_evaluate, eval_res)).value
 
         successful_evals = individuals_evaluated + individuals_to_skip
         self.population_evaluation_info(evaluated_pop_size=len(successful_evals), pop_size=len(individuals))

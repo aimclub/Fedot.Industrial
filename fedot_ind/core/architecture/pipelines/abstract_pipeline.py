@@ -35,16 +35,28 @@ class AbstractPipeline:
     @staticmethod
     def create_pipeline(node_list, build: bool = True):
         pipeline = PipelineBuilder()
-        if isinstance(node_list, dict):
-            for branch, nodes in node_list.items():
-                if isinstance(branch, int):
-                    for node in nodes:
-                        pipeline.add_node(node, branch_idx=branch)
-                else:
-                    pipeline.join_branches(nodes)
-        else:
-            for node in node_list:
-                pipeline.add_node(node)
+        node_list_is_dict = isinstance(node_list, dict)
+        key_is_branch_idx = isinstance(list(node_list.keys())[0], int)
+        key_is_model_name = isinstance(list(node_list.keys())[0], str)
+
+        def _create_pipeline_from_dict(node_dict):
+            if key_is_model_name:
+                [pipeline.add_node(node, params=params) for node, params in node_dict.items()]
+            else:
+                for branch, nodes in node_dict.items():
+                    if key_is_branch_idx:
+                        for node in nodes:
+                            pipeline.add_node(node, branch_idx=branch)
+                    else:
+                        pipeline.join_branches(nodes)
+            return pipeline
+
+        pipeline = Either(value=node_list,
+                          monoid=[node_list,
+                                  node_list_is_dict]). \
+            either(left_function=lambda node_list: [pipeline.add_node(node) for node in node_list],
+                   right_function=lambda node_dict: _create_pipeline_from_dict(node_dict))
+
         return pipeline.build() if build else pipeline
 
     def tune_pipeline(
@@ -139,7 +151,7 @@ class ApiTemplate:
     def eval(self,
              dataset: Union[str, dict] = None,
              finetune: bool = False,
-             initial_assumption: list = None):
+             initial_assumption: Union[list, dict] = None):
         train_data, test_data = self._prepare_dataset(dataset)
         if initial_assumption is not None:
             pipeline = AbstractPipeline.create_pipeline(initial_assumption, build=False)
