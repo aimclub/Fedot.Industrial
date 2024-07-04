@@ -9,8 +9,9 @@ if __name__ == "__main__":
         'stride': 5,
         'image_mode': True},
         'resnet_model': {
-            'epochs': 50,
-            'model_name': 'ResNet50one'}}
+            'epochs': 30,
+            'batch_size': 16,
+            'model_name': 'ResNet50'}}
 
     api_config = dict(problem='classification',
                       metric='f1',

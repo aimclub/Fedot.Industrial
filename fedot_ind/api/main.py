@@ -162,7 +162,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -229,10 +229,10 @@ class FedotIndustrial(Fedot):
         custom_predict = self.solver.predict if default_fedot_strategy else self.industrial_strategy_class.predict
 
         predict_function = Either(value=custom_predict,
-                                  monoid=[self.solver.predict_proba, not all([default_fedot_strategy,
-                                                                              labels_output])]).either(
-            left_function=lambda l: l,
-            right_function=lambda r: r)
+                                  monoid=[self.solver.predict_proba, all([default_fedot_strategy,
+                                                                          labels_output])]).either(
+            left_function=lambda prob_func: prob_func,
+            right_function=lambda label_func: label_func)
 
         def _inverse_encoder_transform(predict):
             predicted_labels = self.target_encoder.inverse_transform(
@@ -249,7 +249,7 @@ class FedotIndustrial(Fedot):
 
     def predict(self,
                 predict_data: tuple,
-                predict_mode: str = 'default',
+                predict_mode: str = 'labels',
                 **kwargs):
         """
         Method to obtain prediction labels from trained Industrial model.
@@ -406,7 +406,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

@@ -34,7 +34,7 @@ class TSTransformer:
             map(squareform, [cosine_matrix, euclidean_matrix, canberra_matrix]))
         dimensions = list(map(self.colorise, squared_matrices))
         self.recurrence_matrix = np.stack(dimensions, axis=2)
-        return self.recurrence_matrix
+        return self.recurrence_matrix.T
 
     def colorise(self, distance_matrix):
         """Instead of binarisation, we colorize the distance matrix by scaling the values to [0, 255].

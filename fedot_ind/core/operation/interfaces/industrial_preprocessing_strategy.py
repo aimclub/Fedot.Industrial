@@ -41,14 +41,15 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         converted_data = self._convert_input_data(input_data) if multidim_features else input_data
         return converted_data
 
-    def __operation_multidim_adapter(self, trained_operation, predict_data):
-        return_operation_as_predict = self.operation_condition.have_predict_atr \
-            and self.operation_condition.is_operation_input_data_is_list_container
+    def __operation_multidim_adapter(self, trained_operation, predict_data, output_mode):
+        neural_operation = self.mode == 'multi_dimensional'
+        multidim_predict = self.operation_condition.have_predict_method and neural_operation
 
         prediction = Either(value=trained_operation,
-                            monoid=[predict_data, return_operation_as_predict]). \
+                            monoid=[predict_data, multidim_predict]). \
             either(left_function=lambda data: self._predict_for_ndim(data, trained_operation),
-                   right_function=lambda operation: operation)
+                   right_function=lambda operation: operation.predict(predict_data, output_mode)
+                   if not self.operation_condition.have_predict_atr else operation)
 
         return prediction
 
@@ -72,14 +73,14 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         one_class_opereation = (self.operation_condition.is_one_class_operation,
                                 self.operation_condition.is_regression_of_forecasting_task)
         only_predict_method = self.operation_condition.is_regression_of_forecasting_task \
-            or not self.operation_condition.have_predict_for_fit_method
+                              or not self.operation_condition.have_predict_for_fit_method
         n_classes = 1 if any(one_class_opereation) \
             else len(trained_operation.classes_[0]) \
             if self.operation_condition.is_multi_output_target \
             else len(trained_operation.classes_)
         predict_data = predict_data if self.operation_condition.is_predict_input_fedot else predict_data.features
         predict_method = curry(1)(lambda data: trained_operation.predict(data) if only_predict_method
-                                  else trained_operation.predict_for_fit(data))
+        else trained_operation.predict_for_fit(data))
 
         prediction = Either(value=predict_data,
                             monoid=[dict(output_mode=output_mode,
@@ -116,9 +117,9 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # If model is classical sklearn model we use one_dimensional mode
         predict_branch = curry(2)(
             lambda operation_list,
-            data_list: list(
+                   data_list: list(
                 operation_sample.predict(data_sample) for operation_sample,
-                data_sample in zip(
+                                                          data_sample in zip(
                     operation_list,
                     data_list)) if predict_method else data_list)
 
@@ -191,12 +192,12 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
         # If model is classical sklearn model we use one_dimensional mode
         fit_one_dim = curry(2)(lambda operation, init_state: self.fit_one_sample(init_state)
-                               if self.operation_condition.is_one_dim_operation else operation)
+        if self.operation_condition.is_one_dim_operation else operation)
 
         # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         channel_independent_branch = curry(2)(lambda data, prev_state: list(deepcopy(prev_state) for i in
                                                                             range(len(data)))
-                                              if self.operation_condition.input_data_is_list_container else prev_state)
+        if self.operation_condition.input_data_is_list_container else prev_state)
 
         # Apply fit operation for every dimension
         fit_for_every_dim = curry(2)(
@@ -204,46 +205,31 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             if not self.operation_condition.input_data_is_list_container else self._list_of_fitted_model(
                 data, prev_state))
 
+        fit_multidim = curry(2)(lambda data, prev_state: prev_state.fit(data))
+
         trained_operation = Either.insert(train_data). \
             then(fit_one_dim(self.operation_condition.operation_implementation)). \
             then(channel_independent_branch(train_data)). \
-            then(fit_for_every_dim(train_data)).value
+            then(fit_for_every_dim(train_data)).then(fit_multidim(train_data)).value
 
         return trained_operation
 
-        # # if not isinstance(self.operation_condition.operation_implementation[0], type(trained_operation[0])):
-        # #     operation_implementation = trained_operation
-        # fit_method_is_not_implemented = operation_implementation[0] is None
-
     def _abstract_predict(self, predict_data, trained_operation, output_mode):
-        predict_data = predict_data.features if self.operation_condition.input_data_is_fedot_data else predict_data
         # If model is classical sklearn model we use classical sklearn predict method
         predict_one_dim = curry(2)(lambda operation, init_state: self._sklearn_compatible_prediction(
             operation, init_state, output_mode) if self.operation_condition.is_one_dim_operation else init_state)
-
+        multidim_predict = lambda operation, previous_state: previous_state if isinstance(previous_state, np.ndarray) \
+            else self.__operation_multidim_adapter(operation, previous_state, output_mode)
         # Elif model could be use for each dimension(channel) independently we use multidimensional predict method
-        predict_for_every_dim = curry(2)(
-            lambda operation,
-            previous_state: previous_state if isinstance(
-                previous_state,
-                np.ndarray) else self.__operation_multidim_adapter(
-                operation,
-                previous_state))
+        predict_for_every_dim = curry(2)(multidim_predict)
 
         # Elif model could be use for tensor (multidimensional data) we use custom
         # predict method adapted for multidimensional
-        multi_dim_predict = curry(2)(
-            lambda operation,
-            previous_state: previous_state if isinstance(
-                previous_state,
-                np.ndarray) else self.__operation_multidim_adapter(
-                operation,
-                previous_state))
+        multi_dim_predict = curry(2)(multidim_predict)
 
         prediction = Either.insert(predict_data). \
             then(predict_one_dim(trained_operation)). \
-            then(predict_for_every_dim(trained_operation)). \
-            then(multi_dim_predict(trained_operation)).value
+            then(predict_for_every_dim(trained_operation)).value
 
         return prediction
 
@@ -369,7 +355,7 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
 
 
 class IndustrialForecastingPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
     _operations_by_types = FORECASTING_PREPROC
 
     def __init__(
@@ -414,7 +400,7 @@ class IndustrialForecastingPreprocessingStrategy(
 
 
 class IndustrialClassificationPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
     _operations_by_types = INDUSTRIAL_CLF_PREPROC_MODEL
 
     def __init__(

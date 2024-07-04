@@ -1,5 +1,6 @@
 import copy
 import os
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -9,12 +10,10 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import Tensor
 from torch.optim import lr_scheduler
-from typing import Optional
-
 from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
-    convert_to_4d_torch_array, fedot_data_type
+    convert_to_4d_torch_array
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 
@@ -61,6 +60,7 @@ class BaseNeuralModel:
 
         self._fit_model(input_data)
         self._save_and_clear_cache()
+        return self
 
     @convert_to_4d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = True):
@@ -168,7 +168,6 @@ class BaseNeuralModel:
         if best_model is not None:
             self.model = best_model
 
-    @fedot_data_type
     def predict(
             self,
             input_data: InputData,
@@ -176,9 +175,8 @@ class BaseNeuralModel:
         """
         Method for feature generation for all series
         """
-        return self._predict_model(input_data, output_mode)
+        return self._predict_model(input_data.features, output_mode)
 
-    @fedot_data_type
     def predict_for_fit(
             self,
             input_data: InputData,
@@ -186,12 +184,10 @@ class BaseNeuralModel:
         """
         Method for feature generation for all series
         """
-        return self._predict_model(input_data, output_mode)
+        return self._predict_model(input_data.features, output_mode)
 
-    @convert_to_4d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        # x_test = Tensor(x_test).to(default_device('cpu'))
         x_test = Tensor(x_test).to(self._device)
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)
@@ -216,15 +212,12 @@ class BaseNeuralModel:
         return predict
 
     def _save_and_clear_cache(self):
-        prefix = f'model_{self.__repr__()}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pt'
+        prefix = f'model_{self.model_name}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pth'
         torch.save(self.model.state_dict(), prefix)
         del self.model
         with torch.no_grad():
             torch.cuda.empty_cache()
-        if self.__repr__().startswith('Res'):
-            self.model = self.model_for_inference.model.to(torch.device('cpu'))
-        else:
-            self.model = self.model_for_inference.to(torch.device('cpu'))
+        self.model = self.model_for_inference.to(torch.device('cpu'))
         self.model.load_state_dict(torch.load(
             prefix, map_location=torch.device('cpu')))
         os.remove(prefix)

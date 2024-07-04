@@ -294,6 +294,8 @@ class NumpyConverter:
             return data.values
         elif isinstance(data, InputData):
             return data.features
+        elif isinstance(data, OutputData):
+            return data.predict
         elif isinstance(data, CustomDatasetTS):
             return data.x
         elif isinstance(data, CustomDatasetCLF):

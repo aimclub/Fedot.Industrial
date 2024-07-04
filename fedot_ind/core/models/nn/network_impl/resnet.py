@@ -3,10 +3,9 @@ from typing import Optional
 import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 from torch import nn
-from torch import optim, Tensor
+from torch import optim
 from torchvision.models import ResNet, resnet101, resnet152, resnet18, resnet34, resnet50
 
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
@@ -140,10 +139,3 @@ class ResNetModel(BaseNeuralModel):
         else:
             loss_fn = RMSE()
         return loss_fn, optimizer
-
-    @convert_to_4d_torch_array
-    def _predict_model(self, x_test):
-        self.model.eval()
-        x_test = Tensor(x_test).to(default_device())
-        pred = self.model(x_test)
-        return self._convert_predict(pred)
