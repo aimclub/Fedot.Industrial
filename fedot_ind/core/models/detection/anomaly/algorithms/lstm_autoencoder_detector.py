@@ -2,7 +2,7 @@ from collections import OrderedDict
 from typing import Optional
 
 from fedot.core.operations.operation_parameters import OperationParameters
-from torch import cuda, device, no_grad, float32, from_numpy, Tensor
+from torch import cuda, device, no_grad, float32, from_numpy
 from torch.nn import LSTM, Module, MSELoss, Linear, Sequential
 
 from torch.optim import Adam

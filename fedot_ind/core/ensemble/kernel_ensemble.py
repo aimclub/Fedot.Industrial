@@ -27,7 +27,7 @@ class KernelEnsembler(BaseExtractor):
             KERNEL_BASELINE_FEATURE_GENERATORS.keys()))
 
         self._mapping_dict = {k: v for k,
-                                       v in enumerate(self.feature_extractor)}
+                              v in enumerate(self.feature_extractor)}
         self.lr = params.get('learning_rate', 0.1)
         self.patience = params.get('patience', 5)
         self.epoch = params.get('epoch', 500)
@@ -103,12 +103,12 @@ class KernelEnsembler(BaseExtractor):
 
     def _create_pipeline(self, gen):
         basis, generator = KERNEL_BASELINE_NODE_LIST[gen]
-        model = PipelineBuilder().add_node(basis, params=get_default_industrial_model_params(basis)). \
-            add_node(generator, params=get_default_industrial_model_params(generator)). \
-            add_node(self.head_model).build() \
-            if basis is not None else PipelineBuilder().add_node(generator,
-                                                                 params=get_default_industrial_model_params(generator)). \
-            add_node(self.head_model).build()
+        model = PipelineBuilder().add_node(
+            basis, params=get_default_industrial_model_params(basis)).add_node(
+            generator, params=get_default_industrial_model_params(generator)).add_node(
+            self.head_model).build() if basis is not None else PipelineBuilder().add_node(
+            generator, params=get_default_industrial_model_params(generator)).add_node(
+            self.head_model).build()
         return model
 
     def _create_kernel_ensemble(

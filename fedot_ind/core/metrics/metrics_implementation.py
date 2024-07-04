@@ -224,6 +224,7 @@ def smape(a, f, _=None):
 def mape(A, F):
     return mean_absolute_percentage_error(A, F)
 
+
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,

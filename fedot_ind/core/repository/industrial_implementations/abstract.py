@@ -181,7 +181,7 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
         # for cross validation split ratio is defined as validation_size /
         # all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
-                1 - 1 / (self.cv_folds + 1))
+            1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:

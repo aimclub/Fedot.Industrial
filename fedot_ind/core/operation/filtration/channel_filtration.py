@@ -181,7 +181,8 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
         else:
             regression_task = input_data.task.task_type.value == 'regression'
             summation_of_channels = self.channel_selection_strategy == 'sum'
-            get_channels = lambda distance_frame: self._channel_sum(distance_frame) if summation_of_channels \
+
+            def get_channels(distance_frame): return self._channel_sum(distance_frame) if summation_of_channels \
                 else self._channel_pairwise(distance_frame)
 
             input_data = Either(input_data,
@@ -193,6 +194,6 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
                                             monoid=[input_data, summation_of_channels]).then(
                 lambda data: self.create_centroid(
                     data.features, data.target)).then(lambda centroids_by_channel: self.eval_distance_from_centroid(
-                centroids_by_channel)).then(get_channels)
+                        centroids_by_channel)).then(get_channels)
 
             return input_data.features[:, self.channels_selected, :]

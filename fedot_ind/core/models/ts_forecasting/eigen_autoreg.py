@@ -26,7 +26,7 @@ class EigenAR(ModelImplementation):
         period = periodicity[1]
         weak_stationary_process = round(np.mean(data_fold_features)) == 0
         deterministic = True if weak_stationary_process else False
-        build_model = lambda params: PipelineBuilder().add_node(**params).build()
+        def build_model(params): return PipelineBuilder().add_node(**params).build()
         params_for_periodic = {'deterministic': deterministic,
                                'trend': 'n',
                                'seasonal': True,
@@ -37,8 +37,10 @@ class EigenAR(ModelImplementation):
                        monoid=[dict(operation_type=self.channel_model, params={}), periodicity[0]]) \
             .either(left_function=build_model,
                     right_function=build_model)
-        model = Maybe(value=model, monoid=[True, False]).then(function=lambda composite_pipeline:
-        composite_pipeline.fit(train_fold) if fedot_as_model else composite_pipeline).value
+        model = Maybe(
+            value=model, monoid=[True, False]).then(
+            function=lambda composite_pipeline: composite_pipeline.fit(train_fold)
+            if fedot_as_model else composite_pipeline).value
         return model, train_fold
 
     def _check_component_periodicity(self, TS_comps):

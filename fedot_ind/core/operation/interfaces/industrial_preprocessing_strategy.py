@@ -200,10 +200,9 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
         # Apply fit operation for every dimension
         fit_for_every_dim = curry(2)(
-            lambda data,
-            prev_state: prev_state if not self.operation_condition.input_data_is_list_container else self._list_of_fitted_model(
-                data,
-                prev_state))
+            lambda data, prev_state: prev_state
+            if not self.operation_condition.input_data_is_list_container else self._list_of_fitted_model(
+                data, prev_state))
 
         trained_operation = Either.insert(train_data). \
             then(fit_one_dim(self.operation_condition.operation_implementation)). \

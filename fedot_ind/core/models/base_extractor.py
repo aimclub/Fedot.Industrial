@@ -79,7 +79,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method responsible for generation of features from time series.
         """
-        pass
 
     @convert_to_input_data
     def get_statistical_features(self, time_series: np.ndarray, add_global_features: bool = False) -> tuple:

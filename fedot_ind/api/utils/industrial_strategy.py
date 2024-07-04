@@ -11,7 +11,6 @@ from pymonad.maybe import Maybe
 
 from fedot_ind.core.architecture.abstraction.client import use_default_fedot_client
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
-from fedot_ind.core.ensemble.random_automl_forest import RAFensembler
 from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.ensemble.random_automl_forest import RAFEnsembler
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
@@ -121,16 +120,18 @@ class IndustrialStrategy:
         self.solver = {}
         if self.finetune:
             kernel_data = {model_name: input_data for model_name in FEDOT_TS_FORECASTING_ASSUMPTIONS.keys()}
-            kernel_model = {model_name: model_impl.build() if 'build' in dir(model_impl)
-            else model_impl({}).fit(input_data) for model_name, model_impl in FEDOT_TS_FORECASTING_ASSUMPTIONS.items()}
+            kernel_model = {model_name: model_impl.build() if 'build' in dir(model_impl) else model_impl(
+                {}).fit(input_data) for model_name, model_impl in FEDOT_TS_FORECASTING_ASSUMPTIONS.items()}
             self.solver = self._finetune_loop(kernel_model, kernel_data, self.finetune_params)
         else:
             for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
                 self.config_dict['initial_assumption'] = init_assumption.build()
                 industrial = Fedot(**self.config_dict)
-                Maybe(value=industrial.fit(input_data), monoid=True).maybe(
-                    default_value=self.logger.info(f'Failed during fit stage - {model_name}')
-                    , extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
+                Maybe(
+                    value=industrial.fit(input_data),
+                    monoid=True).maybe(
+                    default_value=self.logger.info(f'Failed during fit stage - {model_name}'),
+                    extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
 
     def _sampling_strategy(self, input_data):
         self.logger.info('Sampling strategy algorithm was applied')
@@ -144,9 +145,11 @@ class IndustrialStrategy:
                                                    sampling_rate=sampling_rate)
             input_data.idx = np.arange(len(input_data.features))
             industrial = Fedot(**self.config_dict)
-            Maybe(value=industrial.fit(input_data), monoid=True).maybe(
-                default_value=self.logger.info(f'Failed during fit stage - {algorithm}')
-                , extraction_function=lambda fitted_model: self.solver.update(
+            Maybe(
+                value=industrial.fit(input_data),
+                monoid=True).maybe(
+                default_value=self.logger.info(f'Failed during fit stage - {algorithm}'),
+                extraction_function=lambda fitted_model: self.solver.update(
                     {f'{algorithm}_sampling_rate_{sampling_rate}': industrial}))
             self.sampler.update({f'{algorithm}_sampling_rate_{sampling_rate}': decomposer})
 
@@ -247,7 +250,7 @@ class IndustrialStrategy:
 
         labels_dict = {
             forecasting_strategy: _predict_function(forecasting_model) for forecasting_strategy,
-                                                                           forecasting_model in self.solver.items()}
+            forecasting_model in self.solver.items()}
 
         return labels_dict
 
@@ -282,7 +285,7 @@ class IndustrialStrategy:
                 if self.industrial_strategy_params['sampling_algorithm'] == 'CUR' else None
             copy_input.features = input_data.features.squeeze()[:, feature_space]
             labels_dict.update({sampling_rate: solver.predict(copy_input, mode) if labels_output
-            else solver.predict_proba(copy_input)})
+                                else solver.predict_proba(copy_input)})
             del copy_input
         return labels_dict
 

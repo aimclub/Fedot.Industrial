@@ -108,9 +108,9 @@ class CURDecomposition:
                                            for cls_idx in self.classes_idx])
 
         row_scale_factors = 1 / \
-                            np.sqrt(self.selection_rank * row_probs[self.row_indices])
+            np.sqrt(self.selection_rank * row_probs[self.row_indices])
         col_scale_factors = 1 / \
-                            np.sqrt(self.selection_rank * col_probs[self.column_indices])
+            np.sqrt(self.selection_rank * col_probs[self.column_indices])
 
         C_matrix = matrix[:, self.column_indices] * col_scale_factors
         R_matrix = matrix[self.row_indices, :] * row_scale_factors[:, np.newaxis]
