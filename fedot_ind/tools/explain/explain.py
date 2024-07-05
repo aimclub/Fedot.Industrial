@@ -230,8 +230,8 @@ class PointExplainer(Explainer):
                 for span_idx, dot in enumerate(copy_vec):
                     left = span_idx * window
                     right = span_idx * window + window if span_idx * window + \
-                                                          window < len(feature.iloc[idx, :]) else len(
-                        feature.iloc[idx, :])
+                        window < len(feature.iloc[idx, :]) else len(
+                            feature.iloc[idx, :])
                     axs[idx].axvspan(left, right, color=cmap(norm(dot)))
                     top = axs[idx].get_ylim()[1]
                     axs[idx].text(
