@@ -55,7 +55,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-        np.power(beta, 2) + 1.82 * beta + 1.43
+           np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 def get_default_industrial_model_params(model_name):
@@ -332,6 +332,9 @@ class FedotOperationConstant(Enum):
         'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],
         'regularization_mutation_strategy': [0.2, 0.3, 0.1, 0.3, 0.1],
     }
+
+    EXPLAINABLE_MODELS = ['recurrence_extractor',
+                          ]
 
 
 class ModelCompressionConstant(Enum):
@@ -745,6 +748,7 @@ FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
 FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
 FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
 FEDOT_MUTATION_STRATEGY = FedotOperationConstant.FEDOT_MUTATION_STRATEGY.value
+EXPLAINABLE_MODELS = FedotOperationConstant.EXPLAINABLE_MODELS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

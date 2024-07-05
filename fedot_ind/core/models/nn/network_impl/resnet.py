@@ -121,6 +121,9 @@ class ResNetModel(BaseNeuralModel):
         self.batch_size = params.get('batch_size', 64)
         self.model_name = params.get('model_name', 'ResNet18')
 
+    def __repr__(self):
+        return self.model_name
+
     def _init_model(self, ts):
 
         self.model = ResNet(input_dim=ts.features.shape[1],

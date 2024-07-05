@@ -32,7 +32,7 @@ from fedot_ind.core.repository.constanst_repository import \
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
-from fedot_ind.tools.explain.explain import PointExplainer
+from fedot_ind.tools.explain.explain import PointExplainer, RecurrenceExplainer
 from fedot_ind.tools.synthetic.anomaly_generator import AnomalyGenerator
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
@@ -116,6 +116,10 @@ class FedotIndustrial(Fedot):
 
         # init hidden state variables
         self.logger = logging.getLogger('FedotIndustrialAPI')
+        self.explain_methods = {'point': PointExplainer,
+                                'recurrence': RecurrenceExplainer,
+                                'shap': NotImplementedError,
+                                'lime': NotImplementedError}
         self.solver = None
         self.predicted_labels = None
         self.predicted_probs = None
@@ -165,7 +169,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -430,7 +434,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
@@ -517,32 +521,28 @@ class FedotIndustrial(Fedot):
             self.solver.current_pipeline.save(
                 f'./raf_ensemble/ensemble_composed', create_subdir=True)
 
-    def explain(self, **kwargs):
+    def explain(self, explaing_config: dict = {}):
         """Explain model's prediction via time series points perturbation
 
             Args:
-                **kwargs: Additional arguments for explanation. These arguments control the
+                explaing_config: Additional arguments for explanation. These arguments control the
                          number of samples, window size, metric, threshold, and dataset name.
                          See the function implementation for detailed information on
                          supported arguments.
         """
+        metric = explaing_config.get('metric', 'rmse')
+        window = explaing_config.get('window', 5)
+        samples = explaing_config.get('samples', 1)
+        threshold = explaing_config.get('threshold', 90)
+        name = explaing_config.get('name', 'test')
+        method = explaing_config.get('method', 'point')
 
-        methods = {'point': PointExplainer,
-                   'shap': NotImplementedError,
-                   'lime': NotImplementedError}
-
-        explainer = methods[kwargs.get('method',
-                                       'point')](model=self,
+        explainer = self.explain_methods[method](model=self,
                                                  features=self.predict_data.features.squeeze(),
                                                  target=self.predict_data.target)
-        metric = kwargs.get('metric', 'rmse')
-        window = kwargs.get('window', 5)
-        samples = kwargs.get('samples', 1)
-        threshold = kwargs.get('threshold', 90)
-        name = kwargs.get('name', 'test')
 
         explainer.explain(n_samples=samples, window=window, method=metric)
-        explainer.visual(threshold=threshold, name=name)
+        explainer.visual(metric=metric, threshold=threshold, name=name)
 
     def return_report(self) -> pd.DataFrame:
         if isinstance(self.solver, Fedot):
