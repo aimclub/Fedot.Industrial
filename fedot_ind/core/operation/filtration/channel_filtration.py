@@ -199,6 +199,6 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
                                             monoid=[input_data, not summation_of_channels]).then(
                 lambda data: self.create_centroid(
                     data.features, data.target)).then(lambda centroids_by_channel: self.eval_distance_from_centroid(
-                centroids_by_channel)).then(lambda dist_frame: get_channels(dist_frame)).value
+                        centroids_by_channel)).then(lambda dist_frame: get_channels(dist_frame)).value
 
             return input_data.features[:, self.channels_selected, :]
