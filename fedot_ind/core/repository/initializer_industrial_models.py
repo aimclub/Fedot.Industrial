@@ -84,7 +84,6 @@ class IndustrialModels:
         self.base_data_operation_path = pathlib.Path(
             'data_operation_repository.json')
 
-
         self.industrial_model_path = pathlib.Path(
             PROJECT_PATH,
             'fedot_ind',
