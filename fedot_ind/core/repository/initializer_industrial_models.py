@@ -1,6 +1,7 @@
 import pathlib
 
 import fedot.core.data.data_split as fedot_data_split
+from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
 from fedot.core.data.merge.data_merger import ImageDataMerger, TSDataMerger
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor \
@@ -71,6 +72,7 @@ DEFAULT_METHODS = [getattr(class_impl[0], class_impl[1])
 
 class IndustrialModels:
     def __init__(self):
+
         self.industrial_data_operation_path = pathlib.Path(
             PROJECT_PATH,
             'fedot_ind',
@@ -78,8 +80,10 @@ class IndustrialModels:
             'repository',
             'data',
             'industrial_data_operation_repository.json')
+
         self.base_data_operation_path = pathlib.Path(
             'data_operation_repository.json')
+
 
         self.industrial_model_path = pathlib.Path(
             PROJECT_PATH,
@@ -88,6 +92,7 @@ class IndustrialModels:
             'repository',
             'data',
             'industrial_model_repository.json')
+
         self.base_model_path = pathlib.Path('model_repository.json')
 
     def _replace_operation(self, to_industrial=True):
@@ -138,3 +143,45 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('model', self.base_model_path)
         self._replace_operation(to_industrial=False)
         return OperationTypesRepository
+
+    def __enter__(self):
+        """
+        Switching to industrial models
+        """
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.industrial_data_operation_path,
+                                'initialized_repo': True,
+                                'default_tags': []}})
+
+        OperationTypesRepository.assign_repo(
+            'data_operation', self.industrial_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.industrial_model_path,
+                       'initialized_repo': True,
+                       'default_tags': []}})
+        OperationTypesRepository.assign_repo(
+            'model', self.industrial_model_path)
+
+        setattr(PipelineSearchSpace, "get_parameters_dict",
+                get_industrial_search_space)
+        setattr(ApiComposer, "_get_default_mutations",
+                _get_default_industrial_mutations)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Switching to fedot models.
+        """
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.base_data_operation_path,
+                                'initialized_repo': None,
+                                'default_tags': [
+                                    OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
+        OperationTypesRepository.assign_repo(
+            'data_operation', self.base_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.base_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
+        OperationTypesRepository.assign_repo('model', self.base_model_path)

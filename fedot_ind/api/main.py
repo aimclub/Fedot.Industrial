@@ -162,7 +162,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -210,8 +210,10 @@ class FedotIndustrial(Fedot):
         self.__init_solver()
         custom_fit = all([self.industrial_strategy is not None, self.industrial_strategy != 'anomaly_detection'])
         fit_function = Either(value=self.train_data,
-                              monoid=[self.train_data, custom_fit]) \
-            .either(left_function=self.solver.fit, right_function=self.industrial_strategy_class.fit)
+                              monoid=[self.train_data,
+                                      custom_fit]
+                              ).either(left_function=self.solver.fit,
+                                       right_function=self.industrial_strategy_class.fit)
         self.is_finetuned = False
 
     def __predict_for_ensemble(self):
