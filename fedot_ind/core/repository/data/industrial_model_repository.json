@@ -282,6 +282,12 @@
         "automl"
       ]
     },
+    "mlstm_model": {
+      "meta": "fedot_NN_classification",
+      "presets": ["ts"],
+      "tags": [],
+      "input_type": "[DataTypesEnum.table]"
+    },
     "xcm_model": {
       "meta": "fedot_NN_classification",
       "presets": [

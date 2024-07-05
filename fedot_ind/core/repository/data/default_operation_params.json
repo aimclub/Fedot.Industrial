@@ -172,6 +172,10 @@
     "learning_rate": "constant",
     "solver": "adam"
   },
+  "mlstm_model": {
+    "epochs": 100,
+    "batch_size": 16
+  },
   "ar": {
     "lag_1": 7,
     "lag_2": 12,

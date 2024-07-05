@@ -53,6 +53,7 @@ from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import 
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
+from fedot_ind.core.models.nn.network_impl.mlstm import MLSTM
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
@@ -221,7 +222,9 @@ class AtomizedModel(Enum):
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,
         # linear_dummy_model
-        'lora_model': LoraModel
+        'lora_model': LoraModel,
+        # early ts classification
+        'mlstm_model': MLSTM
     }
 
 
