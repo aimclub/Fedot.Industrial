@@ -512,7 +512,6 @@ class ConditionConverter:
             prediction = self.operation_example.score_samples(predict_data)
         else:
             prediction = self.operation_example.predict_proba(predict_data)
-            # prediction self.operation_example.predict_proba(predict_data.T)
 
         # if n_classes == 2 and output_mode != 'probs':
         #     prediction = np.stack([pred[:, 1] for pred in prediction]).T \

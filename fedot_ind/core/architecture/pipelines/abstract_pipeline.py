@@ -147,14 +147,14 @@ class ApiTemplate:
              dataset: Union[str, dict] = None,
              finetune: bool = False,
              initial_assumption: Union[list, dict] = None):
-        train_data, test_data = self._prepare_dataset(dataset)
+        self.train_data, self.test_data = self._prepare_dataset(dataset)
         if initial_assumption is not None:
             pipeline = AbstractPipeline.create_pipeline(initial_assumption, build=False)
             self.api_config['initial_assumption'] = pipeline
         self.industrial_class = FedotIndustrial(**self.api_config)
-        Either(value=train_data, monoid=[dict(train_data=train_data,
-                                              tuning_params={'tuning_timeout': self.api_config['timeout']}),
-                                         not finetune]). \
+        Either(value=self.train_data, monoid=[dict(train_data=self.train_data,
+                                                   tuning_params={'tuning_timeout': self.api_config['timeout']}),
+                                              not finetune]). \
             either(left_function=lambda tuning_data: self.industrial_class.finetune(**tuning_data),
                    right_function=self.industrial_class.fit)
-        return self._get_result(test_data)
+        return self._get_result(self.test_data)

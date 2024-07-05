@@ -14,11 +14,14 @@ from fedot.core.repository.tasks import TsForecastingParams
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
 from pymonad.either import Either
+from sklearn import model_selection as skms
+from sklearn.calibration import CalibratedClassifierCV
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
+from fedot_ind.core.architecture.pipelines.classification import SklearnCompatibleClassifier
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
 from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.operation.transformation.splitter import TSTransformer
@@ -162,7 +165,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -213,6 +216,24 @@ class FedotIndustrial(Fedot):
                               monoid=[self.train_data, custom_fit]) \
             .either(left_function=self.solver.fit, right_function=self.industrial_strategy_class.fit)
         self.is_finetuned = False
+
+    def __calibrate_probs(self, industrial_model):
+        model_sklearn = SklearnCompatibleClassifier(industrial_model)
+        train_idx, test_idx = skms.train_test_split(self.train_data.idx,
+                                                    train_size=0.8,
+                                                    test_size=0.2,
+                                                    random_state=42,
+                                                    shuffle=True)
+        X_train, y_train = self.train_data.features[train_idx, :, :], self.train_data.target[train_idx]
+        X_val, y_val = self.train_data.features[test_idx, :, :], self.train_data.target[test_idx]
+        train_data_for_calibration = (X_train, y_train)
+        val_data = (X_val, y_val)
+        model_sklearn.fit(train_data_for_calibration[0], train_data_for_calibration[1])
+        cal_clf = CalibratedClassifierCV(model_sklearn, method="sigmoid", cv="prefit")
+        cal_clf.fit(val_data[0], val_data[1])
+        # calibrated prediction
+        calibrated_proba = cal_clf.predict_proba(self.predict_data.features)
+        return calibrated_proba
 
     def __predict_for_ensemble(self):
         predict = self.industrial_strategy_class.predict(
@@ -274,6 +295,7 @@ class FedotIndustrial(Fedot):
     def predict_proba(self,
                       predict_data: tuple,
                       predict_mode: str = 'probs',
+                      calibrate_probs: bool = False,
                       **kwargs):
         """
         Method to obtain prediction probabilities from trained Industrial model.
@@ -284,6 +306,7 @@ class FedotIndustrial(Fedot):
 
         Returns:
             the array with prediction probabilities
+            :param calibrate_probs:
 
         """
         self.predict_data = deepcopy(
@@ -296,8 +319,7 @@ class FedotIndustrial(Fedot):
 
         self.predicted_probs = self.predicted_labels if self.config_dict['problem'] == 'ts_forecasting' \
             else self.__abstract_predict(predict_mode)
-
-        return self.predicted_probs
+        return self.__calibrate_probs(self.solver.current_pipeline) if calibrate_probs else self.predicted_probs
 
     def finetune(self,
                  train_data,
@@ -406,7 +428,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

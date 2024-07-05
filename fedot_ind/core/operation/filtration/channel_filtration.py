@@ -139,16 +139,18 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
         self.distance_frame = pd.Series(distance_frame.sum(axis=1))
         distance = self.distance_frame.sort_values(ascending=False).values
         indices = self.distance_frame.sort_values(ascending=False).index
-        self.channels_selected = _detect_knee_point(distance, indices)[0]
+        channels_selected = _detect_knee_point(distance, indices)[0]
+        return channels_selected
 
     def _channel_pairwise(self, distance_frame):
         self.distance_frame = distance_frame
+        channels_selected = []
         for pairdistance in self.distance_frame.items():
             distance = pairdistance[1].sort_values(ascending=False).values
             indices = pairdistance[1].sort_values(ascending=False).index
-            self.channels_selected.extend(
-                _detect_knee_point(distance, indices)[0])
-            self.channels_selected = list(set(self.channels_selected))
+            channels_selected.append(
+                _detect_knee_point(distance, indices)[0][0])
+        return list(set(channels_selected))
 
     def __convert_target_for_regression(self, input_data):
         bins = [np.quantile(input_data.target, x)
@@ -176,14 +178,17 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
 
         have_one_channel = input_data.features.shape[1] == 1
         have_selected_channels = len(self.channels_selected) != 0
-        if have_one_channel or have_selected_channels:
+        if have_one_channel:
             return input_data.features
+        elif have_selected_channels:
+            return input_data.features[:, self.channels_selected, :]
         else:
             regression_task = input_data.task.task_type.value == 'regression'
             summation_of_channels = self.channel_selection_strategy == 'sum'
 
-            def get_channels(distance_frame): return self._channel_sum(distance_frame) if summation_of_channels \
-                else self._channel_pairwise(distance_frame)
+            def get_channels(distance_frame):
+                return self._channel_sum(distance_frame) if summation_of_channels \
+                    else self._channel_pairwise(distance_frame)
 
             input_data = Either(input_data,
                                 monoid=[input_data, regression_task]). \
@@ -191,9 +196,9 @@ class ChannelCentroidFilter(IndustrialCachableOperationImplementation):
                        right_function=lambda data: self.__convert_target_for_regression(data))
 
             self.channels_selected = Either(value=input_data,
-                                            monoid=[input_data, summation_of_channels]).then(
+                                            monoid=[input_data, not summation_of_channels]).then(
                 lambda data: self.create_centroid(
                     data.features, data.target)).then(lambda centroids_by_channel: self.eval_distance_from_centroid(
-                        centroids_by_channel)).then(get_channels)
+                centroids_by_channel)).then(lambda dist_frame: get_channels(dist_frame)).value
 
             return input_data.features[:, self.channels_selected, :]
