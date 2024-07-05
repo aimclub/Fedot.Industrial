@@ -9,6 +9,7 @@ import chardet
 import pandas as pd
 from datasets import load_dataset
 from datasetsforecast.m3 import M3
+from datasetsforecast.m4 import M4
 from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
 from sktime.datasets import load_from_tsfile_to_dataframe
@@ -36,29 +37,24 @@ class DataLoader:
         self.logger = logging.getLogger('DataLoader')
         self.dataset_name = dataset_name
         self.folder = folder
-        self.forecast_data_source = {'M3': M3.load,
-                                     # 'M4': M4.load,
-                                     'M4': self.local_m4_load,
-                                     'M5': M5.load,
-                                     'monash_tsf': load_dataset
-                                     }
-        self.detection_data_source = {'SKAB': self.local_skab_load
-                                      }
+        self.forecast_data_source = {
+            'M3': M3.load,
+            'M4': M4.load,
+            # 'M4': self.local_m4_load,
+            'M5': M5.load,
+            'monash_tsf': load_dataset
+        }
+        self.detection_data_source = {
+            'SKAB': self.local_skab_load
+        }
 
     def load_forecast_data(self, folder=None):
         loader = self.forecast_data_source[folder]
-        dataset_name = self.dataset_name['dataset']
-        group_df = loader(directory='data',
-                          group=f'{M4_PREFIX[dataset_name[0]]}')
-        group_df_test = loader(directory='data',
-                               group=f'{M4_PREFIX[dataset_name[0]]}Test')
-        ts_df = group_df[group_df['label'] == dataset_name]
-        ts_df_test = group_df_test[group_df_test['label'] == dataset_name]
-        del ts_df['label'], ts_df_test['label']
-        ts_df = ts_df.set_index(
-            'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('idx')
-        ts_df_test = ts_df_test.set_index(
-            'datetime') if 'datetime' in ts_df_test.columns else ts_df_test.set_index('idx')
+        dataset_name = self.dataset_name.get('dataset') if isinstance(self.dataset_name, dict) else self.dataset_name
+        group_df, _, _ = loader(directory='data', group=f'{M4_PREFIX[dataset_name[0]]}')
+        ts_df = group_df[group_df['unique_id'] == dataset_name]
+        del ts_df['unique_id']
+        ts_df = ts_df.set_index('datetime') if 'datetime' in ts_df.columns else ts_df.set_index('ds')
         return ts_df, None
 
     def load_detection_data(self, folder=None):
