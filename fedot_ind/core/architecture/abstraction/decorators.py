@@ -42,13 +42,14 @@ def convert_to_4d_torch_array(func):
 
 def convert_to_3d_torch_array(func):
     def decorated_func(self, *args):
-        init_data = args[0]
+        init_data, *args = args
         data = DataConverter(data=init_data).convert_to_torch_format()
         if isinstance(init_data, InputData):
             init_data.features = data
         else:
             init_data = data
-        return func(self, init_data, *args[1:])
+        return func(self, init_data, *args)
+
     return decorated_func
 
 
