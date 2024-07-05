@@ -213,8 +213,10 @@ class FedotIndustrial(Fedot):
         self.__init_solver()
         custom_fit = all([self.industrial_strategy is not None, self.industrial_strategy != 'anomaly_detection'])
         fit_function = Either(value=self.train_data,
-                              monoid=[self.train_data, custom_fit]) \
-            .either(left_function=self.solver.fit, right_function=self.industrial_strategy_class.fit)
+                              monoid=[self.train_data,
+                                      custom_fit]
+                              ).either(left_function=self.solver.fit,
+                                       right_function=self.industrial_strategy_class.fit)
         self.is_finetuned = False
 
     def __calibrate_probs(self, industrial_model):

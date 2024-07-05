@@ -212,7 +212,7 @@ class BaseNeuralModel:
         return predict
 
     def _save_and_clear_cache(self):
-        prefix = f'model_{self.model_name}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pth'
+        prefix = f'model_{self.__repr__()}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pth'
         torch.save(self.model.state_dict(), prefix)
         del self.model
         with torch.no_grad():
