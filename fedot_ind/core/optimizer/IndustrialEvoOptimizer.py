@@ -69,7 +69,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         for iter_num in range(MAX_GRAPH_GEN_ATTEMPTS):
             if len(extended_pop) == target_pop_size:
                 break
-            new_ind = self.mutation(choice(pop)).graph
+            new_ind = self.mutation(choice(pop))
             if new_ind:
                 new_graph = new_ind.graph
                 if new_graph not in pop_graphs and verifier(new_graph):
