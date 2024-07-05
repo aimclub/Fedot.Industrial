@@ -56,7 +56,7 @@ def test_industrial_strategy(strategy):
     cnfg = CONFIGS[strategy]
     base = IndustrialStrategy(industrial_strategy_params=None,
                               industrial_strategy=strategy,
-                              api_config=cnfg, )
+                              api_config=cnfg)
 
     assert base is not None
 

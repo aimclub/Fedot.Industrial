@@ -28,9 +28,9 @@ class IndustrialStrategy:
                  api_config,
                  logger=None
                  ):
-        self.industrial_strategy_params = industrial_strategy_params
-        self.finetune = industrial_strategy_params.get('finetune', False)
-        self.finetune_params = industrial_strategy_params.get('tuning_params', {})
+        self.industrial_strategy_params = industrial_strategy_params or {}
+        self.finetune = self.industrial_strategy_params.get('finetune', False)
+        self.finetune_params = self.industrial_strategy_params.get('tuning_params', {})
         self.industrial_strategy = industrial_strategy
 
         self.industrial_strategy_fit = {
