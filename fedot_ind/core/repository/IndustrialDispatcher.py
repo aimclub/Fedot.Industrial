@@ -45,7 +45,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
         return evaluation_results
 
     def _eval_at_least_one(self, individuals):
-
+        successful_evals = None
         for single_ind in individuals:
             try:
                 evaluation_result = self.industrial_evaluate_single(
@@ -55,7 +55,7 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                 if successful_evals:
                     break
             except Exception:
-                _ = 1
+                successful_evals = None
         return successful_evals
 
     def evaluate_population(self, individuals: PopulationT) -> PopulationT:

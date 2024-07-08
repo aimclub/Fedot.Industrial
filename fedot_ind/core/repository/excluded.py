@@ -16,10 +16,10 @@ from sklearn.linear_model import (
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
+from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
-from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
+from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
-from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
@@ -28,6 +28,13 @@ EXCLUDED_OPERATION_MUTATION = {
     'regression': ['inception_model',
                    'resnet_model',
                    'recurrence_extractor',
+                   'lora_model',
+                   'topological_extractor',
+                   'resnet_model',
+                   "nbeats_model",
+                   'tcn_model',
+                   'dummy',
+                   'deepar_model'
                    ],
     'anomaly_detection': ['inception_model',
                           'resnet_model',
@@ -108,12 +115,15 @@ TEMPORARY_EXCLUDED = {
                            'multinb': SklearnMultinomialNB,
                            'knn': FedotKnnClassImplementation
                            },
-    'NEURAL_MODELS': {'resnet_model': ResNetModel,
-                      "nbeats_model": NBeatsModel,
-                      'omniscale_model': OmniScaleModel,
-                      # transformer models
-                      'tst_model': TSTModel,
-                      # explainable models
-                      'xcm_model': XCModel
-                      }
+    'NEURAL_MODELS': {
+        # linear_dummy_model
+        'dummy': DummyOverComplicatedNeuralNetwork,
+        # linear_dummy_model
+        'lora_model': LoraModel,
+        'omniscale_model': OmniScaleModel,
+        # transformer models
+        'tst_model': TSTModel,
+        # explainable models
+        'xcm_model': XCModel
+    }
 }

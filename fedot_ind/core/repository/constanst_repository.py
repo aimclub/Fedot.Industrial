@@ -317,9 +317,9 @@ class FedotOperationConstant(Enum):
         'ts_forecasting': PipelineBuilder().add_node('ar')}
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        'nbeats': PipelineBuilder().add_node('nbeats_model'),
         'eigen_ar': EigenAR,
-        'fedot_forecast': PipelineBuilder().add_node('fedot_forecast')
+        # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast'),
+        # 'nbeats': PipelineBuilder().add_node('nbeats_model'),
     }
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {

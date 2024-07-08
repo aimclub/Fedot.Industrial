@@ -120,20 +120,18 @@ class IndustrialStrategy:
     def _forecasting_strategy(self, input_data):
         self.logger.info('TS forecasting algorithm was applied')
         self.solver = {}
-        if self.finetune:
-            kernel_data = {model_name: input_data for model_name in FEDOT_TS_FORECASTING_ASSUMPTIONS.keys()}
-            kernel_model = {model_name: model_impl.build() if 'build' in dir(model_impl) else model_impl(
-                {}).fit(input_data) for model_name, model_impl in FEDOT_TS_FORECASTING_ASSUMPTIONS.items()}
-            self.solver = self._finetune_loop(kernel_model, kernel_data, self.finetune_params)
-        else:
-            for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
-                self.config_dict['initial_assumption'] = init_assumption.build()
-                industrial = Fedot(**self.config_dict)
-                Maybe(
-                    value=industrial.fit(input_data),
-                    monoid=True).maybe(
-                    default_value=self.logger.info(f'Failed during fit stage - {model_name}'),
-                    extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
+        kernel_data = {model_name: input_data for model_name in FEDOT_TS_FORECASTING_ASSUMPTIONS.keys()}
+        kernel_model = {model_name: model_impl.build() if 'build' in dir(model_impl) else model_impl(
+            {}).fit(input_data) for model_name, model_impl in FEDOT_TS_FORECASTING_ASSUMPTIONS.items()}
+        self.solver = self._finetune_loop(kernel_model, kernel_data, self.finetune_params)
+        # for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
+        #     self.config_dict['initial_assumption'] = init_assumption.build()
+        #     industrial = Fedot(**self.config_dict)
+        #     Maybe(
+        #         value=industrial.fit(input_data),
+        #         monoid=True).maybe(
+        #         default_value=self.logger.info(f'Failed during fit stage - {model_name}'),
+        #         extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
 
     def _sampling_strategy(self, input_data):
         self.logger.info('Sampling strategy algorithm was applied')
@@ -194,10 +192,9 @@ class IndustrialStrategy:
         for generator, kernel_model in kernel_ensemble.items():
             tuning_params['tuner'] = FEDOT_TUNER_STRATEGY['simultaneous']
             model_to_tune = deepcopy(kernel_model)
-            pipeline_tuner, self.solver = build_tuner(
+            pipeline_tuner, solver = build_tuner(
                 self, model_to_tune, tuning_params, kernel_data[generator], 'head')
-            tuned_models.update({generator: self.solver})
-
+            tuned_models.update({generator: solver})
         return tuned_models
 
     def _kernel_strategy(self, input_data):

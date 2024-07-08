@@ -29,4 +29,3 @@ if __name__ == "__main__":
                                                                    finetune=finetune,
                                                                    initial_assumption=multimodal_pipeline)
     result_dict['industrial_model'].explain(explain_config)
-    _ = 1
