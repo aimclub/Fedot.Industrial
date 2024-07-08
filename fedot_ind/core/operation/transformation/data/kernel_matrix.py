@@ -5,13 +5,12 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 
 
 def colorise(distance_matrix):
-    """Instead of binarisation, we colorize the distance matrix by scaling the values to [0, 255].
-    Also convert the matrix to uint8 type – this is the format that PIL uses to display images.
-
     """
-    distance_matrix = (distance_matrix - distance_matrix.min()) / \
-                      (distance_matrix.max() - distance_matrix.min()) * 255
-    return np.round(distance_matrix).astype('uint8')
+    Instead of a binarization, we colorize the distance matrix by scaling the values to [0, 255].
+    Also convert the matrix to uint8 type – this is the format that PIL uses to display images.
+    """
+    min_value, max_value = distance_matrix.min(), distance_matrix.max()
+    return np.round((distance_matrix - min_value) / (max_value - min_value) * 255).astype('uint8')
 
 
 class TSTransformer:
