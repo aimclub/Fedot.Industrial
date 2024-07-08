@@ -32,9 +32,9 @@ def test_ts_to_recurrence_matrix(ts_transformer, params):
 
 def test_ts_to_3d_recurrence_matrix(ts_transformer, params):
     matrix = ts_transformer.ts_to_3d_recurrence_matrix()
-    assert matrix.shape[0] == matrix.shape[1]
-    assert matrix.shape[0] == params['time_series'].shape[0]
-    assert matrix.shape[2] == 3
+    assert matrix.shape[0] == 3
+    assert matrix.shape[1] == matrix.shape[2]
+    assert matrix.shape[1] == params['time_series'].shape[0]
 
 
 def test_colorise(ts_transformer, params):
