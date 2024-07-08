@@ -39,7 +39,7 @@ jobs:
         run: poetry install
 
       - name: Bump up FEDOT to a stable revision (temporary)
-        run: poetry add git+https://github.com/aimclub/FEDOT.git@e0b4ee7
+        run: poetry add git+https://github.com/aimclub/FEDOT.git@e0b4ee7 --lock
 
       - name: Run tests with pytest
         run: poetry run pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit
