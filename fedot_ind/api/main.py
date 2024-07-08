@@ -5,7 +5,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Union
 
-import matplotlib
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
@@ -169,7 +168,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -251,14 +250,13 @@ class FedotIndustrial(Fedot):
 
     def __abstract_predict(self, predict_mode):
         have_encoder = self.condition_check.solver_have_target_encoder(self.target_encoder)
-        labels_output = predict_mode in ['labels', 'default']
+        labels_output = predict_mode in ['labels']
         default_fedot_strategy = self.industrial_strategy is None
         custom_predict = self.solver.predict if default_fedot_strategy else self.industrial_strategy_class.predict
 
         predict_function = Either(value=custom_predict,
-                                  monoid=[self.solver.predict_proba, all([default_fedot_strategy,
-                                                                          labels_output])]).either(
-            left_function=lambda prob_func: prob_func,
+                                  monoid=['prob', labels_output]).either(
+            left_function=lambda prob_func: self.solver.predict_proba,
             right_function=lambda label_func: label_func)
 
         def _inverse_encoder_transform(predict):
@@ -323,7 +321,8 @@ class FedotIndustrial(Fedot):
             task_params=self.task_params,
             industrial_task_params=self.industrial_strategy_params).check_input_data()
 
-        self.predicted_probs = self.predicted_labels if self.config_dict['problem'] == 'ts_forecasting' \
+        self.predicted_probs = self.predicted_labels if self.config_dict['problem'] \
+                                                        in ['ts_forecasting', 'regression'] \
             else self.__abstract_predict(predict_mode)
         return self.__calibrate_probs(self.solver.current_pipeline) if calibrate_probs else self.predicted_probs
 
@@ -434,7 +433,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
@@ -481,45 +480,30 @@ class FedotIndustrial(Fedot):
 
         """
         self.repo = IndustrialModels().setup_repository()
-        if not path.__contains__('pipeline_saved'):
-            dir_list = os.listdir(path)
-            p = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
-            path = f'{path}/{p}'
         dir_list = os.listdir(path)
-
-        if 'fitted_operations' in dir_list:
-            self.solver = Pipeline().load(path)
-        else:
-            self.solver = []
-            for p in dir_list:
-                self.solver.append(Pipeline().load(
-                    f'{path}/{p}/0_pipeline_saved'))
+        if not path.__contains__('pipeline_saved'):
+            saved_pipe = [x for x in dir_list if x.__contains__('pipeline_saved')][0]
+            path = f'{path}/{saved_pipe}'
+        pipeline = Either(value=path,
+                          monoid=[dir_list, 'fitted_operations' in dir_list]).either(
+            left_function=lambda directory_list: [Pipeline().load(f'{path}/{p}/0_pipeline_saved') for p in
+                                                  directory_list],
+            right_function=lambda path: Pipeline().load(path))
+        return pipeline
 
     def save_optimization_history(self, return_history: bool = False):
-        """Plot prediction of the model"""
-        self.solver.history.save(
-            f"{self.output_folder}/optimization_history.json")
-        if return_history:
-            return self.solver.history
+        return self.solver.history if return_history else self.solver.history.save(f"{self.output_folder}/"
+                                                                                   f"optimization_history.json")
 
     def save_best_model(self):
-        if self.condition_check.solver_is_fedot_class(self.solver):
-            return self.solver.current_pipeline.save(
-                path=self.output_folder, create_subdir=True, is_datetime_in_path=True)
-        elif self.condition_check.solver_is_pipeline_class(self.solver):
-            return self.solver.save(
-                path=self.output_folder,
-                create_subdir=True,
-                is_datetime_in_path=True)
-        else:
-            for idx, p in enumerate(self.solver.ensemble_branches):
-                Pipeline(p).save(
-                    f'./raf_ensemble/{idx}_ensemble_branch',
-                    create_subdir=True)
-            Pipeline(self.solver.ensemble_head).save(
-                f'./raf_ensemble/ensemble_head', create_subdir=True)
-            self.solver.current_pipeline.save(
-                f'./raf_ensemble/ensemble_composed', create_subdir=True)
+        Either(value=self.solver,
+               monoid=[self.solver, self.condition_check.solver_is_fedot_class(self.solver)]).either(
+            left_function=lambda pipeline: pipeline.save(path=self.output_folder,
+                                                         create_subdir=True,
+                                                         is_datetime_in_path=True),
+            right_function=lambda solver: solver.current_pipeline.save(path=self.output_folder,
+                                                                       create_subdir=True,
+                                                                       is_datetime_in_path=True))
 
     def explain(self, explaing_config: dict = {}):
         """Explain model's prediction via time series points perturbation
@@ -545,37 +529,33 @@ class FedotIndustrial(Fedot):
         explainer.visual(metric=metric, threshold=threshold, name=name)
 
     def return_report(self) -> pd.DataFrame:
-        if isinstance(self.solver, Fedot):
-            return self.solver.return_report()
+        return self.solver.return_report() if isinstance(self.solver, Fedot) else None
 
     def vis_optimisation_history(self, opt_history_path: str = None,
                                  mode: str = 'all',
                                  return_history: bool = False):
         """ The function runs visualization of the composing history and the best pipeline. """
         # Gather pipeline and history.
-        matplotlib.use('TkAgg')
-        if isinstance(opt_history_path, str):
-            history = OptHistory.load(
-                opt_history_path + 'optimization_history.json')
-        else:
-            history = opt_history_path
+        # matplotlib.use('TkAgg')
+        history = OptHistory.load(opt_history_path + 'optimization_history.json') \
+            if isinstance(opt_history_path, str) else opt_history_path
         history_visualizer = PipelineHistoryVisualizer(history)
         vis_func = {
             'fitness': (
                 history_visualizer.fitness_box, dict(
-                    save_path='fitness_by_generation.png', best_fraction=1)), 'models': (
+                    save_path='fitness_by_generation.png', best_fraction=1)),
+            'models': (
                 history_visualizer.operations_animated_bar, dict(
-                    save_path='operations_animated_bar.gif', show_fitness=True)), 'diversity': (
+                    save_path='operations_animated_bar.gif', show_fitness=True)),
+            'diversity': (
                 history_visualizer.diversity_population, dict(
                     save_path='diversity_population.gif', fps=1))}
-        if mode == 'all':
-            for func, params in vis_func.values():
-                func(**params)
-        else:
-            func, params = vis_func[mode]
-            func(**params)
-        if return_history:
-            return history_visualizer.history
+        plot_func = lambda mode: vis_func[mode][0](**vis_func[mode][1])
+        Either(value=vis_func,
+               monoid=[mode, mode == 'all']).either(
+            left_function=plot_func,
+            right_function=lambda vis_func: [func(**params) for func, params in vis_func.values()])
+        return history_visualizer.history if return_history else None
 
     @staticmethod
     def generate_ts(ts_config: dict):

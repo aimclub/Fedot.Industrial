@@ -18,4 +18,3 @@ if __name__ == "__main__":
     calibrated_probs = result_dict['industrial_model'].predict_proba(predict_data=api_client.test_data,
                                                                      calibrate_probs=True)
     calibrated_labels = np.argmax(calibrated_probs, axis=1) + np.min(uncalibrated_labels)
-    _ = 1
