@@ -168,7 +168,7 @@ class FedotIndustrial(Fedot):
         # [self.config_dict.pop(x, None) for x in industrial_params]
 
         industrial_params = set(self.config_dict.keys()) - \
-                            set(FEDOT_API_PARAMS.keys())
+            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
@@ -322,7 +322,7 @@ class FedotIndustrial(Fedot):
             industrial_task_params=self.industrial_strategy_params).check_input_data()
 
         self.predicted_probs = self.predicted_labels if self.config_dict['problem'] \
-                                                        in ['ts_forecasting', 'regression'] \
+            in ['ts_forecasting', 'regression'] \
             else self.__abstract_predict(predict_mode)
         return self.__calibrate_probs(self.solver.current_pipeline) if calibrate_probs else self.predicted_probs
 
@@ -433,7 +433,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                                                   probs in self.predicted_probs.items()}
+                probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
@@ -550,7 +550,8 @@ class FedotIndustrial(Fedot):
             'diversity': (
                 history_visualizer.diversity_population, dict(
                     save_path='diversity_population.gif', fps=1))}
-        plot_func = lambda mode: vis_func[mode][0](**vis_func[mode][1])
+
+        def plot_func(mode): return vis_func[mode][0](**vis_func[mode][1])
         Either(value=vis_func,
                monoid=[mode, mode == 'all']).either(
             left_function=plot_func,
