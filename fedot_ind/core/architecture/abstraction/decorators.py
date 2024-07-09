@@ -11,9 +11,10 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 
 def fedot_data_type(func):
     def decorated_func(self, *args):
-        if not isinstance(args[0], InputData):
-            args[0] = DataConverter(data=args[0])
-        features = args[0].features
+        data, *rest_args = args
+        if not isinstance(data, InputData):
+            data = DataConverter(data=data)
+        features = data.features
 
         if len(features.shape) < 4:
             try:
@@ -22,7 +23,7 @@ def fedot_data_type(func):
                 input_data_squeezed = np.squeeze(features)
         else:
             input_data_squeezed = features
-        return func(self, input_data_squeezed, args[1])
+        return func(self, input_data_squeezed, *rest_args)
 
     return decorated_func
 

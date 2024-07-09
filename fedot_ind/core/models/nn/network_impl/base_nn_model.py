@@ -78,7 +78,7 @@ class BaseNeuralModel:
     def _init_model(self, ts) -> tuple:
         NotImplementedError()
 
-    def _prepare_data(self, ts, split_data: bool = True):
+    def _prepare_data(self, ts, split_data: bool = True, collate_fn=None):
 
         if split_data:
             train_data, val_data = train_test_data_setup(
@@ -90,13 +90,13 @@ class BaseNeuralModel:
             val_dataset = None
 
         train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True)
+            train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn)
 
         if val_dataset is None:
             val_loader = val_dataset
         else:
             val_loader = torch.utils.data.DataLoader(
-                val_dataset, batch_size=self.batch_size, shuffle=True)
+                val_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn)
 
         self.label_encoder = train_dataset.label_encoder
         return train_loader, val_loader
