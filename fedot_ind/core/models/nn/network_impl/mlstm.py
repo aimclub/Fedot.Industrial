@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch
 from tqdm import tqdm
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array, fedot_data_type
 import pandas as pd
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
 import torch.utils.data as data
