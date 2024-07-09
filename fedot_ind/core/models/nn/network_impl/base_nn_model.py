@@ -16,6 +16,7 @@ from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata
     convert_to_4d_torch_array
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 
 
 class BaseNeuralModel:
@@ -53,11 +54,21 @@ class BaseNeuralModel:
         self.target = None
         self.task_type = None
 
+    def _get_loss_metric(self, ts: InputData):
+        if ts.task.task_type.value == 'classification':
+            loss_fn = CROSS_ENTROPY() if ts.num_classes == 2 else MULTI_CLASS_CROSS_ENTROPY()
+        elif ts.task.task_type.value == 'regression':
+            loss_fn = RMSE()
+            self.num_classes = 1
+        else:
+            loss_fn = None
+        return loss_fn
+
     def fit(self, input_data: InputData):
         self.num_classes = input_data.num_classes
         self.target = input_data.target
         self.task_type = input_data.task
-
+        self.is_regression_task = self.task_type.task_type.value == 'regression'
         self._fit_model(input_data)
         self._save_and_clear_cache()
         return self
@@ -109,12 +120,11 @@ class BaseNeuralModel:
                                             max_lr=self.learning_rate)
         if val_loader is None:
             print('Not enough class samples for validation')
-
         best_model = None
         best_val_loss = float('inf')
         val_interval = self.get_validation_frequency(
             self.epochs, self.learning_rate)
-
+        loss_prefix = 'RMSE' if self.is_regression_task else 'Accuracy'
         for epoch in range(1, self.epochs + 1):
             training_loss = 0.0
             valid_loss = 0.0
@@ -128,15 +138,16 @@ class BaseNeuralModel:
                 loss = loss_fn(output, targets.float())
                 loss.backward()
                 optimizer.step()
-                training_loss += loss.data.item() * inputs.size(0)
+                training_loss += loss.data.item() / inputs.size(0) if self.is_regression_task \
+                    else loss.data.item() * inputs.size(0)
                 total += targets.size(0)
-                correct += (torch.argmax(output, 1) ==
-                            torch.argmax(targets, 1)).sum().item()
+                correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item() \
+                    if not self.is_regression_task else 0
 
-            accuracy = correct / total
-            training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(
-                epoch, accuracy, training_loss))
+            training_loss = training_loss / len(train_loader.dataset) if not self.is_regression_task else training_loss
+            accuracy = correct / total if not self.is_regression_task else training_loss
+            print('Epoch: {}, {}= {}, Training Loss: {:.2f}'.format(
+                epoch, loss_prefix, accuracy, training_loss))
 
             if val_loader is not None and epoch % val_interval == 0:
                 self.model.eval()
@@ -148,10 +159,11 @@ class BaseNeuralModel:
 
                     loss = loss_fn(output, targets.float())
 
-                    valid_loss += loss.data.item() * inputs.size(0)
+                    valid_loss += loss.data.item() / inputs.size(0) if self.is_regression_task \
+                        else loss.data.item() * inputs.size(0)
                     total += targets.size(0)
-                    correct += (torch.argmax(output, 1) ==
-                                torch.argmax(targets, 1)).sum().item()
+                    correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item() \
+                        if not self.is_regression_task else 0
                 if valid_loss < best_val_loss:
                     best_val_loss = valid_loss
                     best_model = copy.deepcopy(self.model)
@@ -193,15 +205,12 @@ class BaseNeuralModel:
         return self._convert_predict(pred, output_mode)
 
     def _convert_predict(self, pred, output_mode: str = 'labels'):
-        pred = F.softmax(pred, dim=1)
+        have_encoder = all([self.label_encoder is not None, output_mode == 'labels'])
+        output_is_clf_labels = all([not self.is_regression_task, output_mode == 'labels'])
 
-        if output_mode == 'labels':
-            y_pred = torch.argmax(pred, dim=1).cpu().detach().numpy()
-        else:
-            y_pred = pred.cpu().detach().numpy()
-
-        if self.label_encoder is not None and output_mode == 'labels':
-            y_pred = self.label_encoder.inverse_transform(y_pred)
+        pred = pred.cpu().detach().numpy() if self.is_regression_task else F.softmax(pred, dim=1)
+        y_pred = torch.argmax(pred, dim=1).cpu().detach().numpy() if output_is_clf_labels else pred
+        y_pred = self.label_encoder.inverse_transform(y_pred) if have_encoder else y_pred
 
         predict = OutputData(
             idx=np.arange(len(y_pred)),

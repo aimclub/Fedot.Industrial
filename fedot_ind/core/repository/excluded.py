@@ -25,12 +25,9 @@ from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 
 EXCLUDED_OPERATION_MUTATION = {
-    'regression': ['inception_model',
-                   'resnet_model',
-                   'recurrence_extractor',
+    'regression': ['recurrence_extractor',
                    'lora_model',
                    'topological_extractor',
-                   'resnet_model',
                    "nbeats_model",
                    'tcn_model',
                    'dummy',

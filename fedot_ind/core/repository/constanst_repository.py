@@ -689,6 +689,8 @@ class UnitTestConstant(Enum):
         },
     }
     VALID_LINEAR_REG_PIPELINE = {
+        'resnet_reg': ['resnet_model'],
+        'inception_reg': ['inception_model'],
         'eigen_statistical_reg': ['eigen_basis', 'quantile_extractor', 'treg'],
         'channel_filtration_statistical_reg': ['channel_filtration', 'quantile_extractor', 'treg'],
         'fourier_statistical_reg': ['fourier_basis', 'quantile_extractor', 'treg'],
