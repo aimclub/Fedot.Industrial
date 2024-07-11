@@ -299,7 +299,7 @@ class TCNModel(BaseNeuralModel):
                     train_loader,
                     loss_fn,
                     optimizer):
-        train_steps = min(len(train_loader), 1)
+        train_steps = max(len(train_loader), 1)
         early_stopping = EarlyStopping()
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
