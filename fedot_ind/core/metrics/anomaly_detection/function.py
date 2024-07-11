@@ -258,29 +258,29 @@ def single_average_delay(
     return missing, detectHistory, FP, all_target_anom
 
 
-def my_scale(fp_case_window=None,
-             A_tp=1,
-             A_fp=0,
-             koef=1,
-             detalization=1000,
-             clear_anomalies_mode=True,
-             plot_figure=False):
-    """
-    ts - segment on which the window is applied
-    """
-    x = np.linspace(-np.pi / 2, np.pi / 2, detalization)
-    x = x if clear_anomalies_mode else x[::-1]
-    y = (A_tp - A_fp) / 2 * -1 * np.tanh(koef * x) / \
-        (np.tanh(np.pi * koef / 2)) + (A_tp - A_fp) / 2 + A_fp
-    if not plot_figure:
-        event = int((fp_case_window[1] - fp_case_window[0]) /
-                    (fp_case_window[-1] - fp_case_window[0]) * detalization)
-        if event >= len(x):
-            event = len(x) - 1
-        score = y[event]
-        return score
-    else:
-        return y
+# def my_scale(fp_case_window=None,
+#              A_tp=1,
+#              A_fp=0,
+#              koef=1,
+#              detalization=1000,
+#              clear_anomalies_mode=True,
+#              plot_figure=False):
+#     """
+#     ts - segment on which the window is applied
+#     """
+#     x = np.linspace(-np.pi / 2, np.pi / 2, detalization)
+#     x = x if clear_anomalies_mode else x[::-1]
+#     y = (A_tp - A_fp) / 2 * -1 * np.tanh(koef * x) / \
+#         (np.tanh(np.pi * koef / 2)) + (A_tp - A_fp) / 2 + A_fp
+#     if not plot_figure:
+#         event = int((fp_case_window[1] - fp_case_window[0]) /
+#                     (fp_case_window[-1] - fp_case_window[0]) * detalization)
+#         if event >= len(x):
+#             event = len(x) - 1
+#         score = y[event]
+#         return score
+#     else:
+#         return y
 
 
 def single_evaluate_nab(detecting_boundaries,
@@ -327,12 +327,12 @@ def single_evaluate_nab(detecting_boundaries,
     #         y = (A_tp-A_fp)/2*-1*np.tanh(koef*x)/(np.tanh(np.pi*koef/2)) + (A_tp-A_fp)/2 + A_fp
     #         return y
 
-    if scale == "improved":
-        scale_func = my_scale
-    #     elif scale_func == "default":
-    #         scale_func = sigm_scale
-    else:
-        raise Exception("choose the scale_func")
+    # if scale == "improved":
+    #     scale_func = my_scale
+    # #     elif scale_func == "default":
+    # #         scale_func = sigm_scale
+    # else:
+    #     raise Exception("choose the scale_func")
 
     # filter
     detecting_boundaries = filter_detecting_boundaries(detecting_boundaries)
@@ -345,7 +345,6 @@ def single_evaluate_nab(detecting_boundaries,
         table_of_coef.index.name = "Metric"
         table_of_coef.columns = ['A_tp', 'A_fp', 'A_tn', 'A_fn']
 
-    # GO
     point = 0 if clear_anomalies_mode else -1
     dict_cp_confusion = extract_cp_confusion_matrix(
         detecting_boundaries, predicted_labels, point=point)
