@@ -63,9 +63,9 @@ class InceptionTimeModel(BaseNeuralModel):
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.num_classes = params.get('num_classes', 1)
+        self.num_classes = self.params.get('num_classes', 1)
 
     def __repr__(self):
         return "InceptionNN"

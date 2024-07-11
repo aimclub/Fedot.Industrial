@@ -17,11 +17,9 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
     singular_value_hard_threshold
 
-class_type = TypeVar("T", bound="DataDrivenBasis")
-
 
 class EigenBasisImplementation(BasisDecompositionImplementation):
-    """Eigen basis decomposition implementation
+    """Eigen Basis decomposition implementation
         Example:
             ts1 = np.random.rand(200)
             ts2 = np.random.rand(200)
@@ -33,12 +31,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.window_size = params.get('window_size', 20)
-        self.low_rank_approximation = params.get(
-            'low_rank_approximation', True)
-        self.tensor_approximation = params.get('tensor_approximation', False)
-        self.rank_regularization = params.get(
-            'rank_regularization', 'hard_thresholding')
+        self.window_size = self.params.get('window_size', 20)
+        self.low_rank_approximation = self.params.get('low_rank_approximation', True)
+        self.tensor_approximation = self.params.get('tensor_approximation', False)
+        self.rank_regularization = self.params.get('rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = None
         self.SV_threshold = None

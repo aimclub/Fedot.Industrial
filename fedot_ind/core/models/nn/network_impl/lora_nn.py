@@ -34,8 +34,7 @@ NEURAL_MODEL = {
 }
 
 
-def linear_layer_parameterization_with_info(
-        updated_weight, device, rank=1, lora_alpha=1):
+def linear_layer_parameterization_with_info(updated_weight, device, rank=1, lora_alpha=1):
     # Only add the parameterization to the weight matrix, ignore the Bias
 
     # From section 4.2 of the paper:
@@ -46,8 +45,7 @@ def linear_layer_parameterization_with_info(
     # We leave the empirical investigation of [...], and biases to a future
     # work.
 
-    return LoRAParametrizationWithInfo(
-        updated_weight, rank=rank, alpha=lora_alpha)
+    return LoRAParametrizationWithInfo(updated_weight, rank=rank, alpha=lora_alpha)
 
 
 class LoRAParametrizationWithInfo(nn.Module):
@@ -81,26 +79,26 @@ class LoraModel(BaseNeuralModel):
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
 
         # hyperparams for LoRa learning
-        self.epochs = params.get('epochs', 1)
-        self.batch_size = params.get('epochs', 16)
-        self.model_type = params.get('neural_architecture', 'dummy')
-        self.pretrain = params.get('from_pretrain', False)
-        self.lora_init = params.get('lora_init', 'random')
+        self.epochs = self.params.get('epochs', 1)
+        self.batch_size = self.params.get('epochs', 16)
+        self.model_type = self.params.get('neural_architecture', 'dummy')
+        self.pretrain = self.params.get('from_pretrain', False)
+        self.lora_init = self.params.get('lora_init', 'random')
         # hyperparams for SVD
-        self.sampling_share = params.get('sampling_share', 0.3)
-        self.rank = params.get('lora_rank', 1)
-        self.power_iter = params.get('power_iter', 3)
-        self.use_approx = params.get('use_rsvd', True)
+        self.sampling_share = self.params.get('sampling_share', 0.3)
+        self.rank = self.params.get('lora_rank', 1)
+        self.power_iter = self.params.get('power_iter', 3)
+        self.use_approx = self.params.get('use_rsvd', True)
 
         svd_params = dict(rank=self.rank,
                           sampling_share=self.sampling_share,
                           power_iter=self.power_iter)
         self.industrial_impl = NEURAL_MODEL[self.model_type]
-        self.rsvd = RSVDDecomposition(svd_params)
+        self.rsvd = RSVDDecomposition(OperationParameters(**svd_params))
 
     def __repr__(self):
         return f'LoRa - {self.model_type}'
@@ -114,13 +112,7 @@ class LoraModel(BaseNeuralModel):
             output_dim=self.num_classes).to(
             default_device())
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        if input_data.task.task_type.value == 'classification':
-            if input_data.num_classes == 2:
-                loss_fn = CROSS_ENTROPY()
-            else:
-                loss_fn = MULTI_CLASS_CROSS_ENTROPY()
-        else:
-            loss_fn = RMSE()
+        loss_fn = self._get_loss_metric(input_data)
         return loss_fn, optimizer
 
     def __init_lora(self, spectrum_by_layer):

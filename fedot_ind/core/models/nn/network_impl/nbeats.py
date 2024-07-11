@@ -37,29 +37,28 @@ class NBeatsModel(BaseNeuralModel):
         Original code:  https://github.com/ServiceNow/N-BEATS
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
-        self.is_generic_architecture = params.get(
-            "is_generic_architecture", True)
-        self.epochs = params.get("epochs", 10)
-        self.batch_size = params.get("batch_size", 16)
-        self.loss = params.get("loss", 'mse')
-        self.optimizer = params.get("optimizer", 'adam')
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.is_generic_architecture = self.params.get("is_generic_architecture", True)
+        self.epochs = self.params.get("epochs", 10)
+        self.batch_size = self.params.get("batch_size", 16)
+        self.loss = self.params.get("loss", 'mse')
+        self.optimizer = self.params.get("optimizer", 'adam')
         self.activation = 'None'
 
-        self.n_stacks = params.get("n_stacks", 30)
-        self.layers = params.get("layers", 4)
-        self.layer_size = params.get("layer_size", 512)
+        self.n_stacks = self.params.get("n_stacks", 30)
+        self.layers = self.params.get("layers", 4)
+        self.layer_size = self.params.get("layer_size", 512)
 
-        self.n_trend_blocks = params.get("n_trend_blocks", 3)
-        self.n_trend_layers = params.get("n_trend_layers", 4)
-        self.trend_layer_size = params.get("trend_layer_size", 2)
-        self.degree_of_polynomial = params.get("degree_of_polynomial", 20)
+        self.n_trend_blocks = self.params.get("n_trend_blocks", 3)
+        self.n_trend_layers = self.params.get("n_trend_layers", 4)
+        self.trend_layer_size = self.params.get("trend_layer_size", 2)
+        self.degree_of_polynomial = self.params.get("degree_of_polynomial", 20)
 
-        self.n_seasonality_blocks = params.get("n_seasonality_blocks", 3)
-        self.n_seasonality_layers = params.get("n_seasonality_layers", 4)
-        self.seasonality_layer_size = params.get(
-            "seasonality_layer_size", 2048)
-        self.n_of_harmonics = params.get("n_of_harmonics", 1)
+        self.n_seasonality_blocks = self.params.get("n_seasonality_blocks", 3)
+        self.n_seasonality_layers = self.params.get("n_seasonality_layers", 4)
+        self.seasonality_layer_size = self.params.get("seasonality_layer_size", 2048)
+        self.n_of_harmonics = self.params.get("n_of_harmonics", 1)
 
     def _init_model(self, ts):
         self.forecast_length = ts.task.task_params.forecast_length

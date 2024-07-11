@@ -213,40 +213,34 @@ class DeepAR(BaseNeuralModel):
     Variational Inference + Probable Anomaly detection"""
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__()
-        if not params:
-            params = {}
+        super().__init__(params)
         # training settings
-        self.epochs = params.get('epochs', 50)
-        self.learning_rate = params.get('learning_rate', 0.1)
-        self.batch_size = params.get('batch_size', 16)
+        self.epochs = self.params.get('epochs', 50)
+        self.learning_rate = self.params.get('learning_rate', 0.1)
+        self.batch_size = self.params.get('batch_size', 16)
 
         # architecture settings
-        self.activation = params.get('activation', 'tanh')
-        self.cell_type = params.get('cell_type', 'LSTM')
-        self.hidden_size = params.get('hidden_size', 10)
-        self.rnn_layers = params.get('rnn_layers', 2)
-        self.dropout = params.get('dropout', 0.1)
-        self.expected_distribution = params.get(
-            'expected_distribution', 'normal')
-        self.patch_len = params.get('patch_len', None)
+        self.activation = self.params.get('activation', 'tanh')
+        self.cell_type = self.params.get('cell_type', 'LSTM')
+        self.hidden_size = self.params.get('hidden_size', 10)
+        self.rnn_layers = self.params.get('rnn_layers', 2)
+        self.dropout = self.params.get('dropout', 0.1)
+        self.expected_distribution = self.params.get('expected_distribution', 'normal')
+        self.patch_len = self.params.get('patch_len', None)
         self.preprocess_to_lagged = False
         self.horizon = 1  # params.get('horizon', 1) for future extension
         self.task_type = 'ts_forecsting'
 
         # forecasting settings
-        self.forecast_mode = params.get('forecast_mode', 'predictions')
-        self.quantiles = torch.tensor(
-            params.get('quantiles', [0.25, 0.5, 0.75]))
-        self.n_samples = params.get('n_samples', 10)
+        self.forecast_mode = self.params.get('forecast_mode', 'predictions')
+        self.quantiles = torch.tensor(self.params.get('quantiles', [0.25, 0.5, 0.75]))
+        self.n_samples = self.params.get('n_samples', 10)
         self.test_patch_len = None
-        self.forecast_length = params.get('forecast_length', 1)
+        self.forecast_length = self.params.get('forecast_length', 1)
 
         # additional
-        self.print_training_progress = params.get(
-            'print_training_progress', False)
-        self._prediction_averaging_factor = params.get(
-            'prediction_averaging_factor', 17)
+        self.print_training_progress = self.params.get('print_training_progress', False)
+        self._prediction_averaging_factor = self.params.get('prediction_averaging_factor', 17)
 
     def _init_model(self, ts) -> tuple:
         self.loss_fn = DeepARModule._loss_fns[self.expected_distribution]()
@@ -408,7 +402,7 @@ class DeepAR(BaseNeuralModel):
                     val_loader,
                     optimizer,
                     val_interval=10):
-        train_steps = len(train_loader)
+        train_steps = max(1, len(train_loader))
         early_stopping = EarlyStopping()
 
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
