@@ -19,7 +19,6 @@ from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
-from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
@@ -121,7 +120,6 @@ TEMPORARY_EXCLUDED = {
         'dummy': DummyOverComplicatedNeuralNetwork,
         # linear_dummy_model
         'lora_model': LoraModel,
-        'omniscale_model': OmniScaleModel,
         # transformer models
         'tst_model': TSTModel,
         # explainable models

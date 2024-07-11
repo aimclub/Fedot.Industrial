@@ -16,14 +16,12 @@ from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedN
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
-from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 
 NEURAL_MODEL = {
     # fundamental models
     'inception_model': InceptionTimeModel,
-    'omniscale_model': OmniScaleModel,
     'resnet_model': ResNetModel,
     'nbeats_model': NBeatsModel,
     # transformer models
@@ -100,8 +98,7 @@ class LoraModel(BaseNeuralModel):
 
         svd_params = dict(rank=self.rank,
                           sampling_share=self.sampling_share,
-                          power_iter=self.power_iter
-                          )
+                          power_iter=self.power_iter)
         self.industrial_impl = NEURAL_MODEL[self.model_type]
         self.rsvd = RSVDDecomposition(svd_params)
 

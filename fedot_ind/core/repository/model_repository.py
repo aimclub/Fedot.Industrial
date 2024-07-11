@@ -54,7 +54,6 @@ from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
-from fedot_ind.core.models.nn.network_impl.omni_scale import OmniScaleModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
@@ -177,7 +176,6 @@ class AtomizedModel(Enum):
     NEURAL_MODEL = {
         # fundamental models
         'inception_model': InceptionTimeModel,
-        'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
         'nbeats_model': NBeatsModel,
         'tcn_model': TCNModel,
