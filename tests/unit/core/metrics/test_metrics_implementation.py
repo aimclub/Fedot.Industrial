@@ -15,11 +15,10 @@ def test_pareto_metric():
 
 
 @pytest.mark.parametrize('boundaries, expected', (
-        ([[], []], []),
-        ([[0, 1], [], [0.5, 2]], [[0, 1], [0.5, 2]]),
-        ([[], [0, 1], [0.5, 2]], [[0, 1], [0.5, 2]]),
-        ([[0, 1], [0.5, 2], []], [[0, 1], [0.5, 2]]),
+    ([[], []], []),
+    ([[0, 1], [], [0.5, 2]], [[0, 1], [0.5, 2]]),
+    ([[], [0, 1], [0.5, 2]], [[0, 1], [0.5, 2]]),
+    ([[0, 1], [0.5, 2], []], [[0, 1], [0.5, 2]]),
 ))
 def test_filter_detecting_boundaries(boundaries, expected):
     assert filter_detecting_boundaries(boundaries) == expected
-
