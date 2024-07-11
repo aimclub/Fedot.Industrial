@@ -40,8 +40,7 @@ def test_reduce_feature_space_stable():
 def test__drop_correlated_features():
     features = get_features(add_stable=True)
     cls = FeatureSpaceReducer()
-    result = cls._drop_correlated_features(
-        corr_threshold=0.99, features=features)
+    result = cls._drop_correlated_features(corr_threshold=0.99, features=features)
     assert isinstance(result, pd.DataFrame)
     assert result.shape[0] == features.shape[0]
     assert result.shape[1] < features.shape[1]
@@ -50,8 +49,7 @@ def test__drop_correlated_features():
 def test__drop_stable_features():
     features = get_features(add_stable=True)
     cls = FeatureSpaceReducer()
-    result = cls._drop_correlated_features(
-        corr_threshold=0.99, features=features)
+    result = cls._drop_stable_features(var_threshold=0.99, features=features)
     assert isinstance(result, pd.DataFrame)
     assert result.shape[0] == features.shape[0]
     assert result.shape[1] < features.shape[1]
