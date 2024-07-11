@@ -39,6 +39,14 @@ sphinx-rtd-theme = "^2.0.0"
 spectrum = "^0.8.1"
 
 
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "if __debug__:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+]
 
 
 [build-system]
