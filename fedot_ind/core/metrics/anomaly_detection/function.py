@@ -3,10 +3,6 @@ import pandas as pd
 
 
 def filter_detecting_boundaries(detecting_boundaries):
-    """
-    [[t1,t2],[],[t1,t2]] -> [[t1,t2],[t1,t2]]
-    [[],[]] -> []
-    """
     _detecting_boundaries = []
     for couple in detecting_boundaries.copy():
         if len(couple) != 0:
@@ -27,7 +23,7 @@ def single_detecting_boundaries(target_series,
     """
 
     if (target_series is not None) and (target_list_ts is not None):
-        raise Exception('Choose the ONE type')
+        raise ValueError('Cannot perform boundaries extraction from both the series and the list of timestamps')
     elif target_series is not None:
         target_timestamps = target_series[target_series == 1].index
     elif target_list_ts is not None:
@@ -36,8 +32,8 @@ def single_detecting_boundaries(target_series,
         else:
             target_timestamps = target_list_ts
     else:
-        raise Exception('Choose the type')
-    #
+        raise ValueError('Cannot perform boundaries extraction: should extract from series or list of timestamps')
+
     detecting_boundaries = []
     td = pd.Timedelta(window_width) if window_width is not None else pd.Timedelta(
         (predicted_labels.index[-1] - predicted_labels.index[0]) / (len(target_timestamps) + 1) * share)
@@ -49,11 +45,10 @@ def single_detecting_boundaries(target_series,
         elif anomaly_window_destination == 'center':
             detecting_boundaries.append([val - td / 2, val + td / 2])
         else:
-            raise ('choose anomaly_window_destination')
+            raise ValueError('Parameter anomaly_window_destination should be either "lefter", "righter" or "center"')
 
     # block for resolving intersection problem:
-    # important to watch right boundary to be never included to avoid windows
-    # intersection
+    # important to watch right boundary to be never included to avoid windows intersection
     if len(detecting_boundaries) == 0:
         return detecting_boundaries
 
@@ -62,7 +57,6 @@ def single_detecting_boundaries(target_series,
     for i in range(len(new_detecting_boundaries) - 1):
         if new_detecting_boundaries[i][1] >= new_detecting_boundaries[i + 1][0]:
             # transform print to list of intersections
-            # print(f'Intersection of scoring windows {new_detecting_boundaries[i][1], new_detecting_boundaries[i+1][0]}')
             intersection_count += 1
             if intersection_mode == 'cut left window':
                 new_detecting_boundaries[i][1] = new_detecting_boundaries[i + 1][0]
