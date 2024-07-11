@@ -115,7 +115,7 @@ class BaseNeuralModel:
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
         early_stopping = EarlyStopping()
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                            steps_per_epoch=len(train_loader),
+                                            steps_per_epoch=max(1, len(train_loader)),
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
         if val_loader is None:
