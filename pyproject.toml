@@ -46,6 +46,10 @@ exclude_also = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
     "@abstractmethod",
+    "except Exception",
+    "if verbose:",
+    "if self.verbose:",
+    "if self.print_training_progress:"
 ]
 
 
