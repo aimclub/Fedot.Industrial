@@ -1,7 +1,10 @@
-import numpy as np
 import pytest
 
-from fedot_ind.core.metrics.anomaly_detection.function import filter_detecting_boundaries
+import numpy as np
+import pandas as pd
+
+from fedot_ind.core.metrics.anomaly_detection.function import filter_detecting_boundaries, check_errors, \
+    confusion_matrix, my_scale
 from fedot_ind.core.metrics.metrics_implementation import ParetoMetrics
 
 
@@ -22,3 +25,41 @@ def test_pareto_metric():
 ))
 def test_filter_detecting_boundaries(boundaries, expected):
     assert filter_detecting_boundaries(boundaries) == expected
+
+
+@pytest.mark.parametrize(
+    "my_list, expected_output, raises_exception",
+    [
+        ([pd.Series([1, 2]), pd.Series([3, 4])], 1, False),
+        ([[pd.Series([1, 2, 3]), pd.Series([1, 2])], [pd.Series([1, 2])]], 2, False),
+        ([pd.Timestamp('2022-01-01'), pd.Timestamp('2022-01-02')], 1, False),
+        ([[1, 2], pd.Series([3, 4])], None, True),
+        ([[pd.Series([1, 2]), pd.Series([1])], [pd.Timestamp(2017, 1, 1, 12)]], None, True),
+        ([[[[]], []], []], None, True),
+        ([[], [[]]], 3, False),
+        ([], 1, False),
+    ]
+)
+def test_check_errors(my_list, expected_output, raises_exception):
+    if raises_exception:
+        with pytest.raises(Exception):
+            check_errors(my_list)
+    else:
+        assert check_errors(my_list) == expected_output
+
+
+@pytest.mark.parametrize(
+    "true, predicted_labels, expected_output",
+    [
+        (np.array([1, 1, 0, 0]), np.array([1, 1, 0, 0]), (2, 2, 0, 0)),
+        (np.array([0, 1, 0, 1]), np.array([1, 0, 1, 0]), (0, 0, 2, 2)),
+        (np.array([1, 1, 1, 1]), np.array([1, 1, 1, 1]), (4, 0, 0, 0)),
+        (np.array([0, 0, 0, 0]), np.array([0, 0, 0, 0]), (0, 4, 0, 0)),
+        (np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1]), (0, 0, 4, 0)),
+        (np.array([1, 1, 1, 1]), np.array([0, 0, 0, 0]), (0, 0, 0, 4)),
+        (np.array([1, 0, 1, 0]), np.array([0, 1, 1, 0]), (1, 1, 1, 1)),
+        (np.array([1, 1, 1, 0, 0]), np.array([1, 0, 1, 0, 1]), (2, 1, 1, 1)),
+    ]
+)
+def test_confusion_matrix(true, predicted_labels, expected_output):
+    assert confusion_matrix(true, predicted_labels) == expected_output
