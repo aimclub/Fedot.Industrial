@@ -54,31 +54,38 @@ class TEASER(BaseETC):
         # for each point of estimation 
         for i in range(predicted_labels.shape[0]):
             # find not accepted points
-            ith_point_to_oc = to_oc_check[to_oc_check[:, 0] == i, 1]
-            X_to_ith = X_ocs[i][ith_point_to_oc]
+            X_to_ith = X_ocs[i]
             # if they are not outliers
             final_verdict = self.oc_estimators[estimator_indices[i]].decision_function(X_to_ith) # 1 for accept -1 for reject
             # mark as accepted
-            non_acceptance[i, np.argwhere(final_verdict >= 0).flatten()] = False
+            # non_acceptance[i, np.argwhere(final_verdict >= 0).flatten()] = False
             final_verdicts[i] = final_verdict 
+        non_acceptance[non_acceptance & (final_verdict > 0)] = False
         return predicted_labels, predicted_probas, non_acceptance, final_verdicts
     
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance, final_verdicts = self._predict(X)
         predicted_probas[non_acceptance] = final_verdicts[non_acceptance, None]
-        return predicted_probas.squeeze()
+        if self.transform_score:
+            final_verdicts = self._transform_score(final_verdicts)
+        return self._remove_first_1d(predicted_probas, final_verdicts)
         
     def predict(self, X):
         predicted_labels, _, non_acceptance, final_verdicts = self._predict(X)
         predicted_labels[non_acceptance] = -1
         # predicted_labels[non_acceptance] = final_verdicts[non_acceptance]
-        return predicted_labels # prediction_points x n_instances
+        if self.transform_score:
+            final_verdicts = self._transform_score(final_verdicts)
+        return self._remove_first_1d(predicted_labels, final_verdicts) # (prediction_points x) n_instances
     
     def _score(self, X, y, accuracy_importance=None):
         scores = super()._score(X, y, accuracy_importance)
-        self._best_estimator_idx = np.argmax(scores)
+        self._chosen_estimator_idx = np.argmax(scores)
         return scores
     
     def fit(self, X, y):
         super().fit(X, y)
         return self._score(X, y, self.accuracy_importance)
+    
+    def _transform_score(self, scores):
+        return np.tanh(scores)
