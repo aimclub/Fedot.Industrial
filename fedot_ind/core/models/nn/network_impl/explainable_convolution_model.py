@@ -273,6 +273,7 @@ class XCModel(BaseNeuralModel):
         self.num_classes = params.get('num_classes', 1)
         self.epochs = params.get('epochs', 100)
         self.batch_size = params.get('batch_size', 32)
+        self.is_regression_task = False
 
     def _init_model(self, ts):
         self.model = XCM(input_dim=ts.features.shape[1],

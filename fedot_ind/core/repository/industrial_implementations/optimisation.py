@@ -361,10 +361,6 @@ def _get_default_industrial_mutations(
         mutations.append(boosting_mutation)
         # mutations.append(ind_mutations.add_lagged)
         mutations.remove(ind_mutations.add_preprocessing)
-        mutations.remove(ind_mutations.single_add)
-    # # TODO remove workaround after validation fix
-    # if task_type is not TaskTypesEnum.ts_forecasting:
-    #     mutations.append(MutationTypesEnum.single_edge)
     return mutations
 
 

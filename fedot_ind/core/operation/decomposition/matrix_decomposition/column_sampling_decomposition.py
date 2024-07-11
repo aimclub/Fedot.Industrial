@@ -35,7 +35,7 @@ class CURDecomposition:
         tol = [0.5, 0.1, 0.05]
         n_samples = max(matrix.shape)
         min_num_samples = johnson_lindenstrauss_min_dim(n_samples, eps=tol).tolist()
-        min_num_samples = [x for x in min_num_samples if x < n_samples]
+        min_num_samples = [x if x < n_samples else n_samples for x in min_num_samples]
         sampling_rate = {f'tolerance_{k}': v for k, v in zip(tol, min_num_samples)}
         rank = max(min_num_samples)
         return rank

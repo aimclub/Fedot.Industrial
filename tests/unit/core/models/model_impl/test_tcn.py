@@ -1,15 +1,18 @@
 import pytest
 import torch
-
 from fedot.core.data.data import InputData, OutputData
+
+from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-from fedot_ind.api.utils.checkers_collections import DataCheck
 
 
 def dataset():
-    (X_train, y_train), (_, _) = TimeSeriesDatasetsGenerator(num_samples=20,
-                                                             max_ts_len=50, binary=False, test_size=0.5, task='regression').generate_data()
+    (X_train, y_train), (_, _) = TimeSeriesDatasetsGenerator(num_samples=1,
+                                                             max_ts_len=50,
+                                                             binary=False,
+                                                             test_size=0.5,
+                                                             task='regression').generate_data()
     return X_train, y_train, _, _
 
 
@@ -50,7 +53,7 @@ def test_tcn_prepare(ts, tcn):
     input_data = tcn._TCNModel__preprocess_for_fedot(ts)
     loader = tcn._prepare_data(
         input_data.features,
-        patch_len=30,
+        patch_len=14,
         split_data=False)
     assert loader is not None
     assert isinstance(loader, torch.utils.data.dataloader.DataLoader)

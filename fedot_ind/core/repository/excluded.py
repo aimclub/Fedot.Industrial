@@ -54,7 +54,11 @@ EXCLUDED_OPERATION_MUTATION = {
                           ],
     'ts_forecasting': [
         'xgbreg',
+        'stl_arima',
+        'ets',
+        'cgru',
         'sgdr',
+        'topological_extractor',
         'kernel_pca',
         'resample',
         'inception_model',
