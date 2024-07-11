@@ -16,7 +16,7 @@ def sample_ts():
 
 
 def test_fit_transform(sample_matrix):
-    rank = 2
+    rank = 1
     cur = CURDecomposition(rank)
     result = cur.fit_transform(sample_matrix)
     approximated = result[0]
