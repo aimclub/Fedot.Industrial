@@ -41,12 +41,13 @@ class BaseNeuralModel:
                 print(features)
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
-        self.num_classes = params.get('num_classes', None)
-        self.epochs = params.get('epochs', 100)
-        self.batch_size = params.get('batch_size', 16)
-        self.activation = params.get('activation', 'ReLU')
-        self.learning_rate = 0.001
+    def __init__(self, params: Optional[OperationParameters] = None):
+        self.params = params or {}
+        self.num_classes = self.params.get('num_classes', None)
+        self.epochs = self.params.get('epochs', 100)
+        self.batch_size = self.params.get('batch_size', 16)
+        self.activation = self.params.get('activation', 'ReLU')
+        self.learning_rate = self.params.get('learning_rate', 0.001)
 
         self.label_encoder = None
         self.model = None

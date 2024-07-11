@@ -158,24 +158,24 @@ class TCNModule(nn.Module):
 
 
 class TCNModel(BaseNeuralModel):
-    def __init__(self, params: Optional[OperationParameters] = {}):
-        super().__init__()
-        self.epochs = params.get("epochs", 100)
-        self.batch_size = params.get("batch_size", 32)
-        self.activation = params.get('activation', 'ReLU')
-        self.learning_rate = params.get("learning_rate", 0.01)
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.epochs = self.params.get("epochs", 100)
+        self.batch_size = self.params.get("batch_size", 32)
+        self.activation = self.params.get('activation', 'ReLU')
+        self.learning_rate = self.params.get("learning_rate", 0.01)
 
-        self.kernel_size = params.get("kernel_size", 3)
-        self.num_filters = params.get("num_filters", 5)
-        self.num_layers = params.get("num_layers", 3)
-        self.dilation_base = params.get("dilation_base", 2)
-        self.dropout = params.get("dropout", 0.2)
-        self.weight_norm = params.get("weight_norm", False)
+        self.kernel_size = self.params.get("kernel_size", 3)
+        self.num_filters = self.params.get("num_filters", 5)
+        self.num_layers = self.params.get("num_layers", 3)
+        self.dilation_base = self.params.get("dilation_base", 2)
+        self.dropout = self.params.get("dropout", 0.2)
+        self.weight_norm = self.params.get("weight_norm", False)
 
-        self.split = params.get("split_data", False)
-        self.patch_len = params.get("patch_len", None)
-        self.horizon = params.get("horizon", None)
-        self.window_size = params.get("window_size", None)
+        self.split = self.params.get("split_data", False)
+        self.patch_len = self.params.get("patch_len", None)
+        self.horizon = self.params.get("horizon", None)
+        self.window_size = self.params.get("window_size", None)
 
         self.model_list = []
 
@@ -279,9 +279,10 @@ class TCNModel(BaseNeuralModel):
                       ts,
                       patch_len,
                       split_data,
-                      validation_blocks: int = None):
+                      validation_blocks: Optional[int] = None):
         train_data = self.split_data(ts)
         if split_data:
+            validation_blocks = validation_blocks if validation_blocks is not None else 1
             train_data, val_data = train_test_data_setup(
                 train_data, validation_blocks=validation_blocks)
             _, train_data.features, train_data.target = transform_features_and_target_into_lagged(

@@ -20,13 +20,13 @@ class CURDecomposition:
         self.row_indices = None
         self.column_space = 'Full'
 
-    def _get_selection_rank(self, rank, matrix):
+    @staticmethod
+    def _get_selection_rank(matrix):
         """
         Compute the selection rank for the CUR decomposition. It must be at least 4 times the rank of the matrix but not
         greater than the number of rows or columns of the matrix.
 
         Args:
-            rank: the rank of the matrix.
             matrix: the matrix to decompose.
 
         Returns:
@@ -35,10 +35,7 @@ class CURDecomposition:
         tol = [0.5, 0.1, 0.05]
         n_samples = max(matrix.shape)
         min_num_samples = johnson_lindenstrauss_min_dim(n_samples, eps=tol).tolist()
-        min_num_samples = [x if x < n_samples else n_samples for x in min_num_samples]
-        sampling_rate = {f'tolerance_{k}': v for k, v in zip(tol, min_num_samples)}
-        rank = max(min_num_samples)
-        return rank
+        return max([x if x < n_samples else n_samples for x in min_num_samples])
 
     def get_aproximation_error(self, original_tensor, cur_matrices: tuple):
         C, U, R = cur_matrices
@@ -52,8 +49,7 @@ class CURDecomposition:
                       target: np.ndarray = None) -> tuple:
         feature_tensor = feature_tensor.squeeze()
         # transformer = random_projection.SparseRandomProjection().fit_transform(target)
-        self.selection_rank = self._get_selection_rank(
-            self.rank, feature_tensor)
+        self.selection_rank = self._get_selection_rank(feature_tensor)
         self._balance_target(target)
         # create sub matrices for CUR-decompostion
         array = np.array(feature_tensor.copy())
