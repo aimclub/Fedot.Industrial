@@ -1,6 +1,7 @@
 import pytest
 import torch
 from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
@@ -30,7 +31,7 @@ def ts():
 
 @pytest.fixture
 def tcn():
-    return TCNModel({'epochs': 10})
+    return TCNModel(OperationParameters(epochs=10))
 
 
 def test_tcn_init(tcn):
