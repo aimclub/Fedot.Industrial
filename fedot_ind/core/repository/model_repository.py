@@ -177,7 +177,6 @@ class AtomizedModel(Enum):
     NEURAL_MODEL = {
         # fundamental models
         'inception_model': InceptionTimeModel,
-        'omniscale_model': OmniScaleModel,
         'resnet_model': ResNetModel,
         'nbeats_model': NBeatsModel,
         'tcn_model': TCNModel,

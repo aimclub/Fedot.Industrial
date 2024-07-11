@@ -296,11 +296,6 @@ if __name__ == "__main__":
     dataset_list = ['Lightning2']
     result_dict = {}
     pipeline_dict = {
-        'omniscale_model': PipelineBuilder().add_node('tst_model',
-                                                      params={'epochs': 50,
-                                                              'batch_size': 32}
-                                                      ),
-
         'quantile_rf_model': PipelineBuilder().add_node('quantile_extractor').add_node('rf'),
 
         'composed_model': PipelineBuilder().add_node('tst_model', params={'epochs': 50, 'batch_size': 32})
