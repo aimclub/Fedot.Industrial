@@ -9,6 +9,7 @@ from sklearn.metrics import confusion_matrix
 class ECEC(BaseETC):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
+        self.__cv = 5
         
     def _init_model(self, X, y):
         super()._init_model(X, y)
@@ -30,34 +31,39 @@ class ECEC(BaseETC):
         predicted_labels, _, non_confident, confidences = self._predict(X)
         predicted_labels = np.stack(predicted_labels)
         predicted_labels[non_confident] = -1
-        return predicted_labels, confidences
+        if self.transform_score:
+            confidences = self._transform_score(confidences)
+        return self._remove_first_1d(predicted_labels, confidences)
     
     def predict_proba(self, X):
         _, predicted_probas, non_confident, confidences = self._predict(X)
         predicted_probas = np.stack(predicted_probas)
         predicted_probas[non_confident] = -1
-        return predicted_probas, confidences
+        if self.transform_score:
+            confidences = self._transform_score(confidences)
+        return self._remove_first_1d(predicted_probas, confidences)
+    
+    def _fit_one_interval(self, X, y, i):
+        X_part = X[..., :self.prediction_idx[i] + 1]
+        X_part = self.scalers[i].fit_transform(X_part)
+        self.slave_estimators[i].fit(X_part, y)
+        labels = cross_val_predict(self.slave_estimators[i], X_part, y, cv=self.__cv)
+        return labels
 
-    def _score(self, X, y, alpha, training=False):
-        y = y.astype(int)
-        predicted_labels, *_ = super()._predict(X, training) # n_pred x n_inst 
-        predicted_labels = np.stack(predicted_labels)
-        n = predicted_labels.shape[0]
-        accuracies = (predicted_labels == np.tile(y, (n, 1))) # n_pred x n_inst
-        confidences = np.ones((n, X.shape[0]), dtype='float32')
-        for i in range(n):
-            y_pred = predicted_labels[i]
-            reliability_i = confusion_matrix(y, y_pred, normalize='pred')
-            confidences[i] = 1 - reliability_i[y, y_pred] # n_inst
-            self._reliabilities[i] = reliability_i
-        confidences = 1 - np.cumprod(confidences, axis=0) # n_pred x n_inst
+    def _score(self, y, y_pred, alpha):
+        matches = (y_pred == np.tile(y, (self.n_pred, 1))) # n_pred x n_inst
+        n, n_inst = matches.shape[:2]
+        confidences = np.ones((n, n_inst), dtype='float32')
+        for i in range(self.n_pred):
+            confidences[i] = self._reliabilities[i, y, y_pred[i]]
+        confidences = 1 - np.cumprod(1 - confidences, axis=0) # n_pred x n_inst
         candidates = self._select_thrs(confidences) # n_candidates
         cfs = np.zeros((len(candidates), n))
         for i, candidate in enumerate(candidates):
             mask = confidences >= candidate  # n_pred x n_inst
-            accuracy_for_candidate = (accuracies * mask).sum(1) / mask.sum(1) # n_pred
+            accuracy_for_candidate = (matches * mask).sum(1) / mask.sum(1) # n_pred
             cfs[i] = self.cost_func(self.earliness, accuracy_for_candidate, alpha)
-        self._best_estimator_idx = np.argmin(cfs.mean(0))
+        self._chosen_estimator_idx = np.argmin(cfs.mean(0))
         return candidates[np.argmin(cfs, axis=0)] # n_pred
 
     @staticmethod
@@ -75,6 +81,23 @@ class ECEC(BaseETC):
         return alpha * (1 - accuracies) + (1 - alpha) * earliness
     
     def fit(self, X, y):
-        super().fit(X, y)
-        self.confidence_thresholds = self._score(X, y, self.accuracy_importance, training=True)
+        y = np.array(y).flatten().astype(int)
+        self._init_model(X, y)
+        labels = []
+        for i in range(self.n_pred):
+            labels.append(self._fit_one_interval(X, y, i))
+        predicted_labels = np.stack(labels)
+        for i in range(self.n_pred):
+            y_pred = predicted_labels[i]
+            reliability_i = confusion_matrix(y, y_pred, normalize='pred')
+            self._reliabilities[i] = reliability_i
+        self.confidence_thresholds = self._score(y, predicted_labels, self.accuracy_importance)
+
+    def _transform_score(self, confidences):
+        thr = self.confidence_thresholds[self._estimator_for_predict[-1]]
+        confidences = confidences - thr
+        positive = confidences > 0
+        confidences[positive] *= 1 / (1 - thr)
+        confidences[~positive] *= 1 / thr
+        return confidences
     

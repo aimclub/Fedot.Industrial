@@ -7,7 +7,7 @@ class ProbabilityThresholdClassifier(BaseETC):
     def __init__(self, params: Optional[OperationParameters] = None):
         if params is None:
             params = {}    
-        super().__init__()
+        super().__init__(params)
         self.probability_threshold = params.get('probability_threshold', None)
 
     def _init_model(self, X, y):
@@ -18,19 +18,23 @@ class ProbabilityThresholdClassifier(BaseETC):
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance = self._predict(X)
         predicted_probas[non_acceptance] = 0
-        return predicted_probas.squeeze()
+        scores = predicted_probas.max(-1)
+        if self.transform_score:
+            scores = self._transform_score(scores)
+        return self._remove_first_1d(predicted_probas, scores)
         
     def predict(self, X):
-        predicted_labels, _, non_acceptance = self._predict(X, training=False)
+        predicted_labels, predicted_probas, non_acceptance = self._predict(X, training=False)
         predicted_labels[non_acceptance] = -1
-        # predicted_labels[non_acceptance] = final_verdicts[non_acceptance]
-        return predicted_labels # prediction_points x n_instances
+        scores = predicted_probas.max(-1)
+        if self.transform_score:
+            scores = self._transform_score(scores)
+        return self._remove_first_1d(predicted_labels, scores) # (prediction_points x) n_instances
 
     def _predict(self, X, training=True):
         predicted_probas, predicted_labels = super()._predict(X, training)
         predicted_probas = np.stack(predicted_probas)
         predicted_labels = np.stack(predicted_labels)
-        # print(predicted_labels.shape, predicted_probas.shape)
         non_acceptance = self._consecutive_count(predicted_labels) < self.consecutive_predictions
         double_check = predicted_probas.max(axis=-1) > self.probability_threshold
         non_acceptance[non_acceptance & double_check] = False
@@ -38,10 +42,17 @@ class ProbabilityThresholdClassifier(BaseETC):
 
     def _score(self, X, y, accuracy_importance=None):
         scores = super()._score(X, y, accuracy_importance)
-        self._best_estimator_idx = np.argmax(scores)
+        self._chosen_estimator_idx = np.argmax(scores)
         return scores
     
     def fit(self, X, y):
         super().fit(X, y)
-        return self._score(X, y, self.accuracy_importance)
-
+        self._score(X, y, self.accuracy_importance)
+    
+    def _transform_score(self, confidences):
+        thr = self.probability_threshold
+        confidences = confidences - thr
+        positive = confidences > 0
+        confidences[positive] *= 1 / (1 - thr)
+        confidences[~positive] *= 1 / thr
+        return confidences

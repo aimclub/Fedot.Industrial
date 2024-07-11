@@ -11,8 +11,10 @@ class EconomyK(BaseETC):
         if params is None:
             params = {}    
         super().__init__(params)
+        self.prediction_mode = params.get('prediction_mode', 'last_available')
         self.lambda_ = params.get('lambda', 1.)
         self._cluster_factor = params.get('cluster_factor' , 1)
+        # self.confidence_mode = params.get('confidence_mode', 'time') # or 'confidence'
         self._random_state = 2104
         self.__cv = 5
 
@@ -77,13 +79,20 @@ class EconomyK(BaseETC):
     def predict_proba(self, X):
         probas, times, is_optimal = self._predict(X)
         is_optimal = np.stack(is_optimal)
-        idx = np.tile(np.arange(self.n_pred), (is_optimal.shape[1], 1)).T # n_pred x n_inst
-        idx[~is_optimal] = self.n_pred
-        idx = np.argmin(idx, 0)
-        probas = np.stack(probas)
-        return probas[idx], np.stack(times)[idx]
+        probas, times = np.stack(probas), np.stack(times)
+        if self.transform_score:
+            times = self._transform_score(times)
+        return self._remove_first_1d(probas, times)
 
     def predict(self, X):
         probas, times = self.predict_proba(X)
         labels = probas.argmax(-1)
-        return labels, times
+        return self._remove_first_1d(labels, times)
+
+    def _transform_score(self, time):
+        idx = self._estimator_for_predict[-1]
+        scores = -(1 - (time - self.prediction_idx[idx]) / self.prediction_idx[-1]) 
+        scores[scores == 0] = 1 # no posibility for lininterp when sure
+        return scores
+
+
