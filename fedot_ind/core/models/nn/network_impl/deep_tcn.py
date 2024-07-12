@@ -17,7 +17,6 @@ from torch import nn, optim
 from torch.optim import lr_scheduler
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
@@ -377,7 +376,7 @@ class TCNModel(BaseNeuralModel):
             forecast_idx_predict = np.arange(
                 start=test_data.idx.shape[0],
                 stop=test_data.idx.shape[0] +
-                     self.horizon,
+                self.horizon,
                 step=1)
         else:
             forecast_idx_predict = test_idx
