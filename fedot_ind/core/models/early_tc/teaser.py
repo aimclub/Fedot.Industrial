@@ -1,9 +1,9 @@
 from typing import Optional
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from sklearn.svm import OneClassSVM
-from sklearn.model_selection import GridSearchCV
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import OneClassSVM
 
 
 class TEASER(BaseETC):
@@ -40,13 +40,12 @@ class TEASER(BaseETC):
         d = d.min(axis=-1).reshape(-1, 1)
         return np.hstack([predicted_probas, d])
     
-    def _predict(self, X):
+    def _predict(self, X, training=False):
         estimator_indices, offset = self._select_estimators(X)
         X_ocs, predicted_probas, predicted_labels = zip(
             *[self._predict_one_slave(X, i, offset) for i in estimator_indices] # check boundary
         )
         non_acceptance = self._consecutive_count(predicted_labels) < self.consecutive_predictions
-        to_oc_check = np.argwhere(non_acceptance)
         X_ocs = np.stack(X_ocs)
         predicted_probas = np.stack(predicted_probas)
         predicted_labels = np.stack(predicted_labels)
@@ -56,9 +55,8 @@ class TEASER(BaseETC):
             # find not accepted points
             X_to_ith = X_ocs[i]
             # if they are not outliers
-            final_verdict = self.oc_estimators[estimator_indices[i]].decision_function(X_to_ith) # 1 for accept -1 for reject
+            final_verdict = self.oc_estimators[estimator_indices[i]].decision_function(X_to_ith)
             # mark as accepted
-            # non_acceptance[i, np.argwhere(final_verdict >= 0).flatten()] = False
             final_verdicts[i] = final_verdict 
         non_acceptance[non_acceptance & (final_verdict > 0)] = False
         return predicted_labels, predicted_probas, non_acceptance, final_verdicts
@@ -66,17 +64,7 @@ class TEASER(BaseETC):
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance, final_verdicts = self._predict(X)
         predicted_probas[non_acceptance] = final_verdicts[non_acceptance, None]
-        if self.transform_score:
-            final_verdicts = self._transform_score(final_verdicts)
-        return self._remove_first_1d(predicted_probas, final_verdicts)
-        
-    def predict(self, X):
-        predicted_labels, _, non_acceptance, final_verdicts = self._predict(X)
-        predicted_labels[non_acceptance] = -1
-        # predicted_labels[non_acceptance] = final_verdicts[non_acceptance]
-        if self.transform_score:
-            final_verdicts = self._transform_score(final_verdicts)
-        return self._remove_first_1d(predicted_labels, final_verdicts) # (prediction_points x) n_instances
+        return super().predict_proba(predicted_probas, final_verdicts)
     
     def _score(self, X, y, accuracy_importance=None):
         scores = super()._score(X, y, accuracy_importance)

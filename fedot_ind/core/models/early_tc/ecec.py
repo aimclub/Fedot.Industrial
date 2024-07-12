@@ -3,7 +3,6 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
 from sklearn.model_selection import cross_val_predict
-from sklearn.base import clone
 from sklearn.metrics import confusion_matrix
 
 class ECEC(BaseETC):
@@ -25,23 +24,14 @@ class ECEC(BaseETC):
         reliabilities = np.stack(reliabilities)
         confidences = 1 - np.cumprod(1 - reliabilities, axis=0)
         non_confident = confidences < self.confidence_thresholds[:len(predicted_labels), None]
-        return predicted_labels, predicted_probas, non_confident, confidences
-    
-    def predict(self, X):
-        predicted_labels, _, non_confident, confidences = self._predict(X)
         predicted_labels = np.stack(predicted_labels)
-        predicted_labels[non_confident] = -1
-        if self.transform_score:
-            confidences = self._transform_score(confidences)
-        return self._remove_first_1d(predicted_labels, confidences)
+        predicted_probas = np.stack(predicted_probas)
+        return predicted_labels, predicted_probas, non_confident, confidences
     
     def predict_proba(self, X):
         _, predicted_probas, non_confident, confidences = self._predict(X)
-        predicted_probas = np.stack(predicted_probas)
         predicted_probas[non_confident] = -1
-        if self.transform_score:
-            confidences = self._transform_score(confidences)
-        return self._remove_first_1d(predicted_probas, confidences)
+        return super().predict_proba(predicted_probas, confidences)
     
     def _fit_one_interval(self, X, y, i):
         X_part = X[..., :self.prediction_idx[i] + 1]
@@ -52,7 +42,7 @@ class ECEC(BaseETC):
 
     def _score(self, y, y_pred, alpha):
         matches = (y_pred == np.tile(y, (self.n_pred, 1))) # n_pred x n_inst
-        n, n_inst = matches.shape[:2]
+        n, n_inst, *_ = matches.shape
         confidences = np.ones((n, n_inst), dtype='float32')
         for i in range(self.n_pred):
             confidences[i] = self._reliabilities[i, y, y_pred[i]]

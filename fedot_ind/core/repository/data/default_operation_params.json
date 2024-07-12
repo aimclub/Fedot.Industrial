@@ -124,15 +124,25 @@
     "min_samples_leaf": 10,
     "bootstrap": false
   },
+  "ecec": {
+    "interval_percentage": 10,
+    "accuracy_importance": 0.7
+  },
+  "economy_k": {
+    "interval_percentage": 10,
+    "accuracy_importance": 0.7,
+    "cluster_factor": 1,
+    "lambda": 1
+  },
   "teaser": {
     "interval_percentage": 10,
     "consecutive_predictions": 3,
-    "hm_shift_to_acc": 2
+    "accuracy_importance": 2
   },
   "proba_threshold_etc": {
     "interval_percentage": 10,
     "consecutive_predictions": 3,
-    "hm_shift_to_acc": 2
+    "accuracy_importance": 2
   },
   "dt": {
     "max_depth": 5,
