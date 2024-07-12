@@ -15,7 +15,6 @@ class EconomyK(BaseETC):
         self.prediction_mode = params.get('prediction_mode', 'last_available')
         self.lambda_ = params.get('lambda', 1.)
         self._cluster_factor = params.get('cluster_factor' , 1)
-        # self.confidence_mode = params.get('confidence_mode', 'time') # or 'confidence'
         self._random_state = 2104
         self.__cv = 5
 

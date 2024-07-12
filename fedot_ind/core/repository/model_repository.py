@@ -49,7 +49,6 @@ from fedot_ind.core.models.early_tc.ecec import ECEC
 from fedot_ind.core.models.early_tc.economy_k import EconomyK
 from fedot_ind.core.models.early_tc.prob_threshold import ProbabilityThresholdClassifier
 from fedot_ind.core.models.early_tc.teaser import TEASER
-from fedot_ind.core.models.early_tc.prob_threshold import ProbabilityThresholdClassifier
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.deepar import DeepAR

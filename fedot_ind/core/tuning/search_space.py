@@ -107,7 +107,7 @@ industrial_search_space = {
          'accuracy_importance': {'hyperopt-dist': hp.choice,
                              'sampling-scope': [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1,]]},
         },
-    'proba_threshold_etc':
+    'teaser':
         {'interval_percentage': {'hyperopt-dist': hp.choice,
                                  'sampling-scope': [[5, 10, 20, 25]]},
          'acceptance_threshold': {'hyperopt-dist': hp.choice,

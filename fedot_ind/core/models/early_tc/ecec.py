@@ -25,6 +25,8 @@ class ECEC(BaseETC):
         predicted_labels, predicted_probas, reliabilities = super()._predict(X, training)
         confidences = 1 - np.cumprod(1 - reliabilities, axis=0)
         non_confident = confidences < self.confidence_thresholds[:len(predicted_labels), None]
+        predicted_labels = np.stack(predicted_labels)
+        predicted_probas = np.stack(predicted_probas)
         return predicted_labels, predicted_probas, non_confident, confidences
     
     def predict_proba(self, X):

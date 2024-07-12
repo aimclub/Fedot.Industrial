@@ -77,9 +77,6 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         elif training or self.prediction_mode == 'all':
             last_idx, offset = self._get_applicable_index(X.shape[-1] - 1)
             estimator_indices = np.arange(last_idx + 1)
-        elif 'last_available':
-            last_idx, offset = self._get_applicable_index(X.shape[-1] - 1)
-            estimator_indices = [last_idx]
         else:
             raise ValueError('Unknown prediction mode')
         return estimator_indices, offset
