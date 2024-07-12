@@ -22,6 +22,72 @@ def sv_to_explained_variance_ratio(singular_values, dispersion_by_component):
     return explained_variance, n_components
 
 
+def transform_eigen_to_ts(X_elem):
+    X_rev = X_elem[::-1]
+    eigenvector_to_ts = list(X_rev.diagonal(
+        j).mean() for j in range(-X_rev.shape[0] + 1, X_rev.shape[1]))
+    return eigenvector_to_ts
+
+
+def eigencorr_matrix(U, S, V,
+                     n_components: int = None,
+                     correlation_level: float = 0.4):
+    d = S.shape[0]
+    L = S.shape[0]
+    K = V.shape[1]
+    if n_components is None:
+        n_components = d
+    corellated_components = {}
+    components_iter = range(n_components)
+
+    X_elem = np.array([S[i] * np.outer(U[:, i], V[i, :]) for i in range(0, d)])
+
+    w = np.array(
+        list(np.arange(L) + 1) +  # returns the sequence 1 to L (first line in definition of w)
+        [L] * (K - L - 1) +  # repeats L K-L-1 times (second line in w definition)
+        list(np.arange(L) + 1)[::-1]  # reverses the first list (equivalent to the third line)
+    )
+
+    # Get all the components of the toy series, store them as columns in F_elem array.
+    F_elem = np.array([transform_eigen_to_ts(X_elem[i]) for i in range(d)])
+
+    # Calculate the individual weighted norms,
+    # ||F_i||_w, first, then take inverse square-root so we don't have to later.
+    vector_list = []
+    for i in range(d):
+        squared_vector = F_elem[i] ** 2
+        normed_vector = w.dot(squared_vector)
+        vector_list.append(normed_vector)
+    F_wnorms = np.array(vector_list)
+    F_wnorms = F_wnorms ** -0.5
+
+    # Calculate the w-corr matrix. The diagonal elements are equal to 1, so we can start with an identity matrix
+    # and iterate over all pairs of i's and j's (i != j), noting that Wij = Wji.
+    Wcorr = np.identity(d)
+    for i in range(d):
+        for j in range(i + 1, d):
+            eigen_vector = F_elem[i]
+            next_eigen_vector = F_elem[j]
+            Wcorr[i, j] = abs(w.dot(eigen_vector * next_eigen_vector)
+                              * F_wnorms[i] * F_wnorms[j])
+            Wcorr[j, i] = Wcorr[i, j]
+
+    component_set = [x for x in components_iter]
+    for i in components_iter:
+        component_idx = np.where(Wcorr[i] > correlation_level)[0]
+        intersect = set(component_set).intersection(component_idx)
+        have_intersection = len(intersect) != 0
+        if have_intersection:
+            for j in component_idx.tolist():
+                if j in component_set:
+                    component_set.remove(j)
+            corellated_components.update({f'{i}_component': component_idx})
+        else:
+            continue
+
+    return corellated_components
+
+
 def singular_value_hard_threshold(singular_values,
                                   rank=None,
                                   beta=None,
@@ -60,6 +126,21 @@ def singular_value_hard_threshold(singular_values,
 
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
+    if Sigma == 'ill_conditioned':
+        # rank = round(len(VT)*0.1)
+        rank = len(VT)
+        TS_comps = np.zeros((ts_length, rank))
+        U, S, V = U[0], U[1], U[2]
+        for idx, (comp, eigen_idx) in enumerate(VT.items()):
+            X_dominant = np.sum([S[i] * np.outer(U[:, i], V[i, :]) for i in eigen_idx], axis=0)
+            grouped_eigenvector = transform_eigen_to_ts(X_dominant)
+            if idx == rank:
+                break
+            else:
+                TS_comps[:, idx] = grouped_eigenvector
+        TS_comps[:, 1] = np.sum(TS_comps[:, 1:], axis=1)
+        TS_comps = TS_comps[:, :2]
+        return TS_comps
     if len(Sigma.shape) > 1:
         def multi_reconstruction(x):
             return reconstruct_basis(U=U, Sigma=x, VT=VT, ts_length=ts_length)

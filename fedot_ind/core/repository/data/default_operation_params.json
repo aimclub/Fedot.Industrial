@@ -25,12 +25,6 @@
     "ouput_attention": false,
     "forecast_mode": "out_of_sample"
   },
-  "omniscale_model": {
-    "epochs": 100,
-    "batch_size": 32,
-    "activation": "Softmax",
-    "num_classes": 1
-  },
   "deepar_model": {
     "epochs": 100,
     "batch_size": 16
@@ -332,7 +326,7 @@
   },
   "fourier_basis": {
     "spectrum_type": "smoothed",
-    "threshold": 20000
+    "threshold": 0.9
   },
   "quantile_extractor": {
     "window_size": 0,
@@ -350,6 +344,10 @@
     "with_tuning": true
   },
   "fedot_regr": {
+    "timeout": 10,
+    "with_tuning": true
+  },
+  "fedot_forecast": {
     "timeout": 10,
     "with_tuning": true
   },
@@ -389,5 +387,55 @@
     "window_size_as_share": 0.33,
     "max_homology_dimension": 1,
     "metric": "euclidean"
+  },
+  "sst": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
+  "unscented_kalman_filter": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
+  "stat_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9
+  },
+  "topo_detector": {
+    "n_jobs": 2,
+    "window_size_as_share": 0.33,
+    "max_homology_dimension": 1,
+    "metric": "euclidean"
+  },
+  "arima_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ar_order": 3
+  },
+  "iforest_detector": {
+    "window_length": 10,
+    "anomaly_thr": null,
+    "n_jobs": 2,
+    "contamination": 0.0005,
+    "random_state": 42
+  },
+  "conv_ae_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ucl_quantile": 0.99,
+    "n_steps_share": 0.15
+  },
+  "lstm_ae_detector": {
+    "window_length": 10,
+    "anomaly_thr": 0.9,
+    "ucl_quantile": 0.99,
+    "n_steps_share": 0.15
+  },
+  "one_class_svm": {
+    "kernel": "rbf",
+    "gamma": "auto"
   }
 }

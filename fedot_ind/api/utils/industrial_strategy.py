@@ -1,4 +1,5 @@
 import logging
+import math
 from copy import deepcopy
 
 import numpy as np
@@ -8,14 +9,16 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
+from pymonad.maybe import Maybe
 
+from fedot_ind.core.architecture.abstraction.client import use_default_fedot_client
 from fedot_ind.core.ensemble.kernel_ensemble import KernelEnsembler
 from fedot_ind.core.ensemble.random_automl_forest import RAFEnsembler
+from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.repository.constanst_repository import BATCH_SIZE_FOR_FEDOT_WORKER, FEDOT_WORKER_NUM, \
     FEDOT_WORKER_TIMEOUT_PARTITION, FEDOT_TUNING_METRICS, FEDOT_TUNER_STRATEGY, FEDOT_TS_FORECASTING_ASSUMPTIONS, \
     FEDOT_TASK
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 class IndustrialStrategy:
@@ -23,8 +26,11 @@ class IndustrialStrategy:
                  industrial_strategy_params,
                  industrial_strategy,
                  api_config,
+                 logger=None
                  ):
-        self.industrial_strategy_params = industrial_strategy_params
+        self.industrial_strategy_params = industrial_strategy_params or {}
+        self.finetune = self.industrial_strategy_params.get('finetune', False)
+        self.finetune_params = self.industrial_strategy_params.get('tuning_params', {})
         self.industrial_strategy = industrial_strategy
 
         self.industrial_strategy_fit = {
@@ -33,6 +39,7 @@ class IndustrialStrategy:
             'forecasting_assumptions': self._forecasting_strategy,
             'forecasting_exogenous': self._forecasting_exogenous_strategy,
             'lora_strategy': self._lora_strategy,
+            'sampling_strategy': self._sampling_strategy
         }
 
         self.industrial_strategy_predict = {
@@ -41,8 +48,10 @@ class IndustrialStrategy:
             'forecasting_assumptions': self._forecasting_predict,
             'forecasting_exogenous': self._forecasting_predict,
             'lora_strategy': self._lora_predict,
+            'sampling_strategy': self._sampling_predict
         }
-
+        self.sampling_algorithm = {'CUR': self.__cur_sampling,
+                                   'Random': self.__random_sampling}
         self.ensemble_strategy_dict = {'MeanEnsemble': np.mean,
                                        'MedianEnsemble': np.median,
                                        'MinEnsemble': np.min,
@@ -53,18 +62,30 @@ class IndustrialStrategy:
         self.random_label = None
         self.config_dict = api_config
         self.logger = logging.getLogger('IndustrialStrategy')
-        self.repo = IndustrialModels().setup_repository()
         self.kernel_ensembler = KernelEnsembler
         self.RAF_workers = None
         self.solver = None
+
+    def __cur_sampling(self, tensor, target, sampling_rate=0.7):
+        projection_rank = math.ceil(max(tensor.shape) * sampling_rate)
+        decomposer = CURDecomposition(rank=projection_rank)
+        sampled_tensor, sampled_target = decomposer.fit_transform(tensor, target)
+        return decomposer, sampled_tensor, sampled_target
+
+    def __random_sampling(self, tensor, target, sampling_rate=0.7):
+        projection_rank = math.ceil(max(tensor.shape) * sampling_rate)
+        tensor = tensor.squeeze()
+        selected_rows = np.random.choice(tensor.shape[0], size=projection_rank, replace=False)
+        sampled_tensor, sampled_target = tensor[selected_rows, :], target[selected_rows, :]
+        return selected_rows, sampled_tensor, sampled_target
 
     def fit(self, input_data):
         self.industrial_strategy_fit[self.industrial_strategy](input_data)
         return self.solver
 
     def predict(self, input_data, predict_mode):
-        return self.industrial_strategy_predict[self.industrial_strategy](input_data,
-                                                                          predict_mode)
+        return self.industrial_strategy_predict[self.industrial_strategy](
+            input_data, predict_mode)
 
     def _federated_strategy(self, input_data):
 
@@ -98,16 +119,39 @@ class IndustrialStrategy:
 
     def _forecasting_strategy(self, input_data):
         self.logger.info('TS forecasting algorithm was applied')
-        self.config_dict['timeout'] = round(self.config_dict['timeout'] / 3)
         self.solver = {}
-        for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
-            try:
-                self.config_dict['initial_assumption'] = init_assumption.build()
-                industrial = Fedot(**self.config_dict)
-                industrial.fit(input_data)
-                self.solver.update({model_name: industrial})
-            except Exception:
-                self.logger.info(f'Failed during fit stage - {model_name}')
+        kernel_data = {model_name: input_data for model_name in FEDOT_TS_FORECASTING_ASSUMPTIONS.keys()}
+        kernel_model = {model_name: model_impl.build() if 'build' in dir(model_impl) else model_impl(
+            {}).fit(input_data) for model_name, model_impl in FEDOT_TS_FORECASTING_ASSUMPTIONS.items()}
+        self.solver = self._finetune_loop(kernel_model, kernel_data, self.finetune_params)
+        # for model_name, init_assumption in FEDOT_TS_FORECASTING_ASSUMPTIONS.items():
+        #     self.config_dict['initial_assumption'] = init_assumption.build()
+        #     industrial = Fedot(**self.config_dict)
+        #     Maybe(
+        #         value=industrial.fit(input_data),
+        #         monoid=True).maybe(
+        #         default_value=self.logger.info(f'Failed during fit stage - {model_name}'),
+        #         extraction_function=lambda fitted_model: self.solver.update({model_name: industrial}))
+
+    def _sampling_strategy(self, input_data):
+        self.logger.info('Sampling strategy algorithm was applied')
+        self.solver = {}
+        self.sampler = {}
+        algorithm = self.industrial_strategy_params['sampling_algorithm']
+        for sampling_rate in self.industrial_strategy_params['sampling_range']:
+            decomposer, input_data.features, input_data.target = \
+                self.sampling_algorithm[algorithm](tensor=input_data.features,
+                                                   target=input_data.target,
+                                                   sampling_rate=sampling_rate)
+            input_data.idx = np.arange(len(input_data.features))
+            industrial = Fedot(**self.config_dict)
+            Maybe(
+                value=industrial.fit(input_data),
+                monoid=True).maybe(
+                default_value=self.logger.info(f'Failed during fit stage - {algorithm}'),
+                extraction_function=lambda fitted_model: self.solver.update(
+                    {f'{algorithm}_sampling_rate_{sampling_rate}': industrial}))
+            self.sampler.update({f'{algorithm}_sampling_rate_{sampling_rate}': decomposer})
 
     def _forecasting_exogenous_strategy(self, input_data):
         self.logger.info('TS exogenous forecasting algorithm was applied')
@@ -143,21 +187,15 @@ class IndustrialStrategy:
                        kernel_ensemble: dict,
                        kernel_data: dict,
                        tuning_params: dict = {}):
-        tuned_kernels = {}
+        tuned_models = {}
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
         for generator, kernel_model in kernel_ensemble.items():
-            tuned_metric = 0
-            for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-                tuning_params['tuner'] = tuner_type
-                model_to_tune = deepcopy(kernel_model)
-                pipeline_tuner, tuned_kernel_model = build_tuner(
-                    self, model_to_tune, tuning_params, kernel_data[generator], 'head')
-                if abs(pipeline_tuner.obtained_metric) > tuned_metric:
-                    tuned_metric = abs(pipeline_tuner.obtained_metric)
-                    self.solver = tuned_kernel_model
-            tuned_kernels.update({generator: self.solver})
-
-        return tuned_kernels
+            tuning_params['tuner'] = FEDOT_TUNER_STRATEGY['simultaneous']
+            model_to_tune = deepcopy(kernel_model)
+            pipeline_tuner, solver = build_tuner(
+                self, model_to_tune, tuning_params, kernel_data[generator], 'head')
+            tuned_models.update({generator: solver})
+        return tuned_models
 
     def _kernel_strategy(self, input_data):
         self.kernel_ensembler = KernelEnsembler(
@@ -165,9 +203,6 @@ class IndustrialStrategy:
         kernel_ensemble, kernel_data = self.kernel_ensembler.transform(
             input_data).predict
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
-        # tuning_params = {'metric': FEDOT_TUNING_METRICS[self.config_dict['problem']], 'tuner': OptunaTuner}
-        # self.solver
-        # self.solver = build_tuner(self, self.solver, tuning_params, input_data, 'head')
 
     def _lora_strategy(self, input_data):
         self.lora_model = PipelineBuilder().add_node(
@@ -202,11 +237,20 @@ class IndustrialStrategy:
     def _forecasting_predict(self,
                              input_data,
                              mode: str = True):
+        @use_default_fedot_client
+        def _predict_function(forecasting_model):
+            if isinstance(forecasting_model, dict):
+                predict_by_component = {
+                    model_name: model['composite_pipeline'].predict(model['train_fold_data'], mode).predict
+                    for model_name, model in forecasting_model.items()}
+                return np.sum(list(predict_by_component.values()), axis=0)
+            else:
+                return forecasting_model.predict(input_data, mode).predict
+
         labels_dict = {
-            k: v.predict(
-                features=input_data,
-                in_sample=mode) for k,
-            v in self.solver.items()}
+            forecasting_strategy: _predict_function(forecasting_model) for forecasting_strategy,
+            forecasting_model in self.solver.items()}
+
         return labels_dict
 
     def _lora_predict(self,
@@ -227,6 +271,21 @@ class IndustrialStrategy:
                 input_data,
                 mode).predict for k,
             v in self.solver.items()}
+        return labels_dict
+
+    def _sampling_predict(self,
+                          input_data,
+                          mode: str = 'labels'):
+        labels_dict = {}
+        labels_output = mode in ['labels', 'default']
+        for sampling_rate, solver in self.solver.items():
+            copy_input = deepcopy(input_data)
+            feature_space = self.sampler[sampling_rate].column_indices \
+                if self.industrial_strategy_params['sampling_algorithm'] == 'CUR' else None
+            copy_input.features = input_data.features.squeeze()[:, feature_space]
+            labels_dict.update({sampling_rate: solver.predict(copy_input, mode) if labels_output
+                                else solver.predict_proba(copy_input)})
+            del copy_input
         return labels_dict
 
     def _check_predictions(self, predictions):

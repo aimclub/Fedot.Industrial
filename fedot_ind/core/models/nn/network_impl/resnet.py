@@ -2,14 +2,14 @@ from typing import Optional
 
 import torch
 from fedot.core.operations.operation_parameters import OperationParameters
+from torch import Tensor
 from torch import nn
-from torch import optim, Tensor
+from torch import optim
 from torchvision.models import ResNet, resnet101, resnet152, resnet18, resnet34, resnet50
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 
 
 def resnet18_one_channel(**kwargs) -> ResNet:
@@ -116,14 +116,18 @@ class ResNetModel(BaseNeuralModel):
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.epochs = params.get('epochs', 25)
-        self.batch_size = params.get('batch_size', 64)
-        self.model_name = params.get('model_name', 'ResNet18')
+        self.epochs = self.params.get('epochs', 25)
+        self.batch_size = self.params.get('batch_size', 64)
+        self.model_name = self.params.get('model_name', 'ResNet18')
+
+    def __repr__(self):
+        return self.model_name
 
     def _init_model(self, ts):
-
+        loss_fn = self._get_loss_metric(ts)
+        self.model_name = f'{self.model_name}one' if self.is_regression_task else self.model_name
         self.model = ResNet(input_dim=ts.features.shape[1],
                             output_dim=self.num_classes,
                             model_name=self.model_name)
@@ -132,18 +136,12 @@ class ResNetModel(BaseNeuralModel):
                                           model_name=self.model_name).model
         self.model = self.model.model
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        if ts.task.task_type.value == 'classification':
-            if ts.num_classes == 2:
-                loss_fn = CROSS_ENTROPY()
-            else:
-                loss_fn = MULTI_CLASS_CROSS_ENTROPY()
-        else:
-            loss_fn = RMSE()
+
         return loss_fn, optimizer
 
     @convert_to_4d_torch_array
-    def _predict_model(self, x_test):
+    def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        x_test = Tensor(x_test).to(default_device())
+        x_test = Tensor(x_test).to(default_device('cpu'))
         pred = self.model(x_test)
-        return self._convert_predict(pred)
+        return self._convert_predict(pred, output_mode)

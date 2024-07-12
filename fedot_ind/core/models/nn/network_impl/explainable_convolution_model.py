@@ -268,11 +268,12 @@ class XCModel(BaseNeuralModel):
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', 100)
-        self.batch_size = params.get('batch_size', 32)
+        self.num_classes = self.params.get('num_classes', 1)
+        self.epochs = self.params.get('epochs', 100)
+        self.batch_size = self.params.get('batch_size', 32)
+        self.is_regression_task = False
 
     def _init_model(self, ts):
         self.model = XCM(input_dim=ts.features.shape[1],
@@ -280,8 +281,5 @@ class XCModel(BaseNeuralModel):
                          seq_len=ts.features.shape[2]).to(default_device())
         self.model_for_inference = self.model
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        if ts.num_classes == 2:
-            loss_fn = nn.CrossEntropyLoss()
-        else:
-            loss_fn = nn.BCEWithLogitsLoss()
+        loss_fn = self._get_loss_metric(ts)
         return loss_fn, optimizer

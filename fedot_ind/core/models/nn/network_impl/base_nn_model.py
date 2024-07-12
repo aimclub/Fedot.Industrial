@@ -1,5 +1,6 @@
 import copy
 import os
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -9,14 +10,13 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from torch import Tensor
 from torch.optim import lr_scheduler
-from typing import Optional
-
 from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_dataset, \
-    convert_to_4d_torch_array, fedot_data_type
+    convert_to_4d_torch_array
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 
 
 class BaseNeuralModel:
@@ -41,12 +41,13 @@ class BaseNeuralModel:
                 print(features)
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
-        self.num_classes = params.get('num_classes', None)
-        self.epochs = params.get('epochs', 100)
-        self.batch_size = params.get('batch_size', 16)
-        self.activation = params.get('activation', 'ReLU')
-        self.learning_rate = 0.001
+    def __init__(self, params: Optional[OperationParameters] = None):
+        self.params = params or {}
+        self.num_classes = self.params.get('num_classes', None)
+        self.epochs = self.params.get('epochs', 100)
+        self.batch_size = self.params.get('batch_size', 16)
+        self.activation = self.params.get('activation', 'ReLU')
+        self.learning_rate = self.params.get('learning_rate', 0.001)
 
         self.label_encoder = None
         self.model = None
@@ -54,13 +55,24 @@ class BaseNeuralModel:
         self.target = None
         self.task_type = None
 
+    def _get_loss_metric(self, ts: InputData):
+        if ts.task.task_type.value == 'classification':
+            loss_fn = CROSS_ENTROPY() if ts.num_classes == 2 else MULTI_CLASS_CROSS_ENTROPY()
+        elif ts.task.task_type.value == 'regression':
+            loss_fn = RMSE()
+            self.num_classes = 1
+        else:
+            loss_fn = None
+        return loss_fn
+
     def fit(self, input_data: InputData):
         self.num_classes = input_data.num_classes
         self.target = input_data.target
         self.task_type = input_data.task
-
+        self.is_regression_task = self.task_type.task_type.value == 'regression'
         self._fit_model(input_data)
         self._save_and_clear_cache()
+        return self
 
     @convert_to_4d_torch_array
     def _fit_model(self, ts: InputData, split_data: bool = True):
@@ -104,17 +116,16 @@ class BaseNeuralModel:
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
         early_stopping = EarlyStopping()
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                            steps_per_epoch=len(train_loader),
+                                            steps_per_epoch=max(1, len(train_loader)),
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
         if val_loader is None:
             print('Not enough class samples for validation')
-
         best_model = None
         best_val_loss = float('inf')
         val_interval = self.get_validation_frequency(
             self.epochs, self.learning_rate)
-
+        loss_prefix = 'RMSE' if self.is_regression_task else 'Accuracy'
         for epoch in range(1, self.epochs + 1):
             training_loss = 0.0
             valid_loss = 0.0
@@ -128,15 +139,16 @@ class BaseNeuralModel:
                 loss = loss_fn(output, targets.float())
                 loss.backward()
                 optimizer.step()
-                training_loss += loss.data.item() * inputs.size(0)
+                training_loss += loss.data.item() / inputs.size(0) if self.is_regression_task \
+                    else loss.data.item() * inputs.size(0)
                 total += targets.size(0)
-                correct += (torch.argmax(output, 1) ==
-                            torch.argmax(targets, 1)).sum().item()
+                correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item() \
+                    if not self.is_regression_task else 0
 
-            accuracy = correct / total
-            training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(
-                epoch, accuracy, training_loss))
+            training_loss = training_loss / len(train_loader.dataset) if not self.is_regression_task else training_loss
+            accuracy = correct / total if not self.is_regression_task else training_loss
+            print('Epoch: {}, {}= {}, Training Loss: {:.2f}'.format(
+                epoch, loss_prefix, accuracy, training_loss))
 
             if val_loader is not None and epoch % val_interval == 0:
                 self.model.eval()
@@ -148,10 +160,11 @@ class BaseNeuralModel:
 
                     loss = loss_fn(output, targets.float())
 
-                    valid_loss += loss.data.item() * inputs.size(0)
+                    valid_loss += loss.data.item() / inputs.size(0) if self.is_regression_task \
+                        else loss.data.item() * inputs.size(0)
                     total += targets.size(0)
-                    correct += (torch.argmax(output, 1) ==
-                                torch.argmax(targets, 1)).sum().item()
+                    correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item() \
+                        if not self.is_regression_task else 0
                 if valid_loss < best_val_loss:
                     best_val_loss = valid_loss
                     best_model = copy.deepcopy(self.model)
@@ -168,7 +181,6 @@ class BaseNeuralModel:
         if best_model is not None:
             self.model = best_model
 
-    @fedot_data_type
     def predict(
             self,
             input_data: InputData,
@@ -176,9 +188,8 @@ class BaseNeuralModel:
         """
         Method for feature generation for all series
         """
-        return self._predict_model(input_data, output_mode)
+        return self._predict_model(input_data.features, output_mode)
 
-    @fedot_data_type
     def predict_for_fit(
             self,
             input_data: InputData,
@@ -186,26 +197,21 @@ class BaseNeuralModel:
         """
         Method for feature generation for all series
         """
-        return self._predict_model(input_data, output_mode)
+        return self._predict_model(input_data.features, output_mode)
 
-    @convert_to_4d_torch_array
     def _predict_model(self, x_test, output_mode: str = 'default'):
         self.model.eval()
-        # x_test = Tensor(x_test).to(default_device('cpu'))
         x_test = Tensor(x_test).to(self._device)
         pred = self.model(x_test)
         return self._convert_predict(pred, output_mode)
 
     def _convert_predict(self, pred, output_mode: str = 'labels'):
-        pred = F.softmax(pred, dim=1)
+        have_encoder = all([self.label_encoder is not None, output_mode == 'labels'])
+        output_is_clf_labels = all([not self.is_regression_task, output_mode == 'labels'])
 
-        if output_mode == 'labels':
-            y_pred = torch.argmax(pred, dim=1).cpu().detach().numpy()
-        else:
-            y_pred = pred.cpu().detach().numpy()
-
-        if self.label_encoder is not None and output_mode == 'labels':
-            y_pred = self.label_encoder.inverse_transform(y_pred)
+        pred = pred.cpu().detach().numpy() if self.is_regression_task else F.softmax(pred, dim=1)
+        y_pred = torch.argmax(pred, dim=1).cpu().detach().numpy() if output_is_clf_labels else pred
+        y_pred = self.label_encoder.inverse_transform(y_pred) if have_encoder else y_pred
 
         predict = OutputData(
             idx=np.arange(len(y_pred)),
@@ -216,15 +222,12 @@ class BaseNeuralModel:
         return predict
 
     def _save_and_clear_cache(self):
-        prefix = f'model_{self.__repr__()}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pt'
+        prefix = f'model_{self.__repr__()}_activation_{self.activation}_epochs_{self.epochs}_bs_{self.batch_size}.pth'
         torch.save(self.model.state_dict(), prefix)
         del self.model
         with torch.no_grad():
             torch.cuda.empty_cache()
-        if self.__repr__().startswith('Res'):
-            self.model = self.model_for_inference.model.to(torch.device('cpu'))
-        else:
-            self.model = self.model_for_inference.to(torch.device('cpu'))
+        self.model = self.model_for_inference.to(torch.device('cpu'))
         self.model.load_state_dict(torch.load(
             prefix, map_location=torch.device('cpu')))
         os.remove(prefix)

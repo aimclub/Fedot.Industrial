@@ -1,5 +1,6 @@
 from functools import partial
 
+import numpy as np
 from hyperopt import hp
 
 from fedot_ind.core.repository.constanst_repository import DISTANCE_METRICS
@@ -18,14 +19,18 @@ industrial_search_space = {
          'wavelet': {'hyperopt-dist': hp.choice,
                      'sampling-scope': [['mexh', 'morl', 'db5', 'sym5']]}},
     'fourier_basis':
-        {'threshold': {'hyperopt-dist': hp.uniformint,
-                       'sampling-scope': [10000, 50000]}},
+        {'threshold': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'low_rank': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 30, 3)]]},
+         'approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [['smooth', 'exact']]},
+         'output_format': {'hyperopt-dist': hp.choice, 'sampling-scope': [['signal', 'spectrum']]}
+         },
     'topological_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
     'quantile_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
-         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
+         'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
+         'add_global_features': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'riemann_extractor':
         {'estimator': {'hyperopt-dist': hp.choice, 'sampling-scope': [['corr',
                                                                        'cov', 'lwf', 'mcd', 'hub']]},
@@ -66,11 +71,6 @@ industrial_search_space = {
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'ELU', 'SwishBeta', 'ReLU', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
-    'omniscale_model':
-        {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
-         'activation': {'hyperopt-dist': hp.choice,
-                        'sampling-scope': [
-                            ['LeakyReLU', 'ELU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
     'inception_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
          'activation': {'hyperopt-dist': hp.choice,
@@ -102,7 +102,27 @@ industrial_search_space = {
     'ssa_forecaster':
         {'window_size_method': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['hac', 'dff']]},
-         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]}, }
+         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]}},
+    'stat_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    'arima_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    'iforest_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    'conv_ae_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
+    'lstm_ae_detector':
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+         'window_length': {'hyperopt-dist': hp.choice,
+                           'sampling-scope': [list(np.arange(10, 35, 5))]}},
 }
 
 
@@ -407,7 +427,20 @@ def get_industrial_search_space(self):
             'trend': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['n', 'c', 't', 'ct']],
-                'type': 'categorical'}},
+                'type': 'categorical'},
+            'period': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[5, 7, 14, 21, 30, 365]],
+                'type': 'categorical'},
+            'seasonal': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[True, False]],
+                'type': 'categorical'},
+            'deterministic': {
+                'hyperopt-dist': hp.choice,
+                'sampling-scope': [[True, False]],
+                'type': 'categorical'}
+        },
         'ets': {
             'error': {
                 'hyperopt-dist': hp.choice,
@@ -601,19 +634,19 @@ def get_industrial_search_space(self):
         'lgbmreg': {
             'num_leaves': {
                 'hyperopt-dist': hp.uniformint,
-                'sampling-scope': [2, 256],
+                'sampling-scope': [128, 1024],
                 'type': 'discrete'},
             'learning_rate': {
                 'hyperopt-dist': hp.loguniform,
-                'sampling-scope': [0.01, 0.2],
+                'sampling-scope': [0.001, 0.1],
                 'type': 'continuous'},
             'colsample_bytree': {
                 'hyperopt-dist': hp.uniform,
-                'sampling-scope': [0.4, 1],
+                'sampling-scope': [0.1, 1],
                 'type': 'continuous'},
             'subsample': {
                 'hyperopt-dist': hp.uniform,
-                'sampling-scope': [0.4, 1],
+                'sampling-scope': [0.1, 1],
                 'type': 'continuous'},
             'reg_alpha': {
                 'hyperopt-dist': hp.loguniform,
@@ -720,12 +753,13 @@ def get_industrial_search_space(self):
     for key in industrial_search_space:
         parameters_per_operation[key] = industrial_search_space[key]
 
-    if self.custom_search_space is not None:
-        for operation in self.custom_search_space.keys():
-            if self.replace_default_search_space:
-                parameters_per_operation[operation] = self.custom_search_space[operation]
-            else:
-                for key, value in self.custom_search_space[operation].items():
-                    parameters_per_operation[operation][key] = value
+    if 'custom_search_space' in dir(self):
+        if self.custom_search_space is not None:
+            for operation in self.custom_search_space.keys():
+                if self.replace_default_search_space:
+                    parameters_per_operation[operation] = self.custom_search_space[operation]
+                else:
+                    for key, value in self.custom_search_space[operation].items():
+                        parameters_per_operation[operation][key] = value
 
     return parameters_per_operation

@@ -136,18 +136,19 @@ class PatchTSTModel(BaseNeuralModel):
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
-        self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 16)
-        self.activation = params.get('activation', 'GELU')
-        self.learning_rate = params.get('learning_rate', 0.001)
-        self.use_amp = params.get('use_amp', False)
-        self.horizon = params.get('forecast_length', None)
-        self.patch_len = params.get('patch_len', None)
-        self.output_attention = params.get('output_attention', False)
+    def __init__(self, params: Optional[OperationParameters] = None):
+        super().__init__(params)
+        self.epochs = self.params.get('epochs', 10)
+        self.batch_size = self.params.get('batch_size', 16)
+        self.activation = self.params.get('activation', 'GELU')
+        self.learning_rate = self.params.get('learning_rate', 0.001)
+        self.use_amp = self.params.get('use_amp', False)
+        self.horizon = self.params.get('forecast_length', None)
+        self.patch_len = self.params.get('patch_len', None)
+        self.output_attention = self.params.get('output_attention', False)
         self.test_patch_len = self.patch_len
         self.preprocess_to_lagged = False
-        self.forecast_mode = params.get('forecast_mode', 'out_of_sample')
+        self.forecast_mode = self.params.get('forecast_mode', 'out_of_sample')
         self.model_list = []
 
     def _init_model(self, ts):
@@ -160,8 +161,7 @@ class PatchTSTModel(BaseNeuralModel):
                          activation=self.activation).to(default_device())
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
         patch_pred_len = round(self.horizon / 4)
-        loss_fn = EXPONENTIAL_WEIGHTED_LOSS(
-            time_steps=patch_pred_len, tolerance=0.3)
+        loss_fn = EXPONENTIAL_WEIGHTED_LOSS(time_steps=patch_pred_len, tolerance=0.3)
         return model, loss_fn, optimizer
 
     def _fit_model(self, input_data: InputData, split_data: bool = True):
@@ -265,13 +265,12 @@ class PatchTSTModel(BaseNeuralModel):
                     train_loader,
                     loss_fn,
                     optimizer):
-        train_steps = len(train_loader)
+        train_steps = max(1, len(train_loader))
         early_stopping = EarlyStopping()
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
-        args = {'lradj': 'type2'}
 
         for epoch in range(self.epochs):
             iter_count = 0
@@ -299,7 +298,7 @@ class PatchTSTModel(BaseNeuralModel):
                 adjust_learning_rate(optimizer=optimizer,
                                      scheduler=scheduler,
                                      epoch=epoch + 1,
-                                     lradj=args['lradj'],
+                                     lradj='type2',
                                      printout=False,
                                      learning_rate=self.learning_rate)
                 scheduler.step()

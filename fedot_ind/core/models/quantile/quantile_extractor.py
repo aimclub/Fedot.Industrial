@@ -1,8 +1,8 @@
 from itertools import chain
+from typing import Optional
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from typing import Optional
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
@@ -40,12 +40,9 @@ class QuantileExtractor(BaseExtractor):
         super().__init__(params)
         self.window_size = params.get('window_size', 0)
         self.stride = params.get('stride', 1)
-        # self.var_threshold = 0.1
+        self.add_global_features = params.get('add_global_features', True)
         self.logging_params.update({'Wsize': self.window_size,
-                                    'Stride': self.stride,
-                                    # 'VarTh': self.var_threshold
-                                    }
-                                   )
+                                    'Stride': self.stride})
 
     def _concatenate_global_and_local_feature(
             self,
@@ -79,7 +76,7 @@ class QuantileExtractor(BaseExtractor):
         else:
             window_stat_features = self.get_statistical_features(ts)
         return self._concatenate_global_and_local_feature(
-            global_features, window_stat_features)
+            global_features, window_stat_features) if self.add_global_features else window_stat_features
 
     def generate_features_from_ts(self,
                                   ts: np.array,

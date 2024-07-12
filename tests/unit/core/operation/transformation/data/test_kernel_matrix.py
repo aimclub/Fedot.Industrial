@@ -3,7 +3,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 import pytest
 from scipy.spatial.distance import pdist
 
-from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
+from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer, colorise
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
@@ -32,15 +32,15 @@ def test_ts_to_recurrence_matrix(ts_transformer, params):
 
 def test_ts_to_3d_recurrence_matrix(ts_transformer, params):
     matrix = ts_transformer.ts_to_3d_recurrence_matrix()
-    assert matrix.shape[0] == matrix.shape[1]
-    assert matrix.shape[0] == params['time_series'].shape[0]
-    assert matrix.shape[2] == 3
+    assert matrix.shape[0] == 3
+    assert matrix.shape[1] == matrix.shape[2]
+    assert matrix.shape[1] == params['time_series'].shape[0]
 
 
 def test_colorise(ts_transformer, params):
     dist_matrix = pdist(metric=ts_transformer.rec_metric,
                         X=params['time_series'].reshape(-1, 1))
-    color_matrix = ts_transformer.colorise(dist_matrix)
+    color_matrix = colorise(dist_matrix)
     assert len(color_matrix.shape) == 1
     assert color_matrix.dtype == 'uint8'
 

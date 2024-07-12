@@ -1,11 +1,13 @@
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from fedot_ind.tools.example_utils import industrial_common_modelling_loop
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
+finetune = False
+metric_names = ('rmse', 'mae')
 if __name__ == "__main__":
     dataset_name = {'benchmark': 'M4',
-                    'dataset': 'D3257'}
-    finetune = False
+                    'dataset': 'D3257',
+                    'task_params': {'forecast_length': 14}}
     initial_assumptions = {
         'nbeats': PipelineBuilder().add_node('nbeats_model'),
         'industiral': PipelineBuilder().add_node(
@@ -22,8 +24,8 @@ if __name__ == "__main__":
                           n_jobs=2,
                           initial_assumption=initial_assumptions[assumption],
                           logging_level=20)
-        metric_names = ('r2', 'rmse', 'mae')
-        model, labels, metrics = industrial_common_modelling_loop(
-            api_config=api_config, dataset_name=dataset_name, finetune=finetune)
-        finetune = False
-        print(f'{assumption} have metrics - {metrics}')
+        result_dict = ApiTemplate(api_config=api_config,
+                                  metric_list=('f1', 'accuracy')).eval(dataset=dataset_name, finetune=finetune)
+
+        current_metric = result_dict['metrics']
+        print(f'{assumption} have metrics - {current_metric}')

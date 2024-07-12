@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fedot-ind"
-version = "0.4.2"
+version = "0.4.3"
 description = "Time series analysis framework"
 authors = ["NSS Lab <itmo.nss.team@gmail.com>"]
 license = "BSD 3-Clause"
@@ -36,8 +36,21 @@ matplotlib = "~3.8.2"
 numpy = "1.23.2"
 pytest-cov = "^5.0.0"
 sphinx-rtd-theme = "^2.0.0"
+spectrum = "^0.8.1"
 
 
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "if __debug__:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "except Exception",
+    "if verbose:",
+    "if self.verbose:",
+    "if self.print_training_progress:"
+]
 
 
 [build-system]

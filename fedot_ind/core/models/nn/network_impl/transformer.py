@@ -73,11 +73,11 @@ class TransformerModel(BaseNeuralModel):
 
        """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.num_classes = params.get('num_classes', 1)
-        self.epochs = params.get('epochs', 10)
-        self.batch_size = params.get('batch_size', 20)
+        self.num_classes = self.params.get('num_classes', 1)
+        self.epochs = self.params.get('epochs', 10)
+        self.batch_size = self.params.get('batch_size', 20)
 
     def _init_model(self, ts):
         self.model = TransformerModule(
@@ -88,5 +88,5 @@ class TransformerModel(BaseNeuralModel):
         self.model_for_inference = self.model
 
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        loss_fn = nn.CrossEntropyLoss()
+        loss_fn = self._get_loss_metric(ts)
         return loss_fn, optimizer

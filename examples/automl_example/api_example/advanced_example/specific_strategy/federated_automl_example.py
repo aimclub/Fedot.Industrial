@@ -6,6 +6,8 @@ api_config = dict(problem='classification',
                   timeout=0.1,
                   n_jobs=2,
                   industrial_strategy='federated_automl',
+                  industrial_task_params={'industrial_task': 'classification',
+                                          'data_type': 'time_series'},
                   industrial_strategy_params={},
                   logging_level=20)
 

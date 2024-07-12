@@ -4,14 +4,14 @@ from fastai.torch_core import Module
 from fastcore.meta import delegates
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from torch import nn, optim
 from torch import Tensor
+from torch import nn, optim
+
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import GAP1d
 from fedot_ind.core.models.nn.network_modules.layers.special import InceptionBlock, InceptionModule
-from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 
 
 @delegates(InceptionModule.__init__)
@@ -63,14 +63,15 @@ class InceptionTimeModel(BaseNeuralModel):
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.num_classes = params.get('num_classes', 1)
+        self.num_classes = self.params.get('num_classes', 1)
 
     def __repr__(self):
         return "InceptionNN"
 
     def _init_model(self, ts):
+        loss_fn = self._get_loss_metric(ts)
         self.model = InceptionTime(
             input_dim=ts.features.shape[1],
             output_dim=self.num_classes).to(
@@ -79,13 +80,6 @@ class InceptionTimeModel(BaseNeuralModel):
             input_dim=ts.features.shape[1], output_dim=self.num_classes)
         self._evaluate_num_of_epochs(ts)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        if ts.task.task_type.value == 'classification':
-            if ts.num_classes == 2:
-                loss_fn = CROSS_ENTROPY()
-            else:
-                loss_fn = MULTI_CLASS_CROSS_ENTROPY()
-        else:
-            loss_fn = RMSE()
         return loss_fn, optimizer
 
     def _fit_model(self, ts: InputData, split_data: bool = False):

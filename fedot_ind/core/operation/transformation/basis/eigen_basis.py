@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar
+from typing import Optional
 
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
@@ -17,11 +17,9 @@ from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
     singular_value_hard_threshold
 
-class_type = TypeVar("T", bound="DataDrivenBasis")
-
 
 class EigenBasisImplementation(BasisDecompositionImplementation):
-    """Eigen basis decomposition implementation
+    """Eigen Basis decomposition implementation
         Example:
             ts1 = np.random.rand(200)
             ts2 = np.random.rand(200)
@@ -33,14 +31,12 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.window_size = params.get('window_size', 20)
-        self.low_rank_approximation = params.get(
-            'low_rank_approximation', True)
-        self.tensor_approximation = params.get('tensor_approximation', False)
-        self.rank_regularization = params.get(
-            'rank_regularization', 'hard_thresholding')
+        self.window_size = self.params.get('window_size', 20)
+        self.low_rank_approximation = self.params.get('low_rank_approximation', True)
+        self.tensor_approximation = self.params.get('tensor_approximation', False)
+        self.rank_regularization = self.params.get('rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
-        self.explained_dispersion = []
+        self.explained_dispersion = None
         self.SV_threshold = None
         self.svd_estimator = RSVDDecomposition()
 
@@ -51,7 +47,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         number_of_dim = list(range(features.shape[1]))
         predict = []
         if self.SV_threshold is None:
-            self.SV_threshold = max(self.get_threshold(data=features), 2)
+            self.SV_threshold = self.get_threshold(data=features)
             self.logging_params.update({'SV_thr': self.SV_threshold})
 
         if len(number_of_dim) == 1:
@@ -105,6 +101,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return predict
 
     def _get_1d_basis(self, data):
+        ill_cond = self.explained_dispersion == 'ill_conditioned'
+
         def data_driven_basis(Monoid):
             return ListMonad(reconstruct_basis(Monoid[0],
                                                Monoid[1],
@@ -112,16 +110,16 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                                                ts_length=self.ts_length))
 
         def threshold(Monoid):
-            return ListMonad([Monoid[0],
-                              Monoid[1][:self.SV_threshold],
-                              Monoid[2]])
+            return ListMonad([Monoid[0], Monoid[1][:self.SV_threshold], Monoid[2]]) \
+                if not ill_cond else ListMonad([Monoid[0], self.explained_dispersion, Monoid[2]])
 
         def svd(x):
             return ListMonad(
                 self.svd_estimator.rsvd(
                     tensor=x,
                     approximation=self.low_rank_approximation,
-                    regularized_rank=self.SV_threshold))
+                    regularized_rank=self.SV_threshold,
+                    reg_type=self.rank_regularization))
 
         basis = Either.insert(data).then(svd).then(
             threshold).then(data_driven_basis).value[0]
@@ -172,8 +170,9 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return mode_func(svd_numbers)
 
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
+        window_size = round(series.shape[0] * (self.window_size / 100))
         trajectory_transformer = HankelMatrix(
-            time_series=series, window_size=self.window_size)
+            time_series=series, window_size=window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
         rank = self.estimate_singular_values(data)
@@ -192,8 +191,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                 reg_type=reg_type))
 
         basis = Either.insert(data).then(svd).value[0]
-        spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
-        rank = len(spectrum)
-        self.explained_dispersion.append(
-            [round(x / sum(spectrum) * 100) for x in spectrum])
+        if basis[1] == 'ill_conditioned':
+            self.explained_dispersion, rank = basis[1], basis[1]
+        else:
+            spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
+            rank = len(spectrum)
+            self.explained_dispersion = str(sum([round(x / sum(spectrum) * 100) for x in spectrum]))
         return rank

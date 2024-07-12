@@ -6,7 +6,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
-    sv_to_explained_variance_ratio
+    sv_to_explained_variance_ratio, eigencorr_matrix
 
 
 class RSVDDecomposition:
@@ -33,10 +33,16 @@ class RSVDDecomposition:
                                  spectrum: np.array,
                                  reg_type: str = 'hard_thresholding'):
         if reg_type == 'explained_dispersion':
-            low_rank = sv_to_explained_variance_ratio(spectrum, 3)[1]
+            explained_disperesion, low_rank = sv_to_explained_variance_ratio(spectrum, 3)
+            if explained_disperesion < 90 and low_rank < 3:
+                low_rank = 'ill_conditioned'
         elif reg_type == 'hard_thresholding':
             low_rank = len(singular_value_hard_threshold(spectrum))
-        return max(low_rank, 2)
+        else:
+            regularized_rank = _detect_knee_point(
+                values=spectrum, indices=list(range(len(spectrum))))
+            low_rank = min(len(regularized_rank), 4)
+        return low_rank
 
     def _matrix_approx_regularization(self, low_rank, Ut, block, tensor):
         if low_rank == 1:
@@ -52,9 +58,6 @@ class RSVDDecomposition:
             regularized_rank = _detect_knee_point(
                 values=fro_norms, indices=list(range(len(fro_norms))))
             regularized_rank = len(regularized_rank)
-            # deriviate_of_error = abs(np.diff(fro_norms))
-            # regularized_rank = len(
-            #     deriviate_of_error[deriviate_of_error > 1]) + 1
         return regularized_rank
 
     def rsvd(self,
@@ -83,8 +86,13 @@ class RSVDDecomposition:
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)
             if regularized_rank is not None:
                 low_rank = regularized_rank
-            # Return first n eigen components.
-            U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]
+            if low_rank == 'ill_conditioned':
+                U_ = [Ut, St, Vt]
+                V_ = eigencorr_matrix(Ut, St, Vt)
+                S_ = low_rank  # spectrum # noise
+            else:
+                # Return first n eigen components.
+                U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]
             return [U_, S_, V_]
         else:
             # First step. Initialize random matrix params.

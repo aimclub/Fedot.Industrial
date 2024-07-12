@@ -3,14 +3,15 @@ from typing import Union
 
 import pandas as pd
 from fedot.core.data.data import InputData
-from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TsForecastingParams, TaskTypesEnum
+from pymonad.either import Either
+from pymonad.list import ListMonad
 from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
+from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
 
 
 class DataCheck:
@@ -30,19 +31,35 @@ class DataCheck:
 
     def __init__(self,
                  input_data: Union[tuple, InputData] = None,
+                 task_params: dict = {},
                  task: str = None,
-                 task_params=None,
+                 fit_stage=False,
                  industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.industrial_task_params = industrial_task_params
+        self.industrial_task_params = industrial_task_params or {}
+
+        if len(self.industrial_task_params) != 0:
+            self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']]
+        else:
+            self.data_type = FEDOT_DATA_TYPE['tensor']
+
         self.input_data = input_data
         self.data_convertor = DataConverter(data=self.input_data)
+
         self.task = task
         self.task_params = task_params
-        self.task_dict = FEDOT_TASK
+        self.fit_stage = fit_stage
         self.label_encoder = None
 
-    def __check_features_and_target(self, X, y):
+    def __check_features_and_target(self, input_data, data_type):
+        if data_type == 'torchvision':
+            X, multi_features, y = input_data[0].data.cpu().detach(
+            ).numpy(), True, input_data[0].targets.cpu().detach().numpy()
+        elif self.data_convertor.is_tuple:
+            X, y = input_data[0], input_data[1]
+        else:
+            X, y = input_data.features, input_data.target
+
         multi_features, X = check_multivariate_data(X)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
 
@@ -62,6 +79,66 @@ class DataCheck:
 
         return features, multi_features, target
 
+    def _encode_target(self, data_tuple):
+        self.label_encoder = LabelEncoder()
+        data_tuple[1] = self.label_encoder.fit_transform(data_tuple[1])
+        return data_tuple[1]
+
+    def _transformation_for_ts_forecasting(self):
+        if self.data_convertor.is_numpy_matrix and any(
+                [self.data_convertor.have_one_sample, self.data_convertor.have_one_channel]):
+            features_array = self.data_convertor.convert_to_1d_array()
+        else:
+            features_array = self.data_convertor.numpy_data
+        task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
+            forecast_length=self.task_params['forecast_length']))
+        if self.fit_stage:
+            features_array = features_array
+            target = features_array
+            # features_array = features_array[:-self.task_params['forecast_length']]
+            # target = features_array[-self.task_params['forecast_length']:]
+        else:
+            features_array = features_array
+            target = features_array
+        return InputData.from_numpy_time_series(
+            features_array=features_array, target_array=target, task=task)
+
+    def _transformation_for_other_task(self, data_list):
+        encoder_condition = all([self.label_encoder is None,
+                                 self.task == 'classification',
+                                 isinstance(data_list[1][0],
+                                            np.str_)])
+        input_data = Either(
+            value=data_list,
+            monoid=[
+                data_list,
+                encoder_condition]).either(
+            left_function=lambda l: ListMonad(l),
+            right_function=ListMonad(
+                self._encode_target)).value[0]
+        idx = Either(
+            value=input_data, monoid=[
+                data_list, not self.data_convertor.is_torchvision_dataset]).either(
+            left_function=lambda l: np.arange(
+                l[0].shape[0]), right_function=lambda r: np.arange(
+                len(
+                    data_list[0])))
+
+        have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
+            left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
+            'detection_window' in self.industrial_task_params.keys(),
+            right_function=lambda r: r)
+
+        task = Either(
+            value=fedot_task(self.task), monoid=['ts_forecasting', not have_predict_horizon]).either(
+            left_function=lambda l: fedot_task(l, self.industrial_task_params['detection_window']),
+            right_function=lambda r: r)
+        return InputData(idx=idx,
+                         features=input_data[0],
+                         target=input_data[1],
+                         task=task,
+                         data_type=self.data_type)
+
     def _init_input_data(self) -> None:
         """Initializes the `input_data` attribute based on its type.
 
@@ -74,55 +151,24 @@ class DataCheck:
 
         """
         # is_multivariate_data = False
+        features, self.is_multivariate_data, target = Either(value=self.input_data,
+                                                             monoid=[self.data_convertor,
+                                                                     self.data_convertor.is_tuple]).either(
+            right_function=lambda r: ListMonad('tuple'),
+            left_function=lambda l: ListMonad('torchvision')). \
+            then(lambda data_type: self.__check_features_and_target(self.input_data, data_type))
 
-        if self.data_convertor.is_tuple:
-            if self.data_convertor.is_torchvision_dataset:
-                features, target, is_multivariate_data = self.input_data[0].data.cpu(
-                ).detach().numpy(), self.input_data[0].targets.cpu().detach().numpy(), True
-            else:
-                features, is_multivariate_data, target = self.__check_features_and_target(
-                    self.input_data[0], self.input_data[1])
-        else:
-            features, is_multivariate_data, target = self.__check_features_and_target(
-                self.input_data.features, self.input_data.target)
-
-        if np.logical_and(self.label_encoder is None,
-                          self.task == 'classification'):
-            if isinstance(target[0], np.str_):
-                self.label_encoder = LabelEncoder()
-                target = self.label_encoder.fit_transform(target)
-
-        if is_multivariate_data and not self.data_convertor.is_torchvision_dataset:
-            self.input_data = InputData(idx=np.arange(len(features)),
-                                        features=features,
-                                        target=target,
-                                        task=self.task_dict[self.task],
-                                        data_type=DataTypesEnum.image)
-        elif self.data_convertor.is_torchvision_dataset:
-            self.input_data = InputData(idx=np.arange(features.shape[0]),
-                                        features=features,
-                                        target=target,
-                                        task=self.task_dict[self.task],
-                                        data_type=DataTypesEnum.image)
-        elif self.task == 'ts_forecasting':
-            features_array = self.data_convertor.convert_to_1d_array()
-            task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
-                forecast_length=self.task_params['forecast_length']))
-            if self.industrial_task_params is None:
-                features_array = features_array[:-
-                                                self.task_params['forecast_length']]
-                target = features_array
-            self.input_data = InputData.from_numpy_time_series(
-                features_array=features_array,
-                target_array=target,
-                task=task
-            )
-        else:
-            self.input_data = InputData(idx=np.arange(len(features)),
-                                        features=features,
-                                        target=target,
-                                        task=self.task_dict[self.task],
-                                        data_type=DataTypesEnum.image)
+        self.input_data = Either(
+            value=[
+                features,
+                target],
+            monoid=[
+                [
+                    features,
+                    target],
+                self.task != 'ts_forecasting']).either(
+            left_function=lambda l: self._transformation_for_ts_forecasting(),
+            right_function=self._transformation_for_other_task)
 
     def _check_input_data_features(self):
         """Checks and preprocesses the features in the input data.
@@ -176,6 +222,7 @@ class DataCheck:
         if not self.data_convertor.is_torchvision_dataset:
             self._check_input_data_features()
             self._check_input_data_target()
+        self.input_data.supplementary_data.is_auto_preprocessed = True
         return self.input_data
 
     def get_target_encoder(self):

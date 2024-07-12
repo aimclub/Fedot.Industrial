@@ -2,22 +2,23 @@ import itertools
 from copy import deepcopy
 from itertools import chain
 from math import ceil
-from random import choice, sample
-from typing import Sequence
+from random import choice, sample, random
+from typing import Sequence, Optional
 from typing import Tuple
-from fedot.core.pipelines.node import PipelineNode
-from fedot.core.pipelines.pipeline import Pipeline
-from fedot.core.composer.gp_composer.specific_operators import boosting_mutation, parameter_change_mutation
+
+from fedot.core.composer.gp_composer.specific_operators import boosting_mutation
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.pipelines.tuning.hyperparams import ParametersChanger
 from fedot.core.repository.operation_types_repository import get_operations_for_task
 from fedot.core.repository.tasks import Task
 from fedot.core.repository.tasks import TaskTypesEnum
 from golem.core.adapter import register_native
 from golem.core.dag.graph import ReconnectType
-from golem.core.dag.graph_utils import graph_has_cycle
+from golem.core.dag.graph_node import GraphNode
+from golem.core.dag.graph_utils import graph_has_cycle, distance_to_primary_level
 from golem.core.dag.graph_utils import node_depth, nodes_from_layer
 from golem.core.dag.verification_rules import ERROR_PREFIX
 from golem.core.optimisers.advisor import RemoveType
@@ -31,14 +32,30 @@ from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
-from fedot_ind.core.repository.constanst_repository import EXCLUDED_OPERATION_MUTATION
-from fedot_ind.core.repository.model_repository import TEMPORARY_EXCLUDED, default_industrial_availiable_operation
+
+from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
+from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 
 
 class MutationStrengthEnumIndustrial(Enum):
     weak = 1.0
     mean = 3.0
     strong = 5.0
+
+
+def get_mutation_prob(mut_id: MutationStrengthEnumIndustrial, node: Optional[GraphNode],
+                      default_mutation_prob: float = 0.7) -> float:
+    """ Function returns mutation probability for certain node in the graph
+
+    :param mut_id: MutationStrengthEnum mean weak or strong mutation
+    :param node: root node of the graph
+    :param default_mutation_prob: mutation probability used when mutation_id is invalid or graph has cycles
+    :return mutation_prob: mutation probability
+    """
+    graph_cycled = True if node is None else distance_to_primary_level(node) < 0
+    correct_graph = mut_id in list(MutationStrengthEnumIndustrial) and not graph_cycled
+    mutation_prob = mut_id.value / (distance_to_primary_level(node) + 1) if correct_graph else default_mutation_prob
+    return mutation_prob
 
 
 class IndustrialMutations:
@@ -60,6 +77,32 @@ class IndustrialMutations:
 
     def transform_to_opt_node(self, node):
         return self.node_adapter._transform_to_opt_node(node)
+
+    def parameter_change_mutation(self,
+                                  pipeline: Pipeline, requirements, graph_gen_params, parameters, **kwargs) -> Pipeline:
+        """
+        This type of mutation is passed over all nodes and changes
+        hyperparameters of the operations with probability - 'node mutation probability'
+        which is initialised inside the function
+        """
+        node_mutation_probability = get_mutation_prob(mut_id=parameters.mutation_strength,
+                                                      node=pipeline.root_node)
+        for node in pipeline.nodes:
+            lagged = node.operation.metadata.id in ('lagged', 'sparse_lagged', 'exog_ts')
+            do_mutation = random() < (node_mutation_probability * (0.5 if lagged else 1))
+            if do_mutation:
+                operation_name = node.operation.operation_type
+                current_params = node.parameters
+
+                # Perform specific change for particular parameter
+                changer = ParametersChanger(operation_name, current_params)
+                try:
+                    new_params = changer.get_new_operation_params()
+                    if new_params is not None:
+                        node.parameters = new_params
+                except Exception as ex:
+                    pipeline.log.error(ex)
+        return pipeline
 
     def single_edge_mutation(self,
                              graph: OptGraph,
@@ -237,6 +280,7 @@ class IndustrialMutations:
             return graph
         node_to_del = choice(graph.nodes)
         node_name = node_to_del.name
+        node_to_del = self.transform_to_opt_node(node_to_del)
         removal_type = graph_gen_params.advisor.can_be_removed(node_to_del)
         if removal_type == RemoveType.with_direct_children:
             # TODO refactor workaround with data_source
@@ -248,7 +292,10 @@ class IndustrialMutations:
         elif removal_type == RemoveType.with_parents:
             graph.delete_subtree(node_to_del)
         elif removal_type == RemoveType.node_rewire:
-            graph.delete_node(node_to_del, reconnect=ReconnectType.all)
+            try:
+                graph.delete_node(node_to_del, reconnect=ReconnectType.all)
+            except Exception:
+                _ = 1
         elif removal_type == RemoveType.node_only:
             graph.delete_node(node_to_del, reconnect=ReconnectType.none)
         elif removal_type == RemoveType.forbidden:
@@ -291,7 +338,7 @@ class IndustrialMutations:
         else:
             pipeline = PipelineBuilder().add_sequence(
                 *lagged,
-                branch_idx=0). add_sequence(
+                branch_idx=0).add_sequence(
                 *current_operation,
                 branch_idx=1).join_branches('ridge').build()
             return pipeline
@@ -302,10 +349,10 @@ def _get_default_industrial_mutations(
         params) -> Sequence[MutationTypesEnum]:
     ind_mutations = IndustrialMutations(task_type=task_type)
     mutations = [
-        parameter_change_mutation,
+        ind_mutations.parameter_change_mutation,
         ind_mutations.single_change,
         ind_mutations.add_preprocessing,
-        # IndustrialMutations().single_drop,
+        ind_mutations.single_drop,
         ind_mutations.single_add
 
     ]
@@ -314,10 +361,6 @@ def _get_default_industrial_mutations(
         mutations.append(boosting_mutation)
         # mutations.append(ind_mutations.add_lagged)
         mutations.remove(ind_mutations.add_preprocessing)
-        mutations.remove(ind_mutations.single_add)
-    # TODO remove workaround after validation fix
-    if task_type is not TaskTypesEnum.ts_forecasting:
-        mutations.append(MutationTypesEnum.single_edge)
     return mutations
 
 
@@ -559,7 +602,7 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
         current_operation = node.operation.operation_type
         parent_nodes = node.nodes_from
         if parent_nodes:
-            if current_operation in basis_models:
+            if current_operation in basis_models and parent_nodes[0].name != 'channel_filtration':
                 raise ValueError(
                     f'{ERROR_PREFIX} Pipeline has incorrect subgraph with wrong parent nodes combination')
             # There are several parents for current node or at least 1

@@ -37,29 +37,79 @@ class DataLoader:
         self.logger = logging.getLogger('DataLoader')
         self.dataset_name = dataset_name
         self.folder = folder
-        self.forecast_data_source = {'M3': M3.load,
-                                     'M4': M4.load,
-                                     # 'M4': self.local_m4_load,
-                                     'M5': M5.load,
-                                     'monash_tsf': load_dataset
-                                     }
+        self.forecast_data_source = {
+            'M3': M3.load,
+            'M4': M4.load,
+            # 'M4': self.local_m4_load,
+            'M5': M5.load,
+            'monash_tsf': load_dataset
+        }
+        self.detection_data_source = {
+            'SKAB': self.local_skab_load
+        }
 
     def load_forecast_data(self, folder=None):
         loader = self.forecast_data_source[folder]
-        group_df, _, _ = loader(directory='data',
-                                group=f'{M4_PREFIX[self.dataset_name[0]]}')
-        # 'M3_Monthly_M10'
-        ts_df = group_df[group_df['unique_id'] == self.dataset_name]
+        dataset_name = self.dataset_name.get('dataset') if isinstance(self.dataset_name, dict) else self.dataset_name
+        group_df, _, _ = loader(directory='data', group=f'{M4_PREFIX[dataset_name[0]]}')
+        ts_df = group_df[group_df['unique_id'] == dataset_name]
         del ts_df['unique_id']
-        ts_df = ts_df.set_index(
-            'datetime') if 'datetime' in ts_df.columns else ts_df.set_index('ds')
+        ts_df = ts_df.set_index('datetime') if 'datetime' in ts_df.columns else ts_df.set_index('ds')
         return ts_df, None
+
+    def load_detection_data(self, folder=None):
+        loader = self.detection_data_source['SKAB']
+        return loader(directory=folder,
+                      group=self.dataset_name)
 
     def local_m4_load(self, directory='data', group=None):
         path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
         for result_cvs in os.listdir(path_to_result):
             if result_cvs.__contains__(group):
                 return pd.read_csv(Path(path_to_result, result_cvs))
+
+    def local_skab_load(self, directory='other', group=None):
+        path_to_result = PROJECT_PATH + \
+            f'/examples/data/detection/data/{directory}'
+        folder_dict = {'other': [i for i in range(15)],
+                       'valve1': [i for i in range(16)],
+                       'valve2': [i for i in range(4)]}
+        df = pd.read_csv(
+            Path(
+                path_to_result,
+                f'{group}.csv'),
+            index_col='datetime',
+            sep=';',
+            parse_dates=True)
+        x_train = df.iloc[:120, :-2].values
+        y_train = df.iloc[:120, -2].values
+        x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
+        return (x_train, y_train), (x_test, y_test)
+
+    def _load_benchmark_data(self, specific_strategy):
+        bench = self.dataset_name['benchmark']
+        if specific_strategy == 'anomaly_detection':
+            self.dataset_name = self.dataset_name['dataset']
+            train_data, test_data = self.load_detection_data(bench)
+        elif specific_strategy in ['ts_forecasting', 'forecasting_assumptions']:
+            train_data, test_data = self.load_forecast_data(bench)
+            target = train_data.values[-self.dataset_name['task_params']['forecast_length']:].flatten()
+            train_data = (train_data, target)
+            test_data = train_data
+        return train_data, test_data
+
+    def load_custom_data(self, specific_strategy):
+        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting',
+                                                'forecasting_assumptions']
+        dict_dataset = isinstance(self.dataset_name, dict)
+        if dict_dataset and 'train_data' in self.dataset_name.keys():
+            return self.dataset_name['train_data'], self.dataset_name['test_data']
+        elif custom_strategy:
+            train_data, test_data = self._load_benchmark_data(specific_strategy)
+        else:
+            train_data, test_data = None, None
+
+        return train_data, test_data
 
     def load_data(self, shuffle=True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.

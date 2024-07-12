@@ -1,5 +1,6 @@
 import math
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from tqdm import tqdm
 
+from fedot_ind.core.operation.transformation.data.kernel_matrix import colorise
 from fedot_ind.tools.explain.distances import DistanceTypes
 
 
@@ -18,6 +20,45 @@ class Explainer:
 
     def explain(self, **kwargs):
         pass
+
+    @staticmethod
+    def predict_proba(model, features, target):
+        if hasattr(model, 'solver'):
+            model.solver.test_features = None
+            base_proba_ = model.predict_proba(predict_data=(features, target))
+        else:
+            base_proba_ = model.predict_proba(X=features)
+        return base_proba_
+
+
+class RecurrenceExplainer(Explainer):
+    def __init__(self, model, features, target):
+        super().__init__(model, features, target)
+        self.rec_matrix_by_cls = {}
+        self.aggregate_func = {'mean': np.mean,
+                               'sum': np.sum}
+
+    def _get_recurrence_matrix(self):
+        recurrence_extractor = [node.fitted_operation for node in self.model.solver.current_pipeline.nodes if
+                                node.name.__contains__('recurrence_extractor')][0]
+        return recurrence_extractor
+
+    def explain(self, **kwargs):
+        recurrence_extractor = self._get_recurrence_matrix()
+        rec_matrix = recurrence_extractor.predict
+        for classes in np.unique(self.target):
+            cls_idx = np.where(self.target == classes)[0]
+            self.rec_matrix_by_cls.update({classes: rec_matrix[cls_idx, :, :, :]})
+
+    def visual(self, metric: str = 'mean', name: str = 'test', threshold: float = None):
+        matplotlib.use('TkAgg')
+        for classes, rec_matrix in self.rec_matrix_by_cls.items():
+            aggregated_rec_matrix = self.aggregate_func[metric](rec_matrix, axis=0)
+            aggregated_rec_matrix = colorise(aggregated_rec_matrix)
+            plt.imshow(aggregated_rec_matrix.T)
+            plt.colorbar()
+            plt.savefig(f'recurrence_matrix_for_{name}_dataset_cls_{classes}.png')
+            plt.close()
 
     @staticmethod
     def predict_proba(model, features, target):
@@ -48,7 +89,7 @@ class PointExplainer(Explainer):
         self.scaled_vector, self.window_length = self.importance(window=window,
                                                                  method=method)
 
-    def visual(self, threshold: int = 90, name='dataset'):
+    def visual(self, threshold: int = 90, name='dataset', metric: str = None):
         self.plot_importance(thr=threshold, name=name)
 
     def importance(self, window=None, method='euclidean'):
@@ -189,7 +230,8 @@ class PointExplainer(Explainer):
                 for span_idx, dot in enumerate(copy_vec):
                     left = span_idx * window
                     right = span_idx * window + window if span_idx * window + \
-                        window < len(feature.iloc[idx, :]) else len(feature.iloc[idx, :])
+                        window < len(feature.iloc[idx, :]) else len(
+                            feature.iloc[idx, :])
                     axs[idx].axvspan(left, right, color=cmap(norm(dot)))
                     top = axs[idx].get_ylim()[1]
                     axs[idx].text(
@@ -198,7 +240,7 @@ class PointExplainer(Explainer):
 
             mean_value = feature.iloc[idx, :].mean()
             axs[idx].plot([0, len(feature.iloc[idx, :])], [
-                          mean_value, mean_value], color='black', linestyle='--', label='mean')
+                mean_value, mean_value], color='black', linestyle='--', label='mean')
             class_indexes = np.where(target == cls)[0]
             for class_idx in class_indexes:
                 axs[idx].plot(feature.iloc[class_idx, :],

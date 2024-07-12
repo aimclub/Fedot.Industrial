@@ -1,41 +1,73 @@
 from typing import Tuple
 
+from numpy import linalg as LA
+from sklearn import preprocessing
+from sklearn.random_projection import johnson_lindenstrauss_min_dim
+
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class CURDecomposition:
-    def __init__(self, rank):
+    def __init__(self, rank,
+                 return_samples: bool = True):
         self.selection_rank = None
-        self.rank = rank
+        self.return_samples = return_samples
+        if not self.return_samples:
+            self.rank = min(20000, rank)
+        else:
+            self.rank = rank
         self.column_indices = None
         self.row_indices = None
+        self.column_space = 'Full'
 
-    def _get_selection_rank(self, rank, matrix):
+    @staticmethod
+    def _get_selection_rank(matrix):
         """
         Compute the selection rank for the CUR decomposition. It must be at least 4 times the rank of the matrix but not
         greater than the number of rows or columns of the matrix.
 
         Args:
-            rank: the rank of the matrix.
             matrix: the matrix to decompose.
 
         Returns:
             the selection rank
         """
+        tol = [0.5, 0.1, 0.05]
+        n_samples = max(matrix.shape)
+        min_num_samples = johnson_lindenstrauss_min_dim(n_samples, eps=tol).tolist()
+        return max([x if x < n_samples else n_samples for x in min_num_samples])
 
-        return min(4 * rank, min(matrix.shape))
+    def get_aproximation_error(self, original_tensor, cur_matrices: tuple):
+        C, U, R = cur_matrices
+        return np.linalg.norm(original_tensor - C @ U @ R)
 
-    def fit_transform(self, matrix: np.ndarray) -> tuple:
-        self.selection_rank = self._get_selection_rank(self.rank, matrix)
+    def _balance_target(self, target):
+        classes = np.unique(target)
+        self.classes_idx = [np.where(target == cls)[0] for cls in classes]
 
-        array = np.array(matrix.copy())
+    def fit_transform(self, feature_tensor: np.ndarray,
+                      target: np.ndarray = None) -> tuple:
+        feature_tensor = feature_tensor.squeeze()
+        # transformer = random_projection.SparseRandomProjection().fit_transform(target)
+        self.selection_rank = self._get_selection_rank(feature_tensor)
+        self._balance_target(target)
+        # create sub matrices for CUR-decompostion
+        array = np.array(feature_tensor.copy())
         c, w, r = self.select_rows_cols(array)
-
-        X, Sigma, y_T = np.linalg.svd(w)
-        Sigma_plus = np.linalg.pinv(np.diag(Sigma))
-
-        u = y_T.T @ Sigma_plus @ Sigma_plus @ X.T
-        return c, u, r
+        if self.return_samples:
+            sampled_tensor = feature_tensor[:, self.column_indices]
+            sampled_tensor = sampled_tensor[self.row_indices, :]
+        else:
+            # evaluate pseudoinverse for W - U^-1
+            X, Sigma, y_T = np.linalg.svd(w, full_matrices=False)
+            Sigma_plus = np.linalg.pinv(np.diag(Sigma))
+            # aprox U using pseudoinverse
+            u = y_T.T @ Sigma_plus @ Sigma_plus @ X.T
+            sampled_tensor = (c, u, r)
+            self.get_aproximation_error(feature_tensor, sampled_tensor)
+        if target is not None:
+            target = target[self.row_indices]
+        return sampled_tensor, target
 
     def reconstruct_basis(self, C, U, R, ts_length):
         # if len(U.shape) > 1:
@@ -54,33 +86,35 @@ class CURDecomposition:
 
     def select_rows_cols(
             self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-
-        col_norms = np.sum(matrix ** 2, axis=0)
-        row_norms = np.sum(matrix ** 2, axis=1)
-
-        matrix_norm = np.sum(np.power(matrix, 2))
+        # Evaluate norms for columns and rows
+        matrix = preprocessing.MinMaxScaler().fit_transform(np.nan_to_num(matrix))
+        col_norms, row_norms = np.nan_to_num(LA.norm(matrix, axis=0)), np.nan_to_num(LA.norm(matrix, axis=1))
+        matrix_norm = LA.norm(matrix, 'fro')  # np.sum(np.power(matrix, 2))
 
         # Compute the probabilities for selecting columns and rows
-        col_probs = col_norms / matrix_norm
-        row_probs = row_norms / matrix_norm
+        col_probs, row_probs = col_norms / matrix_norm, row_norms / matrix_norm
 
-        # Select k columns and rows based on the probabilities p and q
-        # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
-        # selected_rows = np.random.choice(matrix.shape[0], size=self.rank, replace=False, p=row_probs)
-        #
-        selected_cols = np.sort(np.argsort(col_probs)[-self.selection_rank:])
-        selected_rows = np.sort(np.argsort(row_probs)[-self.selection_rank:])
-        # selected_cols = np.argsort(col_probs)[-self.rank:]
-        # selected_rows = np.argsort(row_probs)[-self.rank:]
+        is_matrix_tall = self.selection_rank > matrix.shape[1]
+        col_rank = self.selection_rank if not is_matrix_tall or self.column_space == 'Full' \
+            else len([prob for prob in col_probs if prob > 0.01])
+        row_rank = round(self.selection_rank / len(self.classes_idx)) if is_matrix_tall else col_rank
+
+        self.column_indices = np.sort(np.argsort(col_probs)[-col_rank:])
+        self.row_indices = np.concatenate([np.sort(np.argsort(row_probs[cls_idx])[-row_rank:])
+                                           for cls_idx in self.classes_idx])
 
         row_scale_factors = 1 / \
-            np.sqrt(self.selection_rank * row_probs[selected_rows])
+            np.sqrt(self.selection_rank * row_probs[self.row_indices])
         col_scale_factors = 1 / \
-            np.sqrt(self.selection_rank * col_probs[selected_cols])
+            np.sqrt(self.selection_rank * col_probs[self.column_indices])
 
-        C_matrix = matrix[:, selected_cols] * col_scale_factors
-        R_matrix = matrix[selected_rows, :] * row_scale_factors[:, np.newaxis]
-        W_matrix = matrix[selected_rows, :][:, selected_cols]
+        C_matrix = matrix[:, self.column_indices] * col_scale_factors
+        R_matrix = matrix[self.row_indices, :] * row_scale_factors[:, np.newaxis]
+        W_matrix = matrix[self.row_indices, :][:, self.column_indices]
+        # Select k columns and rows based on the probabilities p and q
+        # row_probs = preprocessing.Normalizer(norm='l1').fit_transform(row_probs.reshape(1, -1)).flatten()
+        # selected_cols = np.random.choice(matrix.shape[1], size=self.rank, replace=False, p=col_probs)
+        # selected_rows = np.random.choice(matrix.shape[0], size=row_rank, replace=False, p=row_probs)
         return C_matrix, W_matrix, R_matrix
 
     @staticmethod
@@ -141,24 +175,6 @@ if __name__ == '__main__':
 
     # plt.plot(init_ts, label='init_ts')
     # plt.plot(scaler.inverse_transform(rec_ts.reshape(-1, 1)), label='rec_ts')
-    # plt.legend()
-    # plt.show()
-    _ = 1
-
-    # ranks = list(range(5, 20))
-    # cur_errors = []
-    # with tqdm(total=len(ranks), desc='cur') as pbar:
-    #     for rank in ranks:
-    #         cur = CURDecomposition(rank=rank)
-    #         C, U, R = cur.fit_transform(M)
-    #         cur_errors.append(np.linalg.norm(M - C @ U @ R))
-    #         pbar.update(1)
-
-    # f,a = plt.subplots(2, 1, figsize=(10, 10))
-    # # a[0].plot(ranks, svd_errors, label='svd')
-    # a[1].plot(ranks, cur_errors, label='cur')
-    # a[0].set_title('svd')
-    # a[1].set_title('cur')
     # plt.legend()
     # plt.show()
     _ = 1
