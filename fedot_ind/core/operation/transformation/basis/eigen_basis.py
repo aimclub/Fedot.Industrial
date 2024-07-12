@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar
+from typing import Optional
 
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData

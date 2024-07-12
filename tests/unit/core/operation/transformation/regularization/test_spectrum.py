@@ -52,8 +52,8 @@ def test_reconstruct_basis(matrix_from_ts):
 
 
 @pytest.mark.parametrize('tensor, n_components', (
-        (np.array([[1, 2, 2], [1, 3, 4], [3, 5, 6], [1, 4, 7]]), 2),
-        (np.array([[1, 2, 2], [1, 3, 4], [3, 5, 6], [1, 4, 7]]), None),
+    (np.array([[1, 2, 2], [1, 3, 4], [3, 5, 6], [1, 4, 7]]), 2),
+    (np.array([[1, 2, 2], [1, 3, 4], [3, 5, 6], [1, 4, 7]]), None),
 ))
 def test_eigencorr_matrix(tensor, n_components):
     Ut, St, Vt = np.linalg.svd(tensor, full_matrices=False)

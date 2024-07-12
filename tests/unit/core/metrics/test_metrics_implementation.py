@@ -9,8 +9,8 @@ from fedot_ind.core.metrics.metrics_implementation import ParetoMetrics
 
 
 @pytest.mark.parametrize('basic_multiopt_metric, maximise', (
-        (np.array([[1.0, 0.7], [0.9, 0.8], [0.1, 0.3]]), True),
-        (np.array([[1.0, 0.7], [0.9, 0.8], [0.1, 0.3]]), False),
+    (np.array([[1.0, 0.7], [0.9, 0.8], [0.1, 0.3]]), True),
+    (np.array([[1.0, 0.7], [0.9, 0.8], [0.1, 0.3]]), False),
 ))
 def test_pareto_metric(basic_multiopt_metric, maximise):
     pareto_front = ParetoMetrics().pareto_metric_list(costs=basic_multiopt_metric,
