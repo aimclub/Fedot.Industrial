@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
-    singular_value_hard_threshold, sv_to_explained_variance_ratio
+    singular_value_hard_threshold, sv_to_explained_variance_ratio, transform_eigen_to_ts, eigencorr_matrix
 from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
@@ -49,3 +49,27 @@ def test_reconstruct_basis(matrix_from_ts):
                                             ts_length=299)
     assert isinstance(reconstructed_basis, np.ndarray)
     assert reconstructed_basis.shape == (299, 30)
+
+
+@pytest.mark.parametrize('tensor, n_components', (
+    (np.array([[1, 2, 2], [1, 3, 4], [3, 5, 6], [1, 4, 7]]), 2),
+    (np.array([[1, 2, 2], [1, 3, 4], [3, 5, 6], [1, 4, 7]]), None),
+))
+def test_eigencorr_matrix(tensor, n_components):
+    Ut, St, Vt = np.linalg.svd(tensor, full_matrices=False)
+    corellated_components = eigencorr_matrix(U=Ut, S=St, V=Vt, n_components=n_components)
+    assert isinstance(corellated_components, dict)
+    print(corellated_components)
+
+
+@pytest.mark.parametrize(
+    'input_matrix, expected_output', [
+        (np.array([[1, 2], [3, 4]]), [1.0, 2.5, 4.0]),
+        (np.array([[5, 6], [7, 8]]), [5.0, 6.5, 8.0]),
+        (np.array([[1, 0], [0, 1]]), [1.0, 0.0, 1.0]),
+        (np.array([[0, 1, 2], [1, 2, 3], [2, 3, 4]]), [0.0, 1.0, 2.0, 3, 4.0]),
+    ]
+)
+def test_transform_eigen_to_ts(input_matrix, expected_output):
+    result = transform_eigen_to_ts(input_matrix)
+    assert result == expected_output
