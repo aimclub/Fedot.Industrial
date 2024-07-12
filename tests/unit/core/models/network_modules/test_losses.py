@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from fedot_ind.core.models.nn.network_modules.losses import lambda_prepare, ExpWeightedLoss, HuberLoss, LogCoshLoss, MaskedLossWrapper, CenterLoss, FocalLoss, TweedieLoss, SMAPELoss, RMSELoss
+from fedot_ind.core.models.nn.network_modules.losses import lambda_prepare, ExpWeightedLoss, HuberLoss, \
+    LogCoshLoss, MaskedLossWrapper, CenterLoss, FocalLoss, TweedieLoss, SMAPELoss, RMSELoss
 
 
 def test_lambda_prepare_int():
