@@ -124,7 +124,7 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         predictions = self._predict(X, training)[0]
         prediction_points = predictions.shape[0]
         accuracies = (predictions == np.tile(y, (prediction_points, 1))).sum(axis=1) / len(y)
-        return (1 + accuracy_importance) * accuracies * self.earliness[:prediction_points] / (accuracy_importance * accuracies + self.earliness[:prediction_points])
+        return (1 - accuracy_importance) * self.earliness[:prediction_points] + accuracy_importance * accuracies
 
     def _get_applicable_index(self, last_available_idx):
         idx = np.searchsorted(self.prediction_idx, last_available_idx, side='right')

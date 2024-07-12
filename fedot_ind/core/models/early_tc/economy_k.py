@@ -65,7 +65,7 @@ class EconomyK(BaseETC):
                 np.sum(self.state[i:], axis=-1), axes=(0, 2, 1)
             ) * self._pyck_[None, ...], axis=1)
         costs = cluster_probas @ s_glob.T # n_inst x time_left
-        costs += self.earliness[None, i:] * (1 - self.accuracy_importance) # subtract or add ?
+        costs -= self.earliness[None, i:] * (1 - self.accuracy_importance) # subtract or add ?
         return costs
 
     def _get_prediction_time(self, X, cluster_centroids, i):
@@ -82,8 +82,11 @@ class EconomyK(BaseETC):
 
     def _transform_score(self, time):
         idx = self._estimator_for_predict[-1]
-        scores = -(1 - (time - self.prediction_idx[idx]) / self.prediction_idx[-1]) 
-        scores[scores == 0] = 1 # no posibility for lininterp when sure
+        scores = (1 - (time - self.prediction_idx[idx]) / self.prediction_idx[-1])  # [1 / n; 1 ] - 1 / n) * n /(n - 1) * 2 - 1
+        n = self.n_pred
+        scores -= 1 / n
+        scores *= n / (n - 1) * 2
+        scores -= 1
         return scores
 
 

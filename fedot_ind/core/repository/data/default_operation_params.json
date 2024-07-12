@@ -143,12 +143,12 @@
   "teaser": {
     "interval_percentage": 10,
     "consecutive_predictions": 3,
-    "accuracy_importance": 2
+    "accuracy_importance": 0.5
   },
   "proba_threshold_etc": {
     "interval_percentage": 10,
     "consecutive_predictions": 3,
-    "accuracy_importance": 2
+    "accuracy_importance": 0.5
   },
   "dt": {
     "max_depth": 5,
