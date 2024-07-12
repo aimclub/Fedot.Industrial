@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from fedot_ind.core.metrics.anomaly_detection.function import filter_detecting_boundaries, check_errors, \
-    confusion_matrix, my_scale
+    confusion_matrix
 from fedot_ind.core.metrics.metrics_implementation import ParetoMetrics
 
 
