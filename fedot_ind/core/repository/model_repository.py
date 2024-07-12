@@ -44,8 +44,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
-from fedot_ind.core.models.early_tc.teaser import TEASER
+from fedot_ind.core.models.early_tc.ecec import ECEC
+from fedot_ind.core.models.early_tc.economy_k import EconomyK
 from fedot_ind.core.models.early_tc.prob_threshold import ProbabilityThresholdClassifier
+from fedot_ind.core.models.early_tc.teaser import TEASER
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
@@ -137,8 +139,10 @@ class AtomizedModel(Enum):
         # external models
         'lgbm': LGBMClassifier,
         # Early classification
+        'ecec': ECEC,
+        'economy_k': EconomyK,
+        'proba_threshold_etc': ProbabilityThresholdClassifier,
         'teaser': TEASER,
-        'proba_threshold_etc': ProbabilityThresholdClassifier
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization

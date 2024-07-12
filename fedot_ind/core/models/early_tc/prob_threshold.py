@@ -16,20 +16,10 @@ class ProbabilityThresholdClassifier(BaseETC):
             self.probability_threshold = 1 / len(self.classes_[0])
     
     def predict_proba(self, X):
-        _, predicted_probas, non_acceptance = self._predict(X)
+        _, predicted_probas, non_acceptance = self._predict(X, training=False)
         predicted_probas[non_acceptance] = 0
         scores = predicted_probas.max(-1)
-        if self.transform_score:
-            scores = self._transform_score(scores)
-        return self._remove_first_1d(predicted_probas, scores)
-        
-    def predict(self, X):
-        predicted_labels, predicted_probas, non_acceptance = self._predict(X, training=False)
-        predicted_labels[non_acceptance] = -1
-        scores = predicted_probas.max(-1)
-        if self.transform_score:
-            scores = self._transform_score(scores)
-        return self._remove_first_1d(predicted_labels, scores) # (prediction_points x) n_instances
+        return super().predict_proba(predicted_probas, scores)
 
     def _predict(self, X, training=True):
         predicted_probas, predicted_labels = super()._predict(X, training)

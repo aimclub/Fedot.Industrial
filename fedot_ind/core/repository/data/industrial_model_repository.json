@@ -623,7 +623,25 @@
         "non_linear"
       ]
     },
-    "teaser": {
+    "ecec": {
+      "meta": "sklearn_class",
+      "tags": [
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "economy_k": {
+      "meta": "sklearn_class",
+      "tags": [
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "proba_threshold_etc": {
       "meta": "sklearn_class",
       "tags": [
         "simple",
@@ -633,7 +651,7 @@
       ],
 	  "input_type": "[DataTypesEnum.table]"
     },
-    "proba_threshold_etc": {
+    "teaser": {
       "meta": "sklearn_class",
       "tags": [
         "simple",

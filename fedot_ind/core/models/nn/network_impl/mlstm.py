@@ -1,23 +1,20 @@
+import copy
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from typing import Optional, Callable, Any, List, Union
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.data.data import InputData, OutputData
 from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
 import torch.optim as optim
-from torch.optim import lr_scheduler
+import torch.optim.lr_scheduler as lr_scheduler
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from tqdm import tqdm 
+from tqdm import tqdm
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array, fedot_data_type
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 import pandas as pd
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 import torch.utils.data as data
-from fedot_ind.core.architecture.settings.computational import default_device
 
 class SqueezeExciteBlock(nn.Module):
         def __init__(self, input_channels, filters, reduce=4):
@@ -46,20 +43,22 @@ class MLSTM_module(nn.Module):
         self.proj = nn.Linear(input_size * inner_channels + input_channels * inner_size, output_size)
         self.lstm = nn.LSTM(input_size, inner_size, num_layers,
                              batch_first=True, dropout=dropout)
+        
+        squeeze_excite_size = input_size #if not interval else interval
         self.conv_branch = nn.Sequential(
             nn.Conv1d(input_channels, inner_channels,
                       padding='same',
                       kernel_size=9), 
             nn.BatchNorm1d(inner_channels),
             nn.ReLU(),
-            SqueezeExciteBlock(input_size, inner_channels),
+            SqueezeExciteBlock(squeeze_excite_size, inner_channels),
             nn.Conv1d(inner_channels, inner_channels * 2,
                       padding='same',
                       kernel_size=5,
                       ), # c x l | n x c x l
             nn.BatchNorm1d(inner_channels * 2), # n x c | n x c x l
             nn.ReLU(),
-            SqueezeExciteBlock(input_size, inner_channels * 2),
+            SqueezeExciteBlock(squeeze_excite_size, inner_channels * 2),
             nn.Conv1d(inner_channels * 2, inner_channels,
                       padding='same',
                       kernel_size=3,
@@ -72,103 +71,197 @@ class MLSTM_module(nn.Module):
         for i in idx:
             torch.nn.init.kaiming_uniform_(seq[i].weight.data)
 
-    def forward(self, x, hidden_state=None, return_hidden_state=False):
-        # hidden_state = hidden_state or self.hidden_state
-        if not self.training:
-            print(x.shape)
+    def forward(self, x, hidden_state=None, return_hidden=False):
         x_lstm, hidden_state = self.lstm(x, hidden_state) # n x input_ch x inner_size
         x_conv = self.conv_branch(x) # n x inner_ch x len
         x = torch.cat([torch.flatten(x_lstm, start_dim=1), torch.flatten(x_conv, start_dim=1)], dim=-1)
         x = F.softmax(self.proj(x))
-        # self.hidden_state = hidden_state
-        if return_hidden_state:
+        if return_hidden:
             return x, hidden_state
-        return x#, hidden_state
-    
+        return x
+
 
 class MLSTM(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = None):
         if params is None:
             params = {}    
         super().__init__()
-        # self.num_classes = params.get('num_classes', None)
-        # self.epochs = params.get('epochs', 100)
-        # self.batch_size = params.get('batch_size', 16)
-        # self.activation = params.get('activation', 'ReLU')
-        # self.learning_rate = 0.001
-
         self.dropout = params.get('dropout', 0.25)
         self.hidden_size = params.get('hidden_size', 64)
         self.hidden_channels = params.get('hidden_channels', 32)
         self.num_layers = params.get('num_layers', 2)
         self.interval_percentage = params.get('interval_percentage', 10)
         self.min_ts_length = params.get('min_ts_length', 5)
-
+        self.fitting_mode = params.get('fitting_mode', 'zero_padding')
+        self.proba_thr = params.get('proba_thr', None)
+    
     def __repr__(self):
         return 'MLSTM'
     
-    @convert_to_3d_torch_array
-    def _predict_model(self, ts: InputData, output_mode='default'):
-        self.model.eval()
-        x_test = torch.Tensor(ts).to(self._device)
-        pred = self.model(x_test)
-        return self._convert_predict(pred, output_mode)
-
     def _compute_prediction_points(self, n_idx):
         interval_length = max(int(n_idx * self.interval_percentage / 100), self.min_ts_length)
-        prediction_idx = np.arange(0, n_idx, interval_length)
+        prediction_idx = np.arange(interval_length - 1, n_idx, interval_length)
         self.earliness = 1 - prediction_idx / n_idx # /n_idx because else the last hm score is always 0
-        return prediction_idx
+        return prediction_idx, interval_length
 
     def _init_model(self, ts: InputData):
-        *_, input_channels, input_size = ts.features.shape
-        self.prediction_idx = self._compute_prediction_points(input_size)
-        self.model = MLSTM_module(input_size, input_channels,
+        _, input_channels, input_size = ts.features.shape
+        self.input_size = input_size
+        self.prediction_idx, self.interval = self._compute_prediction_points(input_size)
+        self.model = MLSTM_module(input_size if self.fitting_mode != 'moving_window' else self.interval, 
+                                  input_channels,
                                   self.hidden_size, self.hidden_channels,
                                   self.num_classes, self.num_layers,
                                   self.dropout)
-        self.model_for_inference = MLSTM_module(input_size, input_channels,
+        self.model_for_inference = MLSTM_module(input_size if self.fitting_mode != 'moving_window' else self.interval,  
+                                  input_channels,
                                   self.hidden_size, self.hidden_channels,
                                   self.num_classes, self.num_layers,
                                   self.dropout)
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        if ts.num_classes == 2:
-            loss_fn = CROSS_ENTROPY()
-        else:
-            loss_fn = CROSS_ENTROPY()
+        loss_fn = CROSS_ENTROPY()
         return loss_fn, optimizer
     
-    # @convert_to_3d_torch_array
-    # def predict(self, ts: InputData, output_mode: str = 'default'):
-    #     return super().predict(ts, output_mode)
-    
-    # def predict_for_fit(self, ts: InputData, output_mode: str = 'default'):
-    #     return super().predict_for_fit(ts, output_mode)
-    
     @convert_to_3d_torch_array
-    def _fit_model(self, ts: InputData, mode='zero_padding'):
-        self.epochs = 1 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+    def _fit_model(self, ts: InputData):
+        mode = self.fitting_mode
         loss_fn, optimizer = self._init_model(ts)
+        train_loader, val_loader = self._prepare_data(ts, split_data=True,
+                                                      collate_fn=getattr(self, '_augment_with_zeros'))
+        if mode == 'zero_padding':
+            super()._train_loop(
+                train_loader=train_loader,
+                val_loader=val_loader,
+                loss_fn=loss_fn,
+                optimizer=optimizer
+            )
+        elif mode == 'moving_window':
+            self._train_loop(
+                train_loader=train_loader,
+                val_loader=None,
+                loss_fn=loss_fn,
+                optimizer=optimizer
+            )
+        else:
+            raise ValueError('Unknown fitting mode')
+        
+    def _moving_window_output(self, inputs):
+        hidden_state = None
+        output = -torch.ones((inputs.shape[0], self.num_classes))
+        for i in self.prediction_idx:
+            if i >= inputs.shape[-1]:
+                break
+            batch_interval = inputs[..., i - self.prediction_idx[0] : i + 1]
+            output, hidden_state = self.model(batch_interval, hidden_state, return_hidden=True)
+        return output
 
-        train_loader, val_loader = self._prepare_data(ts, split_data=False, 
-                                                      collate_fn=getattr(self, '_augment_zero_padding'))
-        self._train_loop(
-            train_loader=train_loader,
-            val_loader=val_loader,
-            loss_fn=loss_fn,
-            optimizer=optimizer,
-        )
+    def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
+        early_stopping = EarlyStopping()
+        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
+                                            steps_per_epoch=len(train_loader),
+                                            epochs=self.epochs,
+                                            max_lr=self.learning_rate)
+        if val_loader is None:
+            print('Not enough class samples for validation')
 
-    def _augment_zero_padding(self, batch,):
-        prediction_idx = self.prediction_idx
-        x, y = zip(*batch)
-        X, y = torch.stack(x), torch.stack(y)
-        y = np.tile(y, (len(prediction_idx), 1))
-        res = []
-        for i in prediction_idx:
-            zeroed_X = X[...]
-            zeroed_X[..., i + 1:] = 0
-            res.append(zeroed_X)
-        res = np.concatenate(res, 0)
-        perm = np.random.permutation(res.shape[0])
-        return torch.tensor(res[perm, ...]), torch.tensor(y[perm])
+        best_model = None
+        best_val_loss = float('inf')
+        val_interval = self.get_validation_frequency(
+            self.epochs, self.learning_rate)
+
+        for epoch in range(1, self.epochs + 1):
+            training_loss = 0.0
+            valid_loss = 0.0
+            self.model.train()
+            total = 0
+            correct = 0
+            for batch in tqdm(train_loader):
+                optimizer.zero_grad()
+                inputs, targets = batch
+                output = self._moving_window_output(inputs)
+                loss = loss_fn(output, targets.float())
+                loss.backward()
+                optimizer.step()
+                training_loss += loss.data.item() * inputs.size(0)
+                total += targets.size(0)
+                correct += (torch.argmax(output, 1) ==
+                            torch.argmax(targets, 1)).sum().item()
+
+            accuracy = correct / total
+            training_loss /= len(train_loader.dataset)
+            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(
+                epoch, accuracy, training_loss))
+
+            if val_loader is not None and epoch % val_interval == 0:
+                self.model.eval()
+                total = 0
+                correct = 0
+                for batch in val_loader:
+                    inputs, targets = batch
+                        
+                    output = self.model(inputs)
+
+                    loss = loss_fn(output, targets.float())
+
+                    valid_loss += loss.data.item() * inputs.size(0)
+                    total += targets.size(0)
+                    correct += (torch.argmax(output, 1) ==
+                                torch.argmax(targets, 1)).sum().item()
+                if valid_loss < best_val_loss:
+                    best_val_loss = valid_loss
+                    best_model = copy.deepcopy(self.model)
+
+            early_stopping(training_loss, self.model, './')
+            adjust_learning_rate(optimizer, scheduler,
+                                 epoch + 1, self.learning_rate, printout=False)
+            scheduler.step()
+
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+
+        if best_model is not None:
+            self.model = best_model
+
+    @convert_to_3d_torch_array
+    def _predict_model(self, x_test: InputData, output_mode: str = 'default'):
+        self.model.eval()
+        if self.fitting_mode == 'zero_padding':
+            x_test = self._padding(x_test).to(self._device)
+            pred = self.model(x_test)
+        elif self.fitting_mode == 'moving_window':
+            pred = self._moving_window_output(torch.tensor(x_test).float())
+        else:
+            raise ValueError('Unknown prediction mode')
+        return self._convert_predict(pred, output_mode)
+    
+    def _padding(self, ts: np.array):
+        if ts.shape[-1] == self.input_size:
+            return torch.tensor(ts).float()
+        n, ch, size = ts.shape
+        x = torch.zeros((n, ch, self.input_size)).float()
+        x[..., :size] = ts
+        return x
+
+    def _augment_with_zeros(self, batch: np.array):
+        X, y = zip(*batch)
+        X, y = np.stack(X), np.stack(y)
+        X_res, y_res = [], []
+        for i in self.prediction_idx:
+            x = X[...]
+            x[..., :i + i] = 0
+            X_res.append(x)
+            y_res.append(y)
+        X_res = np.concatenate(X_res)
+        y_res = np.concatenate(y_res)
+        perm = np.random.permutation(X_res.shape[0])
+        return torch.tensor(X_res[perm]), torch.tensor(y_res[perm])
+    
+    def _transform_score(self, probas):
+        # linear interp
+        thr = self.proba_thr
+        probas = probas - thr
+        positive = probas > 0
+        probas[positive] *= 1 / (1 - thr)
+        probas[~positive] *= 1 / thr
+        return probas

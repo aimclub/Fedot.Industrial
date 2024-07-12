@@ -11,10 +11,12 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         if params is None:
             params = {}    
         super().__init__()
-        self.prediction_mode = params.get('prediction_mode', 'best_by_harmonic_mean')
         self.interval_percentage = params.get('interval_percentage', 10)
-        self.consecutive_predictions = params.get('consecutive_predictions', 3)
+        self.consecutive_predictions = params.get('consecutive_predictions', 1)
         self.accuracy_importance = params.get('accuracy_importance', 1.)
+
+        self.prediction_mode = params.get('prediction_mode', 'last_available')
+        self.transform_score = params.get('transform_score', True)
         self.min_ts_length = params.get('min_ts_step', 3)
         self.random_state = params.get('random_state', None)
         self.weasel_params = {}
@@ -26,14 +28,15 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         self.n_pred = len(self.prediction_idx)
         self.slave_estimators = [WEASEL(random_state=self.random_state, support_probabilities=True, **self.weasel_params) for _ in range(self.n_pred)]
         self.scalers = [StandardScaler() for _ in range(self.n_pred)]
-        self._best_estimator_idx = -1
+        self._chosen_estimator_idx = -1
         self.classes_ = [np.unique(y)]
+        self._estimator_for_predict = [-1]
 
     @property
     def required_length(self):
-        if not hasattr(self, '_best_estimator_idx'):
+        if not hasattr(self, '_chosen_estimator_idx'):
             return None
-        return self.prediction_idx[self._best_estimator_idx]
+        return self.prediction_idx[self._chosen_estimator_idx]
     
     @property
     def n_classes(self):
@@ -47,7 +50,7 @@ class BaseETC(ClassifierMixin, BaseEstimator):
             self._fit_one_interval(X, y, i)
 
     def _fit_one_interval(self, X, y, i):
-        X_part = X[..., :self.prediction_idx[i] + 1] # what's dimensionality of input? will it work in case of multivariate?
+        X_part = X[..., :self.prediction_idx[i] + 1] 
         X_part = self.scalers[i].fit_transform(X_part)
         probas = self.slave_estimators[i].fit_predict_proba(X_part, y)
         return probas
@@ -67,19 +70,21 @@ class BaseETC(ClassifierMixin, BaseEstimator):
     def _select_estimators(self, X, training=False):
         offset = 0
         if not training and self.prediction_mode == 'best_by_harmonic_mean':
-            estimator_indices = [self._best_estimator_idx]
+            estimator_indices = [self._chosen_estimator_idx]
+        elif not training and self.prediction_mode == 'last_available':
+            last_idx, offset = self._get_applicable_index(X.shape[-1] - 1)
+            estimator_indices = [last_idx]
         elif training or self.prediction_mode == 'all':
             last_idx, offset = self._get_applicable_index(X.shape[-1] - 1)
             estimator_indices = np.arange(last_idx + 1)
-        elif 'last_available':
-            last_idx, offset = self._get_applicable_index(X.shape[-1] - 1)
-            estimator_indices = [last_idx]
         else:
             raise ValueError('Unknown prediction mode')
         return estimator_indices, offset
     
     def _predict(self, X, training=True):
         estimator_indices, offset = self._select_estimators(X, training)
+        if not training:
+            self._estimator_for_predict = estimator_indices
         prediction = zip(
             *[self._predict_one_slave(X, i, offset) for i in estimator_indices] # check boundary
         )
@@ -94,20 +99,32 @@ class BaseETC(ClassifierMixin, BaseEstimator):
             consecutive_labels[i, equal] = consecutive_labels[i - 1, equal] + 1
         return consecutive_labels # prediction_points x n_instances 
     
-    def predict_proba(self, X):
-        raise NotImplementedError
+    def predict_proba(self, *args):
+        predicted_probas, scores, *_ = args 
+        if self.transform_score:
+            scores = self._transform_score(scores)
+        scores = np.tile(scores[..., None], (1, 1, self.n_classes))
+        prediction = np.stack([predicted_probas, scores], axis=0)
+        if prediction.shape[1] == 1:
+            prediction = prediction.squeeze(1)
+        return prediction
     
     def predict(self, X):
-        raise NotImplementedError
+        prediction = self.predict_proba(X)
+        labels = prediction[0:1].argmax(-1)
+        scores = prediction[1:2, ..., 0]
+        prediction = np.stack([labels, scores], 0)
+        if prediction.shape[1] == 1:
+            prediction = prediction.squeeze(1)
+        return prediction
 
-    def _score(self, X, y, hm_shift_to_acc=None):
+    def _score(self, X, y, accuracy_importance=None, training=True):
         y = np.array(y).flatten()
-        hm_shift_to_acc = hm_shift_to_acc or self.accuracy_importance
-        predictions = self._predict(X)[0]
+        accuracy_importance = accuracy_importance or self.accuracy_importance
+        predictions = self._predict(X, training)[0]
         prediction_points = predictions.shape[0]
         accuracies = (predictions == np.tile(y, (prediction_points, 1))).sum(axis=1) / len(y)
-        return (1 + hm_shift_to_acc) * accuracies * self.earliness[:prediction_points] / (hm_shift_to_acc * accuracies + self.earliness[:prediction_points])
-
+        return (1 + accuracy_importance) * accuracies * self.earliness[:prediction_points] / (accuracy_importance * accuracies + self.earliness[:prediction_points])
 
     def _get_applicable_index(self, last_available_idx):
         idx = np.searchsorted(self.prediction_idx, last_available_idx, side='right')

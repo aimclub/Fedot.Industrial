@@ -4,7 +4,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
 from sklearn.cluster import KMeans
 from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import train_test_split, cross_val_predict
+from sklearn.model_selection import cross_val_predict
 
 class EconomyK(BaseETC):
     def __init__(self, params: Optional[OperationParameters] = None):    
@@ -14,7 +14,6 @@ class EconomyK(BaseETC):
         self.prediction_mode = params.get('prediction_mode', 'last_available')
         self.lambda_ = params.get('lambda', 1.)
         self._cluster_factor = params.get('cluster_factor' , 1)
-        # self.confidence_mode = params.get('confidence_mode', 'time') # or 'confidence'
         self._random_state = 2104
         self.__cv = 5
 
@@ -77,17 +76,9 @@ class EconomyK(BaseETC):
         return time_optimal, is_optimal # n_inst
     
     def predict_proba(self, X):
-        probas, times, is_optimal = self._predict(X)
-        is_optimal = np.stack(is_optimal)
+        probas, times, _ = self._predict(X, training=False)
         probas, times = np.stack(probas), np.stack(times)
-        if self.transform_score:
-            times = self._transform_score(times)
-        return self._remove_first_1d(probas, times)
-
-    def predict(self, X):
-        probas, times = self.predict_proba(X)
-        labels = probas.argmax(-1)
-        return self._remove_first_1d(labels, times)
+        return super().predict_proba(probas, times)
 
     def _transform_score(self, time):
         idx = self._estimator_for_predict[-1]

@@ -60,15 +60,41 @@ industrial_search_space = {
          'selection_strategy': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['sum', 'pairwise']]}
          },
-    'teaser':
+    'ecec': {
+        'interval_percentage': {'hyperopt-dist': hp.choice,
+                                 'sampling-scope': [[5, 10, 20, 25]]},
+        'accuracy_importance': {'hyperopt-dist': hp.choice,
+                             'sampling-scope': [[i / 10 for i in range(11)]]},
+    },
+    'economy_k': {
+        'interval_percentage': {'hyperopt-dist': hp.choice,
+                                 'sampling-scope': [[5, 10, 20, 25]]},
+        'lambda': {'hyperopt-dist': hp.choice,
+                   'sampling-scope': [[1e-6, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e6]]},
+        'accuracy_importance': {'hyperopt-dist': hp.choice,
+                             'sampling-scope': [[i / 10 for i in range(11)]]},
+    },
+    'mlstm_model': {
+        'interval_percentage': {'hyperopt-dist': hp.choice,
+                                 'sampling-scope': [[5, 10, 20, 25]]},
+        'dropout': {'hyperopt-dist': hp.choice,
+                    'sampling-scope': [[0.1, 0.2, 0.3, 0.4, 0.5]]},
+        'hidden_size': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [list(range(10, 101, 10))]},
+        'num_layers': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [list(range(1, 6))]},
+        'hidden_channels': {'hyperopt-dist': hp.choice,
+                                'sampling-scope': [8, 16, 32, 64, 96]},
+    },
+    'proba_threshold_etc':
         {'interval_percentage': {'hyperopt-dist': hp.choice,
                                  'sampling-scope': [[5, 10, 20, 25]]},
          'acceptance_threshold': {'hyperopt-dist': hp.choice,
                                   'sampling_scope': [[1, 2, 3, 4, 5]]},
-         'hm_shift_to_acc': {'hyperopt-dist': hp.choice,
+         'accuracy_importance': {'hyperopt-dist': hp.choice,
                              'sampling-scope': [0.01, 0.1, 0.5, 1, 5, 10, 100]},
         },
-    'proba_threshold_etc':
+    'teaser':
         {'interval_percentage': {'hyperopt-dist': hp.choice,
                                  'sampling-scope': [[5, 10, 20, 25]]},
          'acceptance_threshold': {'hyperopt-dist': hp.choice,
