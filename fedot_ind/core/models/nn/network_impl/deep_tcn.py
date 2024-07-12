@@ -1,13 +1,11 @@
+import math
 import warnings
 from typing import Optional
-import math
 
 import pandas as pd
 import torch
-import torch.utils.data as data
 import torch.nn.functional as F
-from torch import nn, optim
-from torch.optim import lr_scheduler
+import torch.utils.data as data
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -15,8 +13,11 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from torch import nn, optim
+from torch.optim import lr_scheduler
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_4d_torch_array
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
@@ -25,7 +26,6 @@ from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learn
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.window_selector import WindowSizeSelector
 from fedot_ind.core.repository.constanst_repository import MSE
-from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -53,27 +53,33 @@ class _ResidualBlock(nn.Module):
 
         input_dim = input_size if nr_blocks_below == 0 else num_filters
         output_dim = target_size if nr_blocks_below == num_layers - 1 else num_filters
-        self.conv1 = nn.Conv1d(
-            input_dim, num_filters, kernel_size, dilation=(
-                dilation_base ** nr_blocks_below))
-        self.conv2 = nn.Conv1d(
-            num_filters, output_dim, kernel_size, dilation=(
-                dilation_base ** nr_blocks_below))
+        self.conv1 = nn.Conv1d(input_dim,
+                               num_filters,
+                               kernel_size,
+                               dilation=(dilation_base ** nr_blocks_below))
+
+        self.conv2 = nn.Conv1d(num_filters,
+                               output_dim,
+                               kernel_size,
+                               dilation=(dilation_base ** nr_blocks_below))
+
         if weight_norm:
-            self.conv1, self.conv2 = nn.utils.weight_norm(
-                self.conv1), nn.utils.weight_norm(self.conv2)
+            self.conv1, self.conv2 = nn.utils.weight_norm(self.conv1), nn.utils.weight_norm(self.conv2)
 
         if nr_blocks_below == 0 or nr_blocks_below == num_layers - 1:
-            self.conv3 = nn.Conv1d(input_dim, output_dim, 1)
+            self.conv3 = nn.Conv1d(input_dim,
+                                   output_dim,
+                                   kernel_size=1)
 
     def forward(self, x):
         residual = x
 
         # first step
-        left_padding = (self.dilation_base **
-                        self.nr_blocks_below) * (self.kernel_size - 1)
+        left_padding = (self.dilation_base ** self.nr_blocks_below) * (self.kernel_size - 1)
         x = F.pad(x, (left_padding, 0))
-        x = self.dropout_fn(F.relu(self.conv1(x)))
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = self.dropout_fn(x)
 
         # second step
         x = F.pad(x, (left_padding, 0))
@@ -120,26 +126,23 @@ class TCNModule(nn.Module):
         if num_layers is None and dilation_base > 1:
             num_layers = math.ceil(math.log(
                 (input_chunk_length - 1) * (dilation_base - 1) / (kernel_size - 1) / 2 + 1, dilation_base))
-            # logger.info("Number of layers chosen: " + str(num_layers))
         elif num_layers is None:
             num_layers = math.ceil(
                 (input_chunk_length - 1) / (kernel_size - 1) / 2)
-            # logger.info("Number of layers chosen: " + str(num_layers))
         self.num_layers = num_layers
 
         # Building TCN module
         self.res_blocks_list = []
         for i in range(num_layers):
-            res_block = _ResidualBlock(
-                num_filters,
-                kernel_size,
-                dilation_base,
-                self.dropout,
-                weight_norm,
-                i,
-                num_layers,
-                self.input_size,
-                target_size)
+            res_block = _ResidualBlock(num_filters,
+                                       kernel_size,
+                                       dilation_base,
+                                       self.dropout,
+                                       weight_norm,
+                                       i,
+                                       num_layers,
+                                       self.input_size,
+                                       target_size)
             self.res_blocks_list.append(res_block)
         self.res_blocks = nn.ModuleList(self.res_blocks_list)
 
@@ -175,7 +178,6 @@ class TCNModel(BaseNeuralModel):
         self.split = self.params.get("split_data", False)
         self.patch_len = self.params.get("patch_len", None)
         self.horizon = self.params.get("horizon", None)
-        self.window_size = self.params.get("window_size", None)
 
         self.model_list = []
 
@@ -198,17 +200,15 @@ class TCNModel(BaseNeuralModel):
         loss_fn = MSE()
         return model, loss_fn, optimizer
 
+    # @convert_to_4d_torch_array
     def _fit_model(self, input_data: InputData, split_data: bool):
         if self.patch_len is None:
-            if self.window_size is None:
-                self.window_size = WindowSizeSelector(method='hac').get_window_size(
-                    input_data.features)  # fft sometimes makes window larger than possible
-                self.patch_len = self.window_size
-            else:
-                self.patch_len = self.window_size
+            window_size = WindowSizeSelector(method='hac').get_window_size(input_data.features)  # in %
+            self.patch_len = window_size * input_data.features.flatten().size // 100  # in real values
 
-        train_loader = self._prepare_data(
-            input_data.features, self.patch_len, split_data)
+        train_loader = self._prepare_data(input_data.features,
+                                          self.patch_len,
+                                          split_data)
         self.test_patch_len = self.patch_len
         model, loss_fn, optimizer = self._init_model(input_data)
         model = self._train_loop(model, train_loader, loss_fn, optimizer)
@@ -229,15 +229,13 @@ class TCNModel(BaseNeuralModel):
     def __create_torch_loader(self, train_data):
 
         train_dataset = self._create_dataset(train_data)
-        train_loader = torch.utils.data.DataLoader(
-            data.TensorDataset(
-                train_dataset.x,
-                train_dataset.y),
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=0,
-            pin_memory=True,
-            drop_last=False)
+        train_loader = torch.utils.data.DataLoader(data.TensorDataset(train_dataset.x,
+                                                                      train_dataset.y),
+                                                   batch_size=self.batch_size,
+                                                   shuffle=False,
+                                                   num_workers=0,
+                                                   pin_memory=True,
+                                                   drop_last=False)
         return train_loader
 
     def fit(self,
@@ -379,7 +377,7 @@ class TCNModel(BaseNeuralModel):
             forecast_idx_predict = np.arange(
                 start=test_data.idx.shape[0],
                 stop=test_data.idx.shape[0] +
-                self.horizon,
+                     self.horizon,
                 step=1)
         else:
             forecast_idx_predict = test_idx
@@ -402,7 +400,7 @@ class TCNModel(BaseNeuralModel):
             window_size=self.test_patch_len).trajectory_matrix
         features = torch.from_numpy(
             DataConverter(
-                data=features). convert_to_torch_format()).float().permute(
+                data=features).convert_to_torch_format()).float().permute(
             2, 1, 0)
         target = torch.from_numpy(DataConverter(
             data=features).convert_to_torch_format()).float()

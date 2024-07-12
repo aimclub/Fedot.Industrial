@@ -1,81 +1,33 @@
+import numpy as np
 import pytest
-import torch
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.data.data import InputData
+from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import TsForecastingParams, Task, TaskTypesEnum
 
-from fedot_ind.api.utils.checkers_collections import DataCheck
-from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-
-
-def dataset():
-    (X_train, y_train), (_, _) = TimeSeriesDatasetsGenerator(num_samples=1,
-                                                             max_ts_len=50,
-                                                             binary=False,
-                                                             test_size=0.5,
-                                                             task='regression').generate_data()
-    return X_train, y_train, _, _
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ts():
-    task_params = {'forecast_length': 14}
-    X_train, y_train, _, _ = dataset()
-    train_data = (X_train, y_train)
-    input_train = DataCheck(
-        input_data=train_data,
-        task='ts_forecasting',
-        task_params=task_params).check_input_data()
-    return input_train
+    horizon = 5
+    task = Task(TaskTypesEnum.ts_forecasting,
+                TsForecastingParams(forecast_length=horizon))
+    ts = np.random.rand(100)
+    train_input = InputData(idx=np.arange(0, len(ts)),
+                            features=ts,
+                            target=ts,
+                            task=task,
+                            data_type=DataTypesEnum.ts)
+    return train_test_data_setup(train_input, validation_blocks=None)
 
 
-@pytest.fixture
-def tcn():
-    return TCNModel(OperationParameters(epochs=10))
+def test_tsc_model(ts):
+    train, test = ts
+    with IndustrialModels():
+        ppl = PipelineBuilder().add_node('tcn_model', params={'epochs': 10}).build()
+        ppl.fit(train)
+        predict = ppl.predict(test)
 
-
-def test_tcn_init(tcn):
-    assert tcn is not None
-
-
-def test_tcn_loader(ts, tcn):
-    loader = tcn._TCNModel__create_torch_loader(ts)
-    assert loader is not None
-    assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
-
-
-def test_tcn_preprocess(ts, tcn):
-    input_data = tcn._TCNModel__preprocess_for_fedot(ts)
-    assert input_data is not None
-    assert isinstance(input_data, InputData)
-
-
-def test_tcn_prepare(ts, tcn):
-    input_data = tcn._TCNModel__preprocess_for_fedot(ts)
-    loader = tcn._prepare_data(
-        input_data.features,
-        patch_len=14,
-        split_data=False)
-    assert loader is not None
-    assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
-
-
-def test_tcn_model_init(ts, tcn):
-    ts = tcn._TCNModel__preprocess_for_fedot(ts)
-    model, loss_fn, optimizer = tcn._init_model(ts=ts)
-    assert model is not None
-    assert model.input_chunk_length == ts.features.shape[0]
-    assert loss_fn is not None
-    assert optimizer is not None
-
-
-def test_tcn_fit(ts, tcn):
-    tcn.fit(ts)
-    assert tcn.model_list is not None
-
-
-def test_tcn_predict(ts, tcn):
-    tcn.fit(ts)
-    predict = tcn.predict(ts)
-    assert predict is not None
-    assert isinstance(predict, OutputData)
+        assert predict.predict.size == 5
