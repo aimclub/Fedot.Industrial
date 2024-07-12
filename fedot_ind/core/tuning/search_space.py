@@ -107,14 +107,6 @@ industrial_search_space = {
          'accuracy_importance': {'hyperopt-dist': hp.choice,
                              'sampling-scope': [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1,]]},
         },
-    'teaser':
-        {'interval_percentage': {'hyperopt-dist': hp.choice,
-                                 'sampling-scope': [[5, 10, 20, 25]]},
-         'acceptance_threshold': {'hyperopt-dist': hp.choice,
-                                  'sampling_scope': [[1, 2, 3, 4, 5]]},
-         'hm_shift_to_acc': {'hyperopt-dist': hp.choice,
-                             'sampling-scope': [0.01, 0.1, 0.5, 1, 5, 10, 100]},
-        },
     'deepar_model': 
         {'epochs': {'hyperopt-dist': hp.choice, 
                     'sampling-scope': [[x for x in range(10, 100, 10)]]},
