@@ -1,6 +1,7 @@
 from typing import Optional
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
 from sklearn.cluster import KMeans
 from sklearn.metrics import confusion_matrix

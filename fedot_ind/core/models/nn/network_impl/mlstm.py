@@ -154,74 +154,39 @@ class MLSTM(BaseNeuralModel):
             batch_interval = inputs[..., i - self.prediction_idx[0] : i + 1]
             output, hidden_state = self.model(batch_interval, hidden_state, return_hidden=True)
         return output
-
-    def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
-        early_stopping = EarlyStopping()
-        scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                            steps_per_epoch=len(train_loader),
-                                            epochs=self.epochs,
-                                            max_lr=self.learning_rate)
-        if val_loader is None:
-            print('Not enough class samples for validation')
-
-        best_model = None
-        best_val_loss = float('inf')
-        val_interval = self.get_validation_frequency(
-            self.epochs, self.learning_rate)
-
-        for epoch in range(1, self.epochs + 1):
-            training_loss = 0.0
-            valid_loss = 0.0
-            self.model.train()
-            total = 0
-            correct = 0
-            for batch in tqdm(train_loader):
-                optimizer.zero_grad()
-                inputs, targets = batch
-                output = self._moving_window_output(inputs)
-                loss = loss_fn(output, targets.float())
-                loss.backward()
-                optimizer.step()
-                training_loss += loss.data.item() * inputs.size(0)
-                total += targets.size(0)
-                correct += (torch.argmax(output, 1) ==
+    
+    def _train_one_batch(self, batch, optimizer, loss_fn):
+        if self.fitting_mode == 'zero_padding':
+            return super()._train_one_batch(batch, optimizer, loss_fn)
+        elif self.fitting_mode == 'moving_window':
+            optimizer.zero_grad()
+            inputs, targets = batch
+            output = self._moving_window_output(inputs)
+            loss = loss_fn(output, targets.float())
+            loss.backward()
+            optimizer.step()
+            training_loss = loss.data.item() * inputs.size(0)
+            total = targets.size(0)
+            correct = (torch.argmax(output, 1) ==
                             torch.argmax(targets, 1)).sum().item()
-
-            accuracy = correct / total
-            training_loss /= len(train_loader.dataset)
-            print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(
-                epoch, accuracy, training_loss))
-
-            if val_loader is not None and epoch % val_interval == 0:
-                self.model.eval()
-                total = 0
-                correct = 0
-                for batch in val_loader:
-                    inputs, targets = batch
-                        
-                    output = self.model(inputs)
-
-                    loss = loss_fn(output, targets.float())
-
-                    valid_loss += loss.data.item() * inputs.size(0)
-                    total += targets.size(0)
-                    correct += (torch.argmax(output, 1) ==
+            return training_loss, total, correct
+        else:
+            raise ValueError('Unknown fitting mode!')
+        
+    def _eval_one_batch(self, batch, loss_fn):
+        if self.fitting_mode == 'zero_padding':
+            return super()._eval_one_batch(batch, loss_fn)
+        elif self.fitting_mode == 'moving_window':
+            inputs, targets = batch
+            output = self._moving_window_output(inputs)
+            loss = loss_fn(output, targets.float())
+            valid_loss = loss.data.item() * inputs.size(0)
+            total = targets.size(0)
+            correct = (torch.argmax(output, 1) ==
                                 torch.argmax(targets, 1)).sum().item()
-                if valid_loss < best_val_loss:
-                    best_val_loss = valid_loss
-                    best_model = copy.deepcopy(self.model)
-
-            early_stopping(training_loss, self.model, './')
-            adjust_learning_rate(optimizer, scheduler,
-                                 epoch + 1, self.learning_rate, printout=False)
-            scheduler.step()
-
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
-
-        if best_model is not None:
-            self.model = best_model
+            return valid_loss, total, correct
+        else:
+            raise ValueError('Unknown fitting mode!')
 
     @convert_to_3d_torch_array
     def _predict_model(self, x_test: InputData, output_mode: str = 'default'):
