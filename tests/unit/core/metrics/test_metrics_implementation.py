@@ -5,7 +5,7 @@ import pandas as pd
 
 from fedot_ind.core.metrics.anomaly_detection.function import filter_detecting_boundaries, check_errors, \
     confusion_matrix
-from fedot_ind.core.metrics.metrics_implementation import ParetoMetrics
+from fedot_ind.core.metrics.metrics_implementation import ParetoMetrics, calculate_forecasting_metric, kl_divergence, calculate_detection_metric
 
 
 @pytest.mark.parametrize('basic_multiopt_metric, maximise', (
@@ -65,3 +65,35 @@ def test_check_errors(my_list, expected_output, raises_exception):
 )
 def test_confusion_matrix(true, predicted_labels, expected_output):
     assert confusion_matrix(true, predicted_labels) == expected_output
+
+
+def test_calculate_forecasting_metrics():
+    metric_names = ['rmse', 'mape', 'smape', 'mae', 'median_absolute_error']
+    y_train = np.random.rand(10)
+    target = np.random.rand(10)
+    forecast = np.random.rand(10)
+
+    metrics = calculate_forecasting_metric(target,
+                                           forecast,
+                                           metric_names=metric_names,
+                                           rounding_order=3,
+                                           y_train=y_train)
+    assert metrics is not None
+    assert isinstance(metrics, pd.DataFrame)
+    assert all(key in metrics for key in metric_names)
+    assert all(isinstance(metrics[key].values[0], float) for key in metrics)
+
+
+def test_kl_divergence():
+    # proba 10 samples x 5 classes
+    proba = np.random.rand(10, 5)
+    proba = proba / proba.sum(axis=1)[:, None]
+    solution = pd.DataFrame(proba)
+
+    # proba 10 samples x 5 classes
+    proba = np.random.rand(10, 5)
+    proba = proba / proba.sum(axis=1)[:, None]
+    prediction = pd.DataFrame(proba)
+
+    kl_div = kl_divergence(solution, prediction)
+    assert isinstance(kl_div, float)

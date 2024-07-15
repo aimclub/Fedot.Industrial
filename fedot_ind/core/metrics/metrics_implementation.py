@@ -23,7 +23,7 @@ from fedot_ind.core.metrics.anomaly_detection.function import single_average_del
 class ParetoMetrics:
     def pareto_metric_list(self,
                            costs: Union[list,
-                                        np.ndarray],
+                           np.ndarray],
                            maximise: bool = True) -> np.ndarray:
         """ Calculates the pareto front for a list of costs.
 
@@ -53,7 +53,7 @@ class QualityMetric:
                  predicted_labels,
                  predicted_probs=None,
                  metric_list: list = (
-                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                         'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
                  default_value: float = 0.0):
         self.predicted_probs = predicted_probs
         labels_as_matrix = len(predicted_labels.shape) >= 2
@@ -264,7 +264,7 @@ def calculate_forecasting_metric(target,
     def rmse(y_true, y_pred):
         return np.sqrt(mean_squared_error(y_true, y_pred))
 
-    metric_dict = {
+    functions = {
         'rmse': rmse,
         'mae': mean_absolute_error,
         'median_absolute_error': median_absolute_error,
@@ -273,9 +273,11 @@ def calculate_forecasting_metric(target,
         'mape': mape,
     }
 
-    df = pd.DataFrame({name: func(target,
-                                  labels) for name,
-                       func in metric_dict.items() if name in metric_names},
+    df = pd.DataFrame({name: functions[name](target,
+                                             labels) if name != 'mase' else functions[name](target,
+                                                                                            labels,
+                                                                                            **kwargs)
+                       for name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
@@ -286,9 +288,9 @@ def calculate_classification_metric(
         probs,
         rounding_order=3,
         metric_names=(
-            'f1',
-            # 'roc_auc',
-            'accuracy')):
+                'f1',
+                # 'roc_auc',
+                'accuracy')):
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
                    # 'roc_auc': ROCAUC,
@@ -335,10 +337,10 @@ def kl_divergence(solution: pd.DataFrame,
         y_nonzero_indices = solution[col] != 0
         solution[col] = solution[col].astype(float)
         solution.loc[y_nonzero_indices,
-                     col] = solution.loc[y_nonzero_indices,
-                                         col] * np.log(solution.loc[y_nonzero_indices,
-                                                                    col] / submission.loc[y_nonzero_indices,
-                                                                                          col])
+        col] = solution.loc[y_nonzero_indices,
+        col] * np.log(solution.loc[y_nonzero_indices,
+        col] / submission.loc[y_nonzero_indices,
+        col])
         solution.loc[~y_nonzero_indices, col] = 0
 
     if micro_average:
@@ -561,8 +563,8 @@ class AnomalyMetric(QualityMetric):
                                      anomaly_window_destination=self.anomaly_window_destination,
                                      clear_anomalies_mode=self.clear_anomalies_mode)
             missing, detectHistory, FP, all_target_anom = missing + missing_, \
-                detectHistory + detectHistory_, FP + FP_, \
-                all_target_anom + all_target_anom_
+                                                          detectHistory + detectHistory_, FP + FP_, \
+                                                          all_target_anom + all_target_anom_
 
         result = dict(false_positive=int(FP),
                       missed_anomaly=missing,
@@ -588,7 +590,7 @@ class AnomalyMetric(QualityMetric):
                     self.target))]
         return detecting_boundaries
 
-    def metric(self):
+    def get_metric(self):
         # step 1. Check target and labels
         # if self.__conditional_check():
         #     raise Exception('Incorrect format for self.predicted_labels')
@@ -607,13 +609,9 @@ class AnomalyMetric(QualityMetric):
         return metric_dict
 
 
-def calculate_detection_metric(
-        target,
-        labels,
-        probs=None,
-        rounding_order=3,
-        metric_names=('nab')):
-    metric_dict = AnomalyMetric(
-        target=target,
-        predicted_labels=labels).metric()
-    return metric_dict
+def calculate_detection_metric(target,
+                               labels,
+                               params):
+    return AnomalyMetric(target=target,
+                         predicted_labels=labels,
+                         params=params).get_metric()
