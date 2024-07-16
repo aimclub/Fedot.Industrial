@@ -78,7 +78,6 @@ class EconomyK(BaseETC):
     
     def predict_proba(self, X):
         probas, times, _ = self._predict(X, training=False)
-        probas, times = np.stack(probas), np.stack(times)
         return super().predict_proba(probas, times)
 
     def _transform_score(self, time):

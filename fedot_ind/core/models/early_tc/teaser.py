@@ -43,13 +43,10 @@ class TEASER(BaseETC):
     
     def _predict(self, X, training=False):
         estimator_indices, offset = self._select_estimators(X)
-        X_ocs, predicted_probas, predicted_labels = zip(
+        X_ocs, predicted_probas, predicted_labels = map(np.stack, zip(
             *[self._predict_one_slave(X, i, offset) for i in estimator_indices]
-        )
+        ))
         non_acceptance = self._consecutive_count(predicted_labels) < self.consecutive_predictions
-        X_ocs = np.stack(X_ocs)
-        predicted_probas = np.stack(predicted_probas)
-        predicted_labels = np.stack(predicted_labels)
         final_verdicts = np.zeros((len(estimator_indices), X.shape[0]))
         # for each point of estimation 
         for i in range(predicted_labels.shape[0]):

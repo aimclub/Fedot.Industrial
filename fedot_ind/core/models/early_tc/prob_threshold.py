@@ -24,8 +24,6 @@ class ProbabilityThresholdClassifier(BaseETC):
 
     def _predict(self, X, training=True):
         predicted_probas, predicted_labels = super()._predict(X, training)
-        predicted_probas = np.stack(predicted_probas)
-        predicted_labels = np.stack(predicted_labels)
         non_acceptance = self._consecutive_count(predicted_labels) < self.consecutive_predictions
         double_check = predicted_probas.max(axis=-1) > self.probability_threshold
         non_acceptance[non_acceptance & double_check] = False

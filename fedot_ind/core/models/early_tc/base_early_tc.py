@@ -85,9 +85,9 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         estimator_indices, offset = self._select_estimators(X, training)
         if not training:
             self._estimator_for_predict = estimator_indices
-        prediction = zip(
+        prediction = (np.stack(array_list) for array_list in zip(
             *[self._predict_one_slave(X, i, offset) for i in estimator_indices] # check boundary
-        )
+        ))
         return prediction # see the output in _predict_one_slave
 
     def _consecutive_count(self, predicted_labels: List[np.array]):
