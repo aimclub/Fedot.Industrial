@@ -88,5 +88,3 @@ class EconomyK(BaseETC):
         scores *= n / (n - 1) * 2
         scores -= 1
         return scores
-
-
