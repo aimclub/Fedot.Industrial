@@ -4,10 +4,11 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
 
+
 class ProbabilityThresholdClassifier(BaseETC):
     def __init__(self, params: Optional[OperationParameters] = None):
         if params is None:
-            params = {}    
+            params = {}
         super().__init__(params)
         self.probability_threshold = params.get('probability_threshold', None)
 
@@ -15,7 +16,7 @@ class ProbabilityThresholdClassifier(BaseETC):
         super()._init_model(X, y)
         if self.probability_threshold is None:
             self.probability_threshold = 1 / len(self.classes_[0])
-    
+
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance = self._predict(X, training=False)
         predicted_probas[non_acceptance] = 0
@@ -33,11 +34,11 @@ class ProbabilityThresholdClassifier(BaseETC):
         scores = super()._score(X, y, accuracy_importance)
         self._chosen_estimator_idx = np.argmax(scores)
         return scores
-    
+
     def fit(self, X, y):
         super().fit(X, y)
         self._score(X, y, self.accuracy_importance)
-    
+
     def _transform_score(self, confidences):
         thr = self.probability_threshold
         confidences = confidences - thr

@@ -8,9 +8,11 @@ def teaser():
     teaser = TEASER.TEASER({'interval_length': 10, 'prediction_mode': ''})
     return teaser
 
+
 @pytest.fixture(scope='module')
 def xy():
     return np.random.randn((2, 23)), np.random.randint(0, 2, size=(2, 1))
+
 
 def test_get_applicable_index(teaser):
     teaser._init_model(23)
@@ -20,6 +22,7 @@ def test_get_applicable_index(teaser):
     idx, offset = teaser._get_last_applicable_idx(12)
     assert offset == 100 - teaser.prediction_idx[idx], 'Wrong offset estimation in the middle'
     assert idx == len(teaser.prediction_idx) - 1
+
 
 def test_compute_prediction_points(teaser):
     indices = teaser._compute_prediction_points(23)
@@ -31,5 +34,3 @@ def test_compute_prediction_points(teaser):
 #     pass
 
 # def test_score(teaser):
-     
-

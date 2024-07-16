@@ -123,9 +123,9 @@ class BaseNeuralModel:
         training_loss = loss.data.item() * inputs.size(0)
         total = targets.size(0)
         correct = (torch.argmax(output, 1) ==
-                            torch.argmax(targets, 1)).sum().item()
+                   torch.argmax(targets, 1)).sum().item()
         return training_loss, total, correct
-      
+
     def _eval_one_batch(self, batch, loss_fn):
         inputs, targets = batch
         output = self.model(inputs)
@@ -133,11 +133,11 @@ class BaseNeuralModel:
         valid_loss = loss.data.item() * inputs.size(0)
         total = targets.size(0)
         correct = (torch.argmax(output, 1) ==
-                            torch.argmax(targets, 1)).sum().item()
+                   torch.argmax(targets, 1)).sum().item()
         return valid_loss, total, correct
 
     def _run_one_epoch(self, train_loader, val_loader,
-                       optimizer, loss_fn, 
+                       optimizer, loss_fn,
                        epoch, val_interval,
                        early_stopping, scheduler,
                        best_val_loss):
@@ -172,7 +172,7 @@ class BaseNeuralModel:
 
         early_stopping(training_loss, self.model, './')
         adjust_learning_rate(optimizer, scheduler,
-                            epoch + 1, self.learning_rate, printout=False)
+                             epoch + 1, self.learning_rate, printout=False)
         scheduler.step()
         return best_model, best_val_loss
 
@@ -188,7 +188,7 @@ class BaseNeuralModel:
         best_val_loss = float('inf')
         val_interval = self.get_validation_frequency(
             self.epochs, self.learning_rate)
-        loss_prefix = 'RMSE' if self.is_regression_task else 'Accuracy'
+        'RMSE' if self.is_regression_task else 'Accuracy'
         for epoch in range(1, self.epochs + 1):
             best_model, best_val_loss = self._run_one_epoch(
                 train_loader, val_loader,

@@ -221,6 +221,7 @@ def smape(a, f, _=None):
     return 1 / len(a) * np.sum(2 * np.abs(f - a) /
                                (np.abs(a) + np.abs(f)) * 100)
 
+
 def rmse(y_true, y_pred):
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
@@ -343,7 +344,8 @@ def kl_divergence(solution: pd.DataFrame,
         return np.average(solution.sum(axis=1), weights=sample_weights)
     else:
         return np.average(solution.mean())
-    
+
+
 class ETSCPareto(QualityMetric, ParetoMetrics):
     def __init__(self,
                  target,
@@ -387,7 +389,7 @@ class ETSCPareto(QualityMetric, ParetoMetrics):
             for i, metric in enumerate(self.metric_list, 1):
                 assert metric in CLASSIFICATION_METRIC_DICT, f'{metric} is not found in available metrics'
                 metric_value = CLASSIFICATION_METRIC_DICT[metric](self.target[mask[est]],
-                                                                    self.predicted_labels[est][mask[est]])
+                                                                  self.predicted_labels[est][mask[est]])
                 result[est, i] = metric_value
 
         if self.weights is None:
@@ -399,13 +401,13 @@ class ETSCPareto(QualityMetric, ParetoMetrics):
         else:
             assert self.weights.shape[-1] == self.metrics.shape[-1], 'Metrics and weights size mismatch!'
             self.weights /= self.weights.sum()
-        
+
         result = result @ self.weights.T
         if not self.reduce:
             return pd.DataFrame(result, columns=self.columns)
         else:
             return result
-        
+
     def plot_bicrit_metric(self, metrics, select=None, metrics_names=None):
         if not metrics_names:
             metrics_names = ('Robustness', 'Accuracy')
@@ -414,8 +416,8 @@ class ETSCPareto(QualityMetric, ParetoMetrics):
         for i, metric in enumerate(metrics):
             selection = metric[select]
             sizes = ((np.arange(selection.shape[0]) * 2)[::-1]) ** 1.5 + 10
-            plt.scatter(*(metric[select]).T, 
-                        s=sizes, 
+            plt.scatter(*(metric[select]).T,
+                        s=sizes,
                         label=i)
         plt.legend(loc="upper right", bbox_to_anchor=(1.5, 1))
         plt.ylabel(metrics_names[1])
@@ -425,7 +427,7 @@ class ETSCPareto(QualityMetric, ParetoMetrics):
         plt.xticks(np.linspace(0, 1, 11))
         plt.yticks(np.linspace(0, 1, 11))
         plt.grid(True)
-        
+
     def select_pareto_front(self, metrics, maximize=True):
         pareto_mask = self.pareto_metric_list(metrics, maximise=maximize)
         return metrics[pareto_mask]
@@ -701,27 +703,28 @@ def calculate_detection_metric(
         predicted_labels=labels).metric()
     return metric_dict
 
+
 REGRESSION_METRIC_DICT = {'r2': r2_score,
-                   'mse': mean_squared_error,
-                   'rmse': rmse,
-                   'mae': mean_absolute_error,
-                   'msle': mean_squared_log_error,
-                   'mape': mean_absolute_percentage_error,
-                   'median_absolute_error': median_absolute_error,
-                   'explained_variance_score': explained_variance_score,
-                   'max_error': max_error,
-                   'd2_absolute_error_score': d2_absolute_error_score}
+                          'mse': mean_squared_error,
+                          'rmse': rmse,
+                          'mae': mean_absolute_error,
+                          'msle': mean_squared_log_error,
+                          'mape': mean_absolute_percentage_error,
+                          'median_absolute_error': median_absolute_error,
+                          'explained_variance_score': explained_variance_score,
+                          'max_error': max_error,
+                          'd2_absolute_error_score': d2_absolute_error_score}
 
 CLASSIFICATION_METRIC_DICT = {'accuracy': accuracy_score,
-                   'f1': f1_score,
-                   'roc_auc': roc_auc_score,
-                   'precision': precision_score,
-                   'logloss': log_loss}
+                              'f1': f1_score,
+                              'roc_auc': roc_auc_score,
+                              'precision': precision_score,
+                              'logloss': log_loss}
 
 FORECASTING_METRICS_DICT = {
-        'rmse': rmse,
-        'mae': mean_absolute_error,
-        'median_absolute_error': median_absolute_error,
-        'smape': smape,
-        'mase': mase
-    }
+    'rmse': rmse,
+    'mae': mean_absolute_error,
+    'median_absolute_error': median_absolute_error,
+    'smape': smape,
+    'mase': mase
+}
