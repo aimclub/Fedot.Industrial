@@ -10,7 +10,7 @@ from fedot_ind.api.main import FedotIndustrial
 def convert_anomalies_dict_to_points(
         series: np.array,
         anomaly_dict: Dict) -> np.array:
-    points = np.array(['no_anomaly' for _ in range(len(series))], dtype=object)
+    points = np.zeros(len(series))
     for anomaly_class in anomaly_dict:
         for interval in anomaly_dict[anomaly_class]:
             points[interval[0]:interval[1]] = anomaly_class
@@ -50,7 +50,7 @@ def generate_time_series(ts_length: int = 500,
     else:
         time_series = np.vstack([np.random.normal(0, 1, ts_length)
                                  for _ in range(dimension)]).swapaxes(1, 0)
-    anomaly_classes = [f'anomaly{i + 1}' for i in range(num_anomaly_classes)]
+    anomaly_classes = [i + 1 for i in range(num_anomaly_classes)]
 
     anomaly_intervals = {}
 
@@ -63,8 +63,7 @@ def generate_time_series(ts_length: int = 500,
         end_idx = start_idx + np.random.randint(min_anomaly_length,
                                                 max_anomaly_length + 1)
 
-        anomaly = np.random.normal(
-            int(anomaly_class[-1]), 1, end_idx - start_idx)
+        anomaly = np.random.normal(anomaly_class, 1, end_idx - start_idx)
 
         if dimension == 1:
             time_series[start_idx:end_idx] += anomaly
@@ -83,20 +82,22 @@ def generate_time_series(ts_length: int = 500,
 @pytest.mark.parametrize('dimension', [1, 3])
 def test_anomaly_detection(dimension):
     np.random.seed(42)
-    time_series, anomaly_intervals = generate_time_series(
-        ts_length=1000,
-        dimension=dimension,
-        num_anomaly_classes=2,
-        num_of_anomalies=50)
-
+    time_series, anomaly_intervals = generate_time_series(ts_length=1000,
+                                                          dimension=dimension,
+                                                          num_anomaly_classes=2,
+                                                          num_of_anomalies=50)
     series_train, anomaly_train, series_test, anomaly_test = split_series(
         time_series, anomaly_intervals, test_part=300)
-
+    point_train = convert_anomalies_dict_to_points(series_train, anomaly_train)
     point_test = convert_anomalies_dict_to_points(series_test, anomaly_test)
 
-    industrial = FedotIndustrial(task='anomaly_detection',
+    industrial = FedotIndustrial(problem='classification',
                                  dataset='custom_dataset',
-                                 strategy='fedot_preset',
+                                 industrial_strategy='anomaly_detection',
+                                 industrial_task_params={
+                                     'detection_window': 10,
+                                     'data_type': 'time_series',
+                                 },
                                  branch_nodes=['eigen_basis'],
                                  tuning_timeout=2,
                                  tuning_iterations=2,
@@ -105,14 +106,13 @@ def test_anomaly_detection(dimension):
                                  n_jobs=-1,
                                  logging_level=20)
 
-    model = industrial.fit(features=series_train,
-                           anomaly_dict=anomaly_train)
+    model = industrial.fit(input_data=(series_train, point_train))
 
     # industrial.solver.save('model')
 
     # prediction before loading
-    labels_before = industrial.predict(features=series_test)
-    probs_before = industrial.predict_proba(features=series_test)
+    labels_before = industrial.predict(predict_data=(series_test, point_test))
+    probs_before = industrial.predict_proba(predict_data=(series_test, point_test))
 
     # industrial.solver.load('model')
 
@@ -121,7 +121,8 @@ def test_anomaly_detection(dimension):
     # probs_after = industrial.predict_proba(features=series_test)
 
     metrics = industrial.solver.get_metrics(target=point_test,
-                                            metric_names=['f1', 'roc_auc'])
+                                            rounding_order=3,
+                                            metric_names=('f1', 'roc_auc'))
 
     # shutil.rmtree('model')
     #
