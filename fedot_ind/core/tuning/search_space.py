@@ -46,7 +46,7 @@ industrial_search_space = {
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         'rec_metric': (hp.choice, [['cosine', 'euclidean']]),
+         'rec_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['cosine', 'euclidean']]},
          'image_mode': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
     'minirocket_extractor':
         {'num_features': {'hyperopt-dist': hp.choice,
