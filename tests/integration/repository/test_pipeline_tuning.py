@@ -1,6 +1,7 @@
 import pytest
 
 from fedot.api.main import Fedot
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot.core.composer.metrics import F1
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
@@ -15,12 +16,16 @@ def test_fedot_multi_series():
     with IndustrialModels():
         train_data, test_data = initialize_multi_data()
         pipeline = PipelineBuilder() \
-            .add_node('eigen_basis', params={'window_size': None}) \
+            .add_node('eigen_basis') \
             .add_node('quantile_extractor') \
             .add_node('rf') \
             .build()
         pipeline.fit(train_data)
         predict = pipeline.predict(test_data, output_mode='labels')
+        # TODO: output_mode doesn't affect predict form
+        # TODO: remove temp workaround with argmax
+        if test_data.target.shape != predict.predict.shape:
+            predict.predict = np.argmax(predict.predict, axis=1)
         print(F1.metric(test_data, predict))
 
 
