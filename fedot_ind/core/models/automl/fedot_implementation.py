@@ -20,7 +20,7 @@ class FedotAutomlImplementation(ModelImplementation):
         super().__init__(params)
         if 'available_operations' not in self.params.keys():
             self.params.update({'available_operations': self.AVAILABLE_OPERATIONS})
-        self.model = Fedot(**self.params)
+        self.model = Fedot(**self.params.to_dict())
 
     def fit(self, input_data: InputData):
         self.model.fit(input_data)
