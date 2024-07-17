@@ -1,3 +1,5 @@
+import pytest
+
 from fedot.api.main import Fedot
 from fedot.core.composer.metrics import F1
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
@@ -36,25 +38,24 @@ def initialize_multi_data():
     return train_input_data, test_input_data
 
 
-def test_industrial_uni_series():
+@pytest.mark.parametrize('extractor', (
+    'quantile_extractor',
+    'recurrence_extractor',
+    'topological_extractor',
+    # 'signal_extractor',
+))
+def test_industrial_uni_series(extractor):
     with IndustrialModels():
         train_data, test_data = initialize_uni_data()
-
-        metrics = {}
-        for extractor_name in ['topological_extractor',
-                               'quantile_extractor',
-                               # 'signal_extractor',
-                               'recurrence_extractor']:
-            pipeline = PipelineBuilder() \
-                .add_node('eigen_basis') \
-                .add_node(extractor_name) \
-                .add_node('rf').build()
-            model = Fedot(problem='classification', timeout=1,
-                          initial_assumption=pipeline, n_jobs=1)
-            model.fit(train_data)
-            model.predict(test_data)
-            model.get_metrics()
-        print(metrics)
+        pipeline = PipelineBuilder() \
+            .add_node('eigen_basis') \
+            .add_node(extractor) \
+            .add_node('rf').build()
+        model = Fedot(problem='classification', timeout=1,
+                      initial_assumption=pipeline, n_jobs=1)
+        model.fit(train_data)
+        model.predict(test_data)
+        model.get_metrics()
 
 
 def test_tuner_industrial_uni_series():
