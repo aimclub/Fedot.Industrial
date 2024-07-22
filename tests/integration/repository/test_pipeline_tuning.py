@@ -69,7 +69,7 @@ def test_tuner_industrial_uni_series():
         # search_space = SearchSpace(get_industrial_search_space(1))
         pipeline_builder = PipelineBuilder()
         pipeline_builder.add_node('eigen_basis')
-        pipeline_builder.add_node('quantile_extractor')
+        pipeline_builder.add_node('recurrence_extractor')
         pipeline_builder.add_node('rf')
 
         pipeline = pipeline_builder.build()
