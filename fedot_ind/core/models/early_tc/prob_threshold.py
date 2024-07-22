@@ -2,12 +2,14 @@ from typing import Optional
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
+from fedot_ind.core.models.early_tc.base_early_tc import EarlyTSClassifier
 
-class ProbabilityThresholdClassifier(BaseETC):
-    def __init__(self, params: Optional[OperationParameters] = None):
-        if params is None:
-            params = {}    
+class ProbabilityThresholdClassifier(EarlyTSClassifier):
+    f"""
+    Two-tier Early time-series classification model 
+    uniting consecutive prediction comparison and thresholding by predicted probability.
+    """
+    def __init__(self, params: Optional[OperationParameters] = {}): 
         super().__init__(params)
         self.probability_threshold = params.get('probability_threshold', None)
 
@@ -15,11 +17,18 @@ class ProbabilityThresholdClassifier(BaseETC):
         super()._init_model(X, y)
         if self.probability_threshold is None:
             self.probability_threshold = 1 / len(self.classes_[0])
+        eps = 1e-7
+        if self.probability_threshold == 1:
+            self.probability_threshold -= eps
+        if self.probability_threshold == 0:
+            self.probability_threshold += eps
     
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance = self._predict(X, training=False)
-        predicted_probas[non_acceptance] = 0
         scores = predicted_probas.max(-1)
+        scores[~non_acceptance & (scores < self.probability_threshold)] = self.probability_threshold + \
+            (1 - self.probability_threshold) * self.consecutive_predictions / self.n_pred
+        predicted_probas[non_acceptance] = 0
         return super().predict_proba(predicted_probas, scores)
 
     def _predict(self, X, training=True):

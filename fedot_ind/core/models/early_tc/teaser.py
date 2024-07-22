@@ -2,13 +2,20 @@ from typing import Optional
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
+from fedot_ind.core.models.early_tc.base_early_tc import EarlyTSClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import OneClassSVM
 
 
-class TEASER(BaseETC):
-    def __init__(self, params: Optional[OperationParameters] = None):        
+class TEASER(EarlyTSClassifier):
+    """
+     Two-tier Early and Accurate Series classifiER
+
+     from “TEASER: early and accurate time series classification,”
+           Data Min. Knowl. Discov., vol. 34, no. 5, pp. 1336–1362, 2020
+    """
+    
+    def __init__(self, params: Optional[OperationParameters] = {}):        
         super().__init__(params)
         self._oc_svm_params = (100., 10., 5., 2.5, 1.5, 1., 0.5, 0.25, 0.1)
 
@@ -56,13 +63,26 @@ class TEASER(BaseETC):
             final_verdict = self.oc_estimators[estimator_indices[i]].decision_function(X_to_ith)
             # mark as accepted
             final_verdicts[i] = final_verdict 
-        non_acceptance[non_acceptance & (final_verdict > 0)] = False
+        (non_acceptance[non_acceptance & (final_verdict > 0)], 
+         final_verdicts[non_acceptance], 
+         final_verdicts[~non_acceptance & (final_verdicts < 0)]
+        ) = False, -1, self.consecutive_predictions / self.n_pred
         return predicted_labels, predicted_probas, non_acceptance, final_verdicts
     
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance, final_verdicts = self._predict(X)
-        predicted_probas[non_acceptance] = final_verdicts[non_acceptance, None]
+        predicted_probas[non_acceptance] = 0 #final_verdicts[non_acceptance, None]
         return super().predict_proba(predicted_probas, final_verdicts)
+    
+    def predict(self, X):
+        prediction = self.predict_proba(X)
+        labels = prediction[0:1].argmax(-1)
+        scores = prediction[1:2, ..., 0]
+        labels[scores < 0] = -1
+        prediction = np.stack([labels, scores], 0)
+        if prediction.shape[1] == 1:
+            prediction = prediction.squeeze(1)
+        return prediction
     
     def _score(self, X, y, accuracy_importance=None):
         scores = super()._score(X, y, accuracy_importance)

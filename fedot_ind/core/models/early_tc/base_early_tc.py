@@ -1,26 +1,40 @@
 from typing import Optional, List
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import ClassifierMixin, BaseEstimator
 from sktime.classification.dictionary_based import WEASEL
-from fedot.core.operations.operation_parameters import OperationParameters
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
-class BaseETC(ClassifierMixin, BaseEstimator):
-    def __init__(self, params: Optional[OperationParameters] = None):    
-        if params is None:
-            params = {}    
+class EarlyTSClassifier(ClassifierMixin, BaseEstimator):
+    """
+    Base class for Early Time Series Classification models 
+    which implement prefix-wise predictions via traiing multiple slave estimators.
+
+    Args:
+        ``interval_percentage (float in (1, 100])``: define how much points should be between prediction points.
+        ``consecutive_predictions (int)``: how many last subsequent estimators should classify object equally.
+        ``accuracy_importance (float in [0, 1])``: trade-off coefficient between earliness and accuracy.
+        ``prediction_mode (str in ['last_available', 'best_by_metrics_mean', 'all'])``:
+            - if 'last_available', returns the latest estimator prediction allowed by prefix length;
+            - if 'best_by_metrics_mean', returns the best of estimators estimated
+              with weighted average of accuracy and earliness
+            - if 'all', returns all estiamtors predictions
+        ``transform_score (bool)``: whether or not to scale scores to [-1, 1] interval
+        ``min_ts_step (int)``: minimal difference between to subsequent prefix' lengths
+    """
+    def __init__(self, params: Optional[OperationParameters] = {}):     
         super().__init__()
         self.interval_percentage = params.get('interval_percentage', 10)
         self.consecutive_predictions = params.get('consecutive_predictions', 1)
         self.accuracy_importance = params.get('accuracy_importance', 1.)
-
-        self.prediction_mode = params.get('prediction_mode', 'last_available')
-        self.transform_score = params.get('transform_score', True)
         self.min_ts_length = params.get('min_ts_step', 3)
         self.random_state = params.get('random_state', None)
+        
+        self.prediction_mode = params.get('prediction_mode', 'last_available')
+        self.transform_score = params.get('transform_score', True)
         self.weasel_params = {}
-        assert self.consecutive_predictions < self.interval_percentage, 'Not enough checkpoints for prediction proof'
 
     def _init_model(self, X, y):
         max_data_length = X.shape[-1]
@@ -69,7 +83,7 @@ class BaseETC(ClassifierMixin, BaseEstimator):
     
     def _select_estimators(self, X, training=False):
         offset = 0
-        if not training and self.prediction_mode == 'best_by_harmonic_mean':
+        if not training and self.prediction_mode == 'best_by_metrics_mean':
             estimator_indices = [self._chosen_estimator_idx]
         elif not training and self.prediction_mode == 'last_available':
             last_idx, offset = self._get_applicable_index(X.shape[-1] - 1)
@@ -100,6 +114,13 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         return consecutive_labels # prediction_points x n_instances 
     
     def predict_proba(self, *args):
+        """
+        Args:
+            X (np.array): input features
+        Returns:
+            predictions as a numpy array of shape (2, n_selected_estimators, n_instances, n_classes)
+            where first subarray stands for probas, and second for scores
+        """
         predicted_probas, scores, *_ = args 
         if self.transform_score:
             scores = self._transform_score(scores)
@@ -110,6 +131,13 @@ class BaseETC(ClassifierMixin, BaseEstimator):
         return prediction
     
     def predict(self, X):
+        """
+        Args:
+            X (np.array): input features
+        Returns:
+            predictions as a numpy array of shape (2, n_selected_estimators, n_instances)
+            where first subarray stands for labels, and second for scores
+        """
         prediction = self.predict_proba(X)
         labels = prediction[0:1].argmax(-1)
         scores = prediction[1:2, ..., 0]

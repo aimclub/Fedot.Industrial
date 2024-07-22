@@ -372,9 +372,9 @@
     },
     "mlstm_model": {
       "meta": "fedot_NN_classification",
-      "presets": ["ts"],
+      "presets": [],
       "tags": [],
-      "input_type": "[DataTypesEnum.table]"
+      "input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
     },
     "xcm_model": {
       "meta": "fedot_NN_classification",

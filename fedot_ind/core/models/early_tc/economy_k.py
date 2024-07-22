@@ -2,18 +2,22 @@ from typing import Optional
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
+from fedot_ind.core.models.early_tc.base_early_tc import EarlyTSClassifier
 from sklearn.cluster import KMeans
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import cross_val_predict
 
-class EconomyK(BaseETC):
-    def __init__(self, params: Optional[OperationParameters] = None):    
-        if params is None:
-            params = {}    
+class EconomyK(EarlyTSClassifier):
+    """
+    Model described in 
+    A. Dachraoui, A. Bondu, and A. Cornu´ejols, “Early classification of time series as a non myopic sequential decision 
+    making problem,” in the European Conf. on Machine Learning and Knowledge Discovery in Databases, ser. LNCS, vol.
+    9284. Springer, 2015, pp. 433–447.
+    """
+    def __init__(self, params: Optional[OperationParameters] = {}):     
         super().__init__(params)
         self.prediction_mode = params.get('prediction_mode', 'last_available')
-        self.lambda_ = params.get('lambda', 1.)
+        self.lambda_ = params.get('lambda_', 1.)
         self._cluster_factor = params.get('cluster_factor' , 1)
         self._random_state = 2104
         self.__cv = 5
@@ -81,12 +85,11 @@ class EconomyK(BaseETC):
         return super().predict_proba(probas, times)
 
     def _transform_score(self, time):
-        idx = self._estimator_for_predict[-1]
-        scores = (1 - (time - self.prediction_idx[idx]) / self.prediction_idx[-1])  # [1 / n; 1 ] - 1 / n) * n /(n - 1) * 2 - 1
-        n = self.n_pred
-        scores -= 1 / n
-        scores *= n / (n - 1) * 2
+        scores = 1 - (time - self.prediction_idx[self._estimator_for_predict, None]) / (self.prediction_idx[-1] - self._estimator_for_predict)[:, None]
+        assert ((0 <= scores) & (scores <= 1)).all()
+        scores *= 2
         scores -= 1
+        scores[np.isnan(scores)] = 0
         return scores
 
 

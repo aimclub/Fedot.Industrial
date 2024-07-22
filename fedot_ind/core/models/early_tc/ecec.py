@@ -2,13 +2,18 @@ from typing import Optional
 
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.models.early_tc.base_early_tc import BaseETC
+from fedot_ind.core.models.early_tc.base_early_tc import EarlyTSClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import cross_val_predict
 
 
-class ECEC(BaseETC):
-    def __init__(self, params: Optional[OperationParameters] = None):
+class ECEC(EarlyTSClassifier):
+    """
+    The Effective Confidence-based Early Classification algorithm
+    from J. Lv, X. Hu, L. Li, and P.-P. Li, “An effective confidence-based early classification
+    of time series,” IEEE Access, vol. 7, pp. 96 113–96 124, 2019
+    """
+    def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.__cv = 5
         
@@ -53,6 +58,7 @@ class ECEC(BaseETC):
         for i, candidate in enumerate(candidates):
             mask = confidences >= candidate  # n_pred x n_inst
             accuracy_for_candidate = (matches * mask).sum(1) / mask.sum(1) # n_pred
+            accuracy_for_candidate[np.isnan(accuracy_for_candidate)] = 0
             cfs[i] = self.cost_func(self.earliness, accuracy_for_candidate, alpha)
         self._chosen_estimator_idx = np.argmin(cfs.mean(0))
         return candidates[np.argmin(cfs, axis=0)] # n_pred

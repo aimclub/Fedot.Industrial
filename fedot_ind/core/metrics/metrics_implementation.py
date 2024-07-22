@@ -222,7 +222,7 @@ def smape(a, f, _=None):
                                (np.abs(a) + np.abs(f)) * 100)
 
 def rmse(y_true, y_pred):
-    return np.sqrt(mean_squared_error(y_true, y_pred))
+    return mean_squared_error(y_true, y_pred, squared=False)
 
 
 def mape(A, F):
@@ -370,15 +370,22 @@ class ETSCPareto(QualityMetric, ParetoMetrics):
         if len(self.predicted_labels.shape) == 1:
             self.predicted_labels = self.predicted_labels[None, ...]
             self.predicted_probs = self.predicted_probs[None, ...]
-
+        print(f'''
+        target shape {self.target.shape}
+        prediction {self.predicted_labels.shape}
+        predicted_probs (scores) {self.predicted_probs.shape}
+        ''')
         n_metrics = len(self.metric_list) + (self.mode == 'robust')
         n_est = self.predicted_labels.shape[0]
         result = np.zeros((n_est, n_metrics))
+        print(result.shape)
         if self.mode == 'robust':
             mask = self.predicted_probs >= 0
+            print('mask', mask.shape)
             if not mask.any():
                 return result
             robustness = mask.sum(-1) / self.predicted_probs.shape[-1]
+            print('rob', robustness.shape)
             result[:, 0] = robustness.flatten()
         else:
             mask = np.ones_like(self.predicted_probs, dtype=bool)
@@ -401,6 +408,7 @@ class ETSCPareto(QualityMetric, ParetoMetrics):
             self.weights /= self.weights.sum()
         
         result = result @ self.weights.T
+        result[np.isnan(result)] = self.default_value
         if not self.reduce:
             return pd.DataFrame(result, columns=self.columns)
         else:

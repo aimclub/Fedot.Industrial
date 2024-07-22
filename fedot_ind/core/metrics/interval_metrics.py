@@ -135,4 +135,3 @@ def nab(boundaries, predictions, mode='standard', custom_coefs=None):
                      coefs)
     return score
     
-

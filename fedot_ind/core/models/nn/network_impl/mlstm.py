@@ -1,20 +1,14 @@
-import copy
 from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
-from typing import Optional, Callable, Any, List, Union
+from typing import Optional
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.data.data import InputData, OutputData
-from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY, MULTI_CLASS_CROSS_ENTROPY, RMSE
+from fedot.core.data.data import InputData
+from fedot_ind.core.repository.constanst_repository import CROSS_ENTROPY
 import torch.optim as optim
-import torch.optim.lr_scheduler as lr_scheduler
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from tqdm import tqdm
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
-import pandas as pd
-from fedot_ind.core.models.nn.network_modules.layers.special import adjust_learning_rate, EarlyStopping
-import torch.utils.data as data
 
 class SqueezeExciteBlock(nn.Module):
         def __init__(self, input_channels, filters, reduce=4):
@@ -44,7 +38,7 @@ class MLSTM_module(nn.Module):
         self.lstm = nn.LSTM(input_size, inner_size, num_layers,
                              batch_first=True, dropout=dropout)
         
-        squeeze_excite_size = input_size #if not interval else interval
+        squeeze_excite_size = input_size 
         self.conv_branch = nn.Sequential(
             nn.Conv1d(input_channels, inner_channels,
                       padding='same',
@@ -82,10 +76,15 @@ class MLSTM_module(nn.Module):
 
 
 class MLSTM(BaseNeuralModel):
-    def __init__(self, params: Optional[OperationParameters] = None):
-        if params is None:
-            params = {}    
-        super().__init__()
+    f"""
+    The Multivariate Long Short Term Memory Fully Convolutional Network (MLSTM)
+    from F. Karim, S. Majumdar, H. Darabi, and S. Harford, “Multivariate LSTM-FCNs for time series classification,” Neural
+    Networks, vol. 116, pp. 237–245, 2019.
+
+    {BaseNeuralModel.__doc__}
+    """
+    def __init__(self, params: Optional[OperationParameters] = {}): 
+        super().__init__(params)
         self.dropout = params.get('dropout', 0.25)
         self.hidden_size = params.get('hidden_size', 64)
         self.hidden_channels = params.get('hidden_channels', 32)
@@ -101,7 +100,7 @@ class MLSTM(BaseNeuralModel):
     def _compute_prediction_points(self, n_idx):
         interval_length = max(int(n_idx * self.interval_percentage / 100), self.min_ts_length)
         prediction_idx = np.arange(interval_length - 1, n_idx, interval_length)
-        self.earliness = 1 - prediction_idx / n_idx # /n_idx because else the last hm score is always 0
+        self.earliness = 1 - prediction_idx / n_idx 
         return prediction_idx, interval_length
 
     def _init_model(self, ts: InputData):
@@ -198,6 +197,7 @@ class MLSTM(BaseNeuralModel):
             pred = self._moving_window_output(torch.tensor(x_test).float())
         else:
             raise ValueError('Unknown prediction mode')
+        pred = pred.detach()
         return self._convert_predict(pred, output_mode)
     
     def _padding(self, ts: np.array):

@@ -122,8 +122,11 @@ class BaseNeuralModel:
         optimizer.step()
         training_loss = loss.data.item() * inputs.size(0)
         total = targets.size(0)
-        correct = (torch.argmax(output, 1) ==
-                            torch.argmax(targets, 1)).sum().item()
+        if targets.ndim == 2:
+            targets = targets.argmax(-1)
+        if output.ndim == 2:
+            output = output.argmax(-1)
+        correct = (output == targets).sum().item()
         return training_loss, total, correct
       
     def _eval_one_batch(self, batch, loss_fn):
@@ -132,8 +135,11 @@ class BaseNeuralModel:
         loss = loss_fn(output, targets.float())
         valid_loss = loss.data.item() * inputs.size(0)
         total = targets.size(0)
-        correct = (torch.argmax(output, 1) ==
-                            torch.argmax(targets, 1)).sum().item()
+        if targets.ndim == 2:
+            targets = targets.argmax(-1)
+        if output.ndim == 2:
+            output = output.argmax(-1)
+        correct = (output == targets).sum().item()
         return valid_loss, total, correct
 
     def _run_one_epoch(self, train_loader, val_loader,
@@ -188,7 +194,6 @@ class BaseNeuralModel:
         best_val_loss = float('inf')
         val_interval = self.get_validation_frequency(
             self.epochs, self.learning_rate)
-        loss_prefix = 'RMSE' if self.is_regression_task else 'Accuracy'
         for epoch in range(1, self.epochs + 1):
             best_model, best_val_loss = self._run_one_epoch(
                 train_loader, val_loader,
