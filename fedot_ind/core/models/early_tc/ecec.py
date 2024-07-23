@@ -16,16 +16,16 @@ class ECEC(EarlyTSClassifier):
     def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.__cv = 5
-        
+
     def _init_model(self, X, y):
         super()._init_model(X, y)
         self._reliabilities = np.zeros((self.n_pred, self.n_classes, self.n_classes))
 
     def _predict_one_slave(self, X, i, offset=0):
-        predicted_probas, predicted_labels = super()._predict_one_slave(X, i, offset) 
-        reliabilities = self._reliabilities[i, predicted_labels, predicted_labels].flatten() # n_inst
+        predicted_probas, predicted_labels = super()._predict_one_slave(X, i, offset)
+        reliabilities = self._reliabilities[i, predicted_labels, predicted_labels].flatten()  # n_inst
         return predicted_labels.astype(int), predicted_probas, reliabilities
-    
+
     def _predict(self, X, training=False):
         predicted_labels, predicted_probas, reliabilities = super()._predict(X, training)
         confidences = 1 - np.cumprod(1 - reliabilities, axis=0)
@@ -33,12 +33,12 @@ class ECEC(EarlyTSClassifier):
         predicted_labels = np.stack(predicted_labels)
         predicted_probas = np.stack(predicted_probas)
         return predicted_labels, predicted_probas, non_confident, confidences
-    
+
     def predict_proba(self, X):
         _, predicted_probas, non_confident, confidences = self._predict(X)
         predicted_probas[non_confident] = -1
         return super().predict_proba(predicted_probas, confidences)
-    
+
     def _fit_one_interval(self, X, y, i):
         X_part = X[..., :self.prediction_idx[i] + 1]
         X_part = self.scalers[i].fit_transform(X_part)
@@ -47,13 +47,13 @@ class ECEC(EarlyTSClassifier):
         return labels
 
     def _score(self, y, y_pred, alpha):
-        matches = (y_pred == np.tile(y, (self.n_pred, 1))) # n_pred x n_inst
+        matches = (y_pred == np.tile(y, (self.n_pred, 1)))  # n_pred x n_inst
         n, n_inst, *_ = matches.shape
         confidences = np.ones((n, n_inst), dtype='float32')
         for i in range(self.n_pred):
             confidences[i] = self._reliabilities[i, y, y_pred[i]]
-        confidences = 1 - np.cumprod(1 - confidences, axis=0) # n_pred x n_inst
-        candidates = self._select_thrs(confidences) # n_candidates
+        confidences = 1 - np.cumprod(1 - confidences, axis=0)  # n_pred x n_inst
+        candidates = self._select_thrs(confidences)  # n_candidates
         cfs = np.zeros((len(candidates), n))
         for i, candidate in enumerate(candidates):
             mask = confidences >= candidate  # n_pred x n_inst
@@ -61,7 +61,7 @@ class ECEC(EarlyTSClassifier):
             accuracy_for_candidate[np.isnan(accuracy_for_candidate)] = 0
             cfs[i] = self.cost_func(self.earliness, accuracy_for_candidate, alpha)
         self._chosen_estimator_idx = np.argmin(cfs.mean(0))
-        return candidates[np.argmin(cfs, axis=0)] # n_pred
+        return candidates[np.argmin(cfs, axis=0)]  # n_pred
 
     @staticmethod
     def _select_thrs(confidences):
@@ -70,13 +70,13 @@ class ECEC(EarlyTSClassifier):
         pair_means = C[:-1] + difference / 2
         difference_shifted = np.roll(difference, 1)
         difference_idx = np.argwhere(difference <= difference_shifted)
-        means_candidates = pair_means[difference_idx].flatten()    
+        means_candidates = pair_means[difference_idx].flatten()
         return means_candidates if len(means_candidates) else C
-        
+
     @staticmethod
     def cost_func(earliness, accuracies, alpha):
         return alpha * (1 - accuracies) + (1 - alpha) * earliness
-    
+
     def fit(self, X, y):
         y = np.array(y).flatten().astype(int)
         self._init_model(X, y)
@@ -97,4 +97,3 @@ class ECEC(EarlyTSClassifier):
         confidences[positive] *= 1 / (1 - thr)
         confidences[~positive] *= 1 / thr
         return confidences
-    

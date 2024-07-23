@@ -37,6 +37,10 @@ from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from fedot_ind.core.models.early_tc.ecec import ECEC
+from fedot_ind.core.models.early_tc.economy_k import EconomyK
+from fedot_ind.core.models.early_tc.prob_threshold import ProbabilityThresholdClassifier
+from fedot_ind.core.models.early_tc.teaser import TEASER
 from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
     ConvolutionalAutoEncoderDetector

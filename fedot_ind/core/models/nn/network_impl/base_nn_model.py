@@ -128,7 +128,7 @@ class BaseNeuralModel:
             output = output.argmax(-1)
         correct = (output == targets).sum().item()
         return training_loss, total, correct
-      
+
     def _eval_one_batch(self, batch, loss_fn):
         inputs, targets = batch
         output = self.model(inputs)
@@ -143,7 +143,7 @@ class BaseNeuralModel:
         return valid_loss, total, correct
 
     def _run_one_epoch(self, train_loader, val_loader,
-                       optimizer, loss_fn, 
+                       optimizer, loss_fn,
                        epoch, val_interval,
                        early_stopping, scheduler,
                        best_val_loss):
@@ -178,7 +178,7 @@ class BaseNeuralModel:
 
         early_stopping(training_loss, self.model, './')
         adjust_learning_rate(optimizer, scheduler,
-                            epoch + 1, self.learning_rate, printout=False)
+                             epoch + 1, self.learning_rate, printout=False)
         scheduler.step()
         return best_model, best_val_loss
 

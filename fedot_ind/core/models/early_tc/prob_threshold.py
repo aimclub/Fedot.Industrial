@@ -42,11 +42,11 @@ class ProbabilityThresholdClassifier(EarlyTSClassifier):
         scores = super()._score(X, y, accuracy_importance)
         self._chosen_estimator_idx = np.argmax(scores)
         return scores
-    
+
     def fit(self, X, y):
         super().fit(X, y)
         self._score(X, y, self.accuracy_importance)
-    
+
     def _transform_score(self, confidences):
         thr = self.probability_threshold
         confidences = confidences - thr

@@ -42,7 +42,10 @@ class QuantileExtractor(BaseExtractor):
         self.stride = params.get('stride', 1)
         self.add_global_features = params.get('add_global_features', True)
         self.logging_params.update({'Wsize': self.window_size,
-                                    'Stride': self.stride})
+                                    'Stride': self.stride,
+                                    # 'VarTh': self.var_threshold
+                                    }
+                                   )
 
     def _concatenate_global_and_local_feature(
             self,
