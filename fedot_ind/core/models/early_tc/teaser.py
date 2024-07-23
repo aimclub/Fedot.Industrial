@@ -14,8 +14,8 @@ class TEASER(EarlyTSClassifier):
      from “TEASER: early and accurate time series classification,”
            Data Min. Knowl. Discov., vol. 34, no. 5, pp. 1336–1362, 2020
     """
-    
-    def __init__(self, params: Optional[OperationParameters] = {}):        
+
+    def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self._oc_svm_params = (100., 10., 5., 2.5, 1.5, 1., 0.5, 0.25, 0.1)
 
@@ -62,16 +62,16 @@ class TEASER(EarlyTSClassifier):
             # if they are not outliers
             final_verdict = self.oc_estimators[estimator_indices[i]].decision_function(X_to_ith)
             # mark as accepted
-            final_verdicts[i] = final_verdict 
-        (non_acceptance[non_acceptance & (final_verdict > 0)], 
-         final_verdicts[non_acceptance], 
+            final_verdicts[i] = final_verdict
+        (non_acceptance[non_acceptance & (final_verdict > 0)],
+         final_verdicts[non_acceptance],
          final_verdicts[~non_acceptance & (final_verdicts < 0)]
-        ) = False, -1, self.consecutive_predictions / self.n_pred
+         ) = False, -1, self.consecutive_predictions / self.n_pred
         return predicted_labels, predicted_probas, non_acceptance, final_verdicts
 
     def predict_proba(self, X):
         _, predicted_probas, non_acceptance, final_verdicts = self._predict(X)
-        predicted_probas[non_acceptance] = 0 #final_verdicts[non_acceptance, None]
+        predicted_probas[non_acceptance] = 0  # final_verdicts[non_acceptance, None]
         return super().predict_proba(predicted_probas, final_verdicts)
 
     def _score(self, X, y, accuracy_importance=None):

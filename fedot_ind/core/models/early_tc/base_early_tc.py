@@ -1,5 +1,4 @@
 from typing import Optional, List
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import ClassifierMixin, BaseEstimator
@@ -9,7 +8,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 
 class EarlyTSClassifier(ClassifierMixin, BaseEstimator):
     """
-    Base class for Early Time Series Classification models 
+    Base class for Early Time Series Classification models
     which implement prefix-wise predictions via traiing multiple slave estimators.
 
     Args:
@@ -24,14 +23,15 @@ class EarlyTSClassifier(ClassifierMixin, BaseEstimator):
         ``transform_score (bool)``: whether or not to scale scores to [-1, 1] interval
         ``min_ts_step (int)``: minimal difference between to subsequent prefix' lengths
     """
-    def __init__(self, params: Optional[OperationParameters] = {}):     
+
+    def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__()
         self.interval_percentage = params.get('interval_percentage', 10)
         self.consecutive_predictions = params.get('consecutive_predictions', 1)
         self.accuracy_importance = params.get('accuracy_importance', 1.)
         self.min_ts_length = params.get('min_ts_step', 3)
         self.random_state = params.get('random_state', None)
-        
+
         self.prediction_mode = params.get('prediction_mode', 'last_available')
         self.transform_score = params.get('transform_score', True)
         self.weasel_params = {}
@@ -123,7 +123,7 @@ class EarlyTSClassifier(ClassifierMixin, BaseEstimator):
             predictions as a numpy array of shape (2, n_selected_estimators, n_instances, n_classes)
             where first subarray stands for probas, and second for scores
         """
-        predicted_probas, scores, *_ = args 
+        predicted_probas, scores, *_ = args
         if self.transform_score:
             scores = self._transform_score(scores)
         scores = np.tile(scores[..., None], (1, 1, self.n_classes))

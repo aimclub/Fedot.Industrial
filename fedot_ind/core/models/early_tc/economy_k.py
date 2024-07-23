@@ -10,16 +10,17 @@ from sklearn.model_selection import cross_val_predict
 
 class EconomyK(EarlyTSClassifier):
     """
-    Model described in 
-    A. Dachraoui, A. Bondu, and A. Cornu´ejols, “Early classification of time series as a non myopic sequential decision 
+    Model described in
+    A. Dachraoui, A. Bondu, and A. Cornu´ejols, “Early classification of time series as a non myopic sequential decision
     making problem,” in the European Conf. on Machine Learning and Knowledge Discovery in Databases, ser. LNCS, vol.
     9284. Springer, 2015, pp. 433–447.
     """
-    def __init__(self, params: Optional[OperationParameters] = {}):     
+
+    def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.prediction_mode = params.get('prediction_mode', 'last_available')
         self.lambda_ = params.get('lambda_', 1.)
-        self._cluster_factor = params.get('cluster_factor' , 1)
+        self._cluster_factor = params.get('cluster_factor', 1)
         self._random_state = 2104
         self.__cv = 5
 
@@ -88,7 +89,8 @@ class EconomyK(EarlyTSClassifier):
         return super().predict_proba(probas, times)
 
     def _transform_score(self, time):
-        scores = 1 - (time - self.prediction_idx[self._estimator_for_predict, None]) / (self.prediction_idx[-1] - self._estimator_for_predict)[:, None]
+        scores = 1 - (time - self.prediction_idx[self._estimator_for_predict, None]
+                      ) / (self.prediction_idx[-1] - self._estimator_for_predict)[:, None]
         assert ((0 <= scores) & (scores <= 1)).all()
         scores *= 2
         scores -= 1

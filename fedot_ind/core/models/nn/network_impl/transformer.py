@@ -72,6 +72,7 @@ class TransformerModel(BaseNeuralModel):
            self.batch_size: int, the batch size.
 
        """
+
     def __repr__(self):
         return 'Transformer'
 

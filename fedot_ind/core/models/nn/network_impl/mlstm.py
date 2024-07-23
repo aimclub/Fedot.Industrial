@@ -10,6 +10,7 @@ import torch
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 
+
 class SqueezeExciteBlock(nn.Module):
     def __init__(self, input_channels, filters, reduce=4):
         super().__init__()
@@ -37,9 +38,9 @@ class MLSTM_module(nn.Module):
         super().__init__()
         self.proj = nn.Linear(input_size * inner_channels + input_channels * inner_size, output_size)
         self.lstm = nn.LSTM(input_size, inner_size, num_layers,
-                             batch_first=True, dropout=dropout)
-        
-        squeeze_excite_size = input_size 
+                            batch_first=True, dropout=dropout)
+
+        squeeze_excite_size = input_size
         self.conv_branch = nn.Sequential(
             nn.Conv1d(input_channels, inner_channels,
                       padding='same',
@@ -84,7 +85,8 @@ class MLSTM(BaseNeuralModel):
 
     {BaseNeuralModel.__doc__}
     """
-    def __init__(self, params: Optional[OperationParameters] = {}): 
+
+    def __init__(self, params: Optional[OperationParameters] = {}):
         super().__init__(params)
         self.dropout = params.get('dropout', 0.25)
         self.hidden_size = params.get('hidden_size', 64)
@@ -101,7 +103,7 @@ class MLSTM(BaseNeuralModel):
     def _compute_prediction_points(self, n_idx):
         interval_length = max(int(n_idx * self.interval_percentage / 100), self.min_ts_length)
         prediction_idx = np.arange(interval_length - 1, n_idx, interval_length)
-        self.earliness = 1 - prediction_idx / n_idx 
+        self.earliness = 1 - prediction_idx / n_idx
         return prediction_idx, interval_length
 
     def _init_model(self, ts: InputData):
