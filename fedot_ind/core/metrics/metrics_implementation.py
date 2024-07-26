@@ -1,6 +1,7 @@
 from typing import Optional
 from typing import Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
@@ -221,6 +222,10 @@ def smape(a, f, _=None):
                                (np.abs(a) + np.abs(f)) * 100)
 
 
+def rmse(y_true, y_pred):
+    return mean_squared_error(y_true, y_pred, squared=False)
+
+
 def mape(A, F):
     return mean_absolute_percentage_error(A, F)
 
@@ -231,9 +236,6 @@ def calculate_regression_metric(target,
                                 metric_names=('r2', 'rmse', 'mae'),
                                 **kwargs):
     target = target.astype(float)
-
-    def rmse(y_true, y_pred):
-        return np.sqrt(mean_squared_error(y_true, y_pred))
 
     metric_dict = {'r2': r2_score,
                    'mse': mean_squared_error,
@@ -260,9 +262,6 @@ def calculate_forecasting_metric(target,
                                                'mape'),
                                  **kwargs):
     target = target.astype(float)
-
-    def rmse(y_true, y_pred):
-        return np.sqrt(mean_squared_error(y_true, y_pred))
 
     metric_dict = {
         'rmse': rmse,
@@ -347,8 +346,102 @@ def kl_divergence(solution: pd.DataFrame,
         return np.average(solution.mean())
 
 
-class AnomalyMetric(QualityMetric):
+class ETSCPareto(QualityMetric, ParetoMetrics):
+    def __init__(self,
+                 target,
+                 predicted_labels,
+                 predicted_probs=None,
+                 weigths: tuple = None,
+                 mode: str = 'robust',
+                 reduce: bool = True,
+                 metric_list: tuple = (
+                     'f1', 'roc_auc', 'accuracy', 'logloss', 'precision'),
+                 default_value: float = 0.0):
+        self.target = target.flatten()
+        self.predicted_labels = predicted_labels
+        self.predicted_probs = predicted_probs
+        self.metric_list = metric_list
+        self.default_value = default_value
+        self.weights = weigths
+        self.mode = mode
+        self.columns = ['robustness'] if self.mode == 'robust' else []
+        self.columns.extend(metric_list)
+        self.reduce = reduce
 
+    def metric(self) -> float:
+        if len(self.predicted_labels.shape) == 1:
+            self.predicted_labels = self.predicted_labels[None, ...]
+            self.predicted_probs = self.predicted_probs[None, ...]
+        print(f'''
+        target shape {self.target.shape}
+        prediction {self.predicted_labels.shape}
+        predicted_probs (scores) {self.predicted_probs.shape}
+        ''')
+        n_metrics = len(self.metric_list) + (self.mode == 'robust')
+        n_est = self.predicted_labels.shape[0]
+        result = np.zeros((n_est, n_metrics))
+        print(result.shape)
+        if self.mode == 'robust':
+            mask = self.predicted_probs >= 0
+            print('mask', mask.shape)
+            if not mask.any():
+                return result
+            robustness = mask.sum(-1) / self.predicted_probs.shape[-1]
+            print('rob', robustness.shape)
+            result[:, 0] = robustness.flatten()
+        else:
+            mask = np.ones_like(self.predicted_probs, dtype=bool)
+
+        for est in range(n_est):
+            for i, metric in enumerate(self.metric_list, 1):
+                assert metric in CLASSIFICATION_METRIC_DICT, f'{metric} is not found in available metrics'
+                metric_value = CLASSIFICATION_METRIC_DICT[metric](self.target[mask[est]],
+                                                                  self.predicted_labels[est][mask[est]])
+                result[est, i] = metric_value
+
+        if self.weights is None:
+            if self.reduce:
+                self.weights = np.empty(n_metrics)
+                self.weights.fill(1 / len(self.weights))
+            else:
+                self.weights = np.eye(n_metrics)
+        else:
+            assert self.weights.shape[-1] == self.metrics.shape[-1], 'Metrics and weights size mismatch!'
+            self.weights /= self.weights.sum()
+
+        result = result @ self.weights.T
+        result[np.isnan(result)] = self.default_value
+        if not self.reduce:
+            return pd.DataFrame(result, columns=self.columns)
+        else:
+            return result
+
+    def plot_bicrit_metric(self, metrics, select=None, metrics_names=None):
+        if not metrics_names:
+            metrics_names = ('Robustness', 'Accuracy')
+        plt.figure(figsize=(10, 10))
+        assert metrics.shape[-1] == 2, 'only 2 metrics can be plotted'
+        for i, metric in enumerate(metrics):
+            selection = metric[select]
+            sizes = ((np.arange(selection.shape[0]) * 2)[::-1]) ** 1.5 + 10
+            plt.scatter(*(metric[select]).T,
+                        s=sizes,
+                        label=i)
+        plt.legend(loc="upper right", bbox_to_anchor=(1.5, 1))
+        plt.ylabel(metrics_names[1])
+        plt.xlabel(metrics_names[0])
+        plt.xlim((-0.05, 1.05))
+        plt.ylim((-0.05, 1.05))
+        plt.xticks(np.linspace(0, 1, 11))
+        plt.yticks(np.linspace(0, 1, 11))
+        plt.grid(True)
+
+    def select_pareto_front(self, metrics, maximize=True):
+        pareto_mask = self.pareto_metric_list(metrics, maximise=maximize)
+        return metrics[pareto_mask]
+
+
+class AnomalyMetric(QualityMetric):
     def __init__(self,
                  target,
                  predicted_labels,
@@ -617,3 +710,29 @@ def calculate_detection_metric(
         target=target,
         predicted_labels=labels).metric()
     return metric_dict
+
+
+REGRESSION_METRIC_DICT = {'r2': r2_score,
+                          'mse': mean_squared_error,
+                          'rmse': rmse,
+                          'mae': mean_absolute_error,
+                          'msle': mean_squared_log_error,
+                          'mape': mean_absolute_percentage_error,
+                          'median_absolute_error': median_absolute_error,
+                          'explained_variance_score': explained_variance_score,
+                          'max_error': max_error,
+                          'd2_absolute_error_score': d2_absolute_error_score}
+
+CLASSIFICATION_METRIC_DICT = {'accuracy': accuracy_score,
+                              'f1': f1_score,
+                              'roc_auc': roc_auc_score,
+                              'precision': precision_score,
+                              'logloss': log_loss}
+
+FORECASTING_METRICS_DICT = {
+    'rmse': rmse,
+    'mae': mean_absolute_error,
+    'median_absolute_error': median_absolute_error,
+    'smape': smape,
+    'mase': mase
+}

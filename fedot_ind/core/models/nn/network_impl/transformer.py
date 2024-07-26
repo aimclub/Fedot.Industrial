@@ -73,6 +73,9 @@ class TransformerModel(BaseNeuralModel):
 
        """
 
+    def __repr__(self):
+        return 'Transformer'
+
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.num_classes = self.params.get('num_classes', 1)

@@ -90,7 +90,7 @@ class BaseNeuralModel:
     def _init_model(self, ts) -> tuple:
         raise NotImplementedError()
 
-    def _prepare_data(self, ts, split_data: bool = True):
+    def _prepare_data(self, ts, split_data: bool = True, collate_fn=None):
 
         if split_data:
             train_data, val_data = train_test_data_setup(
@@ -102,16 +102,85 @@ class BaseNeuralModel:
             val_dataset = None
 
         train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True)
+            train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn)
 
         if val_dataset is None:
             val_loader = val_dataset
         else:
             val_loader = torch.utils.data.DataLoader(
-                val_dataset, batch_size=self.batch_size, shuffle=True)
+                val_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_fn)
 
         self.label_encoder = train_dataset.label_encoder
         return train_loader, val_loader
+
+    def _train_one_batch(self, batch, optimizer, loss_fn):
+        optimizer.zero_grad()
+        inputs, targets = batch
+        output = self.model(inputs)
+        loss = loss_fn(output, targets.float())
+        loss.backward()
+        optimizer.step()
+        training_loss = loss.data.item() * inputs.size(0)
+        total = targets.size(0)
+        if targets.ndim == 2:
+            targets = targets.argmax(-1)
+        if output.ndim == 2:
+            output = output.argmax(-1)
+        correct = (output == targets).sum().item()
+        return training_loss, total, correct
+
+    def _eval_one_batch(self, batch, loss_fn):
+        inputs, targets = batch
+        output = self.model(inputs)
+        loss = loss_fn(output, targets.float())
+        valid_loss = loss.data.item() * inputs.size(0)
+        total = targets.size(0)
+        if targets.ndim == 2:
+            targets = targets.argmax(-1)
+        if output.ndim == 2:
+            output = output.argmax(-1)
+        correct = (output == targets).sum().item()
+        return valid_loss, total, correct
+
+    def _run_one_epoch(self, train_loader, val_loader,
+                       optimizer, loss_fn,
+                       epoch, val_interval,
+                       early_stopping, scheduler,
+                       best_val_loss):
+        training_loss = 0.0
+        valid_loss = 0.0
+        self.model.train()
+        total = 0
+        correct = 0
+        best_model = self.model
+        for batch in tqdm(train_loader):
+            training_loss_batch, total_batch, correct_batch = self._train_one_batch(batch, optimizer, loss_fn)
+            training_loss += training_loss_batch
+            total += total_batch
+            correct += correct_batch
+        accuracy = correct / total
+        training_loss /= len(train_loader.dataset)
+        print('Epoch: {}, Accuracy = {}, Training Loss: {:.2f}'.format(
+            epoch, accuracy, training_loss))
+
+        if val_loader is not None and epoch % val_interval == 0:
+            self.model.eval()
+            total = 0
+            correct = 0
+            for batch in val_loader:
+                valid_loss_batch, total_batch, correct_batch = self._eval_one_batch(batch, loss_fn)
+                valid_loss += valid_loss_batch
+                total += total_batch
+                correct += correct_batch
+            if valid_loss < best_val_loss:
+                best_val_loss = valid_loss
+                best_model = copy.deepcopy(self.model)
+
+        early_stopping(training_loss, self.model, './')
+        adjust_learning_rate(optimizer, scheduler,
+                             epoch + 1, self.learning_rate, printout=False)
+        scheduler.step()
+        return best_model, best_val_loss
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
         early_stopping = EarlyStopping()
@@ -125,55 +194,14 @@ class BaseNeuralModel:
         best_val_loss = float('inf')
         val_interval = self.get_validation_frequency(
             self.epochs, self.learning_rate)
-        loss_prefix = 'RMSE' if self.is_regression_task else 'Accuracy'
         for epoch in range(1, self.epochs + 1):
-            training_loss = 0.0
-            valid_loss = 0.0
-            self.model.train()
-            total = 0
-            correct = 0
-            for batch in tqdm(train_loader):
-                optimizer.zero_grad()
-                inputs, targets = batch
-                output = self.model(inputs)
-                loss = loss_fn(output, targets.float())
-                loss.backward()
-                optimizer.step()
-                training_loss += loss.data.item() / inputs.size(0) if self.is_regression_task \
-                    else loss.data.item() * inputs.size(0)
-                total += targets.size(0)
-                correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item() \
-                    if not self.is_regression_task else 0
-
-            training_loss = training_loss / len(train_loader.dataset) if not self.is_regression_task else training_loss
-            accuracy = correct / total if not self.is_regression_task else training_loss
-            print('Epoch: {}, {}= {}, Training Loss: {:.2f}'.format(
-                epoch, loss_prefix, accuracy, training_loss))
-
-            if val_loader is not None and epoch % val_interval == 0:
-                self.model.eval()
-                total = 0
-                correct = 0
-                for batch in val_loader:
-                    inputs, targets = batch
-                    output = self.model(inputs)
-
-                    loss = loss_fn(output, targets.float())
-
-                    valid_loss += loss.data.item() / inputs.size(0) if self.is_regression_task \
-                        else loss.data.item() * inputs.size(0)
-                    total += targets.size(0)
-                    correct += (torch.argmax(output, 1) == torch.argmax(targets, 1)).sum().item() \
-                        if not self.is_regression_task else 0
-                if valid_loss < best_val_loss:
-                    best_val_loss = valid_loss
-                    best_model = copy.deepcopy(self.model)
-
-            early_stopping(training_loss, self.model, './')
-            adjust_learning_rate(optimizer, scheduler,
-                                 epoch + 1, self.learning_rate, printout=False)
-            scheduler.step()
-
+            best_model, best_val_loss = self._run_one_epoch(
+                train_loader, val_loader,
+                optimizer, loss_fn,
+                epoch, val_interval,
+                early_stopping, scheduler,
+                best_val_loss
+            )
             if early_stopping.early_stop:
                 print("Early stopping")
                 break

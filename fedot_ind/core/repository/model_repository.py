@@ -45,6 +45,10 @@ from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detecto
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
+from fedot_ind.core.models.early_tc.ecec import ECEC
+from fedot_ind.core.models.early_tc.economy_k import EconomyK
+from fedot_ind.core.models.early_tc.prob_threshold import ProbabilityThresholdClassifier
+from fedot_ind.core.models.early_tc.teaser import TEASER
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
@@ -53,6 +57,7 @@ from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
+from fedot_ind.core.models.nn.network_impl.mlstm import MLSTM
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
@@ -88,7 +93,12 @@ class AtomizedModel(Enum):
         # external models
         'lgbm': LGBMClassifier,
         # for detection
-        'one_class_svm': OneClassSVM
+        'one_class_svm': OneClassSVM,
+        # Early classification
+        'ecec': ECEC,
+        'economy_k': EconomyK,
+        'proba_threshold_etc': ProbabilityThresholdClassifier,
+        'teaser': TEASER,
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization
@@ -188,7 +198,9 @@ class AtomizedModel(Enum):
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,
         # linear_dummy_model
-        'lora_model': LoraModel
+        'lora_model': LoraModel,
+        # early ts classification
+        'mlstm_model': MLSTM
     }
 
 
