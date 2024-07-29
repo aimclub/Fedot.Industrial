@@ -1,7 +1,6 @@
 import pytest
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from tests.integration.integration_test_utils import data
 
 
@@ -9,6 +8,7 @@ DATASETS = {
     'univariate': 'ItalyPowerDemand',
     'multivariate': 'EthereumSentiment'
 }
+
 
 @pytest.mark.parametrize('type_', ['univariate', 'multivariate'])
 def test_basic_reg_test(type_):

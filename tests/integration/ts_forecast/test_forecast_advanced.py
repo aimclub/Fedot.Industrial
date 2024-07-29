@@ -1,24 +1,14 @@
-import pytest
 
-from itertools import product
-from tests.integration.integration_test_utils import data, launch_api
 
 import pandas as pd
-from pathlib import Path
-import random
 import numpy as np
 
-from fedot.core.data.data import InputData
-from fedot.core.data.data_split import train_test_data_setup
 from fedot_ind.api.main import FedotIndustrial
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
 FINETUNE = False
 TASK = 'ts_forecasting'
@@ -50,8 +40,8 @@ FORECAST_LENGTH = 8
 #                                   ).eval(dataset=dataset_name, finetune=finetune)
 #         current_metric = result_dict['metrics']
 #         assert current_metric is not None
-        
-        
+
+
 def test_forecasting_exogenous():
     dataset_name = PROJECT_PATH + \
         '/data/m4/datasets/Daily-train.csv'
@@ -74,15 +64,15 @@ def test_forecasting_exogenous():
         api_config = dict(problem=TASK,
                           metric='rmse',
                           timeout=0.05,
-                          task_params={'forecast_length': FORECAST_LENGTH, 'data_type': 'time_series', 
+                          task_params={'forecast_length': FORECAST_LENGTH, 'data_type': 'time_series',
                                        'supplementary_data': {'feature_name': exog_var}},
                           n_jobs=-1,
                           industrial_strategy='forecasting_exogenous',
                           initial_assumption=initial_assumptions[assumption],
-                          industrial_strategy_params={'exog_variable': exog_ts, 'data_type': 'time_series', 
+                          industrial_strategy_params={'exog_variable': exog_ts, 'data_type': 'time_series',
                                                       'supplementary_data': {'feature_name': exog_var}},
                           logging_level=0)
-        
+
         industrial = FedotIndustrial(**api_config)
         industrial.fit(input_data)
         assert not np.isnan(industrial.predict(input_data)).any()

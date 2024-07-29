@@ -1,6 +1,5 @@
 import pytest
 
-from fedot_ind.api.main import FedotIndustrial
 from tests.integration.integration_test_utils import data, basic_launch
 
 TASK = 'classification'
@@ -9,10 +8,10 @@ DATASETS = {
     'multivariate': 'Epilepsy'
 }
 
+
 @pytest.mark.parametrize('type_', ['univariate', 'multivariate'])
 def test_basic_clf_test(type_):
     basic_launch(TASK, *data(DATASETS[type_]))
-
 
     # assert train_data is not None and test_data is not None
 
