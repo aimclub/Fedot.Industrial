@@ -14,4 +14,3 @@ def test_basic_reg_test(type_):
     train_data, test_data = data(DATASETS[type_])
     assert train_data is not None and test_data is not None
     basic_launch('regression', train_data, test_data)
-

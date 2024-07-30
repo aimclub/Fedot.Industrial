@@ -1,4 +1,3 @@
-import pytest
 
 import pandas as pd
 import numpy as np
@@ -13,19 +12,20 @@ FINETUNE = False
 TASK = 'ts_forecasting'
 FORECAST_LENGTH = 8
 INITIAL_ASSUMPTIONS = {
-        'nbeats': PipelineBuilder().add_node('nbeats_model'),
-        'industrial': PipelineBuilder().add_node(
-            'eigen_basis',
-            params={
-                'low_rank_approximation': False,
-                'rank_regularization': 'explained_dispersion'}).add_node('ar')
+    'nbeats': PipelineBuilder().add_node('nbeats_model'),
+    'industrial': PipelineBuilder().add_node(
+        'eigen_basis',
+        params={
+            'low_rank_approximation': False,
+            'rank_regularization': 'explained_dispersion'}).add_node('ar')
 }
+
 
 def test_forecasting():
     dataset_name = {'benchmark': 'M4',
                     'dataset': 'D3257',
                     'task_params': {'forecast_length': FORECAST_LENGTH}}
-    
+
     for assumption in INITIAL_ASSUMPTIONS:
         api_config = dict(problem=TASK,
                           metric='rmse',
@@ -40,8 +40,8 @@ def test_forecasting():
                                   ).eval(dataset=dataset_name, finetune=FINETUNE)
         current_metric = result_dict['metrics']
         assert current_metric is not None
-        
-        
+
+
 def test_forecasting_exogenous():
     dataset_name = PROJECT_PATH + \
         '/data/m4/datasets/Daily-train.csv'
@@ -61,7 +61,7 @@ def test_forecasting_exogenous():
                           n_jobs=-1,
                           industrial_strategy='forecasting_exogenous',
                           initial_assumption=INITIAL_ASSUMPTIONS[assumption],
-                          industrial_strategy_params={'exog_variable': exog_ts, 'data_type': 'time_series', 
+                          industrial_strategy_params={'exog_variable': exog_ts, 'data_type': 'time_series',
                                                       'supplementary_data': {'feature_name': exog_var}},
                           logging_level=0)
 
