@@ -8,6 +8,7 @@ DATASETS = {
     'multivariate': 'EthereumSentiment'
 }
 
+
 @pytest.mark.parametrize('type_', ['univariate', 'multivariate'])
 def test_basic_reg_test(type_):
     train_data, test_data = data(DATASETS[type_])

@@ -56,7 +56,7 @@ def test_forecasting_exogenous():
         api_config = dict(problem=TASK,
                           metric='rmse',
                           timeout=0.05,
-                          task_params={'forecast_length': FORECAST_LENGTH, 'data_type': 'time_series', 
+                          task_params={'forecast_length': FORECAST_LENGTH, 'data_type': 'time_series',
                                        'supplementary_data': {'feature_name': exog_var}},
                           n_jobs=-1,
                           industrial_strategy='forecasting_exogenous',
@@ -64,7 +64,7 @@ def test_forecasting_exogenous():
                           industrial_strategy_params={'exog_variable': exog_ts, 'data_type': 'time_series', 
                                                       'supplementary_data': {'feature_name': exog_var}},
                           logging_level=0)
-        
+
         industrial = FedotIndustrial(**api_config)
         industrial.fit(input_data)
         assert not np.isnan(industrial.predict(input_data)).any()

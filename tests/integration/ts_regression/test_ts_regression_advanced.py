@@ -9,12 +9,11 @@ DATASETS = {
     'multivariate': 'EthereumSentiment'
 }
 STRATEGIES = [
-    'kernel_automl', 
+    'kernel_automl',
     'federated_automl'
 ]
+
 
 @pytest.mark.parametrize('type_,strategy', list((product(DATASETS.keys(), STRATEGIES))))
 def test_regr_advanced(type_, strategy):
     launch_api(TASK, strategy, DATASETS[type_])
-
-    

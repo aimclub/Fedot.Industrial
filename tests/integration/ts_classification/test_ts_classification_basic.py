@@ -8,6 +8,7 @@ DATASETS = {
     'multivariate': 'Epilepsy'
 }
 
+
 @pytest.mark.parametrize('type_', ['univariate', 'multivariate'])
 def test_basic_clf_test(type_):
     probs = basic_launch(TASK, *data(DATASETS[type_]))[1]

@@ -1,4 +1,3 @@
-from fedot_ind.tools.loader import DataLoader
 from fedot_ind.api.main import FedotIndustrial
 
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
