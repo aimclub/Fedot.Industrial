@@ -1,55 +1,45 @@
 import pytest
 
-from itertools import product
-from tests.integration.integration_test_utils import data, launch_api
-
 import pandas as pd
-from pathlib import Path
-import random
 import numpy as np
 
-from fedot.core.data.data import InputData
-from fedot.core.data.data_split import train_test_data_setup
-from fedot_ind.api.main import FedotIndustrial
-from fedot.core.repository.dataset_types import DataTypesEnum
-from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
 FINETUNE = False
 TASK = 'ts_forecasting'
 FORECAST_LENGTH = 8
+INITIAL_ASSUMPTIONS = {
+        'nbeats': PipelineBuilder().add_node('nbeats_model'),
+        'industrial': PipelineBuilder().add_node(
+            'eigen_basis',
+            params={
+                'low_rank_approximation': False,
+                'rank_regularization': 'explained_dispersion'}).add_node('ar')
+}
 
-# def test_forecasting():
-#     dataset_name = {'benchmark': 'M4',
-#                     'dataset': 'D3257',
-#                     'task_params': {'forecast_length': FORECAST_LENGTH}}
-#     initial_assumptions = {
-#         'nbeats': PipelineBuilder().add_node('nbeats_model'),
-#         # 'industrial': PipelineBuilder().add_node(
-#         #     'eigen_basis',
-#         #     params={
-#         #         'low_rank_approximation': False,
-#         #         'rank_regularization': 'explained_dispersion'}).add_node('ar')
-#     }
-#     for assumption in initial_assumptions.keys():
-#         api_config = dict(problem=TASK,
-#                           metric='rmse',
-#                           timeout=0.05,
-#                           task_params={'forecast_length': FORECAST_LENGTH},
-#                           n_jobs=-1,
-#                           industrial_strategy='forecasting_assumptions',
-#                           initial_assumption=initial_assumptions[assumption],
-#                           logging_level=20)
-#         result_dict = ApiTemplate(api_config=api_config,
-#                                   metric_list=('rmse',)
-#                                   ).eval(dataset=dataset_name, finetune=finetune)
-#         current_metric = result_dict['metrics']
-#         assert current_metric is not None
+def test_forecasting():
+    dataset_name = {'benchmark': 'M4',
+                    'dataset': 'D3257',
+                    'task_params': {'forecast_length': FORECAST_LENGTH}}
+    
+    for assumption in INITIAL_ASSUMPTIONS:
+        api_config = dict(problem=TASK,
+                          metric='rmse',
+                          timeout=0.05,
+                          task_params={'forecast_length': FORECAST_LENGTH},
+                          n_jobs=-1,
+                          industrial_strategy='forecasting_assumptions',
+                          initial_assumption=INITIAL_ASSUMPTIONS[assumption],
+                          logging_level=0)
+        result_dict = ApiTemplate(api_config=api_config,
+                                  metric_list=('rmse',)
+                                  ).eval(dataset=dataset_name, finetune=FINETUNE)
+        current_metric = result_dict['metrics']
+        assert current_metric is not None
         
         
 def test_forecasting_exogenous():
@@ -61,16 +51,8 @@ def test_forecasting_exogenous():
     ts = train_data['V5'].values
     target = ts[-FORECAST_LENGTH:].flatten()
     input_data = (ts, target)
-    initial_assumptions = {
-        'nbeats': PipelineBuilder().add_node('nbeats_model'),
-        # 'industrial': PipelineBuilder().add_node(
-        #     'eigen_basis',
-        #     params={
-        #         'low_rank_approximation': False,
-        #         'rank_regularization': 'explained_dispersion'}).add_node('ar')
-    }
 
-    for assumption in initial_assumptions.keys():
+    for assumption in INITIAL_ASSUMPTIONS.keys():
         api_config = dict(problem=TASK,
                           metric='rmse',
                           timeout=0.05,
@@ -78,7 +60,7 @@ def test_forecasting_exogenous():
                                        'supplementary_data': {'feature_name': exog_var}},
                           n_jobs=-1,
                           industrial_strategy='forecasting_exogenous',
-                          initial_assumption=initial_assumptions[assumption],
+                          initial_assumption=INITIAL_ASSUMPTIONS[assumption],
                           industrial_strategy_params={'exog_variable': exog_ts, 'data_type': 'time_series', 
                                                       'supplementary_data': {'feature_name': exog_var}},
                           logging_level=0)
