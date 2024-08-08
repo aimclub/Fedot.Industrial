@@ -17,14 +17,10 @@ class FedotAutomlImplementation(ModelImplementation):
         'classification')
 
     def __init__(self, params: Optional[OperationParameters] = None):
-        if not params:
-            params = OperationParameters()
-        else:
-            params = params.to_dict()
-        if 'available_operations' not in params.keys():
-            params.update({'available_operations': self.AVAILABLE_OPERATIONS})
-        self.model = Fedot(**params)
-        super(FedotAutomlImplementation, self).__init__()
+        super().__init__(params)
+        if 'available_operations' not in self.params.keys():
+            self.params.update({'available_operations': self.AVAILABLE_OPERATIONS})
+        self.model = Fedot(**self.params.to_dict())
 
     def fit(self, input_data: InputData):
         self.model.fit(input_data)
@@ -93,4 +89,4 @@ class FedotForecastingImplementation(FedotAutomlImplementation):
             self,
             input_data: InputData,
             output_mode='default') -> OutputData:
-        return self.model.predict(input_data)
+        return self.model.predict(input_data, output_mode=output_mode)

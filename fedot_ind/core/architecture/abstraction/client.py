@@ -13,9 +13,9 @@ def use_default_fedot_client(func):
 
 
 def use_industrial_fedot_client(func):
-    def decorated_func(self, *args):
+    def decorated_func(self, *args, **kwargs):
         repo = IndustrialModels()
-        result = func(self, *args)
+        result = func(self, *args, **kwargs)
         repo.setup_repository()
         return result
 
