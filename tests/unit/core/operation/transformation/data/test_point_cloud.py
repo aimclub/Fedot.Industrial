@@ -1,8 +1,8 @@
 import pytest
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
-from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
+from our_approach.core.architecture.settings.computational import backend_methods as np
+from our_approach.core.operation.transformation.data.kernel_matrix import TSTransformer
+from our_approach.core.operation.transformation.data.point_cloud import TopologicalTransformation
 
 
 @pytest.fixture()

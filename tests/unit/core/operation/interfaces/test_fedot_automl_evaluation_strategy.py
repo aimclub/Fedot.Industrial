@@ -1,8 +1,8 @@
 import pytest
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy import FedotAutoMLClassificationStrategy, \
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.utils.data import init_input_data
+from our_approach.core.operation.interfaces.fedot_automl_evaluation_strategy import FedotAutoMLClassificationStrategy, \
     FedotAutoMLRegressionStrategy
 
 

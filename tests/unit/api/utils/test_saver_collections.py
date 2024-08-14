@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS
-from fedot_ind.api.utils.saver_collections import ResultSaver
+from our_approach.api.utils.path_lib import DEFAULT_PATH_RESULTS
+from our_approach.api.utils.saver_collections import ResultSaver
 
 CUSTOM_PATH = './results'
 

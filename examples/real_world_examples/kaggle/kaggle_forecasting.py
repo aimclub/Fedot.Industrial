@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from our_approach.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
 finetune = False
 warehouse_to_item_id = {

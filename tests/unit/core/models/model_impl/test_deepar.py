@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from fedot.core.data.data import InputData
-from fedot_ind.core.models.nn.network_impl.deepar import DeepAR, DeepARModule
+from our_approach.core.models.nn.network_impl.deepar import DeepAR, DeepARModule
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from fedot.core.repository.dataset_types import DataTypesEnum
 

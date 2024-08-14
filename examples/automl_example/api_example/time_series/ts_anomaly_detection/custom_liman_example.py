@@ -5,12 +5,12 @@ import numpy as np
 import pandas as pd
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from fedot_ind.api.utils.checkers_collections import DataCheck
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
-from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from our_approach.api.utils.checkers_collections import DataCheck
+from our_approach.api.utils.path_lib import PROJECT_PATH
+from our_approach.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from our_approach.core.models.quantile.quantile_extractor import QuantileExtractor
+from our_approach.core.repository.constanst_repository import FEDOT_TASK
+from our_approach.core.repository.initializer_industrial_models import IndustrialModels
 
 # liman experiment setup
 sampling_rate = 4096

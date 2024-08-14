@@ -1,4 +1,4 @@
-from fedot_ind.core.architecture.settings.computational import BackendMethods, global_imports, default_device
+from our_approach.core.architecture.settings.computational import BackendMethods, global_imports, default_device
 import pytest
 
 

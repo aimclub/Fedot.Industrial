@@ -1,8 +1,8 @@
 
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.utils.data import init_input_data
+from our_approach.core.architecture.settings.computational import backend_methods as np
+from our_approach.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
 def dataset_uni():

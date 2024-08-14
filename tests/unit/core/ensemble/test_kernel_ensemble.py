@@ -1,5 +1,5 @@
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
-from fedot_ind.api.main import FedotIndustrial
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.main import MainClass
 
 
 def classification_data():
@@ -19,7 +19,7 @@ def kernel_ensemble():
                       industrial_strategy='kernel_automl',
                       industrial_strategy_params={},
                       logging_level=60)
-    industrial = FedotIndustrial(**api_config)
+    industrial = MainClass(**api_config)
     train_data, test_data = classification_data()
     industrial.fit(train_data)
     predict = industrial.predict(test_data)

@@ -1,4 +1,4 @@
-from fedot_ind.core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel, KernelFeatureGenerator
+from our_approach.core.architecture.settings.pipeline_factory import BasisTransformations, FeatureGenerator, MlModel, KernelFeatureGenerator
 
 
 def test_basis_transformations():

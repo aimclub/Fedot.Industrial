@@ -1,8 +1,8 @@
 import numpy as np
 from torch import Tensor
 
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocket, MiniRocketExtractor, get_minirocket_features, \
+from our_approach.api.utils.data import init_input_data
+from our_approach.core.models.nn.network_impl.mini_rocket import MiniRocket, MiniRocketExtractor, get_minirocket_features, \
     MiniRocketHead
 
 

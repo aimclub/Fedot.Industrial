@@ -1,4 +1,4 @@
-from fedot_ind.api.main import FedotIndustrial
+from our_approach.api.main import MainClass
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
@@ -37,7 +37,7 @@ api_config = dict(problem='classification',
                   industrial_strategy_params=lora_params,
                   logging_level=20)
 
-industrial = FedotIndustrial(**api_config)
+industrial = MainClass(**api_config)
 industrial.fit(train_data)
 predict = industrial.predict(test_data)
 _ = 1

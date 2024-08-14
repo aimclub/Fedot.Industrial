@@ -1,6 +1,6 @@
 import torch
 
-from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
+from our_approach.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 
 
 def test_dummy_nn():

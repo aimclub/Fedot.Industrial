@@ -1,4 +1,4 @@
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
 def test_generate_data_uni():

@@ -4,10 +4,10 @@ import warnings
 import pytest
 from matplotlib import get_backend, pyplot as plt
 
-from fedot_ind.api.main import FedotIndustrial as FI
-from fedot_ind.tools.explain.distances import DistanceTypes
-from fedot_ind.tools.explain.explain import PointExplainer
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.main import MainClass as FI
+from our_approach.tools.explain.distances import DistanceTypes
+from our_approach.tools.explain.explain import PointExplainer
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 distances = DistanceTypes.keys()
 

@@ -7,10 +7,10 @@ from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 
 from benchmark.feature_utils import *
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from our_approach.api.main import MainClass
+from our_approach.api.utils.path_lib import PROJECT_PATH
 from scipy.signal import butter, lfilter
-from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from our_approach.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 import numpy as np
 import pandas as pd
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
             all_eegs_train, target_df_train, 1, 2)
 
     # input_data_train, input_data_test = load_and_preproc_eeg(all_eegs_train, target_df_train, 1, 2)
-    model = FedotIndustrial(**experiment_setup)
+    model = MainClass(**experiment_setup)
     gc.collect()
     # train model
     if TRAIN_MODEL:

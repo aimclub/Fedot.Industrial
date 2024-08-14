@@ -1,8 +1,8 @@
-from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
+from our_approach.api.utils.industrial_strategy import IndustrialStrategy
 import pytest
-from fedot_ind.api.main import FedotIndustrial
+from our_approach.api.main import MainClass
 
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 STRATEGY = ['federated_automl', 'lora_strategy', 'kernel_automl', 'forecasting_assumptions']
 
@@ -66,7 +66,7 @@ def test_federated_strategy(classification_data):
 
     n_samples = train_data[0].shape[0]
     cnfg = CONFIGS['federated_automl']
-    industrial = FedotIndustrial(**cnfg)
+    industrial = MainClass(**cnfg)
     industrial.fit(train_data)
     predict = industrial.predict(test_data)
 

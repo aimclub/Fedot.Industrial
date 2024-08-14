@@ -2,15 +2,15 @@ import os
 import random
 import yaml
 
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.datasets.visualization import draw_sample_with_bboxes
+from our_approach.api.main import MainClass
+from our_approach.core.architecture.datasets.visualization import draw_sample_with_bboxes
 
 DATASETS_PATH = os.path.abspath('Warp-D')
 TEST_IMAGE_FOLDER = 'Land-Use_Scene_Classification/images_train_test_val/test'
 NUM_CLASSES = 29
 TASK = 'object_detection'
 
-model_dict = {'basic': FedotIndustrial(task=TASK, num_classes=NUM_CLASSES)}
+model_dict = {'basic': MainClass(task=TASK, num_classes=NUM_CLASSES)}
 
 
 def run_industrial_model(model_type: str = 'basic'):

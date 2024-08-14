@@ -42,7 +42,7 @@ jobs:
         run: poetry add git+https://github.com/aimclub/FEDOT.git@e0b4ee7
 
       - name: Run tests with pytest
-        run: poetry run pytest --cov=fedot_ind --cov-report xml:coverage.xml tests/unit
+        run: poetry run pytest --cov=our_approach --cov-report xml:coverage.xml tests/unit
 
       - name: Codecov-coverage
         uses: codecov/codecov-action@v4

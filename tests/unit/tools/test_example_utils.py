@@ -1,4 +1,4 @@
-from fedot_ind.tools.example_utils import evaluate_metric
+from our_approach.tools.example_utils import evaluate_metric
 
 
 def test_evaluate_metric():

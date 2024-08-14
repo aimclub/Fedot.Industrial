@@ -1,7 +1,7 @@
 import pytest
 import random
 import torch
-from fedot_ind.core.operation.decomposition.decomposed_conv import DecomposedConv2d
+from our_approach.core.operation.decomposition.decomposed_conv import DecomposedConv2d
 
 
 @pytest.fixture(scope='module')

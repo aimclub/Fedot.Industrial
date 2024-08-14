@@ -1,7 +1,7 @@
 import pytest
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.transformation.window_cutter import WindowCutter
+from our_approach.core.architecture.settings.computational import backend_methods as np
+from our_approach.core.operation.transformation.window_cutter import WindowCutter
 
 
 @pytest.fixture()

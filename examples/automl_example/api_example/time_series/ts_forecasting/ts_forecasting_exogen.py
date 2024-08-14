@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from our_approach.api.main import MainClass
+from our_approach.api.utils.path_lib import PROJECT_PATH
 
 if __name__ == "__main__":
     dataset_name = PROJECT_PATH + \
@@ -31,5 +31,5 @@ if __name__ == "__main__":
                       industrial_strategy='forecasting_exogenous',
                       n_jobs=2,
                       logging_level=30)
-    industrial = FedotIndustrial(**api_config)
+    industrial = MainClass(**api_config)
     industrial.fit(input_data)

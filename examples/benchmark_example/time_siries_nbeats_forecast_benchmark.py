@@ -1,6 +1,6 @@
 import csv
 
-from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsNet
+from our_approach.core.models.nn.network_impl.nbeats import NBeatsNet
 
 import torch
 from torch import optim

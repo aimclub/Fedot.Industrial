@@ -1,7 +1,7 @@
 import pytest
 
-from fedot_ind.api.utils.checkers_collections import DataCheck
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from our_approach.api.utils.checkers_collections import DataCheck
+from our_approach.core.architecture.settings.computational import backend_methods as np
 
 
 def input_data_with_nans():

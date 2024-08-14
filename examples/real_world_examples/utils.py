@@ -1,17 +1,17 @@
 import pandas as pd
 import pandas as pd
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from our_approach.api.utils.path_lib import PROJECT_PATH
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
-from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from our_approach.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
+from our_approach.core.repository.model_repository import default_industrial_availiable_operation
+from our_approach.core.repository.initializer_industrial_models import IndustrialModels
 from examples.example_utils import init_input_data, calculate_regression_metric
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
 from golem.core.tuning.simultaneous import SimultaneousTuner
-from fedot_ind.api.main import FedotIndustrial
+from our_approach.api.main import MainClass
 
 
 def evaluate_industrial_model(input_data,
@@ -59,7 +59,7 @@ def evaluate_automl(experiment_setup, train_data, test_data, runs=5):
         ind_preproc = True
 
     for run in range(runs):
-        model = FedotIndustrial(**experiment_setup)
+        model = MainClass(**experiment_setup)
         model.preprocessing = ind_preproc
         model.fit(train_data)
         prediction = model.predict(test_data)

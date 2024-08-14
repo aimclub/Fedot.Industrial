@@ -2,7 +2,7 @@ import random
 import matplotlib.pyplot as plt
 from torchvision.transforms import ToTensor, Resize, Compose
 
-from fedot_ind.api.main import FedotIndustrial
+from our_approach.api.main import MainClass
 
 DATASETS_PATH = 'Land-Use_Scene_Classification/images'
 TEST_IMAGE_FOLDER = 'Land-Use_Scene_Classification/images_train_test_val/test'
@@ -10,10 +10,10 @@ NUM_CLASSES = 21
 TASK = 'image_classification'
 
 model_dict = {
-    'basic': FedotIndustrial(
+    'basic': MainClass(
         task=TASK,
         num_classes=NUM_CLASSES),
-    'advanced': FedotIndustrial(
+    'advanced': MainClass(
         task=TASK,
         num_classes=NUM_CLASSES,
         optimization='svd',

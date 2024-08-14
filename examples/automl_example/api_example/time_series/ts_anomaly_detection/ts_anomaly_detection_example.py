@@ -1,4 +1,4 @@
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from our_approach.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
 if __name__ == "__main__":
     dataset_name = dict(benchmark='valve1',

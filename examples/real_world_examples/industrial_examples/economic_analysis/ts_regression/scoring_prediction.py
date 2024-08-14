@@ -9,7 +9,7 @@
 """
 
 import pandas as pd
-from fedot_ind import fedot_api
+from our_approach import fedot_api
 from sklearn.model_selection import train_test_split
 
 """## Opening Data"""

@@ -1,5 +1,5 @@
 from benchmark.benchmark_TSF import BenchmarkTSF
-from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH
+from our_approach.core.repository.constanst_repository import M4_FORECASTING_BENCH
 
 ml_task = 'ts_forecasting'
 experiment_setup = {'problem': ml_task,

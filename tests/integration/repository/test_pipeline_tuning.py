@@ -4,9 +4,9 @@ from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.tuning.sequential import SequentialTuner
 
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-from fedot_ind.tools.loader import DataLoader
+from our_approach.api.utils.data import init_input_data
+from our_approach.core.repository.initializer_industrial_models import IndustrialModels
+from our_approach.tools.loader import DataLoader
 
 
 def test_fedot_multi_series():

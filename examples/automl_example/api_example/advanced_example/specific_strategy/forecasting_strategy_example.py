@@ -1,7 +1,7 @@
 import pickle
 
-from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
-from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH
+from our_approach.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from our_approach.core.repository.constanst_repository import M4_FORECASTING_BENCH
 
 finetune = False
 

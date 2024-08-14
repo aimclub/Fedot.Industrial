@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
+from our_approach.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
 @pytest.fixture

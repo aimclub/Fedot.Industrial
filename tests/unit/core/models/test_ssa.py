@@ -5,7 +5,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 
-from fedot_ind.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
+from our_approach.core.models.ts_forecasting.ssa_forecaster import SSAForecasterImplementation
 
 params = OperationParameters(window_size_method="hac",
                              history_lookback=15,

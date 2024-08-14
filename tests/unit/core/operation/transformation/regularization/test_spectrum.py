@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
+from our_approach.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
     singular_value_hard_threshold, sv_to_explained_variance_ratio, transform_eigen_to_ts, eigencorr_matrix
-from fedot_ind.tools.synthetic.ts_generator import TimeSeriesGenerator
+from our_approach.tools.synthetic.ts_generator import TimeSeriesGenerator
 
 
 @pytest.fixture()

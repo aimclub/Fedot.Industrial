@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 from fedot.core.data.data import OutputData
 
-from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
-from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.utils.data import init_input_data
+from our_approach.api.utils.path_lib import PATH_TO_DEFAULT_PARAMS
+from our_approach.core.models.manifold.riemann_embeding import RiemannExtractor
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
 @pytest.fixture(scope='session')

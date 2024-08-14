@@ -1,11 +1,11 @@
 import os
 import unittest
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from our_approach.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.core.operation.caching import DataCacher
+from our_approach.api.utils.path_lib import PROJECT_PATH
+from our_approach.core.operation.caching import DataCacher
 
 
 class TestDataCacher(unittest.TestCase):

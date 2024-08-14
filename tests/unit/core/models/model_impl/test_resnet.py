@@ -1,6 +1,6 @@
 import pytest
 
-from fedot_ind.core.models.nn.network_impl.resnet import *
+from our_approach.core.models.nn.network_impl.resnet import *
 
 
 @pytest.mark.parametrize('model_name, model',

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from fedot_ind.core.metrics.loss.svd_loss import HoyerLoss, OrthogonalLoss, SVDLoss
+from our_approach.core.metrics.loss.svd_loss import HoyerLoss, OrthogonalLoss, SVDLoss
 
 
 def test_svdloss_initialization():

@@ -1,4 +1,4 @@
-from fedot_ind.core.models.nn.network_modules.layers.lora import linear_layer_parameterization
+from our_approach.core.models.nn.network_modules.layers.lora import linear_layer_parameterization
 
 import torch
 import torch.nn as nn

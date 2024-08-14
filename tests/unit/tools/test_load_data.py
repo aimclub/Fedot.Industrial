@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
-from fedot_ind.tools.loader import DataLoader
+from our_approach.api.utils.path_lib import PROJECT_PATH
+from our_approach.tools.loader import DataLoader
 
 ds_path = os.path.join(PROJECT_PATH, 'examples',
                        'data', 'ItalyPowerDemand_fake')

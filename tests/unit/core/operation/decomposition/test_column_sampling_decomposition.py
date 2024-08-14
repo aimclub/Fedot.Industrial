@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition, \
+from our_approach.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition, \
     get_random_sparse_matrix
 
 

@@ -1,7 +1,7 @@
 import pytest
 
-from fedot_ind.api.utils.metafeatures import MetaFeaturesDetector
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.utils.metafeatures import MetaFeaturesDetector
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
 @pytest.fixture(scope='session')

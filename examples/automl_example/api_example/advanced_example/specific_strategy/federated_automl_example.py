@@ -1,5 +1,5 @@
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+from our_approach.api.main import MainClass
+from our_approach.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 api_config = dict(problem='classification',
                   metric='f1',
@@ -19,6 +19,6 @@ train_data, test_data = TimeSeriesDatasetsGenerator(num_samples=1800,
                                                     test_size=0.5,
                                                     multivariate=False).generate_data()
 
-industrial = FedotIndustrial(**api_config)
+industrial = MainClass(**api_config)
 industrial.fit(train_data)
 predict = industrial.predict(test_data)
