@@ -458,3 +458,9 @@ HouseholdPowerConsumption1, AppliancesEnergy, HouseholdPowerConsumption2, IEEEPP
 .. _main branch: https://github.com/aimclub/Fedot.Industrial
 .. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/
 .. _examples: https://github.com/aimclub/Fedot.Industrial/tree/main/examples
+
+Поддержка
+==========
+Работа поддержана `Научно-исследовательским центром «Сильный искусственный интеллект в промышленности» <https://itmo.ru/department/499/Research_Center_%E2%80%9CStrong_AI_in_Industry%E2%80%9D.htm#:~:text=Established%20in%202021%2C%20the%20Research,the%20national%20and%20global%20markets.>`_ из `Университета ИТМО <https://itmo.ru/>`_ в рамках
+плана программы центра: Разработка и тестирование экспериментального прототипа библиотеки сильных алгоритмов ИИ в части базовых алгоритмов автоматического МО для структурного обучения составных моделей ИИ, включая
+автоматизацию отбора признаков
