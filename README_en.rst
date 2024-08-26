@@ -454,7 +454,5 @@ are published.
 
 Supported by
 ============
-The work is supported by the `Research Center Strong Artificial Intelligence in Industry <https://en.itmo.ru/en/department/499/Research_Center_%E2%80%9CStrong_AI_in_Industry%E2%80%9D.htm#:~:text=Established%20in%202021%2C%20the%20Research,the%20national%20and%20global%20markets.>`_ of `ITMO University <https://en.itmo.ru/>`_ as part of
-the plan of the center's program: Development and testing of an experimental prototype of the library of strong Al
-algorithms in terms of basic algorithms of automatic ML for structural training of composite Al models, including
-automation of feature selection
+
+The study is supported by the `Research Center Strong Artificial Intelligence in Industry <https://en.itmo.ru/en/department/499/Research_Center_%E2%80%9CStrong_AI_in_Industry%E2%80%9D.htm#:~:text=Established%20in%202021%2C%20the%20Research,the%20national%20and%20global%20markets.>`_ of `ITMO University <https://en.itmo.ru/>`_ as part of the plan of the center's program: Development of AutoML framework for industrial tasks.
