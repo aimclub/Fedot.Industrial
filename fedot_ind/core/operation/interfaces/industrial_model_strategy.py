@@ -192,7 +192,7 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data)
         return self.multi_dim_dispatcher.predict(
-            trained_operation, predict_data, output_mode='labels')
+            trained_operation, predict_data, output_mode=output_mode)
 
     def predict_for_fit(
             self,
@@ -202,7 +202,7 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data)
         return self.multi_dim_dispatcher.predict_for_fit(
-            trained_operation, predict_data, output_mode='labels')
+            trained_operation, predict_data, output_mode=output_mode)
 
 
 class IndustrialSkLearnForecastingStrategy(
@@ -228,7 +228,7 @@ class IndustrialSkLearnForecastingStrategy(
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict(
-            trained_operation, predict_data, output_mode='labels')
+            trained_operation, predict_data, output_mode=output_mode)
         predict_output.predict = self.ensemble_func(
             predict_output.predict, axis=0)
         return predict_output
@@ -241,7 +241,7 @@ class IndustrialSkLearnForecastingStrategy(
         predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict_for_fit(
-            trained_operation, predict_data, output_mode='labels')
+            trained_operation, predict_data, output_mode=output_mode)
         predict_output.predict = self.ensemble_func(
             predict_output.predict, axis=0)
         return predict_output

@@ -43,11 +43,11 @@ class RecurrenceExtractor(BaseExtractor):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.window_size = params.get('window_size', 0)
-        self.stride = params.get('stride', 1)
+        self.window_size = self.params.get('window_size', 0)
+        self.stride = self.params.get('stride', 1)
         # TODO add threshold for other metrics
-        self.rec_metric = params.get('rec_metric', 'cosine')
-        self.image_mode = params.get('image_mode', False)
+        self.rec_metric = self.params.get('rec_metric', 'cosine')
+        self.image_mode = self.params.get('image_mode', False)
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor
 
@@ -75,7 +75,7 @@ class RecurrenceExtractor(BaseExtractor):
 
         predict = InputData(idx=np.arange(len(features)),
                             features=features,
-                            target='no_target',
+                            target=None,
                             task='no_task',
                             data_type=DataTypesEnum.table,
                             supplementary_data=col_names)

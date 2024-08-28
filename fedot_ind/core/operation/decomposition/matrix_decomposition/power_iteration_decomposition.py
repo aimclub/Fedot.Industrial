@@ -10,7 +10,8 @@ from fedot_ind.core.operation.transformation.regularization.spectrum import sing
 
 
 class RSVDDecomposition:
-    def __init__(self, params: Optional[OperationParameters] = {}):
+    def __init__(self, params: Optional[OperationParameters] = None):
+        params = params or {}
         self.rank = params.get('rank', 1)
         # Polynom degree for power iteration procedure.
         self.poly_deg = params.get('power_iter', 3)
