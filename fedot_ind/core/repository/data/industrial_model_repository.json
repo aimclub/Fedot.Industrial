@@ -370,6 +370,12 @@
         "automl"
       ]
     },
+    "mlstm_model": {
+      "meta": "fedot_NN_classification",
+      "presets": [],
+      "tags": [],
+      "input_type": "[DataTypesEnum.multi_ts, DataTypesEnum.ts]"
+    },
     "xcm_model": {
       "meta": "fedot_NN_classification",
       "presets": [
@@ -623,7 +629,7 @@
     },
     "ridge": {
       "meta": "sklearn_regr",
-      "presets": ["fast_train", "ts"],
+      "presets": ["fast_train"],
       "tags": [
         "simple",
         "linear",
@@ -728,6 +734,63 @@
         "tree",
         "non_linear"
       ]
+    },
+    "ecec": {
+      "meta": "sklearn_class",
+      "tags": [
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "economy_k": {
+      "meta": "sklearn_class",
+      "tags": [
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "proba_threshold_etc": {
+      "meta": "sklearn_class",
+      "tags": [
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "teaser": {
+      "meta": "sklearn_class",
+      "tags": [
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "proba_threshold_etc": {
+      "meta": "sklearn_class",
+      "tags": [
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
+    },
+    "teaser": {
+      "meta": "sklearn_class",
+      "tags": [
+        "simple",
+        "interpretable",
+        "non_lagged",
+        "non_linear"
+      ],
+	  "input_type": "[DataTypesEnum.table]"
     },
     "xgboost": {
       "meta": "sklearn_class",
