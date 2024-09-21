@@ -936,22 +936,33 @@ class DataLoader:
                 return_separate_X_and_y=True)
             return x_train, y_train, x_test, y_test
 
-    def read_arff_files(self, dataset_name, temp_data_path):
-        """Reads data from ``.arff`` file.
-
+    @staticmethod
+    def read_arff_files(dataset_name, temp_data_path) -> tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
         """
-        train = loadarff(temp_data_path + '/' + dataset_name +
-                         f'/{dataset_name}_TRAIN.arff')
-        test = loadarff(temp_data_path + '/' + dataset_name +
-                        f'/{dataset_name}_TEST.arff')
+        Reads multivariate data from ``.arff`` file
 
-        data_train = np.asarray([train[0][name] for name in train[1].names()])
-        x_train = data_train[:-1].T.astype('float64')
-        y_train = data_train[-1]
+        Args:
+            dataset_name: name of dataset
+            temp_data_path: path to temporary folder with downloaded data
 
-        data_test = np.asarray([test[0][name] for name in test[1].names()])
-        x_test = data_test[:-1].T.astype('float64')
-        y_test = data_test[-1]
+        Returns:
+            x_train: train dataframe of shape (n_samples, dim) with pd.Series of shape (ts_length,)
+            y_train: train target array of shape (n_samples,)
+            x_test: test dataframe of shape (n_samples, dim) with pd.Series of shape (ts_length,)
+            y_test: test target array of shape (n_samples,)
+        """
+        def load_process_data(path_to_dataset):
+            data, meta = loadarff(path_to_dataset)
+            data_array = np.asarray([data[name] for name in meta.names()])
+            features, target = data_array[:-1].T.ravel(), data_array[-1]
+            features = pd.Series(features).apply(lambda elem: elem.view(np.float64).reshape(elem.shape[0], -1))
+            features_df = pd.DataFrame([[pd.Series(arr[i]) for i in range(arr.shape[0])] for arr in features.values])
+            return features_df, target.astype('float64')
+
+        dataset_dir = os.path.join(temp_data_path, dataset_name)
+        x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.arff')
+        x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.arff')
+
         return x_train, y_train, x_test, y_test
 
     def extract_data(self, dataset_name: str, data_path: str):
