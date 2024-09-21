@@ -14,6 +14,7 @@ from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
 from sktime.datasets import load_from_tsfile_to_dataframe
 from tqdm import tqdm
+from zipp.glob import separate
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -59,30 +60,23 @@ class DataLoader:
 
     def load_detection_data(self, folder=None):
         loader = self.detection_data_source['SKAB']
-        return loader(directory=folder,
-                      group=self.dataset_name)
+        return loader(directory=folder, group=self.dataset_name)
 
-    def local_m4_load(self, directory='data', group=None):
+    @staticmethod
+    def local_m4_load(group=None):
         path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
         for result_cvs in os.listdir(path_to_result):
             if result_cvs.__contains__(group):
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
-    def local_skab_load(self, directory='other', group=None):
-        path_to_result = PROJECT_PATH + \
-            f'/examples/data/detection/data/{directory}'
-        folder_dict = {'other': [i for i in range(15)],
-                       'valve1': [i for i in range(16)],
-                       'valve2': [i for i in range(4)]}
-        df = pd.read_csv(
-            Path(
-                path_to_result,
-                f'{group}.csv'),
-            index_col='datetime',
-            sep=';',
-            parse_dates=True)
-        x_train = df.iloc[:120, :-2].values
-        y_train = df.iloc[:120, -2].values
+    @staticmethod
+    def local_skab_load(directory='other', group=None):
+        path_to_result = PROJECT_PATH + f'/examples/data/detection/data/{directory}'
+        df = pd.read_csv(Path(path_to_result, f'{group}.csv'),
+                         index_col='datetime',
+                         sep=';',
+                         parse_dates=True)
+        x_train, y_train = df.iloc[:120, :-2].values, df.iloc[:120, -2].values
         x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
         return (x_train, y_train), (x_test, y_test)
 
@@ -99,17 +93,13 @@ class DataLoader:
         return train_data, test_data
 
     def load_custom_data(self, specific_strategy):
-        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting',
-                                                'forecasting_assumptions']
+        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting', 'forecasting_assumptions']
         dict_dataset = isinstance(self.dataset_name, dict)
         if dict_dataset and 'train_data' in self.dataset_name.keys():
             return self.dataset_name['train_data'], self.dataset_name['test_data']
         elif custom_strategy:
-            train_data, test_data = self._load_benchmark_data(specific_strategy)
-        else:
-            train_data, test_data = None, None
-
-        return train_data, test_data
+            return self._load_benchmark_data(specific_strategy)
+        return None, None
 
     def load_data(self, shuffle=True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
@@ -117,16 +107,11 @@ class DataLoader:
         Returns:
             tuple: train and test data
         """
-
         dataset_name = self.dataset_name
-        data_path = os.path.join(
-            PROJECT_PATH,
-            'fedot_ind',
-            'data') if self.folder is None else self.folder
-
-        _, train_data, test_data = self.read_train_test_files(
-            dataset_name=dataset_name, data_path=data_path, shuffle=shuffle)
-
+        data_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
+        _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
+                                                              data_path=data_path,
+                                                              shuffle=shuffle)
         if train_data is None:
             self.logger.info('Downloading...')
 
@@ -134,79 +119,52 @@ class DataLoader:
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
             download_path = cache_path + 'downloads/'
             temp_data_path = cache_path + 'temp_data/'
-            filename = 'temp_data_{}'.format(dataset_name)
             for _ in (download_path, temp_data_path):
                 os.makedirs(_, exist_ok=True)
 
             url = f"http://www.timeseriesclassification.com/aeon-toolkit/{dataset_name}.zip"
-            request.urlretrieve(url, download_path + filename)
+            request.urlretrieve(url, download_path + f'temp_data_{dataset_name}')
             try:
-                zipfile.ZipFile(
-                    download_path +
-                    filename).extractall(
-                    temp_data_path +
-                    dataset_name)
+                zipfile.ZipFile(download_path + f'temp_data_{dataset_name}').extractall(temp_data_path + dataset_name)
             except zipfile.BadZipFile:
-                raise FileNotFoundError(
-                    f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
+                raise FileNotFoundError(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
+            else:
+                self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
+                train_data, test_data = self.extract_data(dataset_name, temp_data_path)
+                shutil.rmtree(cache_path)
 
-            self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
-            train_data, test_data = self.extract_data(
-                dataset_name, temp_data_path)
-
-            shutil.rmtree(cache_path)
-
-            # if type(train_data[0])
-
-            # return train_data, test_data
         self.logger.info('Data read successfully from local folder')
 
         if isinstance(train_data[0].iloc[0, 0], pd.Series):
             def convert(arr):
                 """Transform pd.Series values to np.ndarray"""
                 return np.array([d.values for d in arr])
-
-            train_data = (np.apply_along_axis(
-                convert, 1, train_data[0]), train_data[1])
-            test_data = (np.apply_along_axis(
-                convert, 1, test_data[0]), test_data[1])
+            train_data = (np.apply_along_axis(convert, 1, train_data[0]), train_data[1])
+            test_data = (np.apply_along_axis(convert, 1, test_data[0]), test_data[1])
 
         return train_data, test_data
 
-    def read_train_test_files(self, data_path, dataset_name, shuffle=True):
+    def read_train_test_files(self, data_path, dataset_name: str, shuffle: bool = True):
 
-        file_path = data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN'
-        # If data unpacked as .tsv file
+        dataset_dir_path = os.path.join(data_path, dataset_name)
+        file_path = dataset_dir_path + f'/{dataset_name}_TRAIN'
+        is_multivariate = False
+        self.logger.info(f'Reading data from {dataset_dir_path}')
+
         if os.path.isfile(file_path + '.tsv'):
             x_train, y_train, x_test, y_test = self.read_tsv_or_csv(dataset_name, data_path, mode='tsv')
         elif os.path.isfile(file_path + '.txt'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_txt_files(
-                dataset_name, data_path)
-            is_multi = False
-
-        # If data unpacked as .ts file
+            x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
         elif os.path.isfile(file_path + '.ts'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_ts_files(
-                dataset_name, data_path)
-            is_multi = True
-
-        # If data unpacked as .arff file
+            x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
+            is_multivariate = True
         elif os.path.isfile(file_path + '.arff'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_arff_files(
-                dataset_name, data_path)
-            is_multi = True
-
+            x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
+            is_multivariate = True
         elif os.path.isfile(file_path + '.csv'):
             x_train, y_train, x_test, y_test = self.read_tsv_or_csv(dataset_name, data_path, mode='csv')
         else:
-            self.logger.error(
-                f'Data not found in {data_path + "/" + dataset_name}')
+            self.logger.error(f'Data not found in {dataset_dir_path}')
             return None, None, None
 
         y_train, y_test = convert_type(y_train, y_test)
@@ -219,9 +177,10 @@ class DataLoader:
             else:
                 x_train = x_train[shuffled_idx, :]
             y_train = y_train[shuffled_idx]
-        return is_multi, (x_train, y_train), (x_test, y_test)
+        return is_multivariate, (x_train, y_train), (x_test, y_test)
 
-    def predict_encoding(self, file_path: Path, n_lines: int = 20) -> str:
+    @staticmethod
+    def predict_encoding(file_path: Path, n_lines: int = 20) -> str:
         with Path(file_path).open('rb') as f:
             rawdata = b''.join([f.readline() for _ in range(n_lines)])
         return chardet.detect(rawdata)['encoding']
