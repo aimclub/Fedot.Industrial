@@ -178,13 +178,7 @@ class DataLoader:
         file_path = data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN'
         # If data unpacked as .tsv file
         if os.path.isfile(file_path + '.tsv'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_tsv(
-                dataset_name, data_path)
-            is_multi = False
-
-        # If data unpacked as .txt file
+            x_train, y_train, x_test, y_test = self.read_tsv_or_csv(dataset_name, data_path, mode='tsv')
         elif os.path.isfile(file_path + '.txt'):
             self.logger.info(
                 f'Reading data from {data_path + "/" + dataset_name}')
@@ -209,10 +203,7 @@ class DataLoader:
             is_multi = True
 
         elif os.path.isfile(file_path + '.csv'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            pd.read_csv(file_path + '.csv')
-
+            x_train, y_train, x_test, y_test = self.read_tsv_or_csv(dataset_name, data_path, mode='csv')
         else:
             self.logger.error(
                 f'Data not found in {data_path + "/" + dataset_name}')
@@ -860,42 +851,34 @@ class DataLoader:
         else:
             raise TsFileParseException("empty file")
 
-    def read_tsv(self, dataset_name: str, data_path: str) -> tuple:
-        """Read ``tsv`` file that contains data for classification experiment. Data must be placed
-        in ``data`` folder with ``.tsv`` extension.
+    @staticmethod
+    def read_tsv_or_csv(dataset_name: str, data_path: str, mode: str = 'tsv') -> tuple:
+        """Read ``tsv`` or ``csv`` file that contains data for classification experiment.
+        Data must be placed in ``data`` folder with ``.tsv``/``csv`` extension.
 
         Args:
             dataset_name: name of dataset
             data_path: path to temporary folder with downloaded data
+            mode: ``tsv`` or ``csv`` file format
         Returns:
             tuple: (x_train, x_test) and (y_train, y_test)
-
         """
-        df_train = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                f'{dataset_name}_TRAIN.tsv'),
-            sep='\t',
-            header=None)
+        def load_process_data(path_to_dataset, sep):
+            data = pd.read_csv(path_to_dataset, sep=sep, header=None)
+            features = data.iloc[:, 1:]
+            target = data[0].values
+            try:
+                target = target.astype(int)
+            except ValueError:
+                target = target.astype(str)
+            return features, target
 
-        x_train = df_train.iloc[:, 1:]
-        y_train = df_train[0].values
-
-        df_test = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                f'{dataset_name}_TEST.tsv'),
-            sep='\t',
-            header=None)
-
-        x_test = df_test.iloc[:, 1:]
-        y_test = df_test[0].values
-        try:
-            y_train, y_test = y_train.astype(int), y_test.astype(int)
-        except ValueError:
-            y_train, y_test = y_train.astype(str), y_test.astype(str)
+        dataset_dir = os.path.join(data_path, dataset_name)
+        if mode not in ['tsv', 'csv']:
+                raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
+        separator = '/t' if mode == 'tsv' else ','
+        x_train, y_train = load_process_data(dataset_dir + f'{dataset_name}_TRAIN.{mode}', separator)
+        x_test, y_test = load_process_data(dataset_dir + f'{dataset_name}_TEST.{mode}', separator)
 
         return x_train, y_train, x_test, y_test
 
