@@ -834,7 +834,7 @@ class DataLoader:
         dataset_dir = os.path.join(data_path, dataset_name)
         if mode not in ['tsv', 'csv']:
             raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
-        separator = '/t' if mode == 'tsv' else ','
+        separator = '\t' if mode == 'tsv' else ','
         x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.{mode}', separator)
         x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.{mode}', separator)
 
