@@ -14,7 +14,6 @@ from datasetsforecast.m5 import M5
 from scipy.io.arff import loadarff
 from sktime.datasets import load_from_tsfile_to_dataframe
 from tqdm import tqdm
-from zipp.glob import separate
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -834,7 +833,7 @@ class DataLoader:
 
         dataset_dir = os.path.join(data_path, dataset_name)
         if mode not in ['tsv', 'csv']:
-                raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
+            raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
         separator = '/t' if mode == 'tsv' else ','
         x_train, y_train = load_process_data(dataset_dir + f'{dataset_name}_TRAIN.{mode}', separator)
         x_test, y_test = load_process_data(dataset_dir + f'{dataset_name}_TEST.{mode}', separator)
