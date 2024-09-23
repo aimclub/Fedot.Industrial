@@ -112,7 +112,7 @@ class DataLoader:
                                                               data_path=data_path,
                                                               shuffle=shuffle)
         if train_data is None:
-            self.logger.info('Downloading...')
+            self.logger.info(f'Downloading {dataset_name} from UCR archive...')
 
             # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
@@ -938,7 +938,7 @@ class DataLoader:
         new_path = os.path.join(new_path, dataset_name)
         os.makedirs(new_path, exist_ok=True)
 
-        self.logger.info(f'Saving {dataset_name} data files')
+        self.logger.info(f'Saving {dataset_name} data files to {new_path}')
         for subset in ('TRAIN', 'TEST'):
             if not is_multi:
                 df = pd.DataFrame(x_train if subset == 'TRAIN' else x_test)
