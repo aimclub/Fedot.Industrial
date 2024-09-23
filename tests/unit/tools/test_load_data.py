@@ -1,4 +1,5 @@
 import os
+from urllib.error import URLError
 
 import numpy as np
 import pandas as pd
@@ -40,11 +41,12 @@ def test_load_univariate_data():
 
 
 def test_load_fake_data():
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises((FileNotFoundError, URLError)):
         DataLoader('Fake').load_data()
 
 
 def test__load_from_tsfile_to_dataframe():
+    DataLoader('AppliancesEnergy', folder=EXAMPLES_DATA_PATH).load_data()
     path = os.path.join(EXAMPLES_DATA_PATH, 'AppliancesEnergy/AppliancesEnergy_TEST.ts')
     x, y = MOCK_LOADER._load_from_tsfile_to_dataframe(full_file_path_and_name=path,
                                                       return_separate_X_and_y=True)
