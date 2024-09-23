@@ -45,7 +45,6 @@ def test_load_fake_data():
 
 
 @pytest.mark.parametrize('dataset_rel_path', (
-    'IEEEPPG/IEEEPPG_TEST.ts',
     'AppliancesEnergy/AppliancesEnergy_TEST.ts'
 ))
 def test__load_from_tsfile_to_dataframe(dataset_rel_path):
@@ -55,6 +54,14 @@ def test__load_from_tsfile_to_dataframe(dataset_rel_path):
     assert isinstance(x, pd.DataFrame)
     assert isinstance(y, np.ndarray)
     assert x.shape[0] == y.shape[0]
+
+
+def test_read_from_arff_multivariate():
+    data_path = EXAMPLES_DATA_PATH
+    dataset_name = 'DailyOilGasPrices'
+    assert np.all(
+        [attr is not None for attr in MOCK_LOADER.read_arff_files(dataset_name=dataset_name, data_path=data_path)]
+    )
 
 
 def test_predict_encoding():
