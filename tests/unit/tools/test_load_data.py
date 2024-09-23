@@ -44,11 +44,8 @@ def test_load_fake_data():
         DataLoader('Fake').load_data()
 
 
-@pytest.mark.parametrize('dataset_rel_path', (
-    'AppliancesEnergy/AppliancesEnergy_TEST.ts'
-))
-def test__load_from_tsfile_to_dataframe(dataset_rel_path):
-    path = os.path.join(EXAMPLES_DATA_PATH, dataset_rel_path)
+def test__load_from_tsfile_to_dataframe():
+    path = os.path.join(EXAMPLES_DATA_PATH, 'AppliancesEnergy/AppliancesEnergy_TEST.ts')
     x, y = MOCK_LOADER._load_from_tsfile_to_dataframe(full_file_path_and_name=path,
                                                       return_separate_X_and_y=True)
     assert isinstance(x, pd.DataFrame)
