@@ -131,7 +131,7 @@ def test_read_tsv():
     path = '.'
     loader = DataLoader(dataset_name=ds_name, folder=path)
     path = os.path.join(PROJECT_PATH, 'tests', 'data', 'datasets')
-    x_train, y_train, x_test, y_test = loader.read_tsv(
+    x_train, y_train, x_test, y_test = loader.read_tsv_or_csv(
         dataset_name='ItalyPowerDemand_tsv', data_path=path)
 
     for i in [x_train, y_train, x_test, y_test]:

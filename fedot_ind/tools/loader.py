@@ -179,7 +179,7 @@ class DataLoader:
         return is_multivariate, (x_train, y_train), (x_test, y_test)
 
     @staticmethod
-    def predict_encoding(file_path: Path, n_lines: int = 20) -> str:
+    def predict_encoding(file_path: str, n_lines: int = 20) -> str:
         with Path(file_path).open('rb') as f:
             rawdata = b''.join([f.readline() for _ in range(n_lines)])
         return chardet.detect(rawdata)['encoding']
@@ -835,8 +835,8 @@ class DataLoader:
         if mode not in ['tsv', 'csv']:
             raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
         separator = '/t' if mode == 'tsv' else ','
-        x_train, y_train = load_process_data(dataset_dir + f'{dataset_name}_TRAIN.{mode}', separator)
-        x_test, y_test = load_process_data(dataset_dir + f'{dataset_name}_TEST.{mode}', separator)
+        x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.{mode}', separator)
+        x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.{mode}', separator)
 
         return x_train, y_train, x_test, y_test
 
