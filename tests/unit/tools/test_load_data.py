@@ -56,14 +56,6 @@ def test__load_from_tsfile_to_dataframe(dataset_rel_path):
     assert x.shape[0] == y.shape[0]
 
 
-def test_read_from_arff_multivariate():
-    data_path = EXAMPLES_DATA_PATH
-    dataset_name = 'DailyOilGasPrices'
-    assert np.all(
-        [attr is not None for attr in MOCK_LOADER.read_arff_files(dataset_name=dataset_name, data_path=data_path)]
-    )
-
-
 def test_predict_encoding():
     full_path = os.path.join(EXAMPLES_DATA_PATH,
                              'ItalyPowerDemand_fake/ItalyPowerDemand_fake_TEST.ts')
@@ -72,16 +64,16 @@ def test_predict_encoding():
 
 
 
-@pytest.mark.parametrize('func', [
-    MOCK_LOADER.read_txt_files,
-    MOCK_LOADER.read_ts_files,
-    MOCK_LOADER.read_arff_files,
-    MOCK_LOADER.read_train_test_files,
-    MOCK_LOADER.read_tsv_or_csv,
+@pytest.mark.parametrize('func, dataset_name', [
+    (MOCK_LOADER.read_txt_files, 'ItalyPowerDemand_fake'),
+    (MOCK_LOADER.read_ts_files, 'ItalyPowerDemand_fake'),
+    (MOCK_LOADER.read_arff_files, 'ItalyPowerDemand_fake'),
+    (MOCK_LOADER.read_arff_files, 'DailyOilGasPrices'),  # multivariate arff
+    (MOCK_LOADER.read_train_test_files, 'ItalyPowerDemand_fake'),
+    (MOCK_LOADER.read_tsv_or_csv, 'ItalyPowerDemand_fake'),
 ])
-def test_read_train_test_files(func):
+def test_read_train_test_files(func, dataset_name):
     data_path = EXAMPLES_DATA_PATH
-    dataset_name = 'ItalyPowerDemand_fake'
     assert np.all(
         [attr is not None for attr in func(dataset_name=dataset_name, data_path=data_path)]
     )
