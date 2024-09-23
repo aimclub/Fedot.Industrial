@@ -896,9 +896,12 @@ class DataLoader:
             data, meta = loadarff(path_to_dataset)
             data_array = np.asarray([data[name] for name in meta.names()])
             features, target = data_array[:-1].T.ravel(), data_array[-1]
-            features = pd.Series(features).apply(lambda elem: elem.view(np.float64).reshape(elem.shape[0], -1))
-            features_df = pd.DataFrame([[pd.Series(arr[i]) for i in range(arr.shape[0])] for arr in features.values])
-            return features_df, target.astype('float64')
+            is_multivariate = len(features[0].shape)
+            if is_multivariate:
+                void_free = pd.Series(features).apply(lambda elem: elem.view(np.float64).reshape(elem.shape[0], -1))
+                features = pd.DataFrame([[pd.Series(arr[i]) for i in range(arr.shape[0])] for arr in void_free.values])
+                return features, target
+            return features.astype('float64'), target
 
         dataset_dir = os.path.join(temp_data_path, dataset_name)
         x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.arff')
