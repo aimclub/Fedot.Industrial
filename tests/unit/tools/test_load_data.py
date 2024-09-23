@@ -64,7 +64,6 @@ def test_predict_encoding():
     assert encoding is not None
 
 
-
 @pytest.mark.parametrize('func', [
     MOCK_LOADER.read_txt_files,
     MOCK_LOADER.read_ts_files,
