@@ -61,7 +61,7 @@ def test__load_from_tsfile_to_dataframe():
     loader = DataLoader(dataset_name=ds_name, folder=path)
     full_path = os.path.join(
         PROJECT_PATH,
-        'examples/data/BitcoinSentiment/BitcoinSentiment_TEST.ts')
+        'examples/data/IEEEPPG/IEEEPPG_TEST.ts')
     x, y = loader._load_from_tsfile_to_dataframe(
         full_file_path_and_name=full_path, return_separate_X_and_y=True)
 
