@@ -63,11 +63,11 @@ def test_predict_encoding():
     assert encoding is not None
 
 
-
 @pytest.mark.parametrize('func, dataset_name', [
     (MOCK_LOADER.read_txt_files, 'ItalyPowerDemand_fake'),
     (MOCK_LOADER.read_ts_files, 'ItalyPowerDemand_fake'),
     (MOCK_LOADER.read_arff_files, 'ItalyPowerDemand_fake'),
+    (MOCK_LOADER.read_arff_files, 'DailyOilGasPrices'), # multivariate arff
     (MOCK_LOADER.read_train_test_files, 'ItalyPowerDemand_fake'),
     (MOCK_LOADER.read_tsv_or_csv, 'ItalyPowerDemand_fake'),
 ])
