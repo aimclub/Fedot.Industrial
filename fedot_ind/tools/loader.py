@@ -841,50 +841,52 @@ class DataLoader:
         return x_train, y_train, x_test, y_test
 
     @staticmethod
-    def read_txt_files(dataset_name: str, temp_data_path: str):
+    def read_txt_files(dataset_name: str, data_path: str):
         """
         Reads data from ``.txt`` file.
 
         Args:
             dataset_name: name of dataset
-            temp_data_path: path to temporary folder with downloaded data
+            data_path: path to temporary folder with downloaded data
 
         Returns:
             train and test data tuple
         """
-        data_train = np.genfromtxt(
-            temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt')
-        data_test = np.genfromtxt(
-            temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.txt')
+        dataset_dir = os.path.join(data_path, dataset_name)
+        data_train = np.genfromtxt(dataset_dir + f'/{dataset_name}_TRAIN.txt')
+        data_test = np.genfromtxt(dataset_dir + f'/{dataset_name}_TEST.txt')
         x_train, y_train = data_train[:, 1:], data_train[:, 0]
         x_test, y_test = data_test[:, 1:], data_test[:, 0]
         return x_train, y_train, x_test, y_test
 
-    def read_ts_files(self, dataset_name, data_path):
-        try:
-            x_test, y_test = load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts', return_separate_X_and_y=True)
-            x_train, y_train = load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                return_separate_X_and_y=True)
-            return x_train, y_train, x_test, y_test
-        except Exception:
-            x_test, y_test = self._load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                return_separate_X_and_y=True)
-            x_train, y_train = self._load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                return_separate_X_and_y=True)
-            return x_train, y_train, x_test, y_test
+    def read_ts_files(self, dataset_name: str, data_path: str):
+        """
+        Reads multivariate data from ``.ts`` file
+        """
+        def load_process_data(path_to_dataset):
+            try:
+                features, target = load_from_tsfile_to_dataframe(path_to_dataset,
+                                                                 return_separate_X_and_y=True)
+            except Exception as e:
+                self.logger.info(f'Performing custom ts files reading due to {e}')
+                features, target = self._load_from_tsfile_to_dataframe(path_to_dataset,
+                                                                       return_separate_X_and_y=True)
+            return features, target
+
+        dataset_dir = os.path.join(data_path, dataset_name)
+        x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.ts')
+        x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.ts')
+
+        return x_train, y_train, x_test, y_test
 
     @staticmethod
-    def read_arff_files(dataset_name, temp_data_path) -> tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
+    def read_arff_files(dataset_name, data_path) -> tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
         """
         Reads multivariate data from ``.arff`` file
 
         Args:
             dataset_name: name of dataset
-            temp_data_path: path to temporary folder with downloaded data
+            data_path: path to temporary folder with downloaded data
 
         Returns:
             x_train: train dataframe of shape (n_samples, dim) with pd.Series of shape (ts_length,)
@@ -903,7 +905,7 @@ class DataLoader:
                 return features, target
             return features.astype('float64'), target
 
-        dataset_dir = os.path.join(temp_data_path, dataset_name)
+        dataset_dir = os.path.join(data_path, dataset_name)
         x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.arff')
         x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.arff')
 
