@@ -59,30 +59,23 @@ class DataLoader:
 
     def load_detection_data(self, folder=None):
         loader = self.detection_data_source['SKAB']
-        return loader(directory=folder,
-                      group=self.dataset_name)
+        return loader(directory=folder, group=self.dataset_name)
 
-    def local_m4_load(self, directory='data', group=None):
+    @staticmethod
+    def local_m4_load(group=None):
         path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
         for result_cvs in os.listdir(path_to_result):
             if result_cvs.__contains__(group):
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
-    def local_skab_load(self, directory='other', group=None):
-        path_to_result = PROJECT_PATH + \
-            f'/examples/data/detection/data/{directory}'
-        folder_dict = {'other': [i for i in range(15)],
-                       'valve1': [i for i in range(16)],
-                       'valve2': [i for i in range(4)]}
-        df = pd.read_csv(
-            Path(
-                path_to_result,
-                f'{group}.csv'),
-            index_col='datetime',
-            sep=';',
-            parse_dates=True)
-        x_train = df.iloc[:120, :-2].values
-        y_train = df.iloc[:120, -2].values
+    @staticmethod
+    def local_skab_load(directory='other', group=None):
+        path_to_result = PROJECT_PATH + f'/examples/data/detection/data/{directory}'
+        df = pd.read_csv(Path(path_to_result, f'{group}.csv'),
+                         index_col='datetime',
+                         sep=';',
+                         parse_dates=True)
+        x_train, y_train = df.iloc[:120, :-2].values, df.iloc[:120, -2].values
         x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
         return (x_train, y_train), (x_test, y_test)
 
@@ -99,17 +92,13 @@ class DataLoader:
         return train_data, test_data
 
     def load_custom_data(self, specific_strategy):
-        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting',
-                                                'forecasting_assumptions']
+        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting', 'forecasting_assumptions']
         dict_dataset = isinstance(self.dataset_name, dict)
         if dict_dataset and 'train_data' in self.dataset_name.keys():
             return self.dataset_name['train_data'], self.dataset_name['test_data']
         elif custom_strategy:
-            train_data, test_data = self._load_benchmark_data(specific_strategy)
-        else:
-            train_data, test_data = None, None
-
-        return train_data, test_data
+            return self._load_benchmark_data(specific_strategy)
+        return None, None
 
     def load_data(self, shuffle=True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
@@ -117,105 +106,64 @@ class DataLoader:
         Returns:
             tuple: train and test data
         """
-
         dataset_name = self.dataset_name
-        data_path = os.path.join(
-            PROJECT_PATH,
-            'fedot_ind',
-            'data') if self.folder is None else self.folder
-
-        _, train_data, test_data = self.read_train_test_files(
-            dataset_name=dataset_name, data_path=data_path, shuffle=shuffle)
-
+        data_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
+        _, train_data, test_data = self.read_train_test_files(dataset_name=dataset_name,
+                                                              data_path=data_path,
+                                                              shuffle=shuffle)
         if train_data is None:
-            self.logger.info('Downloading...')
+            self.logger.info(f'Downloading {dataset_name} from UCR archive...')
 
             # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
             download_path = cache_path + 'downloads/'
             temp_data_path = cache_path + 'temp_data/'
-            filename = 'temp_data_{}'.format(dataset_name)
             for _ in (download_path, temp_data_path):
                 os.makedirs(_, exist_ok=True)
 
             url = f"http://www.timeseriesclassification.com/aeon-toolkit/{dataset_name}.zip"
-            request.urlretrieve(url, download_path + filename)
+            request.urlretrieve(url, download_path + f'temp_data_{dataset_name}')
             try:
-                zipfile.ZipFile(
-                    download_path +
-                    filename).extractall(
-                    temp_data_path +
-                    dataset_name)
+                zipfile.ZipFile(download_path + f'temp_data_{dataset_name}').extractall(temp_data_path + dataset_name)
             except zipfile.BadZipFile:
-                raise FileNotFoundError(
-                    f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
+                raise FileNotFoundError(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
+            else:
+                self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
+                train_data, test_data = self.extract_data(dataset_name, temp_data_path)
+                shutil.rmtree(cache_path)
 
-            self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
-            train_data, test_data = self.extract_data(
-                dataset_name, temp_data_path)
-
-            shutil.rmtree(cache_path)
-
-            # if type(train_data[0])
-
-            # return train_data, test_data
         self.logger.info('Data read successfully from local folder')
 
         if isinstance(train_data[0].iloc[0, 0], pd.Series):
             def convert(arr):
                 """Transform pd.Series values to np.ndarray"""
                 return np.array([d.values for d in arr])
-
-            train_data = (np.apply_along_axis(
-                convert, 1, train_data[0]), train_data[1])
-            test_data = (np.apply_along_axis(
-                convert, 1, test_data[0]), test_data[1])
+            train_data = (np.apply_along_axis(convert, 1, train_data[0]), train_data[1])
+            test_data = (np.apply_along_axis(convert, 1, test_data[0]), test_data[1])
 
         return train_data, test_data
 
-    def read_train_test_files(self, data_path, dataset_name, shuffle=True):
+    def read_train_test_files(self, data_path, dataset_name: str, shuffle: bool = True):
 
-        file_path = data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN'
-        # If data unpacked as .tsv file
+        dataset_dir_path = os.path.join(data_path, dataset_name)
+        file_path = dataset_dir_path + f'/{dataset_name}_TRAIN'
+        is_multivariate = False
+        self.logger.info(f'Reading data from {dataset_dir_path}')
+
         if os.path.isfile(file_path + '.tsv'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_tsv(
-                dataset_name, data_path)
-            is_multi = False
-
-        # If data unpacked as .txt file
+            x_train, y_train, x_test, y_test = self.read_tsv_or_csv(dataset_name, data_path, mode='tsv')
         elif os.path.isfile(file_path + '.txt'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_txt_files(
-                dataset_name, data_path)
-            is_multi = False
-
-        # If data unpacked as .ts file
+            x_train, y_train, x_test, y_test = self.read_txt_files(dataset_name, data_path)
         elif os.path.isfile(file_path + '.ts'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_ts_files(
-                dataset_name, data_path)
-            is_multi = True
-
-        # If data unpacked as .arff file
+            x_train, y_train, x_test, y_test = self.read_ts_files(dataset_name, data_path)
+            is_multivariate = True
         elif os.path.isfile(file_path + '.arff'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            x_train, y_train, x_test, y_test = self.read_arff_files(
-                dataset_name, data_path)
-            is_multi = True
-
+            x_train, y_train, x_test, y_test = self.read_arff_files(dataset_name, data_path)
+            is_multivariate = True
         elif os.path.isfile(file_path + '.csv'):
-            self.logger.info(
-                f'Reading data from {data_path + "/" + dataset_name}')
-            pd.read_csv(file_path + '.csv')
-
+            x_train, y_train, x_test, y_test = self.read_tsv_or_csv(dataset_name, data_path, mode='csv')
         else:
-            self.logger.error(
-                f'Data not found in {data_path + "/" + dataset_name}')
+            self.logger.error(f'Data not found in {dataset_dir_path}')
             return None, None, None
 
         y_train, y_test = convert_type(y_train, y_test)
@@ -228,9 +176,10 @@ class DataLoader:
             else:
                 x_train = x_train[shuffled_idx, :]
             y_train = y_train[shuffled_idx]
-        return is_multi, (x_train, y_train), (x_test, y_test)
+        return is_multivariate, (x_train, y_train), (x_test, y_test)
 
-    def predict_encoding(self, file_path: Path, n_lines: int = 20) -> str:
+    @staticmethod
+    def predict_encoding(file_path: str, n_lines: int = 20) -> str:
         with Path(file_path).open('rb') as f:
             rawdata = b''.join([f.readline() for _ in range(n_lines)])
         return chardet.detect(rawdata)['encoding']
@@ -860,98 +809,106 @@ class DataLoader:
         else:
             raise TsFileParseException("empty file")
 
-    def read_tsv(self, dataset_name: str, data_path: str) -> tuple:
-        """Read ``tsv`` file that contains data for classification experiment. Data must be placed
-        in ``data`` folder with ``.tsv`` extension.
+    @staticmethod
+    def read_tsv_or_csv(dataset_name: str, data_path: str, mode: str = 'tsv') -> tuple:
+        """Read ``tsv`` or ``csv`` file that contains data for classification experiment.
+        Data must be placed in ``data`` folder with ``.tsv``/``csv`` extension.
 
         Args:
             dataset_name: name of dataset
             data_path: path to temporary folder with downloaded data
+            mode: ``tsv`` or ``csv`` file format
         Returns:
             tuple: (x_train, x_test) and (y_train, y_test)
-
         """
-        df_train = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                f'{dataset_name}_TRAIN.tsv'),
-            sep='\t',
-            header=None)
+        def load_process_data(path_to_dataset, sep):
+            data = pd.read_csv(path_to_dataset, sep=sep, header=None)
+            features = data.iloc[:, 1:]
+            target = data[0].values
+            try:
+                target = target.astype(int)
+            except ValueError:
+                target = target.astype(str)
+            return features, target
 
-        x_train = df_train.iloc[:, 1:]
-        y_train = df_train[0].values
-
-        df_test = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                f'{dataset_name}_TEST.tsv'),
-            sep='\t',
-            header=None)
-
-        x_test = df_test.iloc[:, 1:]
-        y_test = df_test[0].values
-        try:
-            y_train, y_test = y_train.astype(int), y_test.astype(int)
-        except ValueError:
-            y_train, y_test = y_train.astype(str), y_test.astype(str)
+        dataset_dir = os.path.join(data_path, dataset_name)
+        if mode not in ['tsv', 'csv']:
+            raise ValueError(f'Invalid mode {mode}. Should be one of "tsv" or "csv"')
+        separator = '\t' if mode == 'tsv' else ','
+        x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.{mode}', separator)
+        x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.{mode}', separator)
 
         return x_train, y_train, x_test, y_test
 
     @staticmethod
-    def read_txt_files(dataset_name: str, temp_data_path: str):
+    def read_txt_files(dataset_name: str, data_path: str):
         """
         Reads data from ``.txt`` file.
 
         Args:
             dataset_name: name of dataset
-            temp_data_path: path to temporary folder with downloaded data
+            data_path: path to temporary folder with downloaded data
 
         Returns:
             train and test data tuple
         """
-        data_train = np.genfromtxt(
-            temp_data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.txt')
-        data_test = np.genfromtxt(
-            temp_data_path + '/' + dataset_name + f'/{dataset_name}_TEST.txt')
+        dataset_dir = os.path.join(data_path, dataset_name)
+        data_train = np.genfromtxt(dataset_dir + f'/{dataset_name}_TRAIN.txt')
+        data_test = np.genfromtxt(dataset_dir + f'/{dataset_name}_TEST.txt')
         x_train, y_train = data_train[:, 1:], data_train[:, 0]
         x_test, y_test = data_test[:, 1:], data_test[:, 0]
         return x_train, y_train, x_test, y_test
 
-    def read_ts_files(self, dataset_name, data_path):
-        try:
-            x_test, y_test = load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts', return_separate_X_and_y=True)
-            x_train, y_train = load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                return_separate_X_and_y=True)
-            return x_train, y_train, x_test, y_test
-        except Exception:
-            x_test, y_test = self._load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TEST.ts',
-                return_separate_X_and_y=True)
-            x_train, y_train = self._load_from_tsfile_to_dataframe(
-                data_path + '/' + dataset_name + f'/{dataset_name}_TRAIN.ts',
-                return_separate_X_and_y=True)
-            return x_train, y_train, x_test, y_test
-
-    def read_arff_files(self, dataset_name, temp_data_path):
-        """Reads data from ``.arff`` file.
-
+    def read_ts_files(self, dataset_name: str, data_path: str):
         """
-        train = loadarff(temp_data_path + '/' + dataset_name +
-                         f'/{dataset_name}_TRAIN.arff')
-        test = loadarff(temp_data_path + '/' + dataset_name +
-                        f'/{dataset_name}_TEST.arff')
+        Reads multivariate data from ``.ts`` file
+        """
+        def load_process_data(path_to_dataset):
+            try:
+                features, target = load_from_tsfile_to_dataframe(path_to_dataset,
+                                                                 return_separate_X_and_y=True)
+            except Exception as e:
+                self.logger.info(f'Performing custom ts files reading due to {e}')
+                features, target = self._load_from_tsfile_to_dataframe(path_to_dataset,
+                                                                       return_separate_X_and_y=True)
+            return features, target
 
-        data_train = np.asarray([train[0][name] for name in train[1].names()])
-        x_train = data_train[:-1].T.astype('float64')
-        y_train = data_train[-1]
+        dataset_dir = os.path.join(data_path, dataset_name)
+        x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.ts')
+        x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.ts')
 
-        data_test = np.asarray([test[0][name] for name in test[1].names()])
-        x_test = data_test[:-1].T.astype('float64')
-        y_test = data_test[-1]
+        return x_train, y_train, x_test, y_test
+
+    @staticmethod
+    def read_arff_files(dataset_name, data_path) -> tuple[pd.DataFrame, np.array, pd.DataFrame, np.array]:
+        """
+        Reads multivariate data from ``.arff`` file
+
+        Args:
+            dataset_name: name of dataset
+            data_path: path to temporary folder with downloaded data
+
+        Returns:
+            x_train: train dataframe of shape (n_samples, dim) with pd.Series of shape (ts_length,)
+            y_train: train target array of shape (n_samples,)
+            x_test: test dataframe of shape (n_samples, dim) with pd.Series of shape (ts_length,)
+            y_test: test target array of shape (n_samples,)
+        """
+        def load_process_data(path_to_dataset):
+            data, meta = loadarff(path_to_dataset)
+            data_array = np.asarray([data[name] for name in meta.names()])
+            features, target = data_array[:-1].T.ravel(), data_array[-1]
+            is_multivariate = len(features[0].shape)
+            if is_multivariate:
+                void_free = pd.Series(features).apply(lambda elem: elem.view(np.float64).reshape(elem.shape[0], -1))
+                features = pd.DataFrame([[pd.Series(arr[i]) for i in range(arr.shape[0])] for arr in void_free.values])
+                return features, target
+            return features.astype('float64'), target
+
+        dataset_dir = os.path.join(data_path, dataset_name)
+        x_train, y_train = load_process_data(dataset_dir + f'/{dataset_name}_TRAIN.arff')
+        x_test, y_test = load_process_data(dataset_dir + f'/{dataset_name}_TEST.arff')
+
         return x_train, y_train, x_test, y_test
 
     def extract_data(self, dataset_name: str, data_path: str):
@@ -977,11 +934,11 @@ class DataLoader:
         y_train, y_test = convert_type(y_train, y_test)
 
         # Save data to tsv files
-        new_path = os.path.join(
-            PROJECT_PATH, 'fedot_ind', 'data', dataset_name)
+        new_path = os.path.join(PROJECT_PATH, 'fedot_ind', 'data') if self.folder is None else self.folder
+        new_path = os.path.join(new_path, dataset_name)
         os.makedirs(new_path, exist_ok=True)
 
-        self.logger.info(f'Saving {dataset_name} data files')
+        self.logger.info(f'Saving {dataset_name} data files to {new_path}')
         for subset in ('TRAIN', 'TEST'):
             if not is_multi:
                 df = pd.DataFrame(x_train if subset == 'TRAIN' else x_test)
