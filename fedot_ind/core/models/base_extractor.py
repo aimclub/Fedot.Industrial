@@ -6,6 +6,7 @@ from multiprocessing import cpu_count
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from joblib import delayed, Parallel
+from numpy.lib import stride_tricks as stride_repr
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
@@ -107,37 +108,33 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
     def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> tuple:
-        if window_size is None:
-            # 10% of time series length by default
-            window_size = round(ts_data.shape[0] / 10)
-        else:
-            window_size = round(ts_data.shape[0] * (window_size / 100))
 
-        features = []
-        names = []
+        window_size = round(ts_data.shape[0] / 10) if window_size is None \
+            else round(ts_data.shape[0] * (window_size / 100))
         window_size = max(window_size, 5)
 
-        if self.stride > 1:
-            trajectory_transformer = HankelMatrix(time_series=ts_data,
-                                                  window_size=window_size,
-                                                  strides=self.stride)
-            subseq_set = trajectory_transformer.trajectory_matrix
-        elif not self.use_sliding_window:
-            for i in range(0, ts_data.shape[0], window_size):
-                stat_feature = feature_generator(ts_data[i:window_size + i])
-                features.append(stat_feature.features)
-                names.append([x + f'_on_interval: {i + 1} - {i + 1 + window_size}'
-                              for x in stat_feature.supplementary_data['feature_name']])
-            return features, names
+        if self.use_sliding_window:
+            subseq_set = HankelMatrix(time_series=ts_data,
+                                      window_size=window_size,
+                                      strides=self.stride).trajectory_matrix if self.stride > 1 else \
+                stride_repr.sliding_window_view(ts_data, ts_data.shape[0] - window_size)
         else:
-            subseq_set = np.lib.stride_tricks.sliding_window_view(ts_data, ts_data.shape[0] - window_size)
+            subseq_set = None
 
-        for i in range(0, subseq_set.shape[1]):
-            slice_ts = subseq_set[:, i]
-            stat_feature = feature_generator(slice_ts)
-            features.append(stat_feature.features)
-            names.append([x + f'_on_interval: {i + 1} - {i + 1 + window_size}'
-                          for x in stat_feature.supplementary_data['feature_name']])
+        if subseq_set is None:
+            ts_slices = list(range(0, ts_data.shape[0], window_size))
+            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), ts_slices))
+            names = list(map(lambda ts_tup: [x + f'_on_interval: {ts_tup[1] + 1} - {ts_tup[1] + 1 + window_size}'
+                                             for x in ts_tup[0].supplementary_data['feature_name']],
+                             zip(features, ts_slices)))
+            features = [x.features for x in features]
+
+        else:
+            ts_slices = list(range(0, subseq_set.shape[1]))
+            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]).features, ts_slices))
+            names = list(map(lambda ts_tup: [x + f'_on_interval: {ts_tup[1] + 1} - {ts_tup[1] + 1 + window_size}'
+                                             for x in ts_tup[0].supplementary_data['feature_name']],
+                             zip(features, ts_slices)))
 
         return features, names
 

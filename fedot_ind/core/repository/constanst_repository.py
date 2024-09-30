@@ -50,12 +50,19 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                         'criterion': 'entropy',
                                         'n_estimators': 300,
                                         'max_depth': 5},
-                                    ar_periodic={})
+                                    ar_periodic={},
+                                    catboost={"allow_writing_files": False,
+                                              "verbose": False,
+                                              "max_depth": 5,
+                                              "learning_rate": 0.1,
+                                              "min_data_in_leaf": 3,
+                                              "border_count": 32,
+                                              "l2_leaf_reg": 1})
 
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-        np.power(beta, 2) + 1.82 * beta + 1.43
+           np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 def get_default_industrial_model_params(model_name):
@@ -68,6 +75,7 @@ fourier_params = get_default_industrial_model_params('fourier_basis')
 eigen_params = get_default_industrial_model_params('eigen_basis')
 ar_params = get_default_industrial_model_params('ar')
 rf_params = get_default_industrial_model_params('rf')
+catboost_params = get_default_industrial_model_params('catboost')
 
 
 class ComputationalConstant(Enum):
@@ -310,9 +318,10 @@ class FedotOperationConstant(Enum):
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('channel_filtration').
-        add_node('quantile_extractor', params=stat_params).add_node(
-            'rf', params=rf_params),
+        add_node('quantile_extractor', params=stat_params).add_node('catboost', params=catboost_params),
+        'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
+        'regression_tabular': PipelineBuilder().add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node('ar')}
 

@@ -45,7 +45,7 @@ class DataCheck:
 
         self.input_data = input_data
         self.data_convertor = DataConverter(data=self.input_data)
-
+        self.is_already_fedot_type = isinstance(self.input_data, InputData)
         self.task = task
         self.task_params = task_params
         self.fit_stage = fit_stage
@@ -126,7 +126,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-            'detection_window' in self.industrial_task_params.keys(),
+                                    'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
@@ -205,6 +205,14 @@ class DataCheck:
     def check_available_operations(self, available_operations):
         pass
 
+    def _process_input_data(self):
+        self._init_input_data()
+        if not self.data_convertor.is_torchvision_dataset:
+            self._check_input_data_features()
+            self._check_input_data_target()
+        self.input_data.supplementary_data.is_auto_preprocessed = True
+        return self.input_data
+
     def check_input_data(self) -> InputData:
         """Checks and preprocesses the input data for Fedot AutoML.
 
@@ -218,12 +226,7 @@ class DataCheck:
 
         """
 
-        self._init_input_data()
-        if not self.data_convertor.is_torchvision_dataset:
-            self._check_input_data_features()
-            self._check_input_data_target()
-        self.input_data.supplementary_data.is_auto_preprocessed = True
-        return self.input_data
+        return self.input_data if self.is_already_fedot_type else self._process_input_data()
 
     def get_target_encoder(self):
         return self.label_encoder

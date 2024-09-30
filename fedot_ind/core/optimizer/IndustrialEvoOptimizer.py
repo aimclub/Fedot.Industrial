@@ -26,6 +26,14 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                  graph_generation_params: GraphGenerationParams,
                  graph_optimizer_params: GPAlgorithmParameters):
 
+        for mutation in graph_optimizer_params.mutation_types:
+            try:
+                is_invalid = mutation.__name__.__contains__('resample')
+            except Exception:
+                is_invalid = mutation.name.__contains__('resample')
+            if is_invalid:
+                graph_optimizer_params.mutation_types.remove(mutation)
+
         graph_optimizer_params.adaptive_mutation_type = RandomAgent(actions=graph_optimizer_params.mutation_types,
                                                                     probs=FEDOT_MUTATION_STRATEGY[
                                                                         'params_mutation_strategy'])
