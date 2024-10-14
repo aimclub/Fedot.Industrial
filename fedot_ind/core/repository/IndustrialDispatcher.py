@@ -34,14 +34,14 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                               n_jobs=self.n_jobs,
                               scatter=[individuals_to_evaluate]
                               ):
-            evaluation_results = []
-            for ind in individuals_to_evaluate:
-                y = self.industrial_evaluate_single(
-                    self,
-                    graph=ind.graph,
-                    uid_of_individual=ind.uid,
-                    logs_initializer=Log().get_parameters())
-                evaluation_results.append(y)
+            log = Log().get_parameters()
+            evaluation_results = list(map(lambda ind:
+                                          self.industrial_evaluate_single(self,
+                                                                          graph=ind.graph,
+                                                                          uid_of_individual=ind.uid,
+                                                                          logs_initializer=log),
+                                          individuals_to_evaluate))
+
         return evaluation_results
 
     def _eval_at_least_one(self, individuals):
