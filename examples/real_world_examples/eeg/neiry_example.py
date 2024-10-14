@@ -10,7 +10,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 
 
 def generate_composite_features(input_data):
-    repo = IndustrialModels().setup_repository()
+    IndustrialModels().setup_repository()
     feature_matrix = []
     for model_name in KERNEL_BASELINE_FEATURE_GENERATORS.keys():
         model = KERNEL_BASELINE_FEATURE_GENERATORS[model_name]

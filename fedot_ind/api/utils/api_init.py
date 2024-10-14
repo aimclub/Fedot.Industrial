@@ -118,7 +118,7 @@ class ApiManager:
         self.logger.info('Initialising experiment setup')
 
         industrial_params = set(self.config_dict.keys()) - \
-                            set(FEDOT_API_PARAMS.keys())
+            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
