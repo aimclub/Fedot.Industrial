@@ -140,7 +140,7 @@ def test_finetune(fedot_industrial_classification):
     industrial = fedot_industrial_classification
     data = univariate_clf_data()
     industrial.fit(data)
-    industrial.finetune(data)
+    industrial.finetune(train_data=data, tuning_params={'tuning_timeout': 0.1})
     assert industrial.solver is not None
 
 
