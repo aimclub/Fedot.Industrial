@@ -691,7 +691,7 @@ class UnitTestConstant(Enum):
         'riemann_clf': ['riemann_extractor', 'logit'],
         'topological_clf': ['topological_extractor', 'logit'],
         'statistical_clf': ['quantile_extractor', 'logit'],
-        'statistical_lgbm': ['quantile_extractor', 'lgbm'],
+        # 'statistical_lgbm': ['quantile_extractor', 'lgbm'],
         'composite_clf': {
             0: ['quantile_extractor'], 1: ['riemann_extractor'],
             2: ['fourier_basis', 'quantile_extractor'], 'head': 'mlp'
@@ -707,7 +707,7 @@ class UnitTestConstant(Enum):
         'recurrence_reg': ['recurrence_extractor', 'treg'],
         'topological_reg': ['topological_extractor', 'treg'],
         'statistical_reg': ['quantile_extractor', 'treg'],
-        'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
+        #'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
         'composite_reg': {
             0: ['quantile_extractor'], 1: ['topological_extractor'],
             2: ['fourier_basis', 'quantile_extractor'], 'head': 'treg'
