@@ -131,10 +131,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         else:
             ts_slices = list(range(0, subseq_set.shape[1]))
-            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]).features, ts_slices))
+            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), ts_slices))
             names = list(map(lambda ts_tup: [x + f'_on_interval: {ts_tup[1] + 1} - {ts_tup[1] + 1 + window_size}'
                                              for x in ts_tup[0].supplementary_data['feature_name']],
                              zip(features, ts_slices)))
+            features = [x.features for x in features]
 
         return features, names
 

@@ -5,6 +5,7 @@ import pytest
 from matplotlib import get_backend, pyplot as plt
 
 from fedot_ind.api.main import FedotIndustrial
+from fedot_ind.api.utils.data import SynthTimeSeriesData
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
@@ -109,7 +110,7 @@ def ts_config():
 
 def test_generate_ts(fedot_industrial_classification, ts_config):
     industrial = fedot_industrial_classification
-    ts = industrial.generate_ts(ts_config=ts_config)
+    ts = SynthTimeSeriesData(ts_config).generate_ts()
 
     assert isinstance(ts, np.ndarray)
     assert ts.shape[0] == 1000
@@ -129,8 +130,7 @@ def test_generate_anomaly_ts(
         ts_config,
         anomaly_config):
     industrial = fedot_industrial_classification
-    init_synth_ts, mod_synth_ts, synth_inters = industrial.generate_anomaly_ts(
-        ts_data=ts_config, anomaly_config=anomaly_config)
+    init_synth_ts, mod_synth_ts, synth_inters = SynthTimeSeriesData(anomaly_config).generate_anomaly_ts(ts_config)
     assert len(init_synth_ts) == len(mod_synth_ts)
     for anomaly_type in synth_inters:
         for interval in synth_inters[anomaly_type]:

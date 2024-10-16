@@ -41,7 +41,6 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                                                                           uid_of_individual=ind.uid,
                                                                           logs_initializer=log),
                                           individuals_to_evaluate))
-
         return evaluation_results
 
     def _eval_at_least_one(self, individuals):
