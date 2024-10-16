@@ -23,13 +23,13 @@ def ts_input_data():
     return train_test_data_setup(train_input, validation_blocks=None)
 
 
-def test_nbeats_model(ts_input_data):
+def test_patch_tst_model(ts_input_data):
     train, test = ts_input_data
 
     with IndustrialModels():
-        model = PipelineBuilder().add_node('patch_tst_model', params=dict(
-            epochs=10
-        )).build()
+        model = PipelineBuilder().add_node('patch_tst_model',
+                                           params=dict(epochs=10)
+                                           ).build()
 
         model.fit(train)
         forecast = model.predict(test)
