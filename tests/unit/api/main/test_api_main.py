@@ -109,7 +109,6 @@ def ts_config():
 
 
 def test_generate_ts(fedot_industrial_classification, ts_config):
-    industrial = fedot_industrial_classification
     ts = SynthTimeSeriesData(ts_config).generate_ts()
 
     assert isinstance(ts, np.ndarray)
@@ -129,7 +128,6 @@ def test_generate_anomaly_ts(
         fedot_industrial_classification,
         ts_config,
         anomaly_config):
-    industrial = fedot_industrial_classification
     init_synth_ts, mod_synth_ts, synth_inters = SynthTimeSeriesData(anomaly_config).generate_anomaly_ts(ts_config)
     assert len(init_synth_ts) == len(mod_synth_ts)
     for anomaly_type in synth_inters:

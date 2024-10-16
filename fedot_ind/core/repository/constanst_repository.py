@@ -707,7 +707,7 @@ class UnitTestConstant(Enum):
         'recurrence_reg': ['recurrence_extractor', 'treg'],
         'topological_reg': ['topological_extractor', 'treg'],
         'statistical_reg': ['quantile_extractor', 'treg'],
-        #'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
+        # 'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
         'composite_reg': {
             0: ['quantile_extractor'], 1: ['topological_extractor'],
             2: ['fourier_basis', 'quantile_extractor'], 'head': 'treg'
