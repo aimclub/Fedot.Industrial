@@ -49,9 +49,9 @@
    :alt: GitLab mirror for this repository
    :target: https://gitlab.actcognitive.org/itmo-nss-team/Fedot.Industrial
 
-.. |docs| image:: https://readthedocs.org/projects/ebonite/badge/
-    :target: https://fedotindustrial.readthedocs.io/en/latest/
-    :alt: Documentation Status
+.. |docs| image:: https://img.shields.io/badge/docs-WIKI-blue.svg
+    :target: https://github.com/aimclub/Fedot.Industrial/wiki
+    :alt: Documentation Page
 
 .. |binder| image:: https://mybinder.org/badge_logo.svg
     :target: https://mybinder.org/v2/gh/aimclub/Fedot.Industrial/HEAD
@@ -146,13 +146,13 @@ In the case below, ``x_train / x_test``, ``y_train / y_test`` are ``pandas.DataF
                                      rounding_order=3,
                                      metric_names=['f1', 'accuracy', 'precision', 'roc_auc'])
 
-More information about the API is available in the `documentation <https://fedotindustrial.readthedocs.io/en/latest/API/index.html>`__ section.
+More information about the API is available in the `documentation <https://github.com/aimclub/Fedot.Industrial/wiki>`__ section:
 
 
 Documentation and examples
 ==========================
 
-The comprehensive documentation is available on `readthedocs`_.
+The comprehensive documentation is available on `wikipage`_.
 
 Useful tutorials and examples can be found in the `examples`_ folder.
 
@@ -449,7 +449,7 @@ are published.
 .. _AutoML framework FEDOT: https://github.com/aimclub/FEDOT
 .. _UCR archive: https://www.cs.ucr.edu/~eamonn/time_series_data/
 .. _main branch: https://github.com/aimclub/Fedot.Industrial
-.. _readthedocs: https://fedotindustrial.readthedocs.io/en/latest/
+.. _wikipage: https://github.com/aimclub/Fedot.Industrial/wiki
 .. _examples: https://github.com/aimclub/Fedot.Industrial/tree/main/examples
 
 Supported by

@@ -1,11 +1,10 @@
 from typing import Optional, Union, List
 
 import torch
+import torch.distributions as distributions
 import torch.nn.functional as F
 from fastai.torch_core import Module
 from torch import nn, Tensor
-import torch.distributions as distributions
-
 
 from fedot_ind.core.architecture.settings.computational import default_device
 
@@ -415,7 +414,7 @@ class SkewNormDistributionLoss(DistributionLoss):
 
 
 class InverseGaussDistributionLoss(DistributionLoss):
-    distribution_class = distributions.InverseGamma
+    distribution_class = distributions.Gamma
     # need for discrete of 'scale' rate is questionable
     distribution_arguments = ["loc", "scale", "concentration", "rate"]
     need_affine = True
@@ -424,7 +423,7 @@ class InverseGaussDistributionLoss(DistributionLoss):
 
     @classmethod
     def _map_x_to_distribution(
-            self, x: torch.Tensor) -> distributions.InverseGamma:
+            self, x: torch.Tensor) -> distributions.Gamma:
         concentration = F.softplus(x[..., -2])
         rate = F.softplus(x[..., -1])
         distr = self.distribution_class(concentration=concentration, rate=rate)

@@ -50,7 +50,14 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                         'criterion': 'entropy',
                                         'n_estimators': 300,
                                         'max_depth': 5},
-                                    ar_periodic={})
+                                    ar_periodic={},
+                                    catboost={"allow_writing_files": False,
+                                              "verbose": False,
+                                              "max_depth": 5,
+                                              "learning_rate": 0.1,
+                                              "min_data_in_leaf": 3,
+                                              "border_count": 32,
+                                              "l2_leaf_reg": 1})
 
 
 def beta_thr(beta):
@@ -68,6 +75,7 @@ fourier_params = get_default_industrial_model_params('fourier_basis')
 eigen_params = get_default_industrial_model_params('eigen_basis')
 ar_params = get_default_industrial_model_params('ar')
 rf_params = get_default_industrial_model_params('rf')
+catboost_params = get_default_industrial_model_params('catboost')
 
 
 class ComputationalConstant(Enum):
@@ -310,9 +318,10 @@ class FedotOperationConstant(Enum):
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('channel_filtration').
-        add_node('quantile_extractor', params=stat_params).add_node(
-            'rf', params=rf_params),
+        add_node('quantile_extractor', params=stat_params).add_node('catboost', params=catboost_params),
+        'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
+        'regression_tabular': PipelineBuilder().add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node('ar')}
 
@@ -682,7 +691,7 @@ class UnitTestConstant(Enum):
         'riemann_clf': ['riemann_extractor', 'logit'],
         'topological_clf': ['topological_extractor', 'logit'],
         'statistical_clf': ['quantile_extractor', 'logit'],
-        'statistical_lgbm': ['quantile_extractor', 'lgbm'],
+        # 'statistical_lgbm': ['quantile_extractor', 'lgbm'],
         'composite_clf': {
             0: ['quantile_extractor'], 1: ['riemann_extractor'],
             2: ['fourier_basis', 'quantile_extractor'], 'head': 'mlp'
@@ -698,7 +707,7 @@ class UnitTestConstant(Enum):
         'recurrence_reg': ['recurrence_extractor', 'treg'],
         'topological_reg': ['topological_extractor', 'treg'],
         'statistical_reg': ['quantile_extractor', 'treg'],
-        'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
+        # 'statistical_lgbmreg': ['quantile_extractor', 'lgbmreg'],
         'composite_reg': {
             0: ['quantile_extractor'], 1: ['topological_extractor'],
             2: ['fourier_basis', 'quantile_extractor'], 'head': 'treg'

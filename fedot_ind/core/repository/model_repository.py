@@ -14,7 +14,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
-    FedotCatBoostRegressionImplementation
+    FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
     STLForecastARIMAImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
@@ -46,10 +46,10 @@ from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDete
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
 from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
-from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
-from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
-from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
+from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
+from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
+from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
@@ -77,6 +77,7 @@ class AtomizedModel(Enum):
     SKLEARN_CLF_MODELS = {
         # boosting models (bid datasets)
         'xgboost': GradientBoostingClassifier,
+        'catboost': FedotCatBoostClassificationImplementation,
         # solo linear models
         'logit': SklearnLogReg,
         # solo tree models
@@ -160,6 +161,8 @@ class AtomizedModel(Enum):
     }
 
     ANOMALY_DETECTION_MODELS = {
+        # for detection
+        'one_class_svm': OneClassSVM,
         'sst': SingularSpectrumTransformation,
         'unscented_kalman_filter': UnscentedKalmanFilter,
         'stat_detector': StatisticalDetector,
@@ -196,30 +199,37 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
                       'ts_forecasting': FORECASTING_MODELS.keys(),
                       'classification': SKLEARN_CLF_MODELS.keys(),
-                      'anomaly_detection': ANOMALY_DETECTION_MODELS.keys()}
+                      'anomaly_detection': ANOMALY_DETECTION_MODELS.keys(),
+                      'classification_tabular': SKLEARN_CLF_MODELS.keys(),
+                      'regression_tabular': SKLEARN_CLF_MODELS.keys()}
+    available_operations = {'ts_forecasting': [operation_dict[problem],
+                                               FORECASTING_PREPROC.keys(),
+                                               SKLEARN_REG_MODELS.keys(),
+                                               INDUSTRIAL_PREPROC_MODEL.keys()
+                                               ],
+                            'classification': [operation_dict[problem],
+                                               NEURAL_MODEL.keys(),
+                                               INDUSTRIAL_PREPROC_MODEL.keys(),
+                                               FEDOT_PREPROC_MODEL.keys()],
+                            'regression': [operation_dict[problem],
+                                           NEURAL_MODEL.keys(),
+                                           INDUSTRIAL_PREPROC_MODEL.keys(),
+                                           FEDOT_PREPROC_MODEL.keys()],
+                            'anomaly_detection': [operation_dict[problem]],
+                            'classification_tabular':
+                            # [operation_dict[problem],
+                            # FEDOT_PREPROC_MODEL.keys()],
+                                [['xgboost', 'logit', 'dt', 'rf', 'mlp', 'lgbm', 'scaling', 'normalization',
+                                  'simple_imputation', 'kernel_pca']],
+                            'regression_tabular': [operation_dict[problem],
+                                                   FEDOT_PREPROC_MODEL.keys()]}
 
-    if problem == 'ts_forecasting':
-        available_operations = [operation_dict[problem],
-                                FORECASTING_PREPROC.keys(),
-                                SKLEARN_REG_MODELS.keys(),
-                                INDUSTRIAL_PREPROC_MODEL.keys(),
-                                ]
-    elif problem == 'anomaly_detection':
-        available_operations = [operation_dict[problem]]
-
-    else:
-        available_operations = [operation_dict[problem],
-                                NEURAL_MODEL.keys(),
-                                INDUSTRIAL_PREPROC_MODEL.keys(),
-                                FEDOT_PREPROC_MODEL.keys()]
-
-    available_operations = list(
-        chain(*[list(x) for x in available_operations]))
-    excluded_operations = list(
-        chain(*[list(TEMPORARY_EXCLUDED[x]) for x in TEMPORARY_EXCLUDED.keys()]))
-    available_operations = [x for x in available_operations
-                            if x not in EXCLUDED_OPERATION_MUTATION[problem] and x not in excluded_operations]
-    return available_operations
+    operations = [list(operation_list) for operation_list in chain(available_operations[problem])]
+    operations = list(chain(*operations))
+    excluded_operations = list(chain(*[list(TEMPORARY_EXCLUDED[x]) for x in TEMPORARY_EXCLUDED.keys()]))
+    operations = [x for x in operations if x not in EXCLUDED_OPERATION_MUTATION[problem]
+                  and x not in excluded_operations]
+    return operations
 
 
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value

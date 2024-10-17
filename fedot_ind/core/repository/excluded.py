@@ -78,7 +78,24 @@ EXCLUDED_OPERATION_MUTATION = {
         'recurrence_extractor',
         'bernb',
         'qda',
-    ]}
+    ],
+    'classification_tabular': [
+        'resnet_model',
+        'knnreg',
+        'recurrence_extractor',
+        'bernb',
+        'qda',
+        'one_class_svm'
+    ],
+    'regression_tabular': ['recurrence_extractor',
+                           'lora_model',
+                           'topological_extractor',
+                           "nbeats_model",
+                           'tcn_model',
+                           'dummy',
+                           'deepar_model'
+                           ]
+}
 
 TEMPORARY_EXCLUDED = {
     'INDUSTRIAL_CLF_PREPROC_MODEL': {
