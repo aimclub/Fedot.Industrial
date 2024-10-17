@@ -232,10 +232,10 @@ class FedotIndustrial(Fedot):
         Args:
             predict_mode: ``default='default'``. Defines the mode of prediction. Could be 'default' or 'probs'.
             predict_data: tuple with test_features and test_target
+            calibrate_probs: ``default=False``. If True, calibrate probabilities
 
         Returns:
             the array with prediction probabilities
-            :param calibrate_probs:
 
         """
         self.predict_data = self._process_input_data(predict_data)
@@ -262,7 +262,8 @@ class FedotIndustrial(Fedot):
 
         train_data = self._process_input_data(train_data) if \
             not self.api_controller.condition_check.input_data_is_fedot_type(train_data) else train_data
-        tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
+        if tuning_params is None:
+            tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
 
         for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
