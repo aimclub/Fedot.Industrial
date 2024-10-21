@@ -32,7 +32,6 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         self.output_format = params.get('output_format', 'signal')
         self.approximation = params.get('approximation', 'smooth')
         self.min_rank = params.get('low_rank', 5)
-
         self.estimator = SPECTRUM_ESTIMATORS[params.get('estimator', 'eigen')]
         self.basis = None
         self.filtred_signal = None

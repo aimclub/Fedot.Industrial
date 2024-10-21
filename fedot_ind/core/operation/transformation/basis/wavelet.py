@@ -25,6 +25,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         super().__init__(params)
         self.n_components = params.get('n_components')
         self.wavelet = params.get('wavelet')
+        self.use_low_freq = params.get('low_freq', False)
         self.basis = None
         self.discrete_wavelets = DISCRETE_WAVELETS
         self.continuous_wavelets = CONTINUOUS_WAVELETS
@@ -66,7 +67,8 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
 
         basis = Either.insert(data).then(decompose).then(threshold).value[0]
         basis = np.concatenate(basis)
-        return basis
+
+        return basis[-1, :] if self.use_low_freq else basis
 
     def _get_multidim_basis(self, data):
         def decompose(multidim_signal):
