@@ -85,7 +85,7 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
                                     component_idx = np.where(
                                         correlation_level == cor_level)[0][0] + 1
                                     grouped_v = grouped_v + \
-                                        sample[component_idx, :]
+                                                sample[component_idx, :]
                                     if component_idx in component_idx_list:
                                         component_idx_list.remove(
                                             component_idx)
@@ -121,8 +121,11 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
 
 
 class FeatureSpaceReducer:
+    def __init__(self):
+        self.is_fitted = False
+        self.feature_mask = None
 
-    def reduce_feature_space(self, features: pd.DataFrame,
+    def reduce_feature_space(self, features: np.array,
                              var_threshold: float = 0.01,
                              corr_threshold: float = 0.98) -> pd.DataFrame:
         """Method responsible for reducing feature space.
@@ -136,45 +139,31 @@ class FeatureSpaceReducer:
             Dataframe with reduced feature space.
 
         """
-        features.shape[1]
-
-        features = self._drop_stable_features(features, var_threshold)
+        features, self.feature_mask = self._drop_constant_features(features, var_threshold)
         features_new = self._drop_correlated_features(corr_threshold, features)
+        self.is_fitted = True
         return features_new
 
     def _drop_correlated_features(self, corr_threshold, features):
-        features_corr = features.corr(method='pearson')
-        mask = np.ones(features_corr.columns.size) - \
-            np.eye(features_corr.columns.size)
-        df_corr = mask * features_corr
-        drops = []
-        for col in df_corr.columns.values:
-            # continue if the feature is already in the drop list
-            if np.in1d([col], drops):
-                continue
+        features_corr = np.corrcoef(features.squeeze().T)
+        n_features = features_corr.shape[0]
+        identity_matrix = np.eye(n_features)
+        features_corr = features_corr - identity_matrix
+        correlation_mask = abs(features_corr) > corr_threshold
+        correlated_features = list(set(np.where(correlation_mask == True)[0]))
+        percent_of_filtred_feats = (1 - (n_features - len(correlated_features)) / n_features) * 100
+        return features if percent_of_filtred_feats > 50 else features
 
-            index_of_corr_feature = df_corr[abs(
-                df_corr[col]) > corr_threshold].index
-            drops = np.union1d(drops, index_of_corr_feature)
-
-        if len(drops) == 0:
-            self.logger.info('No correlated features found')
-            return features
-
-        features_new = features.copy()
-        features_new.drop(drops, axis=1, inplace=True)
-        return features_new
-
-    def _drop_stable_features(self, features, var_threshold):
+    def _drop_constant_features(self, features, var_threshold):
         try:
             variance_reducer = VarianceThreshold(threshold=var_threshold)
-            variance_reducer.fit_transform(features)
+            variance_reducer.fit_transform(features.squeeze())
             unstable_features_mask = variance_reducer.get_support()
-            features = features.loc[:, unstable_features_mask]
+            features = features[:, :, unstable_features_mask]
         except ValueError:
             self.logger.info(
                 'Variance reducer has not found any features with low variance')
-        return features
+        return features, unstable_features_mask
 
     def validate_window_size(self, ts: np.ndarray):
         if self.window_size is None or self.window_size > ts.shape[0] / 2:
@@ -242,7 +231,7 @@ class VarianceSelector:
                 model_data, pd.Series(projected_data[:, PCT]), axis=0, drop=False)
             discriminative_feature_list = [
                 k for k,
-                x in zip(
+                      x in zip(
                     correlation_df.index.values,
                     correlation_df.values) if abs(x) > correlation_level]
             discriminative_feature.update(

@@ -12,6 +12,7 @@ from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
+from fedot_ind.core.operation.filtration.feature_filtration import FeatureSpaceReducer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.repository.constanst_repository import STAT_METHODS, STAT_METHODS_GLOBAL
 
@@ -32,6 +33,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.relevant_features = None
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
+        self.feature_filter = FeatureSpaceReducer()
         self.predict = None
 
     def fit(self, input_data: InputData):
@@ -39,7 +41,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     def extract_features(self, x, y) -> pd.DataFrame:
         """
-        For those cases when you need to use feature extractor as a stangalone object
+        For those cases when you need to use feature extractor as a standalone object
         """
         input_data = init_input_data(x, y)
         transformed_features = self.transform(input_data, use_cache=self.use_cache)
@@ -65,6 +67,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             self.predict = self._clean_predict(stacked_data)
             self.predict = self.predict.reshape(self.predict.shape[0], -1)
 
+        if not self.feature_filter.is_fitted:
+            self.predict = self.feature_filter.reduce_feature_space(self.predict)
+        else:
+            self.predict = self.predict[:, :, self.feature_filter.feature_mask]
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
         return self.predict
 

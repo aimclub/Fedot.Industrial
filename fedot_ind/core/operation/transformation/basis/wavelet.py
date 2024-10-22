@@ -26,10 +26,10 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         self.n_components = params.get('n_components')
         self.wavelet = params.get('wavelet')
         self.use_low_freq = params.get('low_freq', False)
+        self.scales = params.get('scale', WAVELET_SCALES)
         self.basis = None
         self.discrete_wavelets = DISCRETE_WAVELETS
         self.continuous_wavelets = CONTINUOUS_WAVELETS
-        self.scales = WAVELET_SCALES
 
     def __repr__(self):
         return 'WaveletBasisImplementation'

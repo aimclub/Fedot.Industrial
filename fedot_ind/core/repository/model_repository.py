@@ -8,8 +8,6 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_imbalanced_class import \
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
-    TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -58,6 +56,7 @@ from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
+from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
@@ -100,7 +99,8 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        'topological_extractor': TopologicalFeaturesImplementation
+        # 'topological_extractor': TopologicalFeaturesImplementation
+        'topological_extractor': TopologicalExtractor
     }
     INDUSTRIAL_PREPROC_MODEL = {
         # data filtration
@@ -114,7 +114,8 @@ class AtomizedModel(Enum):
         'quantile_extractor': QuantileExtractor,
         'riemann_extractor': RiemannExtractor,
         # feature generation
-        'topological_extractor': TopologicalFeaturesImplementation,
+        # 'topological_extractor': TopologicalFeaturesImplementation,
+        'topological_extractor': TopologicalExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
         # 'chronos_extractor': ChronosExtractor,
