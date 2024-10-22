@@ -85,7 +85,7 @@ class FeatureFilter(IndustrialCachableOperationImplementation):
                                     component_idx = np.where(
                                         correlation_level == cor_level)[0][0] + 1
                                     grouped_v = grouped_v + \
-                                                sample[component_idx, :]
+                                        sample[component_idx, :]
                                     if component_idx in component_idx_list:
                                         component_idx_list.remove(
                                             component_idx)
@@ -150,7 +150,7 @@ class FeatureSpaceReducer:
         identity_matrix = np.eye(n_features)
         features_corr = features_corr - identity_matrix
         correlation_mask = abs(features_corr) > corr_threshold
-        correlated_features = list(set(np.where(correlation_mask == True)[0]))
+        correlated_features = list(set(np.where(correlation_mask)[0]))
         percent_of_filtred_feats = (1 - (n_features - len(correlated_features)) / n_features) * 100
         return features if percent_of_filtred_feats > 50 else features
 
@@ -231,7 +231,7 @@ class VarianceSelector:
                 model_data, pd.Series(projected_data[:, PCT]), axis=0, drop=False)
             discriminative_feature_list = [
                 k for k,
-                      x in zip(
+                x in zip(
                     correlation_df.index.values,
                     correlation_df.values) if abs(x) > correlation_level]
             discriminative_feature.update(

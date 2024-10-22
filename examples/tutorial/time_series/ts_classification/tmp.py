@@ -13,7 +13,7 @@ def plot_mean_sample(X, y, labels: list = [], n_channel: int = 1):
     for label in labels:
         mean_sample.append(np.mean(X[y == label], axis=0))  # Данные класса 1
     # ax = plt.gca()
-    channels = [f'Channel {x}' for x in range(n_channel)]
+    [f'Channel {x}' for x in range(n_channel)]
     df = pd.DataFrame(mean_sample).T
     df.columns = labels
     df.plot(kind='line', subplots=True, layout=(1, len(labels)), figsize=(20, 10))
@@ -29,7 +29,7 @@ def plot_mean_sample_multi(X, y, labels: list = [], n_channel: int = None):
         labels = list(np.unique(y))
     if n_channel is None:
         n_channel = X.shape[1]
-    channels = [f'Channel {x}' for x in range(n_channel)]
+    [f'Channel {x}' for x in range(n_channel)]
     for label in labels:
         mask = y == label
         for chn in range(n_channel):
@@ -45,7 +45,7 @@ def plot_mean_sample_multi(X, y, labels: list = [], n_channel: int = None):
 
 
 # %% md
-### Topo Hyperparams
+# Topo Hyperparams
 # %%
 topological_params = {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
                       'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]}},
