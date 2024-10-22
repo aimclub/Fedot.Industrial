@@ -1,6 +1,8 @@
 from enum import Enum
 from itertools import chain
 
+from dask_ml.decomposition import PCA as DaskKernelPCA
+from dask_ml.linear_model import LogisticRegression as DaskLogReg, LinearRegression as DaskLinReg
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
@@ -64,6 +66,8 @@ from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisIm
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 
+USE_DASK_MODEL_BACKEND = False
+
 
 class AtomizedModel(Enum):
     INDUSTRIAL_CLF_PREPROC_MODEL = {
@@ -100,7 +104,6 @@ class AtomizedModel(Enum):
         'kernel_pca': KernelPCAImplementation,
         # feature generation
         # 'topological_extractor': TopologicalFeaturesImplementation
-        'topological_extractor': TopologicalExtractor
     }
     INDUSTRIAL_PREPROC_MODEL = {
         # data filtration
@@ -195,6 +198,11 @@ class AtomizedModel(Enum):
         'lora_model': LoraModel
     }
 
+    DASK_MODELS = {'logit': DaskLogReg,
+                   'kernel_pca': DaskKernelPCA,
+                   'ridge': DaskLinReg,
+                   }
+
 
 def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
@@ -233,6 +241,16 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     return operations
 
 
+def overload_model_implementation(list_of_model):
+    overload_list = []
+    for model_dict in list_of_model:
+        for model_impl in model_dict.keys():
+            if model_impl in DASK_MODELS.keys() and USE_DASK_MODEL_BACKEND:
+                model_dict[model_impl] = DASK_MODELS[model_impl]
+        overload_list.append(model_dict)
+    return overload_list
+
+
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
@@ -242,3 +260,7 @@ SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value
+DASK_MODELS = AtomizedModel.DASK_MODELS.value
+MODELS_WITH_DASK_ALTERNATIVE = [SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL]
+SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL = overload_model_implementation(
+    MODELS_WITH_DASK_ALTERNATIVE)

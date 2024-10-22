@@ -24,17 +24,21 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
-        self.current_window = None
-        self.stride = 3
-        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
-        self.data_type = DataTypesEnum.table
         self.use_cache = self.params.get('use_cache', False)
         self.use_sliding_window = self.params.get('use_sliding_window', True)
+        self.use_feature_filter = self.params.get('use_feature_filter', False)
+        self.feature_filter = FeatureSpaceReducer()
+        self.data_type = DataTypesEnum.table
+
+        self.current_window = None
         self.relevant_features = None
+        self.predict = None
+
+        self.stride = 3
+        self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
+
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
-        self.feature_filter = FeatureSpaceReducer()
-        self.predict = None
 
     def fit(self, input_data: InputData):
         pass
@@ -66,12 +70,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             stacked_data = np.array([ts.features for ts in feature_matrix])
             self.predict = self._clean_predict(stacked_data)
             self.predict = self.predict.reshape(self.predict.shape[0], -1)
-
-        if not self.feature_filter.is_fitted:
-            self.predict = self.feature_filter.reduce_feature_space(self.predict)
-        else:
-            self.predict = self.predict[:, :, self.feature_filter.feature_mask]
         self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
+
+        if self.use_feature_filter:
+            if not self.feature_filter.is_fitted:
+                self.predict = self.feature_filter.reduce_feature_space(self.predict)
+            else:
+                self.predict = self.predict[:, :, self.feature_filter.feature_mask]
+
         return self.predict
 
     def _clean_predict(self, predict: np.array):
