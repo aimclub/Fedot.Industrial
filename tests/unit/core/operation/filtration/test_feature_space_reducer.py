@@ -16,7 +16,7 @@ def get_features(add_stable: bool = False):
     if add_stable:
         last_name = list(feature_dict.keys())[-1]
         feature_dict[last_name] = np.ones(10)
-    return pd.DataFrame(feature_dict)
+    return pd.DataFrame(feature_dict).values
 
 
 def test_reduce_feature_space():

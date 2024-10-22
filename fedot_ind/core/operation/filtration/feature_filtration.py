@@ -139,7 +139,7 @@ class FeatureSpaceReducer:
             Dataframe with reduced feature space.
 
         """
-        features, self.feature_mask = self._drop_constant_features(features, var_threshold)
+        features = self._drop_constant_features(features, var_threshold)
         features_new = self._drop_correlated_features(corr_threshold, features)
         self.is_fitted = True
         return features_new
@@ -159,12 +159,12 @@ class FeatureSpaceReducer:
             is_2d_data = len(features.shape) <= 2
             variance_reducer = VarianceThreshold(threshold=var_threshold)
             variance_reducer.fit_transform(features.squeeze())
-            unstable_features_mask = variance_reducer.get_support()
-            features = features[:, :, unstable_features_mask] if not is_2d_data else features[:, unstable_features_mask]
+            self.feature_mask = variance_reducer.get_support()
+            features = features[:, :, self.feature_mask] if not is_2d_data else features[:, self.feature_mask]
         except ValueError:
             print(
                 'Variance reducer has not found any features with low variance')
-        return features, unstable_features_mask
+        return features
 
     def validate_window_size(self, ts: np.ndarray):
         if self.window_size is None or self.window_size > ts.shape[0] / 2:
