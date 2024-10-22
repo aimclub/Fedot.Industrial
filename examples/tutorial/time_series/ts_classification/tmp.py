@@ -80,7 +80,7 @@ api_config = dict(problem='classification',
                   pop_size=20,
                   with_tunig=False,
                   n_jobs=-1,
-                  logging_level=10)
+                  logging_level=20)
 pipeline_creator = AbstractPipeline(task='classification')
 ECG = 'ECG200'
 topological_model = ['topological_extractor', 'rf']

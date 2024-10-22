@@ -156,12 +156,13 @@ class FeatureSpaceReducer:
 
     def _drop_constant_features(self, features, var_threshold):
         try:
+            is_2d_data = len(features.shape) <= 2
             variance_reducer = VarianceThreshold(threshold=var_threshold)
             variance_reducer.fit_transform(features.squeeze())
             unstable_features_mask = variance_reducer.get_support()
-            features = features[:, :, unstable_features_mask]
+            features = features[:, :, unstable_features_mask] if not is_2d_data else features[:, unstable_features_mask]
         except ValueError:
-            self.logger.info(
+            print(
                 'Variance reducer has not found any features with low variance')
         return features, unstable_features_mask
 
