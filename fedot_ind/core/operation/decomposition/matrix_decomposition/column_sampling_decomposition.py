@@ -5,7 +5,7 @@ from sklearn import preprocessing
 from sklearn.random_projection import johnson_lindenstrauss_min_dim
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.repository.model_repository import DEFAULT_SVD_SOLVER
+from fedot_ind.core.repository.constanst_repository import DEFAULT_SVD_SOLVER
 
 
 class CURDecomposition:

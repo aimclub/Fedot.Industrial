@@ -7,7 +7,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
     sv_to_explained_variance_ratio, eigencorr_matrix
-from fedot_ind.core.repository.model_repository import DEFAULT_SVD_SOLVER, DEFAULT_QR_SOLVER
+from fedot_ind.core.repository.constanst_repository import DEFAULT_SVD_SOLVER, DEFAULT_QR_SOLVER
 
 
 class RSVDDecomposition:

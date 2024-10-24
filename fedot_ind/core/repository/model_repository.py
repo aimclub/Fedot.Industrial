@@ -2,7 +2,6 @@ from enum import Enum
 from itertools import chain
 
 from dask_ml.decomposition import PCA as DaskKernelPCA
-from dask_ml.decomposition import TruncatedSVD as DaskSVD
 from dask_ml.linear_model import LogisticRegression as DaskLogReg, LinearRegression as DaskLinReg
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
@@ -204,11 +203,6 @@ class AtomizedModel(Enum):
                    'ridge': DaskLinReg
                    }
 
-    SOLVER_MODELS = {'np_svd_solver': np.linalg.svd,
-                     'np_qr_solver': np.linalg.qr,
-                     'dask_svd_solver': DaskSVD
-                     }
-
 
 def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
@@ -271,8 +265,3 @@ ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value
-
-SOLVER_MODELS = AtomizedModel.SOLVER_MODELS.value
-DEFAULT_SVD_SOLVER = SOLVER_MODELS['np_svd_solver']
-DEFAULT_QR_SOLVER = SOLVER_MODELS['np_qr_solver']
-DASK_SVD_SOLVER = SOLVER_MODELS['dask_svd_solver']
