@@ -135,4 +135,3 @@ class CURDecomposition:
         for i in range(matrix.shape[0]):
             ts[i:i + matrix.shape[1]] += matrix[i]
         return ts
-
