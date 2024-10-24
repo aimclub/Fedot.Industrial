@@ -104,13 +104,13 @@ class DaskOptunaTuner(BaseTuner):
                 sampling_scope = parameter_properties.get('sampling-scope')
                 if parameter_type == 'discrete':
                     new_parameters.update({node_op_parameter_name:
-                                               trial.suggest_int(node_op_parameter_name, *sampling_scope)})
+                                           trial.suggest_int(node_op_parameter_name, *sampling_scope)})
                 elif parameter_type == 'continuous':
                     new_parameters.update({node_op_parameter_name:
-                                               trial.suggest_float(node_op_parameter_name, *sampling_scope)})
+                                           trial.suggest_float(node_op_parameter_name, *sampling_scope)})
                 elif parameter_type == 'categorical':
                     new_parameters.update({node_op_parameter_name:
-                                               trial.suggest_categorical(node_op_parameter_name, *sampling_scope)})
+                                           trial.suggest_categorical(node_op_parameter_name, *sampling_scope)})
         return new_parameters
 
     def _get_initial_point(self, graph: OptGraph) -> Tuple[dict, bool]:
@@ -125,7 +125,7 @@ class DaskOptunaTuner(BaseTuner):
             if tunable_node_params:
                 has_parameters_to_optimize = True
                 tunable_initial_params = {get_node_operation_parameter_label(node_id, operation_name, p):
-                                              node.parameters[p] for p in node.parameters if p in tunable_node_params}
+                                          node.parameters[p] for p in node.parameters if p in tunable_node_params}
                 if tunable_initial_params:
                     initial_parameters.update(tunable_initial_params)
         return initial_parameters, has_parameters_to_optimize
