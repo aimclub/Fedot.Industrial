@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition, \
-    get_random_sparse_matrix
+from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
 
 
 @pytest.fixture
@@ -36,8 +35,3 @@ def test_matrix_to_ts(sample_matrix):
     assert isinstance(ts, np.ndarray)
     assert len(ts.shape) == 1
 
-
-def test_get_random_sparse_matrix():
-    matrix = get_random_sparse_matrix(size=(10, 10))
-    assert isinstance(matrix, np.ndarray)
-    assert matrix.mean() < 0.5
