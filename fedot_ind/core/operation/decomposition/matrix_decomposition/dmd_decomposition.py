@@ -1,6 +1,7 @@
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import DEFAULT_SVD_SOLVER, DEFAULT_QR_SOLVER
 
+
 def rq(A):
     n, m = A.shape
     Q, R = DEFAULT_QR_SOLVER(np.flipud(A).T, mode='complete')

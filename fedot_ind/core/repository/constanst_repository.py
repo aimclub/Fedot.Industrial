@@ -65,7 +65,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-           np.power(beta, 2) + 1.82 * beta + 1.43
+        np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 def get_default_industrial_model_params(model_name):

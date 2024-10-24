@@ -133,4 +133,3 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('model', self.base_model_path)
         self._replace_operation(to_industrial=False, backend=backend)
         return OperationTypesRepository
-
