@@ -1368,54 +1368,6 @@ files = [
 
 [[package]]
 name = "fedot"
-version = "0.7.3.2"
-description = "Automated machine learning framework for composite pipelines"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "fedot-0.7.3.2-py3-none-any.whl", hash = "sha256:38fabe6b96db516d9b1ffbfa5f7532cfae238097176e2dbee8c946a9aef1bd37"},
-    {file = "fedot-0.7.3.2.tar.gz", hash = "sha256:1c2d8e351d612faa203c251c90d7248f3c91f9ea0893f986ce0efe730c9277ed"},
-]
-
-[package.dependencies]
-anytree = ">=2.8.0"
-catboost = ">=0.25.0"
-ete3 = ">=3.1.0"
-func-timeout = "4.3.5"
-hyperopt = "0.2.7"
-joblib = ">=0.17.0"
-lightgbm = ">=3.0.0"
-matplotlib = {version = ">=3.3.1", markers = "python_version >= \"3.8\""}
-networkx = ">=2.4,<2.7.dev0 || ==2.8.0.* || >2.8.1,<2.8.2 || >2.8.2,<2.8.3 || >2.8.3"
-numpy = ">=1.16.0,<1.24.0 || >1.24.0"
-pandas = {version = ">=1.3.0", markers = "python_version >= \"3.8\""}
-psutil = ">=5.9.2"
-pytest = ">=6.2.0"
-pyvis = "0.2.1"
-requests = ">=2.0"
-SALib = ">=1.3.0"
-scikit-learn = {version = ">=1.0.0", markers = "python_version >= \"3.8\""}
-scikit-optimize = ">=0.7.4"
-scipy = "<1.13.0"
-seaborn = ">=0.9.0"
-sktime = [
-    {version = "0.16.1", markers = "python_version <= \"3.10\""},
-    {version = ">=0.16.1", markers = "python_version > \"3.10\""},
-]
-statsmodels = ">=0.12.0"
-testfixtures = ">=6.18.0"
-thegolem = "0.4.0"
-typing = ">=3.7.0"
-xgboost = ">=1.4.0"
-
-[package.extras]
-docs = ["autodocsumm", "readthedocs-sphinx-search (==0.3.2)", "sphinx (==4.2.0)", "sphinx-rtd-theme (==1.0.0)", "sphinxcontrib-details-directive"]
-examples = ["h2o (==3.42.0.1)", "openpyxl (==3.0.7)", "tpot (==0.12.0)"]
-extra = ["Pillow (>=8.2.0)", "gensim (==4.3.2)", "giotto-tda (==0.6.0)", "nltk (>=3.5)", "opencv-python (>=4.5.5.64)", "protobuf (>=3.19.0,<3.20.0)", "ripser (==0.6.4)", "tensorflow (>=2.8.0)", "torch (>=1.9.0)"]
-profilers = ["gprof2dot (==2021.2.21)", "memory-profiler (==0.58.0)", "objgraph (==3.5.0)", "snakeviz (==2.1.0)"]
-
-[[package]]
-name = "fedot"
 version = "0.7.4"
 description = "Automated machine learning framework for composite pipelines"
 optional = false
@@ -1446,7 +1398,10 @@ scikit-learn = {version = ">=1.0.0", markers = "python_version >= \"3.8\""}
 scikit-optimize = ">=0.7.4"
 scipy = "<1.13.0"
 seaborn = ">=0.9.0"
-sktime = {version = ">=0.16.1", markers = "python_version >= \"3.10\""}
+sktime = [
+    { version = "0.16.1", markers = "python_version < \"3.10\"" },
+    { version = ">=0.16.1", markers = "python_version >= \"3.10\"" },
+]
 statsmodels = ">=0.12.0"
 testfixtures = ">=6.18.0"
 thegolem = "0.4.0"
@@ -3455,14 +3410,58 @@ optional = ["boto3", "cmaes (>=0.10.0)", "google-cloud-storage", "matplotlib (!=
 test = ["coverage", "fakeredis[lua]", "kaleido", "moto", "pytest", "scipy (>=1.9.2)", "torch"]
 
 [[package]]
+name = "optuna-integration"
+version = "4.0.0"
+description = "Integration libraries of Optuna."
+optional = false
+python-versions = "*"
+files = [
+    { file = "optuna_integration-4.0.0-py3-none-any.whl", hash = "sha256:67b11b339325df33bb285e02b359923504ab0a4a9ade617c67b7115a25e70b12" },
+    { file = "optuna_integration-4.0.0.tar.gz", hash = "sha256:c082ef61e30789ec6611540eba1539e511d9fff53da326dc274e1f259d9a31d1" },
+]
+
+[package.dependencies]
+optuna = "*"
+
+[package.extras]
+allennlp = ["allennlp", "jsonnet", "numpy (<2.0.0)", "psutil"]
+botorch = ["botorch (<0.10.0)"]
+catboost = ["catboost", "numpy (<2.0.0)"]
+chainer = ["chainer", "numpy (<2.0.0)"]
+chainermn = ["chainermn", "numpy (<2.0.0)"]
+checking = ["black", "blackdoc", "hacking", "isort", "mypy", "types-PyYAML", "types-redis", "types-setuptools", "typing-extensions (>=3.10.0.0)"]
+cma = ["cma", "numpy (<2.0.0)"]
+comet = ["comet-ml (>=3.39.3)"]
+dask = ["distributed"]
+document = ["mlflow", "pandas", "scikit-learn (>=0.24.2)", "scipy (>=1.9.2)", "sphinx", "sphinx-rtd-theme"]
+fastai = ["fastai (>=2.0.0)"]
+fastaiv2 = ["fastai (>=2.0.0)"]
+keras = ["tensorflow"]
+lightgbm = ["lightgbm", "scikit-learn"]
+mlflow = ["mlflow"]
+mxnet = ["mxnet"]
+pytorch-distributed = ["gpytorch"]
+pytorch-ignite = ["pytorch-ignite"]
+pytorch-lightning = ["lightning"]
+shap = ["numpy (<2.0.0)", "shap"]
+sklearn = ["pandas", "scikit-learn", "scipy"]
+skorch = ["skorch"]
+tensorboard = ["tensorboard", "tensorflow"]
+tensorflow = ["tensorflow (<=2.15.0)"]
+test = ["coverage", "fakeredis[lua]", "pytest"]
+tfkeras = ["tensorflow"]
+wandb = ["wandb"]
+xgboost = ["xgboost"]
+
+[[package]]
 name = "packaging"
 version = "24.0"
 description = "Core utilities for Python packages"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "packaging-24.0-py3-none-any.whl", hash = "sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"},
-    {file = "packaging-24.0.tar.gz", hash = "sha256:eb82c5e3e56209074766e6885bb04b8c38a0c015d0a30036ebe7ece34c9989e9"},
+    { file = "packaging-24.0-py3-none-any.whl", hash = "sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5" },
+    { file = "packaging-24.0.tar.gz", hash = "sha256:eb82c5e3e56209074766e6885bb04b8c38a0c015d0a30036ebe7ece34c9989e9" },
 ]
 
 [[package]]
@@ -3503,9 +3502,9 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.20.3", markers = "python_version < \"3.10\""},
-    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
-    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+    { version = ">=1.20.3", markers = "python_version < \"3.10\"" },
+    { version = ">=1.23.2", markers = "python_version >= \"3.11\"" },
+    { version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\"" },
 ]
 python-dateutil = ">=2.8.1"
 pytz = ">=2020.1"
@@ -6338,4 +6337,4 @@ six = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "251686d8983f116611660c4f20efbaf4bc21b818dd474d712a220ca571bc7a85"
+content-hash = "79704fce4eb1862a064dccbd931d134acd957b8e062416b1330e23f719e980da"
