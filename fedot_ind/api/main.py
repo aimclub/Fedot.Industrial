@@ -13,6 +13,7 @@ from pymonad.either import Either
 from sklearn import model_selection as skms
 from sklearn.calibration import CalibratedClassifierCV
 
+import fedot_ind.core.repository.constanst_repository as CONST_REPO
 from fedot_ind.api.utils.api_init import ApiManager
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
@@ -74,17 +75,16 @@ class FedotIndustrial(Fedot):
             self.repo = IndustrialModels().setup_default_repository()
             self.config_dict['optimizer'] = None
         else:
-            self.repo = IndustrialModels().setup_repository()
+            self.repo = IndustrialModels().setup_repository(backend=self.api_controller.backend_method)
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising Dask Server')
         self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
         self.dask_client = DaskServer().client
+        setattr(CONST_REPO, 'DASK_CLIENT', self.dask_client)
         self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising solver')
         self.solver = Fedot(**self.config_dict)
-        # if self.api_controller.is_default_fedot_context:
-        #     self.solver = self.api_controller._check_mutations(self.solver)
 
     def _process_input_data(self, input_data):
         train_data = deepcopy(input_data)  # we do not want to make inplace changes

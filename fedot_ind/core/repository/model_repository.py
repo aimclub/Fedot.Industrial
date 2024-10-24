@@ -1,6 +1,8 @@
 from enum import Enum
 from itertools import chain
 
+from dask_ml.decomposition import PCA as DaskKernelPCA
+from dask_ml.linear_model import LogisticRegression as DaskLogReg, LinearRegression as DaskLinReg
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
@@ -8,8 +10,6 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_imbalanced_class import \
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
-from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor import \
-    TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
     SparseLaggedTransformationImplementation, TsSmoothingImplementation
@@ -58,6 +58,7 @@ from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
+from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
@@ -100,7 +101,7 @@ class AtomizedModel(Enum):
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
         # feature generation
-        'topological_extractor': TopologicalFeaturesImplementation
+        # 'topological_extractor': TopologicalFeaturesImplementation
     }
     INDUSTRIAL_PREPROC_MODEL = {
         # data filtration
@@ -114,7 +115,8 @@ class AtomizedModel(Enum):
         'quantile_extractor': QuantileExtractor,
         'riemann_extractor': RiemannExtractor,
         # feature generation
-        'topological_extractor': TopologicalFeaturesImplementation,
+        # 'topological_extractor': TopologicalFeaturesImplementation,
+        'topological_extractor': TopologicalExtractor,
         # nn feature extraction algorithm
         'minirocket_extractor': MiniRocketExtractor,
         # 'chronos_extractor': ChronosExtractor,
@@ -194,6 +196,11 @@ class AtomizedModel(Enum):
         'lora_model': LoraModel
     }
 
+    DASK_MODELS = {'logit': DaskLogReg,
+                   'kernel_pca': DaskKernelPCA,
+                   'ridge': DaskLinReg
+                   }
+
 
 def default_industrial_availiable_operation(problem: str = 'regression'):
     operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
@@ -232,12 +239,28 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     return operations
 
 
+def overload_model_implementation(list_of_model, backend: str = 'default'):
+    overload_list = []
+    for model_dict in list_of_model:
+        for model_impl in model_dict.keys():
+            if model_impl in DASK_MODELS.keys() and backend.__contains__('dask'):
+                model_dict[model_impl] = DASK_MODELS[model_impl]
+        overload_list.append(model_dict)
+    return overload_list
+
+
+MODELS_WITH_DASK_ALTERNATIVE = [
+    AtomizedModel.FEDOT_PREPROC_MODEL.value,
+    AtomizedModel.SKLEARN_CLF_MODELS.value,
+    AtomizedModel.SKLEARN_REG_MODELS.value
+]
+DASK_MODELS = AtomizedModel.DASK_MODELS.value
+SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
+SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
+FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
-FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
-SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
 ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value
-SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value

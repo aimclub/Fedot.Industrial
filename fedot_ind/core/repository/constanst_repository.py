@@ -1,4 +1,5 @@
 import math
+import pathlib
 from enum import Enum
 from multiprocessing import cpu_count
 
@@ -6,6 +7,7 @@ import numpy as np
 import pywt
 import spectrum
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
+from dask_ml.decomposition import TruncatedSVD as DaskSVD
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
@@ -16,6 +18,7 @@ from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, ch
     minkowski
 from torch import nn
 
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
     calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
@@ -145,6 +148,22 @@ class DataTypeConstant(Enum):
     MULTI_ARRAY = DataTypesEnum.image
     MATRIX = DataTypesEnum.table
     TRAJECTORY_MATRIX = HankelMatrix
+
+
+class PathConstant(Enum):
+    IND_DATA_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
+                                           'industrial_data_operation_repository.json')
+    DEFAULT_DATA_OPERATION_PATH = pathlib.Path('data_operation_repository.json')
+    IND_MODEL_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
+                                            'industrial_model_repository.json')
+    DEFAULT_MODEL_OPERATION_PATH = pathlib.Path('model_repository.json')
+
+
+class SolverConstant(Enum):
+    SOLVER_MODELS = {'np_svd_solver': np.linalg.svd,
+                     'np_qr_solver': np.linalg.qr,
+                     'dask_svd_solver': DaskSVD
+                     }
 
 
 class FeatureConstant(Enum):
@@ -335,9 +354,10 @@ class FedotOperationConstant(Enum):
         'classification': PipelineBuilder().add_node('logit'),
         'regression': PipelineBuilder().add_node('treg')
     }
-
+    # mutation order - [param_change,model_change,add_preproc_model,drop_model,add_model]
     FEDOT_MUTATION_STRATEGY = {
-        'params_mutation_strategy': [0.4, 0.2, 0.2, 0.1, 0.1],
+        # 'params_mutation_strategy': [0.6, 0.25, 0.05, 0.05, 0.05],
+        'params_mutation_strategy': [0.7, 0.3, 0.00, 0.00, 0.0],
         'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],
         'regularization_mutation_strategy': [0.2, 0.3, 0.1, 0.3, 0.1],
     }
@@ -752,6 +772,11 @@ KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GEN
 KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 KERNEL_DISTANCE_METRIC = KernelsConstant.KERNEL_DISTANCE_METRIC.value
 
+SOLVER_MODELS = SolverConstant.SOLVER_MODELS.value
+DEFAULT_SVD_SOLVER = SOLVER_MODELS['np_svd_solver']
+DEFAULT_QR_SOLVER = SOLVER_MODELS['np_qr_solver']
+DASK_SVD_SOLVER = SOLVER_MODELS['dask_svd_solver']
+
 AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMALY_DETECTION_OPERATIONS.value
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
@@ -775,10 +800,16 @@ BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.
 FEDOT_WORKER_NUM = ComputationalConstant.FEDOT_WORKER_NUM.value
 FEDOT_WORKER_TIMEOUT_PARTITION = ComputationalConstant.FEDOT_WORKER_TIMEOUT_PARTITION.value
 PATIENCE_FOR_EARLY_STOP = ComputationalConstant.PATIENCE_FOR_EARLY_STOP.value
+DASK_CLIENT = None
 
 MULTI_ARRAY = DataTypeConstant.MULTI_ARRAY.value
 MATRIX = DataTypeConstant.MATRIX.value
 TRAJECTORY_MATRIX = DataTypeConstant.TRAJECTORY_MATRIX.value
+
+IND_MODEL_OPERATION_PATH = PathConstant.IND_MODEL_OPERATION_PATH.value
+IND_DATA_OPERATION_PATH = PathConstant.IND_DATA_OPERATION_PATH.value
+DEFAULT_DATA_OPERATION_PATH = PathConstant.DEFAULT_DATA_OPERATION_PATH.value
+DEFAULT_MODEL_OPERATION_PATH = PathConstant.DEFAULT_MODEL_OPERATION_PATH.value
 
 ENERGY_THR = ModelCompressionConstant.ENERGY_THR.value
 DECOMPOSE_MODE = ModelCompressionConstant.DECOMPOSE_MODE.value

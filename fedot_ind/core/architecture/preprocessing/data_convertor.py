@@ -405,7 +405,10 @@ class ConditionConverter:
 
     @property
     def have_predict_method(self):
-        return dir(self.operation_example).__contains__('predict')
+        if hasattr(self.operation_example, 'predict'):
+            return True if callable(self.operation_example.predict) else False
+        else:
+            return False
 
     @property
     def have_predict_for_fit_method(self):

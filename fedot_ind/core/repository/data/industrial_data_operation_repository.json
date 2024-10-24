@@ -220,13 +220,14 @@
       ]
 	},
       "topological_extractor": {
-        "meta": "custom_preprocessing",
+        "meta": "industrial_preprocessing",
         "presets": [
           "fast_train"
         ],
         "tags": [
           "extractor"
-        ]},
+        ]
+      },
     "minirocket_extractor": {
       "meta": "industrial_preprocessing",
       "presets": [
