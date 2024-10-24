@@ -34,4 +34,3 @@ def test_matrix_to_ts(sample_matrix):
     ts = cur.matrix_to_ts(sample_matrix)
     assert isinstance(ts, np.ndarray)
     assert len(ts.shape) == 1
-
