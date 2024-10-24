@@ -2,16 +2,14 @@ import logging
 from pathlib import Path
 
 from fedot.core.repository.tasks import TsForecastingParams
-from golem.core.optimisers.adaptive.operator_agent import RandomAgent
 from pymonad.either import Either
 
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
-from fedot_ind.core.architecture.settings.computational import BackendMethods
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
-    FEDOT_API_PARAMS, fedot_init_assumptions, FEDOT_MUTATION_STRATEGY
+    FEDOT_API_PARAMS, fedot_init_assumptions
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer, RecurrenceExplainer
 
@@ -118,26 +116,11 @@ class ApiManager:
         self.logger.info('Initialising experiment setup')
 
         industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
 
-        backend_method_current, backend_scipy_current = BackendMethods(
-            self.backend_method).backend
-        globals()['backend_methods'] = backend_method_current
-        globals()['backend_scipy'] = backend_scipy_current
-
-    def _check_mutations(self, solver):
-        for mutation in solver.api_composer.params.optimizer_params.mutation_types.mutation_types:
-            try:
-                is_invalid = mutation.__name__.__contains__('resample')
-            except Exception:
-                is_invalid = mutation.name.__contains__('resample')
-            if is_invalid:
-                solver.api_composer.params.optimizer_params.mutation_types.mutation_types.remove(mutation)
-
-        solver.api_composer.params.optimizer_params.adaptive_mutation_type = RandomAgent(
-            actions=solver.api_composer.params.optimizer_params.mutation_types,
-            probs=FEDOT_MUTATION_STRATEGY[
-                'params_mutation_strategy'])
-        return solver
+        # backend_method_current, backend_scipy_current = BackendMethods(
+        #     self.backend_method).backend
+        # globals()['backend_methods'] = backend_method_current
+        # globals()['backend_scipy'] = backend_scipy_current

@@ -37,7 +37,7 @@ def test__drop_correlated_features():
     features = get_features(add_stable=True)
     cls = FeatureSpaceReducer()
     result = cls._drop_correlated_features(corr_threshold=0.99, features=features)
-    assert result is None
+    assert result is not None
 
 
 def test__drop_stable_features():

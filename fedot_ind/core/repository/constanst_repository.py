@@ -1,4 +1,5 @@
 import math
+import pathlib
 from enum import Enum
 from multiprocessing import cpu_count
 
@@ -16,6 +17,7 @@ from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, ch
     minkowski
 from torch import nn
 
+from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
     calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
@@ -62,7 +64,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-        np.power(beta, 2) + 1.82 * beta + 1.43
+           np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 def get_default_industrial_model_params(model_name):
@@ -145,6 +147,15 @@ class DataTypeConstant(Enum):
     MULTI_ARRAY = DataTypesEnum.image
     MATRIX = DataTypesEnum.table
     TRAJECTORY_MATRIX = HankelMatrix
+
+
+class PathConstant(Enum):
+    IND_DATA_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
+                                           'industrial_data_operation_repository.json')
+    DEFAULT_DATA_OPERATION_PATH = pathlib.Path('data_operation_repository.json')
+    IND_MODEL_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
+                                            'industrial_model_repository.json')
+    DEFAULT_MODEL_OPERATION_PATH = pathlib.Path('model_repository.json')
 
 
 class FeatureConstant(Enum):
@@ -780,6 +791,11 @@ PATIENCE_FOR_EARLY_STOP = ComputationalConstant.PATIENCE_FOR_EARLY_STOP.value
 MULTI_ARRAY = DataTypeConstant.MULTI_ARRAY.value
 MATRIX = DataTypeConstant.MATRIX.value
 TRAJECTORY_MATRIX = DataTypeConstant.TRAJECTORY_MATRIX.value
+
+IND_MODEL_OPERATION_PATH = PathConstant.IND_MODEL_OPERATION_PATH.value
+IND_DATA_OPERATION_PATH = PathConstant.IND_DATA_OPERATION_PATH.value
+DEFAULT_DATA_OPERATION_PATH = PathConstant.DEFAULT_DATA_OPERATION_PATH.value
+DEFAULT_MODEL_OPERATION_PATH = PathConstant.DEFAULT_MODEL_OPERATION_PATH.value
 
 ENERGY_THR = ModelCompressionConstant.ENERGY_THR.value
 DECOMPOSE_MODE = ModelCompressionConstant.DECOMPOSE_MODE.value

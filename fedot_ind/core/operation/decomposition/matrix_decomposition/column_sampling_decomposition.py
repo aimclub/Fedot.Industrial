@@ -5,6 +5,7 @@ from sklearn import preprocessing
 from sklearn.random_projection import johnson_lindenstrauss_min_dim
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.repository.model_repository import DEFAULT_SVD_SOLVER
 
 
 class CURDecomposition:
@@ -59,7 +60,7 @@ class CURDecomposition:
             sampled_tensor = sampled_tensor[self.row_indices, :]
         else:
             # evaluate pseudoinverse for W - U^-1
-            X, Sigma, y_T = np.linalg.svd(w, full_matrices=False)
+            X, Sigma, y_T = DEFAULT_SVD_SOLVER(w, full_matrices=False)
             Sigma_plus = np.linalg.pinv(np.diag(Sigma))
             # aprox U using pseudoinverse
             u = y_T.T @ Sigma_plus @ Sigma_plus @ X.T
@@ -135,46 +136,3 @@ class CURDecomposition:
             ts[i:i + matrix.shape[1]] += matrix[i]
         return ts
 
-
-def get_random_sparse_matrix(size: tuple):
-    """Generate random sparse matrix with size = size"""
-
-    matrix = np.zeros(size)
-    for i in range(size[0]):
-        for j in range(size[1]):
-            if np.random.rand() < 0.1:
-                matrix[i, j] = np.random.rand()
-    return matrix
-
-
-if __name__ == '__main__':
-    from fedot_ind.tools.loader import DataLoader
-
-    arr = np.array([[1, 1, 1, 0, 0],
-                    [3, 3, 3, 0, 0],
-                    [4, 4, 4, 0, 0],
-                    [5, 5, 5, 0, 0],
-                    [0, 0, 0, 4, 4],
-                    [0, 0, 0, 5, 5],
-                    [0, 0, 0, 2, 2]])
-
-    (X_train, y_train), (X_test, y_test) = DataLoader('Lightning7').load_data()
-
-    # init_ts = train[0].iloc[0, :].values
-    # scaler = MinMaxScaler()
-    # scaler.fit(init_ts.reshape(-1, 1))
-    # single_ts = scaler.transform(init_ts.reshape(-1, 1)).reshape(-1)
-
-    cur = CURDecomposition(rank=20)
-    # M = cur.ts_to_matrix(single_ts, 30)
-    C, U, R = cur.fit_transform(X_train)
-    basis = cur.reconstruct_basis(C, U, R, X_train.shape[1])
-
-    # rec_ts = cur.matrix_to_ts(C @ U @ R)
-    # err = np.linalg.norm(single_ts - rec_ts)
-
-    # plt.plot(init_ts, label='init_ts')
-    # plt.plot(scaler.inverse_transform(rec_ts.reshape(-1, 1)), label='rec_ts')
-    # plt.legend()
-    # plt.show()
-    _ = 1

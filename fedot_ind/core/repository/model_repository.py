@@ -2,6 +2,7 @@ from enum import Enum
 from itertools import chain
 
 from dask_ml.decomposition import PCA as DaskKernelPCA
+from dask_ml.decomposition import TruncatedSVD as DaskSVD
 from dask_ml.linear_model import LogisticRegression as DaskLogReg, LinearRegression as DaskLinReg
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
@@ -200,8 +201,13 @@ class AtomizedModel(Enum):
 
     DASK_MODELS = {'logit': DaskLogReg,
                    'kernel_pca': DaskKernelPCA,
-                   'ridge': DaskLinReg,
+                   'ridge': DaskLinReg
                    }
+
+    SOLVER_MODELS = {'np_svd_solver': np.linalg.svd,
+                     'np_qr_solver': np.linalg.qr,
+                     'dask_svd_solver': DaskSVD
+                     }
 
 
 def default_industrial_availiable_operation(problem: str = 'regression'):
@@ -241,26 +247,32 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
     return operations
 
 
-def overload_model_implementation(list_of_model):
+def overload_model_implementation(list_of_model, backend: str = 'default'):
     overload_list = []
     for model_dict in list_of_model:
         for model_impl in model_dict.keys():
-            if model_impl in DASK_MODELS.keys() and USE_DASK_MODEL_BACKEND:
+            if model_impl in DASK_MODELS.keys() and backend.__contains__('dask'):
                 model_dict[model_impl] = DASK_MODELS[model_impl]
         overload_list.append(model_dict)
     return overload_list
 
 
+MODELS_WITH_DASK_ALTERNATIVE = [
+    AtomizedModel.FEDOT_PREPROC_MODEL.value,
+    AtomizedModel.SKLEARN_CLF_MODELS.value,
+    AtomizedModel.SKLEARN_REG_MODELS.value
+]
+DASK_MODELS = AtomizedModel.DASK_MODELS.value
+SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL = overload_model_implementation(
+    MODELS_WITH_DASK_ALTERNATIVE)
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
-FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
-SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
 ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value
-SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value
-DASK_MODELS = AtomizedModel.DASK_MODELS.value
-MODELS_WITH_DASK_ALTERNATIVE = [SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL]
-SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL = overload_model_implementation(
-    MODELS_WITH_DASK_ALTERNATIVE)
+
+SOLVER_MODELS = AtomizedModel.SOLVER_MODELS.value
+DEFAULT_SVD_SOLVER = SOLVER_MODELS['np_svd_solver']
+DEFAULT_QR_SOLVER = SOLVER_MODELS['np_qr_solver']
+DASK_SVD_SOLVER = SOLVER_MODELS['dask_svd_solver']

@@ -1,10 +1,9 @@
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from numpy.linalg import svd
-
+from fedot_ind.core.repository.model_repository import DEFAULT_SVD_SOLVER, DEFAULT_QR_SOLVER
 
 def rq(A):
     n, m = A.shape
-    Q, R = np.linalg.qr(np.flipud(A).T, mode='complete')
+    Q, R = DEFAULT_QR_SOLVER(np.flipud(A).T, mode='complete')
     R = np.rot90(R.T, 2)
     Q = np.flipud(Q.T)
     if n > m:
@@ -18,7 +17,7 @@ def tls(A, B):
     if A.shape[0] != B.shape[0]:
         raise ValueError('Matrices are not conformant.')
     R1 = np.hstack((A, B))
-    U, S, V = np.linalg.svd(R1)
+    U, S, V = DEFAULT_SVD_SOLVER(R1)
     r = B.shape[1]
     R, Q = rq(V[:, r:])
     Gamma = R[n:, n - r:]
@@ -28,7 +27,7 @@ def tls(A, B):
 
 
 def exact_dmd_decompose(X, Y, rank):
-    Ux, Sx, Vx = svd(X)
+    Ux, Sx, Vx = DEFAULT_SVD_SOLVER(X)
     Ux = Ux[:, :rank]
     Sx = Sx[:rank]
     Sx = np.diag(Sx)
@@ -46,14 +45,14 @@ def exact_dmd_decompose(X, Y, rank):
 
 
 def orthogonal_dmd_decompose(X, Y, rank):
-    Ux, _, _ = svd(X)
+    Ux, _, _ = DEFAULT_SVD_SOLVER(X)
     Ux = Ux[:, :rank]
     # Project X (current state) and Y (future state) on leading components of X
     Yproj = Ux.T @ Y
     Xproj = Ux.T @ X
     # A_proj is constrained to be a unitary matrix and the minimization problem is argmin (A.T @ A = I) |Y-AX|_frob
     # The solution of A_proj is obtained by Schonemann A = Uyx,@ Vyx.T
-    Uyx, _, Vyx = svd(Yproj @ Xproj.T)
+    Uyx, _, Vyx = DEFAULT_SVD_SOLVER(Yproj @ Xproj.T)
     Aproj = Uyx @ Vyx.T
     def A(x): return np.dot(a=Ux, b=np.dot(a=Aproj, b=np.dot(a=Ux.T, b=x)))
     # Diagonalise unitary operator
@@ -65,7 +64,7 @@ def orthogonal_dmd_decompose(X, Y, rank):
 
 
 def symmetric_decompose(X, Y, rank):
-    Ux, S, V = np.linalg.svd(X)
+    Ux, S, V = DEFAULT_SVD_SOLVER(X)
     C = np.dot(Ux.T, np.dot(Y, V))
     C1 = C
     if rank is None:

@@ -7,6 +7,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.operation.filtration.channel_filtration import _detect_knee_point
 from fedot_ind.core.operation.transformation.regularization.spectrum import singular_value_hard_threshold, \
     sv_to_explained_variance_ratio, eigencorr_matrix
+from fedot_ind.core.repository.model_repository import DEFAULT_SVD_SOLVER, DEFAULT_QR_SOLVER
 
 
 class RSVDDecomposition:
@@ -81,7 +82,7 @@ class RSVDDecomposition:
         # thresholding
         if not approximation:
             # classic svd decomposition
-            Ut, St, Vt = np.linalg.svd(tensor, full_matrices=False)
+            Ut, St, Vt = DEFAULT_SVD_SOLVER(tensor, full_matrices=False)
             # Compute low rank.
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)
             if regularized_rank is not None:
@@ -110,14 +111,13 @@ class RSVDDecomposition:
                 AAT, self.poly_deg) @ tensor @ self.random_projection
             # Fourth step. Orthogonalization of the resulting "sampled" matrix
             # creates for us a basis of eigenvectors.
-            sampled_tensor_orto, _ = np.linalg.qr(
-                sampled_tensor, mode='reduced')
+            sampled_tensor_orto, _ = DEFAULT_QR_SOLVER(sampled_tensor, mode='reduced')
             # Fifth step. Project initial Gramm matrix on new basis obtained
             # from "sampled matrix".
             M = sampled_tensor_orto.T @ AAT @ sampled_tensor_orto
             # Six step. Classical svd decomposition with choosen type of
             # spectrum thresholding
-            Ut, St, Vt = np.linalg.svd(M, full_matrices=False)
+            Ut, St, Vt = DEFAULT_SVD_SOLVER(M, full_matrices=False)
             # Compute low rank.
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)
             # Seven step. Compute matrix approximation and choose new low_rank
@@ -127,6 +127,6 @@ class RSVDDecomposition:
             # Eight step. Return matrix approximation.
             reconstr_tensor = self._compute_matrix_approximation(
                 Ut, sampled_tensor_orto, tensor, regularized_rank)
-            U_, S_, V_ = np.linalg.svd(reconstr_tensor, full_matrices=False)
+            U_, S_, V_ = DEFAULT_SVD_SOLVER(reconstr_tensor, full_matrices=False)
 
             return [U_, S_, V_]

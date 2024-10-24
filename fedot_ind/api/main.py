@@ -74,7 +74,7 @@ class FedotIndustrial(Fedot):
             self.repo = IndustrialModels().setup_default_repository()
             self.config_dict['optimizer'] = None
         else:
-            self.repo = IndustrialModels().setup_repository()
+            self.repo = IndustrialModels().setup_repository(backend=self.api_controller.backend_method)
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising Dask Server')
         self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
@@ -83,8 +83,6 @@ class FedotIndustrial(Fedot):
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising solver')
         self.solver = Fedot(**self.config_dict)
-        # if self.api_controller.is_default_fedot_context:
-        #     self.solver = self.api_controller._check_mutations(self.solver)
 
     def _process_input_data(self, input_data):
         train_data = deepcopy(input_data)  # we do not want to make inplace changes
