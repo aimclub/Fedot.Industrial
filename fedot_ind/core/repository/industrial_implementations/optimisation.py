@@ -622,3 +622,4 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> None:
     IndustrialCrossover()
     return None
+

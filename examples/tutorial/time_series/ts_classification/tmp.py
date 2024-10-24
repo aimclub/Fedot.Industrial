@@ -76,9 +76,9 @@ finetune = False
 metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
 api_config = dict(problem='classification',
                   metric='accuracy',
-                  timeout=15,
+                  timeout=1,
                   pop_size=20,
-                  backend='dask',
+                  with_tuning=True,
                   with_tunig=False,
                   n_jobs=-1,
                   logging_level=20)

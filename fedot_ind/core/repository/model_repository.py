@@ -66,8 +66,6 @@ from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisIm
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 
-USE_DASK_MODEL_BACKEND = False
-
 
 class AtomizedModel(Enum):
     INDUSTRIAL_CLF_PREPROC_MODEL = {
@@ -257,8 +255,9 @@ MODELS_WITH_DASK_ALTERNATIVE = [
     AtomizedModel.SKLEARN_REG_MODELS.value
 ]
 DASK_MODELS = AtomizedModel.DASK_MODELS.value
-SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL = overload_model_implementation(
-    MODELS_WITH_DASK_ALTERNATIVE)
+SKLEARN_REG_MODELS = AtomizedModel.SKLEARN_REG_MODELS.value
+SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
+FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value

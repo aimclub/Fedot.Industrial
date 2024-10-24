@@ -13,6 +13,7 @@ from pymonad.either import Either
 from sklearn import model_selection as skms
 from sklearn.calibration import CalibratedClassifierCV
 
+import fedot_ind.core.repository.constanst_repository as CONST_REPO
 from fedot_ind.api.utils.api_init import ApiManager
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
@@ -79,6 +80,7 @@ class FedotIndustrial(Fedot):
         self.logger.info('Initialising Dask Server')
         self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
         self.dask_client = DaskServer().client
+        setattr(CONST_REPO, 'DASK_CLIENT', self.dask_client)
         self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising solver')
