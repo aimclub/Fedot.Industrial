@@ -893,7 +893,7 @@ class DataLoader:
             y_train: train target array of shape (n_samples,)
             x_test: test dataframe of shape (n_samples, dim) with pd.Series of shape (ts_length,)
             y_test: test target array of shape (n_samples,)
-            
+
         """
         def load_process_data(path_to_dataset):
             data, meta = loadarff(path_to_dataset)
