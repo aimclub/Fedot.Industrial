@@ -142,7 +142,7 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('model', self.base_model_path)
         self._replace_operation(to_industrial=False, backend=backend)
         return OperationTypesRepository
-    
+
     def __enter__(self):
         """
         Switching to industrial models
@@ -157,8 +157,8 @@ class IndustrialModels:
 
         OperationTypesRepository.__repository_dict__.update(
             {'model': {'file': self.industrial_model_path,
-                    'initialized_repo': True,
-                    'default_tags': []}})
+                       'initialized_repo': True,
+                       'default_tags': []}})
         OperationTypesRepository.assign_repo(
             'model', self.industrial_model_path)
 
