@@ -142,3 +142,45 @@ class IndustrialModels:
         OperationTypesRepository.assign_repo('model', self.base_model_path)
         self._replace_operation(to_industrial=False, backend=backend)
         return OperationTypesRepository
+    
+    def __enter__(self):
+        """
+        Switching to industrial models
+        """
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.industrial_data_operation_path,
+                                'initialized_repo': True,
+                                'default_tags': []}})
+
+        OperationTypesRepository.assign_repo(
+            'data_operation', self.industrial_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.industrial_model_path,
+                    'initialized_repo': True,
+                    'default_tags': []}})
+        OperationTypesRepository.assign_repo(
+            'model', self.industrial_model_path)
+
+        setattr(PipelineSearchSpace, "get_parameters_dict",
+                get_industrial_search_space)
+        setattr(ApiComposer, "_get_default_mutations",
+                _get_default_industrial_mutations)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Switching to fedot models.
+        """
+        OperationTypesRepository.__repository_dict__.update(
+            {'data_operation': {'file': self.base_data_operation_path,
+                                'initialized_repo': None,
+                                'default_tags': [
+                                    OperationTypesRepository.DEFAULT_DATA_OPERATION_TAGS]}})
+        OperationTypesRepository.assign_repo(
+            'data_operation', self.base_data_operation_path)
+
+        OperationTypesRepository.__repository_dict__.update(
+            {'model': {'file': self.base_model_path,
+                       'initialized_repo': None,
+                       'default_tags': []}})
+        OperationTypesRepository.assign_repo('model', self.base_model_path)
