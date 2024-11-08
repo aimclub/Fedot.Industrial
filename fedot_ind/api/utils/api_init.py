@@ -5,12 +5,18 @@ from fedot.core.repository.tasks import TsForecastingParams
 from pymonad.either import Either
 
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
-from fedot_ind.api.utils.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
+from fedot_ind.api.utils.path_lib import (
+    DEFAULT_PATH_RESULTS as default_path_to_save_results,
+)
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
-from fedot_ind.core.repository.constanst_repository import \
-    FEDOT_API_PARAMS, fedot_init_assumptions
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
+from fedot_ind.core.repository.constanst_repository import (
+    FEDOT_API_PARAMS,
+    fedot_init_assumptions,
+)
+from fedot_ind.core.repository.model_repository import (
+    default_industrial_availiable_operation,
+)
 from fedot_ind.tools.explain.explain import PointExplainer, RecurrenceExplainer
 
 
@@ -67,7 +73,6 @@ class ApiManager:
     def industrial_config_object(self, kwargs):
         # map Fedot params to Industrial params
         self.config_dict = kwargs
-        # self.config_dict['history_dir'] = prefix
         self.preset = kwargs.get('preset', self.config_dict['problem'])
         self.config_dict['available_operations'] = kwargs.get(
             'available_operations',
@@ -89,11 +94,11 @@ class ApiManager:
 
         if self.task_params is not None and self.config_dict['problem'] == 'ts_forecasting':
             self.config_dict['task_params'] = TsForecastingParams(forecast_length=self.task_params['forecast_length'])
+
         self.__init_experiment_setup()
 
     def industrial_api_object(self):
         # init hidden state variables
-
         self.explain_methods = {'point': PointExplainer,
                                 'recurrence': RecurrenceExplainer,
                                 'shap': NotImplementedError,
@@ -105,7 +110,8 @@ class ApiManager:
             api_config=self.config_dict,
             industrial_strategy=self.industrial_strategy,
             industrial_strategy_params=self.industrial_strategy_params,
-            logger=self.logger)
+            logger=self.logger
+            )
         self.industrial_strategy = self.industrial_strategy if self.industrial_strategy != 'anomaly_detection' else None
 
     def __init_experiment_setup(self):
@@ -114,8 +120,3 @@ class ApiManager:
         industrial_params = set(self.config_dict.keys()) - set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config_dict.pop(param, None)
-
-        # backend_method_current, backend_scipy_current = BackendMethods(
-        #     self.backend_method).backend
-        # globals()['backend_methods'] = backend_method_current
-        # globals()['backend_scipy'] = backend_scipy_current
