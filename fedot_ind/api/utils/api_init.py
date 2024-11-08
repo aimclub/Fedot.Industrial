@@ -111,7 +111,7 @@ class ApiManager:
             industrial_strategy=self.industrial_strategy,
             industrial_strategy_params=self.industrial_strategy_params,
             logger=self.logger
-            )
+        )
         self.industrial_strategy = self.industrial_strategy if self.industrial_strategy != 'anomaly_detection' else None
 
     def __init_experiment_setup(self):
