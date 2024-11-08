@@ -20,7 +20,7 @@ class ApiManager:
         self.logger = logging.getLogger('FedotIndustrialAPI')
         self.backend_method = kwargs.get('backend', 'cpu')
         self.task_params = kwargs.get('task_params', {})
-        
+
         self.industrial_strategy = kwargs.get('industrial_strategy', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.output_folder = kwargs.get('output_folder', None)
