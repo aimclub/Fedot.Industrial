@@ -73,11 +73,14 @@
     "solver": "lbfgs"
   },
   "rf": {
-    "criterion":"gini",
+    "criterion": "gini",
     "max_features": 0.9,
     "min_samples_split": 5,
     "min_samples_leaf": 5,
     "bootstrap": false
+  },
+  "pdl_clf": {
+    "model": "rf"
   },
   "ridge": {
     "alpha": 1.0
@@ -123,6 +126,9 @@
     "min_samples_split": 10,
     "min_samples_leaf": 10,
     "bootstrap": false
+  },
+  "pdl_reg": {
+    "model": "treg"
   },
   "dt": {
     "max_depth": 5,

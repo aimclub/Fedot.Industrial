@@ -613,17 +613,43 @@
     },
     "rf": {
       "meta": "sklearn_class",
-      "presets": ["fast_train", "*tree"],
-      "tags": ["tree", "non_linear"]
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
+    "pdl_clf": {
+      "meta": "sklearn_class",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
     },
     "rfr": {
       "meta": "sklearn_regr",
-      "presets": ["fast_train", "*tree"],
-      "tags": ["tree", "non_linear"]
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
     },
     "ridge": {
       "meta": "sklearn_regr",
-      "presets": ["fast_train", "ts"],
+      "presets": [
+        "fast_train",
+        "ts"
+      ],
       "tags": [
         "simple",
         "linear",
@@ -723,7 +749,19 @@
     },
     "treg": {
       "meta": "sklearn_regr",
-      "presets": ["*tree"],
+      "presets": [
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
+    "pdl_reg": {
+      "meta": "sklearn_regr",
+      "presets": [
+        "*tree"
+      ],
       "tags": [
         "tree",
         "non_linear"
@@ -731,9 +769,14 @@
     },
     "xgboost": {
       "meta": "sklearn_class",
-      "presets": ["*tree"],
+      "presets": [
+        "*tree"
+      ],
       "tags": [
-        "boosting", "tree", "non-default", "non_linear"
+        "boosting",
+        "tree",
+        "non-default",
+        "non_linear"
       ]
     },
     "xgbreg": {
