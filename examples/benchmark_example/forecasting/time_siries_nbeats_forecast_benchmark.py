@@ -1,13 +1,12 @@
 import csv
 
-from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsNet
-
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from torch import optim
 from torch.nn import functional as F
 
-import matplotlib.pyplot as plt
-import numpy as np
+from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsNet
 
 
 def get_m4_data(backcast_length, forecast_length, is_training=True):
