@@ -33,7 +33,8 @@ class PDCDataTransformer:
 
     def fit(self, X, y=None):
 
-        # y = y.astype('category').cat.codes.astype(np.float32) # todo since I cannot transform the output at least add raise type error on it
+        # y = y.astype('category').cat.codes.astype(np.float32) # todo since I
+        # cannot transform the output at least add raise type error on it
         if self.numeric_features is None and self.ordinal_features is None and self.string_features is None:
             self.numeric_features = []
             self.ordinal_features = []  # todo fix name, will be processed a ordinal

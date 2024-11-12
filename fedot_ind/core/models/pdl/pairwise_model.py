@@ -8,7 +8,6 @@ from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
 from scipy.special import softmax
-from sklearn.utils.validation import check_is_fitted
 
 from fedot_ind.core.repository.constanst_repository import SKLEARN_CLF_IMP, SKLEARN_REG_IMP
 
@@ -69,7 +68,7 @@ class PairwiseDifferenceEstimator:
                                                                                    for column in X1.columns})
         try:
             calculate_difference = x1_pair - x2_pair
-        except:
+        except BaseException:
             raise ValueError(
                 "PairwiseDifference: The input data is not compatible with the subtraction operation."
                 " Either transform all data to numeric features or use a ColumnTransformer to transform the data.")
@@ -236,7 +235,7 @@ class PairwiseDifferenceClassifier:
     def __predict_with_prior(self, input_data: np.ndarray, sample_weight):
         tests_trains_classes_likelihood = self.predict_proba_samples(input_data)
         tests_classes_likelihood = self._apply_weights(tests_trains_classes_likelihood, sample_weight)
-        eps = np.finfo(tests_classes_likelihood.dtype).eps
+        np.finfo(tests_classes_likelihood.dtype).eps
         tests_classes_likelihood = tests_classes_likelihood / tests_classes_likelihood.sum(axis=1)[:, np.newaxis]
         tests_classes_likelihood = tests_classes_likelihood.clip(0, 1)
         return tests_classes_likelihood
@@ -257,7 +256,7 @@ class PairwiseDifferenceClassifier:
         # without this normalization it should work for multiclass-multilabel
         if self.proba_aggregate_method == 'norm':
             tests_classes_likelihood_np = tests_classes_likelihood_np.values \
-                                          / tests_classes_likelihood_np.values.sum(axis=-1)[:, np.newaxis]
+                / tests_classes_likelihood_np.values.sum(axis=-1)[:, np.newaxis]
         elif self.proba_aggregate_method == 'softmax':
             tests_classes_likelihood_np = softmax(tests_classes_likelihood_np, axis=-1)
         return tests_classes_likelihood_np
@@ -343,8 +342,8 @@ class PairwiseDifferenceClassifier:
         """ WE RETURN THE MAE score XD """
         y_pair_diff = self.pde.pair_output_difference(input_data.target, self.target,
                                                       self.num_classes)  # 0 if similar, 1 if diff
-        predictions_proba_similarity: pd.DataFrame = self.predict_similarity_samples(input_data.features,
-                                                                                     reshape=False)  # 0% if different, 100% if similar
+        predictions_proba_similarity: pd.DataFrame = self.predict_similarity_samples(
+            input_data.features, reshape=False)  # 0% if different, 100% if similar
 
         return abs(y_pair_diff - (1 - predictions_proba_similarity)).mean()
 
