@@ -207,12 +207,12 @@ class BaseNeuralModel:
 
     def _convert_predict(self, pred, output_mode: str = 'labels'):
         have_encoder = all([self.label_encoder is not None, output_mode == 'labels'])
-        output_is_clf_labels = all([not self.is_regression_task, output_mode == 'labels'])
+        output_is_clf_labels = output_mode == 'labels' and self.is_regression_task
 
-        pred = pred.cpu().detach().numpy() if self.is_regression_task else F.softmax(pred, dim=1)
-        y_pred = torch.argmax(pred, dim=1).cpu().detach().numpy() if output_is_clf_labels else pred
+        pred = pred if self.is_regression_task else F.softmax(pred, dim=1)
+        y_pred = torch.argmax(pred, dim=1) if output_is_clf_labels else pred
         y_pred = self.label_encoder.inverse_transform(y_pred) if have_encoder else y_pred
-
+        y_pred = y_pred.cpu().detach().numpy()
         predict = OutputData(
             idx=np.arange(len(y_pred)),
             task=self.task_type,

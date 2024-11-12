@@ -67,8 +67,10 @@ class FedotIndustrial(Fedot):
         self.config_dict = self.api_controller.config_dict
         self.logger = self.api_controller.logger
         self.industrial_strategy_class = self.api_controller.industrial_strategy_class
+        self.solver = self.api_controller.solver
+        self.__init_industrial_backend()
 
-    def __init_solver(self):
+    def __init_industrial_backend(self):
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising Industrial Repository')
         if self.api_controller.is_default_fedot_context:
@@ -76,6 +78,8 @@ class FedotIndustrial(Fedot):
             self.config_dict['optimizer'] = None
         else:
             self.repo = IndustrialModels().setup_repository(backend=self.api_controller.backend_method)
+
+    def __init_solver(self):
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising Dask Server')
         self.config_dict['initial_assumption'] = self.config_dict['initial_assumption'].build()
@@ -149,6 +153,10 @@ class FedotIndustrial(Fedot):
             value=self.predict_data, monoid=[False, True]).then(
             function=lambda x: predict_function(x, predict_mode)).then(
             lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
+        try:
+            predict = np.argmax(predict, axis=1) if predict.shape[1] != 1 else predict
+        except Exception:
+            predict = predict
         return predict
 
     def _metric_evaluation_loop(self,
@@ -259,21 +267,22 @@ class FedotIndustrial(Fedot):
             """
         tuned_metric = 0
         self.is_finetuned = True
-
         train_data = self._process_input_data(train_data) if \
             not self.api_controller.condition_check.input_data_is_fedot_type(train_data) else train_data
-        if tuning_params is None:
-            tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
+        tuning_params = ApiConverter.tuning_params_is_none(tuning_params) if tuning_params is None else tuning_params
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config_dict['problem']]
 
-        for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-            if self.api_controller.condition_check.solver_is_fedot_class(self.solver):
-                model_to_tune = deepcopy(self.solver.current_pipeline)
-            elif not self.api_controller.condition_check.solver_is_none(model_to_tune):
-                model_to_tune = model_to_tune
+        def init_model_to_tune(model_to_tune):
+            model_obtained_by_user = self.api_controller.condition_check.solver_is_none(self.solver)
+            if model_obtained_by_user:
+                model_to_tune = model_to_tune if model_to_tune is not None \
+                    else deepcopy(self.config_dict['initial_assumption']).build()
             else:
-                model_to_tune = deepcopy(
-                    self.config_dict['initial_assumption']).build()
+                model_to_tune = deepcopy(self.solver.current_pipeline)
+            return model_to_tune
+
+        for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
+            model_to_tune = init_model_to_tune(model_to_tune)
             tuning_params['tuner'] = tuner_type
             pipeline_tuner, model_to_tune = build_tuner(
                 self, model_to_tune, tuning_params, train_data, mode)
@@ -315,7 +324,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

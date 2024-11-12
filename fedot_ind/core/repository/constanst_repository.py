@@ -8,15 +8,28 @@ import pywt
 import spectrum
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from dask_ml.decomposition import TruncatedSVD as DaskSVD
+from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
+    FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.optuna_tuner import OptunaTuner
-from golem.core.tuning.simultaneous import SimultaneousTuner
+from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
     minkowski
+from sklearn.ensemble import ExtraTreesRegressor, GradientBoostingClassifier, \
+    RandomForestClassifier
+from sklearn.linear_model import (
+    Lasso as SklearnLassoReg,
+    LogisticRegression as SklearnLogReg,
+    Ridge as SklearnRidgeReg,
+    SGDRegressor as SklearnSGD
+)
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from torch import nn
+from xgboost import XGBRegressor
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
@@ -302,7 +315,7 @@ class FedotOperationConstant(Enum):
         'table': DataTypesEnum.table}
     FEDOT_TUNER_STRATEGY = {
         'optuna': OptunaTuner,
-        'simultaneous': SimultaneousTuner,
+        # 'simultaneous': SimultaneousTuner,
     }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
                            'classification': 'xgboost'}
@@ -364,7 +377,37 @@ class FedotOperationConstant(Enum):
 
     EXPLAINABLE_MODELS = ['recurrence_extractor',
                           ]
+    SKLEARN_CLF_MODELS = {
+        # boosting models (bid datasets)
+        'xgboost': GradientBoostingClassifier,
+        'catboost': FedotCatBoostClassificationImplementation,
+        # solo linear models
+        'logit': SklearnLogReg,
+        # solo tree models
+        'dt': DecisionTreeClassifier,
+        # ensemble tree models
+        'rf': RandomForestClassifier,
+        # solo nn models
+        'mlp': MLPClassifier,
+        # external models
+        'lgbm': LGBMClassifier,
+    }
 
+    SKLEARN_REG_MODELS = {
+        # boosting models (bid datasets)
+        'xgbreg': XGBRegressor,
+        'sgdr': SklearnSGD,
+        # ensemble tree models (big datasets)
+        'treg': ExtraTreesRegressor,
+        # solo linear models with regularization
+        'ridge': SklearnRidgeReg,
+        'lasso': SklearnLassoReg,
+        # solo tree models (small datasets)
+        'dtreg': DecisionTreeRegressor,
+        # external models
+        'lgbmreg': LGBMRegressor,
+        "catboostreg": FedotCatBoostRegressionImplementation
+    }
 
 class ModelCompressionConstant(Enum):
     ENERGY_THR = [0.9, 0.95, 0.99, 0.999]
@@ -794,6 +837,8 @@ FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_A
 FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
 FEDOT_MUTATION_STRATEGY = FedotOperationConstant.FEDOT_MUTATION_STRATEGY.value
 EXPLAINABLE_MODELS = FedotOperationConstant.EXPLAINABLE_MODELS.value
+SKLEARN_CLF_IMP = FedotOperationConstant.SKLEARN_CLF_MODELS.value
+SKLEARN_REG_IMP = FedotOperationConstant.SKLEARN_REG_MODELS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value

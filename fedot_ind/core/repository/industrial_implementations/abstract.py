@@ -217,7 +217,7 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
                                            replace_default_search_space=True)
         pipeline_tuner = TunerBuilder(
             train_data.task).with_search_space(search_space).with_tuner(
-            tuning_params['tuner']).with_n_jobs(1).with_metric(
+            tuning_params['tuner']).with_n_jobs(-1).with_metric(
             tuning_params['metric']).with_timeout(
             tuning_params.get(
                 'tuning_timeout',
@@ -502,6 +502,8 @@ def predict_operation_industrial(
             trained_operation=fitted_operation,
             predict_data=data,
             output_mode=output_mode)
+    is_numpy_predict = isinstance(prediction.predict, np.ndarray)
+    prediction.predict = prediction.predict.detach().numpy() if not is_numpy_predict else prediction.predict
     prediction = self.assign_tabular_column_types(prediction, output_mode)
 
     # any inplace operations here are dangerous!

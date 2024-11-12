@@ -44,8 +44,7 @@ class RecurrenceExplainer(Explainer):
         return recurrence_extractor
 
     def explain(self, **kwargs):
-        recurrence_extractor = self._get_recurrence_matrix()
-        rec_matrix = recurrence_extractor.predict
+        rec_matrix = self._get_recurrence_matrix().predict if len(self.features) <= 3 else self.features
         for classes in np.unique(self.target):
             cls_idx = np.where(self.target == classes)[0]
             self.rec_matrix_by_cls.update({classes: rec_matrix[cls_idx, :, :, :]})
