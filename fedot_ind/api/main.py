@@ -88,7 +88,7 @@ class FedotIndustrial(Fedot):
         self.logger.info(f'Link Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info('-' * 50)
         self.logger.info('Initialising solver')
-        
+
         self.solver = Fedot(**self.config)
 
     def _process_input_data(self, input_data):
@@ -202,12 +202,12 @@ class FedotIndustrial(Fedot):
         self.is_finetuned = False
         self.train_data = self._process_input_data(input_data)
         self.__init_solver()
-        
+
         Either(value=self.train_data,
                monoid=[self.train_data, custom_fit]).either(
                    left_function=self.solver.fit,
                    right_function=self.strategy_cls.fit
-                   )
+        )
 
     def predict(self,
                 predict_data: tuple,
@@ -412,8 +412,8 @@ class FedotIndustrial(Fedot):
         method = explaing_config.get('method', 'point')
 
         explainer = self.manager.explain_methods[method](model=self,
-                                                                features=self.predict_data.features.squeeze(),
-                                                                target=self.predict_data.target)
+                                                         features=self.predict_data.features.squeeze(),
+                                                         target=self.predict_data.target)
 
         explainer.explain(n_samples=samples, window=window, method=metric)
         explainer.visual(metric=metric, threshold=threshold, name=name)

@@ -132,21 +132,21 @@ class KernelEnsembler(BaseExtractor):
         """
         self.__multiclass_check(input_data.target)
         grammian_list = self.generate_grammian(input_data)
-        
+
         if self.kernel_strategy.__contains__('one'):
             kernel_weight_matrix = self.__one_stage_kernel(grammian_list, input_data.target)
-        
+
         else:
             kernel_weight_matrix = self.__two_stage_kernel(grammian_list, input_data.target)
-        
+
         top_n_generators, classes_described_by_generator = self._select_top_feature_generators(kernel_weight_matrix)
-        
+
         self.predict = self._create_kernel_ensemble(
-            input_data, 
-            top_n_generators, 
+            input_data,
+            top_n_generators,
             classes_described_by_generator
-            )
-        
+        )
+
         return self.predict
 
     def generate_grammian(self, input_data) -> list[Any]:
@@ -157,7 +157,7 @@ class KernelEnsembler(BaseExtractor):
             x.reshape(
                 x.shape[0],
                 x.shape[1] * x.shape[2]
-                ) for x in self.feature_matrix_train]
+            ) for x in self.feature_matrix_train]
         KLtr = [squareform(pdist(X=feature, metric=self.distance_metric))
                 for feature in self.feature_matrix_train]
         return KLtr

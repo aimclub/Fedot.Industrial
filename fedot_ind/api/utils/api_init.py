@@ -85,8 +85,8 @@ class ApiManager:
         self.config['initial_assumption'] = kwargs.get('initial_assumption', None)
         if self.config['initial_assumption'] is None:
             self.config['initial_assumption'] = Either(value=self.strategy,
-                                                            monoid=[self.preset,
-                                                                    self.strategy == 'anomaly_detection']). \
+                                                       monoid=[self.preset,
+                                                               self.strategy == 'anomaly_detection']). \
                 either(left_function=fedot_init_assumptions,
                        right_function=fedot_init_assumptions)
 
