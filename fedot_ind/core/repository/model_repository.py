@@ -56,6 +56,7 @@ from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtracto
 from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
+from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
 from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
 from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
@@ -90,7 +91,9 @@ class AtomizedModel(Enum):
         # external models
         'lgbm': LGBMClassifier,
         # for detection
-        'one_class_svm': OneClassSVM
+        'one_class_svm': OneClassSVM,
+        # pairwise model
+        'pdl_clf': PairwiseDifferenceClassifier
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization
@@ -138,7 +141,9 @@ class AtomizedModel(Enum):
         'dtreg': DecisionTreeRegressor,
         # external models
         'lgbmreg': LGBMRegressor,
-        "catboostreg": FedotCatBoostRegressionImplementation
+        "catboostreg": FedotCatBoostRegressionImplementation,
+        # pairwise model
+        'pdl_reg': PairwiseDifferenceRegressor
     }
 
     FORECASTING_MODELS = {
