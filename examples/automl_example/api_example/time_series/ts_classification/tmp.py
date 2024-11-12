@@ -21,8 +21,8 @@ def multiclass_classification():
     pdc.fit(X, y)
     print('score:', pdc.score(X, y))
 
-    y_pred = pdc.predict(X)
-    proba_pred = pdc.predict_proba(X)
+    pdc.predict(X)
+    pdc.predict_proba(X)
 
     assert pdc.score(X, y) == 1.0
 

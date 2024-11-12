@@ -409,6 +409,7 @@ class FedotOperationConstant(Enum):
         "catboostreg": FedotCatBoostRegressionImplementation
     }
 
+
 class ModelCompressionConstant(Enum):
     ENERGY_THR = [0.9, 0.95, 0.99, 0.999]
     DECOMPOSE_MODE = 'channel'
