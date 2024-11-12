@@ -173,7 +173,7 @@ class IndustrialStrategy:
                                                                    target=input_data.features,
                                                                    task=task,
                                                                    data_type=DataTypesEnum.ts), 2)
-        dataset_dict.update({f'exog_ts': train_exog})
+        dataset_dict.update({'exog_ts': train_exog})
 
         train_dataset = MultiModalData(dataset_dict)
         init_assumption = init_assumption.join_branches('ridge')
@@ -198,10 +198,8 @@ class IndustrialStrategy:
         return tuned_models
 
     def _kernel_strategy(self, input_data):
-        self.kernel_ensembler = KernelEnsembler(
-            self.industrial_strategy_params)
-        kernel_ensemble, kernel_data = self.kernel_ensembler.transform(
-            input_data).predict
+        self.kernel_ensembler = KernelEnsembler(self.industrial_strategy_params)
+        kernel_ensemble, kernel_data = self.kernel_ensembler.transform(input_data).predict
         self.solver = self._finetune_loop(kernel_ensemble, kernel_data)
 
     def _lora_strategy(self, input_data):
