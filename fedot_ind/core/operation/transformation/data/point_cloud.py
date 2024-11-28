@@ -1,4 +1,5 @@
 import pandas as pd
+from gtda.time_series import SingleTakensEmbedding
 from ripser import Rips, ripser
 from scipy import sparse
 
@@ -74,7 +75,8 @@ class TopologicalTransformation:
 
     def time_series_to_point_cloud(self,
                                    input_data: np.array = None,
-                                   dimension_embed=2) -> np.array:
+                                   dimension_embed=3,
+                                   use_gtda=False) -> np.array:
         """Convert a time series into a point cloud in the dimension specified by dimension_embed.
 
         Args:
@@ -91,11 +93,27 @@ class TopologicalTransformation:
 
         if self.__window_length is None:
             self.__window_length = dimension_embed
+        if use_gtda:
+            pcd = self.gtda_time_series_to_pcd(input_data, dimension_embed)
+        else:
+            trajectory_transformer = HankelMatrix(time_series=input_data,
+                                                  window_size=self.__window_length,
+                                                  strides=self.stride)
+            pcd = trajectory_transformer.trajectory_matrix
+        return pcd
 
-        trajectory_transformer = HankelMatrix(time_series=input_data,
-                                              window_size=self.__window_length,
-                                              strides=self.stride)
-        return trajectory_transformer.trajectory_matrix
+    def gtda_time_series_to_pcd(self,
+                                input_data: np.array = None,
+                                dimension_embed=3) -> np.array:
+        embedder_periodic = SingleTakensEmbedding(
+            parameters_type="fixed",
+            n_jobs=2,
+            time_delay=self.__window_length,
+            dimension=dimension_embed,
+            stride=self.stride,
+        )
+        embedding = embedder_periodic.fit_transform(input_data)
+        return embedding
 
     def point_cloud_to_persistent_cohomology_ripser(
             self, point_cloud: np.array = None, max_simplex_dim: int = 1):
@@ -174,4 +192,4 @@ class TopologicalTransformation:
             raise ValueError(
                 "Window size cannot exceed the length of the array.")
         return np.array([array[i:i + window]
-                        for i in range(len(array) - window + 1)])
+                         for i in range(len(array) - window + 1)])

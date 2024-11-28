@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 
+import dask
 import pywt
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
@@ -54,6 +55,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         """
         return pywt.dwt_max_level(len(self.time_series), self.wavelet)
 
+    @dask.delayed
     def _transform_one_sample(self, series: np.array):
         return self._get_basis(series)
 

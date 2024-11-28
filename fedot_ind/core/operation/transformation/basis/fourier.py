@@ -1,5 +1,6 @@
 from typing import Optional
 
+import dask
 import pandas as pd
 from fedot.core.operations.operation_parameters import OperationParameters
 from matplotlib import pyplot as plt
@@ -67,5 +68,6 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         self.filtred_signal = psd if self.output_format == 'spectrum' else np.fft.irfft(psd).reshape(1, -1)
         return self.filtred_signal
 
+    @dask.delayed
     def _transform_one_sample(self, series: np.array):
         return self._get_basis(series)

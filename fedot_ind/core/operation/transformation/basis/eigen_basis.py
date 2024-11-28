@@ -1,5 +1,6 @@
 from typing import Optional
 
+import dask
 import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -169,6 +170,7 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             svd_numbers.append(mode_func(dimension_rank))
         return mode_func(svd_numbers)
 
+    @dask.delayed
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
         window_size = round(series.shape[0] * (self.window_size / 100))
         trajectory_transformer = HankelMatrix(

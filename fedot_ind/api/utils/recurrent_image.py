@@ -1,11 +1,11 @@
 import os
 
 import numpy as np
-from matplotlib import pyplot as plt
 from PIL import Image
+from matplotlib import pyplot as plt
 
 from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
+from fedot_ind.core.operation.transformation.representation.recurrence import RecurrenceExtractor
 from fedot_ind.tools.loader import DataLoader
 
 
