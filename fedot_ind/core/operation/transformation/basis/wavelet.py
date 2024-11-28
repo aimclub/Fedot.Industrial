@@ -31,21 +31,40 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         self.basis = None
         self.discrete_wavelets = DISCRETE_WAVELETS
         self.continuous_wavelets = CONTINUOUS_WAVELETS
+        self.return_feature_vector = params.get('compute_heuristic_representation', False)
 
     def __repr__(self):
         return 'WaveletBasisImplementation'
 
+    def _compute_heuristic_features(self, input_data):
+        wp = pywt.WaveletPacket(data=input_data[None,:], wavelet=self.wavelet,
+                                maxlevel=3, axis=1,
+                                mode='smooth')
+
+        wpd_approximate_3 = wp['aaa'].data.sum()
+        wpd_approximate_2 = wp['aa'].data.sum()
+        wpd_approximate_1 = wp['a'].data.sum()
+        wpd_detail_3 = wp['ddd'].data.sum()
+        wpd_detail_2 = wp['dd'].data.sum()
+        wpd_detail_1 = wp['d'].data.sum()
+        return np.array([wpd_approximate_3, wpd_approximate_2, wpd_approximate_1]).squeeze(), \
+               np.array([wpd_detail_3, wpd_detail_2, wpd_detail_1]).squeeze()
+
     def _decompose_signal(self, input_data) -> Tuple[np.array, np.array]:
-        if self.wavelet in self.discrete_wavelets:
-            high_freq, low_freq = pywt.dwt(input_data, self.wavelet, 'smooth')
+        if self.return_feature_vector:
+            return self._compute_heuristic_features(input_data)
         else:
-            high_freq, low_freq = pywt.cwt(data=input_data,
-                                           scales=self.scales,
-                                           wavelet=self.wavelet)
-            low_freq = high_freq[-1, :]
-            high_freq = np.delete(high_freq, (-1), axis=0)
-            low_freq = low_freq[np.newaxis, :]
-        return high_freq, low_freq
+            if self.wavelet in self.discrete_wavelets:
+                high_freq, low_freq = pywt.dwt(input_data, self.wavelet, 'smooth')
+
+            else:
+                high_freq, low_freq = pywt.cwt(data=input_data,
+                                               scales=self.scales,
+                                               wavelet=self.wavelet)
+                low_freq = high_freq[-1, :]
+                high_freq = np.delete(high_freq, (-1), axis=0)
+                low_freq = low_freq[np.newaxis, :]
+            return high_freq, low_freq
 
     def _decomposing_level(self) -> int:
         """The level of decomposition of the time series.

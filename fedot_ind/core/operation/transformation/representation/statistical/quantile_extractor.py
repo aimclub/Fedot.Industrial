@@ -51,7 +51,6 @@ class QuantileExtractor(BaseExtractor):
             self,
             global_features: np.ndarray,
             window_stat_features: np.ndarray) -> np.ndarray:
-
         if isinstance(window_stat_features[0], list):
             window_stat_features = np.concatenate(window_stat_features, axis=0)
 
@@ -71,10 +70,6 @@ class QuantileExtractor(BaseExtractor):
     def generate_features_from_ts(self,
                                   ts: np.array,
                                   window_length: int = None) -> InputData:
-        if len(ts.shape) == 1:
-            aggregation_df = self.extract_stats_features(ts)
-        else:
-            aggregation_df = self._get_feature_matrix(
-                self.extract_stats_features, ts)
-
-        return aggregation_df
+        ts = ts[None, :] if len(ts.shape) == 1 else ts  # sanity check for map method
+        statistical_representation = np.array(list(map(lambda channel: self.extract_stats_features(channel), ts)))
+        return statistical_representation
