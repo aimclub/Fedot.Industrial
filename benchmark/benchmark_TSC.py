@@ -91,7 +91,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         dataset_result = {}
         for dataset_name in self.custom_datasets:
             path_to_results = PROJECT_PATH + \
-                              self.path_to_save + f'/{dataset_name}'
+                self.path_to_save + f'/{dataset_name}'
             composed_model_path = [
                 path_to_results +
                 f'/{x}' for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')]
@@ -100,14 +100,14 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                 if os.path.isdir(p):
                     try:
                         self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                                 self.path_to_save
+                            self.path_to_save
                         experiment_setup = deepcopy(self.experiment_setup)
                         prediction, model = self.finetune_loop(
                             dataset_name, experiment_setup, p)
                         metric_result.update({p:
-                                                  {'metric': Accuracy(model.predict_data.target,
-                                                                      prediction.ravel()).metric(),
-                                                   'tuned_model': model}})
+                                              {'metric': Accuracy(model.predict_data.target,
+                                                                  prediction.ravel()).metric(),
+                                               'tuned_model': model}})
                     except ModuleNotFoundError as ex:
                         print(f'{ex}.OLD VERSION OF PIPELINE. DELETE DIRECTORY')
                         if len(composed_model_path) != 1:
@@ -128,10 +128,10 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                 for _ in metric_result.keys():
                     if best_metric == 0:
                         best_metric, best_model, path = metric_result[_][
-                                                            'metric'], metric_result[_]['tuned_model'], _
+                            'metric'], metric_result[_]['tuned_model'], _
                     elif metric_result[_]['metric'] > best_metric:
                         best_metric, best_model, path = metric_result[_][
-                                                            'metric'], metric_result[_]['tuned_model'], _
+                            'metric'], metric_result[_]['tuned_model'], _
                 fedot_results.loc[dataset_name,
                                   'Fedot_Industrial_finetuned'] = best_metric
                 best_model.output_folder = f'{_}_tuned'
@@ -162,14 +162,14 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.path_to_save + \
-                                f'/{dataset_name}' + '/metrics_report.csv'
+                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_resutls = np.stack(_, axis=1).T

@@ -25,12 +25,10 @@ feature_generator = {
 if __name__ == "__main__":
     finetune = False
 
-    train_features, train_target = park_transform(np.load('./X_train.npy').swapaxes(1, 2))[:, take_only_inst_phase:,
-                                   :sampling_window] \
-        , np.load('./y_train.npy')
-    test_features, test_target = park_transform(np.load('./X_test.npy').swapaxes(1, 2))[:, take_only_inst_phase:,
-                                 :sampling_window] \
-        , np.load('./y_test.npy')
+    train_features, train_target = park_transform(
+        np.load('./X_train.npy').swapaxes(1, 2))[:, take_only_inst_phase:, :sampling_window], np.load('./y_train.npy')
+    test_features, test_target = park_transform(
+        np.load('./X_test.npy').swapaxes(1, 2))[:, take_only_inst_phase:, :sampling_window], np.load('./y_test.npy')
     input_train = (train_features, train_target)
     input_test = (test_features, test_target)
 
