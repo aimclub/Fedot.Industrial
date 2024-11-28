@@ -324,7 +324,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                                                   probs in self.predicted_probs.items()}
+                probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
