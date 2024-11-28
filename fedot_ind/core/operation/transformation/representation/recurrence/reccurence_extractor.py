@@ -7,9 +7,9 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 
 # from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.models.recurrence.sequences import RecurrenceFeatureExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.data.kernel_matrix import TSTransformer
+from fedot_ind.core.operation.transformation.representation.recurrence.sequences import RecurrenceFeatureExtractor
 
 
 class RecurrenceExtractor(BaseExtractor):
@@ -50,6 +50,9 @@ class RecurrenceExtractor(BaseExtractor):
         self.image_mode = params.get('image_mode', False)
         self.transformer = TSTransformer
         self.extractor = RecurrenceFeatureExtractor
+
+    def __repr__(self):
+        return 'Reccurence Class for TS representation'
 
     def _generate_features_from_ts(self, ts: np.array):
         if self.window_size != 0:

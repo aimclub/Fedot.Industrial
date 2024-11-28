@@ -1,10 +1,11 @@
 import warnings
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from scipy.signal import find_peaks
 from scipy.stats import entropy, linregress
 from sklearn.preprocessing import MinMaxScaler
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 warnings.filterwarnings("ignore")
 
@@ -34,7 +35,7 @@ def diff(array: np.array) -> float:
     return np.diff(array, n=len(array) - 1)[0]
 
 
-# Extra methods for quantile features extraction
+# Extra methods for statistical features extraction
 def skewness(array: np.array) -> float:
     if not isinstance(array, pd.Series):
         array = pd.Series(array)

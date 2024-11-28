@@ -62,6 +62,9 @@ class RiemannExtractor(BaseExtractor):
             'tangent_space_metric': self.tangent_metric,
             'SPD_space_metric': self.spd_metric})
 
+    def __repr__(self):
+        return 'Riemann Manifold Class for TS representation'
+
     def _init_spaces(self):
         self.spd_space = Covariances(estimator='scm')
         self.tangent_space = TangentSpace(metric=self.tangent_metric)

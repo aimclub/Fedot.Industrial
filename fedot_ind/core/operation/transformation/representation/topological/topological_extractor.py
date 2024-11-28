@@ -1,20 +1,26 @@
 import sys
 from functools import partial
+from itertools import product
+from typing import Optional
 
+import open3d as o3d
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
+from scipy.spatial.distance import squareform, pdist
 from tqdm import tqdm
-from typing import Optional
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
-from fedot_ind.core.models.topological.topofeatures import PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
 from fedot_ind.core.operation.transformation.data.point_cloud import TopologicalTransformation
+from fedot_ind.core.operation.transformation.representation.topological.topofeatures import \
+    PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
 from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, PERSISTENCE_DIAGRAM_FEATURES
+from fedot_ind.tools.explain.pcd import numpy2stl
 
 sys.setrecursionlimit(1000000000)
 
@@ -53,6 +59,10 @@ class TopologicalExtractor(BaseExtractor):
             persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES
         )
         self.data_transformer = None
+        self.save_pcd = False
+
+    def __repr__(self):
+        return 'Topological Class for TS representation'
 
     def __evaluate_persistence_params(self, ts_data: np.array):
         if self.feature_extractor is None:
@@ -67,12 +77,43 @@ class TopologicalExtractor(BaseExtractor):
                 persistence_diagram_extractor=persistence_diagram_extractor,
                 persistence_diagram_features=PERSISTENCE_DIAGRAM_FEATURES)
 
+    def _generate_vr_mesh(self, pcd):
+        # Corresponding matrix of Euclidean pairwise distances
+        pairwise_distances = squareform(pdist(pcd))
+        # Default parameter for ``metric`` is "euclidean"
+        vr_graph = VietorisRipsPersistence(metric="precomputed").fit_transform([pairwise_distances])
+        return vr_graph
+
+    def _generate_pcd(self, ts_data, persistence_params):
+        window_size_range = list(range(1, 35, 5))
+        stride_range = list(range(1, 15, 3))
+        pcd_params = list(product(window_size_range, stride_range))
+        for params in pcd_params:
+            data_transformer = TopologicalTransformation(stride=params[1], persistence_params=persistence_params,
+                                                         window_length=round(ts_data.shape[0] * 0.01 * params[0]))
+            point_cloud = data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
+            # VR_mesh = self._generate_vr_mesh(point_cloud)
+            for scale in range(1, 15, 3):
+                numpy2stl(point_cloud,
+                          f"./stl_scale_{scale}_ws_{params[0]}_stride_{params[1]}.stl",
+                          max_width=300.,
+                          max_depth=200.,
+                          max_height=300.,
+                          scale=scale,
+                          min_thickness_percent=0.5,
+                          solid=False)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(point_cloud)
+            o3d.io.write_point_cloud(f"./pcd_ws_{params[0]}_stride_{params[1]}.ply", pcd)
+
     def _generate_features_from_ts(self, ts_data: np.array, persistence_params: dict) -> InputData:
+        if self.save_pcd:
+            self._generate_pcd(ts_data, persistence_params)
         if self.data_transformer is None:
             self.data_transformer = TopologicalTransformation(
                 persistence_params=persistence_params, window_length=round(ts_data.shape[0] * 0.01 * self.window_size))
 
-        point_cloud = self.data_transformer.time_series_to_point_cloud(input_data=ts_data)
+        point_cloud = self.data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
         topological_features = self.feature_extractor.transform(point_cloud)
         topological_features = InputData(idx=np.arange(len(topological_features.values)),
                                          features=topological_features.values,

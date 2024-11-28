@@ -1,6 +1,6 @@
-from itertools import chain
 from typing import Optional
 
+import dask
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 
@@ -9,7 +9,7 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
 class QuantileExtractor(BaseExtractor):
-    """Class responsible for quantile feature generator experiment.
+    """Class responsible for statistical feature generator experiment.
 
     Attributes:
         window_size (int): size of window
@@ -44,40 +44,30 @@ class QuantileExtractor(BaseExtractor):
         self.logging_params.update({'Wsize': self.window_size,
                                     'Stride': self.stride})
 
+    def __repr__(self):
+        return 'Statistical Class for TS representation'
+
     def _concatenate_global_and_local_feature(
             self,
-            global_features: InputData,
-            window_stat_features: InputData) -> InputData:
+            global_features: np.ndarray,
+            window_stat_features: np.ndarray) -> np.ndarray:
 
-        if isinstance(window_stat_features.features[0], list):
-            window_stat_features.features = np.concatenate(
-                window_stat_features.features, axis=0)
-            window_stat_features.supplementary_data['feature_name'] = list(
-                chain(*window_stat_features.supplementary_data['feature_name']))
+        if isinstance(window_stat_features[0], list):
+            window_stat_features = np.concatenate(window_stat_features, axis=0)
 
-        window_stat_features.features = np.concatenate(
-            [global_features.features, window_stat_features.features], axis=0)
-        window_stat_features.features = np.nan_to_num(
-            window_stat_features.features)
-
-        window_stat_features.supplementary_data['feature_name'] = list(
-            chain(*[global_features.supplementary_data['feature_name'],
-                    window_stat_features.supplementary_data['feature_name']]))
+        window_stat_features = np.concatenate([global_features, window_stat_features], axis=0)
+        window_stat_features = np.nan_to_num(window_stat_features)
         return window_stat_features
 
     def extract_stats_features(self, ts: np.array) -> InputData:
-        global_features = self.get_statistical_features(
-            ts, add_global_features=True)
-        if self.window_size != 0:
-            window_stat_features = self.apply_window_for_stat_feature(
-                ts_data=ts,
-                feature_generator=self.get_statistical_features,
-                window_size=self.window_size)
-        else:
-            window_stat_features = self.get_statistical_features(ts)
+        global_features = self.get_statistical_features(ts, add_global_features=True)
+        window_stat_features = self.get_statistical_features(ts) if self.window_size == 0 else \
+            self.apply_window_for_stat_feature(ts_data=ts, feature_generator=self.get_statistical_features,
+                                               window_size=self.window_size)
         return self._concatenate_global_and_local_feature(
             global_features, window_stat_features) if self.add_global_features else window_stat_features
 
+    @dask.delayed
     def generate_features_from_ts(self,
                                   ts: np.array,
                                   window_length: int = None) -> InputData:

@@ -3,16 +3,19 @@ from typing import Optional
 import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from pymonad.either import Either
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 from fedot_ind.core.models.base_extractor import BaseExtractor
+from fedot_ind.core.operation.transformation.data.park_transformation import park_transform
 from fedot_ind.core.repository.constanst_repository import KERNEL_BASELINE_FEATURE_GENERATORS
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 class TabularExtractor(BaseExtractor):
-    """Class responsible for quantile feature generator experiment.
+    """Class responsible for statistical feature generator experiment.
 
     Attributes:
         window_size (int): size of window
@@ -47,6 +50,7 @@ class TabularExtractor(BaseExtractor):
         self.reduce_dimension = params.get('reduce_dimension', True)
 
         self.repo = IndustrialModels().setup_repository()
+        self.custom_tabular_transformation = {'park_transformation': park_transform}
         self.pca_is_fitted = False
         self.scaler = StandardScaler()
         self.pca = PCA(self.explained_dispersion)
@@ -57,6 +61,35 @@ class TabularExtractor(BaseExtractor):
         else:
             self.pca_is_fitted = True
             return self.pca.fit_transform(self.scaler.fit_transform(features, target))
+
+    def _create_from_custom_fg(self, input_data):
+        for model_name, nodes in self.feature_domain.items():
+            if model_name.__contains__('custom'):
+                transform_method = self.custom_tabular_transformation[nodes[0]]
+                ts_representation = transform_method(input_data)
+            else:
+                model = PipelineBuilder()
+                for node in nodes:
+                    if isinstance(node, tuple):
+                        model.add_node(operation_type=node[0], params=node[1])
+                    else:
+                        model.add_node(operation_type=node)
+                model = model.build()
+                ts_representation = model.fit(input_data).predict
+            self.feature_list.append(ts_representation)
+
+    def _create_from_default_fg(self, input_data):
+        feature_domain_models = [model for model in KERNEL_BASELINE_FEATURE_GENERATORS]
+
+        if not self.feature_domain.__contains__('all'):
+            feature_domain_models = [model for model in feature_domain_models
+                                     if model.__contains__(self.feature_domain)]
+
+        for model_name in feature_domain_models:
+            model = KERNEL_BASELINE_FEATURE_GENERATORS[model_name]
+            model.heads[0].parameters['use_sliding_window'] = self.use_sliding_window
+            model = model.build()
+            self.feature_list.append(model.fit(input_data).predict)
 
     def create_feature_matrix(self, feature_list: list):
         return np.concatenate([x.reshape(x.shape[0], x.shape[1] * x.shape[2])
@@ -74,17 +107,10 @@ class TabularExtractor(BaseExtractor):
     def generate_features_from_ts(self,
                                   input_data: InputData,
                                   window_length: int = None) -> InputData:
-        feature_domain_models = [model for model in KERNEL_BASELINE_FEATURE_GENERATORS]
+        is_custom_feature_representation = isinstance(self.feature_domain, dict)
         self.feature_list = []
-
-        if not self.feature_domain.__contains__('all'):
-            feature_domain_models = [model for model in feature_domain_models
-                                     if model.__contains__(self.feature_domain)]
-
-        for model_name in feature_domain_models:
-            model = KERNEL_BASELINE_FEATURE_GENERATORS[model_name]
-            model.heads[0].parameters['use_sliding_window'] = self.use_sliding_window
-            model = model.build()
-            self.feature_list.append(model.fit(input_data).predict)
-
+        Either(value=input_data,
+               monoid=[input_data,
+                       is_custom_feature_representation]).either(left_function=self._create_from_default_fg,
+                                                                 right_function=self._create_from_custom_fg)
         return self.feature_list
