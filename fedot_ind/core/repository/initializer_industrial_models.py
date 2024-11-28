@@ -9,8 +9,10 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     LaggedImplementation, TsSmoothingImplementation
 from fedot.core.operations.operation import Operation
 from fedot.core.optimisers.objective.data_source_splitter import DataSourceSplitter
+from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.verification import class_rules
+from fedot.core.pipelines.verification import common_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
 
 import fedot_ind.core.repository.model_repository as MODEL_REPO
@@ -83,6 +85,18 @@ DEFAULT_MODELS_TO_REPLACE = [(MODEL_REPO, 'SKLEARN_REG_MODELS'),
                              (MODEL_REPO, 'FEDOT_PREPROC_MODEL')]
 
 
+def has_no_resample(pipeline: Pipeline):
+    """
+    Pipeline can have only one resample operation located in start of the pipeline
+
+    :param pipeline: pipeline for checking
+    """
+    for node in pipeline.nodes:
+        if node.name == 'resample':
+            raise ValueError(
+                f'Pipeline can not have resample operation')
+    return True
+
 class IndustrialModels:
     def __init__(self):
 
@@ -141,4 +155,5 @@ class IndustrialModels:
                        'default_tags': []}})
         OperationTypesRepository.assign_repo('model', self.base_model_path)
         self._replace_operation(to_industrial=False, backend=backend)
+        common_rules.append(has_no_resample)
         return OperationTypesRepository

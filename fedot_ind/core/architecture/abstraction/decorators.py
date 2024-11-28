@@ -113,9 +113,9 @@ class DaskServer(metaclass=Singleton):
     def __init__(self):
         print('Creating Dask Server')
         cluster = LocalCluster(processes=False,
-                               # n_workers=4,
-                               # threads_per_worker=4,
-                               # memory_limit='3GB'
+                               n_workers=4,
+                               threads_per_worker=4,
+                               memory_limit='auto'
                                )
         # connect client to your cluster
         self.client = Client(cluster)
