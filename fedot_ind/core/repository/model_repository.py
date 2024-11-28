@@ -45,7 +45,6 @@ from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detecto
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
-from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
@@ -57,14 +56,16 @@ from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
-from fedot_ind.core.models.quantile.quantile_extractor import QuantileExtractor
-from fedot_ind.core.models.recurrence.reccurence_extractor import RecurrenceExtractor
-from fedot_ind.core.models.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
+from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
+from fedot_ind.core.operation.transformation.representation.recurrence.reccurence_extractor import RecurrenceExtractor
+from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
+from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import \
+    TopologicalExtractor
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 
 

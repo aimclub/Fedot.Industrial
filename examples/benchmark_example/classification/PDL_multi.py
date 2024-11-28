@@ -13,12 +13,12 @@ experiment_setup = {
     'metric_names': ('f1', 'accuracy'),
     'logging_level': 10,
     'n_jobs': -1,
-    'initial_assumption': comparasion_dict,
     'output_folder': r'D:\\WORK\\Repo\\Industiral\\IndustrialTS/benchmark/results/',
+    'initial_assumption': comparasion_dict,
     'finetune': True}
 
 if __name__ == "__main__":
     benchmark = BenchmarkTSC(experiment_setup=experiment_setup,
-                             use_small_datasets=True)
+                             use_small_datasets=False)
     benchmark.run()
     _ = 1

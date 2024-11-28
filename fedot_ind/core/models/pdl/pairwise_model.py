@@ -156,8 +156,12 @@ class PairwiseDifferenceEstimator:
         return sample_weight
 
     @staticmethod
-    def predict(y_prob: np.ndarray, output_mode: str = 'default'):
-        predicted_classes = np.argmax(y_prob, axis=1)[..., np.newaxis] if output_mode.__contains__('label') else y_prob
+    def predict(y_prob: np.ndarray, output_mode: str = 'default', min_label_zero: bool = True):
+        if output_mode.__contains__('label'):
+            predicted_classes = np.argmax(y_prob, axis=1)[..., np.newaxis]
+            predicted_classes = predicted_classes if min_label_zero else predicted_classes + 1
+        else:
+            predicted_classes = y_prob
         return predicted_classes
 
 
@@ -175,6 +179,12 @@ class PairwiseDifferenceClassifier:
         self.use_prior = False
         self.proba_aggregate_method = 'norm'
         self.sample_weight_ = None
+
+    def _check_target(self):
+        if self.target.min() != 0:
+            self.target_start_zero = False
+        else:
+            self.target_start_zero = True
 
     def _estimate_prior(self):
         if self.prior is not None:
@@ -195,8 +205,10 @@ class PairwiseDifferenceClassifier:
         self.classes_ = sklearn.utils.multiclass.unique_labels(input_data.target)
         self.train_features = input_data.features  # Store the classes seen during fit
         self._estimate_prior()
+        self._check_target()
         X_pair, _ = self.pde.pair_input(input_data.features, input_data.features)
         y_pair_diff = self.pde.pair_output_difference(self.target, self.target, self.num_classes)
+
         self.base_model.fit(X_pair, y_pair_diff)
         return self
 
@@ -256,7 +268,7 @@ class PairwiseDifferenceClassifier:
         # without this normalization it should work for multiclass-multilabel
         if self.proba_aggregate_method == 'norm':
             tests_classes_likelihood_np = tests_classes_likelihood_np.values \
-                / tests_classes_likelihood_np.values.sum(axis=-1)[:, np.newaxis]
+                                          / tests_classes_likelihood_np.values.sum(axis=-1)[:, np.newaxis]
         elif self.proba_aggregate_method == 'softmax':
             tests_classes_likelihood_np = softmax(tests_classes_likelihood_np, axis=-1)
         return tests_classes_likelihood_np
@@ -312,7 +324,7 @@ class PairwiseDifferenceClassifier:
                                 monoid=[input_data.features, self.use_prior]).either(
             left_function=lambda features: self.__predict_without_prior(features, sample_weight),
             right_function=lambda features: self.__predict_with_prior(features, sample_weight))
-        return self.pde.predict(predict_output, output_mode)
+        return self.pde.predict(predict_output, output_mode, self.target_start_zero)
 
     def predict(self,
                 input_data: InputData,
