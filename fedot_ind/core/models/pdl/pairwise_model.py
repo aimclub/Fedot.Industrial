@@ -268,7 +268,7 @@ class PairwiseDifferenceClassifier:
         # without this normalization it should work for multiclass-multilabel
         if self.proba_aggregate_method == 'norm':
             tests_classes_likelihood_np = tests_classes_likelihood_np.values \
-                                          / tests_classes_likelihood_np.values.sum(axis=-1)[:, np.newaxis]
+                / tests_classes_likelihood_np.values.sum(axis=-1)[:, np.newaxis]
         elif self.proba_aggregate_method == 'softmax':
             tests_classes_likelihood_np = softmax(tests_classes_likelihood_np, axis=-1)
         return tests_classes_likelihood_np
