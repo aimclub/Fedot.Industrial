@@ -97,6 +97,7 @@ def has_no_resample(pipeline: Pipeline):
                 f'Pipeline can not have resample operation')
     return True
 
+
 class IndustrialModels:
     def __init__(self):
 
