@@ -58,7 +58,7 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         # features['fft_energy_db'] = 10 * np.log10(fft).sum(axis=1)
         fft_crest_factor = fft_peak_value / fft_rms
         feature_vector = [fft_mean, fft_var, fft_rms, fft_peak_value, fft_peak_freq, fft_energy, fft_crest_factor]
-        feature_vector = [round(x,3) for x in feature_vector]
+        feature_vector = [round(x, 3) for x in feature_vector]
         return np.array(feature_vector)
 
     def _visualise_spectrum(self, estimator):

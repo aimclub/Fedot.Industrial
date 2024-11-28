@@ -37,7 +37,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         return 'WaveletBasisImplementation'
 
     def _compute_heuristic_features(self, input_data):
-        wp = pywt.WaveletPacket(data=input_data[None,:], wavelet=self.wavelet,
+        wp = pywt.WaveletPacket(data=input_data[None, :], wavelet=self.wavelet,
                                 maxlevel=3, axis=1,
                                 mode='smooth')
 
@@ -48,7 +48,7 @@ class WaveletBasisImplementation(BasisDecompositionImplementation):
         wpd_detail_2 = wp['dd'].data.sum()
         wpd_detail_1 = wp['d'].data.sum()
         return np.array([wpd_approximate_3, wpd_approximate_2, wpd_approximate_1]).squeeze(), \
-               np.array([wpd_detail_3, wpd_detail_2, wpd_detail_1]).squeeze()
+            np.array([wpd_detail_3, wpd_detail_2, wpd_detail_1]).squeeze()
 
     def _decompose_signal(self, input_data) -> Tuple[np.array, np.array]:
         if self.return_feature_vector:
