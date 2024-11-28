@@ -119,7 +119,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-                                    'detection_window' in self.industrial_task_params.keys(),
+            'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
@@ -218,7 +218,7 @@ class DataCheck:
             have_ts_strategy = 'learning_strategy' in self.industrial_context_manager.industrial_strategy_params.keys()
             default_tabular_fedot = self.industrial_context_manager.is_default_fedot_context
             if default_tabular_fedot and have_ts_strategy:
-                repo = IndustrialModels().setup_repository()
+                IndustrialModels().setup_repository()
                 current_strategy = self.industrial_context_manager.industrial_strategy_params['learning_strategy']
                 self.input_data.features = self.convert_ts_method[current_strategy](self.input_data).predict
         return self.input_data
