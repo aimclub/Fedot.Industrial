@@ -15,13 +15,13 @@ from sklearn.linear_model import (
 )
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 
-from fedot_ind.core.models.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
+from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 
 EXCLUDED_OPERATION_MUTATION = {
     'regression': ['recurrence_extractor',

@@ -45,9 +45,14 @@ class AbstractPipeline:
                 for branch, nodes in node_list.items():
                     if isinstance(branch, int):
                         for node in nodes:
-                            pipeline.add_node(node, branch_idx=branch)
+                            if isinstance(node, tuple):
+                                pipeline.add_node(operation_type=node[0], params=node[1], branch_idx=branch)
+                            else:
+                                pipeline.add_node(operation_type=node, branch_idx=branch)
                     else:
                         pipeline.join_branches(nodes)
+        elif isinstance(node_list, PipelineBuilder):
+            return pipeline
         else:
             for node in node_list:
                 pipeline.add_node(node)

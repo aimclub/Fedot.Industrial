@@ -6,6 +6,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
+from fedot.core.data.data import OutputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
@@ -88,6 +89,7 @@ class FedotIndustrial(Fedot):
         self.logger.info(f'LinK Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising solver')
+        self.__init_industrial_backend()
         self.solver = Fedot(**self.config_dict)
 
     def _process_input_data(self, input_data):
@@ -97,10 +99,9 @@ class FedotIndustrial(Fedot):
             task=self.config_dict['problem'],
             task_params=self.api_controller.task_params,
             fit_stage=True,
-            industrial_task_params=self.api_controller.industrial_strategy_params)
+            industrial_task_params=self.api_controller)
         train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
-
         train_data.features = train_data.features.squeeze() if self.api_controller.is_default_fedot_context \
             else train_data.features
         return train_data
@@ -136,10 +137,12 @@ class FedotIndustrial(Fedot):
         labels_output = predict_mode in ['labels']
         default_fedot_strategy = self.api_controller.industrial_strategy is None
         custom_predict = self.solver.predict if default_fedot_strategy else self.industrial_strategy_class.predict
-
+        have_proba_output = hasattr(self.solver, 'predict_proba')
+        if self.api_controller.is_default_fedot_context:
+            self.repo = IndustrialModels().setup_default_repository()
         predict_function = Either(value=custom_predict,
                                   monoid=['prob', labels_output]).either(
-            left_function=lambda prob_func: self.solver.predict_proba,
+            left_function=lambda prob_func: self.solver.predict_proba if have_proba_output else self.solver.predict,
             right_function=lambda label_func: label_func)
 
         def _inverse_encoder_transform(predict):
@@ -153,6 +156,8 @@ class FedotIndustrial(Fedot):
             value=self.predict_data, monoid=[False, True]).then(
             function=lambda x: predict_function(x, predict_mode)).then(
             lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
+        if isinstance(predict, OutputData):
+            predict = predict.predict
         try:
             predict = np.argmax(predict, axis=1) if predict.shape[1] != 1 else predict
         except Exception:

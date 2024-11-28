@@ -36,15 +36,16 @@ from fedot_ind.core.metrics.metrics_implementation import calculate_classificati
     calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
-from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
+from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot_ind.core.operation.transformation.representation.statistical.stat_features import autocorrelation, ben_corr, \
+    crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
+from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
-from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,

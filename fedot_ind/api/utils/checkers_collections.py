@@ -11,7 +11,9 @@ from sklearn.preprocessing import LabelEncoder
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor import TabularExtractor
 from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
 
 class DataCheck:
@@ -34,14 +36,17 @@ class DataCheck:
                  task_params: dict = {},
                  task: str = None,
                  fit_stage=False,
-                 industrial_task_params=None):
+                 industrial_task_params={}):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.industrial_task_params = industrial_task_params or {}
-
-        if len(self.industrial_task_params) != 0:
-            self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']]
-        else:
-            self.data_type = FEDOT_DATA_TYPE['tensor']
+        self.industrial_context_manager = None
+        self.industrial_task_params = industrial_task_params
+        self.convert_ts_method = {'ts2tabular': self._convert_ts2tabular,
+                                  'ts2image': self._convert_ts2image}
+        if hasattr(industrial_task_params, 'industrial_strategy_params'):
+            self.industrial_task_params = industrial_task_params.industrial_strategy_params
+            self.industrial_context_manager = industrial_task_params
+        self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']] \
+            if len(self.industrial_task_params) != 0 else FEDOT_DATA_TYPE['tensor']
 
         self.input_data = input_data
         self.data_convertor = DataConverter(data=self.input_data)
@@ -60,22 +65,10 @@ class DataCheck:
         else:
             X, y = input_data.features, input_data.target
 
-        multi_features, X = check_multivariate_data(X)
+        multi_features, features = check_multivariate_data(X)
         multi_target = len(y.shape) > 1 and y.shape[1] > 2
-
-        if multi_features:
-            features = np.array(X.tolist()).astype(float)
-        else:
-            features = X
-
-        if isinstance(y, (pd.DataFrame, pd.Series)):
-            y = y.values
-        if multi_target:
-            target = y
-        elif multi_features and not multi_target:
-            target = y.reshape(-1, 1)
-        else:
-            target = np.ravel(y).reshape(-1, 1)
+        target = y.values if isinstance(y, (pd.DataFrame, pd.Series)) else y
+        target = target.reshape(-1, 1) if multi_features and not multi_target else np.ravel(target).reshape(-1, 1)
 
         return features, multi_features, target
 
@@ -126,7 +119,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-            'detection_window' in self.industrial_task_params.keys(),
+                                    'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
@@ -202,6 +195,15 @@ class DataCheck:
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
 
+    def _convert_ts2tabular(self, input_data):
+        fg_list = self.industrial_context_manager.industrial_strategy_params['feature_generator']
+        ts2tabular_model = TabularExtractor({'feature_domain': fg_list,
+                                             'reduce_dimension': True})
+        return ts2tabular_model.transform(input_data)
+
+    def _convert_ts2image(self):
+        pass
+
     def check_available_operations(self, available_operations):
         pass
 
@@ -211,6 +213,14 @@ class DataCheck:
             self._check_input_data_features()
             self._check_input_data_target()
         self.input_data.supplementary_data.is_auto_preprocessed = True
+
+        if self.industrial_context_manager is not None:
+            have_ts_strategy = 'learning_strategy' in self.industrial_context_manager.industrial_strategy_params.keys()
+            default_tabular_fedot = self.industrial_context_manager.is_default_fedot_context
+            if default_tabular_fedot and have_ts_strategy:
+                repo = IndustrialModels().setup_repository()
+                current_strategy = self.industrial_context_manager.industrial_strategy_params['learning_strategy']
+                self.input_data.features = self.convert_ts_method[current_strategy](self.input_data).predict
         return self.input_data
 
     def check_input_data(self) -> InputData:

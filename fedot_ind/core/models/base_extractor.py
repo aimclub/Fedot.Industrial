@@ -1,15 +1,14 @@
 import logging
 import math
-from itertools import chain
 from multiprocessing import cpu_count
 
+import dask
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
-from joblib import delayed, Parallel
 from numpy.lib import stride_tricks as stride_repr
+from tqdm.dask import TqdmCallback
 
 from fedot_ind.api.utils.data import init_input_data
-from fedot_ind.core.architecture.abstraction.decorators import convert_to_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureSpaceReducer
@@ -40,6 +39,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
 
+    def __repr__(self):
+        return 'Abstract Class for TS representation'
+
     def fit(self, input_data: InputData):
         pass
 
@@ -58,19 +60,18 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        parallel = Parallel(n_jobs=self.n_processes, verbose=0, pre_dispatch="2*n_jobs")
-        feature_matrix = parallel(
-            delayed(self.generate_features_from_ts)(sample) for sample in input_data.features
-        )
 
-        if len(feature_matrix[0].features.shape) > 1:
-            stacked_data = np.stack([ts.features for ts in feature_matrix])
+        evaluation_results = list(map(lambda sample: self.generate_features_from_ts(sample), input_data.features))
+        with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
+            feature_matrix = dask.compute(*evaluation_results)
+        if len(feature_matrix[0].shape) > 1:
+            stacked_data = np.stack(feature_matrix)
             self.predict = self._clean_predict(stacked_data)
         else:
-            stacked_data = np.array([ts.features for ts in feature_matrix])
+            stacked_data = np.array(feature_matrix)
             self.predict = self._clean_predict(stacked_data)
             self.predict = self.predict.reshape(self.predict.shape[0], -1)
-        self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
+        # self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
 
         if self.use_feature_filter:
             if not self.feature_filter.is_fitted:
@@ -93,10 +94,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         Method responsible for generation of features from time series.
         """
 
-    @convert_to_input_data
     def get_statistical_features(self, time_series: np.ndarray, add_global_features: bool = False) -> tuple:
         """
-        Method for creating baseline quantile features for a given time series.
+        Method for creating baseline statistical features for a given time series.
 
         Args:
             add_global_features: if True, global features are added to the feature set
@@ -106,20 +106,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             InputData: object with features
 
         """
-        names = []
-        features = []
         time_series = time_series.flatten()
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
+        return list(map(lambda method: method[1](time_series), list_of_methods))
 
-        for method in list_of_methods:
-            features.append(method[1](time_series))
-            names.append(method[0])
-        return features, names
-
-    @convert_to_input_data
     def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,
-                                      window_size: int = None) -> tuple:
+                                      window_size: int = None) -> np.ndarray:
 
         window_size = round(ts_data.shape[0] / 10) if window_size is None \
             else round(ts_data.shape[0] * (window_size / 100))
@@ -136,30 +129,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         if subseq_set is None:
             ts_slices = list(range(0, ts_data.shape[0], window_size))
             features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), ts_slices))
-            names = list(map(lambda ts_tup: [x + f'_on_interval: {ts_tup[1] + 1} - {ts_tup[1] + 1 + window_size}'
-                                             for x in ts_tup[0].supplementary_data['feature_name']],
-                             zip(features, ts_slices)))
-            features = [x.features for x in features]
-
         else:
             ts_slices = list(range(0, subseq_set.shape[1]))
             features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), ts_slices))
-            names = list(map(lambda ts_tup: [x + f'_on_interval: {ts_tup[1] + 1} - {ts_tup[1] + 1 + window_size}'
-                                             for x in ts_tup[0].supplementary_data['feature_name']],
-                             zip(features, ts_slices)))
-            features = [x.features for x in features]
+        return features
 
-        return features, names
-
-    @convert_to_input_data
-    def _get_feature_matrix(self, extraction_func: callable, ts: np.array) -> tuple:
-        multi_ts_stat_features = [extraction_func(x) for x in ts]
-        for component in multi_ts_stat_features:
-            if not isinstance(component.features, np.ndarray):
-                component.features = np.array(component.features)
-        features = np.concatenate([component.features.reshape(1, -1) for component in multi_ts_stat_features], axis=0)
-
-        for index, component in enumerate(multi_ts_stat_features):
-            component.supplementary_data['feature_name'] = [f'component {index}']
-        names = list(chain(*[x.supplementary_data['feature_name'] for x in multi_ts_stat_features]))
-        return features, names
+    def _get_feature_matrix(self, extraction_func: callable, ts: np.array) -> np.ndarray:
+        multi_channel_features = [extraction_func(x) for x in ts]
+        features = np.concatenate([channel_feature.reshape(1, -1)
+                                   for channel_feature in multi_channel_features], axis=0)
+        return features
