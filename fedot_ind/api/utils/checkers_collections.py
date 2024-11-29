@@ -119,7 +119,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-                                    'detection_window' in self.industrial_task_params.keys(),
+            'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
@@ -201,7 +201,7 @@ class DataCheck:
             learning_strategy = self.industrial_context_manager.industrial_strategy_params['learning_strategy'] if \
                 'learning_strategy' in self.industrial_context_manager.industrial_strategy_params.keys() else None
             default_fedot_context = self.industrial_context_manager.is_default_fedot_context \
-                                    and learning_strategy is not None
+                and learning_strategy is not None
             sampling_strategy = self.industrial_context_manager.industrial_strategy_params['sampling_strategy'] \
                 if 'sampling_strategy' in self.industrial_context_manager.industrial_strategy_params.keys() else None
             if sampling_strategy is not None:
@@ -209,9 +209,9 @@ class DataCheck:
                 channel_start, channel_end = list(sampling_strategy['channels'].values())
                 element_start, element_end = list(sampling_strategy['elements'].values())
                 self.input_data.features = self.input_data.features[
-                                           sample_start:sample_end,
-                                           channel_start:channel_end,
-                                           element_start:element_end]
+                    sample_start:sample_end,
+                    channel_start:channel_end,
+                    element_start:element_end]
             self.input_data.features = Either(value=learning_strategy,
                                               monoid=[self.input_data, default_fedot_context]).either(
                 left_function=lambda x: x.features,
