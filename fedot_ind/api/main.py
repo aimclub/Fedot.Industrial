@@ -91,7 +91,7 @@ class FedotIndustrial(Fedot):
         self.logger.info('Initialising Evolutionary Optimisation params')
         if self.manager.optimizer_params is not None:
             self.config['optimizer'] = partial(self.config['optimizer'],
-                                                    optimisation_params=self.manager.optimizer_params)
+                                               optimisation_params=self.manager.optimizer_params)
 
     def __init_solver(self):
         self.logger.info('-' * 50)
