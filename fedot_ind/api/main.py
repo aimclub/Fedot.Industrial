@@ -197,8 +197,7 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        custom_fit = all([self.manager.strategy is not None,
-                          self.manager.strategy != 'anomaly_detection'])
+        custom_fit = self.manager.strategy not in ['anomaly_detection', None]
         self.is_finetuned = False
         self.train_data = self._process_input_data(input_data)
         self.__init_solver()
@@ -290,7 +289,7 @@ class FedotIndustrial(Fedot):
 
     def get_metrics(self,
                     target: Union[list, np.array] = None,
-                    metric_names: tuple = ('f1', 'roc_auc', 'accuracy'),
+                    metric_names: tuple = None,
                     rounding_order: int = 3,
                     **kwargs) -> pd.DataFrame:
         """
@@ -311,6 +310,7 @@ class FedotIndustrial(Fedot):
 
         """
         problem = self.config['problem']
+
         if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
             self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
         if isinstance(self.predicted_probs, dict):

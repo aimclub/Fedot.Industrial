@@ -39,6 +39,9 @@ dask-ml = "^2024.4.4"
 optuna-integration = "^4.0.0"
 
 
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+
 [tool.coverage.report]
 exclude_also = [
     "def __repr__",

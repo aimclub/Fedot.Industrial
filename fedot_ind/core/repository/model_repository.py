@@ -64,6 +64,7 @@ from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentro
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
+from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 
 
@@ -100,6 +101,7 @@ class AtomizedModel(Enum):
         'simple_imputation': ImputationImplementation,
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
+        'pca': PCAImplementation,
         # feature generation
         # 'topological_extractor': TopologicalFeaturesImplementation
     }
@@ -138,7 +140,7 @@ class AtomizedModel(Enum):
         'dtreg': DecisionTreeRegressor,
         # external models
         'lgbmreg': LGBMRegressor,
-        "catboostreg": FedotCatBoostRegressionImplementation
+        'catboostreg': FedotCatBoostRegressionImplementation
     }
 
     FORECASTING_MODELS = {
@@ -196,9 +198,12 @@ class AtomizedModel(Enum):
         'lora_model': LoraModel
     }
 
-    DASK_MODELS = {'logit': DaskLogReg,
+    # DASK_MODELS = {'logit': DaskLogReg,
+    DASK_MODELS = {'logit': DaskLogisticRegression,
                    'kernel_pca': DaskKernelPCA,
-                   'ridge': DaskLinReg
+                #    'kernel_pca': DaskKernelPCA,
+                #    'ridge': DaskLinReg
+                   'ridge': DaskRidgeRegression
                    }
 
 
