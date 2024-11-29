@@ -83,7 +83,7 @@ class RMSE(QualityMetric):
         return mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
-            squared=False) ^ 0.5
+            squared=False) ** 0.5
 
 
 class SMAPE(QualityMetric):
