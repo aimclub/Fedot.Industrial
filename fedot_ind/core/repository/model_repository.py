@@ -2,7 +2,6 @@ from enum import Enum
 from itertools import chain
 
 from dask_ml.decomposition import PCA as DaskKernelPCA
-from dask_ml.linear_model import LogisticRegression as DaskLogReg, LinearRegression as DaskLinReg
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
@@ -66,6 +65,7 @@ from fedot_ind.core.operation.transformation.representation.recurrence.reccurenc
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import \
     TopologicalExtractor
+from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
 
 
@@ -104,6 +104,7 @@ class AtomizedModel(Enum):
         'simple_imputation': ImputationImplementation,
         # dimension reduction
         'kernel_pca': KernelPCAImplementation,
+        'pca': PCAImplementation,
         # feature generation
         # 'topological_extractor': TopologicalFeaturesImplementation
     }
@@ -202,9 +203,12 @@ class AtomizedModel(Enum):
         'lora_model': LoraModel
     }
 
-    DASK_MODELS = {'logit': DaskLogReg,
+    # DASK_MODELS = {'logit': DaskLogReg,
+    DASK_MODELS = {'logit': DaskLogisticRegression,
                    'kernel_pca': DaskKernelPCA,
-                   'ridge': DaskLinReg
+                   #    'kernel_pca': DaskKernelPCA,
+                   #    'ridge': DaskLinReg
+                   'ridge': DaskRidgeRegression
                    }
 
 

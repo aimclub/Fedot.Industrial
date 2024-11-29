@@ -43,7 +43,8 @@ class DaskOptunaTuner(BaseTuner):
         self.n_trials = 10
 
     def _dask_backend_tune(self, predefined_objective, show_progress):
-        self.storage = optuna.integration.dask.DaskStorage()
+        self.storage = optuna.integration.DaskStorage()
+        # self.storage = optuna.integration.dask.DaskStorage()
         self.study = optuna.create_study(storage=self.storage,
                                          direction='minimize')  # ['minimize'] * self.objectives_number
         # Submit self.n_trials different optimization tasks, where each task runs self.iterations optimization trials

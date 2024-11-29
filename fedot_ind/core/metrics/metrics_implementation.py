@@ -83,7 +83,7 @@ class RMSE(QualityMetric):
         return mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
-            squared=False)
+            squared=False) ** 0.5
 
 
 class SMAPE(QualityMetric):
@@ -228,8 +228,13 @@ def mape(A, F):
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
-                                metric_names=('r2', 'rmse', 'mae'),
+                                metric_names=None,
                                 **kwargs):
+
+    # Set default metrics
+    if metric_names is None:
+        metric_names = ('r2', 'rmse', 'mae')
+
     target = target.astype(float)
 
     def rmse(y_true, y_pred):
@@ -256,10 +261,13 @@ def calculate_regression_metric(target,
 def calculate_forecasting_metric(target,
                                  labels,
                                  rounding_order=3,
-                                 metric_names=('smape', 'rmse',
-                                               'mape'),
+                                 metric_names=None,
                                  **kwargs):
     target = target.astype(float)
+
+    # Set default metrics
+    if metric_names is None:
+        metric_names = ('smape', 'rmse', 'mape')
 
     def rmse(y_true, y_pred):
         return np.sqrt(mean_squared_error(y_true, y_pred))
@@ -285,18 +293,20 @@ def calculate_classification_metric(
         labels,
         probs,
         rounding_order=3,
-        metric_names=(
-            'f1',
-            # 'roc_auc',
-            'accuracy')):
+        metric_names=('f1', 'accuracy')):
+
+    # Set default metrics
+    if metric_names is None:
+        metric_names = ('f1', 'accuracy')
+
     metric_dict = {'accuracy': Accuracy,
                    'f1': F1,
                    # 'roc_auc': ROCAUC,
                    'precision': Precision,
                    'logloss': Logloss}
 
-    df = pd.DataFrame({name: func(target, labels, probs).metric(
-    ) for name, func in metric_dict.items() if name in metric_names}, index=[0])
+    df = pd.DataFrame({name: func(target, labels, probs).metric()
+                      for name, func in metric_dict.items() if name in metric_names}, index=[0])
     return df.round(rounding_order)
 
 
