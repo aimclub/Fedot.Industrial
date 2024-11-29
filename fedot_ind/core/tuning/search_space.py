@@ -185,8 +185,8 @@ def get_industrial_search_space(self):
             'penalty': {
                 'hyperopt-dist': hp.choice,
                 'sampling-scope': [['l1', 'l2']],
-                'type': 'categorical'},       
-                },
+                'type': 'categorical'},
+        },
         'rf': {
             'criterion': {
                 'hyperopt-dist': hp.choice,

@@ -14,7 +14,7 @@ class DaskLogisticRegression(BaseEstimator, ClassifierMixin):
         self.C = params.get('C', 1.0)
         self.model_ = None  # Placeholder for the internal Dask model
         self.solver = 'admm'
-        
+
     def fit(self, X, y):
         """
         Fit the model using Dask's LogisticRegression.
@@ -26,7 +26,7 @@ class DaskLogisticRegression(BaseEstimator, ClassifierMixin):
             X = da.from_array(X)
         if not isinstance(y, da.Array):
             y = da.from_array(y)
-        
+
         self.model_ = LogisticRegression(
             penalty=self.penalty,
             C=self.C,
@@ -75,7 +75,7 @@ class DaskLogisticRegression(BaseEstimator, ClassifierMixin):
         for key, value in params.items():
             setattr(self, key, value)
         return self
-    
+
 
 class DaskRidgeRegression(BaseEstimator, ClassifierMixin):
     def __init__(self, params):
@@ -91,7 +91,7 @@ class DaskRidgeRegression(BaseEstimator, ClassifierMixin):
             X = da.from_array(X)
         if not isinstance(y, da.Array):
             y = da.from_array(y)
-        
+
         self.model_ = LinearRegression(C=self.C)
         self.model_.fit(X, y)
         return self
@@ -119,7 +119,7 @@ class DaskRidgeRegression(BaseEstimator, ClassifierMixin):
         return {
             "alpha": self.C,
         }
-    
+
     def set_params(self, **params):
         """
         Set hyperparameters.

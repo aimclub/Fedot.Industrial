@@ -230,7 +230,7 @@ def calculate_regression_metric(target,
                                 rounding_order=3,
                                 metric_names=None,
                                 **kwargs):
-    
+
     # Set default metrics
     if metric_names is None:
         metric_names = ('r2', 'rmse', 'mae')
@@ -294,7 +294,7 @@ def calculate_classification_metric(
         probs,
         rounding_order=3,
         metric_names=('f1', 'accuracy')):
-    
+
     # Set default metrics
     if metric_names is None:
         metric_names = ('f1', 'accuracy')
@@ -305,9 +305,8 @@ def calculate_classification_metric(
                    'precision': Precision,
                    'logloss': Logloss}
 
-    df = pd.DataFrame({name: func(target, 
-                                  labels, 
-                                  probs).metric() for name, func in metric_dict.items() if name in metric_names}, index=[0])
+    df = pd.DataFrame({name: func(target, labels, probs).metric()
+                      for name, func in metric_dict.items() if name in metric_names}, index=[0])
     return df.round(rounding_order)
 
 

@@ -2,7 +2,6 @@ from enum import Enum
 from itertools import chain
 
 from dask_ml.decomposition import PCA as DaskKernelPCA
-from dask_ml.linear_model import LogisticRegression as DaskLogReg, LinearRegression as DaskLinReg
 from fedot.core.operations.evaluation.operation_implementations.data_operations.decompose import \
     DecomposerClassImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_filters import \
@@ -201,8 +200,8 @@ class AtomizedModel(Enum):
     # DASK_MODELS = {'logit': DaskLogReg,
     DASK_MODELS = {'logit': DaskLogisticRegression,
                    'kernel_pca': DaskKernelPCA,
-                #    'kernel_pca': DaskKernelPCA,
-                #    'ridge': DaskLinReg
+                   #    'kernel_pca': DaskKernelPCA,
+                   #    'ridge': DaskLinReg
                    'ridge': DaskRidgeRegression
                    }
 
