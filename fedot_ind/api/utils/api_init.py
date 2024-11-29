@@ -71,28 +71,28 @@ class ApiManager:
 
     def industrial_config_object(self, kwargs):
         # map Fedot params to Industrial params
-        self.config_dict = kwargs
-        # self.config_dict['history_dir'] = prefix
-        self.preset = kwargs.get('preset', self.config_dict['problem'])
-        self.config_dict['available_operations'] = kwargs.get('available_operations',
-                                                              default_industrial_availiable_operation(self.preset))
+        self.config = kwargs
+        # self.config['history_dir'] = prefix
+        self.preset = kwargs.get('preset', self.config['problem'])
+        self.config['available_operations'] = kwargs.get('available_operations',
+                                                         default_industrial_availiable_operation(self.preset))
         self.is_default_fedot_context = self.preset.__contains__('tabular')
-        self.is_regression_task_context = self.config_dict['problem'] in ['ts_forecasting', 'regression']
-        self.config_dict['cv_folds'] = kwargs.get('cv_folds', 3)
-        self.config_dict['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
-        self.config_dict['initial_assumption'] = kwargs.get('initial_assumption', None)
-        if self.config_dict['initial_assumption'] is None:
-            self.config_dict['initial_assumption'] = Either(value=self.industrial_strategy,
-                                                            monoid=[self.preset,
-                                                                    self.industrial_strategy == 'anomaly_detection']). \
+        self.is_regression_task_context = self.config['problem'] in ['ts_forecasting', 'regression']
+        self.config['cv_folds'] = kwargs.get('cv_folds', 3)
+        self.config['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
+        self.config['initial_assumption'] = kwargs.get('initial_assumption', None)
+        if self.config['initial_assumption'] is None:
+            self.config['initial_assumption'] = Either(value=self.industrial_strategy,
+                                                       monoid=[self.preset,
+                                                               self.industrial_strategy == 'anomaly_detection']). \
                 either(left_function=fedot_init_assumptions,
                        right_function=fedot_init_assumptions)
 
-        self.config_dict['use_input_preprocessing'] = kwargs.get(
+        self.config['use_input_preprocessing'] = kwargs.get(
             'use_input_preprocessing', False)
 
-        if self.task_params is not None and self.config_dict['problem'] == 'ts_forecasting':
-            self.config_dict['task_params'] = TsForecastingParams(
+        if self.task_params is not None and self.config['problem'] == 'ts_forecasting':
+            self.config['task_params'] = TsForecastingParams(
                 forecast_length=self.task_params['forecast_length'])
         self.__init_experiment_setup()
 
@@ -107,7 +107,7 @@ class ApiManager:
         # create API subclasses for side task
         self.condition_check = ApiConverter()
         self.industrial_strategy_class = IndustrialStrategy(
-            api_config=self.config_dict,
+            api_config=self.config,
             industrial_strategy=self.industrial_strategy,
             industrial_strategy_params=self.industrial_strategy_params,
             logger=self.logger)
@@ -116,10 +116,10 @@ class ApiManager:
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
 
-        industrial_params = set(self.config_dict.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+        industrial_params = set(self.config.keys()) - \
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
-            self.config_dict.pop(param, None)
+            self.config.pop(param, None)
 
         # backend_method_current, backend_scipy_current = BackendMethods(
         #     self.backend_method).backend

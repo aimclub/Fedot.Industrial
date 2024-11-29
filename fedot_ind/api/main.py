@@ -104,7 +104,7 @@ class FedotIndustrial(Fedot):
         self.logger.info('Initialising solver')
         self.__init_industrial_backend()
         self.__init_evolution_optimisation_params()
-        self.solver = Fedot(**self.config_dict)
+        self.solver = Fedot(**self.config)
 
     def _process_input_data(self, input_data):
         train_data = deepcopy(input_data)  # we do not want to make inplace changes
