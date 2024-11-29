@@ -83,7 +83,7 @@ api_config = dict(problem='classification',
                   n_jobs=-1,
                   logging_level=20)
 pipeline_creator = AbstractPipeline(task='classification')
-ECG = 'ECG200'
+ECG = 'Lightning7'
 topological_model = ['topological_extractor', 'rf']
 recurrence_model = ['recurrence_extractor', 'quantile_extractor', 'rf']
 # %%

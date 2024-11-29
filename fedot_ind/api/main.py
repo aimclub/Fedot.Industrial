@@ -1,6 +1,7 @@
 import os
 import warnings
 from copy import deepcopy
+from functools import partial
 from typing import Union
 
 import numpy as np
@@ -20,6 +21,7 @@ from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
 from fedot_ind.core.architecture.pipelines.classification import SklearnCompatibleClassifier
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
+from fedot_ind.core.optimizer.FedotEvoOptimizer import FedotEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
     FEDOT_GET_METRICS, FEDOT_TUNING_METRICS, \
     FEDOT_TUNER_STRATEGY
@@ -76,9 +78,16 @@ class FedotIndustrial(Fedot):
         self.logger.info('Initialising Industrial Repository')
         if self.api_controller.is_default_fedot_context:
             self.repo = IndustrialModels().setup_default_repository()
-            self.config_dict['optimizer'] = None
+            self.config_dict['optimizer'] = FedotEvoOptimizer
         else:
             self.repo = IndustrialModels().setup_repository(backend=self.api_controller.backend_method)
+
+    def __init_evolution_optimisation_params(self):
+        self.logger.info(f'-------------------------------------------------')
+        self.logger.info('Initialising Evolutionary Optimisation params')
+        if self.api_controller.optimizer_params is not None:
+            self.config_dict['optimizer'] = partial(self.config_dict['optimizer'],
+                                                    optimisation_params=self.api_controller.optimizer_params)
 
     def __init_solver(self):
         self.logger.info(f'-------------------------------------------------')
@@ -90,6 +99,7 @@ class FedotIndustrial(Fedot):
         self.logger.info(f'-------------------------------------------------')
         self.logger.info('Initialising solver')
         self.__init_industrial_backend()
+        self.__init_evolution_optimisation_params()
         self.solver = Fedot(**self.config_dict)
 
     def _process_input_data(self, input_data):
@@ -138,8 +148,7 @@ class FedotIndustrial(Fedot):
         default_fedot_strategy = self.api_controller.industrial_strategy is None
         custom_predict = self.solver.predict if default_fedot_strategy else self.industrial_strategy_class.predict
         have_proba_output = hasattr(self.solver, 'predict_proba')
-        if self.api_controller.is_default_fedot_context:
-            self.repo = IndustrialModels().setup_default_repository()
+        self.__init_industrial_backend()
         predict_function = Either(value=custom_predict,
                                   monoid=['prob', labels_output]).either(
             left_function=lambda prob_func: self.solver.predict_proba if have_proba_output else self.solver.predict,
@@ -329,7 +338,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

@@ -38,6 +38,7 @@ class ApiManager:
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.backend_method = kwargs.get('backend', 'cpu')
         self.task_params = kwargs.get('task_params', {})
+        self.optimizer_params = kwargs.get('optimizer_params', None)
 
     def path_object(self, kwargs):
         # create dirs with results

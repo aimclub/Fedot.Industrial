@@ -119,7 +119,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, len(self.industrial_task_params) == 0]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-            'detection_window' in self.industrial_task_params.keys(),
+                                    'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
@@ -195,10 +195,32 @@ class DataCheck:
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
 
+    def _check_fedot_context(self):
+        if self.industrial_context_manager is not None:
+            IndustrialModels().setup_repository()
+            learning_strategy = self.industrial_context_manager.industrial_strategy_params['learning_strategy'] if \
+                'learning_strategy' in self.industrial_context_manager.industrial_strategy_params.keys() else None
+            default_fedot_context = self.industrial_context_manager.is_default_fedot_context \
+                                    and learning_strategy is not None
+            sampling_strategy = self.industrial_context_manager.industrial_strategy_params['sampling_strategy'] \
+                if 'sampling_strategy' in self.industrial_context_manager.industrial_strategy_params.keys() else None
+            if sampling_strategy is not None:
+                sample_start, sample_end = list(sampling_strategy['samples'].values())
+                channel_start, channel_end = list(sampling_strategy['channels'].values())
+                element_start, element_end = list(sampling_strategy['elements'].values())
+                self.input_data.features = self.input_data.features[
+                                           sample_start:sample_end,
+                                           channel_start:channel_end,
+                                           element_start:element_end]
+            self.input_data.features = Either(value=learning_strategy,
+                                              monoid=[self.input_data, default_fedot_context]).either(
+                left_function=lambda x: x.features,
+                right_function=lambda strategy: self.convert_ts_method[strategy](self.input_data).predict)
+
     def _convert_ts2tabular(self, input_data):
         fg_list = self.industrial_context_manager.industrial_strategy_params['feature_generator']
         ts2tabular_model = TabularExtractor({'feature_domain': fg_list,
-                                             'reduce_dimension': True})
+                                             'reduce_dimension': False})
         return ts2tabular_model.transform(input_data)
 
     def _convert_ts2image(self):
@@ -212,15 +234,9 @@ class DataCheck:
         if not self.data_convertor.is_torchvision_dataset:
             self._check_input_data_features()
             self._check_input_data_target()
+            self._check_fedot_context()
         self.input_data.supplementary_data.is_auto_preprocessed = True
 
-        if self.industrial_context_manager is not None:
-            have_ts_strategy = 'learning_strategy' in self.industrial_context_manager.industrial_strategy_params.keys()
-            default_tabular_fedot = self.industrial_context_manager.is_default_fedot_context
-            if default_tabular_fedot and have_ts_strategy:
-                IndustrialModels().setup_repository()
-                current_strategy = self.industrial_context_manager.industrial_strategy_params['learning_strategy']
-                self.input_data.features = self.convert_ts_method[current_strategy](self.input_data).predict
         return self.input_data
 
     def check_input_data(self) -> InputData:
