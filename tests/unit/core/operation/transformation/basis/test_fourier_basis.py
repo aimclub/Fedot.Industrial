@@ -1,3 +1,4 @@
+import dask
 import pytest
 from fedot.core.data.data import OutputData
 
@@ -32,6 +33,7 @@ def test_transform_one_sample(input_train):
     basis = FourierBasisImplementation({})
     sample = input_train.features[0]
     transformed_sample = basis._transform_one_sample(sample)
+    transformed_sample = dask.compute(transformed_sample)[0]
     assert isinstance(transformed_sample, np.ndarray)
     assert transformed_sample.shape[1] == len(sample)
 

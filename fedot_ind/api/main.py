@@ -150,11 +150,11 @@ class FedotIndustrial(Fedot):
     def __abstract_predict(self, predict_mode):
         have_encoder = self.manager.condition_check.solver_have_target_encoder(self.target_encoder)
         labels_output = predict_mode in ['labels']
-        default_fedot_strategy = self.api_controller.industrial_strategy is None
-        custom_predict = self.solver.predict if default_fedot_strategy else self.industrial_strategy_class.predict
+        default_fedot_strategy = self.manager.industrial_strategy is None
+        custom_predict = self.solver.predict if default_fedot_strategy else self.manager.strategy_class.predict
         have_proba_output = hasattr(self.solver, 'predict_proba')
         self.__init_industrial_backend()
-        default_fedot_strategy = self.manager.strategy is None
+        default_fedot_strategy = self.manager.strategy_class is None
         custom_predict = self.solver.predict if default_fedot_strategy else self.strategy_cls.predict
 
         predict_function = Either(value=custom_predict,
@@ -222,7 +222,7 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        custom_fit = self.manager.strategy not in ['anomaly_detection', None]
+        custom_fit = self.manager.strategy_class not in ['anomaly_detection', None]
         self.is_finetuned = False
         self.train_data = self._process_input_data(input_data)
         self.__init_solver()

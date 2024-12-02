@@ -52,9 +52,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         input_data = init_input_data(x, y)
         transformed_features = self.transform(input_data, use_cache=self.use_cache)
         try:
-            return pd.DataFrame(transformed_features.predict, columns=self.relevant_features)
+            return pd.DataFrame(transformed_features.predict.squeeze(), columns=self.relevant_features)
         except ValueError:
-            return pd.DataFrame(transformed_features.predict)
+            return pd.DataFrame(transformed_features.predict.squeeze())
 
     def _transform(self, input_data: InputData) -> np.array:
         """
