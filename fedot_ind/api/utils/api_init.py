@@ -82,9 +82,9 @@ class ApiManager:
         self.config['optimizer'] = kwargs.get('optimizer', IndustrialEvoOptimizer)
         self.config['initial_assumption'] = kwargs.get('initial_assumption', None)
         if self.config['initial_assumption'] is None:
-            self.config['initial_assumption'] = Either(value=self.industrial_strategy,
+            self.config['initial_assumption'] = Either(value=self.strategy,
                                                        monoid=[self.preset,
-                                                               self.industrial_strategy == 'anomaly_detection']). \
+                                                               self.strategy == 'anomaly_detection']). \
                 either(left_function=fedot_init_assumptions,
                        right_function=fedot_init_assumptions)
 
