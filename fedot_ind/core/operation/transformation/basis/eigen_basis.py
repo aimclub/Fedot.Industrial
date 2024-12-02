@@ -5,10 +5,10 @@ import tensorly as tl
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from joblib import delayed, Parallel
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
+from tqdm.dask import TqdmCallback
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -46,22 +46,19 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
 
     def _channel_decompose(self, features):
         number_of_dim = list(range(features.shape[1]))
+        one_dim_predict = len(number_of_dim) == 1
         predict = []
         if self.SV_threshold is None:
             self.SV_threshold = self.get_threshold(data=features)
             self.logging_params.update({'SV_thr': self.SV_threshold})
-
-        if len(number_of_dim) == 1:
-            predict = [self._transform_one_sample(
-                signal) for signal in features[:, 0, :]]
-            predict = [[np.array(v) if len(v) > 1 else v[0] for v in predict]]
+        if one_dim_predict:
+            evaluation_results = list(map(lambda sample: self._transform_one_sample(sample), features[:, 0, :]))
         else:
-            for dimension in number_of_dim:
-                parallel = Parallel(n_jobs=self.n_processes,
-                                    verbose=0, pre_dispatch="2*n_jobs")
-                v = parallel(delayed(self._transform_one_sample)(sample)
-                             for sample in features[:, dimension, :])
-                predict.append(np.array(v) if len(v) > 1 else v[0])
+            evaluation_results = list(map(lambda dimension: [self._transform_one_sample(sample)
+                                                             for sample in features[:, dimension, :]], number_of_dim))
+        with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
+            feature_matrix = dask.compute(*evaluation_results)
+        predict = [[np.array(v) if len(v) > 1 else v[0] for v in feature_matrix]]
         return predict
 
     def _convert_basis_to_predict(self, basis, input_data):
@@ -150,25 +147,22 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         return basis
 
     def get_threshold(self, data) -> int:
-        svd_numbers = []
+        number_of_dim = list(range(data.shape[1]))
+        one_dim_predict = len(number_of_dim) == 1
 
         def mode_func(x):
             return max(set(x), key=x.count)
 
-        number_of_dim = list(range(data.shape[1]))
-        if len(number_of_dim) == 1:
-            svd_numbers = [self._transform_one_sample(
-                signal, svd_flag=True) for signal in data[:, 0, :]]
-            if len(svd_numbers) == 0:
-                raise ValueError('Error in spectrum calculation')
+        if one_dim_predict:
+            svd_numbers = list(map(lambda sample:
+                                   self._transform_one_sample(sample, svd_flag=True), data[:, 0, :]))
         else:
-            for dimension in number_of_dim:
-                dimension_rank = []
-                for signal in data[:, dimension, :]:
-                    dimension_rank.append(
-                        self._transform_one_sample(signal, svd_flag=True))
-            svd_numbers.append(mode_func(dimension_rank))
-        return mode_func(svd_numbers)
+            dimension_rank = []
+            svd_numbers = list(map(lambda dimension:
+                                   [dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
+                                    for signal in data[:, dimension, :]], number_of_dim))
+        rank = dask.compute(*svd_numbers)
+        return mode_func(rank)
 
     @dask.delayed
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):

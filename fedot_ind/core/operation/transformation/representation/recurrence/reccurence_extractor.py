@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
 
 # from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.models.base_extractor import BaseExtractor
@@ -76,13 +75,13 @@ class RecurrenceExtractor(BaseExtractor):
             features = specter.ts_to_3d_recurrence_matrix()
             col_names = {'feature_name': None}
 
-        predict = InputData(idx=np.arange(len(features)),
-                            features=features,
-                            target='no_target',
-                            task='no_task',
-                            data_type=DataTypesEnum.table,
-                            supplementary_data=col_names)
-        return predict
+        # predict = InputData(idx=np.arange(len(features)),
+        #                     features=features,
+        #                     target='no_target',
+        #                     task='no_task',
+        #                     data_type=DataTypesEnum.table,
+        #                     supplementary_data=col_names)
+        return features
 
     def generate_recurrence_features(self, ts: np.array) -> InputData:
 
