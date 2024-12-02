@@ -3,7 +3,7 @@ from functools import partial
 from itertools import product
 from typing import Optional
 
-import open3d as o3d
+# import open3d as o3d
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
@@ -20,7 +20,6 @@ from fedot_ind.core.operation.transformation.data.point_cloud import Topological
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import \
     PersistenceDiagramsExtractor, TopologicalFeaturesExtractor
 from fedot_ind.core.repository.constanst_repository import PERSISTENCE_DIAGRAM_EXTRACTOR, PERSISTENCE_DIAGRAM_FEATURES
-from fedot_ind.tools.explain.pcd import numpy2stl
 
 sys.setrecursionlimit(1000000000)
 
@@ -88,23 +87,23 @@ class TopologicalExtractor(BaseExtractor):
         window_size_range = list(range(1, 35, 5))
         stride_range = list(range(1, 15, 3))
         pcd_params = list(product(window_size_range, stride_range))
-        for params in pcd_params:
-            data_transformer = TopologicalTransformation(stride=params[1], persistence_params=persistence_params,
-                                                         window_length=round(ts_data.shape[0] * 0.01 * params[0]))
-            point_cloud = data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
-            # VR_mesh = self._generate_vr_mesh(point_cloud)
-            for scale in range(1, 15, 3):
-                numpy2stl(point_cloud,
-                          f"./stl_scale_{scale}_ws_{params[0]}_stride_{params[1]}.stl",
-                          max_width=300.,
-                          max_depth=200.,
-                          max_height=300.,
-                          scale=scale,
-                          min_thickness_percent=0.5,
-                          solid=False)
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(point_cloud)
-            o3d.io.write_point_cloud(f"./pcd_ws_{params[0]}_stride_{params[1]}.ply", pcd)
+        # for params in pcd_params:
+        #     data_transformer = TopologicalTransformation(stride=params[1], persistence_params=persistence_params,
+        #                                                  window_length=round(ts_data.shape[0] * 0.01 * params[0]))
+        #     point_cloud = data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
+        #     # VR_mesh = self._generate_vr_mesh(point_cloud)
+        #     for scale in range(1, 15, 3):
+        #         numpy2stl(point_cloud,
+        #                   f"./stl_scale_{scale}_ws_{params[0]}_stride_{params[1]}.stl",
+        #                   max_width=300.,
+        #                   max_depth=200.,
+        #                   max_height=300.,
+        #                   scale=scale,
+        #                   min_thickness_percent=0.5,
+        #                   solid=False)
+        #     pcd = o3d.geometry.PointCloud()
+        #     pcd.points = o3d.utility.Vector3dVector(point_cloud)
+        #     o3d.io.write_point_cloud(f"./pcd_ws_{params[0]}_stride_{params[1]}.ply", pcd)
 
     def _generate_features_from_ts(self, ts_data: np.array, persistence_params: dict) -> InputData:
         if self.save_pcd:
