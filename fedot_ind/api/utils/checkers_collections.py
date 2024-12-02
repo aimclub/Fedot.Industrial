@@ -36,7 +36,7 @@ class DataCheck:
                  task_params: dict = {},
                  task: str = None,
                  fit_stage=False,
-                 industrial_task_params={}):
+                 industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.industrial_context_manager = None
         self.industrial_task_params = industrial_task_params
@@ -46,7 +46,7 @@ class DataCheck:
             self.industrial_task_params = industrial_task_params.industrial_strategy_params
             self.industrial_context_manager = industrial_task_params
         self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']] \
-            if len(self.industrial_task_params) != 0 else FEDOT_DATA_TYPE['tensor']
+            if self.industrial_task_params is not None else FEDOT_DATA_TYPE['tensor']
 
         self.input_data = input_data
         self.data_convertor = DataConverter(data=self.input_data)
