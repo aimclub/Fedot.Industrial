@@ -32,9 +32,9 @@ class ApiManager:
 
     def user_config_object(self, kwargs):
         self.output_folder = kwargs.get('output_folder', None)
-        self.industrial_strategy_params = kwargs.get(
+        self.strategy_params = kwargs.get(
             'industrial_strategy_params', {})
-        self.industrial_strategy = kwargs.get('industrial_strategy', None)
+        self.strategy_class = kwargs.get('industrial_strategy', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.backend_method = kwargs.get('backend', 'cpu')
         self.task_params = kwargs.get('task_params', {})
@@ -108,10 +108,10 @@ class ApiManager:
         self.condition_check = ApiConverter()
         self.industrial_strategy_class = IndustrialStrategy(
             api_config=self.config,
-            industrial_strategy=self.industrial_strategy,
-            industrial_strategy_params=self.industrial_strategy_params,
+            industrial_strategy=self.strategy_class,
+            industrial_strategy_params=self.strategy_params,
             logger=self.logger)
-        self.industrial_strategy = self.industrial_strategy if self.industrial_strategy != 'anomaly_detection' else None
+        self.industrial_strategy = self.strategy_class if self.strategy_class != 'anomaly_detection' else None
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')

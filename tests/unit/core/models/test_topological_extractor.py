@@ -3,7 +3,7 @@ from fedot.core.data.data import InputData, OutputData
 
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.transformation.representation.topological import TopologicalExtractor
+from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import TopologicalExtractor
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
