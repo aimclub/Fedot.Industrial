@@ -119,7 +119,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, self.industrial_task_params is None]).either(
             left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-                                    'detection_window' in self.industrial_task_params.keys(),
+            'detection_window' in self.industrial_task_params.keys(),
             right_function=lambda r: r)
 
         task = Either(

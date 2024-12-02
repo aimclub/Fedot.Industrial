@@ -86,7 +86,7 @@ class TopologicalExtractor(BaseExtractor):
     def _generate_pcd(self, ts_data, persistence_params):
         window_size_range = list(range(1, 35, 5))
         stride_range = list(range(1, 15, 3))
-        pcd_params = list(product(window_size_range, stride_range))
+        list(product(window_size_range, stride_range))
         # for params in pcd_params:
         #     data_transformer = TopologicalTransformation(stride=params[1], persistence_params=persistence_params,
         #                                                  window_length=round(ts_data.shape[0] * 0.01 * params[0]))
