@@ -46,7 +46,7 @@ def load_data(use_park_transform: bool = False):
 
 if __name__ == "__main__":
     finetune = False
-    dataset = load_data(use_park_transform=False)
+    dataset = load_data(use_park_transform=True)
     api_config = dict(problem='classification',
                       metric='f1',
                       timeout=40,

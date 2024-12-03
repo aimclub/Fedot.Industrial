@@ -1,53 +1,36 @@
-import pickle
-
-import numpy as np
-
+from examples.automl_example.custom_strategy.big_data.big_dataset_utils import create_big_dataset
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 
-model_list = dict(logit=['logit'], rf=['rf'], xgboost=['xgboost'])
-finetune = False
-task = 'classification'
-sampling_range = [0.01, 0.15, 0.3, 0.6]
-sampling_algorithm = ['CUR',
-                      'Random']
-
-
-def create_big_dataset():
-    train_X, test_X = np.load(
-        'big_dataset/train_airlinescodrnaadult_fold0.npy'), np.load(
-        'big_dataset/test_airlinescodrnaadult_fold0.npy')
-    train_y, test_y = np.load(
-        'big_dataset/trainy_airlinescodrnaadult_fold0.npy'), np.load(
-        'big_dataset/testy_airlinescodrnaadult_fold0.npy')
-    dataset_dict = dict(train_data=(train_X, train_y),
-                        test_data=(test_X, test_y))
-    return dataset_dict
-
+cur_params = {'rank': None}
+sampling_algorithm = {'CUR': cur_params}
 
 if __name__ == "__main__":
-    results_of_experiments_dict = {}
     dataset_dict = create_big_dataset()
-    # df = pd.read_pickle('./sampling_experiment.pkl')
-    for algo in sampling_algorithm:
-        api_config = dict(
-            problem=task,
-            metric='f1',
-            timeout=0.1,
-            with_tuning=False,
-            industrial_strategy='sampling_strategy',
-            industrial_strategy_params={
-                'industrial_task': task,
-                'sampling_algorithm': algo,
-                'sampling_range': sampling_range,
-                'data_type': 'table'},
-            logging_level=30)
-        algo_result = {}
-        for model_name, model in model_list.items():
-            result_dict = ApiTemplate(api_config=api_config,
-                                      metric_list=('f1', 'accuracy')).eval(dataset=dataset_dict,
-                                                                           finetune=finetune,
-                                                                           initial_assumption=model)
-            algo_result.update({f'{algo}_{model_name}': result_dict['metrics']})
-        results_of_experiments_dict.update({algo: algo_result})
-    with open(f'sampling_experiment.pkl', 'wb') as f:
-        pickle.dump(results_of_experiments_dict, f)
+    finetune = False
+    metric_names = ('f1', 'accuracy')
+    api_config = dict(problem='classification',
+                      metric='f1',
+                      timeout=40,
+                      pop_size=10,
+                      early_stopping_iterations=10,
+                      early_stopping_timeout=30,
+                      optimizer_params={'mutation_agent': 'bandit',
+                                        'mutation_strategy': 'growth_mutation_strategy'},
+                      with_tunig=False,
+                      preset='classification_tabular',
+                      industrial_strategy_params={'data_type': 'tensor',
+                                                  'learning_strategy': 'big_dataset',
+                                                  'sampling_strategy': sampling_algorithm
+                                                  },
+                      n_jobs=-1,
+                      logging_level=20)
+
+    result_dict = ApiTemplate(api_config=api_config,
+                              metric_list=metric_names).eval(dataset=dataset_dict,
+                                                             finetune=finetune)
+    metrics = result_dict['metrics']
+    metrics.to_csv('./metrics.csv')
+    hist = result_dict['industrial_model'].save_optimization_history(return_history=True)
+    result_dict['industrial_model'].vis_optimisation_history(hist)
+    result_dict['industrial_model'].save_best_model()
+    _ = 1

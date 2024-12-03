@@ -11,6 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from fedot_ind.api.utils.data import check_multivariate_data
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor import TabularExtractor
 from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -38,15 +39,16 @@ class DataCheck:
                  fit_stage=False,
                  industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.industrial_context_manager = None
-        self.industrial_task_params = industrial_task_params
+        self.manager = None
+        self.strategy_params = industrial_task_params
         self.convert_ts_method = {'ts2tabular': self._convert_ts2tabular,
-                                  'ts2image': self._convert_ts2image}
-        if hasattr(industrial_task_params, 'industrial_strategy_params'):
-            self.industrial_task_params = industrial_task_params.industrial_strategy_params
-            self.industrial_context_manager = industrial_task_params
-        self.data_type = FEDOT_DATA_TYPE[self.industrial_task_params['data_type']] \
-            if self.industrial_task_params is not None else FEDOT_DATA_TYPE['tensor']
+                                  'ts2image': self._convert_ts2image,
+                                  'big_dataset': self._convert_big_data}
+        if hasattr(industrial_task_params, 'strategy_params'):
+            self.strategy_params = industrial_task_params.strategy_params
+            self.manager = industrial_task_params
+        self.data_type = FEDOT_DATA_TYPE[self.strategy_params['data_type']] \
+            if self.strategy_params is not None else FEDOT_DATA_TYPE['tensor']
 
         self.input_data = input_data
         self.data_convertor = DataConverter(data=self.input_data)
@@ -117,14 +119,14 @@ class DataCheck:
                 len(
                     data_list[0])))
 
-        have_predict_horizon = Either(value=False, monoid=[True, self.industrial_task_params is None]).either(
-            left_function=lambda l: self.industrial_task_params['data_type'] == 'time_series' and
-            'detection_window' in self.industrial_task_params.keys(),
+        have_predict_horizon = Either(value=False, monoid=[True, self.strategy_params is None]).either(
+            left_function=lambda l: self.strategy_params['data_type'] == 'time_series' and
+                                    'detection_window' in self.strategy_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
             value=fedot_task(self.task), monoid=['ts_forecasting', not have_predict_horizon]).either(
-            left_function=lambda l: fedot_task(l, self.industrial_task_params['detection_window']),
+            left_function=lambda l: fedot_task(l, self.strategy_params['detection_window']),
             right_function=lambda r: r)
         return InputData(idx=idx,
                          features=input_data[0],
@@ -196,35 +198,42 @@ class DataCheck:
             self.input_data.target[self.input_data.target == -1] = 0
 
     def _check_fedot_context(self):
-        if self.industrial_context_manager is not None:
+        if self.manager is not None:
             IndustrialModels().setup_repository()
-            learning_strategy = self.industrial_context_manager.industrial_strategy_params['learning_strategy'] if \
-                'learning_strategy' in self.industrial_context_manager.industrial_strategy_params.keys() else None
-            default_fedot_context = self.industrial_context_manager.is_default_fedot_context \
-                and learning_strategy is not None
-            sampling_strategy = self.industrial_context_manager.industrial_strategy_params['sampling_strategy'] \
-                if 'sampling_strategy' in self.industrial_context_manager.industrial_strategy_params.keys() else None
-            if sampling_strategy is not None:
-                sample_start, sample_end = list(sampling_strategy['samples'].values())
-                channel_start, channel_end = list(sampling_strategy['channels'].values())
-                element_start, element_end = list(sampling_strategy['elements'].values())
-                self.input_data.features = self.input_data.features[
-                    sample_start:sample_end,
-                    channel_start:channel_end,
-                    element_start:element_end]
+            learning_strategy = self.strategy_params['learning_strategy'] if \
+                'learning_strategy' in self.strategy_params.keys() else None
+            default_fedot_context = self.manager.is_default_fedot_context \
+                                    and learning_strategy is not None
+            sampling_strategy = self.strategy_params['sampling_strategy'] \
+                if 'sampling_strategy' in self.strategy_params.keys() else None
             self.input_data.features = Either(value=learning_strategy,
                                               monoid=[self.input_data, default_fedot_context]).either(
                 left_function=lambda x: x.features,
-                right_function=lambda strategy: self.convert_ts_method[strategy](self.input_data).predict)
+                right_function=lambda strategy: self.convert_ts_method[strategy]
+                (self.input_data, sampling_strategy).predict)
 
-    def _convert_ts2tabular(self, input_data):
-        fg_list = self.industrial_context_manager.industrial_strategy_params['feature_generator']
+    def _convert_ts2tabular(self, input_data, sampling_strategy):
+        if sampling_strategy is not None:
+            sample_start, sample_end = list(sampling_strategy['samples'].values())
+            channel_start, channel_end = list(sampling_strategy['channels'].values())
+            element_start, element_end = list(sampling_strategy['elements'].values())
+            input_data.features = self.input_data.features[
+                                  sample_start:sample_end,
+                                  channel_start:channel_end,
+                                  element_start:element_end]
+        fg_list = self.manager.strategy_params['feature_generator']
         ts2tabular_model = TabularExtractor({'feature_domain': fg_list,
                                              'reduce_dimension': False})
         return ts2tabular_model.transform(input_data)
 
     def _convert_ts2image(self):
         pass
+
+    def _convert_big_data(self, input_data, sampling_strategy: dict):
+        approx_method_dict = {'CUR': CURDecomposition}
+        approx_method, method_params = list(sampling_strategy.items())[0]
+        big_dataset_model = approx_method_dict[approx_method](method_params)
+        return big_dataset_model.transform(input_data)
 
     def check_available_operations(self, available_operations):
         pass

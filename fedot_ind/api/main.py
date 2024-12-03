@@ -113,7 +113,7 @@ class FedotIndustrial(Fedot):
             task=self.config['problem'],
             task_params=self.manager.task_params,
             fit_stage=True,
-            industrial_task_params=self.manager.strategy_params)
+            industrial_task_params=self.manager)
         train_data = input_preproc.check_input_data()
         self.target_encoder = input_preproc.get_target_encoder()
 
