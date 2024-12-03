@@ -33,7 +33,7 @@ class ApiManager:
     def user_config_object(self, kwargs):
         self.output_folder = kwargs.get('output_folder', None)
         self.strategy_params = kwargs.get(
-            'industrial_strategy_params', {})
+            'industrial_strategy_params', None)
         self.strategy_class = kwargs.get('industrial_strategy', None)
         self.path_to_composition_results = kwargs.get('history_dir', None)
         self.backend_method = kwargs.get('backend', 'cpu')

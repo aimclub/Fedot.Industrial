@@ -222,15 +222,14 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        custom_fit = self.manager.strategy_class not in ['anomaly_detection', None]
         self.is_finetuned = False
         self.train_data = self._process_input_data(input_data)
         self.__init_solver()
 
         Either(value=self.train_data,
-               monoid=[self.train_data, custom_fit]).either(
-                   left_function=self.solver.fit,
-                   right_function=self.strategy_cls.fit
+               monoid=[self.train_data, self.strategy_cls is None]).either(
+            left_function=lambda data: self.strategy_cls.fit(data),
+            right_function=self.solver.fit
         )
 
     def predict(self,
