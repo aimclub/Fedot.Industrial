@@ -12,6 +12,24 @@ RANK_REPRESENTATION = Union[int, float]
 
 
 class CURDecomposition:
+    """
+    CUR decomposition is a low-rank matrix decomposition method that is based on selecting
+    a subset of columns and rows of the original matrix. The method is based on the
+    Johnson-Lindenstrauss lemma and is used to approximate the original matrix with a
+    low-rank matrix. The CUR decomposition is defined as follows:
+    A = C @ U @ R
+    where A is the original matrix, C is a subset of columns of A, U is a subset of rows of A,
+    and R is a subset of rows of A. The selection of columns and rows is based on the
+    probabilities p and q, which are computed based on the norms of the columns and rows of A.
+    The selection of columns and rows is done in such a way that the approximation error is minimized.
+
+    Args:
+        params: the parameters of the operation
+            rank: the rank of the decomposition
+            tolerance: the tolerance of the decomposition
+            return_samples: whether to return the samples or the decomposition matrices
+            
+    """
     def __init__(self, params: Optional[OperationParameters] = None):
         self.selection_rank = params.get('rank', None)
         self.tolerance = params.get('tolerance', [0.5, 0.1, 0.05])

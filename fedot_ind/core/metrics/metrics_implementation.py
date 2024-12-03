@@ -1,23 +1,37 @@
-from typing import Optional
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from golem.core.dag.graph import Graph
-from sklearn.metrics import (accuracy_score, f1_score,
-                             log_loss, mean_absolute_error,
-                             mean_absolute_percentage_error,
-                             mean_squared_error, mean_squared_log_error,
-                             precision_score, r2_score, roc_auc_score)
-from sklearn.metrics import d2_absolute_error_score, explained_variance_score, max_error, median_absolute_error
+from sklearn.metrics import (
+    accuracy_score,
+    d2_absolute_error_score,
+    explained_variance_score,
+    f1_score,
+    log_loss,
+    max_error,
+    mean_absolute_error,
+    mean_absolute_percentage_error,
+    mean_squared_error,
+    mean_squared_log_error,
+    median_absolute_error,
+    precision_score,
+    r2_score,
+    roc_auc_score,
+)
 from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
 # from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
-from fedot_ind.core.metrics.anomaly_detection.function import single_average_delay, \
-    single_evaluate_nab, single_detecting_boundaries, check_errors
+from fedot_ind.core.metrics.anomaly_detection.function import (
+    check_errors,
+    single_average_delay,
+    single_detecting_boundaries,
+    single_evaluate_nab,
+)
 
 
 class ParetoMetrics:

@@ -11,6 +11,26 @@ from fedot_ind.core.repository.constanst_repository import DEFAULT_SVD_SOLVER, D
 
 
 class RSVDDecomposition:
+    """Randomized SVD decomposition with power iteration method.
+    Implements the block Krylov subspace method for computing the SVD of a matrix with a low computational cost.
+    The method is based on the power iteration procedure, which allows us to obtain a low-rank approximation of the
+    matrix. The method is based on the following steps:
+    1. Random projection of the matrix.
+    2. Transformation of the initial matrix to the Gram matrix.
+    3. Power iteration procedure.
+    4. Orthogonalization of the resulting "sampled" matrix.
+    5. Projection of the initial Gram matrix on the new basis obtained from the "sampled matrix".
+    6. Classical svd decomposition with the chosen type of spectrum thresholding.
+    7. Compute matrix approximation and choose a new low_rank.
+    8. Return matrix approximation.
+
+    Args:
+        params: dictionary with parameters for the operation:
+            rank: rank of the matrix approximation
+            power_iter: polynom degree for power iteration procedure
+            sampling_share: percent of sampling columns. By default - 70%
+    
+    """
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.rank = params.get('rank', 1)
         # Polynom degree for power iteration procedure.
