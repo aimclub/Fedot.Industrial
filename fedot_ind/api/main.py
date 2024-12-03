@@ -36,7 +36,7 @@ warnings.filterwarnings("ignore")
 
 
 class FedotIndustrial(Fedot):
-    """Main class for Industrial API. It provides a high-level interface for working with the 
+    """Main class for Industrial API. It provides a high-level interface for working with the
     Fedot framework. The class allows you to train, predict, and evaluate models for time series.
     All arguments are passed as keyword arguments and handled by the ApiManager class.
 

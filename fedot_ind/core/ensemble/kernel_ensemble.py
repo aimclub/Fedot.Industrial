@@ -23,13 +23,13 @@ from fedot_ind.core.repository.constanst_repository import (
 
 class KernelEnsembler(BaseExtractor):
     """
-    Class for kernel ensembling. This class implements a kernel-based ensemble method for feature 
-    extraction and classification. It supports both one-stage and two-stage kernel learning 
+    Class for kernel ensembling. This class implements a kernel-based ensemble method for feature
+    extraction and classification. It supports both one-stage and two-stage kernel learning
     strategies and can handle multiclass classification problems.
 
     Args:
         params (Optional[OperationParameters]): Parameters of the operation
-        
+
     Attributes:
         distance_metric (str): The distance metric used to calculate the Gram matrix
         kernel_strategy (str): The kernel learning strategy used by the model
@@ -38,6 +38,7 @@ class KernelEnsembler(BaseExtractor):
         feature_extractor (List[str]): The feature extractors used by the model
 
     """
+
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.distance_metric = params.get('distance_metric', KERNEL_DISTANCE_METRIC['default_metric'])

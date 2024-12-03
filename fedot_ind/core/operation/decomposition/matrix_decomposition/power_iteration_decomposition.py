@@ -29,8 +29,9 @@ class RSVDDecomposition:
             rank: rank of the matrix approximation
             power_iter: polynom degree for power iteration procedure
             sampling_share: percent of sampling columns. By default - 70%
-    
+
     """
+
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.rank = params.get('rank', 1)
         # Polynom degree for power iteration procedure.

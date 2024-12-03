@@ -31,6 +31,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         mode: mode of operation. Can be 'one_dimensional', 'channel_independent' or 'multi_dimensional'
 
     """
+
     def __init__(self, operation_impl,
                  operation_type: str,
                  params: Optional[OperationParameters] = None,

@@ -28,8 +28,9 @@ class CURDecomposition:
             rank: the rank of the decomposition
             tolerance: the tolerance of the decomposition
             return_samples: whether to return the samples or the decomposition matrices
-            
+
     """
+
     def __init__(self, params: Optional[OperationParameters] = None):
         self.selection_rank = params.get('rank', None)
         self.tolerance = params.get('tolerance', [0.5, 0.1, 0.05])
