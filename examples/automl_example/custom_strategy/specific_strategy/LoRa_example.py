@@ -1,6 +1,7 @@
-from fedot_ind.api.main import FedotIndustrial
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+
+from fedot_ind.api.main import FedotIndustrial
 
 transform = transforms.Compose([
     transforms.ToTensor(),

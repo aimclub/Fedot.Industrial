@@ -1,9 +1,10 @@
 import os
 import random
+
 import yaml
+from fedot_ind.core.architecture.datasets.visualization import draw_sample_with_bboxes
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.datasets.visualization import draw_sample_with_bboxes
 
 DATASETS_PATH = os.path.abspath('Warp-D')
 TEST_IMAGE_FOLDER = 'Land-Use_Scene_Classification/images_train_test_val/test'
