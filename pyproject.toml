@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fedot-ind"
-version = "0.4.3"
+version = "0.5.0"
 description = "Time series analysis framework"
 authors = ["NSS Lab <itmo.nss.team@gmail.com>"]
 license = "BSD 3-Clause"
