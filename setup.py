@@ -54,9 +54,9 @@ setuptools.setup(
     install_requires=_get_requirements('requirements.txt'),
     classifiers=[
         'License :: OSI Approved :: BSD License',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11'
     ],
     keywords=KEYWORDS
 )
