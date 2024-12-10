@@ -198,7 +198,7 @@ class DataCheck:
             self.input_data.target[self.input_data.target == -1] = 0
 
     def _check_fedot_context(self):
-        if self.manager is not None:
+        if self.manager is not None and self.strategy_params is not None:
             IndustrialModels().setup_repository()
             learning_strategy = self.strategy_params['learning_strategy'] if \
                 'learning_strategy' in self.strategy_params.keys() else None
@@ -206,11 +206,15 @@ class DataCheck:
                                     and learning_strategy is not None
             sampling_strategy = self.strategy_params['sampling_strategy'] \
                 if 'sampling_strategy' in self.strategy_params.keys() else None
-            self.input_data.features = Either(value=learning_strategy,
-                                              monoid=[self.input_data, default_fedot_context]).either(
+            output_data = Either(value=learning_strategy,
+                                 monoid=[self.input_data, default_fedot_context]).either(
                 left_function=lambda x: x.features,
                 right_function=lambda strategy: self.convert_ts_method[strategy]
-                (self.input_data, sampling_strategy).predict)
+                (self.input_data, sampling_strategy))
+            if learning_strategy.__contains__('big'):
+                self.input_data.features, self.input_data.target = output_data.predict, output_data.target
+            else:
+                self.input_data.features = output_data.predict
 
     def _convert_ts2tabular(self, input_data, sampling_strategy):
         if sampling_strategy is not None:

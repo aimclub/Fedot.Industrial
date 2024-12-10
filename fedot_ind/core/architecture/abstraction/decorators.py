@@ -1,7 +1,9 @@
+from typing import Optional
 from weakref import WeakValueDictionary
 
 from distributed import Client, LocalCluster
 from fedot.core.data.data import InputData
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import CustomDatasetCLF, CustomDatasetTS, DataConverter, \
@@ -49,6 +51,7 @@ def convert_to_3d_torch_array(func):
         else:
             init_data = data
         return func(self, init_data, *args[1:])
+
     return decorated_func
 
 
@@ -64,6 +67,7 @@ def convert_inputdata_to_torch_time_series_dataset(func):
     def decorated_func(self, *args):
         ts = args[0]
         return func(self, CustomDatasetTS(ts))
+
     return decorated_func
 
 
@@ -110,12 +114,13 @@ class Singleton(type):
 
 
 class DaskServer(metaclass=Singleton):
-    def __init__(self):
+    def __init__(self, params: Optional[OperationParameters] = None):
         print('Creating Dask Server')
-        cluster = LocalCluster(processes=False,
-                               n_workers=4,
-                               threads_per_worker=4,
-                               memory_limit='auto'
-                               )
+        cluster_params = params.get('cluster_params', dict(processes=False,
+                                                           n_workers=1,
+                                                           threads_per_worker=4,
+                                                           memory_limit='auto'
+                                                           ))
+        cluster = LocalCluster(**cluster_params)
         # connect client to your cluster
         self.client = Client(cluster)

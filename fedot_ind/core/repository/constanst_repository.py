@@ -350,7 +350,7 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration').
+        'classification': PipelineBuilder().
         add_node('quantile_extractor', params=stat_params).add_node('catboost', params=catboost_params),
         'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
@@ -370,7 +370,6 @@ class FedotOperationConstant(Enum):
     }
     # mutation order - [param_change,model_change,add_preproc_model,drop_model,add_model]
     FEDOT_MUTATION_STRATEGY = {
-        # 'params_mutation_strategy': [0.6, 0.25, 0.05, 0.05, 0.05],
         'params_mutation_strategy': [0.7, 0.3, 0.00, 0.00, 0.0],
         'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],
         'regularization_mutation_strategy': [0.2, 0.3, 0.1, 0.3, 0.1],

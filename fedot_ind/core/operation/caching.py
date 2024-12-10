@@ -55,9 +55,8 @@ class DataCacher:
 
         key_info = ''.join([repr(arg)
                             for arg in kwargs.values()]).encode('utf8')
-        key_data = data.__str__()
-
-        key = key_info + key_data.encode('utf8')
+        key_data = data.shape.__str__().encode('utf8')
+        key = key_info + key_data
         hsh = hashlib.md5(key).hexdigest()[:20]
 
         return hsh

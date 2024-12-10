@@ -19,8 +19,22 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         os.makedirs(cache_folder, exist_ok=True)
         self.cacher = DataCacher(data_type_prefix='Features of basis',
                                  cache_folder=cache_folder)
-
+        self.channel_extraction = True
         self.data_type = DataTypesEnum.image
+
+    def __check_compute_model(self, input_data: InputData):
+        feature_tensor = input_data.features.shape
+        is_channel_overrated = feature_tensor[1] > 100
+        is_sample_overrated = feature_tensor[0] > 500000
+        is_elements_overrated = feature_tensor[2] > 1000
+        change_compute_mode = any([is_elements_overrated, is_channel_overrated, is_sample_overrated])
+        if change_compute_mode:
+            self.channel_extraction = False
+
+    def _create_hash_descr(self):
+        callable_attr = ['cacher', 'data_type', 'log', 'params',
+                         'n_processes', 'logging_params', 'logger', 'feature_filter', 'relevant_features']
+        return {k: v for k, v in self.dict_keys.items() if k not in callable_attr}
 
     def _convert_to_fedot_datatype(
             self,
@@ -60,7 +74,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
     def transform(
             self,
             input_data: InputData,
-            use_cache: bool = False) -> OutputData:
+            use_cache: bool = True) -> OutputData:
         """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
 
         Args:
@@ -72,32 +86,30 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
         """
         if use_cache:
-            class_params = {
-                k: v for k,
-                v in self.__dict__.items() if k not in ['cacher',
-                                                        'data_type',
-                                                        'params',
-                                                        'n_processes',
-                                                        'logging_params',
-                                                        'logger',
-                                                        'relevant_features']}
+            self.dict_keys = {k: v for k, v in self.__dict__.items()}
+            self.__check_compute_model(input_data)
+            if 'channel_extraction' in self.dict_keys.keys():
+                if not self.dict_keys['channel_extraction'] or not self.channel_extraction:
+                    class_params = {'channel_extraction': 'False',
+                                    'model': self.__repr__()}
+                else:
+                    class_params = self._create_hash_descr()
+            else:
+                class_params = self._create_hash_descr()
 
             hashed_info = self.cacher.hash_info(data=input_data.features,
                                                 operation_info=class_params.__repr__())
             try:
-                predict = self.try_load_from_cache(hashed_info)
+                transformed_features = self.try_load_from_cache(hashed_info)
             except FileNotFoundError:
-                predict = self._transform(input_data)
-                self.cacher.cache_data(hashed_info, predict)
+                transformed_features = self._transform(input_data)
+                self.cacher.cache_data(hashed_info, transformed_features)
 
-            predict = self._convert_to_output(input_data,
-                                              predict,
-                                              data_type=self.data_type)
+            predict = self._convert_to_fedot_datatype(input_data, transformed_features)
             return predict
         else:
             transformed_features = self._transform(input_data)
-            predict = self._convert_to_fedot_datatype(
-                input_data, transformed_features)
+            predict = self._convert_to_fedot_datatype(input_data, transformed_features)
             return predict
 
     def _transform(self, input_data):

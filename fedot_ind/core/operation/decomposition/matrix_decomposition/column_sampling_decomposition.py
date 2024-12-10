@@ -1,6 +1,8 @@
 from typing import Tuple, Union, Optional
 
+from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
+from fedot.core.repository.dataset_types import DataTypesEnum
 from numpy import linalg as LA
 from sklearn import preprocessing
 from sklearn.random_projection import johnson_lindenstrauss_min_dim
@@ -19,7 +21,34 @@ class CURDecomposition:
         self.column_indices = None
         self.row_indices = None
         self.column_space = 'Full'
+        self.fitted = True
+    def _convert_to_output(selfm,
+                           prediction: np.ndarray,
+                           predict_data: InputData,
+                           output_data_type: DataTypesEnum = DataTypesEnum.table) -> OutputData:
+        """Method convert prediction into :obj:`OutputData` if it is not this type yet
 
+        Args:
+            prediction: output from model implementation
+            predict_data: :obj:`InputData` used for prediction
+            output_data_type: :obj:`DataTypesEnum` for output
+
+        Returns: prediction as :obj:`OutputData`
+        """
+
+        if not isinstance(prediction, OutputData):
+            # Wrap prediction as OutputData
+            converted = OutputData(idx=predict_data.idx,
+                                   features=predict_data.features,
+                                   predict=prediction,
+                                   task=predict_data.task,
+                                   target=predict_data.target,
+                                   data_type=output_data_type,
+                                   supplementary_data=predict_data.supplementary_data)
+        else:
+            converted = prediction
+
+        return converted
     def _get_selection_rank(self, matrix):
         """
         Compute the selection rank for the CUR decomposition.
@@ -67,12 +96,17 @@ class CURDecomposition:
             self.get_aproximation_error(feature_tensor, sampled_tensor)
         if target is not None:
             target = target[self.row_indices]
+        self.fitted = True
         return sampled_tensor, target
 
-    def transform(self, feature_tensor: np.ndarray,
-                  target: np.ndarray = None) -> tuple:
-
-        return self.fit_transform(feature_tensor, target)
+    def transform(self, input_data: InputData) -> tuple:
+        if not self.fitted:
+            sampled_tensor, samplet_target = self.fit_transform(input_data.features, input_data.target)
+            output_data = self._convert_to_output(sampled_tensor,input_data)
+            output_data.target = samplet_target
+        else:
+            output_data = self._convert_to_output(input_data.features, input_data)
+        return output_data
 
     def reconstruct_basis(self, C, U, R, ts_length):
         # if len(U.shape) > 1:

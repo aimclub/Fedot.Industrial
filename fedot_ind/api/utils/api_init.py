@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-
+from joblib import cpu_count
 from fedot.core.repository.tasks import TsForecastingParams
 from pymonad.either import Either
 
@@ -112,12 +112,25 @@ class ApiManager:
             industrial_strategy_params=self.strategy_params,
             logger=self.logger)
         self.industrial_strategy = self.strategy_class if self.strategy_class != 'anomaly_detection' else None
+        threads = round(cpu_count() / 2)
+        if self.is_default_fedot_context:
+            self.dask_cluster_params = dict(processes=False,
+                                            n_workers=1,
+                                            threads_per_worker=threads,
+                                            memory_limit=0.3
+                                            )
+        else:
+            self.dask_cluster_params = dict(processes=False,
+                                            n_workers=1,
+                                            threads_per_worker=threads,
+                                            memory_limit=0.3
+                                            )
 
     def __init_experiment_setup(self):
         self.logger.info('Initialising experiment setup')
 
         industrial_params = set(self.config.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config.pop(param, None)
 

@@ -73,6 +73,7 @@ class FedotIndustrial(Fedot):
         self.manager = ApiManager(**kwargs)
         self.config = self.manager.config
         self.logger = self.manager.logger
+        self.cluster_params = self.manager.dask_cluster_params
         self.strategy_cls = self.manager.strategy_class
         self.solver = self.manager.solver
         self.__init_industrial_backend()
@@ -97,7 +98,7 @@ class FedotIndustrial(Fedot):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Dask Server')
         self.config['initial_assumption'] = self.config['initial_assumption'].build()
-        self.dask_client = DaskServer().client
+        self.dask_client = DaskServer(self.cluster_params).client
         setattr(CONST_REPO, 'DASK_CLIENT', self.dask_client)
         self.logger.info(f'Link Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info('-' * 50)

@@ -65,12 +65,22 @@ class IndustrialMutations:
         self.excluded_mutation = EXCLUDED_OPERATION_MUTATION[self.task_type.task_type.value]
         self.industrial_data_operations = default_industrial_availiable_operation(
             self.task_type.task_type.value)
+        self._define_operation_space()
+        self._define_basis_and_extractor_space()
+
+    def _define_operation_space(self):
         self.excluded = [list(TEMPORARY_EXCLUDED[x].keys())
                          for x in TEMPORARY_EXCLUDED.keys()]
         self.excluded = (list(itertools.chain(*self.excluded)))
         self.excluded = self.excluded + self.excluded_mutation
         self.industrial_data_operations = [
             operation for operation in self.industrial_data_operations if operation not in self.excluded]
+
+    def _define_basis_and_extractor_space(self):
+        self.basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
+        extractors = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["extractor"])
+        self.extractors = [
+            x for x in extractors if x in self.industrial_data_operations and x != 'channel_filtration']
 
     def transform_to_pipeline_node(self, node):
         return self.node_adapter._transform_to_pipeline_node(node)
@@ -306,29 +316,15 @@ class IndustrialMutations:
         return graph
 
     def add_preprocessing(self,
-                          pipeline: Pipeline, **kwargs) -> Pipeline:
+                          graph: Pipeline, **kwargs) -> Pipeline:
 
-        basis_models = get_operations_for_task(
-            task=self.task_type, mode='data_operation', tags=["basis"])
-        extractors = get_operations_for_task(
-            task=self.task_type, mode='data_operation', tags=["extractor"])
-        extractors = [
-            x for x in extractors if x in self.industrial_data_operations]
-        models = get_operations_for_task(task=self.task_type, mode='model')
-        models = [x for x in models if x not in self.excluded_mutation]
-        basis_model = PipelineNode(choice(basis_models))
-        extractor_model = PipelineNode(
-            choice(extractors), nodes_from=[basis_model])
-        node_to_mutate = list(
-            filter(lambda x: x.name in models, pipeline.nodes))[0]
-        if node_to_mutate.nodes_from:
-            node_to_mutate.nodes_from.append(extractor_model)
-        else:
-            node_to_mutate.nodes_from = [extractor_model]
-        pipeline.nodes.append(basis_model)
-        pipeline.nodes.append(extractor_model)
-
-        return pipeline
+        # create subtree with basis transformation and feature extraction
+        transformation_node = PipelineNode(choice(self.basis_models))
+        node_to_add_transformation = list(
+            filter(lambda x: x.name in self.extractors, graph.nodes))[0]
+        mutation_node = PipelineNode(node_to_add_transformation.name, nodes_from=[transformation_node])
+        graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
+        return graph
 
     def add_lagged(self, pipeline: Pipeline, **kwargs) -> Pipeline:
         lagged = ['lagged', 'ridge']
@@ -416,9 +412,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                node_depth(node_from_graph_first)
+                                   node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                node_depth(node_from_graph_second)
+                                    node_depth(node_from_graph_second)
 
             replace_subtrees(
                 graph_first,

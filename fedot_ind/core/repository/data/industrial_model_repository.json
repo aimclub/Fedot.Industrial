@@ -455,14 +455,14 @@
       "meta": "sklearn_class",
       "presets": ["*tree"],
       "tags": [
-        "boosting", "non-default", "non_linear"
+        "boosting", "non_linear"
       ]
     },
     "catboostreg": {
       "meta": "sklearn_regr",
       "presets": ["*tree"],
       "tags": [
-        "boosting", "non_multi", "non-default", "non_linear"
+        "boosting", "non_multi", "non_linear"
       ]
     },
     "dt": {

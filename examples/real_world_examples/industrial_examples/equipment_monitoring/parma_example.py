@@ -10,7 +10,8 @@ from fedot_ind.core.operation.transformation.data.park_transformation import par
 matplotlib.use('TkAgg')
 gc.collect()
 metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
-stat_params = {'window_size': 0, 'stride': 1, 'add_global_features': True, 'use_sliding_window': False}
+stat_params = {'window_size': 0, 'stride': 1, 'add_global_features': True,
+               'channel_independent': False, 'use_sliding_window': False}
 fourier_params = {'low_rank': 5, 'output_format': 'signal', 'compute_heuristic_representation': True,
                   'approximation': 'smooth', 'threshold': 0.9, 'sampling_rate': 64e3}
 wavelet_params = {'n_components': 3, 'wavelet': 'bior3.7', 'compute_heuristic_representation': True}
@@ -25,7 +26,7 @@ sampling_dict = dict(samples=dict(start_idx=0,
 
 feature_generator = {
     # 'minirocket': [('minirocket_extractor', rocket_params)],
-    # 'stat_generator': [('quantile_extractor', stat_params)],
+    'stat_generator': [('quantile_extractor', stat_params)],
     'fourier': [('fourier_basis', fourier_params)],
     'wavelet': [('wavelet_basis', wavelet_params)],
 }
@@ -44,27 +45,43 @@ def load_data(use_park_transform: bool = False):
     return dataset
 
 
+config_for_tabular = dict(problem='classification',
+                          metric='f1',
+                          timeout=60,
+                          pop_size=10,
+                          early_stopping_iterations=10,
+                          early_stopping_timeout=30,
+                          optimizer_params={'mutation_agent': 'bandit',
+                                            'mutation_strategy': 'growth_mutation_strategy'},
+                          with_tunig=False,
+                          preset='classification_tabular',
+                          industrial_strategy_params={'feature_generator': feature_generator,
+                                                      'data_type': 'tensor',
+                                                      'learning_strategy': 'ts2tabular',
+                                                      'sampling_strategy': sampling_dict
+                                                      },
+                          n_jobs=-1,
+                          history_dir=None,
+                          logging_level=20)
+
+config_for_industrial = dict(problem='classification',
+                             metric='f1',
+                             timeout=30,
+                             pop_size=10,
+                             early_stopping_iterations=10,
+                             early_stopping_timeout=30,
+                             optimizer_params={'mutation_agent': 'bandit',
+                                               'mutation_strategy': 'growth_mutation_strategy'},
+                             with_tunig=False,
+                             n_jobs=-1,
+                             history_dir=None,
+                             logging_level=0)
+
 if __name__ == "__main__":
     finetune = False
+    gc.collect()
     dataset = load_data(use_park_transform=True)
-    api_config = dict(problem='classification',
-                      metric='f1',
-                      timeout=40,
-                      pop_size=10,
-                      early_stopping_iterations=10,
-                      early_stopping_timeout=30,
-                      optimizer_params={'mutation_agent': 'random',
-                                        'mutation_strategy': 'params_mutation_strategy'},
-                      with_tunig=False,
-                      preset='classification_tabular',
-                      industrial_strategy_params={'feature_generator': feature_generator,
-                                                  'data_type': 'tensor',
-                                                  'learning_strategy': 'ts2tabular',
-                                                  'sampling_strategy': sampling_dict
-                                                  },
-                      n_jobs=-1,
-                      logging_level=20)
-
+    api_config = config_for_industrial
     result_dict = ApiTemplate(api_config=api_config,
                               metric_list=metric_names).eval(dataset=dataset,
                                                              finetune=finetune)
@@ -73,4 +90,5 @@ if __name__ == "__main__":
     hist = result_dict['industrial_model'].save_optimization_history(return_history=True)
     result_dict['industrial_model'].vis_optimisation_history(hist)
     result_dict['industrial_model'].save_best_model()
+    result_dict['industrial_model'].solver.current_pipeline.show()
     _ = 1

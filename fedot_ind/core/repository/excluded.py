@@ -35,6 +35,7 @@ EXCLUDED_OPERATION_MUTATION = {
     'anomaly_detection': ['inception_model',
                           'resnet_model',
                           'recurrence_extractor',
+
                           'xgbreg',
                           'sgdr',
                           'kernel_pca',
@@ -74,6 +75,7 @@ EXCLUDED_OPERATION_MUTATION = {
     ],
     'classification': [
         'resnet_model',
+        'one_class_svm',
         'knnreg',
         'recurrence_extractor',
         'bernb',

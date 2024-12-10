@@ -8,6 +8,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     LaggedImplementation, TsSmoothingImplementation
 from fedot.core.operations.operation import Operation
+from fedot.core.optimisers.objective import PipelineObjectiveEvaluate
 from fedot.core.optimisers.objective.data_source_splitter import DataSourceSplitter
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
@@ -16,6 +17,7 @@ from fedot.core.pipelines.verification import common_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
 
 import fedot_ind.core.repository.model_repository as MODEL_REPO
+from fedot_ind.core.metrics.pipeline import industrial_evaluate_pipeline
 from fedot_ind.core.repository.constanst_repository import IND_DATA_OPERATION_PATH, IND_MODEL_OPERATION_PATH, \
     DEFAULT_DATA_OPERATION_PATH, DEFAULT_MODEL_OPERATION_PATH
 from fedot_ind.core.repository.industrial_implementations.abstract import preprocess_industrial_predicts, \
@@ -33,7 +35,8 @@ from fedot_ind.core.repository.model_repository import SKLEARN_REG_MODELS, SKLEA
 from fedot_ind.core.repository.model_repository import overload_model_implementation
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
-FEDOT_METHOD_TO_REPLACE = [(PipelineSearchSpace, "get_parameters_dict"),
+FEDOT_METHOD_TO_REPLACE = [(PipelineObjectiveEvaluate, "evaluate"),
+                           (PipelineSearchSpace, "get_parameters_dict"),
                            (ApiParamsRepository, "_get_default_mutations"),
                            (ImageDataMerger, "preprocess_predicts"),
                            (ImageDataMerger, "merge_predicts"),
@@ -55,7 +58,8 @@ FEDOT_METHOD_TO_REPLACE = [(PipelineSearchSpace, "get_parameters_dict"),
                            (TsSmoothingImplementation, 'transform'),
                            (OptunaImpl, 'OptunaTuner'),
                            (ApiComposer, 'tune_final_pipeline')]
-INDUSTRIAL_REPLACE_METHODS = [get_industrial_search_space,
+INDUSTRIAL_REPLACE_METHODS = [industrial_evaluate_pipeline,
+                              get_industrial_search_space,
                               _get_default_industrial_mutations,
                               preprocess_industrial_predicts,
                               merge_industrial_predicts,

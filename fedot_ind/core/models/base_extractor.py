@@ -3,9 +3,11 @@ import math
 from multiprocessing import cpu_count
 
 import dask
+import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from numpy.lib import stride_tricks as stride_repr
+from pymonad.either import Either
 from tqdm.dask import TqdmCallback
 
 from fedot_ind.api.utils.data import init_input_data
@@ -26,6 +28,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.use_cache = self.params.get('use_cache', False)
         self.use_sliding_window = self.params.get('use_sliding_window', True)
         self.use_feature_filter = self.params.get('use_feature_filter', False)
+        self.channel_extraction = self.params.get('channel_independent', True)
         self.feature_filter = FeatureSpaceReducer()
         self.data_type = DataTypesEnum.table
 
@@ -41,6 +44,22 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
     def __repr__(self):
         return 'Abstract Class for TS representation'
+
+    def __check_compute_model(self, input_data: InputData):
+        feature_tensor = input_data.features.shape
+        is_channel_overrated = feature_tensor[1] > 100
+        is_sample_overrated = feature_tensor[0] > 500000
+        is_elements_overrated = feature_tensor[2] > 1000
+        change_compute_mode = any([is_elements_overrated, is_channel_overrated, is_sample_overrated])
+        if change_compute_mode:
+            self.channel_extraction = False
+
+    def __check_filter_model(self):
+        if self.use_feature_filter:
+            if not self.feature_filter.is_fitted:
+                self.predict = self.feature_filter.reduce_feature_space(self.predict)
+            else:
+                self.predict = self.predict[:, :, self.feature_filter.feature_mask]
 
     def fit(self, input_data: InputData):
         pass
@@ -60,25 +79,26 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-
-        evaluation_results = list(map(lambda sample: self.generate_features_from_ts(sample), input_data.features))
-        with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
-            feature_matrix = dask.compute(*evaluation_results)
-        if len(feature_matrix[0].shape) > 1:
-            stacked_data = np.stack(feature_matrix)
-            self.predict = self._clean_predict(stacked_data)
+        self.__check_compute_model(input_data)
+        evaluation_results = Either(value=input_data.features,
+                                    monoid=[input_data.features, self.channel_extraction]).either(
+            left_function=lambda ts_array: self.generate_features_from_array(ts_array),
+            right_function=lambda ts_array: list(map(lambda sample: self.generate_features_from_ts(sample), ts_array))
+        )
+        if self.channel_extraction:
+            with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
+                feature_matrix = dask.compute(*evaluation_results)
         else:
-            stacked_data = np.array(feature_matrix)
-            self.predict = self._clean_predict(stacked_data)
-            self.predict = self.predict.reshape(self.predict.shape[0], -1)
-        # self.relevant_features = feature_matrix[0].supplementary_data['feature_name']
+            feature_matrix = evaluation_results
 
-        if self.use_feature_filter:
-            if not self.feature_filter.is_fitted:
-                self.predict = self.feature_filter.reduce_feature_space(self.predict)
-            else:
-                self.predict = self.predict[:, :, self.feature_filter.feature_mask]
-
+        multi_output = len(feature_matrix[0].shape) > 1
+        self.predict = Either(value=feature_matrix,
+                              monoid=[feature_matrix, multi_output]).either(
+            left_function=lambda ts_array: self._clean_predict(np.array(feature_matrix)),
+            right_function=lambda matrix: self._clean_predict(np.stack(matrix) if self.channel_extraction
+                                                              else np.hstack(feature_matrix)[:, None, :]))
+        self.predict = self.predict.reshape(self.predict.shape[0], -1) if not multi_output else self.predict
+        self.__check_filter_model()
         return self.predict
 
     def _clean_predict(self, predict: np.array):
@@ -89,12 +109,19 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         predict = np.where(np.isinf(predict), 0, predict)
         return predict
 
-    def generate_features_from_ts(self, ts_frame: np.array, window_length: int = None) -> np.array:
+    def generate_features_from_ts(self, ts_frame: np.array, window_length: int = None, axis=None) -> np.array:
         """
         Method responsible for generation of features from time series.
         """
 
-    def get_statistical_features(self, time_series: np.ndarray, add_global_features: bool = False) -> tuple:
+    def generate_features_from_array(self, ts_frame: np.array) -> np.array:
+        """
+        Method responsible for generation of features from time series.
+        """
+
+    def get_statistical_features(self, time_series: np.ndarray,
+                                 add_global_features: bool = False,
+                                 axis=None) -> tuple:
         """
         Method for creating baseline statistical features for a given time series.
 
@@ -106,9 +133,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             InputData: object with features
 
         """
-        time_series = time_series.flatten()
+        time_series = time_series.flatten() if axis != 2 else time_series
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
-        return list(map(lambda method: method[1](time_series), list_of_methods))
+        return list(map(lambda method: method[1](time_series, axis), list_of_methods))
 
     def apply_window_for_stat_feature(self, ts_data: np.array,
                                       feature_generator: callable,

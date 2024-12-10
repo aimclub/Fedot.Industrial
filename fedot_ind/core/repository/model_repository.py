@@ -184,6 +184,11 @@ class AtomizedModel(Enum):
         'smoothing': TsSmoothingImplementation,
         # 'topo_detector': UnscentedKalmanFilter
     }
+    NEURAL_MODEL_FOR_CLF = {
+        # fundamental models
+        'inception_model': InceptionTimeModel,
+        'resnet_model': ResNetModel
+    }
 
     NEURAL_MODEL = {
         # fundamental models
@@ -225,7 +230,7 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                                INDUSTRIAL_PREPROC_MODEL.keys()
                                                ],
                             'classification': [operation_dict[problem],
-                                               NEURAL_MODEL.keys(),
+                                               NEURAL_MODEL_FOR_CLF.keys(),
                                                INDUSTRIAL_PREPROC_MODEL.keys(),
                                                FEDOT_PREPROC_MODEL.keys()],
                             'regression': [operation_dict[problem],
@@ -234,8 +239,6 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                                            FEDOT_PREPROC_MODEL.keys()],
                             'anomaly_detection': [operation_dict[problem]],
                             'classification_tabular':
-                            # [operation_dict[problem],
-                            # FEDOT_PREPROC_MODEL.keys()],
                                 [['xgboost', 'logit', 'dt', 'rf', 'mlp', 'lgbm', 'scaling', 'normalization',
                                   'simple_imputation', 'kernel_pca']],
                             'regression_tabular': [operation_dict[problem],
@@ -272,5 +275,6 @@ INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
 ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
+NEURAL_MODEL_FOR_CLF = AtomizedModel.NEURAL_MODEL_FOR_CLF.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value
