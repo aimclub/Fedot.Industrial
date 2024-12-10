@@ -21,6 +21,17 @@ from fedot_ind.core.repository.model_repository import FEDOT_PREPROC_MODEL, FORE
 
 
 class MultiDimPreprocessingStrategy(EvaluationStrategy):
+    """
+    Class for preprocessing operations that can be used for multi-dimensional data.
+
+    Args:
+        operation_impl: operation implementation
+        operation_type: operation type
+        params: operation parameters
+        mode: mode of operation. Can be 'one_dimensional', 'channel_independent' or 'multi_dimensional'
+
+    """
+
     def __init__(self, operation_impl,
                  operation_type: str,
                  params: Optional[OperationParameters] = None,

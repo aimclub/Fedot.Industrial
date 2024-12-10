@@ -121,7 +121,7 @@ class DataCheck:
 
         have_predict_horizon = Either(value=False, monoid=[True, self.strategy_params is None]).either(
             left_function=lambda l: self.strategy_params['data_type'] == 'time_series' and
-                                    'detection_window' in self.strategy_params.keys(),
+            'detection_window' in self.strategy_params.keys(),
             right_function=lambda r: r)
 
         task = Either(
@@ -203,7 +203,7 @@ class DataCheck:
             learning_strategy = self.strategy_params['learning_strategy'] if \
                 'learning_strategy' in self.strategy_params.keys() else None
             default_fedot_context = self.manager.is_default_fedot_context \
-                                    and learning_strategy is not None
+                and learning_strategy is not None
             sampling_strategy = self.strategy_params['sampling_strategy'] \
                 if 'sampling_strategy' in self.strategy_params.keys() else None
             output_data = Either(value=learning_strategy,
@@ -222,9 +222,9 @@ class DataCheck:
             channel_start, channel_end = list(sampling_strategy['channels'].values())
             element_start, element_end = list(sampling_strategy['elements'].values())
             input_data.features = self.input_data.features[
-                                  sample_start:sample_end,
-                                  channel_start:channel_end,
-                                  element_start:element_end]
+                sample_start:sample_end,
+                channel_start:channel_end,
+                element_start:element_end]
         fg_list = self.manager.strategy_params['feature_generator']
         ts2tabular_model = TabularExtractor({'feature_domain': fg_list,
                                              'reduce_dimension': False})

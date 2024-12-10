@@ -22,6 +22,18 @@ from fedot_ind.core.repository.industrial_implementations.abstract import build_
 
 
 class IndustrialStrategy:
+    """
+    Class for industrial strategy implementation
+
+    Args:
+        industrial_strategy_params: dict
+            Parameters for industrial strategy
+        industrial_strategy: str
+            Industrial strategy name
+        api_config: dict
+            Configuration for API
+    """
+
     def __init__(self,
                  industrial_strategy_params,
                  industrial_strategy,

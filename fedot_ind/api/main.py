@@ -36,11 +36,32 @@ warnings.filterwarnings("ignore")
 
 
 class FedotIndustrial(Fedot):
-    """This class is used to run Fedot in industrial mode as FedotIndustrial.
+    """Main class for Industrial API. It provides a high-level interface for working with the
+    Fedot framework. The class allows you to train, predict, and evaluate models for time series.
+    All arguments are passed as keyword arguments and handled by the ApiManager class.
 
     Args:
-        input_config: dictionary with the parameters of the experiment.
-        output_folder: path to the folder where the results will be saved.
+        problem: str. The type of task to solve. Available options: 'ts_forecasting', 'ts_classification', 'ts_regression'.
+        timeout: int. Time for model design (in minutes): ``None`` or ``-1`` means infinite time.
+                logging_level: logging levels are the same as in
+            `built-in logging library <https://docs.python.org/3/library/logging.html>`_.
+
+            .. details:: Possible options:
+
+                - ``50`` -> critical
+                - ``40`` -> error
+                - ``30`` -> warning
+                - ``20`` -> info
+                - ``10`` -> debug
+                - ``0`` -> nonset
+        backend_method: str. Default `cpu`. The method for backend. Available options: 'cpu', 'dask'.
+        initial_assumption: Pipeline = None. The initial pipeline for the model.
+        optimizer_params: dict = None.
+        task_params: dict = None.
+        strategy: str = None.
+        strategy_params: dict = None.
+        available_operations: list = None.
+        output_folder: str = './output'.
 
     Example:
         First, configure experiment and instantiate FedotIndustrial class::
@@ -50,7 +71,6 @@ class FedotIndustrial(Fedot):
 
 
             industrial = FedotIndustrial(problem='ts_classification',
-                                         use_cache=False,
                                          timeout=15,
                                          n_jobs=2,
                                          logging_level=20)
@@ -477,5 +497,6 @@ class FedotIndustrial(Fedot):
         return history_visualizer.history if return_history else None
 
     def shutdown(self):
+        """Shutdown Dask client"""
         self.dask_client.close()
         del self.dask_client
