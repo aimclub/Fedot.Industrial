@@ -43,7 +43,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                                                                                         optimisation_params)
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
-        #self.operators.remove(self.crossover)
+        # self.operators.remove(self.crossover)
         self.requirements = requirements
         self.initial_graphs = initial_graphs
         self.eval_dispatcher = IndustrialDispatcher(
@@ -115,6 +115,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         # Reset mutation probabilities to default
         self.mutation.update_requirements(requirements=self.requirements)
         return extended_pop
+
     def _evolve_population(self, evaluator: EvaluationOperator) -> PopulationT:
         """ Method realizing full evolution cycle """
 

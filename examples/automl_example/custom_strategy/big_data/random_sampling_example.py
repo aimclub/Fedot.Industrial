@@ -4,8 +4,10 @@ from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 cur_params = {'rank': None}
 sampling_algorithm = {'CUR': cur_params}
 
-def eval_fedot_on_fold(dataset_name,fold):
-    return create_big_dataset(dataset_name,fold)
+
+def eval_fedot_on_fold(dataset_name, fold):
+    return create_big_dataset(dataset_name, fold)
+
 
 if __name__ == "__main__":
     metric_by_fold = {}
@@ -33,5 +35,5 @@ if __name__ == "__main__":
         result_dict = ApiTemplate(api_config=api_config,
                                   metric_list=metric_names).eval(dataset=dataset_dict,
                                                                  finetune=finetune)
-        metric_by_fold.update({fold:result_dict})
+        metric_by_fold.update({fold: result_dict})
     _ = 1

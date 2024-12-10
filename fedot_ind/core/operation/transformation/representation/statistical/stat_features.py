@@ -94,7 +94,7 @@ def ben_corr(x, axis=None):
      |  mathematics, 1881
 
     """
-    if axis ==2:
+    if axis == 2:
         return None
     else:
         x = np.asarray(x)
@@ -129,7 +129,7 @@ def autocorrelation(array: np.array, axis=None) -> float:
     """Autocorrelation of the time series with its lagged version
     """
     lagged_ts = np.roll(a=array, shift=1, axis=axis)
-    corr_coef = np.apply_along_axis(np.corrcoef,axis,lagged_ts) if axis == 2 else np.corrcoef(array, lagged_ts)[0, 1]
+    corr_coef = np.apply_along_axis(np.corrcoef, axis, lagged_ts) if axis == 2 else np.corrcoef(array, lagged_ts)[0, 1]
     return corr_coef
 
 

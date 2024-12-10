@@ -41,6 +41,7 @@ class CURDecomposition:
         self.row_indices = None
         self.column_space = 'Full'
         self.fitted = True
+
     def _convert_to_output(selfm,
                            prediction: np.ndarray,
                            predict_data: InputData,
@@ -68,6 +69,7 @@ class CURDecomposition:
             converted = prediction
 
         return converted
+
     def _get_selection_rank(self, matrix):
         """
         Compute the selection rank for the CUR decomposition.
@@ -121,7 +123,7 @@ class CURDecomposition:
     def transform(self, input_data: InputData) -> tuple:
         if not self.fitted:
             sampled_tensor, samplet_target = self.fit_transform(input_data.features, input_data.target)
-            output_data = self._convert_to_output(sampled_tensor,input_data)
+            output_data = self._convert_to_output(sampled_tensor, input_data)
             output_data.target = samplet_target
         else:
             output_data = self._convert_to_output(input_data.features, input_data)

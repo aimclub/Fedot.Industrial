@@ -1,21 +1,15 @@
 import os
 import pickle
 import traceback
-from datetime import timedelta
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, Tuple
 from uuid import uuid4
 
 import numpy as np
-from golem.core.log import default_log
 from golem.core.optimisers.fitness import Fitness
-from golem.core.optimisers.objective.objective import Objective, to_fitness
-from golem.core.optimisers.objective.objective_eval import ObjectiveEvaluate
+from golem.core.optimisers.objective.objective import to_fitness
 
-from fedot.core.caching.pipelines_cache import OperationsCache
-from fedot.core.caching.preprocessing_cache import PreprocessingCache
 from fedot.core.data.data import InputData
-from fedot.core.operations.model import Model
 from fedot.core.pipelines.pipeline import Pipeline
 
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
@@ -43,6 +37,7 @@ def save_pipeline_for_debug(pipeline: Pipeline, train_data: InputData,
             print(stack_trace, file=file)
     except Exception as ex:
         print(ex)
+
 
 def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
     # Seems like a workaround for situation when logger is lost
