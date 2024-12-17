@@ -443,13 +443,14 @@ REVERSE_FREQUENCY_MAP = {v: k for k, v in FREQUENCY_MAP.items()}
 # Parameters
 # full_file_path_and_name - complete .tsf file path
 # replace_missing_vals_with - a term to indicate the missing values in series in the returning dataframe
-# value_column_name - Any name that is preferred to have as the name of the column containing series values in the returning dataframe
+# value_column_name - Any name that is preferred to have as the name of
+# the column containing series values in the returning dataframe
 def convert_tsf_to_dataframe(full_file_path_and_name, replace_missing_vals_with='NaN',
                              value_column_name='series_value'):
     try:
         with open(full_file_path_and_name, 'r', encoding='utf-8') as file:
             return parse_file(file, replace_missing_vals_with, value_column_name)
-    except:
+    except BaseException:
         with open(full_file_path_and_name, 'r', encoding='cp1252') as file:
             return parse_file(file, replace_missing_vals_with, value_column_name)
 
@@ -564,9 +565,8 @@ def parse_file(file, replace_missing_vals_with, value_column_name):
                                 full_info[i], '%Y-%m-%d %H-%M-%S'
                             )
                         else:
-                            raise Exception(
-                                'Invalid attribute type.'
-                            )  # Currently, the code supports only numeric, string and date types. Extend this as required.
+                            # Currently, the code supports only numeric, string and date types. Extend this as required.
+                            raise Exception('Invalid attribute type.')
 
                         if att_val is None:
                             raise Exception('Invalid attribute value.')
@@ -672,8 +672,8 @@ class Utils:
         if 'duration' in kwargs.keys():
             results['duration'] = kwargs['duration']
 
-        if scores_dir != None:
-            if forecaster_name == None:
+        if scores_dir is not None:
+            if forecaster_name is None:
                 raise TypeError('Forecaster name required to save scores')
             os.makedirs(scores_dir, exist_ok=True)
 
@@ -732,7 +732,7 @@ class Utils:
         try:
             correlation = result.correlation
             pvalue = result.pvalue
-        except:  # older scipy versions returned a tuple instead of an object
+        except BaseException:  # older scipy versions returned a tuple instead of an object
             correlation = result[0]
             pvalue = result[1]
 
@@ -779,12 +779,12 @@ class Utils:
                 HEADERS.insert(0, HEADERS.pop(HEADERS.index('model')))
 
             for key, value in results.items():
-                if value == None or value == '':
+                if value is None or value == '':
                     results[key] = 'None'
 
             try:
                 Utils._write_to_csv(path, results, HEADERS)
-            except OSError as _:
+            except OSError:
                 # try a second time: permission error can be due to Python not
                 # having closed the file fast enough after the previous write
                 time.sleep(1)  # in seconds
@@ -847,10 +847,10 @@ class Utils:
         :param yscale: Y-Scale ('linear' or 'log'), defaults to 'linear'
         """
 
-        if xlabel != None:
+        if xlabel is not None:
             plt.xlabel(xlabel)
 
-        if ylabel != None:
+        if ylabel is not None:
             plt.ylabel(ylabel)
 
         plt.yscale(yscale)
@@ -858,14 +858,14 @@ class Utils:
         plt.title(title)
         plt.suptitle(suptitle)
 
-        if legend != None:
+        if legend is not None:
             plt.legend(legend, loc='upper left')
 
         # Show plot
         if show:
             plt.show()
         # Show plot as file
-        if save_path != None:
+        if save_path is not None:
             plt.savefig(save_path, bbox_inches='tight')
 
         # Clear for next plot
@@ -910,7 +910,7 @@ class Utils:
         for _ in range(0, len(test_df) - 1, horizon):  # The -1 is because the last split may be less than horizon
             try:
                 test_splits.append(test_df.iloc[total:total + horizon, :])
-            except:  # If 1D (series)
+            except BaseException:  # If 1D (series)
                 test_splits.append(test_df.iloc[total:total + horizon])
             total += horizon
 
@@ -1160,11 +1160,11 @@ class Utils:
         heatmap.to_csv(csv_path)  # Save correlations as CSV
         heatmap.to_latex(csv_path.replace('.csv', '.tex'))  # Save correlations as .tex
         try:
-            calculate_pvalues = lambda x, y: pearsonr(x, y).pvalue
+            def calculate_pvalues(x, y): return pearsonr(x, y).pvalue
             df[columns].corr(method=calculate_pvalues).to_csv(csv_path.replace('.csv', '_pvalues.csv'))
         # older scipy versions return a tuple instead of an object
-        except:
-            calculate_pvalues = lambda x, y: pearsonr(x, y)[1]
+        except BaseException:
+            def calculate_pvalues(x, y): return pearsonr(x, y)[1]
             df[columns].corr(method=calculate_pvalues).to_csv(csv_path.replace('.csv', '_pvalues.csv'))
 
         # Save correlation heatmap as image

@@ -429,7 +429,7 @@ class DatasetFormatting:
             meta_data['step_size'] = []
         try:
             files = os.listdir(data_dir)
-        except:
+        except BaseException:
             files = os.listdir(os.path.join(PROJECT_PATH, data_dir))
 
         csv_files = [f for f in files if '0_metadata.csv' not in f and f.endswith('csv')]
@@ -510,7 +510,7 @@ class DatasetFormatting:
                 data, freq, horizon, has_nans, equal_length = convert_tsf_to_dataframe(
                     os.path.join(data_dir, tsf_file), 'NaN', 'value')
 
-                if horizon == None:
+                if horizon is None:
                     horizon = DatasetFormatting.select_horizon(freq, csv_path)
 
                 if gather_metadata:
@@ -568,7 +568,7 @@ class DatasetFormatting:
         # The following horizons are suggested by Godahewa et al. (2021)
         elif 'solar_weekly_dataset' in csv_path:
             horizon = 5
-        elif freq == None:
+        elif freq is None:
             raise ValueError('No frequency or horizon found in file')
         elif freq == 'monthly':
             horizon = 12
@@ -684,7 +684,7 @@ class DatasetFormatting:
 
         :param data_dir: Path to directory of datasets
         """
-        subdir = os.path.join(data_dir, '3W')
+        os.path.join(data_dir, '3W')
 
     @staticmethod
     def format_falling_data(data_dir):
