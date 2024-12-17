@@ -71,7 +71,8 @@ class QuantileExtractor(BaseExtractor):
                                   ts: np.array,
                                   window_length: int = None) -> InputData:
         ts = ts[None, :] if len(ts.shape) == 1 else ts  # sanity check for map method
-        statistical_representation = np.array(list(map(lambda channel: self.extract_stats_features(channel, axis=0), ts)))
+        statistical_representation = np.array(
+            list(map(lambda channel: self.extract_stats_features(channel, axis=0), ts)))
         return statistical_representation
 
     def generate_features_from_array(self, array: np.array) -> InputData:

@@ -7,7 +7,6 @@ from typing import Optional
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
 from gtda.homology import VietorisRipsPersistence
 from gtda.time_series import takens_embedding_optimal_parameters
 from scipy import stats
