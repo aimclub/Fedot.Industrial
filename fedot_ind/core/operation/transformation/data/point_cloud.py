@@ -136,8 +136,11 @@ class TopologicalTransformation:
         # normalize epsilon distance in diagrams so max is 1
         diagrams = [np.array([dg for dg in diag if np.isfinite(dg).all()])
                     for diag in diagrams]
-        diagrams = diagrams / max([np.array([dg for dg in diag if np.isfinite(
-            dg).all()]).max() for diag in diagrams if diag.shape[0] > 0])
+        # diagrams = diagrams / max([np.array([dg for dg in diag if np.isfinite(
+        # dg).all()]).max() for diag in diagrams if diag.shape[0] > 0])
+
+        diagrams = [d / max([np.array([dg for dg in diag if np.isfinite(
+            dg).all()]).max() for diag in diagrams if diag.shape[0] > 0]) for d in diagrams]
 
         ep_ran_len = len(epsilon_range)
 

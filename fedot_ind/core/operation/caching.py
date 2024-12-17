@@ -77,7 +77,7 @@ class DataCacher:
             raise FileNotFoundError(f'File {file_path} was not found')
         elapsed_time = round(timeit.default_timer() - start, 5)
         print(
-            f'{self.data_type} of {type(data)} type is loaded from cache in {elapsed_time} sec')
+            f'{self.data_type} of {type(data)} type are loaded from cache in {elapsed_time} sec')
         return data
 
     def cache_data(self, hashed_info: str, data: pd.DataFrame):

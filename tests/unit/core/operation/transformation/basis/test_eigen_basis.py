@@ -36,6 +36,7 @@ def test_transform_one_sample():
     basis.SV_threshold = 3
     sample = input_train_data.features[0]
     transformed_sample = basis._transform_one_sample(sample)
+    transformed_sample = transformed_sample.compute()
     assert isinstance(transformed_sample, np.ndarray)
     assert transformed_sample.shape[0] == basis.SV_threshold
     assert transformed_sample.shape[1] == len(sample)

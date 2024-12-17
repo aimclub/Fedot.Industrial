@@ -16,7 +16,7 @@ def sample_ts():
 
 def test_fit_transform(sample_matrix):
     rank = 1
-    cur = CURDecomposition(rank)
+    cur = CURDecomposition({'rank': rank})
     result = cur.fit_transform(sample_matrix)
     approximated = result[0]
     assert isinstance(result, tuple)
@@ -24,13 +24,13 @@ def test_fit_transform(sample_matrix):
 
 
 def test_ts_to_matrix(sample_ts):
-    cur = CURDecomposition(rank=2)
+    cur = CURDecomposition({'rank': 2})
     matrix = cur.ts_to_matrix(time_series=sample_ts, window=10)
     assert isinstance(matrix, np.ndarray)
 
 
 def test_matrix_to_ts(sample_matrix):
-    cur = CURDecomposition(rank=2)
+    cur = CURDecomposition({'rank': 2})
     ts = cur.matrix_to_ts(sample_matrix)
     assert isinstance(ts, np.ndarray)
     assert len(ts.shape) == 1

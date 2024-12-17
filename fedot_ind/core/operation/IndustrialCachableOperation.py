@@ -101,7 +101,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                                                 operation_info=class_params.__repr__())
             try:
                 transformed_features = self.try_load_from_cache(hashed_info)
-            except FileNotFoundError:
+            except (FileNotFoundError, ValueError):
                 transformed_features = self._transform(input_data)
                 self.cacher.cache_data(hashed_info, transformed_features)
 
