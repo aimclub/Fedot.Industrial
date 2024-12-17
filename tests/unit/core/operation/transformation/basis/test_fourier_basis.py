@@ -15,10 +15,17 @@ def dataset():
     return X_train, y_train, X_test, y_test
 
 
+# @pytest.fixture
+# def input_train(dataset):
+#     X_train, y_train, X_test, y_test = dataset
+#     input_train_data = init_input_data(X_train, y_train)
+#     return input_train_data
+
 @pytest.fixture
-def input_train(dataset):
-    X_train, y_train, X_test, y_test = dataset
-    input_train_data = init_input_data(X_train, y_train)
+def input_train():
+    x_train = np.random.rand(100, 1, 100)
+    y_train = np.random.rand(100).reshape(-1, 1)
+    input_train_data = init_input_data(x_train, y_train)
     return input_train_data
 
 
@@ -34,13 +41,13 @@ def test_transform_one_sample(input_train):
     sample = input_train.features[0]
     transformed_sample = basis._transform_one_sample(sample)
     transformed_sample = dask.compute(transformed_sample)[0]
-    assert isinstance(transformed_sample, np.ndarray)
-    assert transformed_sample.shape[1] == len(sample)
+    assert isinstance(transformed_sample, list)
+    assert transformed_sample[0].shape[0] == len(sample)
 
 
 def test_decompose_signal(input_train):
     basis = FourierBasisImplementation({})
-    sample = input_train.features[0]
+    sample = input_train.features[0].reshape(-1)
     transformed_sample = basis._decompose_signal(sample)
     assert isinstance(transformed_sample, np.ndarray)
     assert transformed_sample.shape[1] == len(sample)

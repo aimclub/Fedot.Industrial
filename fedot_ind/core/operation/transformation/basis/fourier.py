@@ -78,6 +78,7 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         return estimator
 
     def _decompose_signal(self, input_data):
+
         estimator = self._build_spectrum(input_data)
         # self._visualise_spectrum(estimator)
         psd = estimator.psd

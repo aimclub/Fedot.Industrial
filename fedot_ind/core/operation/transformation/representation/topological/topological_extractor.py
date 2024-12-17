@@ -114,13 +114,13 @@ class TopologicalExtractor(BaseExtractor):
 
         point_cloud = self.data_transformer.time_series_to_point_cloud(input_data=ts_data, use_gtda=True)
         topological_features = self.feature_extractor.transform(point_cloud)
-        topological_features = InputData(idx=np.arange(len(topological_features.values)),
-                                         features=topological_features.values,
-                                         target='no_target',
-                                         task='no_task',
-                                         data_type=DataTypesEnum.table,
-                                         supplementary_data={'feature_name': topological_features.columns})
-        return topological_features
+        # topological_features = InputData(idx=np.arange(len(topological_features.values)),
+        #                                  features=topological_features.values,
+        #                                  target='no_target',
+        #                                  task='no_task',
+        #                                  data_type=DataTypesEnum.table,
+        #                                  supplementary_data={'feature_name': topological_features.columns})
+        return topological_features.values
 
     def generate_topological_features(self, ts: np.array, persistence_params: dict = None) -> InputData:
         if persistence_params is not None:

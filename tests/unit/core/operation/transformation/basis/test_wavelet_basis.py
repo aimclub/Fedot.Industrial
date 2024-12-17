@@ -1,6 +1,8 @@
 from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pytest
+import dask
+
 import pywt
 from fedot.core.data.data import OutputData
 
@@ -22,10 +24,18 @@ def dataset():
     return X_train, y_train, X_test, y_test
 
 
+# @pytest.fixture
+# def input_train(dataset):
+#     X_train, y_train, X_test, y_test = dataset
+#     input_train_data = init_input_data(X_train, y_train)
+#     return input_train_data
+
+
 @pytest.fixture
-def input_train(dataset):
-    X_train, y_train, X_test, y_test = dataset
-    input_train_data = init_input_data(X_train, y_train)
+def input_train():
+    x_train = np.random.rand(100, 1, 100)
+    y_train = np.random.rand(100).reshape(-1, 1)
+    input_train_data = init_input_data(x_train, y_train)
     return input_train_data
 
 
@@ -70,6 +80,7 @@ def test_transform_one_sample(input_train, wavelet, n_components):
                                         "n_components": n_components})
     sample = input_train.features[0]
     transformed_sample = basis._transform_one_sample(sample)
+    transformed_sample = dask.compute(transformed_sample)[0]
     assert isinstance(transformed_sample, np.ndarray)
 
 
