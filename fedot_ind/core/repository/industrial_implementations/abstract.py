@@ -150,7 +150,6 @@ def _are_cv_folds_allowed(
 
 
 def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource:
-    # define split_ratio
     self.split_ratio = self.split_ratio or default_data_split_ratio_by_task[
         data.task.task_type]
 
@@ -169,7 +168,10 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
 
     # Calculate the number of validation blocks for timeseries forecasting
     if data.task.task_type is TaskTypesEnum.ts_forecasting and self.validation_blocks is None:
+        current_split_ratio = self.split_ratio
         self._propose_cv_folds_and_validation_blocks(data)
+        if self.cv_folds is None:
+            self.split_ratio = current_split_ratio
 
     # Check split_ratio
     if self.cv_folds is None and not (0 < self.split_ratio < 1):

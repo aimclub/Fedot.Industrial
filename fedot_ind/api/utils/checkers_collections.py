@@ -86,7 +86,7 @@ class DataCheck:
         else:
             features_array = self.data_convertor.numpy_data
         task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
-            forecast_length=self.task_params['forecast_length']))
+            forecast_length=self.task_params.forecast_length))
         if self.fit_stage:
             features_array = features_array
             target = features_array
@@ -146,12 +146,15 @@ class DataCheck:
 
         """
         # is_multivariate_data = False
-        features, self.is_multivariate_data, target = Either(value=self.input_data,
-                                                             monoid=[self.data_convertor,
-                                                                     self.data_convertor.is_tuple]).either(
-            right_function=lambda r: ListMonad('tuple'),
-            left_function=lambda l: ListMonad('torchvision')). \
-            then(lambda data_type: self.__check_features_and_target(self.input_data, data_type))
+        if self.task == 'ts_forecasting':
+            features, self.is_multivariate_data, target = self.input_data, False, self.input_data
+        else:
+            features, self.is_multivariate_data, target = Either(value=self.input_data,
+                                                                 monoid=[self.data_convertor,
+                                                                         self.data_convertor.is_tuple]).either(
+                right_function=lambda r: ListMonad('tuple'),
+                left_function=lambda l: ListMonad('torchvision')). \
+                then(lambda data_type: self.__check_features_and_target(self.input_data, data_type))
 
         self.input_data = Either(
             value=[

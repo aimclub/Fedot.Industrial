@@ -3,6 +3,7 @@ import logging
 import os
 from abc import ABC
 from copy import deepcopy
+from typing import Union
 
 import matplotlib
 import pandas as pd
@@ -10,6 +11,7 @@ from fedot.core.repository.tasks import TsForecastingParams
 from matplotlib import pyplot as plt
 
 from benchmark.abstract_bench import AbstractBenchmark
+from benchmark.feature_utils import DatasetFormatting
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
@@ -22,7 +24,7 @@ from fedot_ind.tools.loader import DataLoader
 class BenchmarkTSF(AbstractBenchmark, ABC):
     def __init__(self,
                  experiment_setup: dict = None,
-                 custom_datasets: list = None,
+                 custom_datasets: Union[list, str] = None,
                  use_small_datasets: bool = False):
 
         super(BenchmarkTSF, self).__init__(
@@ -33,6 +35,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         self.experiment_setup = experiment_setup
         self.multi_TSC = MULTI_CLF_BENCH
         self.uni_TSC = UNI_CLF_BENCH
+        self.automl_TSC = False
         if custom_datasets is None:
             if use_small_datasets:
                 self.custom_datasets = self.uni_TSC
@@ -41,35 +44,51 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         else:
             self.custom_datasets = custom_datasets
 
+        if isinstance(self.custom_datasets, str):
+            if self.custom_datasets.__contains__('automl'):
+                self.automl_TSC = True
+
         if use_small_datasets:
             self.path_to_result = '/benchmark/results/time_series_uni_forecats_comparasion.csv'
             self.path_to_save = '/benchmark/results/ts_uni_forecasting'
         else:
             self.path_to_result = '/benchmark/results/m4_results.csv'
             self.path_to_save = '/benchmark/results/ts_uni_forecasting'
+
         self.results_picker = ResultsPicker(
             path=os.path.abspath(self.output_dir))
+        self.automl_loader = DatasetFormatting()
 
     def evaluate_loop(self, dataset, experiment_setup: dict = None):
         matplotlib.use('TkAgg')
-        train_data = DataLoader(dataset_name=dataset).load_forecast_data()
-        experiment_setup['task_params'] = TsForecastingParams(
-            forecast_length=M4_FORECASTING_LENGTH[dataset[0]])
+        if self.automl_TSC:
+            train_data = dataset[1]
+            experiment_setup['task_params'] = TsForecastingParams(
+                forecast_length=self.automl_TSC_metadata[self.automl_TSC_metadata['file'] == dataset[0]]['horizon'][0])
+        else:
+            train_data = DataLoader(dataset_name=dataset).load_forecast_data()
+            experiment_setup['task_params'] = TsForecastingParams(
+                forecast_length=M4_FORECASTING_LENGTH[dataset[0]])
         target = train_data.iloc[-experiment_setup['task_params']
-                                 .forecast_length:, :].values.ravel()
+        .forecast_length:, :].values.ravel()
         train_data = train_data.iloc[:-
-                                     experiment_setup['task_params'].forecast_length, :]
+        experiment_setup['task_params'].forecast_length, :]
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(train_data)
         plt.close('all')
         return prediction, target, model
 
-    def run(self):
+    def run(self, path: str = None):
         self.logger.info('Benchmark test started')
-        basic_results = self.load_local_basic_results()
         metric_dict = {}
-        for dataset_name in self.custom_datasets:
+        if self.automl_TSC and path is not None:
+            dataset_list = self.load_automl_benchmark(path).items()
+            basic_results = None
+        else:
+            dataset_list = self.custom_datasets
+            basic_results = self.load_local_basic_results()
+        for dataset_name in dataset_list:
             experiment_setup = deepcopy(self.experiment_setup)
             prediction, target, model = self.evaluate_loop(
                 dataset_name, experiment_setup)
@@ -150,3 +169,9 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         df = df.join(df_res)
         df = df.fillna(0)
         return df
+
+    def load_automl_benchmark(self, path):
+        load_method_dict = dict(automl_univariate=self.automl_loader.format_univariate_forecasting_data,
+                                automl_global=self.automl_loader.format_global_forecasting_data)
+        self.automl_TSC_metadata, data_dict = load_method_dict[self.custom_datasets](path, True)
+        return data_dict

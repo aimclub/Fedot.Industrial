@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
-from joblib import cpu_count
+
 from fedot.core.repository.tasks import TsForecastingParams
+from joblib import cpu_count
 from pymonad.either import Either
 
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
@@ -93,7 +94,7 @@ class ApiManager:
 
         if self.task_params is not None and self.config['problem'] == 'ts_forecasting':
             self.config['task_params'] = TsForecastingParams(
-                forecast_length=self.task_params['forecast_length'])
+                forecast_length=self.task_params.forecast_length)
         self.__init_experiment_setup()
 
     def industrial_api_object(self):
