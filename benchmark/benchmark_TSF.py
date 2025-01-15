@@ -133,10 +133,10 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
             composed_model_path = PROJECT_PATH + self.path_to_save + \
-                                  f'/{dataset_name}' + '/0_pipeline_saved'
+                f'/{dataset_name}' + '/0_pipeline_saved'
             if os.path.isdir(composed_model_path):
                 self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                         self.path_to_save
+                    self.path_to_save
                 experiment_setup = deepcopy(self.experiment_setup)
                 prediction, target = self.finetune_loop(
                     dataset_name, experiment_setup)
@@ -161,7 +161,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         results = results.dropna(axis=1, how='all')
         results = results.dropna(axis=0, how='all')
         self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                                                 self.path_to_save
+            self.path_to_save
         return results
 
     def create_report(self):
@@ -169,14 +169,14 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.path_to_save + \
-                                f'/{dataset_name}' + '/metrics_report.csv'
+                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_results = np.stack(_, axis=1).T
