@@ -9,8 +9,8 @@ from fedot.core.repository.tasks import TsForecastingParams, Task, TaskTypesEnum
 from matplotlib import pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 matplotlib.use('TKagg')
 

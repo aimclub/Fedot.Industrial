@@ -6,11 +6,11 @@ import pandas as pd
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from fedot_ind.api.utils.checkers_collections import DataCheck
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
 from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 # liman experiment setup
 sampling_rate = 4096
