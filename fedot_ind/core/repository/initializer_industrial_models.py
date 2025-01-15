@@ -2,7 +2,7 @@ import fedot.core.data.data_split as fedot_data_split
 import golem.core.tuning.optuna_tuner as OptunaImpl
 from fedot.api.api_utils.api_composer import ApiComposer
 from fedot.api.api_utils.api_params_repository import ApiParamsRepository
-from fedot.core.data.merge.data_merger import ImageDataMerger, TSDataMerger
+from fedot.core.data.merge.data_merger import ImageDataMerger, TSDataMerger, DataMerger
 from fedot.core.operations.evaluation.operation_implementations.data_operations.topological.fast_topological_extractor \
     import TopologicalFeaturesImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
@@ -25,7 +25,7 @@ from fedot_ind.core.repository.industrial_implementations.abstract import prepro
     merge_industrial_predicts, merge_industrial_targets, build_industrial, postprocess_industrial_predicts, \
     split_any_industrial, split_time_series_industrial, predict_operation_industrial, predict_industrial, \
     predict_for_fit_industrial, update_column_types_industrial, _check_and_correct_window_size_industrial, \
-    fit_topo_extractor_industrial, transform_topo_extractor_industrial
+    fit_topo_extractor_industrial, transform_topo_extractor_industrial, find_main_output_industrial
 from fedot_ind.core.repository.industrial_implementations.ml_optimisation import DaskOptunaTuner, \
     tune_pipeline_industrial
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations
@@ -38,6 +38,7 @@ from fedot_ind.core.tuning.search_space import get_industrial_search_space
 FEDOT_METHOD_TO_REPLACE = [(PipelineObjectiveEvaluate, "evaluate"),
                            (PipelineSearchSpace, "get_parameters_dict"),
                            (ApiParamsRepository, "_get_default_mutations"),
+                           (DataMerger, "find_main_output"),
                            (ImageDataMerger, "preprocess_predicts"),
                            (ImageDataMerger, "merge_predicts"),
                            (TSDataMerger, "merge_predicts"),
@@ -61,6 +62,7 @@ FEDOT_METHOD_TO_REPLACE = [(PipelineObjectiveEvaluate, "evaluate"),
 INDUSTRIAL_REPLACE_METHODS = [industrial_evaluate_pipeline,
                               get_industrial_search_space,
                               _get_default_industrial_mutations,
+                              find_main_output_industrial,
                               preprocess_industrial_predicts,
                               merge_industrial_predicts,
                               merge_industrial_predicts,

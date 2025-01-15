@@ -10,12 +10,12 @@ from fedot.core.pipelines.pipeline import Pipeline
 
 from benchmark.abstract_bench import AbstractBenchmark
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
 from fedot_ind.core.metrics.metrics_implementation import RMSE
 from fedot_ind.core.repository.constanst_repository import MULTI_REG_BENCH
 from fedot_ind.tools.loader import DataLoader
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 matplotlib.use('TkAgg')
 

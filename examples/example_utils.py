@@ -7,8 +7,9 @@ from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from sklearn.metrics import f1_score, roc_auc_score
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 ts_datasets = {
     'm4_yearly': Path(PROJECT_PATH, 'examples', 'data', 'ts', 'M4Yearly.csv'),

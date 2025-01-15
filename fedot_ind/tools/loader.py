@@ -15,9 +15,9 @@ from scipy.io.arff import loadarff
 from sktime.datasets import load_from_tsfile_to_dataframe
 from tqdm import tqdm
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import M4_PREFIX
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 
 class DataLoader:

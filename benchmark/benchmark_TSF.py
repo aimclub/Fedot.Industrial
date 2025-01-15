@@ -13,12 +13,12 @@ from matplotlib import pyplot as plt
 from benchmark.abstract_bench import AbstractBenchmark
 from benchmark.feature_utils import DatasetFormatting
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.metrics_implementation import RMSE, SMAPE
 from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, MULTI_CLF_BENCH, UNI_CLF_BENCH
 from fedot_ind.tools.loader import DataLoader
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 
 class BenchmarkTSF(AbstractBenchmark, ABC):
@@ -69,15 +69,33 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
             train_data = DataLoader(dataset_name=dataset).load_forecast_data()
             experiment_setup['task_params'] = TsForecastingParams(
                 forecast_length=M4_FORECASTING_LENGTH[dataset[0]])
-        target = train_data.iloc[-experiment_setup['task_params']
-                                 .forecast_length:, :].values.ravel()
-        train_data = train_data.iloc[:-
-                                     experiment_setup['task_params'].forecast_length, :]
+        target = train_data.iloc[-experiment_setup['task_params'].forecast_length:, :].values.ravel()
+        train_data = train_data.iloc[:-experiment_setup['task_params'].forecast_length, :]
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(train_data)
         plt.close('all')
         return prediction, target, model
+
+    def _save_with_basic_results(self,
+                                 dataset_name,
+                                 basic_results,
+                                 metric,
+                                 target,
+                                 prediction,
+                                 model):
+        dataset_path = os.path.join(
+            self.experiment_setup['output_folder'], f'{dataset_name}')
+        if not os.path.exists(dataset_path):
+            os.makedirs(dataset_path)
+        basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
+        basic_results.to_csv(os.path.join(
+            dataset_path, 'metrics_report.csv'))
+        pred_df = pd.DataFrame([target, prediction]).T
+        pred_df.columns = ['label', 'prediction']
+        pred_df.to_csv(os.path.join(dataset_path, 'prediction.csv'))
+        model.solver.save(dataset_path)
+        gc.collect()
 
     def run(self, path: str = None):
         self.logger.info('Benchmark test started')
@@ -93,33 +111,32 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
             prediction, target, model = self.evaluate_loop(
                 dataset_name, experiment_setup)
             metric = SMAPE(prediction, target).metric()
-            metric_dict.update({dataset_name: metric})
-            dataset_path = os.path.join(
-                self.experiment_setup['output_folder'], f'{dataset_name}')
-            if not os.path.exists(dataset_path):
-                os.makedirs(dataset_path)
-            basic_results.loc[dataset_name, 'Fedot_Industrial'] = metric
-            basic_results.to_csv(os.path.join(
-                dataset_path, 'metrics_report.csv'))
-            pred_df = pd.DataFrame([target, prediction]).T
-            pred_df.columns = ['label', 'prediction']
-            pred_df.to_csv(os.path.join(dataset_path, 'prediction.csv'))
-            model.solver.save(dataset_path)
-            gc.collect()
-        basic_path = os.path.join(
-            self.experiment_setup['output_folder'],
-            'comprasion_metrics_report.csv')
-        basic_results.to_csv(basic_path)
+            metric_dict.update({dataset_name[0]: metric})
+            if basic_results is not None:
+                self._save_with_basic_results(
+                    dataset_name,
+                    basic_results,
+                    metric,
+                    target,
+                    prediction,
+                    model)
+        if basic_results is not None:
+            basic_path = os.path.join(
+                self.experiment_setup['output_folder'],
+                'comprasion_metrics_report.csv')
+            basic_results.to_csv(basic_path)
+        else:
+            pd.DataFrame(metric_dict).to_csv('./metric_result.csv')
         self.logger.info("Benchmark test finished")
 
     def finetune(self):
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
             composed_model_path = PROJECT_PATH + self.path_to_save + \
-                f'/{dataset_name}' + '/0_pipeline_saved'
+                                  f'/{dataset_name}' + '/0_pipeline_saved'
             if os.path.isdir(composed_model_path):
                 self.experiment_setup['output_folder'] = PROJECT_PATH + \
-                    self.path_to_save
+                                                         self.path_to_save
                 experiment_setup = deepcopy(self.experiment_setup)
                 prediction, target = self.finetune_loop(
                     dataset_name, experiment_setup)
@@ -144,7 +161,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         results = results.dropna(axis=1, how='all')
         results = results.dropna(axis=0, how='all')
         self.experiment_setup['output_folder'] = PROJECT_PATH + \
-            self.path_to_save
+                                                 self.path_to_save
         return results
 
     def create_report(self):
@@ -152,14 +169,14 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         names = []
         for dataset_name in self.custom_datasets:
             model_result_path = PROJECT_PATH + self.path_to_save + \
-                f'/{dataset_name}' + '/metrics_report.csv'
+                                f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')
                 df = df.fillna(0)
                 if 'Fedot_Industrial_finetuned' not in df.columns:
                     df['Fedot_Industrial_finetuned'] = 0
                 metrics = df.loc[dataset_name,
-                                 'Fedot_Industrial':'Fedot_Industrial_finetuned']
+                          'Fedot_Industrial':'Fedot_Industrial_finetuned']
                 _.append(metrics.T.values)
                 names.append(dataset_name)
         stacked_results = np.stack(_, axis=1).T

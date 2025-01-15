@@ -6,13 +6,12 @@ from typing import Callable, Iterable, Tuple
 from uuid import uuid4
 
 import numpy as np
+from fedot.core.data.data import InputData
+from fedot.core.pipelines.pipeline import Pipeline
 from golem.core.optimisers.fitness import Fitness
 from golem.core.optimisers.objective.objective import to_fitness
 
-from fedot.core.data.data import InputData
-from fedot.core.pipelines.pipeline import Pipeline
-
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 DataSource = Callable[[], Iterable[Tuple[InputData, InputData]]]
 
@@ -57,7 +56,7 @@ def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
             stack_trace = traceback.format_exc()
             save_pipeline_for_debug(graph, train_data, test_data, ex, stack_trace)
             break  # if even one fold fails, the evaluation stops
-
+        self._validation_blocks = None
         evaluated_fitness = self._objective(prepared_pipeline,
                                             reference_data=test_data,
                                             validation_blocks=self._validation_blocks)

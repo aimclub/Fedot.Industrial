@@ -3,14 +3,12 @@ import math
 from multiprocessing import cpu_count
 
 import dask
-import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
 from numpy.lib import stride_tricks as stride_repr
 from pymonad.either import Either
 from tqdm.dask import TqdmCallback
 
-from fedot_ind.api.utils.data import init_input_data
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureSpaceReducer
@@ -68,8 +66,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         For those cases when you need to use feature extractor as a standalone object
         """
-        input_data = init_input_data(x, y)
-        transformed_features = self.transform(input_data, use_cache=self.use_cache)
+        transformed_features = self.transform((x, y), use_cache=self.use_cache)
         try:
             return pd.DataFrame(transformed_features.predict.squeeze(), columns=self.relevant_features)
         except ValueError:

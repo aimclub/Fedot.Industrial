@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.tools.loader import DataLoader
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 EXAMPLES_DATA_PATH = os.path.join(PROJECT_PATH, 'examples', 'data')
 MOCK_LOADER = DataLoader(dataset_name='mock')

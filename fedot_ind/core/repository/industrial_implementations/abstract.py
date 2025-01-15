@@ -1,4 +1,4 @@
-from copy import copy
+from copy import copy, deepcopy
 from functools import partial
 from itertools import chain
 from typing import List, Optional, Union
@@ -9,9 +9,8 @@ from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.cv_folds import cv_generator
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import _split_input_data_by_indexes
+from fedot.core.data.merge.data_merger import TSDataMerger
 from fedot.core.data.multi_modal import MultiModalData
-from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
-    transform_features_and_target_into_lagged
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.optimisers.objective import DataSource
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
@@ -24,6 +23,7 @@ from sklearn.model_selection import train_test_split
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
@@ -42,27 +42,10 @@ def split_time_series_industrial(data: InputData,
         forecast_length = data.task.task_params.forecast_length
     if validation_blocks is not None:
         forecast_length *= validation_blocks
-
-    target_length = len(data.target)
-    train_data = _split_input_data_by_indexes(
-        data, index=np.arange(
-            0, target_length - forecast_length), )
-    test_data = _split_input_data_by_indexes(
-        data,
-        index=np.arange(
-            target_length -
-            forecast_length,
-            target_length),
-        retain_first_target=True)
-
-    if validation_blocks is None:
-        # for in-sample
-        test_data.features = train_data.features
-    else:
-        # for out-of-sample
-        test_data.features = data.features
-
-    return train_data, test_data
+    train_data = deepcopy(data)
+    train_data.target = data.features[-forecast_length:]
+    train_data.features = data.features[:-forecast_length]
+    return train_data, data
 
 
 def split_any_industrial(data: InputData,
@@ -183,7 +166,7 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
         # for cross validation split ratio is defined as validation_size /
         # all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
-            1 - 1 / (self.cv_folds + 1))
+                1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:
@@ -221,7 +204,9 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
             train_data.task).with_search_space(search_space).with_tuner(
             tuning_params['tuner']).with_n_jobs(-1).with_metric(
             tuning_params['metric']).with_timeout(
-            tuning_params.get('tuning_timeout', 15.0)).build(tuning_data)
+            tuning_params.get('tuning_timeout', 15.0)).with_iterations(
+            tuning_params.get('tuning_iterations', 50)).with_early_stopping_rounds(
+            tuning_params.get('tuning_early_stop', 30)).build(tuning_data)
         # with_iterations(tuning_params.get('tuning_iterations',150)).\
         # with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 50))
 
@@ -257,21 +242,25 @@ def postprocess_industrial_predicts(self, merged_predicts: np.array) -> np.array
 def transform_lagged_industrial(self, input_data: InputData):
     train_data = copy(input_data)
     forecast_length = train_data.task.task_params.forecast_length
-
     # Correct window size parameter
-    self._check_and_correct_window_size(train_data.features, forecast_length)
-    window_size = self.window_size
-    new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
-        train_data, forecast_length, window_size)
-
-    # Update target for Input Data
-    if new_target.shape[0] != 0:
-        train_data.target = new_target
-        train_data.idx = new_idx
+    if self.window_size == 0:
+        self._check_and_correct_window_size(train_data.features, forecast_length)
+        self.fit_stage = True
     else:
-        train_data = input_data
+        self.log.info(("Window size dont change"))
+        self.fit_stage = False
+    window_size = max(self.window_size, 4)
+    lagged_features = HankelMatrix(
+        time_series=train_data.features,
+        window_size=window_size).trajectory_matrix.T
+    lagged_target = HankelMatrix(
+        time_series=train_data.features[self.window_size:],
+        window_size=forecast_length).trajectory_matrix.T
+    if self.fit_stage:
+        lagged_features = lagged_features[:lagged_target.shape[0], :]
+    train_data.target = lagged_target
     output_data = self._convert_to_output(train_data,
-                                          transformed_cols,
+                                          lagged_features,
                                           data_type=DataTypesEnum.image)
     return output_data
 
@@ -320,16 +309,14 @@ def _check_and_correct_window_size_industrial(
         Returns:
 
         """
-    max_allowed_window_size = max(
-        1, round((len(time_series) - forecast_length - 1) * 0.25))
-    window_list = list(
-        range(
-            3 *
-            forecast_length,
-            max_allowed_window_size,
-            round(
-                1.5 *
-                forecast_length)))
+    max_ws = round(len(time_series) - forecast_length - 1)
+    min_ws = max(round(len(time_series) * 0.05), 2)
+    max_allowed_window_size = max(min_ws, max_ws)
+    step = round(1.5 * forecast_length)
+    range_ws = max_allowed_window_size - min_ws
+    if step > range_ws:
+        step = round(range_ws * 0.5)
+    window_list = list(range(min_ws, max_allowed_window_size, step))
 
     if self.window_size == 0 or self.window_size > max_allowed_window_size:
         try:
@@ -358,21 +345,23 @@ def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputDa
     Returns:
         output data with transformed features table
     """
-    input_data.features = input_data.features.squeeze()
-    new_input_data = copy(input_data)
-    forecast_length = new_input_data.task.task_params.forecast_length
+    train_data = copy(input_data)
+    forecast_length = train_data.task.task_params.forecast_length
     # Correct window size parameter
-    self._check_and_correct_window_size(
-        new_input_data.features, forecast_length)
-    window_size = self.window_size
-    new_idx, transformed_cols, new_target = transform_features_and_target_into_lagged(
-        input_data, forecast_length, window_size)
-
-    # Update target for Input Data
-    new_input_data.target = new_target
-    new_input_data.idx = new_idx
-    output_data = self._convert_to_output(new_input_data,
-                                          transformed_cols,
+    if self.window_size == 0:
+        self._check_and_correct_window_size(train_data.features, forecast_length)
+    else:
+        self.log.info(("Window size dont change"))
+    lagged_features = HankelMatrix(
+        time_series=train_data.features,
+        window_size=self.window_size).trajectory_matrix.T
+    lagged_target = HankelMatrix(
+        time_series=train_data.features[self.window_size:],
+        window_size=forecast_length).trajectory_matrix.T
+    lagged_features = lagged_features[:lagged_target.shape[0], :]
+    train_data.target = lagged_target
+    output_data = self._convert_to_output(train_data,
+                                          lagged_features,
                                           data_type=DataTypesEnum.image)
     return output_data
 
@@ -409,6 +398,22 @@ def preprocess_industrial_predicts(*args) -> List[np.array]:
         return reshaped_predicts
 
 
+def find_main_output_industrial(outputs: List['OutputData']) -> 'OutputData':
+    """ Returns first output with main target or (if there are
+    no main targets) the output with priority secondary target. """
+    combine_ts_and_multi_ts = outputs[0].data_type.value.__contains__('time') and len(outputs) != 1
+    if combine_ts_and_multi_ts:
+        priority_output = [x for x in outputs if len(x.target.shape) < 2][0]
+    else:
+        priority_output = next((output for output in outputs
+                                if output.supplementary_data.is_main_target), None)
+        if not priority_output:
+            flow_lengths = [output.supplementary_data.data_flow_length for output in outputs]
+            i_priority_secondary = np.argmin(flow_lengths)
+            priority_output = outputs[i_priority_secondary]
+    return priority_output
+
+
 def merge_industrial_targets(self) -> np.array:
     filtered_main_target = self.main_output.target
     # if target has the same form as index
@@ -422,7 +427,7 @@ def merge_industrial_targets(self) -> np.array:
 
 def merge_industrial_predicts(*args) -> np.array:
     predicts = args[1]
-
+    is_forecasting_task = isinstance(args[0], TSDataMerger)
     predicts = [NumpyConverter(
         data=prediction).convert_to_torch_format() for prediction in predicts]
     sample_shape, channel_shape, elem_shape = [
@@ -437,14 +442,18 @@ def merge_industrial_predicts(*args) -> np.array:
     sample_match = all(sample_wise_concat)
 
     if sample_match and element_match:
-        return np.concatenate(predicts, axis=1)
+        predict = np.concatenate(predicts, axis=1)
+        if len(predicts) >= 2 and is_forecasting_task:
+            predict = predict.T
     elif sample_match and channel_match:
-        return np.concatenate(predicts, axis=2)
+        predict = np.concatenate(predicts, axis=2)
     else:
         prediction_2d = np.concatenate(
             [x.reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in predicts], axis=1)
-        return prediction_2d.reshape(
+        predict = prediction_2d.reshape(
             prediction_2d.shape[0], 1, prediction_2d.shape[1])
+
+    return predict
 
 
 def fit_topo_extractor_industrial(self, input_data: InputData):

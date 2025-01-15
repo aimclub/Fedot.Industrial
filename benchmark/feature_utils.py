@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 
 from benchmark.automl_forecasting import convert_tsf_to_dataframe, FREQUENCY_MAP
 from benchmark.automl_forecasting import frequencies
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 eeg_windows = {
     '10s': (4000, 6000),  # Middle 10s

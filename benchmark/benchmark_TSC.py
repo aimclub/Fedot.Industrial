@@ -8,12 +8,12 @@ from copy import deepcopy
 import pandas as pd
 
 from benchmark.abstract_bench import AbstractBenchmark
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.metrics_implementation import Accuracy
 from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
