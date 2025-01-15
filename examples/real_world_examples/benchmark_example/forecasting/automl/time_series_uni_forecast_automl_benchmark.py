@@ -1,13 +1,32 @@
 from benchmark.benchmark_TSF import BenchmarkTSF
 
 ml_task = 'ts_forecasting'
+model_list = [
+    'ar',
+    # 'glm',
+    'deepar_model',
+    # 'tcn_model',
+    'lagged',
+    # 'sparse_lagged', 'locf',
+    'smoothing',
+    'gaussian_filter',
+    'ridge',
+    'lasso',
+    # 'lgbmreg',
+    'catboostreg',
+    # 'pdl_reg',
+    # 'eigen_basis', 'wavelet_basis', 'fourier_basis'
+]
 experiment_setup = {'problem': ml_task,
                     'metric': 'rmse',
-                    'timeout': 5,
+                    'timeout': 2,
                     'num_of_generations': 10,
                     'pop_size': 10,
-                    'logging_level': 50,
-                    'n_jobs': 4,
+                    'logging_level': 10,
+                    'n_jobs': 1,
+                    'optimizer_params': {'mutation_agent': 'bandit',
+                                         'mutation_strategy': 'growth_mutation_strategy'},
+                    'available_operations': model_list,
                     'max_pipeline_fit_time': 25,
                     'with_tuning': False,
                     'early_stopping_iterations': 5,

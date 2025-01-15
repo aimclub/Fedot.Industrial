@@ -2,10 +2,10 @@ import os
 
 import pandas as pd
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH, M4_FORECASTING_LENGTH
 from fedot_ind.tools.example_utils import industrial_forecasting_modelling_loop, compare_forecast_with_sota, \
     read_results, create_comprasion_df
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 forecast_col = ['industrial', 'target', 'AG', 'NBEATS']
 metric_col = ['industrial', 'AG', 'NBEATS']

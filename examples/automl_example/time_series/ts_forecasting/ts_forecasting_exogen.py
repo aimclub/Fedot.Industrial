@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 if __name__ == "__main__":
     dataset_name = PROJECT_PATH + \
