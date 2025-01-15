@@ -72,6 +72,7 @@ class SynthTimeSeriesData:
             plot=plot, binarize=binarize, series=time_series, anomaly_dict=self.config)
         return features, target
 
+
 class TimeSeriesGenerator:
     """
     A class for generating various types of time series data.
