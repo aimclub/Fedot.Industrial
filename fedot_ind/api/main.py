@@ -242,10 +242,10 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        fit_function = lambda train_data: \
+        def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data, self.manager.industrial_config.is_default_fedot_context]). \
-                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                       right_function=lambda data: self.manager.solver.fit(data))
+            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                   right_function=lambda data: self.manager.solver.fit(data))
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
             then(lambda data: self.__init_solver(data)). \
@@ -365,7 +365,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                                                   probs in self.predicted_probs.items()}
+                probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(
