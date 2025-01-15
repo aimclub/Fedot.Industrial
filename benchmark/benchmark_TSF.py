@@ -70,9 +70,9 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
             experiment_setup['task_params'] = TsForecastingParams(
                 forecast_length=M4_FORECASTING_LENGTH[dataset[0]])
         target = train_data.iloc[-experiment_setup['task_params']
-        .forecast_length:, :].values.ravel()
+                                 .forecast_length:, :].values.ravel()
         train_data = train_data.iloc[:-
-        experiment_setup['task_params'].forecast_length, :]
+                                     experiment_setup['task_params'].forecast_length, :]
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(train_data)
