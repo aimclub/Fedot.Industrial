@@ -32,7 +32,6 @@ def create_feature_generator_strategy():
     fourier_params = {'low_rank': 5, 'output_format': 'signal', 'compute_heuristic_representation': True,
                       'approximation': 'smooth', 'threshold': 0.9, 'sampling_rate': 64e3}
     wavelet_params = {'n_components': 3, 'wavelet': 'bior3.7', 'compute_heuristic_representation': True}
-    park_params = {}
     rocket_params = {"num_features": 200}
     sampling_dict = dict(samples=dict(start_idx=0,
                                       end_idx=None),
@@ -57,7 +56,7 @@ INDUSTRIAL_PARAMS = {'feature_generator': feature_generator,
                      'sampling_strategy': sampling_dict
                      }
 
-#### DEFINE ALL CONFIG FOR API
+# DEFINE ALL CONFIG FOR API
 AUTOML_LEARNING_STRATEGY = DEFAULT_AUTOML_LEARNING_CONFIG
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
 AUTOML_CONFIG = {'task': 'classification',
