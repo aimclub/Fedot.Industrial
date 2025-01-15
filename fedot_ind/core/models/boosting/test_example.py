@@ -67,7 +67,7 @@ def eval_boosting_perfomance(eval_func, X, X_test, y, y_test):
     inference_list = []
     for i in range(10):
         start = timeit.default_timer()
-        pred = model.predict(X_test)
+        model.predict(X_test)
         end = timeit.default_timer()
         inference = end - start
         inference_list.append(inference)
