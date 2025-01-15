@@ -90,55 +90,57 @@ class FedotIndustrial(Fedot):
 
     def __init__(self, **kwargs):
         super(Fedot, self).__init__()
-        self.manager = ApiManager(**kwargs)
-        self.config = self.manager.config
+        self.manager = ApiManager().build(kwargs)
         self.logger = self.manager.logger
-        self.cluster_params = self.manager.dask_cluster_params
-        self.strategy_cls = self.manager.strategy_class
-        self.solver = self.manager.solver
-        self.__init_industrial_backend()
 
-    def __init_industrial_backend(self):
+    def __init_industrial_backend(self, input_data):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Industrial Repository')
-        if self.manager.is_default_fedot_context:
+        if self.manager.industrial_config.is_default_fedot_context:
+            self.logger.info(f'-------------------------------------------------')
+            self.logger.info('Initialising Fedot Evolutionary Optimisation params')
             self.repo = IndustrialModels().setup_default_repository()
-            self.config['optimizer'] = FedotEvoOptimizer
+            self.manager.automl_config.optimisation_strategy = FedotEvoOptimizer
         else:
+            self.logger.info(f'-------------------------------------------------')
+            self.logger.info('Initialising Industrial Evolutionary Optimisation params')
             self.repo = IndustrialModels().setup_repository(backend=self.manager.backend_method)
+            optimisation_agent = self.manager.automl_config.optimisation_strategy['optimisation_agent']
+            optimisation_params = self.manager.automl_config.optimisation_strategy['optimisation_agent']
+            self.manager.automl_config.optimisation_strategy = partial(optimisation_agent,
+                                                                       optimisation_params=optimisation_params)
+        return input_data
 
-    def __init_evolution_optimisation_params(self):
-        self.logger.info(f'-------------------------------------------------')
-        self.logger.info('Initialising Evolutionary Optimisation params')
-        if self.manager.optimizer_params is not None:
-            self.config['optimizer'] = partial(self.config['optimizer'],
-                                               optimisation_params=self.manager.optimizer_params)
-
-    def __init_solver(self):
+    def __init_solver(self, input_data):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Dask Server')
-        self.config['initial_assumption'] = self.config['initial_assumption'].build()
-        self.dask_client = DaskServer(self.cluster_params).client
+        if self.manager.automl_config.config['initial_assumption'] is None:
+            self.manager.automl_config.config['initial_assumption'] = \
+                self.manager.industrial_config.config['initial_assumption'].build()
+        else:
+            self.manager.automl_config.config['initial_assumption'] = \
+                self.manager.automl_config.config['initial_assumption'].build()
+        self.dask_client = DaskServer(self.manager.compute_config.distributed).client
         setattr(CONST_REPO, 'DASK_CLIENT', self.dask_client)
         self.logger.info(f'Link Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info('-' * 50)
         self.logger.info('Initialising solver')
-        self.__init_industrial_backend()
-        self.__init_evolution_optimisation_params()
-        self.solver = Fedot(**self.config)
+        self.manager.solver = Fedot(
+            **self.manager.learning_config.config['learning_strategy_params'],
+            metric=self.manager.learning_config.config['optimisation_loss'],
+            problem=self.manager.automl_config.config['task'],
+            task_params=self.manager.automl_config.config['task_params'],
+            available_operations=self.manager.automl_config.config['available_operations'],
+            initial_assumption=self.manager.automl_config.config['initial_assumption'])
+        return input_data
 
     def _process_input_data(self, input_data):
-        train_data = deepcopy(input_data)  # we do not want to make inplace changes
-        input_preproc = DataCheck(
-            input_data=train_data,
-            task=self.config['problem'],
-            task_params=self.manager.task_params,
-            fit_stage=True,
-            industrial_task_params=self.manager)
-        train_data = input_preproc.check_input_data()
-        self.target_encoder = input_preproc.get_target_encoder()
-
-        train_data.features = train_data.features.squeeze() if self.manager.is_default_fedot_context \
+        train_data, self.target_encoder = Either.insert(input_data).then(lambda data: deepcopy(data)). \
+            then(lambda data: DataCheck(input_data=data, task=self.manager.automl_config.config['task'],
+                                        task_params=self.manager.automl_config.config['task_params'], fit_stage=True,
+                                        industrial_task_params=self.manager.industrial_config.strategy_params)). \
+            then(lambda data_cls: (data_cls.check_input_data(), data_cls.get_target_encoder())).value
+        train_data.features = train_data.features.squeeze() if self.manager.industrial_config.is_default_fedot_context \
             else train_data.features
         return train_data
 
@@ -161,22 +163,19 @@ class FedotIndustrial(Fedot):
         return calibrated_proba
 
     def __predict_for_ensemble(self):
-        predict = self.strategy_cls.predict(
-            self.predict_data, 'probs')
-        ensemble_strat = self.strategy_cls.ensemble_strategy
-        predict = {strategy: np.argmax(self.strategy_cls.ensemble_predictions(predict, strategy), axis=1)
-                   for strategy in ensemble_strat}
+        predict = self.manager.industrial_config.strategy.predict(self.predict_data, 'probs')
+        ensemble_strat = self.manager.industrial_config.strategy.ensemble_strategy
+        predict = {strategy: np.argmax(self.manager.industrial_config.strategy.ensemble_predictions(
+            predict, strategy), axis=1) for strategy in ensemble_strat}
         return predict
 
     def __abstract_predict(self, predict_mode):
         have_encoder = self.manager.condition_check.solver_have_target_encoder(self.target_encoder)
         labels_output = predict_mode in ['labels']
-        default_fedot_strategy = self.manager.industrial_strategy is None
-        custom_predict = self.solver.predict if default_fedot_strategy else self.manager.strategy_class.predict
         have_proba_output = hasattr(self.solver, 'predict_proba')
         self.__init_industrial_backend()
-        default_fedot_strategy = self.manager.strategy_class is None
-        custom_predict = self.solver.predict if default_fedot_strategy else self.strategy_cls.predict
+        custom_predict = self.solver.predict if self.manager.industrial_config.is_default_fedot_context \
+            else self.manager.industrial_config.strategy.predict
 
         predict_function = Either(value=custom_predict,
                                   monoid=['prob', labels_output]).either(
@@ -243,15 +242,14 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
-        self.is_finetuned = False
-        self.train_data = self._process_input_data(input_data)
-        self.__init_solver()
-
-        Either(value=self.train_data,
-               monoid=[self.train_data, self.strategy_cls is None]).either(
-            left_function=lambda data: self.strategy_cls.fit(data),
-            right_function=self.solver.fit
-        )
+        fit_function = lambda train_data: \
+            Either(value=train_data, monoid=[train_data, self.manager.industrial_config.is_default_fedot_context]). \
+                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                       right_function=lambda data: self.manager.solver.fit(data))
+        Either.insert(self._process_input_data(input_data)). \
+            then(lambda data: self.__init_industrial_backend(data)). \
+            then(lambda data: self.__init_solver(data)). \
+            then(fit_function)
 
     def predict(self,
                 predict_data: tuple,
@@ -367,7 +365,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

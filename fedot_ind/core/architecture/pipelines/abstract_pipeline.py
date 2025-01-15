@@ -125,9 +125,16 @@ class ApiTemplate:
 
     def _prepare_dataset(self, dataset):
         dataset_is_dict = isinstance(dataset, dict)
-        custom_dataset_strategy = self.api_config['industrial_strategy'] if 'industrial_strategy' \
-                                                                            in self.api_config.keys() \
-            else self.api_config['problem'] if self.api_config['problem'] == 'ts_forecasting' else None
+        have_specified_industrial_strategy = 'strategy' in self.api_config['industrial_config'].keys()
+        is_forecasting_task = self.api_config['industrial_config']['problem'].__contains__('ts_forecasting')
+
+        if have_specified_industrial_strategy:
+            custom_dataset_strategy = self.api_config['industrial_config']['strategy']
+        elif is_forecasting_task:
+            custom_dataset_strategy = self.api_config['industrial_config']['problem']
+        else:
+            custom_dataset_strategy = None
+
         loader = DataLoader(dataset_name=dataset)
 
         train_data, test_data = Either(value=dataset,
@@ -158,8 +165,7 @@ class ApiTemplate:
             self.api_config['initial_assumption'] = pipeline
         self.industrial_class = FedotIndustrial(**self.api_config)
         Either(value=self.train_data, monoid=[dict(train_data=self.train_data,
-                                                   tuning_params={'tuning_timeout': self.api_config['timeout']}),
-                                              not finetune]). \
+                                                   tuning_params={'tuning_timeout': 5}), not finetune]). \
             either(left_function=lambda tuning_data: self.industrial_class.finetune(**tuning_data),
                    right_function=self.industrial_class.fit)
         return self._get_result(self.test_data)
