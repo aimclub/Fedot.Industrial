@@ -60,6 +60,7 @@ from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentro
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
+from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.operation.transformation.representation.recurrence.reccurence_extractor import RecurrenceExtractor
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
@@ -145,7 +146,9 @@ class AtomizedModel(Enum):
         'lgbmreg': LGBMRegressor,
         "catboostreg": FedotCatBoostRegressionImplementation,
         # pairwise model
-        'pdl_reg': PairwiseDifferenceRegressor
+        'pdl_reg': PairwiseDifferenceRegressor,
+        # ensemble
+        'bagging': BaggingEnsemble
     }
 
     FORECASTING_MODELS = {

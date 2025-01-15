@@ -20,18 +20,17 @@ from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, ch
     minkowski
 from sklearn.ensemble import ExtraTreesRegressor, GradientBoostingClassifier, \
     RandomForestClassifier
-from sklearn.linear_model import (
-    Lasso as SklearnLassoReg,
-    LogisticRegression as SklearnLogReg,
-    Ridge as SklearnRidgeReg,
-    SGDRegressor as SklearnSGD
-)
+from sklearn.linear_model import (LinearRegression as linreg,
+                                  Lasso as SklearnLassoReg,
+                                  LogisticRegression as SklearnLogReg,
+                                  Ridge as SklearnRidgeReg,
+                                  SGDRegressor as SklearnSGD
+                                  )
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from torch import nn
 from xgboost import XGBRegressor
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
     calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
@@ -46,6 +45,7 @@ from fedot_ind.core.operation.transformation.representation.topological.topofeat
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,
@@ -79,7 +79,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
 
 def beta_thr(beta):
     return 0.56 * np.power(beta, 3) - 0.95 * \
-        np.power(beta, 2) + 1.82 * beta + 1.43
+           np.power(beta, 2) + 1.82 * beta + 1.43
 
 
 def get_default_industrial_model_params(model_name):
@@ -191,6 +191,13 @@ class FeatureConstant(Enum):
         'q25_': q25,
         'q75_': q75,
         'q95_': q95
+    }
+    BAGGING_METHOD = {
+        'mean': np.mean,
+        'median': np.median,
+        'max': np.max,
+        'min': np.min,
+        'weighted': linreg
     }
 
     STAT_METHODS_GLOBAL = {
@@ -356,13 +363,22 @@ class FedotOperationConstant(Enum):
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
         'regression_tabular': PipelineBuilder().add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
-        'ts_forecasting': PipelineBuilder().add_node('ar')}
+        'ts_forecasting': PipelineBuilder().add_node('ar'),
+        # 'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')
+    }
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
         'eigen_ar': EigenAR,
         # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast'),
         # 'nbeats': PipelineBuilder().add_node('nbeats_model'),
     }
+
+    FEDOT_INDUSTRIAL_STRATEGY = ['federated_automl',
+                                 'kernel_automl',
+                                 'forecasting_assumptions',
+                                 'forecasting_exogenous',
+                                 'lora_strategy',
+                                 'sampling_strategy']
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
@@ -801,6 +817,7 @@ class UnitTestConstant(Enum):
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
 STAT_METHODS_GLOBAL = FeatureConstant.STAT_METHODS_GLOBAL.value
+BAGGING_METHOD = FeatureConstant.BAGGING_METHOD.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
 PERSISTENCE_DIAGRAM_EXTRACTOR = FeatureConstant.PERSISTENCE_DIAGRAM_EXTRACTOR.value
 DISCRETE_WAVELETS = FeatureConstant.DISCRETE_WAVELETS.value
@@ -834,6 +851,7 @@ FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
+FEDOT_INDUSTRIAL_STRATEGY = FedotOperationConstant.FEDOT_INDUSTRIAL_STRATEGY.value
 FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
 FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
 FEDOT_MUTATION_STRATEGY = FedotOperationConstant.FEDOT_MUTATION_STRATEGY.value

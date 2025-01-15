@@ -6,7 +6,7 @@ from random import choice, sample, random
 from typing import Sequence, Optional
 from typing import Tuple
 
-from fedot.core.composer.gp_composer.specific_operators import boosting_mutation
+import numpy as np
 from fedot.core.pipelines.adapters import PipelineAdapter
 from fedot.core.pipelines.node import PipelineNode
 from fedot.core.pipelines.pipeline import Pipeline
@@ -78,6 +78,13 @@ class IndustrialMutations:
 
     def _define_basis_and_extractor_space(self):
         self.basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
+        self.ts_preproc_model = get_operations_for_task(task=self.task_type, mode='data_operation',
+                                                        tags=["smoothing",
+                                                              # "non_lagged"
+                                                              ])
+        self.ts_model = get_operations_for_task(task=self.task_type, mode='model',
+                                                tags=["time_series"])
+        self.ts_model = [x for x in self.ts_model if x not in self.excluded]
         extractors = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["extractor"])
         self.extractors = [
             x for x in extractors if x in self.industrial_data_operations and x != 'channel_filtration']
@@ -326,6 +333,24 @@ class IndustrialMutations:
         graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
         return graph
 
+    def __add_forecasting_preprocessing(self,
+                                        graph: Pipeline, **kwargs) -> Pipeline:
+
+        # create subtree with basis transformation and feature extraction
+        transformation_node = PipelineNode(choice(self.ts_preproc_model))
+        node_to_add_transformation = list(
+            filter(lambda x: x.name in self.ts_model, graph.nodes))[0]
+        mutation_node = PipelineNode(node_to_add_transformation.name, nodes_from=[transformation_node])
+        graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
+        return graph
+
+    def add_forecasting_preprocessing(self,
+                                      graph: Pipeline, **kwargs) -> Pipeline:
+        mutation_dict = {'lagged_mutation': self.add_lagged,
+                         'preproc_mutation': self.__add_forecasting_preprocessing}
+        type_of_mutation = np.random.choice(['lagged_mutation', 'preproc_mutation'])
+        return mutation_dict[type_of_mutation](graph)
+
     def add_lagged(self, pipeline: Pipeline, **kwargs) -> Pipeline:
         lagged = ['lagged', 'ridge']
         current_operation = list(reversed([x.name for x in pipeline.nodes]))
@@ -336,7 +361,7 @@ class IndustrialMutations:
                 *lagged,
                 branch_idx=0).add_sequence(
                 *current_operation,
-                branch_idx=1).join_branches('ridge').build()
+                branch_idx=1).join_branches('bagging').build()
             return pipeline
 
 
@@ -354,9 +379,16 @@ def _get_default_industrial_mutations(
     ]
     # TODO remove workaround after boosting mutation fix
     if task_type == TaskTypesEnum.ts_forecasting:
-        mutations.append(boosting_mutation)
+        mutations = [
+            ind_mutations.parameter_change_mutation,
+            ind_mutations.single_change,
+            ind_mutations.add_forecasting_preprocessing,
+            ind_mutations.single_drop,
+            ind_mutations.single_add
+        ]
+        # #mutations.append(boosting_mutation)
         # mutations.append(ind_mutations.add_lagged)
-        mutations.remove(ind_mutations.add_preprocessing)
+        # mutations.remove(ind_mutations.add_preprocessing)
     return mutations
 
 
@@ -412,9 +444,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                node_depth(node_from_graph_first)
+                                   node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                node_depth(node_from_graph_second)
+                                    node_depth(node_from_graph_second)
 
             replace_subtrees(
                 graph_first,

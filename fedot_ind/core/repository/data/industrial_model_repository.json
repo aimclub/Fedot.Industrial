@@ -214,7 +214,7 @@
     },
     "fedot_NN_forecasting": {
       "tasks": "[TaskTypesEnum.ts_forecasting]",
-      "input_type": "[DataTypesEnum.ts]",
+      "input_type": "[DataTypesEnum.ts, DataTypesEnum.table]",
       "output_type": "[DataTypesEnum.table]",
       "accepted_node_types": [
         "any"
@@ -224,7 +224,8 @@
         "fedot_ind.core.operation.interfaces.industrial_model_strategy",
         "FedotNNTimeSeriesStrategy"
       ],
-      "tags": ["time_series"
+      "tags": [
+        "time_series"
       ],
       "description": "Implementations of fedot NN forecasting strategy"
     },
@@ -701,25 +702,43 @@
     },
     "ets": {
       "meta": "ts_model",
-      "presets": ["fast_train", "ts"],
+      "presets": [
+        "fast_train",
+        "ts"
+      ],
       "tags": [
         "simple",
         "interpretable",
         "non_lagged",
         "non_linear"
       ],
-	  "input_type": "[DataTypesEnum.ts]"
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "bagging": {
+      "meta": "sklearn_regr",
+      "presets": [
+        "fast_train",
+        "ts"
+      ],
+      "tags": [
+        "simple",
+        "interpretable"
+      ],
+      "input_type": "[DataTypesEnum.table]"
     },
     "locf": {
       "meta": "ts_model",
-      "presets": ["fast_train", "ts"],
+      "presets": [
+        "fast_train",
+        "ts"
+      ],
       "tags": [
         "non_linear",
         "simple",
         "interpretable",
         "non_lagged"
       ],
-	  "input_type": "[DataTypesEnum.ts]"
+      "input_type": "[DataTypesEnum.ts]"
     },
     "ts_naive_average": {
       "meta": "ts_model",

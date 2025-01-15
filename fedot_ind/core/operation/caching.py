@@ -1,12 +1,12 @@
 import hashlib
+import logging
 import os
 import timeit
 
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
-import logging
 
-from fedot_ind.api.utils.path_lib import PROJECT_PATH
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 
 class DataCacher:

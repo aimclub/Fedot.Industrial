@@ -116,6 +116,20 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         self.mutation.update_requirements(requirements=self.requirements)
         return extended_pop
 
+    def __evolve_pop(self, individuals_to_select, evaluator):
+        new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
+
+        # Adaptive agent experience collection & learning
+        # Must be called after reproduction (that collects the new experience)
+        experience = self.mutation.agent_experience
+        experience.collect_results(new_population)
+        self.mutation.agent.partial_fit(experience)
+
+        # Use some part of previous pop in the next pop
+        new_population = self.inheritance(self.population, new_population)
+        new_population = self.elitism(self.generations.best_individuals, new_population)
+        return new_population
+
     def _evolve_population(self, evaluator: EvaluationOperator) -> PopulationT:
         """ Method realizing full evolution cycle """
 
@@ -124,22 +138,15 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         self._update_requirements()
 
         # Regularize previous population
-        individuals_to_select = self.regularization(self.population, evaluator)
         # Reproduce from previous pop to get next population
-        try:
-            new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
-
-            # Adaptive agent experience collection & learning
-            # Must be called after reproduction (that collects the new experience)
-            experience = self.mutation.agent_experience
-            experience.collect_results(new_population)
-            self.mutation.agent.partial_fit(experience)
-
-            # Use some part of previous pop in the next pop
-            new_population = self.inheritance(self.population, new_population)
-            new_population = self.elitism(self.generations.best_individuals, new_population)
-        except Exception:
-            _ = 1
-            new_population = self.population
+        for step in range(5):
+            # Regularize previous population
+            try:
+                individuals_to_select = self.regularization(self.population, evaluator)
+                new_population = self.__evolve_pop(individuals_to_select, evaluator)
+            except:
+                new_population = []
+            if len(new_population) != 0:
+                break
 
         return new_population

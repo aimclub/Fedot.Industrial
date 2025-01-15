@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pandas as pd
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import \
     DataOperationImplementation
@@ -7,6 +8,22 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
+
+def check_multivariate_data(data: pd.DataFrame) -> tuple:
+    """
+    Checks if the provided pandas DataFrame contains multivariate data.
+
+    Args:
+        data (pd.DataFrame): The DataFrame to be analyzed.
+
+    Returns:
+        bool: True if the DataFrame contains multivariate data (nested columns), False otherwise.
+    """
+    if not isinstance(data, pd.DataFrame):
+        return len(data.shape) > 2, data
+    else:
+        return isinstance(data.iloc[0, 0], pd.Series), data.values
 
 
 class DummyOperation(DataOperationImplementation):

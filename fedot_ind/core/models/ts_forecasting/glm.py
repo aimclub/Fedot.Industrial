@@ -1,19 +1,19 @@
 from copy import copy
+
 import numpy as np
 import statsmodels.api as sm
+from fedot.core.data.data import InputData, OutputData
+from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import ts_to_table
+from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
+from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
 from golem.core.tuning.optuna_tuner import OptunaTuner
 from scipy.stats import kurtosis, skew
 from statsmodels.genmod.families import Gamma, Gaussian, InverseGaussian
 from statsmodels.genmod.families.links import inverse_squared, log as lg
 from statsmodels.genmod.generalized_linear_model import GLM
-
-from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import ts_to_table
-from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
-from fedot.core.operations.operation_parameters import OperationParameters
-from fedot.core.repository.dataset_types import DataTypesEnum
 
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 
@@ -34,7 +34,7 @@ class GLMIndustrial(ModelImplementation):
         self.ar_tuning_params = dict(
             tuner=OptunaTuner,
             metric=RegressionMetricsEnum.RMSE,
-            tuning_timeout=3,
+            tuning_timeout=1,
             tuning_early_stop=20,
             tuning_iterations=50)
 
