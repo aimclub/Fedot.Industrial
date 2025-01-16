@@ -21,11 +21,12 @@ from fedot_ind.core.metrics.pipeline import industrial_evaluate_pipeline
 from fedot_ind.core.repository.constanst_repository import IND_DATA_OPERATION_PATH, IND_MODEL_OPERATION_PATH, \
     DEFAULT_DATA_OPERATION_PATH, DEFAULT_MODEL_OPERATION_PATH
 from fedot_ind.core.repository.industrial_implementations.abstract import preprocess_industrial_predicts, \
-    transform_lagged_for_fit_industrial, transform_smoothing_industrial, transform_lagged_industrial, \
     merge_industrial_predicts, merge_industrial_targets, build_industrial, postprocess_industrial_predicts, \
     split_any_industrial, split_time_series_industrial, predict_operation_industrial, predict_industrial, \
-    predict_for_fit_industrial, update_column_types_industrial, _check_and_correct_window_size_industrial, \
+    predict_for_fit_industrial, update_column_types_industrial, \
     fit_topo_extractor_industrial, transform_topo_extractor_industrial, find_main_output_industrial
+from fedot_ind.core.repository.industrial_implementations.data_transformation import transform_lagged_industrial, \
+    transform_lagged_for_fit_industrial, _check_and_correct_window_size_industrial, transform_smoothing_industrial
 from fedot_ind.core.repository.industrial_implementations.ml_optimisation import DaskOptunaTuner, \
     tune_pipeline_industrial
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations

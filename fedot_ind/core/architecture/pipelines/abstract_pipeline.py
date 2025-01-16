@@ -33,30 +33,17 @@ class AbstractPipeline:
             self.base_metric = _metric_dict[self.task]
 
     @staticmethod
-    def create_pipeline(node_list, build: bool = True):
+    def create_pipeline(node_list: dict, build: bool = True):
         pipeline = PipelineBuilder()
-
-        if isinstance(node_list, dict):
-            key_is_model_name = isinstance(list(node_list.keys())[0], str)
-            if key_is_model_name:
-                for node, params in node_list.items():
-                    pipeline.add_node(node, params=params)
-            else:
-                for branch, nodes in node_list.items():
-                    if isinstance(branch, int):
-                        for node in nodes:
-                            if isinstance(node, tuple):
-                                pipeline.add_node(operation_type=node[0], params=node[1], branch_idx=branch)
-                            else:
-                                pipeline.add_node(operation_type=node, branch_idx=branch)
+        for branch, nodes in node_list.items():
+            for node in nodes:
+                if isinstance(branch, int):
+                    if isinstance(node, tuple):
+                        pipeline.add_node(operation_type=node[0], params=node[1], branch_idx=branch)
                     else:
-                        pipeline.join_branches(nodes)
-        elif isinstance(node_list, PipelineBuilder):
-            return pipeline
-        else:
-            for node in node_list:
-                pipeline.add_node(node)
-
+                        pipeline.add_node(operation_type=node, branch_idx=branch)
+                else:
+                    pipeline.join_branches(operation_type=node)
         return pipeline.build() if build else pipeline
 
     def tune_pipeline(
@@ -160,11 +147,11 @@ class ApiTemplate:
              finetune: bool = False,
              initial_assumption: Union[list, dict] = None):
         self.train_data, self.test_data = self._prepare_dataset(dataset)
-        if initial_assumption is not None:
-            pipeline = AbstractPipeline.create_pipeline(initial_assumption, build=False)
-            self.api_config['initial_assumption'] = pipeline
+        pipeline_to_tune = AbstractPipeline.create_pipeline(initial_assumption, build=False) \
+            if initial_assumption is not None else None
         self.industrial_class = FedotIndustrial(**self.api_config)
         Either(value=self.train_data, monoid=[dict(train_data=self.train_data,
+                                                   model_to_tune=pipeline_to_tune,
                                                    tuning_params={'tuning_timeout': 5}), not finetune]). \
             either(left_function=lambda tuning_data: self.industrial_class.finetune(**tuning_data),
                    right_function=self.industrial_class.fit)

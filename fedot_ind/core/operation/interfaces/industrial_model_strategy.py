@@ -135,7 +135,7 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
 
 
 class IndustrialSkLearnEvaluationStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
 
     def __init__(
             self,
@@ -166,7 +166,7 @@ class IndustrialSkLearnEvaluationStrategy(
 
 
 class IndustrialSkLearnClassificationStrategy(
-        IndustrialSkLearnEvaluationStrategy):
+    IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying classification algorithms from Sklearn library """
     _operations_by_types = SKLEARN_CLF_MODELS
 
@@ -205,8 +205,7 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
             trained_operation, predict_data, output_mode='labels')
 
 
-class IndustrialSkLearnForecastingStrategy(
-        IndustrialSkLearnEvaluationStrategy):
+class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying forecasting algorithms """
     _operations_by_types = FORECASTING_MODELS
 
@@ -261,8 +260,7 @@ class IndustrialCustomRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
         return self.multi_dim_dispatcher.fit(train_data)
 
 
-class IndustrialAnomalyDetectionStrategy(
-        IndustrialSkLearnClassificationStrategy):
+class IndustrialAnomalyDetectionStrategy(IndustrialSkLearnClassificationStrategy):
     """ Strategy for applying classification algorithms from Sklearn library """
     _operations_by_types = ANOMALY_DETECTION_MODELS
 

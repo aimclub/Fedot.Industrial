@@ -7,20 +7,20 @@ from typing import Union, Callable
 import numpy as np
 import pandas as pd
 from fedot.api.main import Fedot
-from fedot.core.data.data import OutputData
+from fedot.core.data.data import OutputData, InputData
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
 from pymonad.either import Either
 from sklearn import model_selection as skms
 from sklearn.calibration import CalibratedClassifierCV
+
 from fedot_ind.api.utils.api_init import ApiManager
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
 from fedot_ind.core.architecture.pipelines.classification import (
     SklearnCompatibleClassifier,
 )
-from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
 from fedot_ind.core.repository.constanst_repository import (
     FEDOT_GET_METRICS,
     FEDOT_TUNER_STRATEGY,
@@ -295,10 +295,9 @@ class FedotIndustrial(Fedot):
         return self.__calibrate_probs(self.solver.current_pipeline) if calibrate_probs else self.predicted_probs
 
     def finetune(self,
-                 train_data,
-                 tuning_params=None,
-                 model_to_tune=None,
-                 mode: str = 'head'):
+                 train_data: Union[InputData, dict, tuple],
+                 tuning_params: dict = None,
+                 model_to_tune: Pipeline = None):
         """Method to obtain prediction probabilities from trained Industrial model.
 
             Args:
@@ -308,29 +307,24 @@ class FedotIndustrial(Fedot):
                 mode: str, ``default='head'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
 
             """
-        tuned_metric = 0
-        self.is_finetuned = True
 
-        train_data = self._process_input_data(train_data) if \
-            not self.manager.condition_check.input_data_is_fedot_type(train_data) else train_data
-        if tuning_params is None:
-            tuning_params = ApiConverter.tuning_params_is_none(tuning_params)
-        tuning_params['metric'] = FEDOT_TUNING_METRICS[self.config['problem']]
+        def _fit_pipeline(data_dict):
+            fitted_pipeline = deepcopy(data_dict['model_to_tune'])
+            fit_result = fitted_pipeline.fit(data_dict['train_data'])
+            predict = fitted_pipeline.predict(data_dict['train_data'])
+            return data_dict
 
-        for tuner_name, tuner_type in FEDOT_TUNER_STRATEGY.items():
-            if self.manager.condition_check.solver_is_fedot_class(self.solver):
-                model_to_tune = deepcopy(self.solver.current_pipeline)
-            elif not self.manager.condition_check.solver_is_none(model_to_tune):
-                model_to_tune = model_to_tune
-            else:
-                model_to_tune = deepcopy(
-                    self.config['initial_assumption']).build()
-            tuning_params['tuner'] = tuner_type
-            pipeline_tuner, model_to_tune = build_tuner(
-                self, model_to_tune, tuning_params, train_data, mode)
-            if abs(pipeline_tuner.obtained_metric) > tuned_metric:
-                tuned_metric = abs(pipeline_tuner.obtained_metric)
-                self.solver = model_to_tune
+        is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
+        tuning_params['metric'] = FEDOT_TUNING_METRICS[self.manager.automl_config.config['task']]
+        tuning_params['tuner'] = FEDOT_TUNER_STRATEGY[tuning_params.get('tuner', 'optuna')]
+        model_to_tune = Either.insert(train_data). \
+            then(lambda data: self._process_input_data(data) if not is_fedot_datatype else data). \
+            then(lambda data: self.__init_industrial_backend(data)). \
+            then(lambda processed_data: {'train_data': processed_data} |
+                                        {'model_to_tune': model_to_tune.build()} |
+                                        {'tuning_params': tuning_params}). \
+            then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)). \
+            then(lambda dict_for_tune: build_tuner(self, **dict_for_tune))
 
     def get_metrics(self,
                     target: Union[list, np.array] = None,

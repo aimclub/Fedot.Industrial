@@ -57,7 +57,7 @@ class IndustrialConfig(ConfigTemplate):
         return self.is_regression_task_context
 
     def with_industrial_strategy_params(self, kwargs):
-        self.strategy_params = kwargs.get('strategy_params')
+        self.strategy_params = kwargs.get('strategy_params', None)
         return self.strategy_params
 
     def with_forecasting_context(self, kwargs):
@@ -69,8 +69,8 @@ class IndustrialConfig(ConfigTemplate):
         return self.is_forecasting_context
 
     def with_industrial_initial_assumption(self, kwargs):
-        self.initial_assumption = kwargs.get('initial_assumption')
-        problem = kwargs.get('problem')
+        self.initial_assumption = kwargs.get('initial_assumption', None)
+        problem = kwargs['problem']
         problem = problem if not self.is_default_fedot_context else f'{problem}_{self.strategy}'
         if self.initial_assumption is None:
             self.initial_assumption = Either(value=problem,
@@ -163,6 +163,8 @@ class AutomlConfig(ConfigTemplate):
 
     def with_available_operations(self, available_operations: List[str] = None):
         self.available_operations = available_operations
+        if self.available_operations is None:
+            self.available_operations = default_industrial_availiable_operation(self.task)
         return self.available_operations
 
     def with_optimisation_strategy(self, optimisation_strategy: dict = None):
@@ -209,6 +211,7 @@ class ApiManager(ConfigTemplate):
                      'compute_config': self.with_compute_config}
         self.optimisation_agent = {"Industrial": IndustrialEvoOptimizer,
                                    'Fedot': FedotEvoOptimizer}
+        self.condition_check = ApiConverter()
 
     def null_state_object(self):
         self.solver = None
@@ -348,6 +351,6 @@ class OldApiManager:
         self.logger.info('Initialising experiment setup')
 
         industrial_params = set(self.config.keys()) - \
-            set(FEDOT_API_PARAMS.keys())
+                            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config.pop(param, None)

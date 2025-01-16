@@ -1,9 +1,8 @@
-from copy import copy, deepcopy
+from copy import deepcopy
 from functools import partial
 from itertools import chain
 from typing import List, Optional, Union
 
-import pandas as pd
 from fedot.core.constants import default_data_split_ratio_by_task
 from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.cv_folds import cv_generator
@@ -15,7 +14,6 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.optimisers.objective import DataSource
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
-from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
 from fedot.preprocessing.data_types import TYPE_TO_ID
 from joblib import delayed, Parallel
@@ -23,8 +21,6 @@ from sklearn.model_selection import train_test_split
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.repository.constanst_repository import FEDOT_HEAD_ENSEMBLE
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
 
 
@@ -195,7 +191,7 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
     return data_producer
 
 
-def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
+def build_tuner(self, model_to_tune, tuning_params, train_data):
     def _create_tuner(tuning_params, tuning_data):
         custom_search_space = get_industrial_search_space(self)
         search_space = PipelineSearchSpace(custom_search_space=custom_search_space,
@@ -212,159 +208,15 @@ def build_tuner(self, model_to_tune, tuning_params, train_data, mode):
 
         return pipeline_tuner
 
-    if isinstance(model_to_tune, dict):
-        for model_name, model in model_to_tune.items():
-            pipeline_tuner = _create_tuner(tuning_params, model['train_fold_data'])
-            tuned_model = model['composite_pipeline']
-            if not tuned_model.is_fitted:
-                tuned_model = pipeline_tuner.tune(tuned_model)
-                tuned_model.fit(model['train_fold_data'])
-            model['composite_pipeline'] = tuned_model
-    else:
-        pipeline_tuner = _create_tuner(tuning_params, train_data)
-        if mode == 'full':
-            batch_pipelines = [automl_branch for automl_branch in self.solver.current_pipeline.nodes if
-                               automl_branch.name in FEDOT_HEAD_ENSEMBLE]
-            for b_pipeline in batch_pipelines:
-                b_pipeline.fitted_operation.current_pipeline = pipeline_tuner.tune(
-                    b_pipeline.fitted_operation.current_pipeline)
-                b_pipeline.fitted_operation.current_pipeline.fit(train_data)
-        model_to_tune = pipeline_tuner.tune(model_to_tune)
-        model_to_tune.fit(train_data)
+    pipeline_tuner = _create_tuner(tuning_params, train_data)
+    model_to_tune = pipeline_tuner.tune(model_to_tune)
+    model_to_tune.fit(train_data)
     return pipeline_tuner, model_to_tune
 
 
 def postprocess_industrial_predicts(self, merged_predicts: np.array) -> np.array:
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts
-
-
-def transform_lagged_industrial(self, input_data: InputData):
-    train_data = copy(input_data)
-    forecast_length = train_data.task.task_params.forecast_length
-    # Correct window size parameter
-    if self.window_size == 0:
-        self._check_and_correct_window_size(train_data.features, forecast_length)
-        self.fit_stage = True
-    else:
-        self.log.info(("Window size dont change"))
-        self.fit_stage = False
-    window_size = max(self.window_size, 4)
-    lagged_features = HankelMatrix(
-        time_series=train_data.features,
-        window_size=window_size).trajectory_matrix.T
-    lagged_target = HankelMatrix(
-        time_series=train_data.features[self.window_size:],
-        window_size=forecast_length).trajectory_matrix.T
-    if self.fit_stage:
-        lagged_features = lagged_features[:lagged_target.shape[0], :]
-    train_data.target = lagged_target
-    output_data = self._convert_to_output(train_data,
-                                          lagged_features,
-                                          data_type=DataTypesEnum.image)
-    return output_data
-
-
-def transform_smoothing_industrial(self, input_data: InputData) -> OutputData:
-    """Method for smoothing time series
-
-    Args:
-        input_data: data with features, target and ids to process
-
-    Returns:
-        output data with smoothed time series
-    """
-
-    source_ts = input_data.features
-    if input_data.data_type == DataTypesEnum.multi_ts:
-        full_smoothed_ts = []
-        for ts_n in range(source_ts.shape[1]):
-            ts = pd.Series(source_ts[:, ts_n])
-            smoothed_ts = self._apply_smoothing_to_series(ts)
-            full_smoothed_ts.append(smoothed_ts)
-        output_data = self._convert_to_output(input_data,
-                                              np.array(full_smoothed_ts).T,
-                                              data_type=input_data.data_type)
-    else:
-        source_ts = pd.Series(input_data.features.flatten())
-        smoothed_ts = np.ravel(self._apply_smoothing_to_series(source_ts))
-        output_data = self._convert_to_output(input_data,
-                                              smoothed_ts,
-                                              data_type=input_data.data_type)
-
-    return output_data
-
-
-def _check_and_correct_window_size_industrial(
-        self,
-        time_series: np.ndarray,
-        forecast_length: int):
-    """ Method check if the length of the time series is not enough for
-        lagged transformation
-
-        Args:
-            time_series: time series for transformation
-            forecast_length: forecast length
-
-        Returns:
-
-        """
-    max_ws = round(len(time_series) - forecast_length - 1)
-    min_ws = max(round(len(time_series) * 0.05), 2)
-    max_allowed_window_size = max(min_ws, max_ws)
-    step = round(1.5 * forecast_length)
-    range_ws = max_allowed_window_size - min_ws
-    if step > range_ws:
-        step = round(range_ws * 0.5)
-    window_list = list(range(min_ws, max_allowed_window_size, step))
-
-    if self.window_size == 0 or self.window_size > max_allowed_window_size:
-        try:
-            window_size = np.random.choice(window_list)
-        except Exception:
-            window_size = 3 * forecast_length
-        self.log.message(
-            (f"Window size of lagged transformation was changed "
-             f"by WindowSizeSelector from {self.params.get('window_size')} to {window_size}"))
-        self.params.update(window_size=window_size)
-
-    # Minimum threshold
-    if self.window_size < self.window_size_minimum:
-        self.log.info(
-            (f"Warning: window size of lagged transformation was changed "
-             f"from {self.params.get('window_size')} to {self.window_size_minimum}"))
-        self.params.update(window_size=self.window_size_minimum)
-
-
-def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputData:
-    """Method for transformation of time series to lagged form for fit stage
-
-    Args:
-        input_data: data with features, target and ids to process
-
-    Returns:
-        output data with transformed features table
-    """
-    train_data = copy(input_data)
-    forecast_length = train_data.task.task_params.forecast_length
-    # Correct window size parameter
-    if self.window_size == 0:
-        self._check_and_correct_window_size(train_data.features, forecast_length)
-    else:
-        self.log.info(("Window size dont change"))
-    lagged_features = HankelMatrix(
-        time_series=train_data.features,
-        window_size=self.window_size).trajectory_matrix.T
-    lagged_target = HankelMatrix(
-        time_series=train_data.features[self.window_size:],
-        window_size=forecast_length).trajectory_matrix.T
-    lagged_features = lagged_features[:lagged_target.shape[0], :]
-    train_data.target = lagged_target
-    output_data = self._convert_to_output(train_data,
-                                          lagged_features,
-                                          data_type=DataTypesEnum.image)
-    return output_data
-
 
 def update_column_types_industrial(self, output_data: OutputData):
     """Update column types after lagged transformation. All features becomes ``float``

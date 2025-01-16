@@ -1,7 +1,7 @@
 import warnings
 from copy import deepcopy
 from inspect import signature
-from typing import Optional
+from typing import Optional, Union, Callable
 
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
@@ -91,7 +91,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             else len(trained_operation.classes_)
         predict_data = predict_data if self.operation_condition.is_predict_input_fedot else predict_data.features
         predict_method = curry(1)(lambda data: trained_operation.predict(data) if only_predict_method
-                                  else trained_operation.predict_for_fit(data))
+        else trained_operation.predict_for_fit(data))
 
         prediction = Either(value=predict_data,
                             monoid=[dict(output_mode=output_mode,
@@ -128,9 +128,9 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # If model is classical sklearn model we use one_dimensional mode
         predict_branch = curry(2)(
             lambda operation_list,
-            data_list: list(
+                   data_list: list(
                 operation_sample.predict(data_sample) for operation_sample,
-                data_sample in zip(
+                                                          data_sample in zip(
                     operation_list,
                     data_list)) if predict_method else data_list)
 
@@ -204,16 +204,16 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
         # If model is classical sklearn model we use one_dimensional mode
         fit_one_dim = curry(2)(lambda operation, init_state: self.fit_one_sample(init_state)
-                               if operation_for_one_dim else operation)
+        if operation_for_one_dim else operation)
 
         # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         channel_independent_branch = curry(2)(lambda data, prev_state: list(deepcopy(prev_state) for i in
                                                                             range(len(data)))
-                                              if operation_for_every_dim else prev_state)
+        if operation_for_every_dim else prev_state)
 
         # Apply fit operation for every dimension
         fit_for_every_dim = curry(2)(lambda data, prev_state: self._list_of_fitted_model(data, prev_state)
-                                     if operation_for_every_dim else prev_state)
+        if operation_for_every_dim else prev_state)
 
         fit_multidim = curry(2)(lambda data, prev_state: prev_state.fit(data) if operation_for_multidim else prev_state)
 
@@ -228,29 +228,31 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # If model is classical sklearn model we use classical sklearn predict method
         predict_one_dim = curry(2)(lambda operation, init_state: self._sklearn_compatible_prediction(
             operation, init_state, output_mode) if self.operation_condition.is_one_dim_operation else init_state)
+        is_transform_for_fit = output_mode.__contains__('transform_fit')
 
         def multidim_predict(
-            operation,
-            previous_state): return previous_state if isinstance(
-            previous_state,
-            np.ndarray) else self.__operation_multidim_adapter(
-            operation,
-            previous_state,
-            output_mode)
+                operation,
+                previous_state):
+            state_is_predict = isinstance(previous_state, np.ndarray)
+            return previous_state if state_is_predict else self.__operation_multidim_adapter(operation,
+                                                                                             previous_state,
+                                                                                             output_mode)
 
         # Elif model could be use for each dimension(channel) independently we use multidimensional predict method
         predict_for_every_dim = curry(2)(multidim_predict)
-
-        prediction = Either.insert(predict_data). \
-            then(predict_one_dim(trained_operation)). \
-            then(predict_for_every_dim(trained_operation)).value
+        if is_transform_for_fit:
+            prediction = trained_operation[0].transform_for_fit(predict_data[0])
+        else:
+            prediction = Either.insert(predict_data). \
+                then(predict_one_dim(trained_operation)). \
+                then(predict_for_every_dim(trained_operation)).value
 
         return prediction
 
     def predict_for_fit(
             self,
-            trained_operation,
-            predict_data: InputData,
+            trained_operation: Union[Callable, list],
+            predict_data: Union[InputData, list],
             output_mode: str = 'default') -> OutputData:
         data_type, predict_data_copy = FedotConverter(predict_data).unwrap_list_to_output()
         # Create data condition verifier
@@ -369,7 +371,7 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
 
 
 class IndustrialForecastingPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
     _operations_by_types = FORECASTING_PREPROC
 
     def __init__(
@@ -409,12 +411,12 @@ class IndustrialForecastingPreprocessingStrategy(
         converted_predict_data = self.multi_dim_dispatcher._convert_input_data(
             predict_data)
         predict_output = self.multi_dim_dispatcher.predict_for_fit(
-            trained_operation, converted_predict_data, output_mode=output_mode)
+            trained_operation, converted_predict_data, output_mode='transform_fit_stage')
         return predict_output
 
 
 class IndustrialClassificationPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
     _operations_by_types = INDUSTRIAL_CLF_PREPROC_MODEL
 
     def __init__(

@@ -50,8 +50,8 @@ class GLMIndustrial(ModelImplementation):
         if np.logical_or(
                 mean_kurtosis < -1,
                 mean_kurtosis > 1) and np.logical_or(
-                mean_skew < -0.2,
-                mean_skew > 0.2):
+            mean_skew < -0.2,
+            mean_skew > 0.2):
             family = 'gamma'
         elif np.logical_or(mean_kurtosis < -2, mean_kurtosis > 2) and np.logical_or(mean_skew < -0.5, mean_skew > 0.5):
             family = "inverse_gaussian"
@@ -69,11 +69,11 @@ class GLMIndustrial(ModelImplementation):
         self.family_link = self.family_distribution[family]
         self.exog_residual = sm.add_constant(
             np.arange(0, residual.shape[0]).astype("float64")).reshape(-1, 2)
-        self.model = GLM(
-            exog=self.exog_residual,
-            endog=residual.astype("float64").reshape(-1, 1),
-            family=self.family_link
-        ).fit(method="lbfgs")
+        self.model = GLM(exog=self.exog_residual, endog=residual.astype("float64").reshape(-1, 1),
+                         family=self.family_link
+                         ).fit(method="lbfgs")
+        del self.ar_tuning_params
+        del pipeline_tuner
         return self.model
 
     def predict(self, input_data):
