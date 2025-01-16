@@ -1,31 +1,40 @@
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 
-finetune = False
-metric_names = ('rmse', 'mae')
+dataset_name = {'benchmark': 'M4',
+                'dataset': 'D3257',
+                'task_params': {'forecast_length': 14}}
+
+init_assumption = PipelineBuilder().add_node('eigen_basis',
+                                             params={'low_rank_approximation': False,
+                                                     'rank_regularization': 'explained_dispersion'}) \
+    .add_node('ar')
+
+COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+AUTOML_CONFIG = {'task': 'ts_forecasting',
+                 'task_params': {'forecast_length': 14},
+                 'use_automl': True,
+                 'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
+                                                                     'mutation_strategy': 'growth_mutation_strategy'},
+                                           'optimisation_agent': 'Industrial'}}
+AUTOML_LEARNING_STRATEGY = dict(timeout=5,
+                                n_jobs=4)
+
+LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
+                   'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+                   'optimisation_loss': {'quality_loss': 'rmse'}}
+
+INDUSTRIAL_CONFIG = {'problem': 'ts_forecasting',
+                     'task_params': {'forecast_length': 14}}
+
+API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
+              'automl_config': AUTOML_CONFIG,
+              'learning_config': LEARNING_CONFIG,
+              'compute_config': COMPUTE_CONFIG}
+
 if __name__ == "__main__":
-    dataset_name = {'benchmark': 'M4',
-                    'dataset': 'D3257',
-                    'task_params': {'forecast_length': 14}}
-    initial_assumptions = {
-        'nbeats': PipelineBuilder().add_node('nbeats_model'),
-        'industiral': PipelineBuilder().add_node(
-            'eigen_basis',
-            params={
-                'low_rank_approximation': False,
-                'rank_regularization': 'explained_dispersion'}).add_node('ar')
-    }
-    for assumption in initial_assumptions.keys():
-        api_config = dict(problem='ts_forecasting',
-                          metric='rmse',
-                          timeout=5,
-                          task_params={'forecast_length': 14},
-                          n_jobs=2,
-                          initial_assumption=initial_assumptions[assumption],
-                          logging_level=20)
-        result_dict = ApiTemplate(api_config=api_config,
-                                  metric_list=('f1', 'accuracy')).eval(dataset=dataset_name, finetune=finetune)
-
-        current_metric = result_dict['metrics']
-        print(f'{assumption} have metrics - {current_metric}')
+    result_dict = ApiTemplate(api_config=API_CONFIG, metric_list=('rmse', 'mae')). \
+        eval(dataset=dataset_name)
+    current_metric = result_dict['metrics']

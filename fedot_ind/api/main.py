@@ -2,7 +2,7 @@ import os
 import warnings
 from copy import deepcopy
 from functools import partial
-from typing import Union
+from typing import Union, Callable
 
 import numpy as np
 import pandas as pd
@@ -14,8 +14,6 @@ from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
 from pymonad.either import Either
 from sklearn import model_selection as skms
 from sklearn.calibration import CalibratedClassifierCV
-
-import fedot_ind.core.repository.constanst_repository as CONST_REPO
 from fedot_ind.api.utils.api_init import ApiManager
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.architecture.abstraction.decorators import DaskServer
@@ -23,11 +21,10 @@ from fedot_ind.core.architecture.pipelines.classification import (
     SklearnCompatibleClassifier,
 )
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
-from fedot_ind.core.optimizer.FedotEvoOptimizer import FedotEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import (
     FEDOT_GET_METRICS,
     FEDOT_TUNER_STRATEGY,
-    FEDOT_TUNING_METRICS,
+    FEDOT_TUNING_METRICS
 )
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
@@ -100,15 +97,16 @@ class FedotIndustrial(Fedot):
             self.logger.info(f'-------------------------------------------------')
             self.logger.info('Initialising Fedot Evolutionary Optimisation params')
             self.repo = IndustrialModels().setup_default_repository()
-            self.manager.automl_config.optimisation_strategy = FedotEvoOptimizer
+            self.manager.automl_config.optimisation_strategy = self.manager.optimisation_agent['Fedot']
         else:
             self.logger.info(f'-------------------------------------------------')
             self.logger.info('Initialising Industrial Evolutionary Optimisation params')
-            self.repo = IndustrialModels().setup_repository(backend=self.manager.backend_method)
+            self.repo = IndustrialModels().setup_repository(backend=self.manager.compute_config.backend)
             optimisation_agent = self.manager.automl_config.optimisation_strategy['optimisation_agent']
-            optimisation_params = self.manager.automl_config.optimisation_strategy['optimisation_agent']
-            self.manager.automl_config.optimisation_strategy = partial(optimisation_agent,
-                                                                       optimisation_params=optimisation_params)
+            optimisation_params = self.manager.automl_config.optimisation_strategy['optimisation_strategy']
+            self.manager.automl_config.optimisation_strategy = partial(
+                self.manager.optimisation_agent[optimisation_agent],
+                optimisation_params=optimisation_params)
         return input_data
 
     def __init_solver(self, input_data):
@@ -121,7 +119,6 @@ class FedotIndustrial(Fedot):
             self.manager.automl_config.config['initial_assumption'] = \
                 self.manager.automl_config.config['initial_assumption'].build()
         self.dask_client = DaskServer(self.manager.compute_config.distributed).client
-        setattr(CONST_REPO, 'DASK_CLIENT', self.dask_client)
         self.logger.info(f'Link Dask Server - {self.dask_client.dashboard_link}')
         self.logger.info('-' * 50)
         self.logger.info('Initialising solver')
@@ -129,7 +126,9 @@ class FedotIndustrial(Fedot):
             **self.manager.learning_config.config['learning_strategy_params'],
             metric=self.manager.learning_config.config['optimisation_loss'],
             problem=self.manager.automl_config.config['task'],
-            task_params=self.manager.automl_config.config['task_params'],
+            task_params=self.manager.industrial_config.task_params
+            if self.manager.industrial_config.is_forecasting_context else self.manager.automl_config.config['task_params'],
+            optimizer=self.manager.automl_config.optimisation_strategy,
             available_operations=self.manager.automl_config.config['available_operations'],
             initial_assumption=self.manager.automl_config.config['initial_assumption'])
         return input_data
@@ -242,10 +241,13 @@ class FedotIndustrial(Fedot):
             **kwargs: additional parameters
 
         """
+
         def fit_function(train_data): return \
-            Either(value=train_data, monoid=[train_data, self.manager.industrial_config.is_default_fedot_context]). \
-            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                   right_function=lambda data: self.manager.solver.fit(data))
+            Either(value=train_data, monoid=[train_data,
+                                             not isinstance(self.manager.industrial_config.strategy, Callable)]). \
+                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                       right_function=lambda data: self.manager.solver.fit(data))
+
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
             then(lambda data: self.__init_solver(data)). \
@@ -365,7 +367,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
+                                                   probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

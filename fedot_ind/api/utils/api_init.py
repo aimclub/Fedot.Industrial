@@ -8,9 +8,10 @@ from pymonad.either import Either
 
 from fedot_ind.api.utils.industrial_strategy import IndustrialStrategy
 from fedot_ind.core.architecture.preprocessing.data_convertor import ApiConverter
+from fedot_ind.core.optimizer.FedotEvoOptimizer import FedotEvoOptimizer
 from fedot_ind.core.optimizer.IndustrialEvoOptimizer import IndustrialEvoOptimizer
 from fedot_ind.core.repository.constanst_repository import \
-    FEDOT_API_PARAMS, fedot_init_assumptions
+    FEDOT_API_PARAMS, fedot_init_assumptions, FEDOT_INDUSTRIAL_STRATEGY
 from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
 from fedot_ind.tools.explain.explain import PointExplainer, RecurrenceExplainer
 from fedot_ind.tools.serialisation.path_lib import DEFAULT_PATH_RESULTS as default_path_to_save_results
@@ -44,9 +45,10 @@ class IndustrialConfig(ConfigTemplate):
                                 'shap': NotImplementedError,
                                 'lime': NotImplementedError}
         self.regression_tasks = ['ts_forecasting', 'regression']
+        self.custom_industrial_strategy = FEDOT_INDUSTRIAL_STRATEGY
 
     def with_default_fedot_context(self, kwargs):
-        self.strategy = kwargs.get('strategy', None)
+        self.strategy = kwargs.get('strategy', 'default')
         self.is_default_fedot_context = self.strategy.__contains__('tabular')
         return self.is_default_fedot_context
 
@@ -63,7 +65,7 @@ class IndustrialConfig(ConfigTemplate):
         is_empty_params = any([self.task_params is None, len(self.task_params) == 0])
         self.is_forecasting_context = all([not is_empty_params, kwargs['problem'] == 'ts_forecasting'])
         if self.is_forecasting_context:
-            self.task_params = TsForecastingParams(forecast_length=self.task_params.forecast_length)
+            self.task_params = TsForecastingParams(forecast_length=self.task_params['forecast_length'])
         return self.is_forecasting_context
 
     def with_industrial_initial_assumption(self, kwargs):
@@ -91,7 +93,7 @@ class IndustrialConfig(ConfigTemplate):
         for key, method in self.keys.items():
             val = method(config)
             self.config.update({key: val})
-        if not self.is_default_fedot_context:
+        if self.strategy in FEDOT_INDUSTRIAL_STRATEGY:
             self.strategy = IndustrialStrategy(industrial_strategy=self.strategy,
                                                industrial_strategy_params=self.task_params,
                                                api_config=self.config)
@@ -205,6 +207,8 @@ class ApiManager(ConfigTemplate):
                      'automl_config': self.with_automl_config,
                      'learning_config': self.with_learning_config,
                      'compute_config': self.with_compute_config}
+        self.optimisation_agent = {"Industrial": IndustrialEvoOptimizer,
+                                 'Fedot': FedotEvoOptimizer}
 
     def null_state_object(self):
         self.solver = None

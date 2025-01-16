@@ -80,19 +80,18 @@ class DataCheck:
         data_dict['target'] = self.label_encoder.fit_transform(data_dict['target'])
         return data_dict
 
-    def _transformation_for_ts_forecasting(self):
+    def _transformation_for_ts_forecasting(self, data_dict):
+        task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
+            forecast_length=self.task_params['forecast_length']))
         if self.data_convertor.is_numpy_matrix and any(
                 [self.data_convertor.have_one_sample, self.data_convertor.have_one_channel]):
             features_array = self.data_convertor.convert_to_1d_array()
         else:
             features_array = self.data_convertor.numpy_data
-        task = Task(TaskTypesEnum.ts_forecasting, TsForecastingParams(
-            forecast_length=self.task_params.forecast_length))
+
         if self.fit_stage:
-            features_array = features_array
-            target = features_array
-            # features_array = features_array[:-self.task_params['forecast_length']]
-            # target = features_array[-self.task_params['forecast_length']:]
+            features_array = features_array[:-self.task_params['forecast_length']]
+            target = features_array[-self.task_params['forecast_length']:]
         else:
             features_array = features_array
             target = features_array
@@ -104,7 +103,7 @@ class DataCheck:
             value=init_dict,
             monoid=[
                 init_dict,
-                self.label_encoder is not None]). either(
+                self.label_encoder is not None]).either(
             left_function=lambda dict: dict,
             right_function=lambda dict: self._encode_target(dict))
 
@@ -117,16 +116,16 @@ class DataCheck:
         def define_horizon(dict_with_idx): return Either(value=dict_with_idx,
                                                          monoid=[dict_with_idx, self.strategy_params is None]).either(
             left_function=lambda dict: dict | {'have_predict_horizon':
-                                               all([self.strategy_params['data_type'] == 'time_series',
-                                                    'detection_window' in self.strategy_params.keys()])},
+                                                   all([self.strategy_params['data_type'] == 'time_series',
+                                                        'detection_window' in self.strategy_params.keys()])},
             right_function=lambda dict: dict | {'have_predict_horizon': False})
 
         def define_task(dict_with_horizon): return Either(value=dict_with_horizon,
                                                           monoid=[dict_with_horizon,
                                                                   dict_with_horizon['have_predict_horizon']]).either(
             right_function=lambda dict: dict |
-            {'task': fedot_task('ts_forecasting',
-                                self.strategy_params['detection_window'])},
+                                        {'task': fedot_task('ts_forecasting',
+                                                            self.strategy_params['detection_window'])},
             left_function=lambda dict: dict | {'task': fedot_task(self.task)})
 
         encoded_dict = Either.insert(data_dict). \
@@ -152,15 +151,18 @@ class DataCheck:
             ValueError: If the input data format is invalid.
 
         """
+
         def non_forecasting_transformation(data): return \
             Either(value=data, monoid=[data, self.data_convertor.is_tuple]).either(
                 right_function=lambda r: self.__check_features_and_target(r, 'tuple'),
                 left_function=lambda l: self.__check_features_and_target(l, 'torchvision'))
 
-        self.input_data = Either(value=(self.input_data, False, self.input_data),
+        self.input_data = Either(value=dict(features=self.input_data,
+                                            multivariate=False,
+                                            target=self.input_data),
                                  monoid=[non_forecasting_transformation,
                                          self.task == 'ts_forecasting']).either(
-            right_function=lambda data_tuple: self._transformation_for_ts_forecasting(data_tuple),
+            right_function=lambda data_dict: self._transformation_for_ts_forecasting(data_dict),
             left_function=lambda transformation_func: self._transformation_for_other_task(
                 transformation_func(self.input_data)))
 
@@ -175,7 +177,7 @@ class DataCheck:
             then(lambda data: np.where(np.isnan(data), 0, data)). \
             then(lambda data_without_nan: np.where(np.isinf(data_without_nan), 0, data_without_nan)). \
             then(lambda data_without_inf: NumpyConverter(data=data_without_inf).convert_to_torch_format()
-                 if self.task != 'ts_forecasting' else data_without_inf).value
+        if self.task != 'ts_forecasting' else data_without_inf).value
 
     def _check_input_data_target(self):
         """Checks and preprocesses the features in the input data.
@@ -184,16 +186,12 @@ class DataCheck:
         - Converts features to torch format using NumpyConverter.
 
         """
-        if self.input_data.target is not None and isinstance(
-                self.input_data.target.ravel()[0],
-                np.str_) and self.task == 'regression':
-            self.input_data.target = self.input_data.target.astype(float)
-        elif self.task == 'regression':
-            self.input_data.target = self.input_data.target.squeeze()
+        if self.task == 'regression':
+            self.input_data.target = self.input_data.target.squeeze().astype(float)
         elif self.task == 'classification':
             self.input_data.target[self.input_data.target == -1] = 0
-        if self.task == 'ts_forecasting':
-            self.input_data.target = self.input_data.target[-self.task_params.forecast_length:, ]
+        else:
+            _ = 1
 
     def _check_fedot_context(self):
         if self.strategy_params is not None:
@@ -217,9 +215,9 @@ class DataCheck:
             channel_start, channel_end = list(sampling_strategy['channels'].values())
             element_start, element_end = list(sampling_strategy['elements'].values())
             input_data.features = self.input_data.features[
-                sample_start:sample_end,
-                channel_start:channel_end,
-                element_start:element_end]
+                                  sample_start:sample_end,
+                                  channel_start:channel_end,
+                                  element_start:element_end]
         fg_list = self.strategy_params['feature_generator']
         ts2tabular_model = TabularExtractor({'feature_domain': fg_list,
                                              'reduce_dimension': False})
