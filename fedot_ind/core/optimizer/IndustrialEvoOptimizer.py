@@ -144,7 +144,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             try:
                 individuals_to_select = self.regularization(self.population, evaluator)
                 new_population = self.__evolve_pop(individuals_to_select, evaluator)
-            except:
+            except BaseException:
                 new_population = []
             if len(new_population) != 0:
                 break

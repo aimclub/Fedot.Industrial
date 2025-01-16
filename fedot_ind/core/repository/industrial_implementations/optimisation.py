@@ -444,9 +444,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                                   node_depth(node_from_graph_first)
+                node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                                    node_depth(node_from_graph_second)
+                node_depth(node_from_graph_second)
 
             replace_subtrees(
                 graph_first,

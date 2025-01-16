@@ -285,4 +285,3 @@ class TSTModel(BaseNeuralModel):
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         loss_fn = self._get_loss_metric(ts)
         return loss_fn, optimizer
-
