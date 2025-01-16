@@ -1,16 +1,31 @@
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
+
+DATASET_NAME = 'Handwriting'
+METRIC_NAMES = ('f1', 'accuracy', 'precision', 'roc_auc')
+
+COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+AUTOML_CONFIG = {'task': 'classification',
+                 'use_automl': True,
+                 'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
+                                                                     'mutation_strategy': 'growth_mutation_strategy'},
+                                           'optimisation_agent': 'Industrial'}}
+AUTOML_LEARNING_STRATEGY = dict(timeout=3,
+                                pop_size=10,
+                                n_jobs=2)
+
+LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
+                   'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+                   'optimisation_loss': {'quality_loss': 'f1'}}
+
+INDUSTRIAL_CONFIG = {'problem': 'classification'}
+
+API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
+              'automl_config': AUTOML_CONFIG,
+              'learning_config': LEARNING_CONFIG,
+              'compute_config': COMPUTE_CONFIG}
 
 if __name__ == "__main__":
-    dataset_name = 'Handwriting'
-    finetune = False
-    metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
-    api_config = dict(problem='classification',
-                      metric='f1',
-                      timeout=1,
-                      pop_size=10,
-                      with_tunig=False,
-                      n_jobs=2,
-                      logging_level=20)
-    result_dict = ApiTemplate(api_config=api_config,
-                              metric_list=metric_names).eval(dataset=dataset_name, finetune=finetune)
+    result_dict = ApiTemplate(api_config=API_CONFIG,
+                              metric_list=METRIC_NAMES).eval(dataset=DATASET_NAME, finetune=False)
     print(result_dict['metrics'])
