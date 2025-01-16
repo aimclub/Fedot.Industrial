@@ -15,6 +15,7 @@ init_assumption = PipelineBuilder().add_node('eigen_basis',
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
 AUTOML_CONFIG = {'task': 'ts_forecasting',
                  'task_params': {'forecast_length': 14},
+                 'initial_assumption': init_assumption,
                  'use_automl': True,
                  'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
                                                                      'mutation_strategy': 'growth_mutation_strategy'},
