@@ -135,7 +135,7 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
 
 
 class IndustrialSkLearnEvaluationStrategy(
-    IndustrialCustomPreprocessingStrategy):
+        IndustrialCustomPreprocessingStrategy):
 
     def __init__(
             self,
@@ -166,7 +166,7 @@ class IndustrialSkLearnEvaluationStrategy(
 
 
 class IndustrialSkLearnClassificationStrategy(
-    IndustrialSkLearnEvaluationStrategy):
+        IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying classification algorithms from Sklearn library """
     _operations_by_types = SKLEARN_CLF_MODELS
 

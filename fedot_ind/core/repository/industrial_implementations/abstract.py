@@ -218,6 +218,7 @@ def postprocess_industrial_predicts(self, merged_predicts: np.array) -> np.array
     """ Post-process merged predictions (e.g. reshape). """
     return merged_predicts
 
+
 def update_column_types_industrial(self, output_data: OutputData):
     """Update column types after lagged transformation. All features becomes ``float``
     """

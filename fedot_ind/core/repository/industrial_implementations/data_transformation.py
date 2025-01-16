@@ -8,7 +8,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 
 
-### Method for lagged transformation
+# Method for lagged transformation
 def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputData:
     """Method for transformation of time series to lagged form for fit stage
 
@@ -69,8 +69,8 @@ def _check_and_correct_window_size_industrial(
         Returns:
 
         """
-    max_ws = round(len(time_series) / 2)  ## half of all ts
-    min_ws = max(round(len(time_series) * 0.05), 2)  ## 5 percent of all ts or 2 elements
+    max_ws = round(len(time_series) / 2)  # half of all ts
+    min_ws = max(round(len(time_series) * 0.05), 2)  # 5 percent of all ts or 2 elements
     max_allowed_window_size = max(min_ws, max_ws)
     step = round(1.5 * forecast_length)
     range_ws = max_allowed_window_size - min_ws

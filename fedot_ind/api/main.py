@@ -310,8 +310,8 @@ class FedotIndustrial(Fedot):
 
         def _fit_pipeline(data_dict):
             fitted_pipeline = deepcopy(data_dict['model_to_tune'])
-            fit_result = fitted_pipeline.fit(data_dict['train_data'])
-            predict = fitted_pipeline.predict(data_dict['train_data'])
+            fitted_pipeline.fit(data_dict['train_data'])
+            fitted_pipeline.predict(data_dict['train_data'])
             return data_dict
 
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)

@@ -351,6 +351,6 @@ class OldApiManager:
         self.logger.info('Initialising experiment setup')
 
         industrial_params = set(self.config.keys()) - \
-                            set(FEDOT_API_PARAMS.keys())
+            set(FEDOT_API_PARAMS.keys())
         for param in industrial_params:
             self.config.pop(param, None)

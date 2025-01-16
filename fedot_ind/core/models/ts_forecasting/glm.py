@@ -48,10 +48,10 @@ class GLMIndustrial(ModelImplementation):
 
     def _check_glm_params(self, mean_kurtosis, mean_skew):
         if np.logical_or(
-                mean_kurtosis < -1,
-                mean_kurtosis > 1) and np.logical_or(
-            mean_skew < -0.2,
-            mean_skew > 0.2):
+            mean_kurtosis < -1,
+            mean_kurtosis > 1) and np.logical_or(
+                mean_skew < -0.2,
+                mean_skew > 0.2):
             family = 'gamma'
         elif np.logical_or(mean_kurtosis < -2, mean_kurtosis > 2) and np.logical_or(mean_skew < -0.5, mean_skew > 0.5):
             family = "inverse_gaussian"
