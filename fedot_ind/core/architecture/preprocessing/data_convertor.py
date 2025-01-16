@@ -557,7 +557,8 @@ class ApiConverter:
     def input_data_is_fedot_type(input_data):
         return isinstance(input_data, (InputData, MultiModalData))
 
-    def is_multiclf_with_labeling_problem(self, problem, target, predict):
+    @staticmethod
+    def is_multiclf_with_labeling_problem(problem, target, predict):
         clf_problem = problem == 'classification'
         uncorrect_labels = target.min() - predict.min() != 0
         multiclass = len(np.unique(predict).shape) != 1

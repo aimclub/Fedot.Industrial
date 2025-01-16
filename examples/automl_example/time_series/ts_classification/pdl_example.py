@@ -1,25 +1,36 @@
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
+
+DATASET_NAME = 'Lightning7'
+COMPARISON_DICT = dict(pairwise_approach=['quantile_extractor', 'pdl_clf'],
+                       baseline=['quantile_extractor', 'rf'])
+METRIC_NAMES = ('f1', 'accuracy', 'precision', 'roc_auc')
+
+COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+AUTOML_CONFIG = {'task': 'classification',
+                 'use_automl': True,
+                 'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
+                                                                     'mutation_strategy': 'growth_mutation_strategy'},
+                                           'optimisation_agent': 'Industrial'}}
+AUTOML_LEARNING_STRATEGY = dict(timeout=5,
+                                pop_size=10,
+                                n_jobs=4)
+
+LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
+                   'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+                   'optimisation_loss': {'quality_loss': 'f1'}}
+
+INDUSTRIAL_CONFIG = {'problem': 'classification'}
+
+API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
+              'automl_config': AUTOML_CONFIG,
+              'learning_config': LEARNING_CONFIG,
+              'compute_config': COMPUTE_CONFIG}
 
 if __name__ == "__main__":
-    dataset_name = 'Lightning7'
-    finetune = True
-    metric_names = ('f1', 'accuracy', 'precision', 'roc_auc')
-    api_config = dict(problem='classification',
-                      metric='f1',
-                      timeout=5,
-                      pop_size=10,
-                      with_tunig=False,
-                      n_jobs=2,
-                      logging_level=20)
-    init_assumption_pdl = ['quantile_extractor', 'pdl_clf']
-    init_assumption_rf = ['quantile_extractor', 'rf']
-    comparasion_dict = dict(pairwise_approach=init_assumption_pdl,
-                            baseline=init_assumption_rf)
-    for approach in comparasion_dict.keys():
-        result_dict = ApiTemplate(api_config=api_config,
-                                  metric_list=metric_names).eval(dataset=dataset_name,
-                                                                 initial_assumption=comparasion_dict[approach],
-                                                                 finetune=finetune)
-        metrics = result_dict['metrics']
-        print(f'Approach - {approach}. Metrics - {metrics}')
-    _ = 1
+    for approach, node_list in COMPARISON_DICT.items():
+        result_dict = ApiTemplate(api_config=API_CONFIG,
+                                  metric_list=METRIC_NAMES).eval(dataset=DATASET_NAME,
+                                                                 initial_assumption=node_list,
+                                                                 finetune=True)
+        print(f'Approach: {approach}. Metrics: {result_dict["metrics"]}')
