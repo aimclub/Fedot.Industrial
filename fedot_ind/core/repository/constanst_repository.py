@@ -380,7 +380,6 @@ class FedotOperationConstant(Enum):
                                  'lora_strategy',
                                  'sampling_strategy']
 
-
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
         'regression': PipelineBuilder().add_node('treg')

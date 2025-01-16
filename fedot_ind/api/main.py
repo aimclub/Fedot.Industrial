@@ -127,8 +127,8 @@ class FedotIndustrial(Fedot):
             metric=self.manager.learning_config.config['optimisation_loss'],
             problem=self.manager.automl_config.config['task'],
             task_params=self.manager.industrial_config.task_params
-            if self.manager.industrial_config.is_forecasting_context else self.manager.automl_config.config['task_params'],
-            optimizer=self.manager.automl_config.optimisation_strategy,
+            if self.manager.industrial_config.is_forecasting_context else self.manager.automl_config.config
+            ['task_params'], optimizer=self.manager.automl_config.optimisation_strategy,
             available_operations=self.manager.automl_config.config['available_operations'],
             initial_assumption=self.manager.automl_config.config['initial_assumption'])
         return input_data
@@ -245,8 +245,8 @@ class FedotIndustrial(Fedot):
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
                                              not isinstance(self.manager.industrial_config.strategy, Callable)]). \
-                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                       right_function=lambda data: self.manager.solver.fit(data))
+            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                   right_function=lambda data: self.manager.solver.fit(data))
 
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
@@ -367,7 +367,7 @@ class FedotIndustrial(Fedot):
                     predicted_probs=probs,
                     rounding_order=rounding_order,
                     metric_names=metric_names) for strategy,
-                                                   probs in self.predicted_probs.items()}
+                probs in self.predicted_probs.items()}
 
         else:
             metric_dict = self._metric_evaluation_loop(

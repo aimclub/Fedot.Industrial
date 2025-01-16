@@ -208,7 +208,7 @@ class ApiManager(ConfigTemplate):
                      'learning_config': self.with_learning_config,
                      'compute_config': self.with_compute_config}
         self.optimisation_agent = {"Industrial": IndustrialEvoOptimizer,
-                                 'Fedot': FedotEvoOptimizer}
+                                   'Fedot': FedotEvoOptimizer}
 
     def null_state_object(self):
         self.solver = None
