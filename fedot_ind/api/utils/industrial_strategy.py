@@ -34,12 +34,7 @@ class IndustrialStrategy:
             Configuration for API
     """
 
-    def __init__(self,
-                 industrial_strategy_params,
-                 industrial_strategy,
-                 api_config,
-                 logger=None
-                 ):
+    def __init__(self, industrial_strategy_params, industrial_strategy, api_config):
         self.industrial_strategy_params = industrial_strategy_params or {}
         self.finetune = self.industrial_strategy_params.get('finetune', False)
         self.finetune_params = self.industrial_strategy_params.get('tuning_params', {})

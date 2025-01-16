@@ -4,6 +4,7 @@ import shutil
 import urllib.request as request
 import zipfile
 from pathlib import Path
+from typing import Optional, Union
 
 import chardet
 import pandas as pd
@@ -17,7 +18,7 @@ from tqdm import tqdm
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.repository.constanst_repository import M4_PREFIX
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH, EXAMPLES_DATA_PATH
 
 
 class DataLoader:
@@ -33,8 +34,9 @@ class DataLoader:
         >>> train_data, test_data = data_loader.load_data()
     """
 
-    def __init__(self, dataset_name: str, folder: str = None):
+    def __init__(self, dataset_name: str, folder: Optional[str] = None, source_url: Optional[str] = None):
         self.logger = logging.getLogger('DataLoader')
+        self.url = source_url if source_url is not None else f'http://www.timeseriesclassification.com/aeon-toolkit/'
         self.dataset_name = dataset_name
         self.folder = folder
         self.forecast_data_source = {
@@ -48,7 +50,7 @@ class DataLoader:
             'SKAB': self.local_skab_load
         }
 
-    def load_forecast_data(self, folder=None):
+    def load_forecast_data(self, folder: Optional[Union[Path, str]] = None):
         loader = self.forecast_data_source[folder]
         dataset_name = self.dataset_name.get('dataset') if isinstance(self.dataset_name, dict) else self.dataset_name
         group_df, _, _ = loader(directory='data', group=f'{M4_PREFIX[dataset_name[0]]}')
@@ -62,15 +64,15 @@ class DataLoader:
         return loader(directory=folder, group=self.dataset_name)
 
     @staticmethod
-    def local_m4_load(group=None):
-        path_to_result = PROJECT_PATH + '/examples/data/forecasting/'
+    def local_m4_load(group: Optional[str] = None):
+        path_to_result = EXAMPLES_DATA_PATH + '/forecasting/'
         for result_cvs in os.listdir(path_to_result):
             if result_cvs.__contains__(group):
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
     @staticmethod
-    def local_skab_load(directory='other', group=None):
-        path_to_result = PROJECT_PATH + f'/examples/data/detection/data/{directory}'
+    def local_skab_load(directory: Union[Path, str] = 'other', group: Optional[str] = None):
+        path_to_result = EXAMPLES_DATA_PATH + f'/detection/data/{directory}'
         df = pd.read_csv(Path(path_to_result, f'{group}.csv'),
                          index_col='datetime',
                          sep=';',
@@ -79,7 +81,7 @@ class DataLoader:
         x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
         return (x_train, y_train), (x_test, y_test)
 
-    def _load_benchmark_data(self, specific_strategy):
+    def _load_benchmark_data(self, specific_strategy: str):
         bench = self.dataset_name['benchmark']
         if specific_strategy == 'anomaly_detection':
             self.dataset_name = self.dataset_name['dataset']
@@ -91,7 +93,7 @@ class DataLoader:
             test_data = train_data
         return train_data, test_data
 
-    def load_custom_data(self, specific_strategy):
+    def load_custom_data(self, specific_strategy: str):
         custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting', 'forecasting_assumptions']
         dict_dataset = isinstance(self.dataset_name, dict)
         if dict_dataset and 'train_data' in self.dataset_name.keys():
@@ -100,7 +102,7 @@ class DataLoader:
             return self._load_benchmark_data(specific_strategy)
         return None, None
 
-    def load_data(self, shuffle=True) -> tuple:
+    def load_data(self, shuffle: bool = True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
 
         Returns:
@@ -112,7 +114,7 @@ class DataLoader:
                                                               data_path=data_path,
                                                               shuffle=shuffle)
         if train_data is None:
-            self.logger.info(f'Downloading {dataset_name} from UCR archive...')
+            self.logger.info(f'Downloading {dataset_name} from {self.url}...')
 
             # Create temporary folder for downloaded data
             cache_path = os.path.join(PROJECT_PATH, 'temp_cache/')
@@ -121,12 +123,12 @@ class DataLoader:
             for _ in (download_path, temp_data_path):
                 os.makedirs(_, exist_ok=True)
 
-            url = f"http://www.timeseriesclassification.com/aeon-toolkit/{dataset_name}.zip"
+            url = self.url + f'/{dataset_name}.zip'
             request.urlretrieve(url, download_path + f'temp_data_{dataset_name}')
             try:
                 zipfile.ZipFile(download_path + f'temp_data_{dataset_name}').extractall(temp_data_path + dataset_name)
             except zipfile.BadZipFile:
-                raise FileNotFoundError(f'Cannot extract data: {dataset_name} dataset not found in UCR archive')
+                raise FileNotFoundError(f'Cannot extract data: {dataset_name} dataset not found in {self.url}')
             else:
                 self.logger.info(f'{dataset_name} data downloaded. Unpacking...')
                 train_data, test_data = self.extract_data(dataset_name, temp_data_path)
@@ -143,7 +145,7 @@ class DataLoader:
 
         return train_data, test_data
 
-    def read_train_test_files(self, data_path, dataset_name: str, shuffle: bool = True):
+    def read_train_test_files(self, data_path: Union[Path, str], dataset_name: str, shuffle: bool = True):
 
         dataset_dir_path = os.path.join(data_path, dataset_name)
         file_path = dataset_dir_path + f'/{dataset_name}_TRAIN'
@@ -179,7 +181,7 @@ class DataLoader:
         return is_multivariate, (x_train, y_train), (x_test, y_test)
 
     @staticmethod
-    def predict_encoding(file_path: str, n_lines: int = 20) -> str:
+    def predict_encoding(file_path: Union[Path, str], n_lines: int = 20) -> str:
         with Path(file_path).open('rb') as f:
             rawdata = b''.join([f.readline() for _ in range(n_lines)])
         return chardet.detect(rawdata)['encoding']

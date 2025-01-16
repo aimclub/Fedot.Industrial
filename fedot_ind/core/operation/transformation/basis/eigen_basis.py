@@ -187,7 +187,9 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
                 reg_type=reg_type))
 
         basis = Either.insert(data).then(svd).value[0]
-        if basis[1] == 'ill_conditioned':
+
+        # check whether basis[1] value is set to 'ill_conditioned'
+        if isinstance(basis[1], str):
             self.explained_dispersion, rank = basis[1], basis[1]
         else:
             spectrum = [s_val for s_val in basis[1] if s_val > 0.001]

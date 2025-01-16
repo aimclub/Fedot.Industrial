@@ -33,9 +33,9 @@ class DataCheck:
 
     def __init__(self,
                  input_data: Union[tuple, InputData] = None,
-                 task_params: dict = {},
+                 task_params: dict = None,
                  task: str = None,
-                 fit_stage=False,
+                 fit_stage: bool = False,
                  industrial_task_params=None):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.strategy_params = industrial_task_params
@@ -52,7 +52,7 @@ class DataCheck:
         self.data_convertor = DataConverter(data=self.input_data)
         self.is_already_fedot_type = isinstance(self.input_data, InputData)
         self.task = task
-        self.task_params = task_params
+        self.task_params = task_params if task_params is not None else {}
         self.fit_stage = fit_stage
         self.label_encoder = None
 
@@ -196,9 +196,9 @@ class DataCheck:
     def _check_fedot_context(self):
         if self.strategy_params is not None:
             IndustrialModels().setup_repository()
-            strategy = self.strategy_params.get('learning_strategy', None)
-            is_big_data = strategy.__contains__('big')
-            is_default_fedot = strategy.__contains__('tabular')
+            strategy = self.strategy_params.get('learning_strategy')
+            is_big_data = strategy.__contains__('big') if strategy else False
+            is_default_fedot = strategy.__contains__('tabular') if strategy else False
             output_data = Either(value=self.strategy_params.get('learning_strategy', None),
                                  monoid=[self.input_data, is_default_fedot]).either(
                 left_function=lambda x: x.features,

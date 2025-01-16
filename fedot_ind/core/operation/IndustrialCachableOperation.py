@@ -24,12 +24,12 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
     def __check_compute_model(self, input_data: InputData):
         feature_tensor = input_data.features.shape
-        is_channel_overrated = feature_tensor[1] > 100
-        is_sample_overrated = feature_tensor[0] > 500000
-        is_elements_overrated = feature_tensor[2] > 1000
-        change_compute_mode = any([is_elements_overrated, is_channel_overrated, is_sample_overrated])
-        if change_compute_mode:
-            self.channel_extraction = False
+        if len(feature_tensor) > 1:
+            is_channel_overrated = feature_tensor[1] > 100
+            is_sample_overrated = feature_tensor[0] > 500000
+            is_elements_overrated = feature_tensor[2] > 1000
+            if any([is_elements_overrated, is_channel_overrated, is_sample_overrated]):
+                self.channel_extraction = False
 
     def _create_hash_descr(self):
         callable_attr = ['cacher', 'data_type', 'log', 'params',

@@ -126,7 +126,8 @@ def singular_value_hard_threshold(singular_values,
 
 
 def reconstruct_basis(U, Sigma, VT, ts_length):
-    if Sigma == 'ill_conditioned':
+    # check whether Sigma value is set to 'ill_conditioned'
+    if isinstance(Sigma, str):
         # rank = round(len(VT)*0.1)
         rank = len(VT)
         TS_comps = np.zeros((ts_length, rank))

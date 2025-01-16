@@ -122,18 +122,18 @@ class ApiTemplate:
                  metric_list):
         self.api_config = api_config
         self.metric_names = metric_list
+        self.industrial_class = None
+        self.train_data, self.test_data = None, None
 
     def _prepare_dataset(self, dataset):
         dataset_is_dict = isinstance(dataset, dict)
-        have_specified_industrial_strategy = 'strategy' in self.api_config['industrial_config'].keys()
-        is_forecasting_task = self.api_config['industrial_config']['problem'].__contains__('ts_forecasting')
+        industrial_config = self.api_config.get('industrial_config', {})
+        have_specified_industrial_strategy = 'strategy' in industrial_config.keys()
 
         if have_specified_industrial_strategy:
-            custom_dataset_strategy = self.api_config['industrial_config']['strategy']
-        elif is_forecasting_task:
-            custom_dataset_strategy = self.api_config['industrial_config']['problem']
+            custom_dataset_strategy = industrial_config['strategy']
         else:
-            custom_dataset_strategy = None
+            custom_dataset_strategy = industrial_config.get('problem')
 
         loader = DataLoader(dataset_name=dataset)
 

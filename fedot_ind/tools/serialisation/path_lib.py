@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 PROJECT_PATH = str(Path(__file__).parent.parent.parent.parent)
+EXAMPLES_PATH = os.path.join(PROJECT_PATH, 'examples')
+EXAMPLES_DATA_PATH = os.path.join(EXAMPLES_PATH, 'data')
 
 # Default parameters of feature generators
 PATH_TO_DEFAULT_PARAMS = os.path.join(

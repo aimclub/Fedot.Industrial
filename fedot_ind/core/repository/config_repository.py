@@ -7,7 +7,8 @@ class ApiConfigConstant(Enum):
                                  pop_size=5,
                                  early_stopping_iterations=10,
                                  early_stopping_timeout=10,
-                                 with_tuning=False
+                                 with_tuning=False,
+                                 n_jobs=1,
                                  )
     DEFAULT_COMPUTE_CONFIG = {'backend': 'cpu',
                               'distributed': dict(processes=False,

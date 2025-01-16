@@ -57,7 +57,7 @@ class IndustrialConfig(ConfigTemplate):
         return self.is_regression_task_context
 
     def with_industrial_strategy_params(self, kwargs):
-        self.strategy_params = kwargs.get('strategy_params', None)
+        self.strategy_params = kwargs.get('strategy_params')
         return self.strategy_params
 
     def with_forecasting_context(self, kwargs):
@@ -69,8 +69,8 @@ class IndustrialConfig(ConfigTemplate):
         return self.is_forecasting_context
 
     def with_industrial_initial_assumption(self, kwargs):
-        self.initial_assumption = kwargs.get('initial_assumption', None)
-        problem = kwargs['problem']
+        self.initial_assumption = kwargs.get('initial_assumption')
+        problem = kwargs.get('problem')
         problem = problem if not self.is_default_fedot_context else f'{problem}_{self.strategy}'
         if self.initial_assumption is None:
             self.initial_assumption = Either(value=problem,
