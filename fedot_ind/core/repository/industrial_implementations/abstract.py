@@ -211,7 +211,7 @@ def build_tuner(self, model_to_tune, tuning_params, train_data):
     pipeline_tuner = _create_tuner(tuning_params, train_data)
     model_to_tune = pipeline_tuner.tune(model_to_tune)
     model_to_tune.fit(train_data)
-    return pipeline_tuner, model_to_tune
+    return model_to_tune
 
 
 def postprocess_industrial_predicts(self, merged_predicts: np.array) -> np.array:

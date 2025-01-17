@@ -8,8 +8,6 @@ dataset_name = {'benchmark': 'M4',
 pipeline_for_finetune = {0: ['ar'],
                          1: ['lagged', 'ridge'],
                          'head': ['bagging']}
-bad_pipeline = {0: ['eigen_basis', 'ar']}
-bad_pipeline = {0: ['smoothing', 'ar']}
 finutune_existed_model = False
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG

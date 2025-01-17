@@ -120,6 +120,7 @@ def transform_smoothing_industrial(self, input_data: InputData) -> OutputData:
     else:
         source_ts = pd.Series(input_data.features.flatten())
         smoothed_ts = np.ravel(self._apply_smoothing_to_series(source_ts))
+        smoothed_ts = smoothed_ts.reshape(1, -1)
         output_data = self._convert_to_output(input_data,
                                               smoothed_ts,
                                               data_type=input_data.data_type)

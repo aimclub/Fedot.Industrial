@@ -171,7 +171,8 @@ class FedotIndustrial(Fedot):
 
     def __abstract_predict(self, predict_data, predict_mode):
         have_encoder = self.manager.condition_check.solver_have_target_encoder(self.target_encoder)
-        custom_predict = not self.manager.condition_check.solver_is_fedot_class(self.manager.solver)
+        custom_predict = all([not self.manager.condition_check.solver_is_fedot_class(self.manager.solver),
+                              not self.manager.condition_check.solver_is_pipeline_class(self.manager.solver)])
 
         def _inverse_encoder_transform(predict):
             predicted_labels = self.target_encoder.inverse_transform(predict)
@@ -232,8 +233,8 @@ class FedotIndustrial(Fedot):
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
                                              not isinstance(self.manager.industrial_config.strategy, Callable)]). \
-            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                   right_function=lambda data: self.manager.solver.fit(data))
+                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                       right_function=lambda data: self.manager.solver.fit(data))
 
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
@@ -293,7 +294,8 @@ class FedotIndustrial(Fedot):
     def finetune(self,
                  train_data: Union[InputData, dict, tuple],
                  tuning_params: Optional[dict] = None,
-                 model_to_tune: Optional[Pipeline] = None):
+                 model_to_tune: Optional[Pipeline] = None,
+                 return_only_fitted: bool = False):
         """Method to obtain prediction probabilities from trained Industrial model.
 
             Args:
@@ -305,9 +307,7 @@ class FedotIndustrial(Fedot):
             """
 
         def _fit_pipeline(data_dict):
-            fitted_pipeline = deepcopy(data_dict['model_to_tune'])
-            fitted_pipeline.fit(data_dict['train_data'])
-            fitted_pipeline.predict(data_dict['train_data'])
+            data_dict['model_to_tune'].fit(data_dict['train_data'])
             return data_dict
 
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
@@ -319,9 +319,10 @@ class FedotIndustrial(Fedot):
             then(lambda processed_data: {'train_data': processed_data} |
                                         {'model_to_tune': model_to_tune.build()} |
                                         {'tuning_params': tuning_params}). \
-            then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)). \
-            then(lambda dict_for_tune: build_tuner(self, **dict_for_tune))
+            then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)['model_to_tune'] if return_only_fitted
+        else build_tuner(self, **dict_for_tune)).value
         self.manager.is_finetuned = True
+        self.manager.solver = model_to_tune
 
     def get_metrics(self,
                     labels: np.ndarray,

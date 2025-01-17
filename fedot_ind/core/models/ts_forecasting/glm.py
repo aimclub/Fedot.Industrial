@@ -48,10 +48,10 @@ class GLMIndustrial(ModelImplementation):
 
     def _check_glm_params(self, mean_kurtosis, mean_skew):
         if np.logical_or(
-            mean_kurtosis < -1,
-            mean_kurtosis > 1) and np.logical_or(
-                mean_skew < -0.2,
-                mean_skew > 0.2):
+                mean_kurtosis < -1,
+                mean_kurtosis > 1) and np.logical_or(
+            mean_skew < -0.2,
+            mean_skew > 0.2):
             family = 'gamma'
         elif np.logical_or(mean_kurtosis < -2, mean_kurtosis > 2) and np.logical_or(mean_skew < -0.5, mean_skew > 0.5):
             family = "inverse_gaussian"
@@ -60,10 +60,10 @@ class GLMIndustrial(ModelImplementation):
         return family
 
     def fit(self, input_data):
-        pipeline_tuner, tuned_model = build_tuner(self,
-                                                  model_to_tune=self.auto_reg,
-                                                  tuning_params=self.ar_tuning_params,
-                                                  train_data=input_data)
+        tuned_model = build_tuner(self,
+                                  model_to_tune=self.auto_reg,
+                                  tuning_params=self.ar_tuning_params,
+                                  train_data=input_data)
         self.auto_reg = tuned_model
         residual = self.auto_reg.root_node.fitted_operation[0].autoreg.resid
         residual = np.nan_to_num(residual, nan=0, posinf=0, neginf=0)
@@ -75,7 +75,6 @@ class GLMIndustrial(ModelImplementation):
                          family=self.family_link
                          ).fit(method="lbfgs")
         del self.ar_tuning_params
-        del pipeline_tuner
         return self.model
 
     def predict(self, input_data):

@@ -13,6 +13,7 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch.nn import LSTM, GRU, Linear, Module, RNN, Sequential
+from tqdm import tqdm
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -91,11 +92,8 @@ class DeepARModule(Module):
         self.__prediction_averaging_factor = prediction_averaging_factor
         self.quantiles = quantiles or torch.tensor([0.25, 0.5, 0.75])
         self.distribution = self._loss_fns[distribution]
-        self.projector = Sequential(
-            Linear(
-                self.hidden_size, self.hidden_size), Linear(
-                self.hidden_size, len(
-                    self.distribution.distribution_arguments)))
+        self.projector = Sequential(Linear(self.hidden_size, self.hidden_size),
+                                    Linear(self.hidden_size, len(self.distribution.distribution_arguments)))
 
     def encode(
             self,
@@ -218,18 +216,19 @@ class DeepAR(BaseNeuralModel):
         self.epochs = self.params.get('epochs', 50)
         self.learning_rate = self.params.get('learning_rate', 0.1)
         self.batch_size = self.params.get('batch_size', 16)
-
+        self.device = self.params.get('device', 'cpu')
+        self.device = default_device(self.device)
         # architecture settings
         self.activation = self.params.get('activation', 'tanh')
-        self.cell_type = self.params.get('cell_type', 'LSTM')
+        self.cell_type = self.params.get('cell_type', 'GRU')  # LSTM is unstable?
         self.hidden_size = self.params.get('hidden_size', 10)
-        self.rnn_layers = self.params.get('rnn_layers', 2)
+        self.rnn_layers = self.params.get('rnn_layers', 1)
         self.dropout = self.params.get('dropout', 0.1)
         self.expected_distribution = self.params.get('expected_distribution', 'normal')
         self.patch_len = self.params.get('patch_len', None)
         self.preprocess_to_lagged = False
         self.horizon = 1  # params.get('horizon', 1) for future extension
-        self.task_type = 'ts_forecsting'
+        self.task_type = 'ts_forecasting'
 
         # forecasting settings
         self.forecast_mode = self.params.get('forecast_mode', 'predictions')
@@ -239,7 +238,6 @@ class DeepAR(BaseNeuralModel):
         self.forecast_length = self.params.get('forecast_length', 1)
 
         # additional
-        self.print_training_progress = self.params.get('print_training_progress', False)
         self._prediction_averaging_factor = self.params.get('prediction_averaging_factor', 17)
 
     def _init_model(self, ts) -> tuple:
@@ -254,20 +252,9 @@ class DeepAR(BaseNeuralModel):
             rnn_layers=self.rnn_layers,
             distribution=self.expected_distribution,
             prediction_averaging_factor=self._prediction_averaging_factor).to(
-            default_device())
-        self.model_for_inference = DeepARModule(
-            input_size=input_size,
-            hidden_size=self.hidden_size,
-            cell_type=self.cell_type,
-            dropout=self.dropout,
-            rnn_layers=self.rnn_layers,
-            distribution=self.expected_distribution,
-            prediction_averaging_factor=self._prediction_averaging_factor).to(
-            default_device())
+            self.device)
         self._evaluate_num_of_epochs(ts)
-        self.optimizer = optim.Adam(
-            self.model.parameters(),
-            lr=self.learning_rate)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         return self.loss_fn, self.optimizer
 
@@ -278,12 +265,12 @@ class DeepAR(BaseNeuralModel):
                                                       is_train=True)
         loss_fn, optimizer = self._init_model(input_data)
 
-        self._train_loop(model=self.model,
-                         train_loader=train_loader,
-                         loss_fn=loss_fn,
-                         optimizer=optimizer,
-                         val_loader=val_loader,
-                         )
+        self.model = self._train_loop(model=self.model,
+                                      train_loader=train_loader,
+                                      loss_fn=loss_fn,
+                                      optimizer=optimizer,
+                                      val_loader=val_loader,
+                                      )
         return self
 
     def _prepare_data(
@@ -331,27 +318,22 @@ class DeepAR(BaseNeuralModel):
     def predict(self,
                 test_data: InputData,
                 output_mode: str = None):
-        if not output_mode:
-            output_mode = self.forecast_mode
+        output_mode = self.forecast_mode if not output_mode else output_mode
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
         # some logic to select needed ts
         if output_mode == 'quantiles':
             kwargs = dict(quantiles=self.quantiles)
-        elif output_mode == 'samples':
-            kwargs = dict(n_samples=self.n_samples)
         else:
-            kwargs = {}
-        fcs = self._predict(test_data, output_mode, **kwargs)
-        prediction = fcs[0, ...].squeeze().numpy()
-        predict = OutputData(
+            kwargs = dict(n_samples=self.n_samples) if output_mode == 'samples' else {}
+        forecast = self._predict(test_data, output_mode, **kwargs)
+        return OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
-            predict=prediction,
+            predict=forecast[0, ...].squeeze().numpy(),
             target=test_data.target,
             data_type=DataTypesEnum.table)
-        return predict
 
     def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
         self.forecast_length = test_data.task.task_params.forecast_length or self.forecast_length
@@ -371,7 +353,7 @@ class DeepAR(BaseNeuralModel):
             last_patch = torch.roll(last_patch, -1, dims=-1)
             last_patch[..., -1] = last_target.squeeze()
 
-        last_patch = last_patch.to(default_device())
+        last_patch = last_patch.to(self.device)
 
         fc = self.model.forecast(last_patch, self.forecast_length,
                                  output_mode=output_mode,
@@ -384,17 +366,13 @@ class DeepAR(BaseNeuralModel):
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
-
-        fcs = self._predict(test_data, output_mode)
-        # some logic to select needed ts for other modes
-        prediction = fcs.squeeze().numpy()
-        predict = OutputData(
+        forecast = self._predict(test_data, output_mode)
+        return OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
-            predict=prediction,
+            predict=forecast.squeeze().numpy(),
             target=test_data.target,
             data_type=DataTypesEnum.table)
-        return predict
 
     def _train_loop(self, model,
                     train_loader,
@@ -402,68 +380,56 @@ class DeepAR(BaseNeuralModel):
                     val_loader,
                     optimizer,
                     val_interval=10):
-        train_steps = max(1, len(train_loader))
-        early_stopping = EarlyStopping()
+        def train_one_batch(iter, batch):
+            batch_x, batch_y = batch[0], batch[1]
+            iter += 1
+            optimizer.zero_grad()
+            batch_x = (batch_x.float()).to(self.device)
+            batch_y = batch_y[:, ..., [0]].float().to(self.device)  # only first entrance
+            outputs, *hidden_state = model(batch_x)
+            loss = loss_fn(outputs, batch_y, self.model.scaler)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            optimizer.step()
+            scheduler.step()
+            return loss.item()
 
+        def val_one_epoch(iter, batch):
+            model.eval()
+            val_loss = 0.0
+            total = 0
+            inputs, targets = batch
+            output = model(inputs)
+            loss = loss_fn(output, targets.float())
+            val_loss += loss.data.item() * inputs.size(0)
+            total += inputs.size(0)
+            val_loss /= total
+            if val_loss < val_loss:
+                best_val_loss = val_loss
+                best_model = deepcopy(model)
+
+        train_steps, early_stopping, best_model, best_val_loss = max(1, len(train_loader)), EarlyStopping(), \
+                                                                 None, float('inf')
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
-        kwargs = {'lradj': 'type3'}
-
-        best_model = None
-        best_val_loss = float('inf')
-        if self.print_training_progress:
-            print('Total epochs:', self.epochs)
-        for epoch in range(self.epochs):
+        for epoch in tqdm(range(self.epochs)):
             iter_count = 0
-            train_loss = []
             model.train()
-            valid_loss = 0.0
-
-            for i, (batch_x, batch_y) in enumerate(train_loader):
-                iter_count += 1
-                optimizer.zero_grad()
-                batch_x = (batch_x.float()).to(default_device())
-                batch_y = batch_y[:, ..., [0]].float().to(
-                    default_device())  # only first entrance
-                outputs, *hidden_state = model(batch_x)
-
-                loss = loss_fn(outputs, batch_y, self.model.scaler)
-                train_loss.append(loss.item())
-
-                loss.backward()
-                optimizer.step()
-
-                scheduler.step()
-            if val_loader is not None and epoch % val_interval == 0:
-                model.eval()
-                total = 0
-                for batch in val_loader:
-                    inputs, targets = batch
-                    output = model(inputs)
-
-                    loss = loss_fn(output, targets.float())
-
-                    valid_loss += loss.data.item() * inputs.size(0)
-                    total += inputs.size(0)
-                valid_loss /= total
-                if valid_loss < best_val_loss:
-                    best_val_loss = valid_loss
-                    best_model = deepcopy(model)
-
+            train_loss = list(map(lambda batch_tuple: train_one_batch(iter_count, batch_tuple), train_loader))
             train_loss = np.average(train_loss)
-            if self.print_training_progress:
-                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
-                    epoch + 1, train_steps, train_loss))
-            if early_stopping.early_stop:
-                if self.print_training_progress:
-                    print("Early stopping")
-                break
+            if val_loader is not None and epoch % val_interval == 0:
+                valid_loss = list(map(lambda batch_tuple: val_one_epoch(iter_count, batch_tuple), val_loader))
             last_lr = scheduler.get_last_lr()[0]
-            if self.print_training_progress:
+            if epoch % 25 == 0:
+                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(epoch + 1, train_steps, train_loss))
                 print('Updating learning rate to {}'.format(last_lr))
-        return best_model
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+
+        return model
 
     def _get_train_val_loaders(self,
                                ts,
