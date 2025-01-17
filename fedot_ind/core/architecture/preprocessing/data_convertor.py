@@ -138,10 +138,13 @@ class FedotConverter:
             output_data = prediction
         elif isinstance(prediction, list):
             output_data = prediction[0]
-            target = NumpyConverter(data=np.concatenate(
-                [p.target for p in prediction], axis=0)).convert_to_torch_format()
             predict = NumpyConverter(data=np.concatenate(
                 [p.predict for p in prediction], axis=0)).convert_to_torch_format()
+            if output_data.target is None:
+                target = predict
+            else:
+                target = NumpyConverter(data=np.concatenate(
+                    [p.target for p in prediction], axis=0)).convert_to_torch_format()
             output_data = OutputData(
                 idx=predict_data.idx,
                 features=predict_data.features,

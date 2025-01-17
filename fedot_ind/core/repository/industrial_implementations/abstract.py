@@ -256,7 +256,10 @@ def find_main_output_industrial(outputs: List['OutputData']) -> 'OutputData':
     no main targets) the output with priority secondary target. """
     combine_ts_and_multi_ts = outputs[0].data_type.value.__contains__('time') and len(outputs) != 1
     if combine_ts_and_multi_ts:
-        priority_output = [x for x in outputs if len(x.target.shape) < 2][0]
+        try:
+            priority_output = [x for x in outputs if len(x.target.shape) < 2][0]
+        except Exception:
+            priority_output = outputs[0]  # [x for x in outputs if len(x.target.shape) < 2][0]
     else:
         priority_output = next((output for output in outputs
                                 if output.supplementary_data.is_main_target), None)

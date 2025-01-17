@@ -12,6 +12,7 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.visualisation.pipeline_specific_visuals import PipelineHistoryVisualizer
 from golem.core.optimisers.opt_history_objects.opt_history import OptHistory
 from pymonad.either import Either
+from pymonad.tools import curry
 from sklearn import model_selection as skms
 from sklearn.calibration import CalibratedClassifierCV
 
@@ -143,8 +144,8 @@ class FedotIndustrial(Fedot):
             else train_data.features
         return train_data
 
-    def __calibrate_probs(self, industrial_model):
-        model_sklearn = SklearnCompatibleClassifier(industrial_model)
+    def __calibrate_probs(self, probability_model, predict_data):
+        model_sklearn = SklearnCompatibleClassifier(probability_model)
         train_idx, test_idx = skms.train_test_split(self.train_data.idx,
                                                     train_size=0.8,
                                                     test_size=0.2,
@@ -158,7 +159,7 @@ class FedotIndustrial(Fedot):
         cal_clf = CalibratedClassifierCV(model_sklearn, method="sigmoid", cv="prefit")
         cal_clf.fit(val_data[0], val_data[1])
         # calibrated prediction
-        calibrated_proba = cal_clf.predict_proba(self.predict_data.features)
+        calibrated_proba = cal_clf.predict_proba(predict_data.features)
         return calibrated_proba
 
     def __predict_for_ensemble(self):
@@ -168,18 +169,9 @@ class FedotIndustrial(Fedot):
             predict, strategy), axis=1) for strategy in ensemble_strat}
         return predict
 
-    def __abstract_predict(self, predict_mode):
+    def __abstract_predict(self, predict_data, predict_mode):
         have_encoder = self.manager.condition_check.solver_have_target_encoder(self.target_encoder)
-        labels_output = predict_mode in ['labels']
-        have_proba_output = hasattr(self.solver, 'predict_proba')
-        self.__init_industrial_backend()
-        custom_predict = self.solver.predict if self.manager.industrial_config.is_default_fedot_context \
-            else self.manager.industrial_config.strategy.predict
-
-        predict_function = Either(value=custom_predict,
-                                  monoid=['prob', labels_output]).either(
-            left_function=lambda prob_func: self.solver.predict_proba if have_proba_output else self.solver.predict,
-            right_function=lambda label_func: label_func)
+        custom_predict = not self.manager.condition_check.solver_is_fedot_class(self.manager.solver)
 
         def _inverse_encoder_transform(predict):
             predicted_labels = self.target_encoder.inverse_transform(
@@ -188,16 +180,13 @@ class FedotIndustrial(Fedot):
                 self.predict_data.target)
             return predicted_labels
 
-        predict = Either(
-            value=self.predict_data, monoid=[False, True]).then(
-            function=lambda x: predict_function(x, predict_mode)).then(
-            lambda x: _inverse_encoder_transform(x) if have_encoder else x).value
-        if isinstance(predict, OutputData):
-            predict = predict.predict
-        try:
-            predict = np.argmax(predict, axis=1) if predict.shape[1] != 1 else predict
-        except Exception:
-            predict = predict
+        predict = Either(value=predict_data,
+                         monoid=[predict_data, custom_predict]).either(
+            left_function=lambda predict_from_solver: self.manager.solver.predict(predict_from_solver)
+            if predict_mode in ['labels'] else self.manager.solver.predict_proba(predict_from_solver),
+            right_function=lambda predict_from_custom: self.manager.solver.predict(predict_from_custom))
+        predict = Either.insert(predict).then(lambda x: _inverse_encoder_transform(x) if have_encoder else x). \
+            then(lambda x: x.predict if isinstance(predict, OutputData) else x).value
         return predict
 
     def _metric_evaluation_loop(self,
@@ -245,8 +234,8 @@ class FedotIndustrial(Fedot):
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
                                              not isinstance(self.manager.industrial_config.strategy, Callable)]). \
-            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                   right_function=lambda data: self.manager.solver.fit(data))
+                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                       right_function=lambda data: self.manager.solver.fit(data))
 
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
@@ -268,8 +257,11 @@ class FedotIndustrial(Fedot):
             the array with prediction values
 
         """
-        self.predict_data = self._process_input_data(predict_data)
-        self.predicted_labels = self.__abstract_predict(predict_mode)
+        predict_func = curry(2)(lambda predict_mode, predict_data: self.__abstract_predict(predict_data, predict_mode))
+        self.repo = IndustrialModels().setup_repository(backend=self.manager.compute_config.backend)
+        self.predicted_labels = Either.insert(self._process_input_data(predict_data)). \
+            then(predict_func(predict_mode)).value
+
         return self.predicted_labels
 
     def predict_proba(self,
@@ -289,10 +281,16 @@ class FedotIndustrial(Fedot):
             the array with prediction probabilities
 
         """
-        self.predict_data = self._process_input_data(predict_data)
-        self.predicted_probs = self.predicted_labels if self.manager.is_regression_task_context \
-            else self.__abstract_predict(predict_mode)
-        return self.__calibrate_probs(self.solver.current_pipeline) if calibrate_probs else self.predicted_probs
+        self.repo = IndustrialModels().setup_repository(backend=self.manager.compute_config.backend)
+        predict_mode = predict_mode if not self.manager.industrial_config.is_regression_task_context else 'labels'
+        predict_func = curry(2)(lambda predict_mode, predict_data: self.__abstract_predict(predict_data, predict_mode))
+        calibrate_func = curry(3)(lambda prob_model, data_for_calib, labels:
+                                  self.__calibrate_probs(prob_model, data_for_calib) if predict_mode.__contains__(
+                                      'probs') else labels)
+        self.predicted_probs = Either.insert(self._process_input_data(predict_data)). \
+            then(predict_func(predict_mode)).then(calibrate_func(self.manager.solver, predict_data)).value
+
+        return self.predicted_probs
 
     def finetune(self,
                  train_data: Union[InputData, dict, tuple],
@@ -327,10 +325,11 @@ class FedotIndustrial(Fedot):
             then(lambda dict_for_tune: build_tuner(self, **dict_for_tune))
 
     def get_metrics(self,
+                    labels: np.ndarray,
+                    probs: np.ndarray,
                     target: Union[list, np.array] = None,
                     metric_names: tuple = None,
-                    rounding_order: int = 3,
-                    **kwargs) -> pd.DataFrame:
+                    rounding_order: int = 3) -> pd.DataFrame:
         """
         Method to calculate metrics for Industrial model.
 
@@ -348,29 +347,20 @@ class FedotIndustrial(Fedot):
             pandas DataFrame with calculated metrics
 
         """
-        problem = self.config['problem']
-
-        if problem == 'classification' and self.predicted_probs is None and 'roc_auc' in metric_names:
+        problem = self.manager.automl_config.task
+        warning_about_probs = all([problem == 'classification',
+                                   probs is None,
+                                   'roc_auc' in metric_names])
+        if warning_about_probs:
             self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
-        if isinstance(self.predicted_probs, dict):
-            metric_dict = {
-                strategy: self._metric_evaluation_loop(
-                    target=target,
-                    problem=problem,
-                    predicted_labels=self.predicted_labels[strategy],
-                    predicted_probs=probs,
-                    rounding_order=rounding_order,
-                    metric_names=metric_names) for strategy,
-                probs in self.predicted_probs.items()}
 
-        else:
-            metric_dict = self._metric_evaluation_loop(
-                target=target,
-                problem=problem,
-                predicted_labels=self.predicted_labels,
-                predicted_probs=self.predicted_probs,
-                rounding_order=rounding_order,
-                metric_names=metric_names)
+        metric_dict = self._metric_evaluation_loop(
+            target=target,
+            problem=problem,
+            predicted_labels=labels,
+            predicted_probs=probs,
+            rounding_order=rounding_order,
+            metric_names=metric_names)
         return metric_dict
 
     def save_predict(self, predicted_data, **kwargs) -> None:
@@ -458,7 +448,7 @@ class FedotIndustrial(Fedot):
         explainer.visual(metric=metric, threshold=threshold, name=name)
 
     def return_report(self) -> pd.DataFrame:
-        return self.solver.return_report() if isinstance(self.solver, Fedot) else None
+        return self.manager.solver.return_report() if isinstance(self.manager.solver, Fedot) else None
 
     def vis_optimisation_history(self, opt_history_path: str = None,
                                  mode: str = 'all',

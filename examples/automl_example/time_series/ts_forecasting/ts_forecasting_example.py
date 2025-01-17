@@ -8,19 +8,20 @@ dataset_name = {'benchmark': 'M4',
 pipeline_for_finetune = {0: ['ar'],
                          1: ['lagged', 'ridge'],
                          'head': ['bagging']}
+bad_pipeline = {0: ['eigen_basis', 'ar']}
+bad_pipeline = {0: ['smoothing', 'ar']}
 finutune_existed_model = False
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
 AUTOML_CONFIG = {'task': 'ts_forecasting',
                  'task_params': {'forecast_length': 14},
-                 'initial_assumption': init_assumption,
                  'use_automl': True,
                  'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
                                                                      'mutation_strategy': 'growth_mutation_strategy'},
                                            'optimisation_agent': 'Industrial'}}
 AUTOML_LEARNING_STRATEGY = dict(timeout=5,
-                                n_jobs=4,
-                                logging_level=0)
+                                n_jobs=2,
+                                logging_level=30)
 
 LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
                    'learning_strategy_params': AUTOML_LEARNING_STRATEGY,

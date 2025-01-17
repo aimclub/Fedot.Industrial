@@ -6,6 +6,7 @@ from typing import Optional, Tuple, Union, Sequence
 
 import optuna
 from dask.distributed import wait
+from distributed import Client, LocalCluster
 from fedot.core.constants import DEFAULT_TUNING_ITERATIONS_NUMBER
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline import Pipeline
@@ -13,6 +14,7 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.adapter import BaseOptimizationAdapter
 from golem.core.optimisers.graph import OptGraph
 from golem.core.optimisers.objective import ObjectiveFunction
+from golem.core.tuning.optuna_tuner import OptunaTuner
 from golem.core.tuning.search_space import SearchSpace, get_node_operation_parameter_label
 from golem.core.tuning.tuner_interface import BaseTuner, DomainGraphForTune
 from optuna import Trial, Study
@@ -48,8 +50,9 @@ class DaskOptunaTuner(BaseTuner):
         self.study = optuna.create_study(storage=self.storage,
                                          direction='minimize')  # ['minimize'] * self.objectives_number
         # Submit self.n_trials different optimization tasks, where each task runs self.iterations optimization trials
-        from fedot_ind.core.repository.constanst_repository import DASK_CLIENT
-        client = DASK_CLIENT
+        tuning_cluster_params = dict(processes=False, n_workers=1, threads_per_worker=4, memory_limit='auto')
+        cluster = LocalCluster(**tuning_cluster_params)
+        client = Client(cluster)
         futures = [client.submit(self.study.optimize,
                                  predefined_objective,
                                  n_trials=self.iterations,
@@ -105,13 +108,13 @@ class DaskOptunaTuner(BaseTuner):
                 sampling_scope = parameter_properties.get('sampling-scope')
                 if parameter_type == 'discrete':
                     new_parameters.update({node_op_parameter_name:
-                                           trial.suggest_int(node_op_parameter_name, *sampling_scope)})
+                                               trial.suggest_int(node_op_parameter_name, *sampling_scope)})
                 elif parameter_type == 'continuous':
                     new_parameters.update({node_op_parameter_name:
-                                           trial.suggest_float(node_op_parameter_name, *sampling_scope)})
+                                               trial.suggest_float(node_op_parameter_name, *sampling_scope)})
                 elif parameter_type == 'categorical':
                     new_parameters.update({node_op_parameter_name:
-                                           trial.suggest_categorical(node_op_parameter_name, *sampling_scope)})
+                                               trial.suggest_categorical(node_op_parameter_name, *sampling_scope)})
         return new_parameters
 
     def _get_initial_point(self, graph: OptGraph) -> Tuple[dict, bool]:
@@ -126,7 +129,7 @@ class DaskOptunaTuner(BaseTuner):
             if tunable_node_params:
                 has_parameters_to_optimize = True
                 tunable_initial_params = {get_node_operation_parameter_label(node_id, operation_name, p):
-                                          node.parameters[p] for p in node.parameters if p in tunable_node_params}
+                                              node.parameters[p] for p in node.parameters if p in tunable_node_params}
                 if tunable_initial_params:
                     initial_parameters.update(tunable_initial_params)
         return initial_parameters, has_parameters_to_optimize
@@ -145,7 +148,7 @@ def tune_pipeline_industrial(self, train_data: InputData, pipeline_gp_composed: 
     """ Launch tuning procedure for obtained pipeline by composer """
     timeout_for_tuning = abs(self.timer.determine_resources_for_tuning()) / 60
     tuner = (TunerBuilder(self.params.task)
-             .with_tuner(DaskOptunaTuner)
+             .with_tuner(OptunaTuner)  # DaskOptunaTuner
              .with_metric(self.metrics[0])
              .with_iterations(DEFAULT_TUNING_ITERATIONS_NUMBER)
              .with_timeout(datetime.timedelta(minutes=timeout_for_tuning))

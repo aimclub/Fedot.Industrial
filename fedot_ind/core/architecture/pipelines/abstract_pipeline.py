@@ -133,8 +133,10 @@ class ApiTemplate:
 
     def _get_result(self, test_data):
         labels = self.industrial_class.predict(test_data)
-        self.industrial_class.predict_proba(test_data)
-        metrics = self.industrial_class.get_metrics(target=test_data[1],
+        probs = self.industrial_class.predict_proba(test_data)
+        metrics = self.industrial_class.get_metrics(labels=labels,
+                                                    probs=probs,
+                                                    target=test_data[1],
                                                     rounding_order=3,
                                                     metric_names=self.metric_names)
         result_dict = dict(industrial_model=self.industrial_class,

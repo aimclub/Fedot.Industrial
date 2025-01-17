@@ -11,15 +11,11 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
     ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
-    SparseLaggedTransformationImplementation, TsSmoothingImplementation
+    TsSmoothingImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
     FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
     STLForecastARIMAImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.cgru import \
-    CGRUImplementation
-from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.naive import \
-    RepeatLastValueImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.statsmodels import \
     AutoRegImplementation, ExpSmoothingImplementation
 from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
@@ -156,17 +152,17 @@ class AtomizedModel(Enum):
         'ar': AutoRegImplementation,
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
-        'cgru': CGRUImplementation,
+        # 'cgru': CGRUImplementation,
         'glm': GLMIndustrial,
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,
-        'locf': RepeatLastValueImplementation
+        #'locf': RepeatLastValueImplementation
     }
 
     FORECASTING_PREPROC = {
         'lagged': LaggedTransformationImplementation,
-        'sparse_lagged': SparseLaggedTransformationImplementation,
+        #'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
         'exog_ts': ExogDataTransformationImplementation

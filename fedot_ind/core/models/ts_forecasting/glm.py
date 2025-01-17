@@ -60,8 +60,10 @@ class GLMIndustrial(ModelImplementation):
         return family
 
     def fit(self, input_data):
-        pipeline_tuner, tuned_model = build_tuner(
-            self, self.auto_reg, self.ar_tuning_params, input_data, 'head')
+        pipeline_tuner, tuned_model = build_tuner(self,
+                                                  model_to_tune=self.auto_reg,
+                                                  tuning_params=self.ar_tuning_params,
+                                                  train_data=input_data)
         self.auto_reg = tuned_model
         residual = self.auto_reg.root_node.fitted_operation[0].autoreg.resid
         residual = np.nan_to_num(residual, nan=0, posinf=0, neginf=0)
