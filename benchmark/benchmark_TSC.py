@@ -4,6 +4,7 @@ import os
 import shutil
 from abc import ABC
 from copy import deepcopy
+from typing import Union
 
 import pandas as pd
 
@@ -12,6 +13,7 @@ from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.metrics_implementation import Accuracy
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
 from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
@@ -20,7 +22,10 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
     def __init__(self,
                  experiment_setup: dict = None,
                  custom_datasets: list = None,
-                 use_small_datasets: bool = False):
+                 use_small_datasets: bool = False,
+                 metric_names: Union[list, tuple] = None,
+                 initial_assumptions: Union[list, dict] = None,
+                 finetune: bool = True):
 
         super(BenchmarkTSC, self).__init__(
             output_dir='./tser/benchmark_results')
@@ -28,7 +33,14 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.experiment_setup = experiment_setup
-        self.init_assumption = deepcopy(self.experiment_setup['initial_assumption'])
+        self.industrial_config = experiment_setup.get('industrial_config', {})
+        self.automl_config = experiment_setup.get('automl_config', {})
+        self.learning_config = experiment_setup.get('learning_config', {})
+        self.compute_config = experiment_setup.get('compute_config', DEFAULT_COMPUTE_CONFIG)
+        self.experiment_setup['compute_config'] = self.compute_config
+        self.metric_names = metric_names
+        self.need_finetune = finetune
+        self.init_assumption = deepcopy(initial_assumptions)
         self.multi_TSC = MULTI_CLF_BENCH
         self.uni_TSC = UNI_CLF_BENCH
         if custom_datasets is None:
@@ -40,23 +52,25 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             self.custom_datasets = custom_datasets
 
         if use_small_datasets:
-            self.path_to_result = 'time_series_uni_clf_comparasion.csv'
+            self.path_to_result = 'time_series_uni_clf_comparison.csv'
             self.path_to_save = 'ts_uni_classification'
         else:
-            self.path_to_result = 'time_series_multi_clf_comparasion.csv'
+            self.path_to_result = 'time_series_multi_clf_comparison.csv'
             self.path_to_save = 'ts_multi_classification'
-        self.output_dir = os.path.join(self.experiment_setup['output_folder'], self.path_to_save)
+        self.output_dir = os.path.join(
+            self.experiment_setup['compute_config'].get('output_folder', PROJECT_PATH), self.path_to_save)
         self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
 
-    def _run_model_versus_model(self, dataset_name, comparasion_dict):
+    def _run_model_versus_model(self, dataset_name, comparison_dict: dict):
         approach_dict = {}
-        for approach in comparasion_dict.keys():
+        metric_name = self.learning_config.get('optimisation_loss', {}).get('quality_loss', 'accuracy')
+        for approach, node_dict in comparison_dict.keys():
             result_dict = ApiTemplate(api_config=self.experiment_setup,
-                                      metric_list=self.experiment_setup['metric_names']). \
-                eval(dataset=dataset_name,
-                     initial_assumption=comparasion_dict[approach],
-                     finetune=self.experiment_setup['finetune'])
-            metric = result_dict['metrics'][self.experiment_setup['metric']][0]
+                                      metric_list=self.metric_names)\
+                .eval(dataset=dataset_name,
+                      initial_assumption=node_dict,
+                      finetune=self.need_finetune)
+            metric = result_dict['metrics'][metric_name][0]
             approach_dict.update({approach: metric})
         return approach_dict
 
@@ -99,7 +113,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             for p in composed_model_path:
                 if os.path.isdir(p):
                     try:
-                        self.experiment_setup['output_folder'] = PROJECT_PATH + \
+                        self.experiment_setup['compute_config']['output_folder'] = PROJECT_PATH + \
                             self.path_to_save
                         experiment_setup = deepcopy(self.experiment_setup)
                         prediction, model = self.finetune_loop(
@@ -119,7 +133,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                 else:
                     print(f"No composed model for dataset - {dataset_name}")
             dataset_path = os.path.join(
-                self.experiment_setup['output_folder'],
+                self.experiment_setup['compute_config']['output_folder'],
                 f'{dataset_name}',
                 'metrics_report.csv')
             fedot_results = pd.read_csv(dataset_path, index_col=0)
@@ -144,18 +158,12 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.logger.info("Benchmark finetune finished")
 
     def load_local_basic_results(self, path: str = None):
-        if path is None:
+        try:
             path = os.path.join(self.output_dir, self.path_to_result)
-            try:
-                results = pd.read_csv(path, sep=',', index_col=0)
-                # results = results.fillna()
-                # results = results.dropna(axis=1, how='all')
-                # results = results.dropna(axis=0, how='all')
-            except Exception:
-                results = self.load_web_results()
-            return results
-        else:
-            return self.results_picker.run(get_metrics_df=True, add_info=True)
+            results = pd.read_csv(path, sep=',', index_col=0)
+        except Exception:
+            results = self.results_picker.run(get_metrics_df=True, add_info=True)
+        return results
 
     def create_report(self):
         _ = []
