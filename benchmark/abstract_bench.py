@@ -57,10 +57,8 @@ class AbstractBenchmark(object):
     def evaluate_loop(self, dataset, experiment_setup: dict = None):
         matplotlib.use('TkAgg')
         train_data, test_data = DataLoader(dataset_name=dataset).load_data()
-        experiment_setup['output_folder'] = experiment_setup['output_folder'] + \
-            f'/{dataset}'
-        experiment_setup['history_dir'] = './composition_results' + \
-            f'/{dataset}'
+        experiment_setup['compute_config']['output_folder'] += f'/{dataset}'
+        experiment_setup['compute_config']['history_dir'] = f'./composition_results/{dataset}'
         model = FedotIndustrial(**experiment_setup)
         model.fit(train_data)
         prediction = model.predict(test_data)
