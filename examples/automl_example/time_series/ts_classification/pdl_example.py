@@ -2,8 +2,8 @@ from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 
 DATASET_NAME = 'Lightning7'
-COMPARISON_DICT = dict(pairwise_approach=['quantile_extractor', 'pdl_clf'],
-                       baseline=['quantile_extractor', 'rf'])
+COMPARISON_DICT = dict(pairwise_approach={0: ['quantile_extractor', 'pdl_clf']},
+                       baseline={0: ['quantile_extractor', 'rf']})
 METRIC_NAMES = ('f1', 'accuracy', 'precision', 'roc_auc')
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
@@ -32,5 +32,5 @@ if __name__ == "__main__":
         result_dict = ApiTemplate(api_config=API_CONFIG,
                                   metric_list=METRIC_NAMES).eval(dataset=DATASET_NAME,
                                                                  initial_assumption=node_list,
-                                                                 finetune=True)
+                                                                 finetune=False)
         print(f'Approach: {approach}. Metrics: {result_dict["metrics"]}')
