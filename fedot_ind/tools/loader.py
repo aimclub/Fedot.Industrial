@@ -72,7 +72,7 @@ class DataLoader:
 
     @staticmethod
     def local_skab_load(directory: Union[Path, str] = 'other', group: Optional[str] = None):
-        path_to_result = EXAMPLES_DATA_PATH + f'/detection/data/{directory}'
+        path_to_result = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{directory}'
         df = pd.read_csv(Path(path_to_result, f'{group}.csv'),
                          index_col='datetime',
                          sep=';',

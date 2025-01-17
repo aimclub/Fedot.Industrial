@@ -1,23 +1,36 @@
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
+
+DATASET_NAME = {'benchmark': 'valve1',
+                'dataset': '1'}
+METRIC_NAMES = ('nab', 'accuracy')
+
+COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+AUTOML_CONFIG = {'task': 'classification',
+                 'use_automl': True,
+                 'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
+                                                                     'mutation_strategy': 'growth_mutation_strategy'},
+                                           'optimisation_agent': 'Industrial'}}
+AUTOML_LEARNING_STRATEGY = dict(timeout=1,
+                                n_jobs=2,
+                                pop_size=10,
+                                logging_level=0)
+
+LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
+                   'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+                   'optimisation_loss': {'quality_loss': 'accuracy'}}
+
+INDUSTRIAL_CONFIG = {'problem': 'anomaly_detection',
+                     'strategy_params': {'detection_window': 10,
+                                         'data_type': 'time_series'}}
+
+API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
+              'automl_config': AUTOML_CONFIG,
+              'learning_config': LEARNING_CONFIG,
+              'compute_config': COMPUTE_CONFIG}
 
 if __name__ == "__main__":
-    dataset_name = dict(benchmark='valve1',
-                        dataset='1')
-    prediction_window = 10
-    finetune = False
-    metric_names = ('nab', 'accuracy')
-    api_config = dict(
-        problem='classification',
-        metric='accuracy',
-        timeout=1,
-        pop_size=10,
-        industrial_strategy='anomaly_detection',
-        industrial_task_params={
-            'detection_window': prediction_window,
-            'data_type': 'time_series'},
-        with_tuning=False,
-        n_jobs=2,
-        logging_level=20)
-    result_dict = ApiTemplate(api_config=api_config,
-                              metric_list=metric_names).eval(dataset=dataset_name, finetune=finetune)
+    result_dict = ApiTemplate(api_config=API_CONFIG,
+                              metric_list=METRIC_NAMES).eval(dataset=DATASET_NAME,
+                                                             finetune=False)
     print(result_dict['metrics'])

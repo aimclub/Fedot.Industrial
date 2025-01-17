@@ -2,7 +2,7 @@ import os
 import warnings
 from copy import deepcopy
 from functools import partial
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -91,7 +91,7 @@ class FedotIndustrial(Fedot):
         self.manager = ApiManager().build(kwargs)
         self.logger = self.manager.logger
 
-    def __init_industrial_backend(self, input_data):
+    def __init_industrial_backend(self, input_data: Optional[Union[InputData, np.array]] = None):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Industrial Repository')
         if self.manager.industrial_config.is_default_fedot_context:
@@ -110,7 +110,7 @@ class FedotIndustrial(Fedot):
                 optimisation_params=optimisation_params)
         return input_data
 
-    def __init_solver(self, input_data):
+    def __init_solver(self, input_data: Optional[Union[InputData, np.array]] = None):
         self.logger.info('-' * 50)
         self.logger.info('Initialising Dask Server')
         if self.manager.automl_config.config['initial_assumption'] is None:
@@ -174,10 +174,8 @@ class FedotIndustrial(Fedot):
         custom_predict = not self.manager.condition_check.solver_is_fedot_class(self.manager.solver)
 
         def _inverse_encoder_transform(predict):
-            predicted_labels = self.target_encoder.inverse_transform(
-                predict)
-            self.predict_data.target = self.target_encoder.inverse_transform(
-                self.predict_data.target)
+            predicted_labels = self.target_encoder.inverse_transform(predict)
+            self.predict_data.target = self.target_encoder.inverse_transform(self.predict_data.target)
             return predicted_labels
 
         predict = Either(value=predict_data,
@@ -294,8 +292,8 @@ class FedotIndustrial(Fedot):
 
     def finetune(self,
                  train_data: Union[InputData, dict, tuple],
-                 tuning_params: dict = None,
-                 model_to_tune: Pipeline = None):
+                 tuning_params: Optional[dict] = None,
+                 model_to_tune: Optional[Pipeline] = None):
         """Method to obtain prediction probabilities from trained Industrial model.
 
             Args:
@@ -323,6 +321,7 @@ class FedotIndustrial(Fedot):
                                         {'tuning_params': tuning_params}). \
             then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)). \
             then(lambda dict_for_tune: build_tuner(self, **dict_for_tune))
+        self.manager.is_finetuned = True
 
     def get_metrics(self,
                     labels: np.ndarray,
@@ -375,7 +374,7 @@ class FedotIndustrial(Fedot):
 
         """
         kind = kwargs.get('kind')
-        self.solver.save_prediction(predicted_data, kind=kind)
+        self.manager.solver.save_prediction(predicted_data, kind=kind)
 
     def save_metrics(self, **kwargs) -> None:
         """
@@ -388,7 +387,7 @@ class FedotIndustrial(Fedot):
             None
 
         """
-        self.solver.save_metrics(**kwargs)
+        self.manager.solver.save_metrics(**kwargs)
 
     def load(self, path):
         """Loads saved Industrial model from disk
@@ -410,19 +409,25 @@ class FedotIndustrial(Fedot):
         return pipeline
 
     def save_optimization_history(self, return_history: bool = False):
-        return self.solver.history if return_history else self.solver.history.save(
+        return self.manager.solver.history if return_history else self.manager.solver.history.save(
             f"{self.manager.output_folder}/"
             f"optimization_history.json")
 
     def save_best_model(self):
-        Either(value=self.solver,
-               monoid=[self.solver, self.manager.condition_check.solver_is_fedot_class(self.solver)]).either(
-            left_function=lambda pipeline: pipeline.save(path=self.manager.output_folder,
-                                                         create_subdir=True,
-                                                         is_datetime_in_path=True),
-            right_function=lambda solver: solver.current_pipeline.save(path=self.manager.output_folder,
-                                                                       create_subdir=True,
-                                                                       is_datetime_in_path=True))
+        Either(
+            value=self.manager.solver,
+            monoid=[
+                self.manager.solver,
+                self.manager.condition_check.solver_is_fedot_class(
+                    self.manager.solver)]).either(
+            left_function=lambda pipeline: pipeline.save(
+                path=self.manager.output_folder,
+                create_subdir=True,
+                is_datetime_in_path=True),
+            right_function=lambda solver: solver.current_pipeline.save(
+                path=self.manager.output_folder,
+                create_subdir=True,
+                is_datetime_in_path=True))
 
     def explain(self, explaing_config: dict = {}):
         """Explain model's prediction via time series points perturbation
