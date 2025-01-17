@@ -204,10 +204,9 @@ class DataCheck:
                 left_function=lambda x: x.features,
                 right_function=lambda strategy: self.convert_ts_method[strategy]
                 (self.input_data, self.strategy_params.get('sampling_strategy', None)))
-            if is_big_data:
-                self.input_data.features, self.input_data.target = output_data.predict, output_data.target
-            else:
-                self.input_data.features = output_data.predict
+            self.input_data.features = output_data.predict if hasattr(output_data, 'predict') else output_data
+            if is_big_data and hasattr(output_data, 'target'):
+                self.input_data.target = output_data.target
 
     def _convert_ts2tabular(self, input_data, sampling_strategy):
         if sampling_strategy is not None:
