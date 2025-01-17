@@ -38,9 +38,7 @@ API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
 if __name__ == "__main__":
     result_dict = ApiTemplate(
         api_config=API_CONFIG,
-        metric_list=(
-            'rmse',
-            'mae')).eval(
+        metric_list=('rmse', 'mae')).eval(
         dataset=dataset_name,
         initial_assumption=pipeline_for_finetune,
         finetune=finutune_existed_model)
