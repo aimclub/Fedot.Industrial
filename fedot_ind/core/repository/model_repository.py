@@ -157,12 +157,12 @@ class AtomizedModel(Enum):
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,
-        #'locf': RepeatLastValueImplementation
+        # 'locf': RepeatLastValueImplementation
     }
 
     FORECASTING_PREPROC = {
         'lagged': LaggedTransformationImplementation,
-        #'sparse_lagged': SparseLaggedTransformationImplementation,
+        # 'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
         'exog_ts': ExogDataTransformationImplementation
