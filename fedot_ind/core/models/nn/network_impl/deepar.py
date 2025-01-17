@@ -405,11 +405,10 @@ class DeepAR(BaseNeuralModel):
             total += inputs.size(0)
             val_loss /= total
             if val_loss < val_loss:
-                best_val_loss = val_loss
-                best_model = deepcopy(model)
+                deepcopy(model)
 
         train_steps, early_stopping, best_model, best_val_loss = max(1, len(train_loader)), EarlyStopping(), \
-                                                                 None, float('inf')
+            None, float('inf')
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
