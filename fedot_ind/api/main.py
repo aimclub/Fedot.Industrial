@@ -365,22 +365,26 @@ class FedotIndustrial(Fedot):
 
     def save(self, mode: str = 'all', **kwargs):
         is_fedot_solver = self.manager.condition_check.solver_is_fedot_class(self.manager.solver)
-        save_model = lambda api_manager: Either(value=api_manager.solver,
-                                                monoid=[api_manager.solver,
-                                                        api_manager.condition_check.solver_is_fedot_class(
-                                                            api_manager.solver)]). \
+
+        def save_model(api_manager): return Either(value=api_manager.solver,
+                                                   monoid=[api_manager.solver,
+                                                           api_manager.condition_check.solver_is_fedot_class(
+                                                               api_manager.solver)]). \
             either(left_function=lambda pipeline: pipeline.save(path=api_manager.compute_config.output_folder,
                                                                 create_subdir=True, is_datetime_in_path=True),
                    right_function=lambda solver: solver.current_pipeline.save(
                        path=api_manager.compute_config.output_folder,
                        create_subdir=True,
                        is_datetime_in_path=True))
-        save_opt_hist = lambda api_manager: self.manager.solver.history.save(
+
+        def save_opt_hist(api_manager): return self.manager.solver.history.save(
             f"{self.manager.compute_config.output_folder}/optimization_history.json")
-        save_metrics = lambda api_manager: self.metric_dict.to_csv \
-            (f'{self.manager.compute_config.output_folder}/metrics.csv')
-        save_preds = lambda api_manager: pd.DataFrame(api_manager.predicted_labels).to_csv \
-            (f'{self.manager.compute_config.output_folder}/labels.csv')
+
+        def save_metrics(api_manager): return self.metric_dict.to_csv(
+            f'{self.manager.compute_config.output_folder}/metrics.csv')
+
+        def save_preds(api_manager): return pd.DataFrame(api_manager.predicted_labels).to_csv(
+            f'{self.manager.compute_config.output_folder}/labels.csv')
         method_dict = {'metrics': save_metrics, 'model': save_model, 'opt_hist': save_opt_hist,
                        'prediction': save_preds}
         self.manager.create_folder(self.manager.compute_config.output_folder)

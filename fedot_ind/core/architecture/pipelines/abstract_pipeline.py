@@ -159,12 +159,19 @@ class ApiTemplate:
             pipeline_to_tune = AbstractPipeline.create_pipeline(initial_assumption, build=False)
             return_only_fitted = pipeline_to_tune.heads[0].name in list(NEURAL_MODEL.keys())
         self.industrial_class = FedotIndustrial(**self.api_config)
-        Either(value=self.train_data, monoid=[dict(train_data=self.train_data,
-                                                   model_to_tune=pipeline_to_tune,
-                                                   tuning_params={'tuning_timeout': 5}), not finetune]). \
-            either(left_function=lambda tuning_data: self.industrial_class.finetune(**tuning_data,
-                                                                                    return_only_fitted=return_only_fitted),
-                   right_function=self.industrial_class.fit)
+        Either(
+            value=self.train_data,
+            monoid=[
+                dict(
+                    train_data=self.train_data,
+                    model_to_tune=pipeline_to_tune,
+                    tuning_params={
+                        'tuning_timeout': 5}),
+                not finetune]). either(
+            left_function=lambda tuning_data: self.industrial_class.finetune(
+                **tuning_data,
+                return_only_fitted=return_only_fitted),
+            right_function=self.industrial_class.fit)
         return self._get_result(self.test_data)
 
     def load_result(self, benchmark_path, benchmark_dict: dict):
