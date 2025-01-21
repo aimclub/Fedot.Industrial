@@ -144,7 +144,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 try:
                     new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
                     self.log.message(f'Successful reproduction at attempt number: {attempt_iter}')
-                except Exception as ex:
+                except Exception:
                     new_population = None
                 if new_population is None:
                     continue

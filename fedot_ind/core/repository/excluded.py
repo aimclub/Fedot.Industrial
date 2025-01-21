@@ -53,20 +53,20 @@ EXCLUDED_OPERATION_MUTATION = {
                           'dtreg'
                           ],
     'ts_forecasting': [
-        ### exclude bad perfomance boosting
+        # exclude bad perfomance boosting
         'xgbreg',
         'lgbmreg',
-        ### exclude weak stat models
+        # exclude weak stat models
         'stl_arima',
         'ets',
         'cgru',
-        ### exclude weak regression models
+        # exclude weak regression models
         'sgdr',
         'treg',
         'knnreg',
         'pdl_reg',
         'dtreg',
-        ### exclude almost all feature transform models
+        # exclude almost all feature transform models
         'topological_extractor',
         'kernel_pca',
         'resample',
@@ -79,7 +79,7 @@ EXCLUDED_OPERATION_MUTATION = {
         'eigen_basis',
         'fourier_basis',
         'wavelet_basis',
-        ### exclude? unstable nn models
+        # exclude? unstable nn models
         'inception_model',
         'resnet_model',
         'tcn_model'
