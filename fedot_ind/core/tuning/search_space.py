@@ -3,8 +3,6 @@ from functools import partial
 import numpy as np
 from hyperopt import hp
 
-from fedot_ind.core.repository.constanst_repository import DISTANCE_METRICS
-
 NESTED_PARAMS_LABEL = 'nested_label'
 
 industrial_search_space = {
@@ -61,7 +59,7 @@ industrial_search_space = {
          'centroid_metric': {'hyperopt-dist': hp.choice,
                              'sampling-scope': [['manhattan', 'euclidean', 'chebyshev']]},
          'sample_metric': {'hyperopt-dist': hp.choice,
-                           'sampling-scope': [list(DISTANCE_METRICS.keys())]},
+                           'sampling-scope': [['manhattan', 'euclidean', 'chebyshev']]},
 
          'selection_strategy': {'hyperopt-dist': hp.choice,
                                 'sampling-scope': [['sum', 'pairwise']]}

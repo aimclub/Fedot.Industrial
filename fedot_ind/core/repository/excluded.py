@@ -53,25 +53,36 @@ EXCLUDED_OPERATION_MUTATION = {
                           'dtreg'
                           ],
     'ts_forecasting': [
+        ### exclude bad perfomance boosting
         'xgbreg',
+        'lgbmreg',
+        ### exclude weak stat models
         'stl_arima',
         'ets',
         'cgru',
+        ### exclude weak regression models
         'sgdr',
+        'treg',
+        'knnreg',
+        'pdl_reg',
+        'dtreg',
+        ### exclude almost all feature transform models
         'topological_extractor',
         'kernel_pca',
         'resample',
-        'inception_model',
         'simple_imputation',
         'channel_filtration',
         'recurrence_extractor',
         'quantile_extractor',
         'riemann_extractor',
         'minirocket_extractor',
-        'treg',
-        'knnreg',
+        'eigen_basis',
+        'fourier_basis',
+        'wavelet_basis',
+        ### exclude? unstable nn models
+        'inception_model',
         'resnet_model',
-        'dtreg'
+        'tcn_model'
     ],
     'classification': [
         'resnet_model',

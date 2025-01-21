@@ -363,8 +363,7 @@ class TCNModel(BaseNeuralModel):
         self.forecast_mode = 'out_of_sample'
         for model in self.model_list:
             y_pred.append(self._predict_loop(model, test_data))
-        y_pred = np.array(y_pred)
-        y_pred = y_pred.squeeze()
+        y_pred = np.array(y_pred).squeeze()
 
         # Workaround for prediction starting point shift
         # TODO: find out what triggers prediction starting point shift

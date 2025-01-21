@@ -259,6 +259,8 @@ class DeepAR(BaseNeuralModel):
         return self.loss_fn, self.optimizer
 
     def fit(self, input_data: InputData):
+        if len(input_data.target.shape) >= 2:
+            self.preprocess_to_lagged = True
         train_loader, val_loader = self._prepare_data(input_data,
                                                       split_data=False,
                                                       horizon=1,

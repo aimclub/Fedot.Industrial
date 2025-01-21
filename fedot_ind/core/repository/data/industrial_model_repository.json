@@ -387,24 +387,43 @@
         "deep", "ts_model"
       ],
 	  "input_type": "[DataTypesEnum.ts]"
-    },    
+    },
     "tcn_model": {
-      "meta": "ts_model",
-      "presets": ["fast_train", "best_quality", "ts"],
-      "tags": [
-        "deep", "ts_model"
+      "meta": "fedot_NN_forecasting",
+      "presets": [
+        "fast_train",
+        "best_quality",
+        "ts"
       ],
-	  "input_type": "[DataTypesEnum.ts]"
+      "tags": [
+        "deep",
+        "ts_model"
+      ],
+      "input_type": "[DataTypesEnum.ts]"
     },
     "deepar_model": {
+      "meta": "fedot_NN_forecasting",
+      "presets": [
+        "ts"
+      ],
+      "tags": [],
+      "input_type": "[DataTypesEnum.ts]"
+    },
+    "eigen_forecaster": {
       "meta": "ts_model",
-      "presets": ["ts"],
+      "presets": [
+        "ts"
+      ],
       "tags": [],
       "input_type": "[DataTypesEnum.ts]"
     },
     "adareg": {
       "meta": "sklearn_regr",
-      "presets": ["fast_train", "ts", "*tree"],
+      "presets": [
+        "fast_train",
+        "ts",
+        "*tree"
+      ],
       "tags": [
         "boosting",
         "non_multi",

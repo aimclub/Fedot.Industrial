@@ -1,6 +1,7 @@
 from copy import copy
 
 import numpy as np
+import optuna
 import statsmodels.api as sm
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import ts_to_table
@@ -37,6 +38,7 @@ class GLMIndustrial(ModelImplementation):
             tuning_timeout=1,
             tuning_early_stop=20,
             tuning_iterations=50)
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     @property
     def family(self) -> str:

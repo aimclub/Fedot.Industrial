@@ -84,6 +84,9 @@ class IndustrialMutations:
                                                               ])
         self.ts_model = get_operations_for_task(task=self.task_type, mode='model',
                                                 tags=["time_series"])
+        self.nn_ts_model = get_operations_for_task(task=self.task_type, mode='model',
+                                                   tags=["fedot_NN_forecasting"])
+        self.ts_model = self.ts_model + self.nn_ts_model
         self.ts_model = [x for x in self.ts_model if x not in self.excluded]
         extractors = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["extractor"])
         self.extractors = [
@@ -444,9 +447,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                node_depth(node_from_graph_first)
+                                   node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                node_depth(node_from_graph_second)
+                                    node_depth(node_from_graph_second)
 
             replace_subtrees(
                 graph_first,
@@ -644,6 +647,26 @@ def has_no_data_flow_conflicts_in_industrial_pipeline(pipeline: Pipeline):
 
         else:
             continue
+    return True
+
+
+def has_no_lagged_conflicts_in_ts_pipeline(pipeline: Pipeline):
+    """ Function checks the correctness of connection between nodes """
+    task = Task(TaskTypesEnum.ts_forecasting)
+    non_lagged_models = get_operations_for_task(
+        task=task, mode='model', tags=["non_lagged"])
+
+    for idx, node in enumerate(pipeline.nodes):
+        # Operation name in the current node
+        current_operation = node.operation.operation_type
+        parent_nodes = node.nodes_from
+        if len(parent_nodes) == 0:
+            return True
+        for parent in parent_nodes:
+            is_lagged = parent.name == 'lagged'
+            check_condition = all([current_operation in non_lagged_models, is_lagged])
+            if check_condition:
+                return False
     return True
 
 

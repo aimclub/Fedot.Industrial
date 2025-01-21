@@ -209,7 +209,7 @@ def build_tuner(self, model_to_tune, tuning_params, train_data):
         return pipeline_tuner
 
     pipeline_tuner = _create_tuner(tuning_params, train_data)
-    model_to_tune = pipeline_tuner.tune(model_to_tune)
+    model_to_tune = pipeline_tuner.tune(model_to_tune, False)
     model_to_tune.fit(train_data)
     return model_to_tune
 

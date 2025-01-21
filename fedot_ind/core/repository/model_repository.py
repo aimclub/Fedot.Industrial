@@ -51,6 +51,7 @@ from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
+from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
 from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
@@ -154,6 +155,7 @@ class AtomizedModel(Enum):
         'ets': ExpSmoothingImplementation,
         # 'cgru': CGRUImplementation,
         'glm': GLMIndustrial,
+        'eigen_forecaster': EigenAR,
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,

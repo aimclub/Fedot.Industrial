@@ -1,5 +1,7 @@
+import os
 from typing import Union
 
+import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from pymonad.either import Either
@@ -140,6 +142,7 @@ class ApiTemplate:
                                                     target=test_data[1],
                                                     rounding_order=3,
                                                     metric_names=self.metric_names)
+        self.industrial_class.save('all')
         result_dict = dict(industrial_model=self.industrial_class,
                            labels=labels,
                            metrics=metrics)
@@ -156,17 +159,39 @@ class ApiTemplate:
             pipeline_to_tune = AbstractPipeline.create_pipeline(initial_assumption, build=False)
             return_only_fitted = pipeline_to_tune.heads[0].name in list(NEURAL_MODEL.keys())
         self.industrial_class = FedotIndustrial(**self.api_config)
-        Either(
-            value=self.train_data,
-            monoid=[
-                dict(
-                    train_data=self.train_data,
-                    model_to_tune=pipeline_to_tune,
-                    tuning_params={
-                        'tuning_timeout': 5}),
-                not finetune]). either(
-            left_function=lambda tuning_data: self.industrial_class.finetune(
-                **tuning_data,
-                return_only_fitted=return_only_fitted),
-            right_function=self.industrial_class.fit)
+        Either(value=self.train_data, monoid=[dict(train_data=self.train_data,
+                                                   model_to_tune=pipeline_to_tune,
+                                                   tuning_params={'tuning_timeout': 5}), not finetune]). \
+            either(left_function=lambda tuning_data: self.industrial_class.finetune(**tuning_data,
+                                                                                    return_only_fitted=return_only_fitted),
+                   right_function=self.industrial_class.fit)
         return self._get_result(self.test_data)
+
+    def load_result(self, benchmark_path, benchmark_dict: dict):
+        dir_list = os.listdir(benchmark_path)
+        result_dict = {}
+        for model_dir in dir_list:
+            datasets_dir = os.listdir(model_dir)
+            df_with_results = [pd.read_csv(f'{dataset}/metrics.csv') for dataset in datasets_dir]
+            df_with_results = pd.concat(df_with_results, ignore_index=True)
+            result_dict.update({model_dir: df_with_results})
+
+    def evaluate_benchmark(self, benchmark_name, benchmark_params: dict):
+        for dataset in benchmark_params['datasets']:
+            if benchmark_name.__contains__('M4'):
+                dataset_for_eval = self._prepare_forecasting_data(dataset, benchmark_name, benchmark_params)
+            for model_impl, model_name, finetune_strategy in benchmark_params['model_to_compare']:
+                date = benchmark_params['experiment_date']
+                self.api_config['compute_config']['output_folder'] = f'./{benchmark_name}_{date}/{model_name}/{dataset}'
+                result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl,
+                                        finetune=finetune_strategy)
+
+    def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
+        prefix = dataset[0]
+        horizon = benchmark_dict['metadata'][prefix]
+        dataset_for_eval = {'benchmark': benchmark_name,
+                            'dataset': dataset,
+                            'task_params': {'forecast_length': horizon}}
+        self.api_config['industrial_config']['task_params']['forecast_length'] = horizon
+        self.api_config['automl_config']['task_params']['forecast_length'] = horizon
+        return dataset_for_eval

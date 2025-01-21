@@ -11,6 +11,10 @@ from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum
 from pymonad.list import ListMonad
+from sklearn.linear_model import (
+    Lasso as SklearnLassoReg,
+    Ridge as SklearnRidgeReg
+)
 from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import OneClassSVM
 
@@ -445,6 +449,12 @@ class ConditionConverter:
         return isinstance(self.operation_implementation, IsolationForestDetector)
 
     @property
+    def is_lagged_regressor(self):
+        is_ridge_reg = isinstance(self.operation_implementation, SklearnRidgeReg)
+        is_lasso_reg = isinstance(self.operation_implementation, SklearnLassoReg)
+        return any([is_ridge_reg, is_lasso_reg])
+
+    @property
     def is_sklearn_detector(self):
         return isinstance(self.operation_implementation, OneClassSVM)
 
@@ -496,6 +506,10 @@ class ConditionConverter:
     def is_regression_of_forecasting_task(self):
         return self.train_data.task.task_type.value in [
             'regression', 'ts_forecasting']
+
+    @property
+    def is_forecasting_task(self):
+        return self.train_data.task.task_type.value in ['ts_forecasting']
 
     @property
     def is_multi_output_target(self):

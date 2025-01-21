@@ -12,7 +12,7 @@ from fedot.core.optimisers.objective import PipelineObjectiveEvaluate
 from fedot.core.optimisers.objective.data_source_splitter import DataSourceSplitter
 from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
-from fedot.core.pipelines.verification import class_rules
+from fedot.core.pipelines.verification import class_rules, ts_rules
 from fedot.core.pipelines.verification import common_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
 
@@ -29,7 +29,8 @@ from fedot_ind.core.repository.industrial_implementations.data_transformation im
     transform_lagged_for_fit_industrial, _check_and_correct_window_size_industrial, transform_smoothing_industrial
 from fedot_ind.core.repository.industrial_implementations.ml_optimisation import DaskOptunaTuner, \
     tune_pipeline_industrial
-from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations
+from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
+    has_no_lagged_conflicts_in_ts_pipeline
 from fedot_ind.core.repository.industrial_implementations.optimisation import \
     has_no_data_flow_conflicts_in_industrial_pipeline
 from fedot_ind.core.repository.model_repository import SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL
@@ -145,6 +146,7 @@ class IndustrialModels:
         self._replace_operation(to_industrial=True, backend=backend)
 
         class_rules.append(has_no_data_flow_conflicts_in_industrial_pipeline)
+        ts_rules.append(has_no_lagged_conflicts_in_ts_pipeline)
         return OperationTypesRepository
 
     def setup_default_repository(self, backend: str = 'default'):

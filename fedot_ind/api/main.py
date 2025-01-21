@@ -258,10 +258,10 @@ class FedotIndustrial(Fedot):
         """
         predict_func = curry(2)(lambda predict_mode, predict_data: self.__abstract_predict(predict_data, predict_mode))
         self.repo = IndustrialModels().setup_repository(backend=self.manager.compute_config.backend)
-        self.predicted_labels = Either.insert(self._process_input_data(predict_data)). \
+        self.manager.predicted_labels = Either.insert(self._process_input_data(predict_data)). \
             then(predict_func(predict_mode)).value
 
-        return self.predicted_labels
+        return self.manager.predicted_labels
 
     def predict_proba(self,
                       predict_data: tuple,
@@ -286,10 +286,10 @@ class FedotIndustrial(Fedot):
         calibrate_func = curry(3)(lambda prob_model, data_for_calib, labels:
                                   self.__calibrate_probs(prob_model, data_for_calib) if predict_mode.__contains__(
                                       'probs') else labels)
-        self.predicted_probs = Either.insert(self._process_input_data(predict_data)). \
+        self.manager.predicted_probs = Either.insert(self._process_input_data(predict_data)). \
             then(predict_func(predict_mode)).then(calibrate_func(self.manager.solver, predict_data)).value
 
-        return self.predicted_probs
+        return self.manager.predicted_probs
 
     def finetune(self,
                  train_data: Union[InputData, dict, tuple],
@@ -354,41 +354,41 @@ class FedotIndustrial(Fedot):
         if warning_about_probs:
             self.logger.info('Predicted probabilities are not available. Use `predict_proba()` method first')
 
-        metric_dict = self._metric_evaluation_loop(
+        self.metric_dict = self._metric_evaluation_loop(
             target=target,
             problem=problem,
             predicted_labels=labels,
             predicted_probs=probs,
             rounding_order=rounding_order,
             metric_names=metric_names)
-        return metric_dict
+        return self.metric_dict
 
-    def save_predict(self, predicted_data, **kwargs) -> None:
-        """
-        Method to save prediction locally in csv format
-
-        Args:
-            predicted_data: predicted data. For TSC task it could be either labels or probabilities
-
-        Returns:
-            None
-
-        """
-        kind = kwargs.get('kind')
-        self.manager.solver.save_prediction(predicted_data, kind=kind)
-
-    def save_metrics(self, **kwargs) -> None:
-        """
-        Method to save metrics locally in csv format
-
-        Args:
-            **kwargs: dictionary with metrics
-
-        Returns:
-            None
-
-        """
-        self.manager.solver.save_metrics(**kwargs)
+    def save(self, mode: str = 'all', **kwargs):
+        is_fedot_solver = self.manager.condition_check.solver_is_fedot_class(self.manager.solver)
+        save_model = lambda api_manager: Either(value=api_manager.solver,
+                                                monoid=[api_manager.solver,
+                                                        api_manager.condition_check.solver_is_fedot_class(
+                                                            api_manager.solver)]). \
+            either(left_function=lambda pipeline: pipeline.save(path=api_manager.compute_config.output_folder,
+                                                                create_subdir=True, is_datetime_in_path=True),
+                   right_function=lambda solver: solver.current_pipeline.save(
+                       path=api_manager.compute_config.output_folder,
+                       create_subdir=True,
+                       is_datetime_in_path=True))
+        save_opt_hist = lambda api_manager: self.manager.solver.history.save(
+            f"{self.manager.compute_config.output_folder}/optimization_history.json")
+        save_metrics = lambda api_manager: self.metric_dict.to_csv \
+            (f'{self.manager.compute_config.output_folder}/metrics.csv')
+        save_preds = lambda api_manager: pd.DataFrame(api_manager.predicted_labels).to_csv \
+            (f'{self.manager.compute_config.output_folder}/labels.csv')
+        method_dict = {'metrics': save_metrics, 'model': save_model, 'opt_hist': save_opt_hist,
+                       'prediction': save_preds}
+        self.manager.create_folder(self.manager.compute_config.output_folder)
+        if not is_fedot_solver:
+            del method_dict['opt_hist']
+        Either(value=self.manager, monoid=[self.manager, mode.__contains__('all')]). \
+            either(left_function=lambda api_manager: method_dict[mode](self.manager),
+                   right_function=lambda api_manager: [method(api_manager) for method in method_dict.values()])
 
     def load(self, path):
         """Loads saved Industrial model from disk
@@ -408,27 +408,6 @@ class FedotIndustrial(Fedot):
                                                   directory_list],
             right_function=lambda path: Pipeline().load(path))
         return pipeline
-
-    def save_optimization_history(self, return_history: bool = False):
-        return self.manager.solver.history if return_history else self.manager.solver.history.save(
-            f"{self.manager.output_folder}/"
-            f"optimization_history.json")
-
-    def save_best_model(self):
-        Either(
-            value=self.manager.solver,
-            monoid=[
-                self.manager.solver,
-                self.manager.condition_check.solver_is_fedot_class(
-                    self.manager.solver)]).either(
-            left_function=lambda pipeline: pipeline.save(
-                path=self.manager.output_folder,
-                create_subdir=True,
-                is_datetime_in_path=True),
-            right_function=lambda solver: solver.current_pipeline.save(
-                path=self.manager.output_folder,
-                create_subdir=True,
-                is_datetime_in_path=True))
 
     def explain(self, explaing_config: dict = {}):
         """Explain model's prediction via time series points perturbation

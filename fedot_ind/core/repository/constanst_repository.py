@@ -389,6 +389,8 @@ class FedotOperationConstant(Enum):
         'params_mutation_strategy': [0.7, 0.3, 0.00, 0.00, 0.0],
         'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],
         'regularization_mutation_strategy': [0.2, 0.3, 0.1, 0.3, 0.1],
+        'initial_population_diversity_strategy': [0.0, 0.5, 0.5, 0.0, 0.0],
+        'unique_population_strategy': [0.0, 0.25, 0.5, 0.0, 0.25],
     }
 
     EXPLAINABLE_MODELS = ['recurrence_extractor',

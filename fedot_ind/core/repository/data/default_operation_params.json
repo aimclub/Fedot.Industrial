@@ -29,6 +29,9 @@
     "epochs": 100,
     "batch_size": 16
   },
+  "eigen_forecaster": {
+    "channel_model": "ar"
+  },
   "inception_model": {
     "epochs": 100,
     "batch_size": 32,
