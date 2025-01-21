@@ -4,7 +4,7 @@ from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, \
     DEFAULT_AUTOML_LEARNING_CONFIG
 
-def load_data(dataset_dir='C:/Users/Bars/PycharmProjects/Fedot.Industrial/fedot_ind/data/Lightning7'):
+def load_data(dataset_dir='./fedot_ind/data/Lightning7'):
     data_train = np.genfromtxt(dataset_dir + f'/{dataset_name}_TRAIN.txt')
     data_test = np.genfromtxt(dataset_dir + f'/{dataset_name}_TEST.txt')
     train_features, train_target = data_train[:, 1:], data_train[:, 0]
