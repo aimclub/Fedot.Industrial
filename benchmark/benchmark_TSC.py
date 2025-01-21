@@ -9,13 +9,14 @@ from typing import Union
 import pandas as pd
 
 from benchmark.abstract_bench import AbstractBenchmark
+from fedot_ind import __version__
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.metrics.metrics_implementation import Accuracy
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 from fedot_ind.core.repository.constanst_repository import MULTI_CLF_BENCH, UNI_CLF_BENCH
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH, BENCHMARK_RESULTS_PATH
 
 
 class BenchmarkTSC(AbstractBenchmark, ABC):
@@ -27,8 +28,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
                  initial_assumptions: Union[list, dict] = None,
                  finetune: bool = True):
 
-        super(BenchmarkTSC, self).__init__(
-            output_dir='./tser/benchmark_results')
+        super(BenchmarkTSC, self).__init__(output_dir=BENCHMARK_RESULTS_PATH)
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -41,30 +41,30 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         self.metric_names = metric_names
         self.need_finetune = finetune
         self.init_assumption = deepcopy(initial_assumptions)
-        self.multi_TSC = MULTI_CLF_BENCH
-        self.uni_TSC = UNI_CLF_BENCH
+
         if custom_datasets is None:
             if use_small_datasets:
-                self.custom_datasets = self.uni_TSC
+                self.custom_datasets = UNI_CLF_BENCH
             else:
-                self.custom_datasets = self.multi_TSC
+                self.custom_datasets = MULTI_CLF_BENCH
         else:
             self.custom_datasets = custom_datasets
 
         if use_small_datasets:
-            self.path_to_result = 'time_series_uni_clf_comparison.csv'
-            self.path_to_save = 'ts_uni_classification'
+            self.comparison_file_path = os.path.join(BENCHMARK_RESULTS_PATH, 'time_series_uni_clf_comparison.csv')
+            self.result_dir_name = 'ts_uni_classification'
         else:
-            self.path_to_result = 'time_series_multi_clf_comparison.csv'
-            self.path_to_save = 'ts_multi_classification'
-        self.output_dir = os.path.join(
-            self.experiment_setup['compute_config'].get('output_folder', PROJECT_PATH), self.path_to_save)
-        self.results_picker = ResultsPicker(path=os.path.abspath(self.output_dir))
+            self.comparison_file_path = os.path.join(BENCHMARK_RESULTS_PATH, 'time_series_multi_clf_comparison.csv')
+            self.result_dir_name = 'ts_multi_classification'
+
+        output_folder = self.experiment_setup['compute_config'].get('output_folder', BENCHMARK_RESULTS_PATH)
+        self.result_dir = os.path.join(output_folder, self.result_dir_name)
+        self.results_picker = ResultsPicker(path=os.path.abspath(output_folder))
 
     def _run_model_versus_model(self, dataset_name, comparison_dict: dict):
         approach_dict = {}
         metric_name = self.learning_config.get('optimisation_loss', {}).get('quality_loss', 'accuracy')
-        for approach, node_dict in comparison_dict.keys():
+        for approach, node_dict in comparison_dict.items():
             result_dict = ApiTemplate(api_config=self.experiment_setup,
                                       metric_list=self.metric_names)\
                 .eval(dataset=dataset_name,
@@ -80,32 +80,32 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
         return Accuracy(target, prediction).metric()
 
     def run(self):
-        self.logger.info('Benchmark test started')
+        self.logger.info('Benchmark run started')
         basic_results = self.load_local_basic_results()
-        metric_dict = {}
         for dataset_name in self.custom_datasets:
             try:
                 if isinstance(self.init_assumption, dict):
-                    model_name = list(self.init_assumption.keys())
-                    metric = self._run_model_versus_model(dataset_name, self.init_assumption)
+                    metric_dict = self._run_model_versus_model(dataset_name, self.init_assumption)
                 else:
-                    metric = self._run_industrial_versus_sota()
-                    model_name = 'Fedot_Industrial'
-                metric_dict.update({dataset_name: metric})
-                basic_results.loc[dataset_name, model_name] = metric
-                if not os.path.exists(self.output_dir):
-                    os.makedirs(self.output_dir)
-                basic_results.to_csv(os.path.join(self.output_dir, self.path_to_result))
+                    approach = f'Fedot_Industrial_{__version__}'
+                    metric_dict = {approach: self._run_industrial_versus_sota()}
+
+                for approach, metric in metric_dict.items():
+                    basic_results.loc[dataset_name, approach] = metric
+
+                os.makedirs(self.result_dir, exist_ok=True)
+                basic_results.to_csv(self.comparison_file_path)
             except Exception:
-                self.logger.info(f"{dataset_name} problem with eval")
-        self.logger.info("Benchmark test finished")
+                self.logger.exception(f'Evaluation failed - Dataset: {dataset_name}')
+
+        self.logger.info('Benchmark run finished')
 
     def finetune(self):
+        # TODO: fix finetune method, set valid paths and refactor
         self.logger.info('Benchmark finetune started')
         dataset_result = {}
         for dataset_name in self.custom_datasets:
-            path_to_results = PROJECT_PATH + \
-                self.path_to_save + f'/{dataset_name}'
+            path_to_results = self.result_dir + f'/{dataset_name}'
             composed_model_path = [
                 path_to_results +
                 f'/{x}' for x in os.listdir(path_to_results) if x.__contains__('pipeline_saved')]
@@ -113,8 +113,7 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             for p in composed_model_path:
                 if os.path.isdir(p):
                     try:
-                        self.experiment_setup['compute_config']['output_folder'] = PROJECT_PATH + \
-                            self.path_to_save
+                        self.experiment_setup['compute_config']['output_folder'] = self.result_dir
                         experiment_setup = deepcopy(self.experiment_setup)
                         prediction, model = self.finetune_loop(
                             dataset_name, experiment_setup, p)
@@ -157,19 +156,20 @@ class BenchmarkTSC(AbstractBenchmark, ABC):
             dataset_result.update({dataset_name: metric_result})
         self.logger.info("Benchmark finetune finished")
 
-    def load_local_basic_results(self, path: str = None):
+    def load_local_basic_results(self):
         try:
-            path = os.path.join(self.output_dir, self.path_to_result)
-            results = pd.read_csv(path, sep=',', index_col=0)
-        except Exception:
+            results = pd.read_csv(self.comparison_file_path, index_col=0)
+        except Exception as e:
+            self.logger.info(f'Unable to load local benchmark results from {self.comparison_file_path} file due to {e}')
             results = self.results_picker.run(get_metrics_df=True, add_info=True)
         return results
 
     def create_report(self):
+        # TODO: fix create_report method, set valid paths and refactor
         _ = []
         names = []
         for dataset_name in self.custom_datasets:
-            model_result_path = PROJECT_PATH + self.path_to_save + \
+            model_result_path = PROJECT_PATH + self.result_dir_name + \
                 f'/{dataset_name}' + '/metrics_report.csv'
             if os.path.isfile(model_result_path):
                 df = pd.read_csv(model_result_path, index_col=0, sep=',')

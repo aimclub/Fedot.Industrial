@@ -23,7 +23,7 @@ class AbstractBenchmark(object):
             **kwargs: Additional arguments that may be required by the
                 benchmark.
         """
-        self.output_dir = output_dir
+        self.result_dir = output_dir
         self.kwargs = kwargs
         self.logger = logging.getLogger(self.__class__.__name__)
         self._create_output_dir()
@@ -33,7 +33,7 @@ class AbstractBenchmark(object):
         raise NotImplementedError()
 
     def _create_output_dir(self):
-        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.result_dir, exist_ok=True)
 
     def _create_report(self, results):
         """Create a report from the results of the benchmark.
