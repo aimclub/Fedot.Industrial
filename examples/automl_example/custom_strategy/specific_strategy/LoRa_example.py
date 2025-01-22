@@ -1,7 +1,9 @@
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, \
+    DEFAULT_AUTOML_LEARNING_CONFIG
 
-from fedot_ind.api.main import FedotIndustrial
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -38,7 +40,40 @@ api_config = dict(problem='classification',
                   industrial_strategy_params=lora_params,
                   logging_level=20)
 
-industrial = FedotIndustrial(**api_config)
+AUTOML_LEARNING_STRATEGY = DEFAULT_AUTOML_LEARNING_CONFIG
+COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+AUTOML_CONFIG = {'task': 'classification',
+                 'use_automl': True,
+                 'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'bandit',
+                                                                     'mutation_strategy': 'growth_mutation_strategy'},
+                                           'optimisation_agent': 'Industrial'}}
+
+LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
+                   'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+                   'optimisation_loss': {'quality_loss': 'accuracy'}}
+
+INDUSTRIAL_PARAMS = {'rank': 2,
+                     'sampling_share': 0.5,
+                     'lora_init': 'random',
+                     'epochs': 1,
+                     'batch_size': 10,
+                     'data_type': 'tensor'
+                     }
+
+INDUSTRIAL_CONFIG = {'problem': 'classification',
+                     'strategy': 'lora_strategy',
+                     'strategy_params': INDUSTRIAL_PARAMS
+                     }
+
+API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
+              'automl_config': AUTOML_CONFIG,
+              'learning_config': LEARNING_CONFIG,
+              'compute_config': COMPUTE_CONFIG}
+
+dataset = dict(test_data=test_data, train_data=train_data)
+
+industrial = ApiTemplate(api_config=API_CONFIG,
+                         metric_list=metric_names).eval(dataset=dataset)
 industrial.fit(train_data)
 predict = industrial.predict(test_data)
 _ = 1
