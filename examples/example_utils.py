@@ -1,11 +1,14 @@
 import random
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
+from datasets import load_dataset
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
+from typing import Callable
 from sklearn.metrics import f1_score, roc_auc_score
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -76,3 +79,34 @@ def create_feature_generator_strategy():
         'wavelet': [('wavelet_basis', wavelet_params)],
     }
     return feature_generator, sampling_dict
+
+
+def linearly_interpolate_nans(target: np.ndarray) -> np.ndarray:
+    if any([np.isnan(value) for value in target]):
+        X = np.vstack((np.ones(len(target)), np.arange(len(target))))
+        X_fit = X[:, ~np.isnan(target)]
+        target_fit = target[~np.isnan(target)].reshape(-1, 1)
+        beta = np.linalg.lstsq(X_fit.T, target_fit)[0]
+        target.flat[np.isnan(target)] = np.dot(X[:, np.isnan(target)].T, beta)
+    return target
+
+
+def load_monash_dataset(dataset_name: str, gapfilling_func: Optional[Callable] = None) -> pd.DataFrame:
+    dataset = load_dataset('monash_tsf', dataset_name, trust_remote_code=True)
+    wide_data = {}
+
+    for series in dataset['test']:
+        label, start_date = series['item_id'], series['start']
+        if any(isinstance(value, list) for value in series['target']):
+            break
+
+        row = None
+        if gapfilling_func is not None:
+            try:
+                row = gapfilling_func(np.array(series['target']))
+            except Exception:
+                pass
+        wide_data[label] = row if row is not None else linearly_interpolate_nans(np.array(series['target']))
+
+    return pd.DataFrame.from_dict(wide_data, orient='index').transpose()
+
