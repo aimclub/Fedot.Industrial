@@ -2,14 +2,7 @@ from enum import Enum
 from os import cpu_count
 
 
-class ApiConfigConstant(Enum):
-    DEFAULT_AUTOML_CONFIG = dict(timeout=10,
-                                 pop_size=5,
-                                 early_stopping_iterations=10,
-                                 early_stopping_timeout=10,
-                                 with_tuning=False,
-                                 n_jobs=1,
-                                 )
+class ComputeConfigConstant(Enum):
     DEFAULT_COMPUTE_CONFIG = {'backend': 'cpu',
                               'distributed': dict(processes=False,
                                                   n_workers=1,
@@ -22,5 +15,24 @@ class ApiConfigConstant(Enum):
                                                 'composition_results': './results/comp_res'}}
 
 
-DEFAULT_AUTOML_LEARNING_CONFIG = ApiConfigConstant.DEFAULT_AUTOML_CONFIG.value
-DEFAULT_COMPUTE_CONFIG = ApiConfigConstant.DEFAULT_COMPUTE_CONFIG.value
+class AutomlLearningConfigConstant(Enum):
+    DEFAULT_AUTOML_CONFIG = dict(timeout=10,
+                                 pop_size=5,
+                                 early_stopping_iterations=10,
+                                 early_stopping_timeout=10,
+                                 with_tuning=False,
+                                 n_jobs=1)
+
+
+class AutomlConfigConstant(Enum):
+    DEFAULT_CLF_AUTOML_CONFIG = {'task': 'classification',
+                                 'use_automl': True,
+                                 'optimisation_strategy': {'optimisation_strategy':
+                                                               {'mutation_agent': 'bandit',
+                                                                'mutation_strategy': 'growth_mutation_strategy'},
+                                                           'optimisation_agent': 'Industrial'}}
+
+
+DEFAULT_AUTOML_LEARNING_CONFIG = AutomlLearningConfigConstant.DEFAULT_AUTOML_CONFIG.value
+DEFAULT_COMPUTE_CONFIG = ComputeConfigConstant.DEFAULT_COMPUTE_CONFIG.value
+DEFAULT_CLF_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_CLF_AUTOML_CONFIG.value
