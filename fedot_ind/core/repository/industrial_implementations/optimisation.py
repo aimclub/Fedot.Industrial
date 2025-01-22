@@ -339,10 +339,11 @@ class IndustrialMutations:
 
         # create subtree with basis transformation and feature extraction
         transformation_node = PipelineNode(choice(self.basis_models))
-        node_to_add_transformation = list(
-            filter(lambda x: x.name in self.extractors, graph.nodes))[0]
-        mutation_node = PipelineNode(node_to_add_transformation.name, nodes_from=[transformation_node])
-        graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
+        node_to_add_transformation = list(filter(lambda x: x.name in self.extractors, graph.nodes))
+        if len(node_to_add_transformation) > 0:
+            node_to_add_transformation = node_to_add_transformation[0]
+            mutation_node = PipelineNode(node_to_add_transformation.name, nodes_from=[transformation_node])
+            graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
         return graph
 
     def __add_forecasting_preprocessing(self,
