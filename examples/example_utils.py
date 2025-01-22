@@ -57,3 +57,22 @@ def get_ts_data(dataset='m4_monthly', horizon: int = 30, m4_id=None):
                             data_type=DataTypesEnum.ts)
     train_data, test_data = train_test_data_setup(train_input)
     return train_data, test_data, label
+
+
+def create_feature_generator_strategy():
+    stat_params = {'window_size': 0, 'stride': 1, 'add_global_features': True,
+                   'channel_independent': False, 'use_sliding_window': False}
+    fourier_params = {'low_rank': 5, 'output_format': 'signal', 'compute_heuristic_representation': True,
+                      'approximation': 'smooth', 'threshold': 0.9, 'sampling_rate': 64e3}
+    wavelet_params = {'n_components': 3, 'wavelet': 'bior3.7', 'compute_heuristic_representation': True}
+    rocket_params = {'num_features': 200}
+    sampling_dict = dict(samples=dict(start_idx=0, end_idx=None),
+                         channels=dict(start_idx=0, end_idx=None),
+                         elements=dict(start_idx=0, end_idx=None))
+    feature_generator = {
+        # 'minirocket': [('minirocket_extractor', rocket_params)],
+        'stat_generator': [('quantile_extractor', stat_params)],
+        'fourier': [('fourier_basis', fourier_params)],
+        'wavelet': [('wavelet_basis', wavelet_params)],
+    }
+    return feature_generator, sampling_dict
