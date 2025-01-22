@@ -320,10 +320,6 @@ class DeepAR(BaseNeuralModel):
     def predict(self,
                 test_data: InputData,
                 output_mode: str = None):
-        if output_mode.__contains__('default'):
-            output_mode = 'predictions'
-        elif output_mode is None:
-            output_mode = self.forecast_mode
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
@@ -342,7 +338,6 @@ class DeepAR(BaseNeuralModel):
 
     def _predict(self, test_data, output_mode, hidden_state=None, **output_kw):
         self.forecast_length = test_data.task.task_params.forecast_length or self.forecast_length
-
         test_loader, _ = self._prepare_data(test_data,
                                             split_data=False,
                                             horizon=1,
@@ -359,15 +354,14 @@ class DeepAR(BaseNeuralModel):
             last_patch[..., -1] = last_target.squeeze()
 
         last_patch = last_patch.to(self.device)
-
         fc = self.model.forecast(last_patch, self.forecast_length,
-                                 output_mode=output_mode,
+                                 output_mode='predictions',
                                  hidden_state=initial_hidden_state,
                                  **output_kw)
+
         return fc
 
     def predict_for_fit(self, test_data, output_mode: str = None):
-        output_mode = 'predictions'
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)

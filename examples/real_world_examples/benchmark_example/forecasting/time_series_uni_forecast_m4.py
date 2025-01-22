@@ -19,9 +19,11 @@ model_to_compare = [
 model_name = ['lagged_regression', 'industrial', 'deepar', 'ar']
 finutune_existed_model = [True, False, True, True]
 BENCHMARK = 'M4'
+EVALUATED = ['D1002', 'D1019', 'D1091', 'D1032']
+DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
 BENCHMARK_PARAMS = {'experiment_date': '22_01_25',
                     'metadata': M4_FORECASTING_LENGTH,
-                    'datasets': M4_FORECASTING_BENCH,
+                    'datasets': DATASETS,
                     'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
 EVAL_REGIME = True
 
