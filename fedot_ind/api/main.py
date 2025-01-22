@@ -243,8 +243,8 @@ class FedotIndustrial(Fedot):
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
                                              not isinstance(self.manager.industrial_config.strategy, Callable)]). \
-                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                       right_function=lambda data: self.manager.solver.fit(data))
+            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                   right_function=lambda data: self.manager.solver.fit(data))
 
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
@@ -332,7 +332,7 @@ class FedotIndustrial(Fedot):
                                         {'model_to_tune': model_to_tune.build()} |
                                         {'tuning_params': tuning_params}). \
             then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)['model_to_tune'] if return_only_fitted
-        else build_tuner(self, **dict_for_tune)).value
+                 else build_tuner(self, **dict_for_tune)).value
         self.manager.is_finetuned = True
         self.manager.solver = model_to_tune
 
