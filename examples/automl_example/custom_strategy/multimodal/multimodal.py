@@ -4,6 +4,7 @@ from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, \
     DEFAULT_AUTOML_LEARNING_CONFIG
 
+
 def load_data(dataset_dir='./fedot_ind/data/Lightning7'):
     data_train = np.genfromtxt(dataset_dir + f'/{dataset_name}_TRAIN.txt')
     data_test = np.genfromtxt(dataset_dir + f'/{dataset_name}_TEST.txt')
@@ -94,6 +95,6 @@ if __name__ == "__main__":
 
     result_dict = ApiTemplate(api_config=API_CONFIG,
                               metric_list=metric_names).eval(dataset=dataset,
-                                                                   finetune=finetune,
-                                                                   initial_assumption=multimodal_pipeline)
+                                                             finetune=finetune,
+                                                             initial_assumption=multimodal_pipeline)
     result_dict['industrial_model'].explain(explain_config)

@@ -10,6 +10,7 @@ sampling_algorithm = {'CUR': cur_params}
 def eval_fedot_on_fold(dataset_name, fold):
     return create_big_dataset(dataset_name, fold)
 
+
 INDUSTRIAL_PARAMS = {'data_type': 'tensor',
                      'learning_strategy': 'big_dataset',
                      'sampling_strategy': sampling_algorithm

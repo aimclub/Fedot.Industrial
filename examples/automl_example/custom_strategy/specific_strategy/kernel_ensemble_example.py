@@ -1,10 +1,9 @@
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.tools.loader import DataLoader
 import numpy as np
 from sklearn.utils import shuffle
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, \
     DEFAULT_AUTOML_LEARNING_CONFIG
+
 
 def load_data(dataset_dir='./fedot_ind/data/Lightning7'):
     data_train = np.genfromtxt(dataset_dir + f'/{dataset_name}_TRAIN.txt')
@@ -90,7 +89,7 @@ api_config = dict(
 
 if __name__ == "__main__":
     industrial = ApiTemplate(api_config=API_CONFIG,
-                              metric_list=metric_names).eval(dataset=dataset)
+                             metric_list=metric_names).eval(dataset=dataset)
     industrial.fit(dataset.get("train_data"))
     predict = industrial.predict(dataset.get("test_data"), 'ensemble')
     predict_proba = industrial.predict_proba(dataset.get("test_data"), 'ensemble')

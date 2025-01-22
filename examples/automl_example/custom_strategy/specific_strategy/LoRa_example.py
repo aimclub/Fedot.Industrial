@@ -4,7 +4,6 @@ from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, \
     DEFAULT_AUTOML_LEARNING_CONFIG
 
-from fedot_ind.api.main import FedotIndustrial
 
 transform = transforms.Compose([
     transforms.ToTensor(),
