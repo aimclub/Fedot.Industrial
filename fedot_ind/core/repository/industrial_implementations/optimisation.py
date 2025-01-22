@@ -720,11 +720,11 @@ def reproduce_controlled_industrial(self,
         for ind_to_reproduce in range(pop_size):
             try:
                 random_ind = np.random.choice(selected_individuals)
+                new_ind = self.mutation(random_ind)
+                if isinstance(new_ind, Individual):
+                    new_population.append(new_ind)
             except Exception:
-                _ = 1
-            new_ind = self.mutation(random_ind)
-            if isinstance(new_ind, Individual):
-                new_population.append(new_ind)
+                pass
     else:
         new_population = self.mutation(selected_individuals)
     new_population = ensure_wrapped_in_sequence(new_population)
