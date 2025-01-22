@@ -59,7 +59,7 @@ from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisIm
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
-from fedot_ind.core.operation.transformation.representation.recurrence.reccurence_extractor import RecurrenceExtractor
+from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import \
     TopologicalExtractor
