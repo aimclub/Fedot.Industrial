@@ -25,14 +25,16 @@ class AutomlLearningConfigConstant(Enum):
 
 
 class AutomlConfigConstant(Enum):
-    DEFAULT_CLF_AUTOML_CONFIG = {'task': 'classification',
-                                 'use_automl': True,
-                                 'optimisation_strategy': {'optimisation_strategy':
-                                                           {'mutation_agent': 'random',
-                                                            'mutation_strategy': 'growth_mutation_strategy'},
-                                                           'optimisation_agent': 'Industrial'}}
+    DEFAULT_SUBCONFIG = {'use_automl': True,
+                         'optimisation_strategy': {'optimisation_strategy':
+                                                       {'mutation_agent': 'random',
+                                                        'mutation_strategy': 'growth_mutation_strategy'},
+                                                   'optimisation_agent': 'Industrial'}}
+    DEFAULT_CLF_AUTOML_CONFIG = {'task': 'classification', **DEFAULT_SUBCONFIG}
+    DEFAULT_REG_AUTOML_CONFIG = {'task': 'regression', **DEFAULT_SUBCONFIG}
 
 
 DEFAULT_AUTOML_LEARNING_CONFIG = AutomlLearningConfigConstant.DEFAULT_AUTOML_CONFIG.value
 DEFAULT_COMPUTE_CONFIG = ComputeConfigConstant.DEFAULT_COMPUTE_CONFIG.value
 DEFAULT_CLF_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_CLF_AUTOML_CONFIG.value
+DEFAULT_REG_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_REG_AUTOML_CONFIG.value
