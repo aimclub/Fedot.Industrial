@@ -179,10 +179,10 @@ class IndustrialMutations:
         # add as separate parent
         new_node = node_factory.get_parent_node(
             self.transform_to_opt_node(node_to_mutate), is_primary=True)
-        new_node = self.transform_to_pipeline_node(new_node)
         if not new_node:
             # there is no possible operators
             return graph
+        new_node = self.transform_to_pipeline_node(new_node)
         if node_to_mutate.nodes_from:
             node_to_mutate.nodes_from.append(new_node)
         else:
