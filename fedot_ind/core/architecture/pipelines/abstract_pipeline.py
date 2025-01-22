@@ -153,7 +153,7 @@ class ApiTemplate:
              finetune: bool = False,
              initial_assumption: Union[list, dict, str] = None):
         self.train_data, self.test_data = self._prepare_dataset(dataset)
-        have_init_assumption = all([initial_assumption is not None, len(initial_assumption) != 0])
+        have_init_assumption = initial_assumption is not None and len(initial_assumption) != 0
         pipeline_to_tune = None
         if have_init_assumption:
             pipeline_to_tune = AbstractPipeline.create_pipeline(initial_assumption, build=False)
