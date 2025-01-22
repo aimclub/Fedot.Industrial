@@ -179,10 +179,20 @@ class FedotIndustrial(Fedot):
             self.predict_data.target = self.target_encoder.inverse_transform(self.predict_data.target)
             return predicted_labels
 
+        def predict_func(predict_from_solver):
+            is_labels_output = predict_mode in ['labels']
+            if self.manager.condition_check.solver_is_pipeline_class(self.manager.solver):
+                predict = self.manager.solver.predict(predict_from_solver, predict_mode)
+            else:
+                if is_labels_output:
+                    predict = self.manager.solver.predict(predict_from_solver)
+                else:
+                    predict = self.manager.solver.predict_proba(predict_from_solver)
+            return predict
+
         predict = Either(value=predict_data,
                          monoid=[predict_data, custom_predict]).either(
-            left_function=lambda predict_from_solver: self.manager.solver.predict(predict_from_solver)
-            if predict_mode in ['labels'] else self.manager.solver.predict_proba(predict_from_solver),
+            left_function=lambda predict_from_solver: predict_func(predict_from_solver),
             right_function=lambda predict_from_custom: self.manager.solver.predict(predict_from_custom))
         predict = Either.insert(predict).then(lambda x: _inverse_encoder_transform(x) if have_encoder else x). \
             then(lambda x: x.predict if isinstance(predict, OutputData) else x).value
@@ -286,8 +296,10 @@ class FedotIndustrial(Fedot):
         calibrate_func = curry(3)(lambda prob_model, data_for_calib, labels:
                                   self.__calibrate_probs(prob_model, data_for_calib) if predict_mode.__contains__(
                                       'probs') else labels)
-        self.manager.predicted_probs = Either.insert(self._process_input_data(predict_data)). \
-            then(predict_func(predict_mode)).then(calibrate_func(self.manager.solver, predict_data)).value
+        self.manager.predicted_probs = Either. \
+            insert(self._process_input_data(predict_data)). \
+            then(predict_func(predict_mode)).value
+        # then(calibrate_func(self.manager.solver, predict_data)).value
 
         return self.manager.predicted_probs
 

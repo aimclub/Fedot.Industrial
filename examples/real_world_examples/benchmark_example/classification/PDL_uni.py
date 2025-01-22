@@ -1,14 +1,21 @@
-from benchmark.benchmark_TSC import BenchmarkTSC
+from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, DEFAULT_CLF_AUTOML_CONFIG
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.core.repository.constanst_repository import UNI_CLF_BENCH
 
-COMPARISON_DICT = dict(pairwise_approach={0: ['quantile_extractor', 'pdl_clf']},
-                       baseline={0: ['quantile_extractor', 'rf']})
+model_to_compare = [{0: ['quantile_extractor', 'rf']},
+                    {0: ['quantile_extractor', 'pdl_clf']}
+                    ]
+model_name = ['rf', 'pdl_rf']
+finutune_existed_model = [True, True]
+BENCHMARK = 'UCR_UNI'
+BENCHMARK_PARAMS = {'experiment_date': '22_01_25',
+                    'metadata': None,
+                    'datasets': UNI_CLF_BENCH,
+                    'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
 METRIC_NAMES = ('f1', 'accuracy', 'precision', 'roc_auc')
+EVAL_REGIME = True
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
-COMPUTE_CONFIG['output_folder'] = PROJECT_PATH + '/benchmark/results/'
-
 AUTOML_LEARNING_STRATEGY = dict(timeout=2,
                                 pop_size=10,
                                 n_jobs=-1,
@@ -26,8 +33,7 @@ API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
               'compute_config': COMPUTE_CONFIG}
 
 if __name__ == "__main__":
-    BenchmarkTSC(experiment_setup=API_CONFIG,
-                 use_small_datasets=True,
-                 metric_names=METRIC_NAMES,
-                 initial_assumptions=COMPARISON_DICT,
-                 finetune=True).run()
+    api_agent = ApiTemplate(api_config=API_CONFIG, metric_list=METRIC_NAMES)
+    if EVAL_REGIME:
+        api_agent.evaluate_benchmark(benchmark_name=BENCHMARK,
+                                     benchmark_params=BENCHMARK_PARAMS)

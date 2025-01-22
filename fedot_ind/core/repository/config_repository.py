@@ -28,7 +28,7 @@ class AutomlConfigConstant(Enum):
     DEFAULT_CLF_AUTOML_CONFIG = {'task': 'classification',
                                  'use_automl': True,
                                  'optimisation_strategy': {'optimisation_strategy':
-                                                           {'mutation_agent': 'bandit',
+                                                           {'mutation_agent': 'random',
                                                             'mutation_strategy': 'growth_mutation_strategy'},
                                                            'optimisation_agent': 'Industrial'}}
 
