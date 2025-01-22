@@ -109,4 +109,3 @@ def load_monash_dataset(dataset_name: str, gapfilling_func: Optional[Callable] =
         wide_data[label] = row if row is not None else linearly_interpolate_nans(np.array(series['target']))
 
     return pd.DataFrame.from_dict(wide_data, orient='index').transpose()
-
