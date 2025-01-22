@@ -63,6 +63,7 @@ class EigenAR(ModelImplementation):
                                            train_data=copy_input_data)
             self.fitted_model_dict.update({component_idx: tuned_model})
 
+        del self.tuning_params
         return self
 
     def _predict(self, input_data):

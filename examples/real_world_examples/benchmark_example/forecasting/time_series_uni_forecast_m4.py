@@ -6,19 +6,23 @@ DEEPAR_LEARNING_PARAMS = {'epochs': 150,
                           'lr': 0.001,
                           'device': 'cpu'
                           }
-
-model_to_compare = [{0: ['smoothing', 'lagged', 'ridge']},
-                    {},
-                    {0: [('deepar_model', DEEPAR_LEARNING_PARAMS)]},
-                    {0: ['ar']}
-                    ]
+# composite = {0: ['lagged', 'ridge'],
+#                      1: ['ar'],
+#                      'head': ['bagging']}
+# linear = {0:['smoothing','ar']}
+model_to_compare = [
+    {0: ['smoothing', 'lagged', 'ridge']},
+    {},
+    {0: [('deepar_model', DEEPAR_LEARNING_PARAMS)]},
+    {0: ['ar']}
+]
 model_name = ['lagged_regression', 'industrial', 'deepar', 'ar']
 finutune_existed_model = [True, False, True, True]
 BENCHMARK = 'M4'
-BENCHMARK_PARAMS = {'experiment_date': '20_01_25',
+BENCHMARK_PARAMS = {'experiment_date': '22_01_25',
                     'metadata': M4_FORECASTING_LENGTH,
                     'datasets': M4_FORECASTING_BENCH,
-                    'model_to_compare': zip(model_to_compare, model_name, finutune_existed_model)}
+                    'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
 EVAL_REGIME = True
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG

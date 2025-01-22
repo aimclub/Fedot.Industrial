@@ -34,6 +34,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         super().__init__(objective, initial_graphs, requirements,
                          graph_generation_params, graph_optimizer_params)
         # self.operators.remove(self.crossover)
+        self.evaluated_population = []
         self.requirements = requirements
         self.initial_graphs = initial_graphs
         self.eval_dispatcher = IndustrialDispatcher(
@@ -102,8 +103,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
                 random_ind = choice(pop)
                 new_ind = self.mutation(random_ind)
                 if isinstance(new_ind, Individual):
-                    self.log.message(f'Successful mutation at attempt number: {repr_attempt}. '
-                                     f'Obtain new pipeline - {new_ind.graph.descriptive_id}')
+                    # self.log.message(f'Successful mutation at attempt number: {repr_attempt}. '
+                    #                  f'Obtain new pipeline - {new_ind.graph.descriptive_id}')
                     break
             is_valid_graph = verifier(new_ind.graph)
             is_new_graph = new_ind.graph not in pop_graphs
@@ -139,15 +140,12 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
         def evolve_pop(population, evaluator):
             individuals_to_select = self.regularization(population, evaluator)
-            new_population = None
-            for attempt_iter in range(self.min_reproduce_attempt):
-                try:
-                    new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
-                    self.log.message(f'Successful reproduction at attempt number: {attempt_iter}')
-                except Exception:
-                    new_population = None
-                if new_population is None:
-                    continue
+            new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
+            if self.reproducer.stop_condition:
+                new_population = population
+            else:
+                self.log.message(f'Successful reproduction')
+
             # Adaptive agent experience collection & learning
             # Must be called after reproduction (that collects the new experience)
             experience = self.mutation.agent_experience
@@ -166,9 +164,9 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         Returned population may be not entirely unique, if the size of unique population is lower than MIN_POP_SIZE. """
         unique_population_with_ids = {ind.graph.descriptive_id: ind for ind in population}
         unique_population = list(unique_population_with_ids.values())
-
+        is_population_too_small = len(unique_population) < self.min_pop_size
         # if size of unique population is too small, then extend it to MIN_POP_SIZE by repeating individuals
-        if len(unique_population) < self.min_pop_size:
+        if all([is_population_too_small, not self.reproducer.stop_condition]):
             self.mutation.agent._probs = FEDOT_MUTATION_STRATEGY['unique_population_strategy']
             unique_population = self._extend_population(pop=unique_population,
                                                         target_pop_size=self.min_pop_size)
@@ -196,15 +194,17 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
 
     def optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
         with self.timer, self._progressbar as pbar:
-            population_to_eval, evaluator = Either.insert(objective). \
+            evaluated_population, evaluator = Either.insert(objective). \
                 then(lambda objective: self.eval_dispatcher.dispatch(objective, self.timer)). \
                 then(lambda evaluator: self._initial_population(evaluator)).value
             while not self.stop_optimization():
-                population_to_eval = Either.insert((population_to_eval, evaluator)). \
+                population_to_eval = Either.insert((evaluated_population, evaluator)). \
                     then(lambda opt_data: self._update_requirements(*opt_data)). \
                     then(lambda opt_data: self._evolve_population(*opt_data)). \
                     then(lambda fitness_data: self.get_structure_unique_population(*fitness_data)). \
                     then(lambda reg_data: self._update_population(*reg_data)).value
+                evaluated_population = population_to_eval
+                self.evaluated_population.append(evaluated_population)
                 pbar.update()
             pbar.close()
         self._update_population(self.best_individuals, None, 'final_choices')

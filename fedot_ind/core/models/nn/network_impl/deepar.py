@@ -213,7 +213,7 @@ class DeepAR(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         # training settings
-        self.epochs = self.params.get('epochs', 50)
+        self.epochs = self.params.get('epochs', 150)
         self.learning_rate = self.params.get('learning_rate', 0.1)
         self.batch_size = self.params.get('batch_size', 16)
         self.device = self.params.get('device', 'cpu')
@@ -320,7 +320,10 @@ class DeepAR(BaseNeuralModel):
     def predict(self,
                 test_data: InputData,
                 output_mode: str = None):
-        output_mode = self.forecast_mode if not output_mode else output_mode
+        if output_mode.__contains__('default'):
+            output_mode = 'predictions'
+        elif output_mode is None:
+            output_mode = self.forecast_mode
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
                                          step=1)
@@ -332,7 +335,7 @@ class DeepAR(BaseNeuralModel):
         forecast = self._predict(test_data, output_mode, **kwargs)
         return OutputData(
             idx=forecast_idx_predict,
-            task=self.task_type,
+            task=test_data.task,
             predict=forecast[0, ...].squeeze().numpy(),
             target=test_data.target,
             data_type=DataTypesEnum.table)
@@ -363,7 +366,7 @@ class DeepAR(BaseNeuralModel):
                                  **output_kw)
         return fc
 
-    def predict_for_fit(self, test_data):
+    def predict_for_fit(self, test_data, output_mode: str = None):
         output_mode = 'predictions'
         forecast_idx_predict = np.arange(start=test_data.idx[-1],
                                          stop=test_data.idx[-1] + self.forecast_length,
@@ -371,7 +374,7 @@ class DeepAR(BaseNeuralModel):
         forecast = self._predict(test_data, output_mode)
         return OutputData(
             idx=forecast_idx_predict,
-            task=self.task_type,
+            task=test_data.task,
             predict=forecast.squeeze().numpy(),
             target=test_data.target,
             data_type=DataTypesEnum.table)

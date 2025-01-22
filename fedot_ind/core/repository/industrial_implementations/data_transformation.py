@@ -45,12 +45,13 @@ def transform_lagged_industrial(self, input_data: InputData):
     lagged_features = HankelMatrix(
         time_series=train_data.features,
         window_size=self.window_size).trajectory_matrix.T
-    if len(input_data.target.shape) < 2:
-        lagged_target = HankelMatrix(
-            time_series=train_data.features[self.window_size:],
-            window_size=train_data.task.task_params.forecast_length).trajectory_matrix.T
-        lagged_features = lagged_features[:lagged_target.shape[0], :]
-        train_data.target = lagged_target
+    if input_data.target is not None:
+        if len(input_data.target.shape) < 2:
+            lagged_target = HankelMatrix(
+                time_series=train_data.features[self.window_size:],
+                window_size=train_data.task.task_params.forecast_length).trajectory_matrix.T
+            lagged_features = lagged_features[:lagged_target.shape[0], :]
+            train_data.target = lagged_target
     output_data = self._convert_to_output(train_data,
                                           lagged_features,
                                           data_type=DataTypesEnum.ts)

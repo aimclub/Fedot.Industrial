@@ -187,11 +187,12 @@ class ApiTemplate:
         for dataset in benchmark_params['datasets']:
             if benchmark_name.__contains__('M4'):
                 dataset_for_eval = self._prepare_forecasting_data(dataset, benchmark_name, benchmark_params)
-            for model_impl, model_name, finetune_strategy in benchmark_params['model_to_compare']:
+            for model_impl, model_name, finetune_strategy in zip(*benchmark_params['model_to_compare']):
                 date = benchmark_params['experiment_date']
                 self.api_config['compute_config']['output_folder'] = f'./{benchmark_name}_{date}/{model_name}/{dataset}'
                 result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl,
                                         finetune=finetune_strategy)
+            _ = 1
 
     def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
         prefix = dataset[0]

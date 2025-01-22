@@ -233,8 +233,8 @@ class FedotIndustrial(Fedot):
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
                                              not isinstance(self.manager.industrial_config.strategy, Callable)]). \
-            either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
-                   right_function=lambda data: self.manager.solver.fit(data))
+                either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
+                       right_function=lambda data: self.manager.solver.fit(data))
 
         Either.insert(self._process_input_data(input_data)). \
             then(lambda data: self.__init_industrial_backend(data)). \
@@ -320,7 +320,7 @@ class FedotIndustrial(Fedot):
                                         {'model_to_tune': model_to_tune.build()} |
                                         {'tuning_params': tuning_params}). \
             then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)['model_to_tune'] if return_only_fitted
-                 else build_tuner(self, **dict_for_tune)).value
+        else build_tuner(self, **dict_for_tune)).value
         self.manager.is_finetuned = True
         self.manager.solver = model_to_tune
 
@@ -366,33 +366,46 @@ class FedotIndustrial(Fedot):
     def save(self, mode: str = 'all', **kwargs):
         is_fedot_solver = self.manager.condition_check.solver_is_fedot_class(self.manager.solver)
 
-        def save_model(api_manager): return Either(value=api_manager.solver,
-                                                   monoid=[api_manager.solver,
-                                                           api_manager.condition_check.solver_is_fedot_class(
-                                                               api_manager.solver)]). \
-            either(left_function=lambda pipeline: pipeline.save(path=api_manager.compute_config.output_folder,
-                                                                create_subdir=True, is_datetime_in_path=True),
-                   right_function=lambda solver: solver.current_pipeline.save(
-                       path=api_manager.compute_config.output_folder,
-                       create_subdir=True,
-                       is_datetime_in_path=True))
+        def save_model(api_manager):
+            return Either(value=api_manager.solver,
+                          monoid=[api_manager.solver,
+                                  api_manager.condition_check.solver_is_fedot_class(
+                                      api_manager.solver)]). \
+                either(left_function=lambda pipeline: pipeline.save(path=api_manager.compute_config.output_folder,
+                                                                    create_subdir=True, is_datetime_in_path=True),
+                       right_function=lambda solver: solver.current_pipeline.save(
+                           path=api_manager.compute_config.output_folder,
+                           create_subdir=True,
+                           is_datetime_in_path=True))
 
-        def save_opt_hist(api_manager): return self.manager.solver.history.save(
-            f"{self.manager.compute_config.output_folder}/optimization_history.json")
+        def save_opt_hist(api_manager):
+            return self.manager.solver.history.save(
+                f"{self.manager.compute_config.output_folder}/optimization_history.json")
 
-        def save_metrics(api_manager): return self.metric_dict.to_csv(
-            f'{self.manager.compute_config.output_folder}/metrics.csv')
+        def save_metrics(api_manager):
+            return self.metric_dict.to_csv(
+                f'{self.manager.compute_config.output_folder}/metrics.csv')
 
-        def save_preds(api_manager): return pd.DataFrame(api_manager.predicted_labels).to_csv(
-            f'{self.manager.compute_config.output_folder}/labels.csv')
+        def save_preds(api_manager):
+            return pd.DataFrame(api_manager.predicted_labels).to_csv(
+                f'{self.manager.compute_config.output_folder}/labels.csv')
+
         method_dict = {'metrics': save_metrics, 'model': save_model, 'opt_hist': save_opt_hist,
                        'prediction': save_preds}
         self.manager.create_folder(self.manager.compute_config.output_folder)
         if not is_fedot_solver:
             del method_dict['opt_hist']
+
+        def save_all(api_manager):
+            for method in method_dict.values():
+                try:
+                    method(api_manager)
+                except Exception as ex:
+                    self.manager.logger.info(f'Error during saving. Exception - {ex}')
+
         Either(value=self.manager, monoid=[self.manager, mode.__contains__('all')]). \
             either(left_function=lambda api_manager: method_dict[mode](self.manager),
-                   right_function=lambda api_manager: [method(api_manager) for method in method_dict.values()])
+                   right_function=lambda api_manager: save_all(api_manager))
 
     def load(self, path):
         """Loads saved Industrial model from disk

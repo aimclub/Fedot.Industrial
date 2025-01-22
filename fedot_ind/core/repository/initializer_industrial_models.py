@@ -15,6 +15,7 @@ from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.verification import class_rules, ts_rules
 from fedot.core.pipelines.verification import common_rules
 from fedot.core.repository.operation_types_repository import OperationTypesRepository
+from golem.core.optimisers.genetic.operators.reproduction import ReproductionController
 
 import fedot_ind.core.repository.model_repository as MODEL_REPO
 from fedot_ind.core.metrics.pipeline import industrial_evaluate_pipeline
@@ -30,7 +31,7 @@ from fedot_ind.core.repository.industrial_implementations.data_transformation im
 from fedot_ind.core.repository.industrial_implementations.ml_optimisation import DaskOptunaTuner, \
     tune_pipeline_industrial
 from fedot_ind.core.repository.industrial_implementations.optimisation import _get_default_industrial_mutations, \
-    has_no_lagged_conflicts_in_ts_pipeline
+    has_no_lagged_conflicts_in_ts_pipeline, reproduce_controlled_industrial, reproduce_industrial
 from fedot_ind.core.repository.industrial_implementations.optimisation import \
     has_no_data_flow_conflicts_in_industrial_pipeline
 from fedot_ind.core.repository.model_repository import SKLEARN_REG_MODELS, SKLEARN_CLF_MODELS, FEDOT_PREPROC_MODEL
@@ -61,7 +62,9 @@ FEDOT_METHOD_TO_REPLACE = [(PipelineObjectiveEvaluate, "evaluate"),
                            (LaggedImplementation, '_check_and_correct_window_size'),
                            (TsSmoothingImplementation, 'transform'),
                            (OptunaImpl, 'OptunaTuner'),
-                           (ApiComposer, 'tune_final_pipeline')]
+                           (ApiComposer, 'tune_final_pipeline'),
+                           (ReproductionController, 'reproduce_uncontrolled'),
+                           (ReproductionController, 'reproduce')]
 INDUSTRIAL_REPLACE_METHODS = [industrial_evaluate_pipeline,
                               get_industrial_search_space,
                               _get_default_industrial_mutations,
@@ -86,7 +89,9 @@ INDUSTRIAL_REPLACE_METHODS = [industrial_evaluate_pipeline,
                               _check_and_correct_window_size_industrial,
                               transform_smoothing_industrial,
                               DaskOptunaTuner,
-                              tune_pipeline_industrial]
+                              tune_pipeline_industrial,
+                              reproduce_controlled_industrial,
+                              reproduce_industrial]
 
 DEFAULT_METHODS = [getattr(class_impl[0], class_impl[1])
                    for class_impl in FEDOT_METHOD_TO_REPLACE]

@@ -26,15 +26,19 @@ from golem.core.optimisers.genetic.gp_operators import equivalent_subtree, repla
 from golem.core.optimisers.genetic.gp_params import GPAlgorithmParameters
 from golem.core.optimisers.genetic.operators.crossover import CrossoverTypesEnum
 from golem.core.optimisers.genetic.operators.mutation import MutationTypesEnum
+from golem.core.optimisers.genetic.operators.operator import PopulationT, EvaluationOperator
 from golem.core.optimisers.graph import OptGraph, OptNode
+from golem.core.optimisers.opt_history_objects.individual import Individual
 from golem.core.optimisers.opt_node_factory import OptNodeFactory
 from golem.core.optimisers.optimization_parameters import GraphRequirements
 from golem.core.optimisers.optimizer import AlgorithmParameters
 from golem.core.optimisers.optimizer import GraphGenerationParams
 from golem.utilities.data_structures import ComparableEnum as Enum
+from golem.utilities.data_structures import ensure_wrapped_in_sequence
 
 from fedot_ind.core.repository.excluded import EXCLUDED_OPERATION_MUTATION, TEMPORARY_EXCLUDED
-from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation
+from fedot_ind.core.repository.model_repository import default_industrial_availiable_operation, \
+    PRIMARY_FORECASTING_MODELS
 
 
 class MutationStrengthEnumIndustrial(Enum):
@@ -75,6 +79,7 @@ class IndustrialMutations:
         self.excluded = self.excluded + self.excluded_mutation
         self.industrial_data_operations = [
             operation for operation in self.industrial_data_operations if operation not in self.excluded]
+        self.primary_models = {'ts_forecasting': PRIMARY_FORECASTING_MODELS}
 
     def _define_basis_and_extractor_space(self):
         self.basis_models = get_operations_for_task(task=self.task_type, mode='data_operation', tags=["basis"])
@@ -189,10 +194,10 @@ class IndustrialMutations:
         # add as separate parent
         new_node = node_factory.get_parent_node(
             self.transform_to_opt_node(node_to_mutate), is_primary=True)
-        new_node = self.transform_to_pipeline_node(new_node)
         if not new_node:
             # there is no possible operators
             return graph
+        new_node = self.transform_to_pipeline_node(new_node)
         if node_to_mutate.nodes_from:
             node_to_mutate.nodes_from.append(new_node)
         else:
@@ -278,6 +283,10 @@ class IndustrialMutations:
         :param graph: graph to mutate
         """
         node = choice(graph.nodes)
+        task = graph_gen_params.advisor.task.task_type.name
+        if task in self.primary_models.keys():
+            graph_gen_params.node_factory.graph_model_repository.operations_by_keys['primary'] \
+                = self.primary_models[task]
         new_node = graph_gen_params.node_factory.exchange_node(
             self.transform_to_opt_node(node))
         if not new_node:
@@ -447,9 +456,9 @@ class IndustrialCrossover:
                 pairs_of_nodes)
 
             layer_in_graph_first = graph_first.depth - \
-                node_depth(node_from_graph_first)
+                                   node_depth(node_from_graph_first)
             layer_in_graph_second = graph_second.depth - \
-                node_depth(node_from_graph_second)
+                                    node_depth(node_from_graph_second)
 
             replace_subtrees(
                 graph_first,
@@ -670,6 +679,96 @@ def has_no_lagged_conflicts_in_ts_pipeline(pipeline: Pipeline):
     return True
 
 
+#
+# def has_no_lagged_conflicts_in_ts_pipeline(pipeline: Pipeline):
+#     """ Function checks the correctness of connection between nodes """
+#
+#     for idx, node in enumerate(pipeline.nodes):
+#         # Operation name in the current node
+#         is_bagging_current_operation = node.operation.name
+#         parent_nodes = node.nodes_from
+#         if len(parent_nodes) == 0:
+#             return True
+#         for parent in parent_nodes:
+#             is_lagged = parent.name == 'lagged'
+#             check_condition = all([current_operation in non_lagged_models, is_lagged])
+#             if check_condition:
+#                 return False
+#     return True
+
 def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> None:
     IndustrialCrossover()
     return None
+
+
+def reproduce_controlled_industrial(self,
+                                    population: PopulationT,
+                                    evaluator: EvaluationOperator,
+                                    pop_size: Optional[int] = None,
+                                    ) -> PopulationT:
+    """Reproduces and evaluates population (select, crossover, mutate).
+    Doesn't implement any additional checks on population.
+    """
+    # If operators can return unchanged individuals from previous population
+    # (e.g. both Mutation & Crossover are not applied with some probability)
+    # then there's a probability that duplicate individuals can appear
+
+    selected_individuals = self.selection(population, pop_size)
+    new_population = []  # industrial don use crossover
+    if len(selected_individuals) < pop_size:
+        for ind_to_reproduce in range(pop_size):
+            try:
+                random_ind = np.random.choice(selected_individuals)
+            except Exception:
+                _ = 1
+            new_ind = self.mutation(random_ind)
+            if isinstance(new_ind, Individual):
+                new_population.append(new_ind)
+    else:
+        new_population = self.mutation(selected_individuals)
+    new_population = ensure_wrapped_in_sequence(new_population)
+    new_population = evaluator(new_population)
+    return new_population
+
+
+def reproduce_industrial(self,
+                         population: PopulationT,
+                         evaluator: EvaluationOperator
+                         ) -> PopulationT:
+    """Reproduces and evaluates population (select, crossover, mutate).
+    Implements additional checks on population to ensure that population size
+    follows required population size.
+    """
+    collected_next_population = {}
+    population_size_to_achieve = round(self.parameters.pop_size * self.parameters.required_valid_ratio)
+    MIN_POP_SIZE = 5
+    self.stop_condition = False
+    for i in range(3):
+        # Estimate how many individuals we need to complete new population
+        # based on average success rate of valid results
+        residual_size = self.parameters.pop_size - len(collected_next_population)
+        residual_size = max(MIN_POP_SIZE, int(residual_size / self.mean_success_rate))
+        # residual_size = min(len(population), residual_size)
+
+        # Reproduce the required number of individuals that equals residual size
+        partial_next_population = self.reproduce_uncontrolled(population, evaluator, residual_size)
+        if partial_next_population is None:
+            # timeout condition
+            self.stop_condition = True
+            return population
+        # Avoid duplicate individuals that can come unchanged from previous population
+        collected_next_population.update({ind.uid: ind for ind in partial_next_population})
+
+        # Keep running average of transform success rate (if sample is big enough)
+        if len(partial_next_population) >= MIN_POP_SIZE:
+            valid_ratio = len(partial_next_population) / residual_size
+            self._success_rate_window = np.roll(self._success_rate_window, shift=1)
+            self._success_rate_window[0] = valid_ratio
+
+        # Successful return: got enough individuals
+        if len(collected_next_population) >= population_size_to_achieve:
+            self._log.info(f'Reproduction achieved pop size {len(collected_next_population)}'
+                           f' using {i + 1} attempt(s) with success rate {self.mean_success_rate:.3f}')
+            return list(collected_next_population.values())[:self.parameters.pop_size]
+    else:
+        return list(collected_next_population.values())

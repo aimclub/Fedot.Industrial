@@ -170,6 +170,8 @@ class AtomizedModel(Enum):
         'exog_ts': ExogDataTransformationImplementation
     }
 
+    PRIMARY_FORECASTING_MODELS = ['ar', 'deepar_model', 'glm', 'eigen_forecaster']
+
     ANOMALY_DETECTION_MODELS = {
         # for detection
         'one_class_svm': OneClassSVM,
@@ -279,3 +281,4 @@ NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 NEURAL_MODEL_FOR_CLF = AtomizedModel.NEURAL_MODEL_FOR_CLF.value
 FORECASTING_MODELS = AtomizedModel.FORECASTING_MODELS.value
 FORECASTING_PREPROC = AtomizedModel.FORECASTING_PREPROC.value
+PRIMARY_FORECASTING_MODELS = AtomizedModel.PRIMARY_FORECASTING_MODELS.value

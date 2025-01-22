@@ -259,7 +259,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         self.operation_condition = ConditionConverter(predict_data, trained_operation, self.mode)
         prediction = self._abstract_predict(predict_data, trained_operation, output_mode)
         if self.operation_condition.is_lagged_regressor and self.operation_condition.is_forecasting_task:
-            prediction = prediction[-1]
+            prediction = prediction[-1:np.newaxis]
         converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
@@ -270,7 +270,8 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         self.operation_condition = ConditionConverter(predict_data, trained_operation, self.mode)
         prediction = self._abstract_predict(predict_data, trained_operation, output_mode)
         if self.operation_condition.is_lagged_regressor and self.operation_condition.is_forecasting_task:
-            prediction = prediction[-1]  # take last predict from table (len of predict equal horizon forecast)
+            prediction = prediction[
+                         -1:np.newaxis]  # take last predict from table (len of predict equal horizon forecast)
         converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
