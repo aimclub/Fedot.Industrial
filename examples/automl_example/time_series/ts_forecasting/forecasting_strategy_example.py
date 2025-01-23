@@ -35,8 +35,8 @@ if __name__ == "__main__":
                         'dataset': dataset_name,
                         'task_params': TASK_PARAMS}
         result_dict = ApiTemplate(api_config=API_CONFIG,
-                              metric_list=METRIC_NAMES).eval(dataset=dataset_dict,
-                                                             finetune=False)
+                                  metric_list=METRIC_NAMES).eval(dataset=dataset_dict,
+                                                                 finetune=False)
         result_dict.update({dataset_name: result_dict})
 
     with open(f'{BENCH}_{GROUP}_forecast_length_{HORIZON}.pkl', 'wb') as f:
