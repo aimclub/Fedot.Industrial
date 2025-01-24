@@ -3,12 +3,15 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+from cases.time_series_gapfilling_case import get_composite_pipeline
 from datasets import load_dataset
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from typing import Callable
+
+from fedot.utilities.ts_gapfilling import ModelGapFiller
 from sklearn.metrics import f1_score, roc_auc_score
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
@@ -91,7 +94,17 @@ def linearly_interpolate_nans(target: np.ndarray) -> np.ndarray:
     return target
 
 
-def load_monash_dataset(dataset_name: str, gapfilling_func: Optional[Callable] = None) -> pd.DataFrame:
+def get_gapfilled_with_fedot(target: np.ndarray) -> np.ndarray:
+    if any([np.isnan(value) for value in target]):
+        composite_gapfiller = ModelGapFiller(gap_value=-100.0,
+                                             pipeline=get_composite_pipeline())
+        filtered_composite = composite_gapfiller.forward_filling(target)
+        return filtered_composite
+    return target
+
+
+def load_monash_dataset(dataset_name: str,
+                        gapfilling_func: Optional[Callable] = get_gapfilled_with_fedot) -> pd.DataFrame:
     dataset = load_dataset('monash_tsf', dataset_name, trust_remote_code=True)
     wide_data = {}
 
