@@ -1,57 +1,14 @@
-#The
-data
-was
-derived
-from
-twelve
-monthly
-electrical
-power
-demand
-#time
-series
-from
-Italy
-and
-first
-used in the
-paper
-"Intelligent
-Integrating
-Lite - Weight
-Data
-Mining
-and
-Visualization
-into
-#GUI
-Operating
-Systems
-". The classification task is to distinguish
-#days
-from
-Oct
-to
-March(inclusive)
-from
-April
-to
-September.@problemName
-ItalyPowerDemand
-@timeStamps
-false
-@missing
-false
-@univariate
-true
-@equalLength
-true
-@seriesLength
-24
-@classLabel
-true
-1
-2
+#The data was derived from twelve monthly electrical power demand
+#time series from Italy and first used in the paper
+#"Intelligent Integrating Lite - Weight Data Mining and Visualization into GUI Operating Systems".
+# The classification task is to distinguish days from Oct to March(inclusive) from April to September.
+@problemName ItalyPowerDemand
+@timeStamps false
+@missing false
+@univariate true
+@equalLength true
+@seriesLength 24
+@classLabel true 1 2
 @data
 -0.71051757,-1.1833204,-1.3724416,-1.5930829,-1.4670021,-1.3724416,-1.0887599,0.045966947,0.92853223,1.0861332,1.2752543,0.96005242,0.61333034,0.014446758,-0.6474772,-0.26923494,-0.20619456,0.61333034,1.3698149,1.4643754,1.054613,0.58181015,0.1720477,-0.26923494:1
 -0.99300935,-1.4267865,-1.5798843,-1.6054006,-1.6309169,-1.3757539,-1.0185257,-0.35510183,0.71658276,1.2013925,1.1248436,1.0482947,0.79313166,0.46141977,0.48693607,0.56348497,0.61451757,0.30832197,0.25728936,1.0993273,1.0482947,0.69106647,-0.048906237,-0.38061813:1
