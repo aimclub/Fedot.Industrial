@@ -30,7 +30,6 @@ if __name__ == '__main__':
 
     METRIC_NAMES = ('f1', 'accuracy', 'precision', 'roc_auc')
 
-
     DEFAULT_AUTOML_LEARNING_CONFIG['timeout'] = 0.1
     AUTOML_LEARNING_STRATEGY = DEFAULT_AUTOML_LEARNING_CONFIG
     COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
