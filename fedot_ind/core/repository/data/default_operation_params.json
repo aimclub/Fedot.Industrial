@@ -429,9 +429,9 @@
   },
   "iforest_detector": {
     "window_length": 10,
-    "anomaly_thr": null,
+    "anomaly_thr": 0.1,
     "n_jobs": 2,
-    "contamination": 0.0005,
+    "contamination": "auto",
     "random_state": 42
   },
   "conv_ae_detector": {

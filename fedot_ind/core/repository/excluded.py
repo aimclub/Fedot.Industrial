@@ -60,6 +60,7 @@ EXCLUDED_OPERATION_MUTATION = {
         'stl_arima',
         'ets',
         'cgru',
+        'glm'
         # exclude weak regression models
         'sgdr',
         'treg',

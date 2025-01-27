@@ -1,3 +1,5 @@
+import os
+
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG
 from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_BENCH, M4_FORECASTING_LENGTH
@@ -6,10 +8,6 @@ DEEPAR_LEARNING_PARAMS = {'epochs': 150,
                           'lr': 0.001,
                           'device': 'cpu'
                           }
-# composite = {0: ['lagged', 'ridge'],
-#                      1: ['ar'],
-#                      'head': ['bagging']}
-# linear = {0:['smoothing','ar']}
 model_to_compare = [
     {0: ['smoothing', 'lagged', 'ridge']},
     {},
@@ -19,9 +17,9 @@ model_to_compare = [
 model_name = ['lagged_regression', 'industrial', 'deepar', 'ar']
 finutune_existed_model = [True, False, True, True]
 BENCHMARK = 'M4'
-EVALUATED = ['D1002', 'D1019', 'D1091', 'D1032']
+EVALUATED = []
 DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
-BENCHMARK_PARAMS = {'experiment_date': '22_01_25',
+BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
                     'metadata': M4_FORECASTING_LENGTH,
                     'datasets': DATASETS,
                     'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
@@ -54,5 +52,15 @@ API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
 if __name__ == "__main__":
     api_agent = ApiTemplate(api_config=API_CONFIG, metric_list=('rmse', 'mae'))
     if EVAL_REGIME:
-        api_agent.evaluate_benchmark(benchmark_name=BENCHMARK,
-                                     benchmark_params=BENCHMARK_PARAMS)
+        for attempt in range(100):
+            try:
+                EVALUATED = os.listdir('./M4_23_01_25/ar')
+                DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
+                BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
+                                    'metadata': M4_FORECASTING_LENGTH,
+                                    'datasets': DATASETS,
+                                    'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
+                api_agent.evaluate_benchmark(benchmark_name=BENCHMARK,
+                                             benchmark_params=BENCHMARK_PARAMS)
+            except Exception:
+                print('ERROR')

@@ -1,6 +1,7 @@
 import os
 from typing import Union
 
+import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
@@ -13,6 +14,7 @@ from fedot_ind.core.repository.industrial_implementations.abstract import build_
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
 from fedot_ind.tools.loader import DataLoader
+from tools.test_load_data import EXAMPLES_DATA_PATH
 
 BENCHMARK = 'M4'
 
@@ -118,7 +120,8 @@ class ApiTemplate:
     def _prepare_dataset(self, dataset):
         dataset_is_dict = isinstance(dataset, dict)
         industrial_config = self.api_config.get('industrial_config', {})
-        have_specified_industrial_strategy = 'strategy' in industrial_config.keys()
+        have_specified_industrial_strategy = 'strategy' in industrial_config.keys() \
+                                             or 'strategy_params' in industrial_config.keys()
 
         if have_specified_industrial_strategy:
             custom_dataset_strategy = industrial_config['strategy']
@@ -129,7 +132,7 @@ class ApiTemplate:
 
         train_data, test_data = Either(value=dataset,
                                        monoid=[dataset,
-                                               dataset_is_dict]). \
+                                               dataset_is_dict or have_specified_industrial_strategy]). \
             either(left_function=loader.load_data,
                    right_function=lambda dataset_dict: loader.load_custom_data(custom_dataset_strategy))
         return train_data, test_data
@@ -166,27 +169,34 @@ class ApiTemplate:
                     train_data=self.train_data,
                     model_to_tune=pipeline_to_tune,
                     tuning_params={
-                        'tuning_timeout': 5}),
-                not finetune]). either(
+                        'tuning_timeout': 3}),
+                not finetune]).either(
             left_function=lambda tuning_data: self.industrial_class.finetune(
                 **tuning_data,
                 return_only_fitted=return_only_fitted),
             right_function=self.industrial_class.fit)
         return self._get_result(self.test_data)
 
-    def load_result(self, benchmark_path, benchmark_dict: dict):
+    def load_result(self, benchmark_path):
         dir_list = os.listdir(benchmark_path)
         result_dict = {}
         for model_dir in dir_list:
-            datasets_dir = os.listdir(model_dir)
-            df_with_results = [pd.read_csv(f'{dataset}/metrics.csv') for dataset in datasets_dir]
-            df_with_results = pd.concat(df_with_results, ignore_index=True)
+            datasets_dir = os.listdir(f'{benchmark_path}/{model_dir}')
+            df_with_results = [pd.read_csv(f'{benchmark_path}/{model_dir}/{dataset}/metrics.csv')
+                               for dataset in datasets_dir]
+            df_with_results = pd.concat(df_with_results)
+            del df_with_results['Unnamed: 0']
+            df_with_results.columns = [f'{x}_{model_dir}' for x in df_with_results.columns]
+            df_with_results['dataset'] = datasets_dir
             result_dict.update({model_dir: df_with_results})
+        return result_dict
 
     def evaluate_benchmark(self, benchmark_name, benchmark_params: dict):
         for dataset in benchmark_params['datasets']:
             if benchmark_name.__contains__('M4'):
                 dataset_for_eval = self._prepare_forecasting_data(dataset, benchmark_name, benchmark_params)
+            elif benchmark_name.__contains__('SKAB'):
+                dataset_for_eval = self._prepare_skab_data(dataset, benchmark_name, benchmark_params)
             else:
                 dataset_for_eval = dataset
             for model_impl, model_name, finetune_strategy in zip(*benchmark_params['model_to_compare']):
@@ -194,7 +204,6 @@ class ApiTemplate:
                 self.api_config['compute_config']['output_folder'] = f'./{benchmark_name}_{date}/{model_name}/{dataset}'
                 result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl,
                                         finetune=finetune_strategy)
-            _ = 1
 
     def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
         prefix = dataset[0]
@@ -204,4 +213,20 @@ class ApiTemplate:
                             'task_params': {'forecast_length': horizon}}
         self.api_config['industrial_config']['task_params']['forecast_length'] = horizon
         self.api_config['automl_config']['task_params']['forecast_length'] = horizon
+        return dataset_for_eval
+
+    def _prepare_skab_data(self, dataset, benchmark_name, benchmark_dict):
+        folder = benchmark_dict['metadata']['folder']
+        path_to_result = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{folder}/{dataset}.csv'
+        df = pd.read_csv(path_to_result, index_col='datetime', sep=';', parse_dates=True)
+        train_idx = self.api_config['industrial_config']['strategy_params']['train_data_size']
+        if isinstance(train_idx, str):
+            train_data = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{train_idx}/{train_idx}.csv'
+            train_data = pd.read_csv(train_data, index_col='datetime', sep=';', parse_dates=True)
+            label = np.array([0 for x in range(len(train_data))])
+            dataset_for_eval = {'train_data': (train_data.values, label),
+                                'test_data': (df.iloc[:, :-2].values, df.iloc[:, -2].values)}
+        else:
+            dataset_for_eval = {'train_data': (df.iloc[:train_idx, :-2].values, df.iloc[:train_idx, -2].values),
+                                'test_data': (df.iloc[train_idx:, :-2].values, df.iloc[train_idx:, -2].values)}
         return dataset_for_eval

@@ -98,10 +98,8 @@ industrial_search_space = {
          "n_trend_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 5, 1)]]},
          "n_seasonality_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 4, 1)]]},
          "n_of_harmonics": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 3, 1)]]}},
-    'ssa_forecaster':
-        {'window_size_method': {'hyperopt-dist': hp.choice,
-                                'sampling-scope': [['hac', 'dff']]},
-         'history_lookback': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(30, 300, 30)]]}},
+    'bagging': {'method':
+                    {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
     'stat_detector':
         {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,
@@ -111,7 +109,7 @@ industrial_search_space = {
          'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'iforest_detector':
-        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
+        {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.05, 0.5, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,
                            'sampling-scope': [list(np.arange(10, 35, 5))]}},
     'conv_ae_detector':

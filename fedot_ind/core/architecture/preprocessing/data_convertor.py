@@ -21,8 +21,8 @@ from sklearn.svm import OneClassSVM
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device
 from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
-from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
-    ConvolutionalAutoEncoderDetector
+# from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
+#     ConvolutionalAutoEncoderDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
@@ -439,7 +439,7 @@ class ConditionConverter:
                            OneClassSVM,
                            StatisticalDetector,
                            ARIMAFaultDetector,
-                           ConvolutionalAutoEncoderDetector,
+                           # ConvolutionalAutoEncoderDetector,
                            LSTMAutoEncoderDetector,
                            )
         return isinstance(self.operation_implementation, detector_models)

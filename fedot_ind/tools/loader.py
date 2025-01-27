@@ -46,9 +46,6 @@ class DataLoader:
             'M5': M5.load,
             'monash_tsf': load_dataset
         }
-        self.detection_data_source = {
-            'SKAB': self.local_skab_load
-        }
 
     def load_forecast_data(self, folder: Optional[Union[Path, str]] = None):
         loader = self.forecast_data_source[folder]
@@ -59,10 +56,6 @@ class DataLoader:
         ts_df = ts_df.set_index('datetime') if 'datetime' in ts_df.columns else ts_df.set_index('ds')
         return ts_df, None
 
-    def load_detection_data(self, folder=None):
-        loader = self.detection_data_source['SKAB']
-        return loader(directory=folder, group=self.dataset_name)
-
     @staticmethod
     def local_m4_load(group: Optional[str] = None):
         path_to_result = EXAMPLES_DATA_PATH + '/forecasting/'
@@ -70,37 +63,17 @@ class DataLoader:
             if result_cvs.__contains__(group):
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
-    @staticmethod
-    def local_skab_load(directory: Union[Path, str] = 'other', group: Optional[str] = None):
-        path_to_result = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{directory}'
-        df = pd.read_csv(Path(path_to_result, f'{group}.csv'),
-                         index_col='datetime',
-                         sep=';',
-                         parse_dates=True)
-        x_train, y_train = df.iloc[:120, :-2].values, df.iloc[:120, -2].values
-        x_test, y_test = df.iloc[120:, :-2].values, df.iloc[120:, -2].values
-        return (x_train, y_train), (x_test, y_test)
-
     def _load_benchmark_data(self, specific_strategy: str):
-        bench = self.dataset_name['benchmark']
         if specific_strategy == 'anomaly_detection':
-            self.dataset_name = self.dataset_name['dataset']
-            train_data, test_data = self.load_detection_data(bench)
-        elif specific_strategy in ['ts_forecasting', 'forecasting_assumptions']:
-            train_data, test_data = self.load_forecast_data(bench)
-            target = train_data.values[-self.dataset_name['task_params']['forecast_length']:].flatten()
-            train_data = (train_data, target)
-            test_data = train_data
+            train_data, test_data = self.load_detection_data(self.dataset_name)
         return train_data, test_data
 
     def load_custom_data(self, specific_strategy: str):
-        custom_strategy = specific_strategy in ['anomaly_detection', 'ts_forecasting', 'forecasting_assumptions']
         dict_dataset = isinstance(self.dataset_name, dict)
         if dict_dataset and 'train_data' in self.dataset_name.keys():
             return self.dataset_name['train_data'], self.dataset_name['test_data']
-        elif custom_strategy:
-            return self._load_benchmark_data(specific_strategy)
-        return None, None
+        else:
+            return None, None
 
     def load_data(self, shuffle: bool = True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
