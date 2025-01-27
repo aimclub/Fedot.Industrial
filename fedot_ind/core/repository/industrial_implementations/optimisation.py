@@ -339,10 +339,11 @@ class IndustrialMutations:
 
         # create subtree with basis transformation and feature extraction
         transformation_node = PipelineNode(choice(self.basis_models))
-        node_to_add_transformation = list(
-            filter(lambda x: x.name in self.extractors, graph.nodes))[0]
-        mutation_node = PipelineNode(node_to_add_transformation.name, nodes_from=[transformation_node])
-        graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
+        node_to_add_transformation = list(filter(lambda x: x.name in self.extractors, graph.nodes))
+        if len(node_to_add_transformation) > 0:
+            node_to_add_transformation = node_to_add_transformation[0]
+            mutation_node = PipelineNode(node_to_add_transformation.name, nodes_from=[transformation_node])
+            graph.update_node(old_node=node_to_add_transformation, new_node=mutation_node)
         return graph
 
     def __add_forecasting_preprocessing(self,
@@ -719,11 +720,11 @@ def reproduce_controlled_industrial(self,
         for ind_to_reproduce in range(pop_size):
             try:
                 random_ind = np.random.choice(selected_individuals)
+                new_ind = self.mutation(random_ind)
+                if isinstance(new_ind, Individual):
+                    new_population.append(new_ind)
             except Exception:
-                _ = 1
-            new_ind = self.mutation(random_ind)
-            if isinstance(new_ind, Individual):
-                new_population.append(new_ind)
+                pass
     else:
         new_population = self.mutation(selected_individuals)
     new_population = ensure_wrapped_in_sequence(new_population)
