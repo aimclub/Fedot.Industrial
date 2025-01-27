@@ -23,6 +23,9 @@ class AnomalyDetector(ModelImplementation):
     def __init__(self, params: Optional[OperationParameters] = None) -> None:
         super().__init__(params)
         self.length_of_detection_window = self.params.get('window_length', 10)
+        self.contamination = self.params.get('contamination', 'auto')
+        if isinstance(self.contamination, str):
+            self.offset = -0.5
         self.transformation_mode = 'lagged'
         self.transformation_type = None
 
@@ -71,7 +74,10 @@ class AnomalyDetector(ModelImplementation):
 
     def _detect_anomaly_sample(self, score_matrix_row):
         outlier_score = score_matrix_row[0]
-        anomaly_sample = outlier_score < 0 and abs(outlier_score) > self.anomaly_threshold
+        if isinstance(self.contamination, str):
+            anomaly_sample = abs(outlier_score) > abs(self.anomaly_threshold) + abs(self.offset)
+        else:
+            anomaly_sample = outlier_score < 0 and abs(outlier_score) > self.anomaly_threshold
         return anomaly_sample
 
     def _convert_scores_to_labels(self, prob_matrix_row) -> int:

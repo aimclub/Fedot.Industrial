@@ -141,7 +141,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         def evolve_pop(population, evaluator):
             individuals_to_select = self.regularization(population, evaluator)
             new_population = self.reproducer.reproduce(individuals_to_select, evaluator)
-            if self.reproducer.stop_condition:
+            if self.reproducer.stop_condition or new_population is None:
                 new_population = population
             else:
                 self.log.message(f'Successful reproduction')

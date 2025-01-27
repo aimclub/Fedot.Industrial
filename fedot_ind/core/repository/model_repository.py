@@ -52,7 +52,6 @@ from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
 from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
 from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
-from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
@@ -153,8 +152,7 @@ class AtomizedModel(Enum):
         'ar': AutoRegImplementation,
         'stl_arima': STLForecastARIMAImplementation,
         'ets': ExpSmoothingImplementation,
-        # 'cgru': CGRUImplementation,
-        'glm': GLMIndustrial,
+        # 'glm': GLMIndustrial,
         'eigen_forecaster': EigenAR,
         # variational
         'deepar_model': DeepAR,
@@ -170,7 +168,11 @@ class AtomizedModel(Enum):
         'exog_ts': ExogDataTransformationImplementation
     }
 
-    PRIMARY_FORECASTING_MODELS = ['ar', 'deepar_model', 'glm', 'eigen_forecaster']
+    PRIMARY_FORECASTING_MODELS = ['ar',
+                                  'deepar_model',
+                                  # 'glm',
+                                  'eigen_forecaster'
+                                  ]
 
     ANOMALY_DETECTION_MODELS = {
         # for detection
@@ -205,6 +207,9 @@ class AtomizedModel(Enum):
         'xcm_model': XCModel,
         # variational models
         'deepar_model': DeepAR,
+        # detection models
+        'conv_ae_detector': ConvolutionalAutoEncoderDetector,
+        'lstm_ae_detector': LSTMAutoEncoderDetector,
         # linear_dummy_model
         'dummy': DummyOverComplicatedNeuralNetwork,
         # linear_dummy_model
