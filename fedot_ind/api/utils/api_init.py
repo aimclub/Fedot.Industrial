@@ -95,7 +95,7 @@ class IndustrialConfig(ConfigTemplate):
             self.config.update({key: val})
         if self.strategy in FEDOT_INDUSTRIAL_STRATEGY:
             self.strategy = IndustrialStrategy(industrial_strategy=self.strategy,
-                                               industrial_strategy_params=self.task_params,
+                                               industrial_strategy_params=self.strategy_params,
                                                api_config=self.config)
         return self
 

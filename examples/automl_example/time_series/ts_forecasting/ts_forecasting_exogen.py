@@ -1,35 +1,39 @@
 import numpy as np
-import pandas as pd
 
+from examples.example_utils import load_monash_dataset
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, DEFAULT_TSF_AUTOML_CONFIG
 
 if __name__ == "__main__":
-    dataset_name = PROJECT_PATH + \
-        '/examples/data/forecasting\\monash_benchmark\\MonashBitcoin_30.csv'
-    horizon = 60
-    metric_names = ('smape', 'rmse', 'median_absolute_error')
+    HORIZON = 60
+    METRIC_NAMES = ('smape', 'rmse', 'median_absolute_error')
 
-    train_data = pd.read_csv(dataset_name)
-    variables = train_data['label'].unique().tolist()
-    exog_var = ['send_usd', 'market_cap',
-                'median_transaction_value', 'google_trends']
-    exog_ts = np.vstack(
-        [train_data[train_data['label'] == var]['value'].values for var in exog_var])
+    train_data = load_monash_dataset('bitcoin')
+    exog_var = ['send_usd', 'market_cap', 'median_transaction_value', 'google_trends']
+    exog_ts = np.vstack([train_data[column].values for column in exog_var])
     exog_ts = exog_ts[0, :]
-    ts = train_data[train_data['label'] == 'price']['value'].values
-    target = ts[-horizon:].flatten()
+    ts = train_data['price'].values
+    target = ts[-HORIZON:].flatten()
     input_data = (ts, target)
 
-    api_config = dict(problem='ts_forecasting',
-                      metric='rmse',
-                      timeout=15,
-                      with_tuning=False,
-                      pop_size=10,
-                      industrial_strategy_params={'exog_variable': exog_ts},
-                      task_params={'forecast_length': horizon},
-                      industrial_strategy='forecasting_exogenous',
-                      n_jobs=2,
-                      logging_level=30)
-    industrial = FedotIndustrial(**api_config)
+    TASK_PARAMS = {'forecast_length': HORIZON}
+    AUTOML_LEARNING_STRATEGY = dict(timeout=3,
+                                    with_tuning=False,
+                                    n_jobs=2,
+                                    pop_size=10,
+                                    logging_level=30)
+
+    API_CONFIG = {'industrial_config': {'problem': 'ts_forecasting',
+                                        'task_params': TASK_PARAMS,
+                                        'strategy': 'forecasting_exogenous',
+                                        'strategy_params': {'exog_variable': exog_ts,
+                                                            'data_type': 'time_series'}},
+                  'automl_config': {'task_params': TASK_PARAMS,
+                                    **DEFAULT_TSF_AUTOML_CONFIG},
+                  'learning_config': {'learning_strategy': 'from_scratch',
+                                      'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
+                                      'optimisation_loss': {'quality_loss': 'rmse'}},
+                  'compute_config': DEFAULT_COMPUTE_CONFIG}
+
+    industrial = FedotIndustrial(**API_CONFIG)
     industrial.fit(input_data)
