@@ -14,7 +14,7 @@ from fedot_ind.core.repository.industrial_implementations.abstract import build_
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
 from fedot_ind.tools.loader import DataLoader
-from tools.test_load_data import EXAMPLES_DATA_PATH
+from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 
 BENCHMARK = 'M4'
 

@@ -2,7 +2,7 @@ import os
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, DEFAULT_CLF_AUTOML_CONFIG
-from tools.test_load_data import EXAMPLES_DATA_PATH
+from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 
 
 def prepare_skab_benchmark():
