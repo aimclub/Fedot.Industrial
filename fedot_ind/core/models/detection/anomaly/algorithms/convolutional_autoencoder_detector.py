@@ -74,9 +74,9 @@ class ConvolutionalAutoEncoder(Module):
                 out_channels = 32
 
             decoder_layer_dict.update({f'conv{i}':
-                                           ConvTranspose1d(in_channels=in_channels,
-                                                           out_channels=out_channels,
-                                                           output_padding=1, **self.convolutional_params)})
+                                       ConvTranspose1d(in_channels=in_channels,
+                                                       out_channels=out_channels,
+                                                       output_padding=1, **self.convolutional_params)})
             decoder_layer_dict.update({f'relu{i}': self.activation_func()})
             in_channels = out_channels
         self.decoder = Sequential(decoder_layer_dict)
@@ -110,7 +110,7 @@ class ConvolutionalAutoEncoder(Module):
         self._init_model()
         train_loader, valid_loader = self._create_dataloader(data, batch_size, validation_split)
         train_steps, early_stopping, best_model, best_val_loss = max(1, len(train_loader)), EarlyStopping(), \
-                                                                 None, float('inf')
+            None, float('inf')
         scheduler = lr_scheduler.OneCycleLR(optimizer=self.optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=epochs,
@@ -132,7 +132,6 @@ class ConvolutionalAutoEncoder(Module):
             return loss.data.item() * inputs.size(0)
 
         for epoch in tqdm(range(epochs)):
-            iter_count = 0
             self.train()
             train_loss = list(map(lambda batch_tuple: train_one_batch(batch_tuple), train_loader))
             train_loss = np.average(train_loss)
