@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from cases.time_series_gapfilling_case import get_composite_pipeline
 from datasets import load_dataset
 from fedot.core.data.data import InputData
 from fedot.core.data.data_split import train_test_data_setup
+from fedot.core.pipelines.node import PipelineNode
+from fedot.core.pipelines.pipeline import Pipeline
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from typing import Callable
@@ -92,6 +93,20 @@ def linearly_interpolate_nans(target: np.ndarray) -> np.ndarray:
         beta = np.linalg.lstsq(X_fit.T, target_fit)[0]
         target.flat[np.isnan(target)] = np.dot(X[:, np.isnan(target)].T, beta)
     return target
+
+
+def get_composite_pipeline():
+    node_1 = PipelineNode('lagged')
+    node_1.parameters = {'window_size': 150}
+    node_2 = PipelineNode('lagged')
+    node_2.parameters = {'window_size': 100}
+    node_linear_1 = PipelineNode('linear', nodes_from=[node_1])
+    node_linear_2 = PipelineNode('linear', nodes_from=[node_2])
+
+    node_final = PipelineNode('ridge', nodes_from=[node_linear_1,
+                                                   node_linear_2])
+    pipeline = Pipeline(node_final)
+    return pipeline
 
 
 def get_gapfilled_with_fedot(target: np.ndarray) -> np.ndarray:
