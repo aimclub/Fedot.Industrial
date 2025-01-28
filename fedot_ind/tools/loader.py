@@ -47,14 +47,21 @@ class DataLoader:
             'monash_tsf': load_dataset
         }
 
-    def load_forecast_data(self, folder: Optional[Union[Path, str]] = None):
-        loader = self.forecast_data_source[folder]
+    def load_forecast_data(self, forecast_family: Optional[str] = None, folder: Optional[Union[Path, str]] = None):
+        if forecast_family not in self.forecast_data_source:
+            forecast_family = self.dataset_name.get('benchmark') if isinstance(self.dataset_name, dict) else 'M4'
+        if folder is None:
+            folder = EXAMPLES_DATA_PATH
+        loader = self.forecast_data_source[forecast_family]
         dataset_name = self.dataset_name.get('dataset') if isinstance(self.dataset_name, dict) else self.dataset_name
-        group_df, _, _ = loader(directory='data', group=f'{M4_PREFIX[dataset_name[0]]}')
+        group_df, _, _ = loader(directory=folder, group=f'{M4_PREFIX[dataset_name[0]]}')
         ts_df = group_df[group_df['unique_id'] == dataset_name]
         del ts_df['unique_id']
         ts_df = ts_df.set_index('datetime') if 'datetime' in ts_df.columns else ts_df.set_index('ds')
-        return ts_df, None
+        train_data = ts_df.values.flatten()
+        target = train_data[-self.dataset_name['task_params']['forecast_length']:].flatten()
+        train_data = (train_data, target)
+        return train_data, train_data
 
     @staticmethod
     def local_m4_load(group: Optional[str] = None):
@@ -64,16 +71,20 @@ class DataLoader:
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
     def _load_benchmark_data(self, specific_strategy: str):
+        train_data, test_data = None, None
         if specific_strategy == 'anomaly_detection':
             train_data, test_data = self.load_detection_data(self.dataset_name)
+        elif specific_strategy in ['ts_forecasting', 'forecasting_assumptions']:
+            train_data, test_data = self.load_forecast_data(self.folder)
         return train_data, test_data
 
-    def load_custom_data(self, specific_strategy: str):
+    def load_custom_data(self, specific_strategy: Optional[str] = None):
         dict_dataset = isinstance(self.dataset_name, dict)
         if dict_dataset and 'train_data' in self.dataset_name.keys():
             return self.dataset_name['train_data'], self.dataset_name['test_data']
-        else:
-            return None, None
+        elif specific_strategy is not None:
+            return self._load_benchmark_data(specific_strategy)
+        return None, None
 
     def load_data(self, shuffle: bool = True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
