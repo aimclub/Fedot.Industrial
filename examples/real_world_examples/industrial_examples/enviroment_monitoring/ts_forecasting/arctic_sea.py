@@ -13,7 +13,6 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
 
 
-
 if __name__ == '__main__':
     use('TKagg')
     horizon = 365
