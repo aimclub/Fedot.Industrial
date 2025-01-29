@@ -1,5 +1,4 @@
 from enum import Enum
-from os import cpu_count
 
 
 class ComputeConfigConstant(Enum):

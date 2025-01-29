@@ -1,10 +1,9 @@
 import pytest
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.repository.config_repository import DEFAULT_CLF_AUTOML_CONFIG, \
-    DEFAULT_COMPUTE_CONFIG, DEFAULT_CLF_LEARNING_CONFIG, DEFAULT_TSF_AUTOML_CONFIG, DEFAULT_AUTOML_LEARNING_CONFIG, \
-    DEFAULT_REG_LEARNING_CONFIG
+    DEFAULT_COMPUTE_CONFIG, DEFAULT_CLF_LEARNING_CONFIG, DEFAULT_AUTOML_LEARNING_CONFIG
 
-from tests.unit.api.fixtures import get_industrial_params, get_data_by_task, NUM_SAMPLES
+from tests.unit.api.fixtures import get_industrial_params, get_data_by_task
 
 STRATEGY = ['federated_automl', 'lora_strategy', 'kernel_automl', 'forecasting_assumptions', 'forecasting_exogenous']
 

@@ -96,7 +96,7 @@ def get_industrial_params():
             'sampling_strategy': sampling_dict}
 
 
-def get_data_by_task(task: str, num_samples = None):
+def get_data_by_task(task: str, num_samples=None):
     if num_samples is None:
         num_samples = NUM_SAMPLES
     train_data, test_data = TimeSeriesDatasetsGenerator(num_samples=num_samples,
