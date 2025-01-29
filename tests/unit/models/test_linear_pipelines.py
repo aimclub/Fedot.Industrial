@@ -22,7 +22,7 @@ class LinearPipelineCase:
 LINEAR_REG_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
-        node_list={0: node_list},
+        node_list=node_list,
         data_list=['AppliancesEnergy'],
         task='regression'
     ) for pipeline_label, node_list in VALID_LINEAR_REG_PIPELINE.items()
@@ -31,7 +31,7 @@ LINEAR_REG_PIPELINE_CASES = [
 LINEAR_CLF_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
-        node_list={0: node_list},
+        node_list=node_list,
         data_list=['Earthquakes', 'ERing'],
         task='classification'
     ) for pipeline_label, node_list in VALID_LINEAR_CLF_PIPELINE.items()
@@ -40,7 +40,7 @@ LINEAR_CLF_PIPELINE_CASES = [
 LINEAR_TSF_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
-        node_list={0: node_list},
+        node_list=node_list,
         data_list=[dict(benchmark='M4', dataset='D2600', task_params={'forecast_length': 14})],
         task='ts_forecasting',
         task_params=dict(forecast_length=14)
@@ -50,7 +50,7 @@ LINEAR_TSF_PIPELINE_CASES = [
 LINEAR_DETECTION_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
-        node_list={0: node_list},
+        node_list=node_list,
         data_list=[dict(benchmark='valve1', dataset='1')],
         task='classification',
         task_params=dict(industrial_strategy='anomaly_detection', detection_window=10)
@@ -66,6 +66,8 @@ LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF
 
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase):
+    if isinstance(pipeline_case.node_list, list):
+        pipeline_case.node_list = {0: pipeline_case.node_list}
     result = [
         AbstractPipeline(
             task=pipeline_case.task,
