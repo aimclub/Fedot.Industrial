@@ -23,8 +23,8 @@ class Explainer:
 
     @staticmethod
     def predict_proba(model, features, target):
-        if hasattr(model, 'solver'):
-            model.solver.test_features = None
+        if hasattr(model, 'manager') and hasattr(model.manager, 'solver'):
+            model.manager.solver.test_features = None
             base_proba_ = model.predict_proba(predict_data=(features, target))
         else:
             base_proba_ = model.predict_proba(X=features)
@@ -58,15 +58,6 @@ class RecurrenceExplainer(Explainer):
             plt.colorbar()
             plt.savefig(f'recurrence_matrix_for_{name}_dataset_cls_{classes}.png')
             plt.close()
-
-    @staticmethod
-    def predict_proba(model, features, target):
-        if hasattr(model, 'solver'):
-            model.solver.test_features = None
-            base_proba_ = model.predict_proba(predict_data=(features, target))
-        else:
-            base_proba_ = model.predict_proba(X=features)
-        return base_proba_
 
 
 class PointExplainer(Explainer):
