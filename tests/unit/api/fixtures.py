@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+
 NUM_SAMPLES = 50
 SERIES_LENGTH = 20
 
@@ -68,6 +70,42 @@ def regression_multi_target_np():
 @pytest.fixture
 def regression_multi_target_df():
     return pd.DataFrame(np.random.randn(NUM_SAMPLES, 3))
+
+
+def get_industrial_params():
+    stat_params = {'window_size': 0, 'stride': 1, 'add_global_features': True,
+                   'channel_independent': False, 'use_sliding_window': False}
+    fourier_params = {'low_rank': 5, 'output_format': 'signal', 'compute_heuristic_representation': True,
+                      'approximation': 'smooth', 'threshold': 0.9, 'sampling_rate': 64e3}
+    wavelet_params = {'n_components': 3, 'wavelet': 'bior3.7', 'compute_heuristic_representation': True}
+    rocket_params = {'num_features': 200}
+    sampling_dict = dict(samples=dict(start_idx=0, end_idx=None),
+                         channels=dict(start_idx=0, end_idx=None),
+                         elements=dict(start_idx=0, end_idx=None))
+    feature_generator = {
+        # 'minirocket': [('minirocket_extractor', rocket_params)],
+        'stat_generator': [('quantile_extractor', stat_params)],
+        'fourier': [('fourier_basis', fourier_params)],
+        'wavelet': [('wavelet_basis', wavelet_params)],
+    }
+
+    return {'feature_generator': feature_generator,
+            'data_type': 'tensor',
+            'learning_strategy': 'all_classes',
+            'head_model': 'rf',
+            'sampling_strategy': sampling_dict}
+
+
+def get_data_by_task(task: str, num_samples = None):
+    if num_samples is None:
+        num_samples = NUM_SAMPLES
+    train_data, test_data = TimeSeriesDatasetsGenerator(num_samples=num_samples,
+                                                        task=task,
+                                                        max_ts_len=50,
+                                                        binary=True,
+                                                        test_size=0.5,
+                                                        multivariate=False).generate_data()
+    return train_data, test_data
 
 
 # Example usage in a test function:
