@@ -78,8 +78,8 @@ def fedot_industrial_regression():
 @pytest.mark.parametrize('metric_names, data_func, fedot_func', (
     [('f1', 'accuracy'), univariate_clf_data, fedot_industrial_classification],
     [('f1', 'accuracy'), multivariate_clf_data, fedot_industrial_classification],
-    [('rmse', 'mae'),  univariate_regression_data, fedot_industrial_regression],
-    [('rmse', 'mae'),  multivariate_regression_data, fedot_industrial_regression],
+    [('rmse', 'mae'), univariate_regression_data, fedot_industrial_regression],
+    [('rmse', 'mae'), multivariate_regression_data, fedot_industrial_regression],
 ), ids=['clf_uni', 'clf_multi', 'reg_uni', 'reg_multi'])
 def test_fit_predict_fedot_industrial(metric_names, data_func, fedot_func):
     data = data_func()
