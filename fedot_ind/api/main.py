@@ -268,8 +268,9 @@ class FedotIndustrial(Fedot):
         """
         predict_func = curry(2)(lambda predict_mode, predict_data: self.__abstract_predict(predict_data, predict_mode))
         self.repo = IndustrialModels().setup_repository(backend=self.manager.compute_config.backend)
-        self.manager.predicted_labels = Either.insert(self._process_input_data(predict_data)). \
-            then(predict_func(predict_mode)).value
+        processed_input = self._process_input_data(predict_data)
+        self.manager.predict_data = processed_input
+        self.manager.predicted_labels = Either.insert(processed_input).then(predict_func(predict_mode)).value
 
         return self.manager.predicted_labels
 
@@ -454,9 +455,11 @@ class FedotIndustrial(Fedot):
         name = explaing_config.get('name', 'test')
         method = explaing_config.get('method', 'point')
 
-        explainer = self.manager.explain_methods[method](model=self,
-                                                         features=self.predict_data.features.squeeze(),
-                                                         target=self.predict_data.target)
+        explainer = self.manager.industrial_config.explain_methods[method](
+            model=self,
+            features=self.manager.predict_data.features.squeeze(),
+            target=self.manager.predict_data.target
+        )
 
         explainer.explain(n_samples=samples, window=window, method=metric)
         explainer.visual(metric=metric, threshold=threshold, name=name)
