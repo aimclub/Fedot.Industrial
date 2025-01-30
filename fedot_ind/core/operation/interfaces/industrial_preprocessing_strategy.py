@@ -91,7 +91,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             else len(trained_operation.classes_)
         predict_data = predict_data if self.operation_condition.is_predict_input_fedot else predict_data.features
         predict_method = curry(1)(lambda data: trained_operation.predict(data) if only_predict_method
-                                  else trained_operation.predict_for_fit(data))
+        else trained_operation.predict_for_fit(data))
 
         prediction = Either(value=predict_data,
                             monoid=[dict(output_mode=output_mode,
@@ -112,7 +112,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             predict_data, trained_operation[0], self.mode)
         predict_method = self.operation_condition_for_channel_independent.have_predict_method
         fedot_input = self.operation_condition_for_channel_independent.is_transform_input_fedot
-        lagged_operation = self.operation_type == 'lagged' or self.operation_type == 'sparse_lagged'
 
         # create list of InputData, where each InputData correspond to each
         # channel
@@ -128,9 +127,9 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # If model is classical sklearn model we use one_dimensional mode
         predict_branch = curry(2)(
             lambda operation_list,
-            data_list: list(
+                   data_list: list(
                 operation_sample.predict(data_sample) for operation_sample,
-                data_sample in zip(
+                                                          data_sample in zip(
                     operation_list,
                     data_list)) if predict_method else data_list)
 
@@ -146,8 +145,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             then(predict_branch(trained_operation)). \
             then(transform_branch(trained_operation)).value
 
-        prediction = prediction if lagged_operation else \
-            [pred.predict if not isinstance(pred, np.ndarray) else pred for pred in prediction]
+        prediction = [pred.predict if not isinstance(pred, np.ndarray) else pred for pred in prediction]
         prediction = NumpyConverter(data=self.concat_func(prediction)).convert_to_torch_format() \
             if not isinstance(prediction[0], OutputData) else prediction
         return prediction
@@ -204,16 +202,16 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
         # If model is classical sklearn model we use one_dimensional mode
         fit_one_dim = curry(2)(lambda operation, init_state: self.fit_one_sample(init_state)
-                               if operation_for_one_dim else operation)
+        if operation_for_one_dim else operation)
 
         # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         channel_independent_branch = curry(2)(lambda data, prev_state: list(deepcopy(prev_state) for i in
                                                                             range(len(data)))
-                                              if operation_for_every_dim else prev_state)
+        if operation_for_every_dim else prev_state)
 
         # Apply fit operation for every dimension
         fit_for_every_dim = curry(2)(lambda data, prev_state: self._list_of_fitted_model(data, prev_state)
-                                     if operation_for_every_dim else prev_state)
+        if operation_for_every_dim else prev_state)
 
         fit_multidim = curry(2)(lambda data, prev_state: prev_state.fit(data) if operation_for_multidim else prev_state)
 
@@ -233,7 +231,9 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         def multidim_predict(
                 operation,
                 previous_state):
-            state_is_predict = isinstance(previous_state, np.ndarray)
+            state_is_predict = isinstance(previous_state, np.ndarray) or isinstance(previous_state, OutputData)
+            if isinstance(previous_state, OutputData):
+                previous_state = previous_state.predict
             return previous_state if state_is_predict else self.__operation_multidim_adapter(operation,
                                                                                              previous_state,
                                                                                              output_mode)
@@ -258,8 +258,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # Create data condition verifier
         self.operation_condition = ConditionConverter(predict_data, trained_operation, self.mode)
         prediction = self._abstract_predict(predict_data, trained_operation, output_mode)
-        if self.operation_condition.is_lagged_regressor and self.operation_condition.is_forecasting_task:
-            prediction = prediction[-1:np.newaxis]
         converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
@@ -269,9 +267,6 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # Create data condition verifier
         self.operation_condition = ConditionConverter(predict_data, trained_operation, self.mode)
         prediction = self._abstract_predict(predict_data, trained_operation, output_mode)
-        if self.operation_condition.is_lagged_regressor and self.operation_condition.is_forecasting_task:
-            prediction = prediction[
-                -1:np.newaxis]  # take last predict from table (len of predict equal horizon forecast)
         converted = self._convert_to_output(prediction, predict_data_copy, data_type, output_mode)
         return converted
 
@@ -376,7 +371,7 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
 
 
 class IndustrialForecastingPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
     _operations_by_types = FORECASTING_PREPROC
 
     def __init__(
@@ -408,6 +403,7 @@ class IndustrialForecastingPreprocessingStrategy(
             predict_data)
         predict_output = self.multi_dim_dispatcher.predict(
             trained_operation, converted_predict_data, output_mode=output_mode)
+        predict_output.predict = predict_output.predict.squeeze()
         return predict_output
 
     def predict_for_fit(self, trained_operation,
@@ -417,11 +413,12 @@ class IndustrialForecastingPreprocessingStrategy(
             predict_data)
         predict_output = self.multi_dim_dispatcher.predict_for_fit(
             trained_operation, converted_predict_data, output_mode='transform_fit_stage')
+        predict_output.predict = predict_output.predict.squeeze()
         return predict_output
 
 
 class IndustrialClassificationPreprocessingStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
     _operations_by_types = INDUSTRIAL_CLF_PREPROC_MODEL
 
     def __init__(

@@ -70,6 +70,17 @@ industrial_search_space = {
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'ELU', 'SwishBeta', 'ReLU', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+    'deepar_model':
+        {'cell_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['GRU', 'LSTM', 'RNN']]},
+         'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(4, 32, 4)]]},
+         'rnn_layers': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 5, 1)]]},
+         'hidden_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 50, 5)]]},
+         'expected_distribution': {'hyperopt-dist': hp.choice, 'sampling-scope': [['normal', 'cauchy']]},
+         'dropout': {'hyperopt-dist': hp.choice, 'sampling-scope': [[0.05, 0.1, 0.3, 0.5]]}
+         # 'activation': {'hyperopt-dist': hp.choice,
+         #                'sampling-scope': [
+         #                    ['LeakyReLU', 'SwishBeta', 'ReLU', 'Tanh']]}
+         },
     'inception_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(150, 500, 50)]]},
          'activation': {'hyperopt-dist': hp.choice,
@@ -91,6 +102,15 @@ industrial_search_space = {
          'activation': {'hyperopt-dist': hp.choice,
                         'sampling-scope': [
                             ['LeakyReLU', 'SwishBeta', 'Tanh', 'Softmax', 'SmeLU', 'Mish']]}},
+
+    'topo_forecaster':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
+         'patch_len': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(10, 40, 5)]]},
+         'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 20, 3)]]}},
+    'lagged_forecaster':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
+         'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 40, 5)]]},
+         },
     'nbeats_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(50, 200, 20)]]},
          'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32]]},
@@ -99,7 +119,7 @@ industrial_search_space = {
          "n_seasonality_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 4, 1)]]},
          "n_of_harmonics": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 3, 1)]]}},
     'bagging': {'method':
-                {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
+                    {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
     'stat_detector':
         {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,

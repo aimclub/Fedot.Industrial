@@ -10,8 +10,7 @@ from fedot.core.operations.evaluation.operation_implementations.data_operations.
     ResampleImplementation
 from fedot.core.operations.evaluation.operation_implementations.data_operations.sklearn_transformations import *
 from fedot.core.operations.evaluation.operation_implementations.data_operations.ts_transformations import \
-    ExogDataTransformationImplementation, GaussianFilterImplementation, LaggedTransformationImplementation, \
-    TsSmoothingImplementation
+    ExogDataTransformationImplementation, GaussianFilterImplementation, TsSmoothingImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
     FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.operations.evaluation.operation_implementations.models.ts_implementations.arima import \
@@ -40,18 +39,20 @@ from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detecto
 from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
 from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
 from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
-from fedot_ind.core.models.nn.network_impl.deep_tcn import TCNModel
-from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
-from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
-from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
-from fedot_ind.core.models.nn.network_impl.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.common_model.dummy_nn import DummyOverComplicatedNeuralNetwork
+from fedot_ind.core.models.nn.network_impl.common_model.inception import InceptionTimeModel
+from fedot_ind.core.models.nn.network_impl.common_model.resnet import ResNetModel
+from fedot_ind.core.models.nn.network_impl.feature_extraction.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.feature_extraction.mini_rocket import MiniRocketExtractor
+from fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn import TCNModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
+from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.tst import TSTModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
-from fedot_ind.core.models.nn.network_impl.mini_rocket import MiniRocketExtractor
-from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
-from fedot_ind.core.models.nn.network_impl.resnet import ResNetModel
-from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
-from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
+from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
+from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
+from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
@@ -154,6 +155,8 @@ class AtomizedModel(Enum):
         'ets': ExpSmoothingImplementation,
         # 'glm': GLMIndustrial,
         'eigen_forecaster': EigenAR,
+        'topo_forecaster': TopologicalAR,
+        'lagged_forecaster': LaggedAR,
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,
@@ -161,7 +164,7 @@ class AtomizedModel(Enum):
     }
 
     FORECASTING_PREPROC = {
-        'lagged': LaggedTransformationImplementation,
+        # 'lagged': LaggedTransformationImplementation,
         # 'sparse_lagged': SparseLaggedTransformationImplementation,
         'smoothing': TsSmoothingImplementation,
         'gaussian_filter': GaussianFilterImplementation,
@@ -170,7 +173,8 @@ class AtomizedModel(Enum):
 
     PRIMARY_FORECASTING_MODELS = ['ar',
                                   'deepar_model',
-                                  # 'glm',
+                                  # 'topo_forecaster',
+                                  'lagged_forecaster',
                                   'eigen_forecaster'
                                   ]
 
@@ -234,8 +238,8 @@ def default_industrial_availiable_operation(problem: str = 'regression'):
                       'regression_tabular': SKLEARN_CLF_MODELS.keys()}
     available_operations = {'ts_forecasting': [operation_dict[problem],
                                                FORECASTING_PREPROC.keys(),
-                                               SKLEARN_REG_MODELS.keys(),
-                                               INDUSTRIAL_PREPROC_MODEL.keys()
+                                               # SKLEARN_REG_MODELS.keys(),
+                                               # INDUSTRIAL_PREPROC_MODEL.keys()
                                                ],
                             'classification': [operation_dict[problem],
                                                NEURAL_MODEL_FOR_CLF.keys(),

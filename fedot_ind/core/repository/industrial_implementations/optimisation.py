@@ -365,9 +365,9 @@ class IndustrialMutations:
         return mutation_dict[type_of_mutation](graph)
 
     def add_lagged(self, pipeline: Pipeline, **kwargs) -> Pipeline:
-        lagged = ['lagged', 'ridge']
+        lagged = ['lagged_forecaster']
         current_operation = list(reversed([x.name for x in pipeline.nodes]))
-        if 'lagged' in current_operation:
+        if 'lagged_forecaster' in current_operation:
             return pipeline
         else:
             pipeline = PipelineBuilder().add_sequence(

@@ -41,7 +41,10 @@ def save_pipeline_for_debug(pipeline: Pipeline, train_data: InputData,
 def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
     # Seems like a workaround for situation when logger is lost
     #  when adapting and restoring it to/from OptGraph.
-    graph.log = self._log
+    try:
+        graph.log = self._log
+    except Exception:
+        _ = 1
 
     graph_id = graph.root_node.descriptive_id
     self._log.debug(f'Pipeline {graph_id} fit started')
@@ -54,6 +57,7 @@ def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
             self._log.warning(f'Unsuccessful pipeline fit during fitness evaluation. '
                               f'Skipping the pipeline. Exception <{ex}> on {graph_id}')
             stack_trace = traceback.format_exc()
+            prepared_pipeline = self.prepare_graph(graph, train_data, fold_id, self._eval_n_jobs)
             save_pipeline_for_debug(graph, train_data, test_data, ex, stack_trace)
             break  # if even one fold fails, the evaluation stops
         self._validation_blocks = None
@@ -69,6 +73,9 @@ def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
             except Exception:
                 self._log.warning(f'Invalid fitness after objective evaluation. '
                                   f'Skipping the graph: {graph_id}')
+                evaluated_fitness = self._objective(prepared_pipeline,
+                                                    reference_data=test_data,
+                                                    validation_blocks=self._validation_blocks)
         if self._do_unfit:
             graph.unfit()
     if folds_metrics:

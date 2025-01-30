@@ -11,7 +11,6 @@ from tqdm.dask import TqdmCallback
 
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
-from fedot_ind.core.operation.filtration.feature_filtration import FeatureSpaceReducer
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.repository.constanst_repository import STAT_METHODS, STAT_METHODS_GLOBAL
 
@@ -27,9 +26,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.use_sliding_window = self.params.get('use_sliding_window', True)
         self.use_feature_filter = self.params.get('use_feature_filter', False)
         self.channel_extraction = self.params.get('channel_independent', True)
-        self.feature_filter = FeatureSpaceReducer()
         self.data_type = DataTypesEnum.table
-
+        self.feature_filter = None
         self.current_window = None
         self.relevant_features = None
         self.predict = None
@@ -53,7 +51,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             self.channel_extraction = False
 
     def __check_filter_model(self):
-        if self.use_feature_filter:
+        if self.use_feature_filter and self.feature_filter is not None:
             if not self.feature_filter.is_fitted:
                 self.predict = self.feature_filter.reduce_feature_space(self.predict)
             else:
@@ -76,7 +74,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        self.__check_compute_model(input_data)
         evaluation_results = Either(value=input_data.features,
                                     monoid=[input_data.features, self.channel_extraction]).either(
             left_function=lambda ts_array: self.generate_features_from_array(ts_array),

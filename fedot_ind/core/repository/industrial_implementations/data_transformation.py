@@ -35,7 +35,7 @@ def transform_lagged_for_fit_industrial(self, input_data: InputData) -> OutputDa
     train_data.target = lagged_target
     output_data = self._convert_to_output(train_data,
                                           lagged_features,
-                                          data_type=DataTypesEnum.ts)
+                                          data_type=DataTypesEnum.table)
     return output_data
 
 
@@ -54,7 +54,7 @@ def transform_lagged_industrial(self, input_data: InputData):
             train_data.target = lagged_target
     output_data = self._convert_to_output(train_data,
                                           lagged_features,
-                                          data_type=DataTypesEnum.ts)
+                                          data_type=DataTypesEnum.table)
     return output_data
 
 

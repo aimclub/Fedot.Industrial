@@ -119,8 +119,8 @@ class FedotIndustrial(Fedot):
         else:
             self.manager.automl_config.config['initial_assumption'] = \
                 self.manager.automl_config.config['initial_assumption'].build()
-        self.dask_client = DaskServer(self.manager.compute_config.distributed).client
-        self.logger.info(f'Link Dask Server - {self.dask_client.dashboard_link}')
+        self.manager.dask_client = DaskServer(self.manager.compute_config.distributed).client
+        self.logger.info(f'Link Dask Server - {self.manager.dask_client.dashboard_link}')
         self.logger.info('-' * 50)
         self.logger.info('Initialising solver')
         self.manager.solver = Fedot(
@@ -499,5 +499,6 @@ class FedotIndustrial(Fedot):
 
     def shutdown(self):
         """Shutdown Dask client"""
-        self.dask_client.close()
-        del self.dask_client
+        if self.manager.dask_client is not None:
+            self.manager.dask_client.close()
+            del self.manager.dask_client

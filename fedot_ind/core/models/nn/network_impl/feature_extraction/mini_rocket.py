@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -6,7 +7,6 @@ import torch.nn.functional as F
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
-from typing import Optional
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.architecture.settings.computational import default_device

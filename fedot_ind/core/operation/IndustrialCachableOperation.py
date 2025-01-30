@@ -24,7 +24,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
 
     def __check_compute_model(self, input_data: InputData):
         feature_tensor = input_data.features.shape
-        if len(feature_tensor) > 1:
+        if len(feature_tensor) > 2:
             is_channel_overrated = feature_tensor[1] > 100
             is_sample_overrated = feature_tensor[0] > 500000
             is_elements_overrated = feature_tensor[2] > 1000
@@ -85,9 +85,9 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
             OutputData - transformed data
 
         """
+        self.__check_compute_model(input_data)
         if use_cache:
             self.dict_keys = {k: v for k, v in self.__dict__.items()}
-            self.__check_compute_model(input_data)
             if 'channel_extraction' in self.dict_keys.keys():
                 if not self.dict_keys['channel_extraction'] or not self.channel_extraction:
                     class_params = {'channel_extraction': 'False',

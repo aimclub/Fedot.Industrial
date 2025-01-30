@@ -83,7 +83,7 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
         """ Initializes the initial population """
         # Adding of initial assumptions to history as zero generation
         pop_size = self.graph_optimizer_params.pop_size
-
+        label = 'initial_assumptions'
         initial_individuals = [Individual(graph, metadata=self.requirements.static_individual_metadata)
                                for graph in self.initial_graphs]
 
@@ -92,7 +92,11 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self.mutation.agent._probs = FEDOT_MUTATION_STRATEGY['initial_population_diversity_strategy']
             initial_individuals = self._extend_population(initial_individuals, pop_size)
             self.mutation.agent._probs = self.optimisation_mutation_probs
+            label = 'extended_initial_assumptions'
         init_population = evaluator(initial_individuals)
+        if init_population is None:
+            _ = 1
+        self._update_population(next_population=init_population, evaluator=evaluator, label=label)
         return init_population, evaluator
 
     def _extend_population(self, pop: PopulationT, target_pop_size: int, mutation_prob: list = None) -> PopulationT:
@@ -125,7 +129,8 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self._log_to_history(next_population, label, metadata)
         self._iteration_callback(next_population, self)
         self.population = next_population
-
+        if next_population is None:
+            _ = 1
         self.log.info(f'Generation num: {self.current_generation_num} size: {len(next_population)}')
         self.log.info(f'Best individuals: {str(self.generations)}')
         if self.generations.stagnation_iter_count > 0:
@@ -192,21 +197,28 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             operator.update_requirements(self.graph_optimizer_params, self.requirements)
         return population, evaluator
 
+    def _optimise_loop(self, population_to_eval, evaluator):
+        evaluated_population = Either.insert((population_to_eval, evaluator)). \
+            then(lambda opt_data: self._update_requirements(*opt_data)). \
+            then(lambda opt_data: self._evolve_population(*opt_data)). \
+            then(lambda fitness_data: self.get_structure_unique_population(*fitness_data)). \
+            then(lambda reg_data: self._update_population(*reg_data)).value
+        return evaluated_population
+
     def optimise(self, objective: ObjectiveFunction) -> Sequence[Graph]:
         with self.timer, self._progressbar as pbar:
-            evaluated_population, evaluator = Either.insert(objective). \
+            population_to_eval, evaluator = Either.insert(objective). \
                 then(lambda objective: self.eval_dispatcher.dispatch(objective, self.timer)). \
                 then(lambda evaluator: self._initial_population(evaluator)).value
+            self.evaluated_population.append(population_to_eval)
             while not self.stop_optimization():
-                population_to_eval = Either.insert((evaluated_population, evaluator)). \
-                    then(lambda opt_data: self._update_requirements(*opt_data)). \
-                    then(lambda opt_data: self._evolve_population(*opt_data)). \
-                    then(lambda fitness_data: self.get_structure_unique_population(*fitness_data)). \
-                    then(lambda reg_data: self._update_population(*reg_data)).value
-                evaluated_population = population_to_eval
-                self.evaluated_population.append(evaluated_population)
+                population_to_eval = self._optimise_loop(population_to_eval=population_to_eval,
+                                                         evaluator=evaluator)
+                self.evaluated_population.append(population_to_eval)
                 pbar.update()
             pbar.close()
         self._update_population(self.best_individuals, None, 'final_choices')
         best_models = [ind.graph for ind in self.best_individuals]
+        if len(best_models) == 0:
+            _ = 1
         return best_models

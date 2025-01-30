@@ -32,6 +32,15 @@
   "eigen_forecaster": {
     "channel_model": "ar"
   },
+  "topo_forecaster": {
+    "channel_model": "ridge",
+    "patch_len": 10,
+    "window_size": 10
+  },
+  "lagged_forecaster": {
+    "channel_model": "ridge",
+    "window_size": 10
+  },
   "inception_model": {
     "epochs": 100,
     "batch_size": 32,

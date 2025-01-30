@@ -8,12 +8,13 @@ from fedot.core.data.array_utilities import atleast_4d
 from fedot.core.data.cv_folds import cv_generator
 from fedot.core.data.data import InputData, OutputData
 from fedot.core.data.data_split import _split_input_data_by_indexes
-from fedot.core.data.merge.data_merger import TSDataMerger
+from fedot.core.data.merge.data_merger import TSDataMerger, DataMerger, ImageDataMerger, TextDataMerger
 from fedot.core.data.multi_modal import MultiModalData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.optimisers.objective import DataSource
 from fedot.core.pipelines.tuning.search_space import PipelineSearchSpace
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
+from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import TaskTypesEnum
 from fedot.preprocessing.data_types import TYPE_TO_ID
 from joblib import delayed, Parallel
@@ -162,7 +163,7 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
         # for cross validation split ratio is defined as validation_size /
         # all_data_size
         split_ratio = self.split_ratio if self.cv_folds is None else (
-            1 - 1 / (self.cv_folds + 1))
+                1 - 1 / (self.cv_folds + 1))
         self.stratify = _are_stratification_allowed(data, split_ratio)
         self.cv_folds = _are_cv_folds_allowed(data, split_ratio, self.cv_folds)
         if not self.stratify:
@@ -270,6 +271,31 @@ def find_main_output_industrial(outputs: List['OutputData']) -> 'OutputData':
     return priority_output
 
 
+def get_merger_industrial(outputs: List['OutputData']) -> 'DataMerger':
+    """ Construct appropriate data merger for the outputs. """
+
+    # Ensure outputs can be merged
+    list_of_datatype = [output.data_type for output in outputs]
+    if DataTypesEnum.ts in list_of_datatype:
+        for output in outputs:
+            output.data_type = DataTypesEnum.ts
+    data_type = DataMerger.get_datatype_for_merge(output.data_type for output in outputs)
+    if data_type is None:
+        raise ValueError("Can't merge different data types")
+
+    merger_by_type = {
+        DataTypesEnum.table: DataMerger,
+        DataTypesEnum.ts: TSDataMerger,
+        DataTypesEnum.multi_ts: TSDataMerger,
+        DataTypesEnum.image: ImageDataMerger,
+        DataTypesEnum.text: TextDataMerger,
+    }
+    cls = merger_by_type.get(data_type)
+    if not cls:
+        raise ValueError(f'Unable to merge data type {cls}')
+    return cls(outputs, data_type)
+
+
 def merge_industrial_targets(self) -> np.array:
     filtered_main_target = self.main_output.target
     # if target has the same form as index
@@ -296,11 +322,8 @@ def merge_industrial_predicts(*args) -> np.array:
     channel_match = all(chanel_concat)
     element_match = all(element_wise_concat)
     sample_match = all(sample_wise_concat)
-
     if sample_match and element_match:
         predict = np.concatenate(predicts, axis=1)
-        if len(predicts) >= 2 and is_forecasting_task:
-            predict = predict.T
     elif sample_match and channel_match:
         predict = np.concatenate(predicts, axis=2)
     else:
@@ -364,8 +387,10 @@ def predict_operation_industrial(
             trained_operation=fitted_operation,
             predict_data=data,
             output_mode=output_mode)
-    is_numpy_predict = isinstance(prediction.predict, np.ndarray)
-    prediction.predict = prediction.predict.detach().numpy() if not is_numpy_predict else prediction.predict
+    try:
+        prediction.predict = prediction.predict.detach().numpy()
+    except Exception:
+        _ = 1
     prediction = self.assign_tabular_column_types(prediction, output_mode)
 
     # any inplace operations here are dangerous!

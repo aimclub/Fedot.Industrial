@@ -218,6 +218,7 @@ class ApiManager(ConfigTemplate):
         self.predicted_labels = None
         self.predicted_probs = None
         self.predict_data = None
+        self.dask_client = None
         self.target_encoder = None
         self.is_finetuned = False
 

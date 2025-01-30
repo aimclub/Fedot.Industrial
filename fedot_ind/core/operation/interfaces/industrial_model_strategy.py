@@ -7,9 +7,9 @@ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStr
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.nn.network_impl.deepar import DeepAR
-from fedot_ind.core.models.nn.network_impl.nbeats import NBeatsModel
-from fedot_ind.core.models.nn.network_impl.patch_tst import PatchTSTModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
+from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
     IndustrialCustomPreprocessingStrategy, MultiDimPreprocessingStrategy)
 from fedot_ind.core.repository.model_repository import FORECASTING_MODELS, NEURAL_MODEL, SKLEARN_CLF_MODELS, \
@@ -137,7 +137,7 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
 
 
 class IndustrialSkLearnEvaluationStrategy(
-        IndustrialCustomPreprocessingStrategy):
+    IndustrialCustomPreprocessingStrategy):
 
     def __init__(
             self,
@@ -168,7 +168,7 @@ class IndustrialSkLearnEvaluationStrategy(
 
 
 class IndustrialSkLearnClassificationStrategy(
-        IndustrialSkLearnEvaluationStrategy):
+    IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying classification algorithms from Sklearn library """
     _operations_by_types = SKLEARN_CLF_MODELS
 
@@ -216,7 +216,7 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             operation_type: str,
             params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
-        self.multi_dim_dispatcher.mode = 'channel_independent'
+        self.multi_dim_dispatcher.mode = 'one_dimensional'
         self.multi_dim_dispatcher.concat_func = np.vstack
         self.ensemble_func = np.sum
 
@@ -230,8 +230,9 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict(
             trained_operation, predict_data, output_mode='labels')
-        predict_output.predict = self.ensemble_func(
-            predict_output.predict, axis=0)
+        if len(predict_output.predict.shape) > 1:
+            predict_output.predict = self.ensemble_func(
+                predict_output.predict, axis=0)
         return predict_output
 
     def predict_for_fit(
@@ -243,8 +244,9 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict_for_fit(
             trained_operation, predict_data, output_mode='labels')
-        predict_output.predict = self.ensemble_func(
-            predict_output.predict, axis=0)
+        if len(predict_output.predict.shape) > 1:
+            predict_output.predict = self.ensemble_func(
+                predict_output.predict, axis=0)
         return predict_output
 
 

@@ -9,13 +9,17 @@ DEEPAR_LEARNING_PARAMS = {'epochs': 150,
                           'device': 'cpu'
                           }
 model_to_compare = [
-    {0: ['smoothing', 'lagged', 'ridge']},
+    {0: ['lagged_forecaster']},
     {},
     {0: [('deepar_model', DEEPAR_LEARNING_PARAMS)]},
     {0: ['ar']}
 ]
-model_name = ['lagged_regression', 'industrial', 'deepar', 'ar']
-finutune_existed_model = [True, False, True, True]
+model_name = [
+    'lagged_regression',
+    'industrial', 'deepar', 'ar']
+finutune_existed_model = [
+    True,
+    False, True, True]
 BENCHMARK = 'M4'
 EVALUATED = []
 DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
@@ -26,16 +30,22 @@ BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
 EVAL_REGIME = True
 
 COMPUTE_CONFIG = DEFAULT_COMPUTE_CONFIG
+COMPUTE_CONFIG['distributed'] = dict(processes=False,
+                                     n_workers=2,
+                                     threads_per_worker=2,
+                                     memory_limit=0.3
+                                     )
 AUTOML_CONFIG = {'task': 'ts_forecasting',
                  'task_params': {'forecast_length': 14},
                  'use_automl': True,
                  'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'random',
                                                                      'mutation_strategy': 'growth_mutation_strategy'},
                                            'optimisation_agent': 'Industrial'}}
-AUTOML_LEARNING_STRATEGY = dict(timeout=3,
+AUTOML_LEARNING_STRATEGY = dict(timeout=10,
                                 n_jobs=4,
                                 pop_size=10,
-                                logging_level=40)
+                                with_tuning=True,
+                                logging_level=20)
 
 LEARNING_CONFIG = {'learning_strategy': 'from_scratch',
                    'learning_strategy_params': AUTOML_LEARNING_STRATEGY,
@@ -52,15 +62,11 @@ API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
 if __name__ == "__main__":
     api_agent = ApiTemplate(api_config=API_CONFIG, metric_list=('rmse', 'mae'))
     if EVAL_REGIME:
-        for attempt in range(100):
-            try:
-                EVALUATED = os.listdir('./M4_23_01_25/ar')
-                DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
-                BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
-                                    'metadata': M4_FORECASTING_LENGTH,
-                                    'datasets': DATASETS,
-                                    'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
-                api_agent.evaluate_benchmark(benchmark_name=BENCHMARK,
-                                             benchmark_params=BENCHMARK_PARAMS)
-            except Exception:
-                print('ERROR')
+        EVALUATED = os.listdir('./M4_23_01_25/ar')
+        DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
+        BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
+                            'metadata': M4_FORECASTING_LENGTH,
+                            'datasets': DATASETS,
+                            'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
+        api_agent.evaluate_benchmark(benchmark_name=BENCHMARK,
+                                     benchmark_params=BENCHMARK_PARAMS)

@@ -15,10 +15,10 @@ from sklearn.linear_model import (
 )
 from sklearn.naive_bayes import BernoulliNB as SklearnBernoulliNB, MultinomialNB as SklearnMultinomialNB
 
-from fedot_ind.core.models.nn.network_impl.dummy_nn import DummyOverComplicatedNeuralNetwork
-from fedot_ind.core.models.nn.network_impl.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.common_model.dummy_nn import DummyOverComplicatedNeuralNetwork
+from fedot_ind.core.models.nn.network_impl.feature_extraction.explainable_convolution_model import XCModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.tst import TSTModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
-from fedot_ind.core.models.nn.network_impl.tst import TSTModel
 from fedot_ind.core.operation.dummy.dummy_operation import DummyOperation
 from fedot_ind.core.operation.filtration.feature_filtration import FeatureFilter
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
@@ -77,6 +77,7 @@ EXCLUDED_OPERATION_MUTATION = {
         'quantile_extractor',
         'riemann_extractor',
         'minirocket_extractor',
+        'lagged',
         'eigen_basis',
         'fourier_basis',
         'wavelet_basis',

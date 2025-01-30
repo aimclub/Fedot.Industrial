@@ -25,7 +25,8 @@ from fedot_ind.core.repository.industrial_implementations.abstract import prepro
     merge_industrial_predicts, merge_industrial_targets, build_industrial, postprocess_industrial_predicts, \
     split_any_industrial, split_time_series_industrial, predict_operation_industrial, predict_industrial, \
     predict_for_fit_industrial, update_column_types_industrial, \
-    fit_topo_extractor_industrial, transform_topo_extractor_industrial, find_main_output_industrial
+    fit_topo_extractor_industrial, transform_topo_extractor_industrial, find_main_output_industrial, \
+    get_merger_industrial
 from fedot_ind.core.repository.industrial_implementations.data_transformation import transform_lagged_industrial, \
     transform_lagged_for_fit_industrial, _check_and_correct_window_size_industrial, transform_smoothing_industrial
 from fedot_ind.core.repository.industrial_implementations.ml_optimisation import DaskOptunaTuner, \
@@ -42,6 +43,7 @@ FEDOT_METHOD_TO_REPLACE = [(PipelineObjectiveEvaluate, "evaluate"),
                            (PipelineSearchSpace, "get_parameters_dict"),
                            (ApiParamsRepository, "_get_default_mutations"),
                            (DataMerger, "find_main_output"),
+                           (DataMerger, "get"),
                            (ImageDataMerger, "preprocess_predicts"),
                            (ImageDataMerger, "merge_predicts"),
                            (TSDataMerger, "merge_predicts"),
@@ -69,6 +71,7 @@ INDUSTRIAL_REPLACE_METHODS = [industrial_evaluate_pipeline,
                               get_industrial_search_space,
                               _get_default_industrial_mutations,
                               find_main_output_industrial,
+                              get_merger_industrial,
                               preprocess_industrial_predicts,
                               merge_industrial_predicts,
                               merge_industrial_predicts,

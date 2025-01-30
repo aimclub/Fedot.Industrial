@@ -6,11 +6,11 @@ from fedot.core.data.data import InputData
 from fedot.core.operations.evaluation.operation_implementations.implementation_interfaces import ModelImplementation
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 from fedot.utilities.custom_errors import AbstractMethodNotImplementError
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.repository.constanst_repository import FEDOT_TASK
 
 
 class AnomalyDetector(ModelImplementation):
@@ -62,7 +62,7 @@ class AnomalyDetector(ModelImplementation):
             idx=np.arange(feature_matrix.shape[0]),
             features=feature_matrix,
             target=target,
-            task=FEDOT_TASK['anomaly_detection'],
+            task=Task(TaskTypesEnum.classification),
             data_type=DataTypesEnum.table
         )
         converted_input_data.supplementary_data.is_auto_preprocessed = True

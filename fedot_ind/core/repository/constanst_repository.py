@@ -35,7 +35,6 @@ from fedot_ind.core.metrics.metrics_implementation import calculate_classificati
     calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
-from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.representation.statistical.stat_features import autocorrelation, ben_corr, \
     crest_factor, energy, \
@@ -315,7 +314,7 @@ class FedotOperationConstant(Enum):
                          }
     FEDOT_TUNING_METRICS = {
         'classification': ClassificationMetricsEnum.f1,
-        'ts_forecasting': RegressionMetricsEnum.MAPE,
+        'ts_forecasting': RegressionMetricsEnum.RMSE,  # RegressionMetricsEnum.MAPE,
         'regression': RegressionMetricsEnum.RMSE}
     FEDOT_DATA_TYPE = {
         'tensor': DataTypesEnum.image,
@@ -368,9 +367,9 @@ class FedotOperationConstant(Enum):
     }
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        'eigen_ar': EigenAR,
+        # 'eigen_ar': EigenAR,
         # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast'),
-        # 'nbeats': PipelineBuilder().add_node('nbeats_model'),
+        'nbeats': PipelineBuilder().add_node('nbeats_model'),
     }
 
     FEDOT_INDUSTRIAL_STRATEGY = ['federated_automl',

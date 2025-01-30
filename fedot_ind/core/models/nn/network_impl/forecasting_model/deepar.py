@@ -214,7 +214,7 @@ class DeepAR(BaseNeuralModel):
         super().__init__(params)
         # training settings
         self.epochs = self.params.get('epochs', 150)
-        self.learning_rate = self.params.get('learning_rate', 0.1)
+        self.learning_rate = self.params.get('learning_rate', 0.001)
         self.batch_size = self.params.get('batch_size', 16)
         self.device = self.params.get('device', 'cpu')
         self.device = default_device(self.device)
