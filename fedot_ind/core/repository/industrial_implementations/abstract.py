@@ -298,12 +298,6 @@ def get_merger_industrial(outputs: List['OutputData']) -> 'DataMerger':
 
 def merge_industrial_targets(self) -> np.array:
     filtered_main_target = self.main_output.target
-    # if target has the same form as index
-    #  then it makes sense to extract target with common indices
-    if filtered_main_target is not None and len(
-            self.main_output.idx) == len(filtered_main_target):
-        filtered_main_target = self.select_common(
-            self.main_output.idx, filtered_main_target)
     return filtered_main_target
 
 

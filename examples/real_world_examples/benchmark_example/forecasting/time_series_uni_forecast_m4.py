@@ -9,7 +9,9 @@ DEEPAR_LEARNING_PARAMS = {'epochs': 150,
                           'device': 'cpu'
                           }
 model_to_compare = [
-    {0: ['lagged_forecaster']},
+    {0: ['lagged_forecaster'],
+     1: ['ar'],
+     'head': ['bagging']},
     {},
     {0: [('deepar_model', DEEPAR_LEARNING_PARAMS)]},
     {0: ['ar']}
