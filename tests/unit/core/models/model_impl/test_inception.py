@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import pytest
-from fedot_ind.api.utils.data import init_input_data
 
 from fedot_ind.core.models.nn.network_impl.common_model.inception import InceptionTimeModel
 

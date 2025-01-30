@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
 
+from fedot_ind.core.operation.dummy.dummy_operation import init_input_data
 from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
 from fedot_ind.tools.loader import DataLoader
 
