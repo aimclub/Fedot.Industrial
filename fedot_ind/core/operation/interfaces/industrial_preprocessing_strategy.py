@@ -91,7 +91,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             else len(trained_operation.classes_)
         predict_data = predict_data if self.operation_condition.is_predict_input_fedot else predict_data.features
         predict_method = curry(1)(lambda data: trained_operation.predict(data) if only_predict_method
-        else trained_operation.predict_for_fit(data))
+                                  else trained_operation.predict_for_fit(data))
 
         prediction = Either(value=predict_data,
                             monoid=[dict(output_mode=output_mode,
@@ -127,9 +127,9 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         # If model is classical sklearn model we use one_dimensional mode
         predict_branch = curry(2)(
             lambda operation_list,
-                   data_list: list(
+            data_list: list(
                 operation_sample.predict(data_sample) for operation_sample,
-                                                          data_sample in zip(
+                data_sample in zip(
                     operation_list,
                     data_list)) if predict_method else data_list)
 
@@ -202,16 +202,16 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
 
         # If model is classical sklearn model we use one_dimensional mode
         fit_one_dim = curry(2)(lambda operation, init_state: self.fit_one_sample(init_state)
-        if operation_for_one_dim else operation)
+                               if operation_for_one_dim else operation)
 
         # Elif model could be use for each dimension(channel) independently we use channel_independent mode
         channel_independent_branch = curry(2)(lambda data, prev_state: list(deepcopy(prev_state) for i in
                                                                             range(len(data)))
-        if operation_for_every_dim else prev_state)
+                                              if operation_for_every_dim else prev_state)
 
         # Apply fit operation for every dimension
         fit_for_every_dim = curry(2)(lambda data, prev_state: self._list_of_fitted_model(data, prev_state)
-        if operation_for_every_dim else prev_state)
+                                     if operation_for_every_dim else prev_state)
 
         fit_multidim = curry(2)(lambda data, prev_state: prev_state.fit(data) if operation_for_multidim else prev_state)
 
@@ -371,7 +371,7 @@ class IndustrialPreprocessingStrategy(IndustrialCustomPreprocessingStrategy):
 
 
 class IndustrialForecastingPreprocessingStrategy(
-    IndustrialCustomPreprocessingStrategy):
+        IndustrialCustomPreprocessingStrategy):
     _operations_by_types = FORECASTING_PREPROC
 
     def __init__(
@@ -418,7 +418,7 @@ class IndustrialForecastingPreprocessingStrategy(
 
 
 class IndustrialClassificationPreprocessingStrategy(
-    IndustrialCustomPreprocessingStrategy):
+        IndustrialCustomPreprocessingStrategy):
     _operations_by_types = INDUSTRIAL_CLF_PREPROC_MODEL
 
     def __init__(
