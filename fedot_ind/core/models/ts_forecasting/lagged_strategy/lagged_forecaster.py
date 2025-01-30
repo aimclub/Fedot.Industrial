@@ -28,8 +28,8 @@ class LaggedAR(ModelImplementation):
             tuner=SimultaneousTuner,
             metric=self.params.get("metric", RegressionMetricsEnum.RMSE),
             tuning_timeout=1,
-            tuning_early_stop=20,
-            tuning_iterations=50,
+            tuning_early_stop=10,
+            tuning_iterations=20,
         )
 
     def _define_data_and_search_space(self, train_data):
@@ -49,9 +49,7 @@ class LaggedAR(ModelImplementation):
             .with_tuner(tuning_params["tuner"])
             .with_n_jobs(1)
             .with_metric(tuning_params["metric"])
-            .with_timeout(tuning_params.get("tuning_timeout", 1))
-            .with_iterations(tuning_params.get("tuning_iterations", 50))
-            .with_early_stopping_rounds(tuning_params.get("tuning_early_stop", 20))
+            .with_iterations(tuning_params.get("tuning_iterations", 20))
             .build(tuning_data)
         )
 

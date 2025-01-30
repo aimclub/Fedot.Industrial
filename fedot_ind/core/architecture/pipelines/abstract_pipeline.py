@@ -169,7 +169,7 @@ class ApiTemplate:
                     train_data=self.train_data,
                     model_to_tune=pipeline_to_tune,
                     tuning_params={
-                        'tuning_timeout': 1}),
+                        'tuning_iterations': 20}),
                 not finetune]).either(
             left_function=lambda tuning_data: self.industrial_class.finetune(
                 **tuning_data,

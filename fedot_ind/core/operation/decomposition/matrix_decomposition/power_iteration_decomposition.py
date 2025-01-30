@@ -185,16 +185,14 @@ class RSVDDecomposition:
             Ut, St, Vt = DEFAULT_SVD_SOLVER(tensor, full_matrices=False)
             # Compute low rank.
             low_rank = self._spectrum_regularization(St, reg_type=reg_type)
+            if regularized_rank is not None and regularized_rank > low_rank:
+                low_rank = regularized_rank
             if low_rank == 'ill_conditioned':
                 U_ = [Ut, St, Vt]
                 V_ = eigencorr_matrix(Ut, St, Vt)
                 S_ = low_rank  # spectrum # noise
             else:
-                if regularized_rank is not None and regularized_rank > low_rank:
-                    low_rank = regularized_rank
-                else:
-                    # Return first n eigen components.
-                    U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]
+                U_, S_, V_ = Ut[:, :low_rank], St[:low_rank], Vt[:low_rank, :]
             if sampling_regime == 'column_sampling':
                 tensor_approx = self._column_sampling(S_, V_, tensor, low_rank)
             self.regularized_rank = low_rank
