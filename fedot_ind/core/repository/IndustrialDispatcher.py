@@ -106,9 +106,9 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
             IndustrialModels().setup_repository()
 
         graph = self.evaluation_cache.get(cache_key, graph)
-
-        if with_time_limit and self.timer.is_time_limit_reached():
-            return None
+        #
+        # if with_time_limit and self.timer.is_time_limit_reached():
+        #     return None
         if logs_initializer is not None:
             # in case of multiprocessing run
             Log.setup_in_mp(*logs_initializer)

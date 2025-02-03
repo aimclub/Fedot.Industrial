@@ -94,8 +94,6 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self.mutation.agent._probs = self.optimisation_mutation_probs
             label = 'extended_initial_assumptions'
         init_population = evaluator(initial_individuals)
-        if init_population is None:
-            _ = 1
         self._update_population(next_population=init_population, evaluator=evaluator, label=label)
         return init_population, evaluator
 
@@ -129,8 +127,6 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             self._log_to_history(next_population, label, metadata)
         self._iteration_callback(next_population, self)
         self.population = next_population
-        if next_population is None:
-            _ = 1
         self.log.info(f'Generation num: {self.current_generation_num} size: {len(next_population)}')
         self.log.info(f'Best individuals: {str(self.generations)}')
         if self.generations.stagnation_iter_count > 0:
@@ -219,6 +215,4 @@ class IndustrialEvoOptimizer(EvoGraphOptimizer):
             pbar.close()
         self._update_population(self.best_individuals, None, 'final_choices')
         best_models = [ind.graph for ind in self.best_individuals]
-        if len(best_models) == 0:
-            _ = 1
         return best_models
