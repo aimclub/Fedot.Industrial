@@ -23,7 +23,7 @@ if __name__ == '__main__':
         transform=transform), 'torchvision_dataset')
 
     test_data = (datasets.MNIST(
-        root="EXAMPLES_DATA_PATH",
+        root=EXAMPLES_DATA_PATH,
         train=False,
         download=True,
         transform=transform), 'torchvision_dataset')
