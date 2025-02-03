@@ -2,6 +2,7 @@ import warnings
 
 import numpy as np
 import pytest
+from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from matplotlib import get_backend, pyplot as plt
 
 from fedot_ind.api.main import FedotIndustrial
@@ -131,18 +132,19 @@ def test_generate_anomaly_ts(ts_config, anomaly_config):
             assert interval[0] in ts_range and interval[1] in ts_range
 
 
-@pytest.mark.parametrize('data_func, fedot_func', (
-    [univariate_clf_data, fedot_industrial_classification],
-    [multivariate_clf_data, fedot_industrial_classification],
-    [univariate_regression_data, fedot_industrial_regression],
-    [multivariate_regression_data, fedot_industrial_regression],
+@pytest.mark.parametrize('data_func, fedot_func, node', (
+    [univariate_clf_data, fedot_industrial_classification, 'rf'],
+    [multivariate_clf_data, fedot_industrial_classification, 'rf'],
+    [univariate_regression_data, fedot_industrial_regression, 'treg'],
+    [multivariate_regression_data, fedot_industrial_regression, 'treg'],
 ), ids=['clf_uni', 'clf_multi', 'reg_uni', 'reg_multi'])
-def test_finetune(data_func, fedot_func):
+def test_finetune(data_func, fedot_func, node):
     data = data_func()
     fedot_industrial = fedot_func()
-    fedot_industrial.fit(data)
-    fedot_industrial.finetune(train_data=data, tuning_params={'tuning_timeout': 0.1})
-    assert fedot_industrial.solver is not None
+    fedot_industrial.finetune(train_data=data,
+                              model_to_tune=PipelineBuilder().add_node(node),
+                              tuning_params={'tuning_timeout': 0.1})
+    assert fedot_industrial.manager.solver is not None
 
 
 def test_plot_methods():
