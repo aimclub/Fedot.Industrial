@@ -12,37 +12,37 @@ INDUSTRIAL_PARAMS = get_industrial_params()
 DEFAULT_AUTOML_LEARNING_CONFIG['timeout'] = 0.1
 
 CONFIGS = {
-           # 'federated_automl': {'industrial_config': {'problem': 'classification',
-           #                                            'strategy': 'federated_automl',
-           #                                            'strategy_params': INDUSTRIAL_PARAMS},
-           #                      'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
-           #                      'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
-           #                      'compute_config': DEFAULT_COMPUTE_CONFIG},
+    # 'federated_automl': {'industrial_config': {'problem': 'classification',
+    #                                            'strategy': 'federated_automl',
+    #                                            'strategy_params': INDUSTRIAL_PARAMS},
+    #                      'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
+    #                      'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
+    #                      'compute_config': DEFAULT_COMPUTE_CONFIG},
 
-           'lora_strategy': {'industrial_config': {'problem': 'classification',
-                                                   'strategy': 'lora_strategy',
-                                                   'strategy_params': INDUSTRIAL_PARAMS},
-                             'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
-                             'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
-                             'compute_config': DEFAULT_COMPUTE_CONFIG},
+    'lora_strategy': {'industrial_config': {'problem': 'classification',
+                                            'strategy': 'lora_strategy',
+                                            'strategy_params': INDUSTRIAL_PARAMS},
+                      'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
+                      'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
+                      'compute_config': DEFAULT_COMPUTE_CONFIG},
 
-           'kernel_automl': {'industrial_config': {'problem': 'classification',
-                                                   'strategy': 'kernel_automl',
-                                                   'strategy_params': INDUSTRIAL_PARAMS},
-                             'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
-                             'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
-                             'compute_config': DEFAULT_COMPUTE_CONFIG},
+    'kernel_automl': {'industrial_config': {'problem': 'classification',
+                                            'strategy': 'kernel_automl',
+                                            'strategy_params': INDUSTRIAL_PARAMS},
+                      'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
+                      'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
+                      'compute_config': DEFAULT_COMPUTE_CONFIG},
 
-           # 'forecasting_assumptions': {'industrial_config': {'problem': 'ts_forecasting',
-           #                                                   'strategy': 'forecasting_assumptions',
-           #                                                   'strategy_params': INDUSTRIAL_PARAMS,
-           #                                                   'task_params': {'forecast_length': NUM_SAMPLES}},
-           #                             'learning_config': DEFAULT_REG_LEARNING_CONFIG,
-           #                             'automl_config': {**DEFAULT_TSF_AUTOML_CONFIG,
-           #                                               'task_params': {'forecast_length': NUM_SAMPLES}},
-           #                             'compute_config': DEFAULT_COMPUTE_CONFIG},
+    # 'forecasting_assumptions': {'industrial_config': {'problem': 'ts_forecasting',
+    #                                                   'strategy': 'forecasting_assumptions',
+    #                                                   'strategy_params': INDUSTRIAL_PARAMS,
+    #                                                   'task_params': {'forecast_length': NUM_SAMPLES}},
+    #                             'learning_config': DEFAULT_REG_LEARNING_CONFIG,
+    #                             'automl_config': {**DEFAULT_TSF_AUTOML_CONFIG,
+    #                                               'task_params': {'forecast_length': NUM_SAMPLES}},
+    #                             'compute_config': DEFAULT_COMPUTE_CONFIG},
 
-           # 'forecasting_exogenous': {}
+    # 'forecasting_exogenous': {}
 }
 
 
