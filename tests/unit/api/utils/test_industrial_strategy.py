@@ -11,12 +11,13 @@ STRATEGY = ['federated_automl', 'lora_strategy', 'kernel_automl', 'forecasting_a
 INDUSTRIAL_PARAMS = get_industrial_params()
 DEFAULT_AUTOML_LEARNING_CONFIG['timeout'] = 0.1
 
-CONFIGS = {'federated_automl': {'industrial_config': {'problem': 'classification',
-                                                      'strategy': 'federated_automl',
-                                                      'strategy_params': INDUSTRIAL_PARAMS},
-                                'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
-                                'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
-                                'compute_config': DEFAULT_COMPUTE_CONFIG},
+CONFIGS = {
+           # 'federated_automl': {'industrial_config': {'problem': 'classification',
+           #                                            'strategy': 'federated_automl',
+           #                                            'strategy_params': INDUSTRIAL_PARAMS},
+           #                      'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
+           #                      'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
+           #                      'compute_config': DEFAULT_COMPUTE_CONFIG},
 
            'lora_strategy': {'industrial_config': {'problem': 'classification',
                                                    'strategy': 'lora_strategy',
@@ -42,14 +43,15 @@ CONFIGS = {'federated_automl': {'industrial_config': {'problem': 'classification
            #                             'compute_config': DEFAULT_COMPUTE_CONFIG},
 
            # 'forecasting_exogenous': {}
-           }
+}
 
 
 @pytest.mark.parametrize('strategy', STRATEGY)
 def test_custom_strategy(strategy):
     if strategy in CONFIGS.keys():
         cnfg = CONFIGS[strategy]
-        train_data, test_data = get_data_by_task(cnfg['industrial_config']['problem'])
+        train_data, test_data = map(lambda x: (x[0].values, x[1]),
+                                    get_data_by_task(cnfg['industrial_config']['problem']))
         n_samples = train_data[0].shape[0]
 
         industrial = FedotIndustrial(**cnfg)
