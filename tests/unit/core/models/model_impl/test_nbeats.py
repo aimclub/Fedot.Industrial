@@ -25,8 +25,9 @@ def ts_input_data():
 
 def test_nbeats_model(ts_input_data):
     train, test = ts_input_data
-
-    with IndustrialModels():
+    repo = IndustrialModels()
+    repo.setup_repository()
+    try:
         model = PipelineBuilder().add_node('nbeats_model', params=dict(
             backcast_length=10,
             forecast_length=5,
@@ -35,4 +36,7 @@ def test_nbeats_model(ts_input_data):
 
         model.fit(train)
         forecast = model.predict(test)
-        assert len(forecast.predict) == 5
+    except Exception as ex:
+        raise ex
+
+    assert len(forecast.predict) == 5
