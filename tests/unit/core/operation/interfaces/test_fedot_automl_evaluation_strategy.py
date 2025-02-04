@@ -23,7 +23,7 @@ def test_fedot_automl_strategy_fit_predict(task):
     params = OperationParameters(problem=task, timeout=0.1, n_jobs=1)
     if task == 'classification':
         strategy = FedotAutoMLClassificationStrategy(operation_type='fedot_cls', params=params)
-    elif task ==  'regression':
+    elif task == 'regression':
         strategy = FedotAutoMLRegressionStrategy(operation_type='fedot_regr', params=params)
     else:
         return
