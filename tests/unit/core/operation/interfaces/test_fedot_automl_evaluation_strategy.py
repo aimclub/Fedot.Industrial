@@ -21,13 +21,12 @@ def test_fedot_automl_strategy_fit_predict(task):
                            data_type=DataTypesEnum.table)
 
     params = OperationParameters(problem=task, timeout=0.1, n_jobs=1)
-    match task:
-        case 'classification':
-            strategy = FedotAutoMLClassificationStrategy(operation_type='fedot_cls', params=params)
-        case 'regression':
-            strategy = FedotAutoMLRegressionStrategy(operation_type='fedot_regr', params=params)
-        case _:
-            return
+    if task == 'classification':
+        strategy = FedotAutoMLClassificationStrategy(operation_type='fedot_cls', params=params)
+    elif task ==  'regression':
+        strategy = FedotAutoMLRegressionStrategy(operation_type='fedot_regr', params=params)
+    else:
+        return
 
     trained_operation = strategy.fit(input_data)
 
