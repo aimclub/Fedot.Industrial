@@ -64,6 +64,7 @@ LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF
                          + LINEAR_DETECTION_PIPELINE_CASES + LINEAR_TSF_PIPELINE_CASES if
                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
 
+
 @set_pytest_timeout_in_seconds(300)
 @pytest.mark.xfail()
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
