@@ -85,7 +85,6 @@ class DataLoader:
             return (train_data.values, label), (df.iloc[:, :-2].values, df.iloc[:, -2].values)
         return None, None
 
-
     def _load_benchmark_data(self, specific_strategy: str):
         train_data, test_data = None, None
         if specific_strategy == 'anomaly_detection':
