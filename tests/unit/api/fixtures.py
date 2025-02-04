@@ -120,6 +120,7 @@ def set_pytest_timeout_in_seconds(timeout_seconds):
         @wraps(func)
         def wrapper(*args, **kwargs):
             result = dict(exception=None, value=None)
+
             def target():
                 try:
                     result['value'] = func(*args, **kwargs)
