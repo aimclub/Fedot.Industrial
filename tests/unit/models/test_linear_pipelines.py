@@ -64,7 +64,7 @@ LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF
                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
 
 
-@pytest.mark.timeout(600, method='thread')
+@pytest.mark.timeout(120, method='thread')
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase):
     try:
