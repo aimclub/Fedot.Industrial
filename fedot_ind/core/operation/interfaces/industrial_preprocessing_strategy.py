@@ -89,7 +89,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             else len(trained_operation.classes_[0]) \
             if self.operation_condition.is_multi_output_target \
             else len(trained_operation.classes_) \
-            if isinstance(trained_operation.classes_, list) else trained_operation.classes_
+            if hasattr(trained_operation.classes_, '__len__') else trained_operation.classes_
         predict_data = predict_data if self.operation_condition.is_predict_input_fedot else predict_data.features
         predict_method = curry(1)(lambda data: trained_operation.predict(data) if only_predict_method
                                   else trained_operation.predict_for_fit(data))
