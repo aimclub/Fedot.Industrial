@@ -58,22 +58,14 @@ LINEAR_DETECTION_PIPELINE_CASES = [
     ) for pipeline_label, node_list in VALID_LINEAR_DETECTION_PIPELINE.items()
 ]
 
-# TODO: temporarily workaround skip topological_* and fourier_statistical
-BANNED_LINEAR_PIPELINE_LABELS = ['riemann_clf',
-                                 'recurrence_clf',
-                                 'channel_filtration_statistical',
-                                 'wavelet_statistical',
-                                 'fourier_statistical',
-                                 'topological_clf',
-                                 'topological_reg',
-                                 'composite_reg',
-                                 'topological_lgbm']
+# TODO: temporarily workaround skip topological_*
+BANNED_LINEAR_PIPELINE_LABELS = ['topological_clf', 'topological_reg', 'composite_reg', 'topological_lgbm']
 LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF_PIPELINE_CASES
                          + LINEAR_DETECTION_PIPELINE_CASES + LINEAR_TSF_PIPELINE_CASES if
                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
 
 
-@set_pytest_timeout_in_seconds(180)
+@set_pytest_timeout_in_seconds(300)
 @pytest.mark.xfail()
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase):
