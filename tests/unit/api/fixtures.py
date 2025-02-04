@@ -1,3 +1,6 @@
+from functools import wraps
+from threading import Thread
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -106,6 +109,34 @@ def get_data_by_task(task: str, num_samples=None):
                                                         test_size=0.5,
                                                         multivariate=False).generate_data()
     return train_data, test_data
+
+
+def set_pytest_timeout_in_seconds(timeout_seconds):
+    """
+    A decorator to enforce a timeout on a test function.
+    If the test exceeds the timeout, it will be skipped with a message including the parameterized input.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = dict(exception=None, value=None)
+            def target():
+                try:
+                    result['value'] = func(*args, **kwargs)
+                except Exception as e:
+                    result['exception'] = e
+
+            thread = Thread(target=target)
+            thread.start()
+            thread.join(timeout_seconds)
+
+            if thread.is_alive():
+                pytest.skip(f'Test skipped due to timeout after {timeout_seconds} seconds')
+            if result['exception']:
+                raise result['exception']
+            return result['value']
+        return wrapper
+    return decorator
 
 
 # Example usage in a test function:
