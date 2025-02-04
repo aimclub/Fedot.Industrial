@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.local/share/poetry/virtualenvs/  # Cache Poetry virtualenvs
           key: ${{ runner.os }}-poetry-${{ hashFiles('pyproject.toml') }}  # Cache key based on project dependencies
