@@ -63,8 +63,6 @@ BANNED_LINEAR_PIPELINE_LABELS = ['topological_clf', 'topological_reg', 'composit
 LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF_PIPELINE_CASES
                          + LINEAR_DETECTION_PIPELINE_CASES + LINEAR_TSF_PIPELINE_CASES if
                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
-LINEAR_PIPELINE_CASES = [case for case in LINEAR_PIPELINE_CASES if case.pipeline_label in ['stat_detector']]
-
 
 @set_pytest_timeout_in_seconds(300)
 @pytest.mark.xfail()
