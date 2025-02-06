@@ -7,11 +7,14 @@ from fedot.core.repository.tasks import TaskTypesEnum, Task
 
 from fedot_ind.core.operation.interfaces.fedot_automl_evaluation_strategy import FedotAutoMLClassificationStrategy, \
     FedotAutoMLRegressionStrategy
+from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from tests.unit.api.fixtures import get_data_by_task
 
 
 @pytest.mark.parametrize('task', ('classification', 'regression'))
 def test_fedot_automl_strategy_fit_predict(task):
+    repo = IndustrialModels()
+    repo.setup_default_repository()
     (x_train, y_train), _ = get_data_by_task(task)
     x_train, y_train = x_train.values, y_train
     input_data = InputData(idx=np.arange(len(x_train)),
@@ -21,18 +24,18 @@ def test_fedot_automl_strategy_fit_predict(task):
                            data_type=DataTypesEnum.table)
 
     params = OperationParameters(problem=task, timeout=0.1, n_jobs=1)
-    match task:
-        case 'classification':
-            strategy = FedotAutoMLClassificationStrategy(operation_type='fedot_cls', params=params)
-        case 'regression':
-            strategy = FedotAutoMLRegressionStrategy(operation_type='fedot_regr', params=params)
-        case _:
-            return
+    if task == 'classification':
+        strategy = FedotAutoMLClassificationStrategy(operation_type='fedot_cls', params=params)
+    elif task == 'regression':
+        strategy = FedotAutoMLRegressionStrategy(operation_type='fedot_regr', params=params)
+    else:
+        return
 
     trained_operation = strategy.fit(input_data)
 
     predict = strategy.predict(trained_operation, input_data)
     predict_for_fit = strategy.predict_for_fit(trained_operation, input_data)
+    repo.setup_repository()
 
     assert predict.predict is not None
     assert predict_for_fit.predict is not None

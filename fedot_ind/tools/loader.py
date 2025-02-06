@@ -70,6 +70,21 @@ class DataLoader:
             if result_cvs.__contains__(group):
                 return pd.read_csv(Path(path_to_result, result_cvs))
 
+    def load_detection_data(self, dataset_name: Optional[dict] = {}):
+        if dataset_name is None:
+            dataset_name = {}
+        folder = dataset_name.get('benchmark', 'valve1')
+        dataset = dataset_name.get('dataset', '1')
+        path_to_skab_data = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{folder}/{dataset}.csv'
+        df = pd.read_csv(path_to_skab_data, index_col='datetime', sep=';', parse_dates=True)
+        train_idx = dataset_name.get('train_data_size', 'anomaly-free')
+        if isinstance(train_idx, str):
+            train_data = EXAMPLES_DATA_PATH + f'/benchmark/detection/data/{train_idx}/{train_idx}.csv'
+            train_data = pd.read_csv(train_data, index_col='datetime', sep=';', parse_dates=True)
+            label = np.array([0 for _ in range(len(train_data))])
+            return (train_data.values, label), (df.iloc[:, :-2].values, df.iloc[:, -2].values)
+        return None, None
+
     def _load_benchmark_data(self, specific_strategy: str):
         train_data, test_data = None, None
         if specific_strategy == 'anomaly_detection':
