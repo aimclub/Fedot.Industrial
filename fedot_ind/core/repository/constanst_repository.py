@@ -362,13 +362,10 @@ class FedotOperationConstant(Enum):
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
         'regression_tabular': PipelineBuilder().add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
-        'ts_forecasting': PipelineBuilder().add_node('ar'),
-        # 'ts_forecasting': PipelineBuilder().add_node('lagged').add_node('ridge')
+        'ts_forecasting': PipelineBuilder().add_node('ar')
     }
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        # 'eigen_ar': EigenAR,
-        # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast'),
         'nbeats': PipelineBuilder().add_node('nbeats_model'),
     }
 

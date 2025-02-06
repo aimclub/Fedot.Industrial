@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from typing import Union
 
 import pandas as pd
@@ -12,6 +13,7 @@ from fedot_ind.core.architecture.settings.computational import backend_methods a
 from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.operation.dummy.dummy_operation import check_multivariate_data
 from fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor import TabularExtractor
+from fedot_ind.core.repository.config_repository import TASK_MAPPING
 from fedot_ind.core.repository.constanst_repository import FEDOT_DATA_TYPE, fedot_task
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 
@@ -116,16 +118,16 @@ class DataCheck:
         def define_horizon(dict_with_idx): return Either(value=dict_with_idx,
                                                          monoid=[dict_with_idx, self.strategy_params is None]).either(
             left_function=lambda dict: dict | {'have_predict_horizon':
-                                               all([self.strategy_params['data_type'] == 'time_series',
-                                                    'detection_window' in self.strategy_params.keys()])},
+                                                   all([self.strategy_params['data_type'] == 'time_series',
+                                                        'detection_window' in self.strategy_params.keys()])},
             right_function=lambda dict: dict | {'have_predict_horizon': False})
 
         def define_task(dict_with_horizon): return Either(value=dict_with_horizon,
                                                           monoid=[dict_with_horizon,
                                                                   dict_with_horizon['have_predict_horizon']]).either(
             right_function=lambda dict: dict |
-            {'task': fedot_task('ts_forecasting',
-                                self.strategy_params['detection_window'])},
+                                        {'task': fedot_task('ts_forecasting',
+                                                            self.strategy_params['detection_window'])},
             left_function=lambda dict: dict | {'task': fedot_task(self.task)})
 
         encoded_dict = Either.insert(data_dict). \
@@ -177,7 +179,7 @@ class DataCheck:
             then(lambda data: np.where(np.isnan(data), 0, data)). \
             then(lambda data_without_nan: np.where(np.isinf(data_without_nan), 0, data_without_nan)). \
             then(lambda data_without_inf: NumpyConverter(data=data_without_inf).convert_to_torch_format()
-                 if self.task != 'ts_forecasting' else data_without_inf).value
+        if self.task != 'ts_forecasting' else data_without_inf).value
 
     def _check_input_data_target(self):
         """Checks and preprocesses the features in the input data.
@@ -214,9 +216,9 @@ class DataCheck:
             channel_start, channel_end = list(sampling_strategy['channels'].values())
             element_start, element_end = list(sampling_strategy['elements'].values())
             input_data.features = self.input_data.features[
-                sample_start:sample_end,
-                channel_start:channel_end,
-                element_start:element_end]
+                                  sample_start:sample_end,
+                                  channel_start:channel_end,
+                                  element_start:element_end]
         fg_list = self.strategy_params['feature_generator']
         ts2tabular_model = TabularExtractor({'feature_domain': fg_list,
                                              'reduce_dimension': False})
@@ -261,3 +263,59 @@ class DataCheck:
 
     def get_target_encoder(self):
         return self.label_encoder
+
+
+class ApiConfigCheck:
+    def __init__(self):
+        pass
+
+    def compare_configs(self, original, updated):
+        """Compares two nested dictionaries"""
+
+        changes = []
+
+        def recursive_compare(orig, upd, path):
+            all_keys = orig.keys() | upd.keys()
+            for key in all_keys:
+                orig_val = orig.get(key, "<MISSING>")
+                upd_val = upd.get(key, "<MISSING>")
+
+                if isinstance(orig_val, dict) and isinstance(upd_val, dict):
+                    recursive_compare(orig_val, upd_val, path + [key])
+                elif orig_val != upd_val:
+                    changes.append(f"{' -> '.join(map(str, path + [key]))} -> Changed value {orig_val} to {upd_val}")
+
+        for sub_config in original.keys():
+            if sub_config in updated:
+                recursive_compare(original[sub_config], updated[sub_config], [sub_config])
+            else:
+                changes.append(f"{sub_config} -> Removed completely")
+
+        for i in changes:
+            print('>>>', i)
+        return "\n".join(changes) if changes else "No changes detected."
+
+    def update_config_with_kwargs(self, config_to_update, **kwargs):
+        """ Recursively update config dictionary with provided keyword arguments. """
+
+        # prevent inplace changes to the original config
+        config = deepcopy(config_to_update)
+
+        def recursive_update(d, key, value):
+            if key in d:
+                d[key] = value
+                # print(f'Updated {key} with {value}')
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    recursive_update(v, key, value)
+
+        # we select automl problem
+        assert 'task' in kwargs, 'Problem type is not provided'
+        problem_type = kwargs['task']
+        config['automl_config'] = TASK_MAPPING[problem_type]
+
+        # change MEGA config with keyword arguments
+        for param, value in kwargs.items():
+            recursive_update(config, param, value)
+
+        return config
