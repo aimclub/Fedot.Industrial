@@ -124,3 +124,4 @@ class DaskServer(metaclass=Singleton):
         cluster = LocalCluster(**cluster_params)
         # connect client to your cluster
         self.client = Client(cluster)
+        self.cluster = cluster

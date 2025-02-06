@@ -219,6 +219,7 @@ class ApiManager(ConfigTemplate):
         self.predicted_probs = None
         self.predict_data = None
         self.dask_client = None
+        self.dask_cluster = None
         self.target_encoder = None
         self.is_finetuned = False
 
