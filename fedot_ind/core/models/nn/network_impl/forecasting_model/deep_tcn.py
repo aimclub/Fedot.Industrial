@@ -1,8 +1,10 @@
 import math
 import warnings
 from typing import Optional
+from tqdm import tqdm
 
 import pandas as pd
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.utils.data as data
@@ -15,6 +17,7 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from torch import nn, optim
 from torch.optim import lr_scheduler
+from torch.utils.data import DataLoader
 
 from fedot_ind.core.architecture.abstraction.decorators import convert_inputdata_to_torch_time_series_dataset
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
@@ -30,7 +33,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class _ResidualBlock(nn.Module):
-
     def __init__(self,
                  num_filters: int,
                  kernel_size: int,
@@ -41,9 +43,7 @@ class _ResidualBlock(nn.Module):
                  num_layers: int,
                  input_size: int,
                  target_size: int):
-
         super(_ResidualBlock, self).__init__()
-
         self.dilation_base = dilation_base
         self.kernel_size = kernel_size
         self.dropout_fn = dropout_fn
@@ -56,15 +56,12 @@ class _ResidualBlock(nn.Module):
                                num_filters,
                                kernel_size,
                                dilation=(dilation_base ** nr_blocks_below))
-
         self.conv2 = nn.Conv1d(num_filters,
                                output_dim,
                                kernel_size,
                                dilation=(dilation_base ** nr_blocks_below))
-
         if weight_norm:
             self.conv1, self.conv2 = nn.utils.weight_norm(self.conv1), nn.utils.weight_norm(self.conv2)
-
         if nr_blocks_below == 0 or nr_blocks_below == num_layers - 1:
             self.conv3 = nn.Conv1d(input_dim,
                                    output_dim,
@@ -91,7 +88,6 @@ class _ResidualBlock(nn.Module):
         if self.nr_blocks_below in {0, self.num_layers - 1}:
             residual = self.conv3(residual)
         x += residual
-
         return x
 
 
@@ -107,7 +103,6 @@ class TCNModule(nn.Module):
                  target_size: int,
                  target_length: int,
                  dropout: float):
-
         super(TCNModule, self).__init__()
 
         # Defining parameters
@@ -149,13 +144,10 @@ class TCNModule(nn.Module):
         # data is of size (batch_size, input_chunk_length, input_size)
         batch_size = x.size(0)
         x = x.transpose(1, 2)
-
         for res_block in self.res_blocks_list:
             x = res_block(x)
-
         x = x.transpose(1, 2)
         x = x.view(batch_size, self.input_chunk_length, self.target_size)
-
         return x
 
 
@@ -166,21 +158,18 @@ class TCNModel(BaseNeuralModel):
         self.batch_size = self.params.get("batch_size", 32)
         self.activation = self.params.get('activation', 'ReLU')
         self.learning_rate = self.params.get("learning_rate", 0.01)
-
         self.kernel_size = self.params.get("kernel_size", 3)
         self.num_filters = self.params.get("num_filters", 5)
         self.num_layers = self.params.get("num_layers", 3)
         self.dilation_base = self.params.get("dilation_base", 2)
         self.dropout = self.params.get("dropout", 0.2)
         self.weight_norm = self.params.get("weight_norm", False)
-
         self.split = self.params.get("split_data", False)
         self.patch_len = self.params.get("patch_len", None)
         self.horizon = self.params.get("horizon", None)
-
         self.model_list = []
 
-    def _init_model(self, ts):
+    def _init_model(self, ts: InputData):
         input_size = self.patch_len or ts.features.shape[-1]
         self.patch_len = input_size
         model = TCNModule(input_size=input_size,
@@ -194,17 +183,14 @@ class TCNModel(BaseNeuralModel):
                           dropout=self.dropout,
                           weight_norm=self.weight_norm).to(default_device())
         self._evaluate_num_of_epochs(ts)
-
         optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
         loss_fn = MSE()
         return model, loss_fn, optimizer
 
-    # @convert_to_4d_torch_array
     def _fit_model(self, input_data: InputData, split_data: bool):
         if self.patch_len is None:
-            window_size = WindowSizeSelector(method='hac').get_window_size(input_data.features)  # in %
-            self.patch_len = window_size * input_data.features.flatten().size // 100  # in real values
-
+            window_size = WindowSizeSelector(method='hac').get_window_size(input_data.features)
+            self.patch_len = window_size * input_data.features.flatten().size // 100
         train_loader = self._prepare_data(input_data.features,
                                           self.patch_len,
                                           split_data)
@@ -213,69 +199,48 @@ class TCNModel(BaseNeuralModel):
         model = self._train_loop(model, train_loader, loss_fn, optimizer)
         self.model_list.append(model)
 
-    def __preprocess_for_fedot(self, input_data):
+    def __preprocess_for_fedot(self, input_data: InputData):
         input_data.features = np.squeeze(input_data.features)
         if self.horizon is None:
             self.horizon = input_data.task.task_params.forecast_length
         if len(input_data.features.shape) == 1:
             input_data.features = input_data.features.reshape(1, -1)
-
         self.seq_len = input_data.features.shape[1]
         self.target = input_data.target
         self.task_type = input_data.task
         return input_data
 
-    def __create_torch_loader(self, train_data):
+    @convert_inputdata_to_torch_time_series_dataset
+    def __create_torch_loader(self, train_data: tuple[np.ndarray]):
+        return DataLoader(data.TensorDataset(
+                                    train_data.x, train_data.y),
+                                    batch_size=self.batch_size,
+                                    shuffle=False,
+                                    num_workers=0,
+                                    pin_memory=True,
+                                    drop_last=False)
 
-        train_dataset = self._create_dataset(train_data)
-        train_loader = torch.utils.data.DataLoader(data.TensorDataset(train_dataset.x,
-                                                                      train_dataset.y),
-                                                   batch_size=self.batch_size,
-                                                   shuffle=False,
-                                                   num_workers=0,
-                                                   pin_memory=True,
-                                                   drop_last=False)
-        return train_loader
-
-    def fit(self,
-            input_data: InputData):
-        """
-        Method for feature generation for all series
-        """
+    def fit(self, input_data: InputData):
         input_data = self.__preprocess_for_fedot(input_data)
         self._fit_model(input_data, split_data=self.split)
 
     def split_data(self, input_data):
-
         time_series = pd.DataFrame(input_data)
         task = Task(TaskTypesEnum.ts_forecasting,
                     TsForecastingParams(forecast_length=self.horizon))
-        if 'datetime' in time_series.columns:
-            idx = pd.to_datetime(time_series['datetime'].values)
-        else:
-            idx = time_series.columns.values
-
+        idx = pd.to_datetime(time_series['datetime'].values) if 'datetime' in time_series.columns \
+            else time_series.columns.values
         time_series = time_series.values
-        train_input = InputData(idx=idx,
+        return InputData(idx=idx,
                                 features=time_series.flatten(),
                                 target=time_series.flatten(),
                                 task=task,
                                 data_type=DataTypesEnum.ts)
 
-        return train_input
-
-    @convert_inputdata_to_torch_time_series_dataset
-    def _create_dataset(self,
-                        ts: InputData,
-                        flag: str = 'test',
-                        batch_size: int = 32,
-                        freq: int = 1):
-        return ts
-
     def _prepare_data(self,
-                      ts,
-                      patch_len,
-                      split_data,
+                      ts: np.ndarray,
+                      patch_len: int,
+                      split_data: bool,
                       validation_blocks: Optional[int] = None):
         train_data = self.split_data(ts)
         if split_data:
@@ -292,29 +257,24 @@ class TCNModel(BaseNeuralModel):
         train_loader = self.__create_torch_loader(train_data)
         return train_loader
 
-    def _train_loop(self, model,
-                    train_loader,
-                    loss_fn,
-                    optimizer):
+    def _train_loop(self, 
+                    model: TCNModule,
+                    train_loader: DataLoader,
+                    loss_fn: nn.MSELoss,
+                    optimizer: torch.optim):
         train_steps = max(len(train_loader), 1)
         early_stopping = EarlyStopping()
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
                                             epochs=self.epochs,
                                             max_lr=self.learning_rate)
-
-        for epoch in range(self.epochs):
-            iter_count = 0
+        for epoch in tqdm(range(self.epochs)):
             train_loss = []
-
             model.train()
             for i, (batch_x, batch_y) in enumerate(train_loader):
-                iter_count += 1
                 optimizer.zero_grad()
                 batch_x = batch_x.float().to(default_device())
-
                 batch_y = batch_y.float().to(default_device())
-
                 outputs = model(batch_x)
                 loss = loss_fn(outputs, batch_y)
                 train_loss.append(loss.item())
@@ -329,17 +289,17 @@ class TCNModel(BaseNeuralModel):
                                      lradj='constant')
                 scheduler.step()
             train_loss = np.average(train_loss)
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
+            if epoch % 25 == 0:
+                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
                 epoch + 1, train_steps, train_loss))
+                print('Updating learning rate to {}'.format(
+                scheduler.get_last_lr()[0]))
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            print('Updating learning rate to {}'.format(
-                scheduler.get_last_lr()[0]))
-
         return model
 
-    def _predict(self, model, test_loader):
+    def _predict(self, model: TCNModule, test_loader: DataLoader):
         model.eval()
         with torch.no_grad():
             if self.forecast_mode == 'in_sample':
@@ -356,21 +316,19 @@ class TCNModel(BaseNeuralModel):
                 outputs = model(last_patch)
                 return outputs.cpu().numpy()
 
-    def predict(self,
-                test_data,
+    def _predict_model(self,
+                test_data: np.ndarray,
                 test_idx: str = None):
         y_pred = []
         self.forecast_mode = 'out_of_sample'
         for model in self.model_list:
             y_pred.append(self._predict_loop(model, test_data))
         y_pred = np.array(y_pred).squeeze()
-
         # Workaround for prediction starting point shift
         # TODO: find out what triggers prediction starting point shift
         start_point = self.target[-1]
         shift = y_pred[0] - start_point
         y_pred -= shift
-
         if test_idx is None:
             forecast_idx_predict = np.arange(
                 start=test_data.idx.shape[0],
@@ -379,34 +337,31 @@ class TCNModel(BaseNeuralModel):
                 step=1)
         else:
             forecast_idx_predict = test_idx
-
-        predict = OutputData(
+        return OutputData(
             idx=forecast_idx_predict,
             task=self.task_type,
             predict=y_pred,
             target=self.target,
             data_type=DataTypesEnum.table)
-        return predict
 
-    def _predict_loop(self, model,
-                      test_data):
-        if len(test_data.features.shape) == 1:
-            test_data.features = test_data.features.reshape(1, -1)
-
+    def _predict_loop(self, 
+                      model: TCNModule, 
+                      test_data: np.ndarray):
+        if isinstance(test_data, InputData):
+            test_data = test_data.features
+        if len(test_data.shape) == 1:
+            test_data = test_data.reshape(1, -1)
         features = HankelMatrix(
-            time_series=test_data.features,
+            time_series=test_data,
             window_size=self.test_patch_len).trajectory_matrix
         features = torch.from_numpy(
             DataConverter(
-                data=features).convert_to_torch_format()).float().permute(
-            2, 1, 0)
-        target = torch.from_numpy(DataConverter(
-            data=features).convert_to_torch_format()).float()
-
-        test_loader = torch.utils.data.DataLoader(
-            data.TensorDataset(
-                features,
-                target),
+                data=features).convert_to_torch_format()).float().permute(2, 1, 0)
+        target = torch.from_numpy(
+            DataConverter(
+                data=features).convert_to_torch_format()).float()
+        test_loader = DataLoader(
+            data.TensorDataset(features, target),
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=0,
