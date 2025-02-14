@@ -23,7 +23,6 @@ def ts():
     return train_test_data_setup(train_input, validation_blocks=None)
 
 
-@pytest.mark.skip('TCNModel does not align well with BaseNeuralModel interface')
 def test_tsc_model(ts):
     train, test = ts
     with IndustrialModels():
