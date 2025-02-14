@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       matrix:
-        python-version: [3.9, '3.10', '3.11']  # TODO: bring back python 3.11 support
+        python-version: [3.9, '3.10', '3.11']
 
     steps:
       - uses: actions/checkout@v2
