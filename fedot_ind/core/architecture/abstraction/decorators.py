@@ -145,8 +145,8 @@ def exception_handler(*exception_types, on_exception: Optional[Callable] = None,
     """
     try:
         yield  # Executes the code within the 'with' block
-    except exception_types as e:
+    except exception_types:
         if on_exception:
             on_exception()  # Call the provided callback function
         if not suppress:
-            raise # Re-raise the exception if suppression is disabled
+            raise  # Re-raise the exception if suppression is disabled
