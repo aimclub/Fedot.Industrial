@@ -18,7 +18,7 @@ from sklearn.calibration import CalibratedClassifierCV
 
 from fedot_ind.api.utils.api_init import ApiManager
 from fedot_ind.api.utils.checkers_collections import DataCheck
-from fedot_ind.core.architecture.abstraction.decorators import DaskServer
+from fedot_ind.core.architecture.abstraction.decorators import DaskServer, exception_handler
 from fedot_ind.core.architecture.pipelines.classification import (
     SklearnCompatibleClassifier,
 )
@@ -248,10 +248,11 @@ class FedotIndustrial(Fedot):
             either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
                    right_function=lambda data: self.manager.solver.fit(data))
 
-        Either.insert(self._process_input_data(input_data)). \
-            then(lambda data: self.__init_industrial_backend(data)). \
-            then(lambda data: self.__init_solver(data)). \
-            then(fit_function)
+        with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
+            Either.insert(self._process_input_data(input_data)). \
+                then(lambda data: self.__init_industrial_backend(data)). \
+                then(lambda data: self.__init_solver(data)). \
+                then(fit_function)
 
     def predict(self,
                 predict_data: tuple,
@@ -328,14 +329,17 @@ class FedotIndustrial(Fedot):
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.manager.automl_config.config['task']]
         tuning_params['tuner'] = FEDOT_TUNER_STRATEGY[tuning_params.get('tuner', 'optuna')]
-        model_to_tune = Either.insert(train_data). \
-            then(lambda data: self._process_input_data(data) if not is_fedot_datatype else data). \
-            then(lambda data: self.__init_industrial_backend(data)). \
-            then(lambda processed_data: {'train_data': processed_data} |
-                                        {'model_to_tune': model_to_tune.build()} |
-                                        {'tuning_params': tuning_params}). \
-            then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)['model_to_tune'] if return_only_fitted
-                 else build_tuner(self, **dict_for_tune)).value
+
+        with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
+            model_to_tune = Either.insert(train_data). \
+                then(lambda data: self._process_input_data(data) if not is_fedot_datatype else data). \
+                then(lambda data: self.__init_industrial_backend(data)). \
+                then(lambda processed_data: {'train_data': processed_data} |
+                                            {'model_to_tune': model_to_tune.build()} |
+                                            {'tuning_params': tuning_params}). \
+                then(lambda dict_for_tune: _fit_pipeline(dict_for_tune)['model_to_tune'] if return_only_fitted
+                     else build_tuner(self, **dict_for_tune)).value
+
         self.manager.is_finetuned = True
         self.manager.solver = model_to_tune
 
