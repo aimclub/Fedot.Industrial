@@ -213,12 +213,12 @@ class TCNModel(BaseNeuralModel):
     @convert_inputdata_to_torch_time_series_dataset
     def __create_torch_loader(self, train_data: tuple[np.ndarray]):
         return DataLoader(data.TensorDataset(
-                                    train_data.x, train_data.y),
-                                    batch_size=self.batch_size,
-                                    shuffle=False,
-                                    num_workers=0,
-                                    pin_memory=True,
-                                    drop_last=False)
+            train_data.x, train_data.y),
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=True,
+            drop_last=False)
 
     def fit(self, input_data: InputData):
         input_data = self.__preprocess_for_fedot(input_data)
@@ -232,10 +232,10 @@ class TCNModel(BaseNeuralModel):
             else time_series.columns.values
         time_series = time_series.values
         return InputData(idx=idx,
-                                features=time_series.flatten(),
-                                target=time_series.flatten(),
-                                task=task,
-                                data_type=DataTypesEnum.ts)
+                         features=time_series.flatten(),
+                         target=time_series.flatten(),
+                         task=task,
+                         data_type=DataTypesEnum.ts)
 
     def _prepare_data(self,
                       ts: np.ndarray,
@@ -257,7 +257,7 @@ class TCNModel(BaseNeuralModel):
         train_loader = self.__create_torch_loader(train_data)
         return train_loader
 
-    def _train_loop(self, 
+    def _train_loop(self,
                     model: TCNModule,
                     train_loader: DataLoader,
                     loss_fn: nn.MSELoss,
@@ -291,9 +291,9 @@ class TCNModel(BaseNeuralModel):
             train_loss = np.average(train_loss)
             if epoch % 25 == 0:
                 print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
-                epoch + 1, train_steps, train_loss))
+                    epoch + 1, train_steps, train_loss))
                 print('Updating learning rate to {}'.format(
-                scheduler.get_last_lr()[0]))
+                    scheduler.get_last_lr()[0]))
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
@@ -317,8 +317,8 @@ class TCNModel(BaseNeuralModel):
                 return outputs.cpu().numpy()
 
     def _predict_model(self,
-                test_data: np.ndarray,
-                test_idx: str = None):
+                       test_data: np.ndarray,
+                       test_idx: str = None):
         y_pred = []
         self.forecast_mode = 'out_of_sample'
         for model in self.model_list:
@@ -344,8 +344,8 @@ class TCNModel(BaseNeuralModel):
             target=self.target,
             data_type=DataTypesEnum.table)
 
-    def _predict_loop(self, 
-                      model: TCNModule, 
+    def _predict_loop(self,
+                      model: TCNModule,
                       test_data: np.ndarray):
         if isinstance(test_data, InputData):
             test_data = test_data.features
