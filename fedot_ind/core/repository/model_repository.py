@@ -31,6 +31,9 @@ from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
+from fedot_ind.core.models.classification.freq_domain_model import FrequencyClassificator
+from fedot_ind.core.models.classification.manifold_domain_model import ManifoldClassificator
+from fedot_ind.core.models.classification.stat_domain_model import StatClassificator
 from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
     ConvolutionalAutoEncoderDetector
@@ -92,7 +95,11 @@ class AtomizedModel(Enum):
         # for detection
         'one_class_svm': OneClassSVM,
         # pairwise model
-        'pdl_clf': PairwiseDifferenceClassifier
+        'pdl_clf': PairwiseDifferenceClassifier,
+        # custom_model
+        'industrial_stat_clf': StatClassificator,
+        'industrial_freq_clf': FrequencyClassificator,
+        'industrial_manifold_clf': ManifoldClassificator,
     }
     FEDOT_PREPROC_MODEL = {
         # data standartization
@@ -126,6 +133,8 @@ class AtomizedModel(Enum):
         # isolation_forest forest
         'isolation_forest_class': IsolationForestClassImplementation,
         'isolation_forest_reg': IsolationForestRegImplementation,
+        # ensemble
+        'bagging': BaggingEnsemble
     }
 
     SKLEARN_REG_MODELS = {
@@ -171,12 +180,13 @@ class AtomizedModel(Enum):
         'exog_ts': ExogDataTransformationImplementation
     }
 
-    PRIMARY_FORECASTING_MODELS = ['ar',
-                                  'deepar_model',
-                                  # 'topo_forecaster',
-                                  'lagged_forecaster',
-                                  'eigen_forecaster'
-                                  ]
+    PRIMARY_FORECASTING_MODELS = [
+        'ar',
+        # 'deepar_model',
+        # 'topo_forecaster',
+        'lagged_forecaster',
+        'eigen_forecaster'
+    ]
 
     ANOMALY_DETECTION_MODELS = {
         # for detection
