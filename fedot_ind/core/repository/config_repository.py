@@ -26,8 +26,8 @@ class AutomlLearningConfigConstant(Enum):
 class AutomlConfigConstant(Enum):
     DEFAULT_SUBCONFIG = {'use_automl': True,
                          'optimisation_strategy': {'optimisation_strategy':
-                                                       {'mutation_agent': 'random',
-                                                        'mutation_strategy': 'growth_mutation_strategy'},
+                                                   {'mutation_agent': 'random',
+                                                    'mutation_strategy': 'growth_mutation_strategy'},
                                                    'optimisation_agent': 'Industrial'}}
     DEFAULT_CLF_AUTOML_CONFIG = {'task': 'classification', **DEFAULT_SUBCONFIG}
     DEFAULT_REG_AUTOML_CONFIG = {'task': 'regression', **DEFAULT_SUBCONFIG}
@@ -41,19 +41,32 @@ class LearningConfigConstant(Enum):
     DEFAULT_REG_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'rmse'}, **DEFAULT_SUBCONFIG}
     DEFAULT_TSF_LEARNING_CONFIG = {'optimisation_loss': {'quality_loss': 'rmse'}, **DEFAULT_SUBCONFIG}
     TASK_MAPPING = {
-        'classification': {'task': 'classification', 'use_automl': True,
-                           'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'random',
-                                                                               'mutation_strategy': 'growth_mutation_strategy'},
-                                                     'optimisation_agent': 'Industrial'}},
-        'regression': {'task': 'regression', 'use_automl': True,
-                       'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'random',
-                                                                           'mutation_strategy': 'growth_mutation_strategy'},
-                                                 'optimisation_agent': 'Industrial'}},
-        'ts_forecasting': {'task': 'ts_forecasting', 'use_automl': True, 'task_params': {'forecast_length': 14},
-                           'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'random',
-                                                                               'mutation_strategy': 'growth_mutation_strategy'},
-                                                     'optimisation_agent': 'Industrial'}}
-    }
+        'classification': {
+            'task': 'classification',
+            'use_automl': True,
+            'optimisation_strategy': {
+                'optimisation_strategy': {
+                    'mutation_agent': 'random',
+                    'mutation_strategy': 'growth_mutation_strategy'},
+                'optimisation_agent': 'Industrial'}},
+        'regression': {
+            'task': 'regression',
+                    'use_automl': True,
+                    'optimisation_strategy': {
+                        'optimisation_strategy': {
+                            'mutation_agent': 'random',
+                            'mutation_strategy': 'growth_mutation_strategy'},
+                        'optimisation_agent': 'Industrial'}},
+        'ts_forecasting': {
+            'task': 'ts_forecasting',
+            'use_automl': True,
+            'task_params': {
+                'forecast_length': 14},
+            'optimisation_strategy': {
+                'optimisation_strategy': {
+                    'mutation_agent': 'random',
+                    'mutation_strategy': 'growth_mutation_strategy'},
+                'optimisation_agent': 'Industrial'}}}
 
 
 class IndustrialConfigConstant(Enum):

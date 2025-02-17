@@ -1,4 +1,5 @@
-from typing import Optional
+from contextlib import contextmanager
+from typing import Optional, Callable
 from weakref import WeakValueDictionary
 
 from distributed import Client, LocalCluster
@@ -125,3 +126,27 @@ class DaskServer(metaclass=Singleton):
         # connect client to your cluster
         self.client = Client(cluster)
         self.cluster = cluster
+
+
+@contextmanager
+def exception_handler(*exception_types, on_exception: Optional[Callable] = None, suppress: bool = True):
+    """
+    A context manager that wraps code with a try-except block.
+
+    Args:
+        *exception_types (tuple): The types of exceptions to catch (e.g., ValueError, TypeError).
+        on_exception (callable, optional): A function to call when an exception is caught.
+        suppress (bool, optional): If True, suppresses the exception after handling it.
+            If False, re-raises the exception after handling it. Defaults to True.
+
+    Returns:
+        None: This context manager does not return any value directly.
+              However, it controls the flow of execution within the `with` block.
+    """
+    try:
+        yield  # Executes the code within the 'with' block
+    except exception_types:
+        if on_exception:
+            on_exception()  # Call the provided callback function
+        if not suppress:
+            raise  # Re-raise the exception if suppression is disabled

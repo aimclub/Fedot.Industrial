@@ -8,6 +8,7 @@ from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrat
 from fedot.core.operations.operation_parameters import OperationParameters
 
 from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
+from fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn import TCNModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
@@ -74,6 +75,7 @@ class FedotNNTimeSeriesStrategy(FedotTsForecastingStrategy):
         'patch_tst_model': PatchTSTModel,
         'nbeats_model': NBeatsModel,
         'deepar_model': DeepAR,
+        'tcn_model': TCNModel,
     }
 
     def _convert_to_operation(self, operation_type: str):
