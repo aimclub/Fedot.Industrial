@@ -4,7 +4,8 @@ import cupy as cp
 from fedot.core.operations.operation_parameters import OperationParameters
 from py_boost.multioutput.sketching import GradSketch
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.power_iteration_decomposition import \
+    RSVDDecomposition
 
 
 class RandomSVD(GradSketch):

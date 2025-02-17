@@ -1,7 +1,7 @@
 from py_boost.multioutput.sketching import *
 
 from fedot_ind.core.models.boosting.base_boosting import BaseBoostingModel
-from fedot_ind.core.operation.decomposition.matrix_decomposition.boosting_rsvd import RandomSVD
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.boosting_rsvd import RandomSVD
 
 
 class SketchBoostModel(BaseBoostingModel):

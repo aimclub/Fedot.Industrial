@@ -8,10 +8,10 @@ NESTED_PARAMS_LABEL = 'nested_label'
 industrial_search_space = {
     'eigen_basis':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
-         # 'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
          'rank_regularization': {'hyperopt-dist': hp.choice, 'sampling-scope': [
              ['hard_thresholding', 'explained_dispersion']]},
-         'low_rank_approximation': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
+         'decomposition_type': {'hyperopt-dist': hp.choice, 'sampling-scope': [['svd', 'random_svd']]}
+         },
     'wavelet_basis':
         {'n_components': {'hyperopt-dist': hp.uniformint, 'sampling-scope': [2, 10]},
          'wavelet': {'hyperopt-dist': hp.choice,
@@ -45,8 +45,9 @@ industrial_search_space = {
     'recurrence_extractor':
         {'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 50, 5)]]},
          'stride': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 10, 1)]]},
-         'rec_metric': (hp.choice, [['cosine', 'euclidean']]),
-         'image_mode': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}},
+         'rec_metric': {'hyperopt-dist': hp.choice, 'sampling-scope': [['cosine', 'euclidean']]}
+         # 'image_mode': {'hyperopt-dist': hp.choice, 'sampling-scope': [[True, False]]}
+         },
     'minirocket_extractor':
         {'num_features': {'hyperopt-dist': hp.choice,
                           'sampling-scope': [[x for x in range(5000, 20000, 1000)]]}},
@@ -111,6 +112,28 @@ industrial_search_space = {
         {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['ridge', 'treg', 'xgbreg']]},
          'window_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(5, 40, 5)]]},
          },
+    'industrial_stat_clf':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['logit', 'xgboost', 'rf',
+                                                                           # 'inception_model','resnet_model'
+                                                                           ]]},
+         'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['quantile_extractor']]}
+         },
+    'industrial_freq_clf':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['logit', 'xgboost', 'rf',
+                                                                           # 'inception_model','resnet_model'
+                                                                           ]]},
+         'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['fourier_basis',
+                                                                                  'wavelet_basis',
+                                                                                  'eigen_basis'
+                                                                                  ]]}
+         },
+    'industrial_manifold_clf':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['logit', 'xgboost', 'rf',
+                                                                           # 'inception_model','resnet_model'
+                                                                           ]]},
+         'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['recurrence_extractor',
+                                                                                  'riemann_extractor']]}
+         },
     'nbeats_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(50, 200, 20)]]},
          'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32]]},
@@ -119,7 +142,7 @@ industrial_search_space = {
          "n_seasonality_blocks": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 4, 1)]]},
          "n_of_harmonics": {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(1, 3, 1)]]}},
     'bagging': {'method':
-                {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
+                    {'hyperopt-dist': hp.choice, 'sampling-scope': [['max', 'min', 'mean', 'median']]}},
     'stat_detector':
         {'anomaly_thr': {'hyperopt-dist': hp.choice, 'sampling-scope': [list(np.arange(0.75, 0.99, 0.05))]},
          'window_length': {'hyperopt-dist': hp.choice,

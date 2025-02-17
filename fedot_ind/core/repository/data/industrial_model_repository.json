@@ -658,6 +658,39 @@
         "non_linear"
       ]
     },
+    "industrial_stat_clf": {
+      "meta": "sklearn_class",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
+    "industrial_freq_clf": {
+      "meta": "sklearn_class",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
+    "industrial_manifold_clf": {
+      "meta": "sklearn_class",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
     "pdl_clf": {
       "meta": "sklearn_class",
       "presets": [

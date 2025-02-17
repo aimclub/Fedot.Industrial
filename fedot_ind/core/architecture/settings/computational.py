@@ -62,7 +62,7 @@ def global_imports(object_name: str,
         globals()[short_name] = getattr(context_module, object_name)
 
 
-def default_device(device_type: str = 'cpu'):
+def default_device(device_type: str = None):
     """Return or set default device. Modified from fastai.
 
     Args:

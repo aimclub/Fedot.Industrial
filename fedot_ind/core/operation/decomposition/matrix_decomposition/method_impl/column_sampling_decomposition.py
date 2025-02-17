@@ -33,12 +33,13 @@ class CURDecomposition:
 
     """
 
-    def __init__(self, params: Optional[OperationParameters] = None):
-        self.selection_rank = params.get('rank', None)
+    def __init__(self, params: Optional[OperationParameters] = {}):
+        self.stable_rank = params.get('rank', None)
         self.tolerance = params.get('tolerance', [0.5, 0.1, 0.05])
         self.return_samples = params.get('return_samples', True)
         self.column_indices = None
         self.row_indices = None
+        self.classes_idx = None
         self.column_space = 'Full'
         self.fitted = True
 
@@ -70,9 +71,9 @@ class CURDecomposition:
 
         return converted
 
-    def _get_selection_rank(self, matrix):
+    def _get_stable_rank(self, matrix):
         """
-        Compute the selection rank for the CUR decomposition.
+        Compute the stable rank for the CUR decomposition.
         It must be at least 4 times the rank of the matrix but not
         greater than the number of rows or columns of the matrix.
 
@@ -80,11 +81,13 @@ class CURDecomposition:
             matrix: the matrix to decompose.
 
         Returns:
-            the selection rank
+            the stable rank
         """
         n_samples = max(matrix.shape)
         min_num_samples = johnson_lindenstrauss_min_dim(n_samples, eps=self.tolerance).tolist()
-        return max([x if x < n_samples else n_samples for x in min_num_samples])
+        self.stable_rank = min([x if x < n_samples else n_samples for x in min_num_samples])
+        if isinstance(self.stable_rank, float):
+            self.stable_rank = round(max(matrix.shape) * self.stable_rank)
 
     def get_aproximation_error(self, original_tensor, cur_matrices: tuple):
         C, U, R = cur_matrices
@@ -98,8 +101,8 @@ class CURDecomposition:
                       target: np.ndarray = None) -> tuple:
         feature_tensor = feature_tensor.squeeze()
         # transformer = random_projection.SparseRandomProjection().fit_transform(target)
-        if self.selection_rank is None:
-            self.selection_rank = self._get_selection_rank(feature_tensor)
+        if self.stable_rank is None:
+            self._get_stable_rank(feature_tensor)
         self._balance_target(target)
         # create sub matrices for CUR-decompostion
         array = np.array(feature_tensor.copy())
@@ -119,6 +122,20 @@ class CURDecomposition:
             target = target[self.row_indices]
         self.fitted = True
         return sampled_tensor, target
+
+    def decompose(self, tensor: np.ndarray):
+        # transformer = random_projection.SparseRandomProjection().fit_transform(target)
+        if self.stable_rank is None:
+            self._get_stable_rank(tensor)
+        # create sub matrices for CUR-decompostion
+        array = np.array(tensor.copy())
+        c, w, r = self.select_rows_cols(array)
+        # evaluate pseudoinverse for W - U^-1
+        U, Sigma, VT = DEFAULT_SVD_SOLVER(w, full_matrices=False)
+        Sigma_plus = np.linalg.pinv(np.diag(Sigma))
+        # aprox U using pseudoinverse
+        u = VT.T @ Sigma_plus @ Sigma_plus @ U.T
+        return (c, u, r)
 
     def transform(self, input_data: InputData) -> tuple:
         if not self.fitted:
@@ -153,21 +170,15 @@ class CURDecomposition:
 
         # Compute the probabilities for selecting columns and rows
         col_probs, row_probs = col_norms / matrix_norm, row_norms / matrix_norm
-        if isinstance(self.selection_rank, float):
-            self.selection_rank = round(max(matrix.shape) * self.selection_rank)
-        is_matrix_tall = self.selection_rank > matrix.shape[1]
-        col_rank = self.selection_rank if not is_matrix_tall or self.column_space == 'Full' \
-            else len([prob for prob in col_probs if prob > 0.01])
-        row_rank = round(self.selection_rank / len(self.classes_idx)) if is_matrix_tall else col_rank
-
+        col_rank, row_rank = self.stable_rank, self.stable_rank
         self.column_indices = np.sort(np.argsort(col_probs)[-col_rank:])
-        self.row_indices = np.concatenate([np.sort(np.argsort(row_probs[cls_idx])[-row_rank:])
-                                           for cls_idx in self.classes_idx])
+        self.row_indices = np.sort(np.argsort(row_probs)[-col_rank:])
+        if self.classes_idx is not None:
+            self.row_indices = np.concatenate([np.sort(np.argsort(row_probs[cls_idx])[-row_rank:])
+                                               for cls_idx in self.classes_idx])
 
-        row_scale_factors = 1 / \
-            np.sqrt(self.selection_rank * row_probs[self.row_indices])
-        col_scale_factors = 1 / \
-            np.sqrt(self.selection_rank * col_probs[self.column_indices])
+        row_scale_factors = 1 / np.sqrt(self.stable_rank * row_probs[self.row_indices])
+        col_scale_factors = 1 / np.sqrt(self.stable_rank * col_probs[self.column_indices])
 
         C_matrix = matrix[:, self.column_indices] * col_scale_factors
         R_matrix = matrix[self.row_indices, :] * row_scale_factors[:, np.newaxis]

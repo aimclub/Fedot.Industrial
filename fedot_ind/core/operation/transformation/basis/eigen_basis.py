@@ -8,11 +8,12 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from pymonad.either import Either
 from pymonad.list import ListMonad
 from tensorly.decomposition import parafac
+from threadpoolctl import threadpool_limits
 from tqdm.dask import TqdmCallback
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, NumpyConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
+from fedot_ind.core.operation.decomposition.matrix_decomposition.decomposer import MatrixDecomposer
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.regularization.spectrum import reconstruct_basis, \
@@ -33,18 +34,18 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.window_size = self.params.get('window_size', 20)
-        self.low_rank_approximation = self.params.get('low_rank_approximation', True)
-        self.tensor_approximation = self.params.get('tensor_approximation', False)
+        self.decomposition_type = params.get('decomposition_type', 'svd')
         self.rank_regularization = self.params.get('rank_regularization', 'hard_thresholding')
         self.logging_params.update({'WS': self.window_size})
         self.explained_dispersion = None
         self.SV_threshold = None
-        self.svd_estimator = RSVDDecomposition()
+        self.solver = MatrixDecomposer({'decomposition_type': self.decomposition_type,
+                                        'decomposition_params': {'spectrum_regularization': self.rank_regularization}})
 
     def __repr__(self):
         return 'EigenBasisImplementation'
 
-    def _channel_decompose(self, features):
+    def _tensor_decompose(self, features):
         number_of_dim = list(range(features.shape[1]))
         one_dim_predict = len(number_of_dim) == 1
         predict = []
@@ -57,7 +58,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             evaluation_results = list(map(lambda dimension: [self._transform_one_sample(sample)
                                                              for sample in features[:, dimension, :]], number_of_dim))
         with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
-            feature_matrix = dask.compute(*evaluation_results)
+            with threadpool_limits(limits=1, user_api='blas'):
+                feature_matrix = dask.compute(*evaluation_results)
         predict = [[np.array(v) if len(v) > 1 else v[0] for v in feature_matrix]]
         return predict
 
@@ -89,38 +91,22 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         features = DataConverter(data=input_data).convert_to_monad_data()
         features = NumpyConverter(data=features).convert_to_torch_format()
 
-        def tensor_decomposition(x):
-            return ListMonad(
-                self._get_multidim_basis(x)
-            ) if self.tensor_approximation else self._channel_decompose(x)
-
-        basis = np.array(Either.insert(features).then(tensor_decomposition).value[0])
+        basis = np.array(Either.insert(features).then(self._tensor_decompose).value[0])
         predict = self._convert_basis_to_predict(basis, input_data)
         return predict
 
-    def _get_1d_basis(self, data):
-        ill_cond = self.explained_dispersion == 'ill_conditioned'
+    def _get_1d_basis(self, data: dict):
+        def inverse_transformation(data):
+            return reconstruct_basis(U=data['left_eigenvectors'],
+                                     Sigma=data['spectrum'],
+                                     VT=data['right_eigenvectors'],
+                                     ts_length=self.ts_length)
 
-        def data_driven_basis(Monoid):
-            return ListMonad(reconstruct_basis(Monoid[0],
-                                               Monoid[1],
-                                               Monoid[2],
-                                               ts_length=self.ts_length))
+        def threshold(data):
+            data['spectrum'] = data['spectrum'][:self.SV_threshold]
+            return data
 
-        def threshold(Monoid):
-            return ListMonad([Monoid[0], Monoid[1][:self.SV_threshold], Monoid[2]]) \
-                if not ill_cond else ListMonad([Monoid[0], self.explained_dispersion, Monoid[2]])
-
-        def svd(x):
-            return ListMonad(
-                self.svd_estimator.rsvd(
-                    tensor=x,
-                    approximation=self.low_rank_approximation,
-                    regularized_rank=self.SV_threshold,
-                    reg_type=self.rank_regularization))
-
-        basis = Either.insert(data).then(svd).then(
-            threshold).then(data_driven_basis).value[0]
+        basis = Either.insert(data).then(threshold).then(inverse_transformation).value
         return np.swapaxes(basis, 1, 0)
 
     def _get_multidim_basis(self, data):
@@ -161,8 +147,10 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             svd_numbers = list(map(lambda dimension:
                                    [dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
                                     for signal in data[:, dimension, :]], number_of_dim))
-        rank = dask.compute(*svd_numbers)
-        return mode_func(rank)
+        with threadpool_limits(limits=1, user_api='blas'):
+            list_of_ranks = dask.compute(*svd_numbers)
+        common_rank = mode_func(list_of_ranks)
+        return common_rank
 
     @dask.delayed
     def _transform_one_sample(self, series: np.array, svd_flag: bool = False):
@@ -171,28 +159,8 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             time_series=series, window_size=window_size)
         data = trajectory_transformer.trajectory_matrix
         self.ts_length = trajectory_transformer.ts_length
-        rank = self.estimate_singular_values(data)
+        basis = Either.insert(data).then(self.solver.apply).value
         if svd_flag:
-            return rank
+            return basis['rank']
         else:
-            return self._get_1d_basis(data)
-
-    def estimate_singular_values(self, data):
-        def svd(x):
-            reg_type = self.rank_regularization if hasattr(
-                self, 'rank_regularization') else 'hard_thresholding'
-            return ListMonad(self.svd_estimator.rsvd(
-                tensor=x,
-                approximation=self.low_rank_approximation,
-                reg_type=reg_type))
-
-        basis = Either.insert(data).then(svd).value[0]
-
-        # check whether basis[1] value is set to 'ill_conditioned'
-        if isinstance(basis[1], str):
-            self.explained_dispersion, rank = basis[1], basis[1]
-        else:
-            spectrum = [s_val for s_val in basis[1] if s_val > 0.001]
-            rank = len(spectrum)
-            self.explained_dispersion = str(sum([round(x / sum(spectrum) * 100) for x in spectrum]))
-        return rank
+            return self._get_1d_basis(basis)

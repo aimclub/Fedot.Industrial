@@ -15,6 +15,8 @@ from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.optuna_tuner import OptunaTuner
+from golem.core.tuning.sequential import SequentialTuner
+from golem.core.tuning.simultaneous import SimultaneousTuner
 from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
     minkowski
@@ -322,7 +324,8 @@ class FedotOperationConstant(Enum):
         'table': DataTypesEnum.table}
     FEDOT_TUNER_STRATEGY = {
         'optuna': OptunaTuner,
-        # 'simultaneous': SimultaneousTuner,
+        'simultaneous': SimultaneousTuner,
+        'sequential': SequentialTuner,
     }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
                            'classification': 'xgboost'}
