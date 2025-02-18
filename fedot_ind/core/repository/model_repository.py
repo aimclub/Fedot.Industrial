@@ -31,9 +31,9 @@ from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBRegressor
 
-from fedot_ind.core.models.classification.freq_domain_model import FrequencyClassificator
-from fedot_ind.core.models.classification.manifold_domain_model import ManifoldClassificator
-from fedot_ind.core.models.classification.stat_domain_model import StatClassificator
+from fedot_ind.core.models.classification.freq_domain_clf import FrequencyClassificator
+from fedot_ind.core.models.classification.manifold_domain_clf import ManifoldClassificator
+from fedot_ind.core.models.classification.stat_domain_clf import StatClassificator
 from fedot_ind.core.models.detection.anomaly.algorithms.arima_fault_detector import ARIMAFaultDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencoder_detector import \
     ConvolutionalAutoEncoderDetector
@@ -53,6 +53,9 @@ from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeat
 from fedot_ind.core.models.nn.network_impl.forecasting_model.tst import TSTModel
 from fedot_ind.core.models.nn.network_impl.lora_nn import LoraModel
 from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifier, PairwiseDifferenceRegressor
+from fedot_ind.core.models.regression.freq_domain_regressor import FrequencyRegressor
+from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldRegressor
+from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
@@ -101,6 +104,17 @@ class AtomizedModel(Enum):
         'industrial_freq_clf': FrequencyClassificator,
         'industrial_manifold_clf': ManifoldClassificator,
     }
+    INDUSTRIAL_CLF_AUTOML_MODEL = {'industrial_stat_clf': StatClassificator,
+                                   'industrial_freq_clf': FrequencyClassificator,
+                                   'industrial_manifold_clf': ManifoldClassificator,
+                                   'ensembled_features'
+                                   'bagging': BaggingEnsemble
+                                   }
+    INDUSTRIAL_REG_AUTOML_MODEL = {'industrial_stat_reg': StatRegressor,
+                                   'industrial_freq_reg': FrequencyRegressor,
+                                   'industrial_manifold_reg': ManifoldRegressor,
+                                   'bagging': BaggingEnsemble
+                                   }
     FEDOT_PREPROC_MODEL = {
         # data standartization
         'scaling': ScalingImplementation,
@@ -153,8 +167,10 @@ class AtomizedModel(Enum):
         "catboostreg": FedotCatBoostRegressionImplementation,
         # pairwise model
         'pdl_reg': PairwiseDifferenceRegressor,
-        # ensemble
-        'bagging': BaggingEnsemble
+        # custom
+        'industrial_stat_reg': StatRegressor,
+        'industrial_freq_reg': FrequencyRegressor,
+        'industrial_manifold_reg': ManifoldRegressor,
     }
 
     FORECASTING_MODELS = {
@@ -240,9 +256,9 @@ class AtomizedModel(Enum):
 
 
 def default_industrial_availiable_operation(problem: str = 'regression'):
-    operation_dict = {'regression': SKLEARN_REG_MODELS.keys(),
+    operation_dict = {'regression': INDUSTRIAL_REG_AUTOML_MODEL.keys(),
                       'ts_forecasting': FORECASTING_MODELS.keys(),
-                      'classification': SKLEARN_CLF_MODELS.keys(),
+                      'classification': INDUSTRIAL_CLF_AUTOML_MODEL.keys(),
                       'anomaly_detection': ANOMALY_DETECTION_MODELS.keys(),
                       'classification_tabular': SKLEARN_CLF_MODELS.keys(),
                       'regression_tabular': SKLEARN_CLF_MODELS.keys()}
@@ -295,6 +311,8 @@ SKLEARN_CLF_MODELS = AtomizedModel.SKLEARN_CLF_MODELS.value
 FEDOT_PREPROC_MODEL = AtomizedModel.FEDOT_PREPROC_MODEL.value
 INDUSTRIAL_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_PREPROC_MODEL.value
 INDUSTRIAL_CLF_PREPROC_MODEL = AtomizedModel.INDUSTRIAL_CLF_PREPROC_MODEL.value
+INDUSTRIAL_REG_AUTOML_MODEL = AtomizedModel.INDUSTRIAL_REG_AUTOML_MODEL.value
+INDUSTRIAL_CLF_AUTOML_MODEL = AtomizedModel.INDUSTRIAL_CLF_AUTOML_MODEL.value
 ANOMALY_DETECTION_MODELS = AtomizedModel.ANOMALY_DETECTION_MODELS.value
 NEURAL_MODEL = AtomizedModel.NEURAL_MODEL.value
 NEURAL_MODEL_FOR_CLF = AtomizedModel.NEURAL_MODEL_FOR_CLF.value

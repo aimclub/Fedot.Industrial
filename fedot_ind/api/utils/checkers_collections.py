@@ -10,7 +10,8 @@ from sklearn.preprocessing import LabelEncoder
 
 from fedot_ind.core.architecture.preprocessing.data_convertor import NumpyConverter, DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.operation.decomposition.matrix_decomposition.column_sampling_decomposition import CURDecomposition
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.column_sampling_decomposition import \
+    CURDecomposition
 from fedot_ind.core.operation.dummy.dummy_operation import check_multivariate_data
 from fedot_ind.core.operation.transformation.representation.tabular.tabular_extractor import TabularExtractor
 from fedot_ind.core.repository.config_repository import TASK_MAPPING

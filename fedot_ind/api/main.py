@@ -198,6 +198,8 @@ class FedotIndustrial(Fedot):
             right_function=lambda predict_from_custom: self.manager.solver.predict(predict_from_custom))
         predict = Either.insert(predict).then(lambda x: _inverse_encoder_transform(x) if have_encoder else x). \
             then(lambda x: x.predict if isinstance(predict, OutputData) else x).value
+        if predict_data.task.task_type.value.__contains__('forecasting'):
+            predict = predict[-predict_data.task.task_params.forecast_length:]
         return predict
 
     def _metric_evaluation_loop(self,
@@ -244,6 +246,7 @@ class FedotIndustrial(Fedot):
 
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
+
                                              not isinstance(self.manager.industrial_config.strategy, Callable)]). \
             either(left_function=lambda data: self.manager.industrial_config.strategy.fit(data),
                    right_function=lambda data: self.manager.solver.fit(data))
@@ -328,7 +331,7 @@ class FedotIndustrial(Fedot):
 
         is_fedot_datatype = self.manager.condition_check.input_data_is_fedot_type(train_data)
         tuning_params['metric'] = FEDOT_TUNING_METRICS[self.manager.automl_config.config['task']]
-        tuning_params['tuner'] = FEDOT_TUNER_STRATEGY[tuning_params.get('tuner', 'optuna')]
+        tuning_params['tuner'] = FEDOT_TUNER_STRATEGY[tuning_params.get('tuner', 'sequential')]
 
         with exception_handler(Exception, on_exception=self.shutdown, suppress=False):
             model_to_tune = Either.insert(train_data). \
