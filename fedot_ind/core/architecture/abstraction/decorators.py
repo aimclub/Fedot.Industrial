@@ -33,12 +33,15 @@ def fedot_data_type(func):
 def convert_to_4d_torch_array(func):
     def decorated_func(self, *args):
         init_data = args[0]
-        data = DataConverter(data=init_data).convert_to_4d_torch_format()
-        if isinstance(init_data, InputData):
-            init_data.features = data
+        if isinstance(init_data, tuple):
+            return func(self, init_data)
         else:
-            init_data = data
-        return func(self, init_data)
+            data = DataConverter(data=init_data).convert_to_4d_torch_format()
+            if isinstance(init_data, InputData):
+                init_data.features = data
+            else:
+                init_data = data
+            return func(self, init_data)
 
     return decorated_func
 

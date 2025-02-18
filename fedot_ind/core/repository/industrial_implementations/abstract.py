@@ -68,11 +68,14 @@ def split_any_industrial(data: InputData,
                                                shuffle=shuffle,
                                                random_state=random_seed,
                                                stratify=stratify_labels)
-
+        is_clf_task = data.task.task_type.name.__contains__('classification')
         train_data = _split_input_data_by_indexes(data, index=train_ids)
         test_data = _split_input_data_by_indexes(data, index=test_ids)
-        correct_split = np.unique(test_data.target).shape[0] == np.unique(
-            train_data.target).shape[0]
+        if is_clf_task:
+            correct_split = np.unique(test_data.target).shape[0] == np.unique(
+                train_data.target).shape[0]
+        else:
+            correct_split = True
         return train_data, test_data, correct_split
 
     for ratio in [split_ratio, 0.6, 0.5, 0.4, 0.3, 0.1]:
@@ -149,6 +152,9 @@ def build_industrial(self, data: Union[InputData, MultiModalData]) -> DataSource
     # Calculate the number of validation blocks for timeseries forecasting
     if data.task.task_type is TaskTypesEnum.ts_forecasting and self.validation_blocks is None:
         current_split_ratio = self.split_ratio
+        # workaround for compability with basic Fedot
+        # copy_input = deepcopy(data)
+        data.target = data.features
         self._propose_cv_folds_and_validation_blocks(data)
         if self.cv_folds is None:
             self.split_ratio = current_split_ratio
@@ -197,19 +203,19 @@ def build_tuner(self, model_to_tune, tuning_params, train_data):
         custom_search_space = get_industrial_search_space(self)
         search_space = PipelineSearchSpace(custom_search_space=custom_search_space,
                                            replace_default_search_space=True)
-        pipeline_tuner = TunerBuilder(
-            train_data.task).with_search_space(search_space).with_tuner(
-            tuning_params['tuner']).with_n_jobs(-1).with_metric(
-            tuning_params['metric']). \
-            with_iterations(
-            tuning_params.get('tuning_iterations', 50)).build(tuning_data)
-        # with_iterations(tuning_params.get('tuning_iterations',150)).\
-        # with_early_stopping_rounds(tuning_params.get('tuning_early_stop', 50))
+        pipeline_tuner = TunerBuilder(train_data.task). \
+            with_search_space(search_space). \
+            with_tuner(tuning_params['tuner']). \
+            with_cv_folds(tuning_params.get('cv_folds', None)). \
+            with_n_jobs(tuning_params.get('n_jobs', 1)). \
+            with_metric(tuning_params['metric']). \
+            with_iterations(tuning_params.get('tuning_iterations', 50)). \
+            build(tuning_data)
 
         return pipeline_tuner
 
     pipeline_tuner = _create_tuner(tuning_params, train_data)
-    model_to_tune = pipeline_tuner.tune(model_to_tune, False)
+    model_to_tune = pipeline_tuner.tune(model_to_tune)
     model_to_tune.fit(train_data)
     return model_to_tune
 
@@ -302,7 +308,6 @@ def merge_industrial_targets(self) -> np.array:
 
 def merge_industrial_predicts(*args) -> np.array:
     predicts = args[1]
-    isinstance(args[0], TSDataMerger)
     predicts = [NumpyConverter(
         data=prediction).convert_to_torch_format() for prediction in predicts]
     sample_shape, channel_shape, elem_shape = [

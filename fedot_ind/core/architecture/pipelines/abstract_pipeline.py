@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Union
 
@@ -14,7 +15,7 @@ from fedot_ind.core.repository.industrial_implementations.abstract import build_
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
 from fedot_ind.tools.loader import DataLoader
-from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH
+from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH, PATH_TO_DEFAULT_PARAMS
 
 BENCHMARK = 'M4'
 
@@ -46,7 +47,10 @@ class AbstractPipeline:
                     if isinstance(node, tuple):
                         pipeline.add_node(operation_type=node[0], params=node[1], branch_idx=branch)
                     else:
-                        pipeline.add_node(operation_type=node, branch_idx=branch)
+                        with open(PATH_TO_DEFAULT_PARAMS) as json_data:
+                            default_operation_params = json.load(json_data)
+                        pipeline.add_node(operation_type=node,
+                                          params=default_operation_params[node], branch_idx=branch)
                 else:
                     pipeline.join_branches(operation_type=node)
         return pipeline.build() if build else pipeline
@@ -169,7 +173,7 @@ class ApiTemplate:
                     train_data=self.train_data,
                     model_to_tune=pipeline_to_tune,
                     tuning_params={
-                        'tuning_iterations': 20}),
+                        'tuning_iterations': 5}),
                 not finetune]).either(
             left_function=lambda tuning_data: self.industrial_class.finetune(
                 **tuning_data,

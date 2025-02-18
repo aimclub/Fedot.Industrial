@@ -16,7 +16,8 @@ from fedot_ind.core.models.nn.network_impl.common_model.resnet import ResNetMode
 from fedot_ind.core.models.nn.network_impl.feature_extraction.explainable_convolution_model import XCModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.tst import TSTModel
-from fedot_ind.core.operation.decomposition.matrix_decomposition.power_iteration_decomposition import RSVDDecomposition
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.power_iteration_decomposition import \
+    RSVDDecomposition
 
 NEURAL_MODEL = {
     # fundamental models

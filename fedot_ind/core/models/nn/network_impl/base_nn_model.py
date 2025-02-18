@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -63,13 +63,14 @@ class BaseNeuralModel:
             loss_fn = None
         return loss_fn
 
-    def fit(self, input_data: InputData):
-        self.num_classes = input_data.num_classes
-        self.target = input_data.target
-        self.task_type = input_data.task
-        self.is_regression_task = self.task_type.task_type.value == 'regression'
+    def fit(self, input_data: Union[tuple, InputData]):
+        if isinstance(input_data, InputData):
+            self.num_classes = input_data.num_classes
+            self.target = input_data.target
+            self.task_type = input_data.task
+            self.is_regression_task = self.task_type.task_type.value == 'regression'
         self._fit_model(input_data)
-        self._save_and_clear_cache()
+        # self._save_and_clear_cache()
         return self
 
     @convert_to_4d_torch_array
@@ -89,26 +90,28 @@ class BaseNeuralModel:
         raise NotImplementedError()
 
     def _prepare_data(self, ts, split_data: bool = True):
-
-        if split_data:
-            train_data, val_data = train_test_data_setup(
-                ts, stratify=True, shuffle_flag=True, split_ratio=0.7)
-            train_dataset = self._create_dataset(train_data)
-            val_dataset = self._create_dataset(val_data)
+        if isinstance(ts, tuple):
+            return ts[0], ts[1]
         else:
-            train_dataset = self._create_dataset(ts)
-            val_dataset = None
+            if split_data:
+                train_data, val_data = train_test_data_setup(
+                    ts, stratify=True, shuffle_flag=True, split_ratio=0.7)
+                train_dataset = self._create_dataset(train_data)
+                val_dataset = self._create_dataset(val_data)
+            else:
+                train_dataset = self._create_dataset(ts)
+                val_dataset = None
 
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True)
+            train_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=self.batch_size, shuffle=True)
 
-        if val_dataset is None:
-            val_loader = val_dataset
-        else:
-            val_loader = torch.utils.data.DataLoader(
-                val_dataset, batch_size=self.batch_size, shuffle=True)
+            if val_dataset is None:
+                val_loader = val_dataset
+            else:
+                val_loader = torch.utils.data.DataLoader(
+                    val_dataset, batch_size=self.batch_size, shuffle=True)
 
-        self.label_encoder = train_dataset.label_encoder
+            self.label_encoder = train_dataset.label_encoder
         return train_loader, val_loader
 
     def _train_loop(self, train_loader, val_loader, loss_fn, optimizer):
