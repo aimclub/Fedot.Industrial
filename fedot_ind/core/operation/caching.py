@@ -41,7 +41,7 @@ class DataCacher:
         os.makedirs(cache_folder, exist_ok=True)
         return cache_folder
 
-    def hash_info(self, data, **kwargs) -> str:
+    def hash_info(self, operation_info: dict) -> str:
         """Method responsible for hashing distinct information about the data that is going to be cached.
         It utilizes md5 hashing algorithm.
         Args:
@@ -49,14 +49,8 @@ class DataCacher:
         Returns:
             Hashed string.
         """
-        # key = ''.join([repr(arg) for arg in kwargs.values()]).encode('utf8')
-        # key += data.__str__().encode('utf8')
-        # hsh = hashlib.md5(key).hexdigest()[:10]
 
-        key_info = ''.join([repr(arg)
-                            for arg in kwargs.values()]).encode('utf8')
-        key_data = data.shape.__str__().encode('utf8')
-        key = key_info + key_data
+        key = operation_info.encode('utf8')
         hsh = hashlib.md5(key).hexdigest()[:20]
 
         return hsh

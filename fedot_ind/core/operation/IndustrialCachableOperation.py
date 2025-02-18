@@ -21,6 +21,11 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                                  cache_folder=cache_folder)
         self.channel_extraction = True
         self.data_type = DataTypesEnum.image
+        self.hashable_attr = ['stride',
+                              'window_size',
+                              'add_global_features',
+                              'use_sliding_window',
+                              'channel_independent']
 
     def __check_compute_model(self, input_data: InputData):
         feature_tensor = input_data.features.shape
@@ -32,9 +37,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
                 self.channel_extraction = False
 
     def _create_hash_descr(self):
-        callable_attr = ['cacher', 'data_type', 'log', 'params',
-                         'n_processes', 'logging_params', 'logger', 'feature_filter', 'relevant_features']
-        return {k: v for k, v in self.dict_keys.items() if k not in callable_attr}
+        return {k: v for k, v in self.dict_keys.items() if k in self.hashable_attr}
 
     def _convert_to_fedot_datatype(
             self,
@@ -88,17 +91,10 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
         self.__check_compute_model(input_data)
         if use_cache:
             self.dict_keys = {k: v for k, v in self.__dict__.items()}
-            if 'channel_extraction' in self.dict_keys.keys():
-                if not self.dict_keys['channel_extraction'] or not self.channel_extraction:
-                    class_params = {'channel_extraction': 'False',
-                                    'model': self.__repr__()}
-                else:
-                    class_params = self._create_hash_descr()
-            else:
-                class_params = self._create_hash_descr()
-
-            hashed_info = self.cacher.hash_info(data=input_data.features,
-                                                operation_info=class_params.__repr__())
+            class_params = self._create_hash_descr()
+            class_params['model'] = self.__repr__()
+            class_params['input_data_shape'] = input_data.features.shape
+            hashed_info = self.cacher.hash_info(operation_info=class_params.__repr__())
             try:
                 transformed_features = self.try_load_from_cache(hashed_info)
             except (FileNotFoundError, ValueError):
