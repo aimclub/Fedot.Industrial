@@ -89,7 +89,19 @@
   },
   "industrial_freq_clf": {
     "channel_model": "rf",
-    "transformation_model": "eigen_basis"
+    "transformation_model": "fourier_basis"
+  },
+  "industrial_stat_reg": {
+    "channel_model": "treg",
+    "transformation_model": "quantile_extractor"
+  },
+  "industrial_manifold_reg": {
+    "channel_model": "treg",
+    "transformation_model": "recurrence_extractor"
+  },
+  "industrial_freq_reg": {
+    "channel_model": "treg",
+    "transformation_model": "fourier_basis"
   },
   "logit": {
     "C": 1,

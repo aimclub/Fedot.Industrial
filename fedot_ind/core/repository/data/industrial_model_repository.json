@@ -691,6 +691,39 @@
         "non_linear"
       ]
     },
+    "industrial_stat_reg": {
+      "meta": "sklearn_regr",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
+    "industrial_freq_reg": {
+      "meta": "sklearn_regr",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
+    "industrial_manifold_reg": {
+      "meta": "sklearn_regr",
+      "presets": [
+        "fast_train",
+        "*tree"
+      ],
+      "tags": [
+        "tree",
+        "non_linear"
+      ]
+    },
     "pdl_clf": {
       "meta": "sklearn_class",
       "presets": [
@@ -781,18 +814,6 @@
         "non_linear"
       ],
       "input_type": "[DataTypesEnum.ts]"
-    },
-    "bagging": {
-      "meta": "sklearn_regr",
-      "presets": [
-        "fast_train",
-        "ts"
-      ],
-      "tags": [
-        "simple",
-        "interpretable"
-      ],
-      "input_type": "[DataTypesEnum.table]"
     },
     "locf": {
       "meta": "ts_model",
