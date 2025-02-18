@@ -680,23 +680,6 @@ def has_no_lagged_conflicts_in_ts_pipeline(pipeline: Pipeline):
     return True
 
 
-#
-# def has_no_lagged_conflicts_in_ts_pipeline(pipeline: Pipeline):
-#     """ Function checks the correctness of connection between nodes """
-#
-#     for idx, node in enumerate(pipeline.nodes):
-#         # Operation name in the current node
-#         is_bagging_current_operation = node.operation.name
-#         parent_nodes = node.nodes_from
-#         if len(parent_nodes) == 0:
-#             return True
-#         for parent in parent_nodes:
-#             is_lagged = parent.name == 'lagged'
-#             check_condition = all([current_operation in non_lagged_models, is_lagged])
-#             if check_condition:
-#                 return False
-#     return True
-
 def _crossover_by_type(self, crossover_type: CrossoverTypesEnum) -> None:
     IndustrialCrossover()
     return None

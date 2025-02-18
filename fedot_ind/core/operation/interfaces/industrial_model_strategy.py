@@ -7,8 +7,8 @@ from fedot.core.operations.evaluation.evaluation_interfaces import EvaluationStr
 from fedot.core.operations.evaluation.time_series import FedotTsForecastingStrategy
 from fedot.core.operations.operation_parameters import OperationParameters
 
-from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.forecasting_model.deep_tcn import TCNModel
+from fedot_ind.core.models.nn.network_impl.forecasting_model.deepar import DeepAR
 from fedot_ind.core.models.nn.network_impl.forecasting_model.nbeats import NBeatsModel
 from fedot_ind.core.models.nn.network_impl.forecasting_model.patch_tst import PatchTSTModel
 from fedot_ind.core.operation.interfaces.industrial_preprocessing_strategy import (
@@ -150,7 +150,10 @@ class IndustrialSkLearnEvaluationStrategy(
         self.multi_dim_dispatcher.mode = 'one_dimensional'
 
     def fit(self, train_data: InputData):
-        train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
+        try:
+            train_data = self.multi_dim_dispatcher._convert_input_data(train_data)
+        except Exception:
+            _ = 1
         return self.multi_dim_dispatcher.fit(train_data)
 
     def predict(self, trained_operation, predict_data: InputData,
@@ -179,7 +182,8 @@ class IndustrialSkLearnClassificationStrategy(
             operation_type: str,
             params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
-
+        self.multi_dim_dispatcher.mode = 'multi_dimensional' if self.operation_id.__contains__('industrial') \
+            else self.multi_dim_dispatcher.mode
 
 class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying regression algorithms from Sklearn library """
@@ -190,6 +194,8 @@ class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
             operation_type: str,
             params: Optional[OperationParameters] = None):
         super().__init__(operation_type, params)
+        self.multi_dim_dispatcher.mode = 'multi_dimensional' if self.operation_id.__contains__('industrial') \
+            else self.multi_dim_dispatcher.mode
 
     def predict(self, trained_operation, predict_data: InputData,
                 output_mode: str = 'labels') -> OutputData:
@@ -232,9 +238,6 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict(
             trained_operation, predict_data, output_mode='labels')
-        if len(predict_output.predict.shape) > 1:
-            predict_output.predict = self.ensemble_func(
-                predict_output.predict, axis=0)
         return predict_output
 
     def predict_for_fit(
@@ -246,9 +249,6 @@ class IndustrialSkLearnForecastingStrategy(IndustrialSkLearnEvaluationStrategy):
             predict_data, mode=self.multi_dim_dispatcher.mode)
         predict_output = self.multi_dim_dispatcher.predict_for_fit(
             trained_operation, predict_data, output_mode='labels')
-        if len(predict_output.predict.shape) > 1:
-            predict_output.predict = self.ensemble_func(
-                predict_output.predict, axis=0)
         return predict_output
 
 

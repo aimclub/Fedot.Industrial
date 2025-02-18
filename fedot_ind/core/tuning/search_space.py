@@ -134,6 +134,28 @@ industrial_search_space = {
          'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['recurrence_extractor',
                                                                                   'riemann_extractor']]}
          },
+    'industrial_stat_reg':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['treg', 'ridge', 'xgbreg',
+                                                                           # 'inception_model','resnet_model'
+                                                                           ]]},
+         'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['quantile_extractor']]}
+         },
+    'industrial_freq_reg':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['treg', 'ridge', 'xgbreg',
+                                                                           # 'inception_model','resnet_model'
+                                                                           ]]},
+         'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['fourier_basis',
+                                                                                  'wavelet_basis',
+                                                                                  'eigen_basis'
+                                                                                  ]]}
+         },
+    'industrial_manifold_reg':
+        {'channel_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['treg', 'ridge', 'xgbreg',
+                                                                           # 'inception_model','resnet_model'
+                                                                           ]]},
+         'transformation_model': {'hyperopt-dist': hp.choice, 'sampling-scope': [['recurrence_extractor',
+                                                                                  'riemann_extractor']]}
+         },
     'nbeats_model':
         {'epochs': {'hyperopt-dist': hp.choice, 'sampling-scope': [[x for x in range(50, 200, 20)]]},
          'batch_size': {'hyperopt-dist': hp.choice, 'sampling-scope': [[8, 16, 32]]},
