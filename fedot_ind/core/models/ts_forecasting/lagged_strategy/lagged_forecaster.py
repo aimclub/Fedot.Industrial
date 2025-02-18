@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy, copy
 from typing import Optional
 
@@ -10,10 +11,12 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
 from fedot.core.repository.tasks import TaskTypesEnum
+from golem.core.tuning.sequential import SequentialTuner
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.tuning.search_space import get_industrial_search_space
+from fedot_ind.tools.serialisation.path_lib import PATH_TO_DEFAULT_PARAMS
 
 
 class LaggedAR(ModelImplementation):
@@ -32,15 +35,27 @@ class LaggedAR(ModelImplementation):
             tuning_iterations=20,
         )
 
-    def _define_data_and_search_space(self, train_data):
-        tuning_data = deepcopy(train_data)
+    def _define_model(self):
+        with open(PATH_TO_DEFAULT_PARAMS) as json_data:
+            self.default_operation_params = json.load(json_data)
+        self.default_channel_model_params = self.default_operation_params[self.channel_model]
+        self.model = PipelineBuilder().add_node(self.channel_model,
+                                                params=self.default_channel_model_params).build()
+        return self.model
+
+    def _define_search_space(self):
         custom_search_space = get_industrial_search_space(self)
         search_space = PipelineSearchSpace(
             custom_search_space=custom_search_space, replace_default_search_space=True
         )
+
+        return search_space
+
+    def _define_tuning_data(self, train_data):
+        tuning_data = deepcopy(train_data)
         tuning_data.data_type = DataTypesEnum.table
         tuning_data.task.task_type = TaskTypesEnum.regression
-        return tuning_data, search_space
+        return tuning_data
 
     def _create_tuner(self, search_space, tuning_params, tuning_data):
         return (
@@ -54,9 +69,13 @@ class LaggedAR(ModelImplementation):
         )
 
     def build_tuner(self, model_to_tune, tuning_params, train_data):
-        tuning_data, search_space = self._define_data_and_search_space(train_data)
+        tuning_data = self._define_tuning_data(train_data)
+        search_space = self._define_search_space()
         pipeline_tuner = self._create_tuner(search_space, tuning_params, tuning_data)
-        model_to_tune = pipeline_tuner.tune(model_to_tune, False)
+        if isinstance(pipeline_tuner, SequentialTuner):
+            model_to_tune = pipeline_tuner.tune(model_to_tune)
+        else:
+            model_to_tune = pipeline_tuner.tune(model_to_tune, False)
         model_to_tune.fit(train_data)
         del pipeline_tuner
         return model_to_tune
@@ -85,8 +104,9 @@ class LaggedAR(ModelImplementation):
     def fit(self, input_data):
         self.ts_patch_len = round(input_data.features.shape[0] * 0.01 * self.window_size)
         input_data = self._create_pcd(input_data, True)
+        model_to_tune = self._define_model()
         self.tuned_model = self.build_tuner(
-            model_to_tune=PipelineBuilder().add_node(self.channel_model).build(),
+            model_to_tune=model_to_tune,
             tuning_params=self.tuning_params,
             train_data=input_data)
 
@@ -96,7 +116,9 @@ class LaggedAR(ModelImplementation):
     def _predict(self, input_data: InputData) -> OutputData:
         input_data = self._create_pcd(input_data, False)
         prediction = self.tuned_model.predict(input_data)
-        prediction.predict = prediction.predict[-input_data.task.task_params.forecast_length:]  # .reshape(-1,1)
+        n_rows, n_cols = round(prediction.predict.shape[0] / input_data.task.task_params.forecast_length), \
+            input_data.task.task_params.forecast_length
+        prediction.predict = prediction.predict.reshape(n_rows, n_cols)
         return prediction
 
     def predict_for_fit(self, input_data: InputData) -> OutputData:

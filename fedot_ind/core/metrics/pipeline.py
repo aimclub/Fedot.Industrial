@@ -50,7 +50,9 @@ def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
     self._log.debug(f'Pipeline {graph_id} fit started')
 
     folds_metrics = []
-    for fold_id, (train_data, test_data) in enumerate(self._data_producer()):
+    folds_list = list(enumerate(self._data_producer()))
+    val_blocks = self._validation_blocks
+    for fold_id, (train_data, test_data) in folds_list:
         try:
             prepared_pipeline = self.prepare_graph(graph, train_data, fold_id, self._eval_n_jobs)
         except Exception as ex:
@@ -60,10 +62,9 @@ def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
             prepared_pipeline = self.prepare_graph(graph, train_data, fold_id, self._eval_n_jobs)
             save_pipeline_for_debug(graph, train_data, test_data, ex, stack_trace)
             break  # if even one fold fails, the evaluation stops
-        self._validation_blocks = None
         evaluated_fitness = self._objective(prepared_pipeline,
                                             reference_data=test_data,
-                                            validation_blocks=self._validation_blocks)
+                                            validation_blocks=val_blocks)
         if evaluated_fitness.valid:
             folds_metrics.append(evaluated_fitness.values)
         else:

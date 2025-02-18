@@ -9,6 +9,7 @@ from pyriemann.utils import mean_covariance
 from pyriemann.utils.distance import distance
 from sklearn.utils.extmath import softmax
 
+from fedot_ind.core.architecture.abstraction.decorators import convert_to_3d_torch_array
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
@@ -113,6 +114,7 @@ class RiemannExtractor(BaseExtractor):
                                         axis=1)
         return feature_matrix
 
+    @convert_to_3d_torch_array
     def _transform(self, input_data: InputData) -> OutputData:
         """
         Method for feature generation for all series
