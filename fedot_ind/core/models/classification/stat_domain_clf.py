@@ -53,11 +53,11 @@ class StatClassificator(LaggedAR):
         prediction = self.tuned_model.predict(input_data, output_mode)
         return prediction
 
-    def predict_for_fit(self, input_data: InputData) -> OutputData:
-        return self._predict(input_data)
+    def predict_for_fit(self, input_data: InputData, output_mode='labels') -> OutputData:
+        return self._predict(input_data, output_mode=output_mode)
 
-    def predict(self, input_data: InputData) -> OutputData:
-        return self._predict(input_data)
+    def predict(self, input_data: InputData, output_mode='labels') -> OutputData:
+        return self._predict(input_data, output_mode=output_mode)
 
     def predict_proba(self, input_data: InputData) -> OutputData:
         return self._predict(input_data, output_mode='probs')

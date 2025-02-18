@@ -229,9 +229,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
             operation, init_state, output_mode) if self.operation_condition.is_one_dim_operation else init_state)
         is_transform_for_fit = output_mode.__contains__('transform_fit')
 
-        def multidim_predict(
-                operation,
-                previous_state):
+        def multidim_predict(operation, previous_state):
             state_is_predict = isinstance(previous_state, np.ndarray) or isinstance(previous_state, OutputData)
             if isinstance(previous_state, OutputData):
                 previous_state = previous_state.predict
@@ -239,7 +237,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
                                                                                              previous_state,
                                                                                              output_mode)
 
-        # Elif model could be use for each dimension(channel) independently we use multidimensional predict method
+        # Elif model could be used for each dimension(channel) independently we use multidimensional predict method
         predict_for_every_dim = curry(2)(multidim_predict)
         if is_transform_for_fit:
             prediction = trained_operation[0].transform_for_fit(predict_data[0])
