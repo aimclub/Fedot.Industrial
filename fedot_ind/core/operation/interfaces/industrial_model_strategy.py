@@ -185,6 +185,7 @@ class IndustrialSkLearnClassificationStrategy(
         self.multi_dim_dispatcher.mode = 'multi_dimensional' if self.operation_id.__contains__('industrial') \
             else self.multi_dim_dispatcher.mode
 
+
 class IndustrialSkLearnRegressionStrategy(IndustrialSkLearnEvaluationStrategy):
     """ Strategy for applying regression algorithms from Sklearn library """
     _operations_by_types = SKLEARN_REG_MODELS
