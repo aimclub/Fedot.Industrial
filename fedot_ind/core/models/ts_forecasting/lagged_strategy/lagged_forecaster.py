@@ -72,10 +72,7 @@ class LaggedAR(ModelImplementation):
         tuning_data = self._define_tuning_data(train_data)
         search_space = self._define_search_space()
         pipeline_tuner = self._create_tuner(search_space, tuning_params, tuning_data)
-        if isinstance(pipeline_tuner, SequentialTuner):
-            model_to_tune = pipeline_tuner.tune(model_to_tune)
-        else:
-            model_to_tune = pipeline_tuner.tune(model_to_tune, False)
+        model_to_tune = pipeline_tuner.tune(model_to_tune)
         model_to_tune.fit(train_data)
         del pipeline_tuner
         return model_to_tune

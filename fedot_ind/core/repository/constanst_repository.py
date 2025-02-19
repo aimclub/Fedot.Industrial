@@ -74,7 +74,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                               "max_depth": 5,
                                               "learning_rate": 0.1,
                                               "min_data_in_leaf": 3,
-                                              "border_count": 32,
+                                              "max_bin": 32,
                                               "l2_leaf_reg": 1})
 
 
