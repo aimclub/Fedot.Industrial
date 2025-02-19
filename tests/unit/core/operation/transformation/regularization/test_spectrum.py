@@ -25,8 +25,8 @@ def matrix_from_ts():
 @pytest.fixture()
 def singular_values_rank_threshold_beta():
     return [531.37055486, 159.02909926, 121.41838726, 108.69788252,
-            88.76097787,  59.24177627,  54.45026082,  39.17247824,
-            26.70158246,   7.55227637], 3, 0.5, 0.5
+            88.76097787, 59.24177627, 54.45026082, 39.17247824,
+            26.70158246, 7.55227637], 3, 0.5, 0.5
 
 
 def test_sv_to_explained_variance_ratio(singular_values_rank_threshold_beta):
