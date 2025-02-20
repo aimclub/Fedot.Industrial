@@ -21,11 +21,10 @@ def get_benchmark_setup():
                         {},
                         {0: [('resnet_model', RESNET_LEARNING_PARAMS)]}]
     model_name = ['stat_clf', 'industrial', 'resnet']
-    finutune_existed_model = [True, False, True]
+    finetune_existed_model = [True, False, True]
     BENCHMARK = 'UCR_CLF'
-    BENCHMARK_PARAMS = {'experiment_date': '04_02_25',
-                        'datasets': UNI_CLF_BENCH,
-                        'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
+    BENCHMARK_PARAMS = {'datasets': UNI_CLF_BENCH,
+                        'model_to_compare': (model_to_compare, model_name, finetune_existed_model)}
     return BENCHMARK, BENCHMARK_PARAMS
 
 

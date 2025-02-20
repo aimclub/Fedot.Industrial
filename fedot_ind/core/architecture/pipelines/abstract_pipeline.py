@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Union
+from datetime import date as current_date
 
 import numpy as np
 import pandas as pd
@@ -204,11 +205,13 @@ class ApiTemplate:
                 dataset_for_eval = self._prepare_skab_data(dataset, benchmark_name, benchmark_params)
             else:
                 dataset_for_eval = dataset
+
             for model_impl, model_name, finetune_strategy in zip(*benchmark_params['model_to_compare']):
-                date = benchmark_params['experiment_date']
-                self.api_config['compute_config']['output_folder'] = f'./{benchmark_name}_{date}/{model_name}/{dataset}'
-                result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl,
-                                        finetune=finetune_strategy)
+                date_ = benchmark_params.get('experiment_date', current_date.today().isoformat())
+                benchmark_folder = benchmark_params.get('benchmark_folder', '.')
+                output_folder = os.path.join(benchmark_folder, f'{date_}_{benchmark_name}', model_name, dataset)
+                self.api_config['compute_config']['output_folder'] = output_folder
+                _ = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl, finetune=finetune_strategy)
 
     def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
         prefix = dataset[0]
