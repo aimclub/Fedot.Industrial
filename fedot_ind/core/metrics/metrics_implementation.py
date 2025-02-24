@@ -268,7 +268,7 @@ def calculate_forecasting_metric(target,
                                  seasonality=None,
                                  **kwargs):
     target = target.astype(float)
-    
+
     # Set default metrics
     if metric_names is None:
         metric_names = ('smape', 'rmse', 'mape')
@@ -278,19 +278,19 @@ def calculate_forecasting_metric(target,
 
     def mae(A, F, T, _=None):
         return tsf_mae(A, F)
-    
+
     def mdae(A, F, T, _=None):
         return tsf_mdae(A, F)
 
-    def mase(A, F, y_train, sp):   
+    def mase(A, F, y_train, sp):
         return mean_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
-    
-    def mdase(A, F, y_train, sp):   
+
+    def mdase(A, F, y_train, sp):
         return median_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
 
     def mape(A, F, T, _=None):
         return tsf_mape(A, F) * 100
-    
+
     def smape(A, F, T, _=None):
         return tsf_mape(A, F, symmetric=True) * 100
 
