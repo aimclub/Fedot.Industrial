@@ -311,12 +311,12 @@ def calculate_forecasting_metric(target,
     return df.round(rounding_order)
 
 
-def calculate_classification_metric(
-        target,
-        labels,
-        probs,
-        rounding_order=3,
-        metric_names=('f1', 'accuracy')):
+def calculate_classification_metric(target,
+                                    labels,
+                                    probs,
+                                    rounding_order=3,
+                                    metric_names=('f1', 'accuracy'),
+                                    **kwargs):
 
     # Set default metrics
     if metric_names is None:
@@ -640,13 +640,6 @@ class AnomalyMetric(QualityMetric):
         return metric_dict
 
 
-def calculate_detection_metric(
-        target,
-        labels,
-        probs=None,
-        rounding_order=3,
-        metric_names=('nab')):
-    metric_dict = AnomalyMetric(
-        target=target,
-        predicted_labels=labels).metric()
+def calculate_detection_metric(target, labels, **kwargs):
+    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
     return metric_dict
