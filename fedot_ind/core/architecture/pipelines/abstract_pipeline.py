@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Union
 from datetime import date as current_date
 
@@ -155,10 +156,12 @@ class ApiTemplate:
                                                     metric_names=self.metric_names,
                                                     train_data=self.train_data[0],
                                                     seasonality=self.seasonality)
+        train_data = self.train_data[0]
         self.industrial_class.save('all')
         result_dict = dict(industrial_model=self.industrial_class,
                            labels=labels,
-                           metrics=metrics)
+                           metrics=metrics,
+                           train_data=train_data)
         return result_dict
 
     def eval(self,
@@ -172,6 +175,7 @@ class ApiTemplate:
             pipeline_to_tune = AbstractPipeline.create_pipeline(initial_assumption, build=False)
             return_only_fitted = pipeline_to_tune.heads[0].name in list(NEURAL_MODEL.keys())
         self.industrial_class = FedotIndustrial(**self.api_config)
+        start_time = time.time()
         Either(
             value=self.train_data,
             monoid=[
@@ -185,8 +189,11 @@ class ApiTemplate:
                 **tuning_data,
                 return_only_fitted=return_only_fitted),
             right_function=self.industrial_class.fit)
+        end_time = time.time() - start_time
         self.industrial_class.shutdown()
-        return self._get_result(self.test_data)
+        result = self._get_result(self.test_data)
+        result['time'] = end_time
+        return result
 
     def load_result(self, benchmark_path):
         dir_list = os.listdir(benchmark_path)
@@ -204,6 +211,8 @@ class ApiTemplate:
 
     def evaluate_benchmark(self, benchmark_name, benchmark_params: dict):
         for dataset in benchmark_params['datasets']:
+            print(f'\nEvaluating {dataset} dataset')
+            result_dict = dict()
             if benchmark_name.__contains__('M4'):
                 dataset_for_eval = self._prepare_forecasting_data(dataset, benchmark_name, benchmark_params)
             elif benchmark_name.__contains__('SKAB'):
@@ -217,7 +226,13 @@ class ApiTemplate:
                 benchmark_folder = benchmark_params.get('benchmark_folder', './benchmark_results')
                 output_folder = os.path.join(benchmark_folder, f'{date_}_{benchmark_name}', model_name, dataset)
                 self.api_config['compute_config']['output_folder'] = output_folder
-                _ = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl, finetune=finetune_strategy)
+                try:
+                    result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl, finetune=finetune_strategy)
+                    print(result_dict['metrics'])
+                    np.save(os.path.join(output_folder, 'results.npy'), result_dict)
+                except:
+                    result_dict = {}
+                
 
     def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
         prefix = dataset[0]
