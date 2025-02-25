@@ -227,12 +227,14 @@ class ApiTemplate:
                 output_folder = os.path.join(benchmark_folder, f'{date_}_{benchmark_name}', model_name, dataset)
                 self.api_config['compute_config']['output_folder'] = output_folder
                 try:
-                    result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl, finetune=finetune_strategy)
+                    result_dict = self.eval(
+                        dataset=dataset_for_eval,
+                        initial_assumption=model_impl,
+                        finetune=finetune_strategy)
                     print(result_dict['metrics'])
                     np.save(os.path.join(output_folder, 'results.npy'), result_dict)
-                except:
+                except BaseException:
                     result_dict = {}
-                
 
     def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
         prefix = dataset[0]
