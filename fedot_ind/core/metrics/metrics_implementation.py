@@ -14,7 +14,7 @@ from sklearn.metrics import (
     max_error,
     mean_absolute_error,
     mean_absolute_percentage_error,
-    mean_squared_error,
+    root_mean_squared_error,
     mean_squared_log_error,
     median_absolute_error,
     precision_score,
@@ -95,10 +95,10 @@ class QualityMetric:
 
 class RMSE(QualityMetric):
     def metric(self) -> float:
-        return mean_squared_error(
+        return root_mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
-            squared=False) ** 0.5
+        ) 
 
 
 class SMAPE(QualityMetric):
@@ -109,11 +109,11 @@ class SMAPE(QualityMetric):
 
 
 class MSE(QualityMetric):
-    def metric(self) -> float:
-        return mean_squared_error(
+    def metric(self) -> float:       
+        return root_mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
-            squared=True)
+        ) ** 2
 
 
 class MSLE(QualityMetric):
@@ -239,12 +239,12 @@ def calculate_regression_metric(target,
 
     target = target.astype(float)
 
-    def rmse(y_true, y_pred):
-        return np.sqrt(mean_squared_error(y_true, y_pred))
+    def mean_squared_error(y_true, y_pred):
+        return root_mean_squared_error(y_true, y_pred) ** 2
 
     metric_dict = {'r2': r2_score,
                    'mse': mean_squared_error,
-                   'rmse': rmse,
+                   'rmse': root_mean_squared_error,
                    'mae': mean_absolute_error,
                    'msle': mean_squared_log_error,
                    'mape': mean_absolute_percentage_error,
@@ -274,7 +274,7 @@ def calculate_forecasting_metric(target,
         metric_names = ('smape', 'rmse', 'mape')
 
     def rmse(y_true, y_pred, T, _=None):
-        return np.sqrt(mean_squared_error(y_true, y_pred))
+        return root_mean_squared_error(y_true, y_pred)
 
     def mae(A, F, T, _=None):
         return tsf_mae(A, F)
