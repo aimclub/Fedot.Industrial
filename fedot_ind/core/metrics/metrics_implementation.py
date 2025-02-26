@@ -98,7 +98,7 @@ class RMSE(QualityMetric):
         return root_mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
-        ) 
+        )
 
 
 class SMAPE(QualityMetric):
@@ -109,7 +109,7 @@ class SMAPE(QualityMetric):
 
 
 class MSE(QualityMetric):
-    def metric(self) -> float:       
+    def metric(self) -> float:
         return root_mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
