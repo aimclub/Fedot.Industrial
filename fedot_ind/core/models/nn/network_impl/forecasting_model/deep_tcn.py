@@ -167,9 +167,11 @@ class TCNModel(BaseNeuralModel):
         self.split = self.params.get("split_data", False)
         self.patch_len = self.params.get("patch_len", None)
         self.horizon = self.params.get("horizon", None)
+        self.train_log = self.params.get("train_log", False)
         self.model_list = []
 
     def _init_model(self, ts: InputData):
+        print(f'tcn - {self.params.to_dict()}')
         input_size = self.patch_len or ts.features.shape[-1]
         self.patch_len = input_size
         model = TCNModule(input_size=input_size,
@@ -289,11 +291,12 @@ class TCNModel(BaseNeuralModel):
                                      lradj='constant')
                 scheduler.step()
             train_loss = np.average(train_loss)
-            if epoch % 25 == 0:
-                print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
-                    epoch + 1, train_steps, train_loss))
-                print('Updating learning rate to {}'.format(
-                    scheduler.get_last_lr()[0]))
+            if self.train_log:
+                if epoch % 25 == 0:
+                    print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f}".format(
+                        epoch + 1, train_steps, train_loss))
+                    print('Updating learning rate to {}'.format(
+                        scheduler.get_last_lr()[0]))
             if early_stopping.early_stop:
                 print("Early stopping")
                 break

@@ -208,7 +208,9 @@ class FedotIndustrial(Fedot):
                                 predicted_probs,
                                 problem,
                                 metric_names,
-                                rounding_order):
+                                rounding_order,
+                                train_data,
+                                seasonality):
         valid_shape = target.shape
         if isinstance(predicted_labels, dict):
             metric_dict = {model_name: FEDOT_GET_METRICS[problem](target=target,
@@ -230,7 +232,9 @@ class FedotIndustrial(Fedot):
                                               metric_names=metric_names,
                                               rounding_order=rounding_order,
                                               labels=labels,
-                                              probs=predicted_probs)
+                                              probs=predicted_probs,
+                                              train_data=train_data,
+                                              seasonality=seasonality)
 
     def fit(self,
             input_data: tuple,
@@ -351,7 +355,9 @@ class FedotIndustrial(Fedot):
                     probs: np.ndarray,
                     target: Union[list, np.array] = None,
                     metric_names: tuple = None,
-                    rounding_order: int = 3) -> pd.DataFrame:
+                    rounding_order: int = 3,
+                    train_data: Union[list, np.array] = None,
+                    seasonality: int = 1) -> pd.DataFrame:
         """
         Method to calculate metrics for Industrial model.
 
@@ -382,7 +388,9 @@ class FedotIndustrial(Fedot):
             predicted_labels=labels,
             predicted_probs=probs,
             rounding_order=rounding_order,
-            metric_names=metric_names)
+            metric_names=metric_names,
+            train_data=train_data,
+            seasonality=seasonality)
         return self.metric_dict
 
     def save(self, mode: str = 'all', **kwargs):

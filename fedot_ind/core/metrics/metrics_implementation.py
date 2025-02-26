@@ -21,7 +21,8 @@ from sklearn.metrics import (
     r2_score,
     roc_auc_score,
 )
-from sktime.performance_metrics.forecasting import mean_absolute_scaled_error
+from sktime.performance_metrics.forecasting import mean_absolute_scaled_error, median_absolute_scaled_error, \
+    mean_absolute_error as tsf_mae, median_absolute_error as tsf_mdae, mean_absolute_percentage_error as tsf_mape
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
@@ -226,19 +227,6 @@ class Accuracy(QualityMetric):
         return accuracy_score(y_true=self.target, y_pred=self.predicted_labels)
 
 
-def mase(A, F, y_train):
-    return mean_absolute_scaled_error(A, F, y_train=y_train)
-
-
-def smape(a, f, _=None):
-    return 1 / len(a) * np.sum(2 * np.abs(f - a) /
-                               (np.abs(a) + np.abs(f)) * 100)
-
-
-def mape(A, F):
-    return mean_absolute_percentage_error(A, F)
-
-
 def calculate_regression_metric(target,
                                 labels,
                                 rounding_order=3,
@@ -276,6 +264,8 @@ def calculate_forecasting_metric(target,
                                  labels,
                                  rounding_order=3,
                                  metric_names=None,
+                                 train_data=None,
+                                 seasonality=None,
                                  **kwargs):
     target = target.astype(float)
 
@@ -283,31 +273,50 @@ def calculate_forecasting_metric(target,
     if metric_names is None:
         metric_names = ('smape', 'rmse', 'mape')
 
-    def rmse(y_true, y_pred):
+    def rmse(y_true, y_pred, T, _=None):
         return np.sqrt(mean_squared_error(y_true, y_pred))
+
+    def mae(A, F, T, _=None):
+        return tsf_mae(A, F)
+
+    def mdae(A, F, T, _=None):
+        return tsf_mdae(A, F)
+
+    def mase(A, F, y_train, sp):
+        return mean_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
+
+    def mdase(A, F, y_train, sp):
+        return median_absolute_scaled_error(A, F, sp=sp, y_train=y_train)
+
+    def mape(A, F, T, _=None):
+        return tsf_mape(A, F) * 100
+
+    def smape(A, F, T, _=None):
+        return tsf_mape(A, F, symmetric=True) * 100
 
     metric_dict = {
         'rmse': rmse,
-        'mae': mean_absolute_error,
-        'median_absolute_error': median_absolute_error,
-        'smape': smape,
+        'mae': mae,
+        'mdae': mdae,
         'mase': mase,
+        'mdase': mdase,
         'mape': mape,
+        'smape': smape,
     }
 
     df = pd.DataFrame({name: func(target,
-                                  labels) for name,
+                                  labels, train_data, seasonality) for name,
                        func in metric_dict.items() if name in metric_names},
                       index=[0])
     return df.round(rounding_order)
 
 
-def calculate_classification_metric(
-        target,
-        labels,
-        probs,
-        rounding_order=3,
-        metric_names=('f1', 'accuracy')):
+def calculate_classification_metric(target,
+                                    labels,
+                                    probs,
+                                    rounding_order=3,
+                                    metric_names=('f1', 'accuracy'),
+                                    **kwargs):
 
     # Set default metrics
     if metric_names is None:
@@ -631,13 +640,6 @@ class AnomalyMetric(QualityMetric):
         return metric_dict
 
 
-def calculate_detection_metric(
-        target,
-        labels,
-        probs=None,
-        rounding_order=3,
-        metric_names=('nab')):
-    metric_dict = AnomalyMetric(
-        target=target,
-        predicted_labels=labels).metric()
+def calculate_detection_metric(target, labels, **kwargs):
+    metric_dict = AnomalyMetric(target=target, predicted_labels=labels).metric()
     return metric_dict

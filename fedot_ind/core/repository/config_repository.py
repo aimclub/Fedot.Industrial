@@ -90,4 +90,19 @@ DEFAULT_CLF_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_CLF_INDUSTRIAL_
 DEFAULT_REG_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_REG_INDUSTRIAL_CONFIG.value
 DEFAULT_TSF_INDUSTRIAL_CONFIG = IndustrialConfigConstant.DEFAULT_TSF_INDUSTRIAL_CONFIG.value
 
+DEFAULT_CLF_API_CONFIG = {'industrial_config': DEFAULT_CLF_INDUSTRIAL_CONFIG,
+                          'automl_config': DEFAULT_CLF_AUTOML_CONFIG,
+                          'learning_config': DEFAULT_CLF_LEARNING_CONFIG,
+                          'compute_config': DEFAULT_COMPUTE_CONFIG}
+
+DEFAULT_REG_API_CONFIG = {'industrial_config': DEFAULT_REG_INDUSTRIAL_CONFIG,
+                          'automl_config': DEFAULT_REG_AUTOML_CONFIG,
+                          'learning_config': DEFAULT_REG_LEARNING_CONFIG,
+                          'compute_config': DEFAULT_COMPUTE_CONFIG}
+
+DEFAULT_TSF_API_CONFIG = {'industrial_config': DEFAULT_TSF_INDUSTRIAL_CONFIG,
+                          'automl_config': DEFAULT_TSF_AUTOML_CONFIG,
+                          'learning_config': DEFAULT_TSF_LEARNING_CONFIG,
+                          'compute_config': DEFAULT_COMPUTE_CONFIG}
+
 TASK_MAPPING = LearningConfigConstant.TASK_MAPPING.value

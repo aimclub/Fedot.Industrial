@@ -1,12 +1,15 @@
 import json
 import os
+import time
 from typing import Union
+from datetime import date as current_date
 
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from pymonad.either import Either
+from examples.example_utils import load_monash_dataset
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.checkers_collections import DataCheck
@@ -16,6 +19,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
 from fedot_ind.tools.loader import DataLoader
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH, PATH_TO_DEFAULT_PARAMS
+from fedot_ind.core.repository.constanst_repository import MONASH_FORECASTING_BENCH, M4_SEASONALITY
 
 BENCHMARK = 'M4'
 
@@ -120,6 +124,7 @@ class ApiTemplate:
         self.metric_names = metric_list
         self.industrial_class = None
         self.train_data, self.test_data = None, None
+        self.seasonality = 1
 
     def _prepare_dataset(self, dataset):
         dataset_is_dict = isinstance(dataset, dict)
@@ -148,11 +153,15 @@ class ApiTemplate:
                                                     probs=probs,
                                                     target=test_data[1],
                                                     rounding_order=3,
-                                                    metric_names=self.metric_names)
+                                                    metric_names=self.metric_names,
+                                                    train_data=self.train_data[0],
+                                                    seasonality=self.seasonality)
+        train_data = self.train_data[0]
         self.industrial_class.save('all')
         result_dict = dict(industrial_model=self.industrial_class,
                            labels=labels,
-                           metrics=metrics)
+                           metrics=metrics,
+                           train_data=train_data)
         return result_dict
 
     def eval(self,
@@ -166,6 +175,7 @@ class ApiTemplate:
             pipeline_to_tune = AbstractPipeline.create_pipeline(initial_assumption, build=False)
             return_only_fitted = pipeline_to_tune.heads[0].name in list(NEURAL_MODEL.keys())
         self.industrial_class = FedotIndustrial(**self.api_config)
+        start_time = time.time()
         Either(
             value=self.train_data,
             monoid=[
@@ -179,8 +189,11 @@ class ApiTemplate:
                 **tuning_data,
                 return_only_fitted=return_only_fitted),
             right_function=self.industrial_class.fit)
+        end_time = time.time() - start_time
         self.industrial_class.shutdown()
-        return self._get_result(self.test_data)
+        result = self._get_result(self.test_data)
+        result['time'] = end_time
+        return result
 
     def load_result(self, benchmark_path):
         dir_list = os.listdir(benchmark_path)
@@ -198,24 +211,38 @@ class ApiTemplate:
 
     def evaluate_benchmark(self, benchmark_name, benchmark_params: dict):
         for dataset in benchmark_params['datasets']:
+            print(f'\nEvaluating {dataset} dataset')
+            result_dict = dict()
             if benchmark_name.__contains__('M4'):
                 dataset_for_eval = self._prepare_forecasting_data(dataset, benchmark_name, benchmark_params)
             elif benchmark_name.__contains__('SKAB'):
                 dataset_for_eval = self._prepare_skab_data(dataset, benchmark_name, benchmark_params)
+            elif benchmark_name in MONASH_FORECASTING_BENCH:
+                dataset_for_eval = self._prepare_monash_data(dataset, benchmark_name, benchmark_params)
             else:
                 dataset_for_eval = dataset
             for model_impl, model_name, finetune_strategy in zip(*benchmark_params['model_to_compare']):
-                date = benchmark_params['experiment_date']
-                self.api_config['compute_config']['output_folder'] = f'./{benchmark_name}_{date}/{model_name}/{dataset}'
-                result_dict = self.eval(dataset=dataset_for_eval, initial_assumption=model_impl,
-                                        finetune=finetune_strategy)
+                date_ = benchmark_params.get('experiment_date', current_date.today().isoformat())
+                benchmark_folder = benchmark_params.get('benchmark_folder', './benchmark_results')
+                output_folder = os.path.join(benchmark_folder, f'{date_}_{benchmark_name}', model_name, dataset)
+                self.api_config['compute_config']['output_folder'] = output_folder
+                try:
+                    result_dict = self.eval(
+                        dataset=dataset_for_eval,
+                        initial_assumption=model_impl,
+                        finetune=finetune_strategy)
+                    print(result_dict['metrics'])
+                    np.save(os.path.join(output_folder, 'results.npy'), result_dict)
+                except BaseException:
+                    result_dict = {}
 
     def _prepare_forecasting_data(self, dataset, benchmark_name, benchmark_dict):
         prefix = dataset[0]
         horizon = benchmark_dict['metadata'][prefix]
-        dataset_for_eval = {'benchmark': benchmark_name,
+        dataset_for_eval = {'benchmark': benchmark_name[:2],
                             'dataset': dataset,
                             'task_params': {'forecast_length': horizon}}
+        self.seasonality = M4_SEASONALITY[prefix]
         self.api_config['industrial_config']['task_params']['forecast_length'] = horizon
         self.api_config['automl_config']['task_params']['forecast_length'] = horizon
         return dataset_for_eval
@@ -234,4 +261,16 @@ class ApiTemplate:
         else:
             dataset_for_eval = {'train_data': (df.iloc[:train_idx, :-2].values, df.iloc[:train_idx, -2].values),
                                 'test_data': (df.iloc[train_idx:, :-2].values, df.iloc[train_idx:, -2].values)}
+        return dataset_for_eval
+
+    def _prepare_monash_data(self, dataset, benchmark_name, benchmark_dict):
+        monash_df = load_monash_dataset(benchmark_name)
+        horizon = benchmark_dict['metadata'][benchmark_name]
+        features = monash_df[dataset].values
+        target = monash_df[dataset][-horizon:].values
+        dataset_for_eval = dict(train_data=(features, target),
+                                test_data=(features, target))
+        self.seasonality = horizon
+        self.api_config['industrial_config']['task_params']['forecast_length'] = horizon
+        self.api_config['automl_config']['task_params']['forecast_length'] = horizon
         return dataset_for_eval

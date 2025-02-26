@@ -11,7 +11,6 @@ from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import RegressionMetricsEnum
 from fedot.core.repository.tasks import TaskTypesEnum
-from golem.core.tuning.sequential import SequentialTuner
 from golem.core.tuning.simultaneous import SimultaneousTuner
 
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix

@@ -177,7 +177,7 @@ class FedotConverter:
     def convert_to_industrial_composing_format(self, mode):
         if mode == 'one_dimensional':
             new_features, new_target = [
-                array.reshape(array.shape[0], array.shape[1] * array.shape[2])
+                array.reshape(array.shape[0], np.prod(array.shape[1:]))
                 if array is not None and len(array.shape) > 2 else array
                 for array in [self.input_data.features, self.input_data.target]]
             input_data = InputData(
@@ -196,15 +196,12 @@ class FedotConverter:
             is_3d_tensor = self.data_type_condition.is_numpy_tensor
             is_3d_tensor_with_one_channel_and_one_element = all([is_3d_tensor, with_one_channel, with_one_element])
             is_3d_tensor_with_one_channel_and_some_element = all([is_3d_tensor, with_one_channel, not with_one_element])
-            is_3d_tensor_with_one_channel = all([is_3d_tensor, with_one_channel])
             if is_original_flatten_row or is_3d_tensor_with_one_channel_and_one_element:  # ts preprocessing case
                 feats = feats.reshape(1, -1)  # add 1 channel using reshape
-            elif is_3d_tensor_with_one_channel:
-                feats = feats.reshape(feats.shape[1], 1 * feats.shape[2])  # reshape to 2d table concat on channel
             elif is_3d_tensor_with_one_channel_and_some_element:
                 feats = feats.squeeze().swapaxes(1, 0)  # squeeze channel and swap axes for iteration
             elif not with_one_sample:
-                feats = self.input_data.features.swapaxes(1, 0)
+                feats = feats.swapaxes(1, 0)
             input_data = [
                 InputData(
                     idx=self.input_data.idx,
