@@ -17,7 +17,7 @@ def sv_to_explained_variance_ratio(singular_values):
     singular_values = [abs(x) for x in singular_values]
     n_components = [x / sum(singular_values) * 100 for x in singular_values]
     n_components = [x for x in n_components if x > 3]
-    return n_components
+    return n_components if len(n_components) != 0 else [1]
 
 
 def transform_eigen_to_ts(X_elem):
