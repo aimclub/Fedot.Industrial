@@ -56,7 +56,7 @@ def test_prepare_data(ts):
 
 
 @pytest.mark.skip('Problems with DeepAR dimensions based on output_mode')
-def test__predict(ts):
+def _test__predict(ts):
     deepar = DeepAR({'quantiles': [0.25, 0.5, 0.75]})
     deepar.fit(ts)
 
@@ -85,7 +85,7 @@ def test__predict(ts):
 
 
 @pytest.mark.skip('Problems with DeepAR dimensions based on output_mode')
-def test_losses(ts):
+def _test_losses(ts):
     for loss_fn in DeepARModule._loss_fns:
         deepar = DeepAR({'expected_distribution': loss_fn})
         deepar.fit(ts)
