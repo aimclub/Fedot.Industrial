@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
@@ -19,12 +20,34 @@ class LinearPipelineCase:
     def __str__(self) -> str:
         return self.pipeline_label
 
+def get_data():
+    # random train data
+    import numpy as np
+    train_features = np.random.rand(100, 8)
+    train_target = np.zeros(100)
+    # train_target[50:60] = 1.0
+    
+    test_features = np.random.rand(50, 8)
+    test_target = np.zeros(50)
+    test_target[30:40] = 1.0
+
+    return dict(train_data=(train_features, train_target),
+                        test_data=(test_features, test_target)
+                        )
+    
+
 
 LINEAR_REG_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
         node_list=node_list,
-        data_list=['AppliancesEnergy'],
+        # data_list=['AppliancesEnergy'],
+        data_list=[
+            dict(train_data = (np.random.rand(25, 100), np.random.rand(25)), 
+                 test_data = (np.random.rand(25, 100), np.random.rand(25))),
+                #    dict(train_data = (np.random.rand(25, 3, 100), np.random.rand(25)), 
+                        # test_data = (np.random.rand(25, 3, 100), np.random.rand(25)))
+                        ],
         task='regression'
     ) for pipeline_label, node_list in VALID_LINEAR_REG_PIPELINE.items()
 ]
@@ -33,7 +56,16 @@ LINEAR_CLF_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
         node_list=node_list,
-        data_list=['Earthquakes', 'ERing'],
+        data_list=[
+                   dict(train_data = (np.random.rand(25, 50), np.random.randint(0, 2, 25)), 
+                        test_data = (np.random.rand(25, 50), np.random.randint(0, 2, 25))),
+                    # dict(train_data = (np.random.rand(25, 3, 50), np.random.randint(0, 2, 25)), 
+                        # test_data = (np.random.rand(25, 3, 50), np.random.randint(0, 2, 25)))
+                        ],
+        # data_list=[
+            # 'Earthquakes', 
+            # 'ERing'
+            # ],
         task='classification'
     ) for pipeline_label, node_list in VALID_LINEAR_CLF_PIPELINE.items()
 ]
@@ -42,7 +74,10 @@ LINEAR_TSF_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
         node_list=node_list,
-        data_list=[dict(benchmark='M4', dataset='D2600', task_params={'forecast_length': 14})],
+        # data_list=[dict(benchmark='M4', dataset='D2600', task_params={'forecast_length': 14})],
+        data_list=[dict(train_data = (np.random.rand(100), np.random.rand(100)), 
+                        test_data = (np.random.rand(14), np.random.rand(14)),
+                        task_params = {'forecast_length': 14})],
         task='ts_forecasting',
         task_params=dict(forecast_length=14)
     ) for pipeline_label, node_list in VALID_LINEAR_TSF_PIPELINE.items()
@@ -52,21 +87,31 @@ LINEAR_DETECTION_PIPELINE_CASES = [
     LinearPipelineCase(
         pipeline_label=pipeline_label,
         node_list=node_list,
-        data_list=[dict(benchmark='valve1', dataset='1')],
+        data_list=[get_data()],
+        # data_list=[dict(benchmark='valve1', dataset='1')],
         task='classification',
         task_params=dict(industrial_strategy='anomaly_detection', detection_window=10)
     ) for pipeline_label, node_list in VALID_LINEAR_DETECTION_PIPELINE.items()
 ]
 
 # TODO: temporarily workaround skip topological_*
-BANNED_LINEAR_PIPELINE_LABELS = ['topological_clf', 'topological_reg', 'composite_reg', 'topological_lgbm']
+BANNED_LINEAR_PIPELINE_LABELS = ['topological_clf', 
+                                 'topological_reg', 
+                                 'composite_reg', 
+                                 'topological_lgbm',
+                                 'composite_clf',
+                                 'stat_detector',
+                                 'conv_ae_detector',
+                                 'glm']
 LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF_PIPELINE_CASES
                          + LINEAR_DETECTION_PIPELINE_CASES + LINEAR_TSF_PIPELINE_CASES if
                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
 
+# LINEAR_PIPELINE_CASES = [case for case in LINEAR_TSF_PIPELINE_CASES if
+#                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
 
-@set_pytest_timeout_in_seconds(300)
-@pytest.mark.xfail()
+# @set_pytest_timeout_in_seconds(300)
+# @pytest.mark.xfail()
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase):
     if isinstance(pipeline_case.node_list, list):

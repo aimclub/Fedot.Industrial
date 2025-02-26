@@ -147,8 +147,21 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
             svd_numbers = list(map(lambda dimension:
                                    [dimension_rank.append(self._transform_one_sample(signal, svd_flag=True))
                                     for signal in data[:, dimension, :]], number_of_dim))
+        
+            to_comp = []
+            for dim in number_of_dim:
+                dim_ranks = []
+                for sign in data[:, dim, :]:
+                    r = self._transform_one_sample(sign, svd_flag=True)
+                    dim_ranks.append(r.compute())
+                to_comp.append(dim_ranks)
+        
+        
         with threadpool_limits(limits=1, user_api='blas'):
-            list_of_ranks = dask.compute(*svd_numbers)
+            if not one_dim_predict:
+                list_of_ranks = np.array(to_comp).flatten().tolist()
+            else:
+                list_of_ranks = dask.compute(*svd_numbers)
         common_rank = mode_func(list_of_ranks)
         return common_rank
 
