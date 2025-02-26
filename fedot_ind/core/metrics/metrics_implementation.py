@@ -14,7 +14,7 @@ from sklearn.metrics import (
     max_error,
     mean_absolute_error,
     mean_absolute_percentage_error,
-    root_mean_squared_error,
+    # root_mean_squared_error,
     mean_squared_log_error,
     median_absolute_error,
     precision_score,
@@ -33,6 +33,15 @@ from fedot_ind.core.metrics.anomaly_detection.function import (
     single_detecting_boundaries,
     single_evaluate_nab,
 )
+
+def mean_squared_error(y_true, y_pred):
+    """Compute Mean Squared Error (MSE)."""
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean((y_true - y_pred) ** 2)
+
+def root_mean_squared_error(y_true, y_pred):
+    """Compute Root Mean Squared Error (RMSE)."""
+    return np.sqrt(mean_squared_error(y_true, y_pred))
 
 
 class ParetoMetrics:
@@ -110,10 +119,10 @@ class SMAPE(QualityMetric):
 
 class MSE(QualityMetric):
     def metric(self) -> float:
-        return root_mean_squared_error(
+        return mean_squared_error(
             y_true=self.target,
             y_pred=self.predicted_labels,
-        ) ** 2
+        )
 
 
 class MSLE(QualityMetric):
@@ -239,8 +248,8 @@ def calculate_regression_metric(target,
 
     target = target.astype(float)
 
-    def mean_squared_error(y_true, y_pred):
-        return root_mean_squared_error(y_true, y_pred) ** 2
+    # def mean_squared_error(y_true, y_pred):
+    #     return root_mean_squared_error(y_true, y_pred) ** 2
 
     metric_dict = {'r2': r2_score,
                    'mse': mean_squared_error,
