@@ -23,6 +23,8 @@ def ts_input_data():
     return train_test_data_setup(train_input, validation_blocks=None)
 
 # def test_nbeats_model(ts_input_data):
+
+
 def nbeats_model(ts_input_data):
     IndustrialModels().setup_repository()
     train, test = ts_input_data
