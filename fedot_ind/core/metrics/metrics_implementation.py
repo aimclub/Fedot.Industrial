@@ -34,10 +34,12 @@ from fedot_ind.core.metrics.anomaly_detection.function import (
     single_evaluate_nab,
 )
 
+
 def mean_squared_error(y_true, y_pred):
     """Compute Mean Squared Error (MSE)."""
     y_true, y_pred = np.array(y_true), np.array(y_pred)
     return np.mean((y_true - y_pred) ** 2)
+
 
 def root_mean_squared_error(y_true, y_pred):
     """Compute Root Mean Squared Error (RMSE)."""
