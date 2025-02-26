@@ -96,13 +96,13 @@ LINEAR_DETECTION_PIPELINE_CASES = [
 # TODO: temporarily workaround skip topological_*
 BANNED_LINEAR_PIPELINE_LABELS = [
     # 'topological_clf',
-                                #  'topological_reg',
-                                #  'composite_reg',
-                                 'topological_lgbm',
-                                 'composite_clf',
-                                 'stat_detector',
-                                 'conv_ae_detector',
-                                 'glm']
+    #  'topological_reg',
+    #  'composite_reg',
+    'topological_lgbm',
+    'composite_clf',
+    'stat_detector',
+    'conv_ae_detector',
+    'glm']
 LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF_PIPELINE_CASES
                          + LINEAR_DETECTION_PIPELINE_CASES + LINEAR_TSF_PIPELINE_CASES if
                          case.pipeline_label not in BANNED_LINEAR_PIPELINE_LABELS]
