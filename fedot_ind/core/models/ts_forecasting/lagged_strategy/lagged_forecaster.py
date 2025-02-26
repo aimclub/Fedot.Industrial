@@ -54,7 +54,8 @@ class LaggedAR(ModelImplementation):
     def _define_tuning_data(self, train_data):
         tuning_data = deepcopy(train_data)
         tuning_data.data_type = DataTypesEnum.table
-        tuning_data.task.task_type = TaskTypesEnum.regression
+        tuning_data.task.task_type = TaskTypesEnum.ts_forecasting
+        # tuning_data.task.task_type = TaskTypesEnum.regression
         return tuning_data
 
     def _create_tuner(self, search_space, tuning_params, tuning_data):
