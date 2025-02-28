@@ -131,14 +131,16 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
 
-    def apply_window_for_stat_feature(self, 
+    def apply_window_for_stat_feature(self,
                                       ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> np.ndarray:
 
-
         axis = ts_data.ndim - 1
-        window_size = round(ts_data.shape[axis] / 10) if window_size is None else round(ts_data.shape[axis] * (window_size / 100))
+        window_size = round(ts_data.shape[axis] /
+                            10) if window_size is None else round(ts_data.shape[axis] *
+                                                                  (window_size /
+                                                                   100))
         window_size = max(window_size, 5)
 
         if self.use_sliding_window:
@@ -148,10 +150,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                           window_size=window_size,
                                           strides=self.stride).trajectory_matrix
             else:
-                subseq_set = stride_repr.sliding_window_view(ts_data, 
-                                                             ts_data.shape[axis] - window_size, 
+                subseq_set = stride_repr.sliding_window_view(ts_data,
+                                                             ts_data.shape[axis] - window_size,
                                                              axis=axis)
-        
+
         else:
             subseq_set = None
 

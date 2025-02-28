@@ -50,8 +50,8 @@ LINEAR_REG_PIPELINE_CASES = [
         data_list=[
             dict(train_data=(np.random.rand(25, 100), np.random.rand(25)),
                  test_data=(np.random.rand(25, 100), np.random.rand(25))),
-            dict(train_data = (np.random.rand(25, 3, 100), np.random.rand(25)),
-            test_data = (np.random.rand(25, 3, 100), np.random.rand(25)))
+            dict(train_data=(np.random.rand(25, 3, 100), np.random.rand(25)),
+                 test_data=(np.random.rand(25, 3, 100), np.random.rand(25)))
         ],
         task='regression'
     ) for pipeline_label, node_list in VALID_LINEAR_REG_PIPELINE.items()
@@ -64,8 +64,8 @@ LINEAR_CLF_PIPELINE_CASES = [
         data_list=[
             dict(train_data=(np.random.rand(25, 50), np.random.randint(0, 2, 25)),
                  test_data=(np.random.rand(25, 50), np.random.randint(0, 2, 25))),
-            dict(train_data = (np.random.rand(25, 3, 50), np.random.randint(0, 2, 25)),
-            test_data = (np.random.rand(25, 3, 50), np.random.randint(0, 2, 25)))
+            dict(train_data=(np.random.rand(25, 3, 50), np.random.randint(0, 2, 25)),
+                 test_data=(np.random.rand(25, 3, 50), np.random.randint(0, 2, 25)))
         ],
         # data_list=[
         # 'Earthquakes',
@@ -109,7 +109,7 @@ BANNED_LINEAR_PIPELINE_LABELS = [
     'stat_detector',
     'conv_ae_detector',
     'glm'
-    ]
+]
 
 LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF_PIPELINE_CASES
                          + LINEAR_DETECTION_PIPELINE_CASES + LINEAR_TSF_PIPELINE_CASES if
@@ -117,10 +117,12 @@ LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF
 
 # @set_pytest_timeout_in_seconds(300)
 # @pytest.mark.xfail()
+
+
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase):
     path = os.path.join(PROJECT_PATH, 'cache')
-    
+
     # to be sure that test run well locally
     if os.path.exists(path):
         shutil.rmtree(path)
