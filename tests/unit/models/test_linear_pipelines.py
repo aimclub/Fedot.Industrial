@@ -1,9 +1,14 @@
 import numpy as np
 import pytest
+import logging
 
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import AbstractPipeline
 from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_REG_PIPELINE, VALID_LINEAR_CLF_PIPELINE, \
     VALID_LINEAR_DETECTION_PIPELINE, VALID_LINEAR_TSF_PIPELINE
+
+
+logging.basicConfig(level=logging.INFO)
+
 
 
 class LinearPipelineCase:
@@ -44,7 +49,7 @@ LINEAR_REG_PIPELINE_CASES = [
         data_list=[
             dict(train_data=(np.random.rand(25, 100), np.random.rand(25)),
                  test_data=(np.random.rand(25, 100), np.random.rand(25))),
-            #    dict(train_data = (np.random.rand(25, 3, 100), np.random.rand(25)),
+            # dict(train_data = (np.random.rand(25, 3, 100), np.random.rand(25)),
             # test_data = (np.random.rand(25, 3, 100), np.random.rand(25)))
         ],
         task='regression'
