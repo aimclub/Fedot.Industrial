@@ -25,4 +25,3 @@ if __name__ == "__main__":
                                  benchmark_params={'metadata': None,
                                                    'datasets': MULTI_REG_BENCH,
                                                    'model_to_compare': get_pdl_model_to_compare()})
-
