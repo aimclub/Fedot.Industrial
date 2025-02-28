@@ -8,7 +8,7 @@ readme = "README_en.rst"
 
 [tool.poetry.dependencies]
 python = ">=3.9, <3.12"
-fedot = "^0.7.4"
+fedot = { git = "https://github.com/aimclub/FEDOT.git", rev="master" }
 dask-ml = "^2024.4.4"
 spacy = ">=3.5,<3.6"
 fastai = "^2.7.18"
