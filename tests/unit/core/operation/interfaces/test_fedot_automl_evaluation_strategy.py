@@ -1,3 +1,4 @@
+import golem
 import numpy as np
 import pytest
 from fedot.core.data.data import InputData
@@ -11,8 +12,13 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 from tests.unit.api.fixtures import get_data_by_task
 
 
+def mock_message(self, msg: str, **kwargs):
+    level = 40
+    self.log(level, msg, **kwargs)
+
 @pytest.mark.parametrize('task', ('classification', 'regression'))
-def test_fedot_automl_strategy_fit_predict(task):
+def test_fedot_automl_strategy_fit_predict(task, monkeypatch):
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
     repo = IndustrialModels()
     repo.setup_default_repository()
     (x_train, y_train), _ = get_data_by_task(task)

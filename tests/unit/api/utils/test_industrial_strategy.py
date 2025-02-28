@@ -1,3 +1,4 @@
+import golem
 import pytest
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.repository.config_repository import DEFAULT_CLF_AUTOML_CONFIG, \
@@ -45,9 +46,14 @@ CONFIGS = {
     # 'forecasting_exogenous': {}
 }
 
+def mock_message(self, msg: str, **kwargs):
+    level = 40
+    self.log(level, msg, **kwargs)
+
 
 @pytest.mark.parametrize('strategy', STRATEGY)
-def test_custom_strategy(strategy):
+def test_custom_strategy(strategy, monkeypatch):
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
     if strategy in CONFIGS.keys():
         cnfg = CONFIGS[strategy]
         train_data, test_data = map(lambda x: (x[0].values, x[1]),
