@@ -1,3 +1,4 @@
+import golem.core.log
 import numpy as np
 import os
 import shutil
@@ -119,13 +120,20 @@ LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF
 # @pytest.mark.xfail()
 
 
+def mock_message(self, msg: str, **kwargs):
+    level = 40
+    self.log(level, msg, **kwargs)
+
+
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
-def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase):
+def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase, monkeypatch):
     path = os.path.join(PROJECT_PATH, 'cache')
 
     # to be sure that test run well locally
     if os.path.exists(path):
         shutil.rmtree(path)
+    # monkeypatch golem message function
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
 
     logging.basicConfig(level=logging.INFO)
     if isinstance(pipeline_case.node_list, list):
