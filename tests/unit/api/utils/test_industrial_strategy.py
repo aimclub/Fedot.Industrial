@@ -46,6 +46,7 @@ CONFIGS = {
     # 'forecasting_exogenous': {}
 }
 
+
 def mock_message(self, msg: str, **kwargs):
     level = 40
     self.log(level, msg, **kwargs)

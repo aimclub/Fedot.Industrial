@@ -16,6 +16,7 @@ def mock_message(self, msg: str, **kwargs):
     level = 40
     self.log(level, msg, **kwargs)
 
+
 @pytest.mark.parametrize('task', ('classification', 'regression'))
 def test_fedot_automl_strategy_fit_predict(task, monkeypatch):
     monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
