@@ -60,6 +60,11 @@ class EigenBasisImplementation(BasisDecompositionImplementation):
         with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
             with threadpool_limits(limits=1, user_api='blas'):
                 feature_matrix = dask.compute(*evaluation_results)
+
+        if not one_dim_predict:
+            feature_matrix = np.array(feature_matrix)
+            feature_matrix = np.swapaxes(feature_matrix, 0, 1)
+
         predict = [[np.array(v) if len(v) > 1 else v[0] for v in feature_matrix]]
         return predict
 
