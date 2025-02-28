@@ -42,4 +42,4 @@ if __name__ == "__main__":
     api_agent = ApiTemplate(api_config=api_config, metric_list=('accuracy', 'f1'))
     BENCHMARK, BENCHMARK_PARAMS = get_benchmark_setup()
     api_agent.evaluate_benchmark(benchmark_name=BENCHMARK,
-    benchmark_params = BENCHMARK_PARAMS)
+                                 benchmark_params=BENCHMARK_PARAMS)
