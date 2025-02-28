@@ -10,7 +10,6 @@ from fedot_ind.core.repository.constanst_repository import VALID_LINEAR_REG_PIPE
 logging.basicConfig(level=logging.INFO)
 
 
-
 class LinearPipelineCase:
     def __init__(self, pipeline_label, node_list, data_list, task, task_params=None):
         if task_params is None:
