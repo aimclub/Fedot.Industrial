@@ -49,8 +49,9 @@ class MatrixDecomposer:
         return tensor_approx
 
     def apply(self, tensor: np.ndarray):
-        # Step 1. Get lower bound for rank estimation. By default - 10 % of all data
-        self.min_components = int(min(tensor.shape) / 10) if self.min_components is None else self.min_components
+        # Step 1. Get lower bound for rank estimation. By default - 10 % of all data, at least 2
+        if self.min_components is None:
+            self.min_components = max(int(min(tensor.shape) / 10), 2)
         # Step 2. Get a decomposition of original tensor
         U, S, V = self.decomposition_strategy.decompose(tensor)
         # Step 3. Get spectrum regularization. In case of CUR decomposition we dont use it.

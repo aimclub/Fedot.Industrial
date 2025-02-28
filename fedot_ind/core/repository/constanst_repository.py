@@ -927,6 +927,9 @@ class BenchmarkDatasets(Enum):
 
 class UnitTestConstant(Enum):
     VALID_LINEAR_CLF_PIPELINE = {
+        'frequency_domain_clf': ['industrial_freq_clf'],
+        'manifold_clf': ['industrial_manifold_clf'],
+        'stat_clf': ['industrial_stat_clf'],
         'eigen_statistical': ['eigen_basis', 'quantile_extractor', 'logit'],
         'channel_filtration_statistical': ['channel_filtration', 'quantile_extractor', 'logit'],
         'fourier_statistical': ['fourier_basis', 'quantile_extractor', 'logit'],
@@ -942,6 +945,9 @@ class UnitTestConstant(Enum):
         },
     }
     VALID_LINEAR_REG_PIPELINE = {
+        'stat_reg': ['industrial_stat_reg'],
+        'freq_reg': ['industrial_freq_reg'],
+        'manifold_reg': ['industrial_manifold_reg'],
         'resnet_reg': ['resnet_model'],
         'inception_reg': ['inception_model'],
         'eigen_statistical_reg': ['eigen_basis', 'quantile_extractor', 'treg'],
