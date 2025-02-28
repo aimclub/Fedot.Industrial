@@ -782,7 +782,7 @@ class BenchmarkDatasets(Enum):
         'weather': 30}
     UNI_CLF_BENCH = [
         "ACSF1",
-        "Adiac",
+        # "Adiac",  # TODO: fix Adiac dataset infinite composition loop
         "ArrowHead",
         "Beef",
         "BeetleFly",
