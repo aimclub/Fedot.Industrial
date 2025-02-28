@@ -6,8 +6,8 @@ from fedot_ind.core.repository.config_repository import DEFAULT_CLF_AUTOML_CONFI
 
 from tests.unit.api.fixtures import get_industrial_params, get_data_by_task
 
-STRATEGY = ['federated_automl', 'lora_strategy', 
-            # 'kernel_automl', 
+STRATEGY = ['federated_automl', 'lora_strategy',
+            # 'kernel_automl',
             'forecasting_assumptions', 'forecasting_exogenous']
 
 
