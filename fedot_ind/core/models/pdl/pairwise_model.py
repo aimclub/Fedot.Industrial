@@ -240,9 +240,9 @@ class PairwiseDifferenceClassifier:
         predictions_proba_similarity_ba = predictions_proba_difference_sym[:, 0]
         predictions_proba_similarity = (predictions_proba_similarity_ab + predictions_proba_similarity_ba) / 2.
 
-        predictions_proba_similarity_df = pd.DataFrame(predictions_proba_similarity.reshape((-1, len(self.train_features))),
-                                                       index=pd.DataFrame(X).index,
-                                                       columns=pd.DataFrame(self.train_features).index)
+        predictions_proba_similarity_df = pd.DataFrame(
+            predictions_proba_similarity.reshape((-1, len(self.train_features))),
+            index=pd.DataFrame(X).index, columns=pd.DataFrame(self.train_features).index)
         return predictions_proba_similarity_df
 
     def __predict_with_prior(self, input_data: np.ndarray, sample_weight):
@@ -356,9 +356,9 @@ class PairwiseDifferenceClassifier:
         y_pair_diff = self.pde.pair_output_difference(input_data.target, self.target,
                                                       self.num_classes)  # 0 if similar, 1 if diff
         predictions_proba_similarity: pd.DataFrame = self.predict_similarity_samples(
-            input_data.features, 
+            input_data.features,
             # reshape=False
-            )  # 0% if different, 100% if similar
+        )  # 0% if different, 100% if similar
 
         return abs(y_pair_diff - (1 - predictions_proba_similarity).values.flatten()).mean()
 
