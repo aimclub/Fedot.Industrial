@@ -33,10 +33,10 @@ class ConvolutionalAutoEncoder(Module):
         self.encoder_layers = params.get('num_encoder_layers', 2)
         self.decoder_layers = params.get('num_decoder_layers', 2)
         self.latent_layer_params = params.get('latent_layer', 16)
-        self.convolutional_params = params.get('convolutional_params', dict(kernel_size=3, 
-                                                                            stride=2, 
+        self.convolutional_params = params.get('convolutional_params', dict(kernel_size=3,
+                                                                            stride=2,
                                                                             padding=1)
-                                                                            )
+                                               )
         self.activation_func = params.get('act_func', ReLU)
         self.dropout_rate = params.get('dropout_rate', 0.5)
 
