@@ -111,7 +111,7 @@ def test_fit_predict_fedot_industrial(metric_names, data_func, fedot_func):
             loaded_ppl = fedot_industrial.load(ppl_path)
             break
     assert isinstance(loaded_ppl, Pipeline)
-        
+
     shutil.rmtree(os.path.join(PROJECT_PATH, 'results'))
 
     assert predict.shape[0] == data[1].shape[0]
