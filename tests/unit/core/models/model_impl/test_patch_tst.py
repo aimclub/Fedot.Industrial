@@ -12,7 +12,7 @@ from fedot_ind.core.repository.initializer_industrial_models import IndustrialMo
 @pytest.fixture(scope='session')
 def ts_input_data():
     np.random.seed(34)
-    
+
     horizon = 5
     task = Task(TaskTypesEnum.ts_forecasting,
                 TsForecastingParams(forecast_length=horizon))
