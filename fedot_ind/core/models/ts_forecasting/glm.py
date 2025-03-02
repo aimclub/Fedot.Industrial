@@ -67,7 +67,7 @@ class GLMIndustrial(ModelImplementation):
                                   tuning_params=self.ar_tuning_params,
                                   train_data=input_data)
         self.auto_reg = tuned_model
-        residual = self.auto_reg.root_node.fitted_operation[0].autoreg.resid
+        residual = self.auto_reg.root_node.fitted_operation.autoreg.resid
         residual = np.nan_to_num(residual, nan=0, posinf=0, neginf=0)
         family = self._check_glm_params(kurtosis(residual), skew(residual))
         self.family_link = self.family_distribution[family]
