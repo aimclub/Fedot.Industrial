@@ -18,8 +18,10 @@ class PairwiseDifferenceEstimator:
     """
 
     def _convert_to_pandas(self, arr1, arr2):
-        if isinstance(arr1, np.ndarray) or isinstance(arr2, np.ndarray):
-            arr1, arr2 = pd.DataFrame(arr1), pd.DataFrame(arr2)
+        if isinstance(arr1, (pd.Series, np.ndarray)):
+            arr1 = pd.DataFrame(arr1)
+        if isinstance(arr2, (pd.Series, np.ndarray)):
+            arr2 = pd.DataFrame(arr2)
         return arr1, arr2
 
     def _to_pandas_regression(self, *args):
@@ -238,8 +240,7 @@ class PairwiseDifferenceClassifier:
         predictions_proba_similarity_ba = predictions_proba_difference_sym[:, 0]
         predictions_proba_similarity = (predictions_proba_similarity_ab + predictions_proba_similarity_ba) / 2.
 
-        predictions_proba_similarity_df = pd.DataFrame(predictions_proba_similarity.reshape((-1,
-                                                                                             len(self.train_features))),
+        predictions_proba_similarity_df = pd.DataFrame(predictions_proba_similarity.reshape((-1, len(self.train_features))),
                                                        index=pd.DataFrame(X).index,
                                                        columns=pd.DataFrame(self.train_features).index)
         return predictions_proba_similarity_df
@@ -355,9 +356,11 @@ class PairwiseDifferenceClassifier:
         y_pair_diff = self.pde.pair_output_difference(input_data.target, self.target,
                                                       self.num_classes)  # 0 if similar, 1 if diff
         predictions_proba_similarity: pd.DataFrame = self.predict_similarity_samples(
-            input_data.features, reshape=False)  # 0% if different, 100% if similar
+            input_data.features, 
+            # reshape=False
+            )  # 0% if different, 100% if similar
 
-        return abs(y_pair_diff - (1 - predictions_proba_similarity)).mean()
+        return abs(y_pair_diff - (1 - predictions_proba_similarity).values.flatten()).mean()
 
 
 class PairwiseDifferenceRegressor:
