@@ -8,6 +8,7 @@ from fedot_ind.core.models.nn.network_impl.common_model.transformer import Trans
 
 @pytest.fixture(scope='session')
 def input_data():
+    np.random.seed(34)
     features = np.random.rand(10, 4, 3)
     target = np.random.randint(0, 2, 10)
     return init_input_data(features, target)
