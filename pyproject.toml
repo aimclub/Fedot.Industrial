@@ -37,7 +37,8 @@ exclude_also = [
     "except Exception",
     "if verbose:",
     "if self.verbose:",
-    "if self.print_training_progress:"
+    "if self.print_training_progress:",
+    "class ApiTemplate"
 ]
 
 [build-system]

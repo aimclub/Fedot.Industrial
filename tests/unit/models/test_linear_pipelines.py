@@ -104,11 +104,11 @@ LINEAR_DETECTION_PIPELINE_CASES = [
 BANNED_LINEAR_PIPELINE_LABELS = [
     # 'topological_clf',
     # 'topological_reg',
+    # 'conv_ae_detector',
     'composite_reg',
     'topological_lgbm',
     'composite_clf',
     'stat_detector',
-    'conv_ae_detector',
     'glm'
 ]
 
