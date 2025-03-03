@@ -127,6 +127,7 @@ def mock_message(self, msg: str, **kwargs):
 
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase, monkeypatch):
+    np.random.seed(34)
     path = os.path.join(PROJECT_PATH, 'cache')
 
     # to be sure that test run well locally

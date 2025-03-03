@@ -10,3 +10,4 @@ ignore:
     - "fedot_ind/core/tuning/search_space.py"
     - "fedot_ind/core/repository/model_repository.py"
     - "fedot_ind/core/repository/constanst_repository.py"
+    - "fedot_ind/tools/example_utils.py"
