@@ -4,13 +4,14 @@ from fedot_ind.core.models.nn.network_modules.layers.conv_layers import Conv1d, 
 from fedot_ind.core.models.nn.network_modules.layers.linear_layers import *
 from fedot_ind.core.models.nn.network_modules.layers.pooling_layers import (
     AdaptiveWeightedAvgPool1d,
-    attentional_pool_head, 
-    GACP1d, 
-    GAP1d, 
+    attentional_pool_head,
+    GACP1d,
+    GAP1d,
     gwa_pool_head
 )
 from fastai.layers import SigmoidRange, LinBnDrop, AdaptiveConcatPool1d, BatchNorm
 from torch.nn import Conv3d
+
 
 def create_pool_head(n_in, output_dim, seq_len=None, concat_pool=False,
                      fc_dropout=0., batch_norm=False, y_range=None, **kwargs):
