@@ -73,7 +73,7 @@ def test_custom_strategy(strategy, monkeypatch):
 
         industrial = FedotIndustrial(**cnfg)
         assert industrial.manager.industrial_config.strategy is not None
-        train_data = (train_data[0], train_data[1].reshape(-1,1))
+        train_data = (train_data[0], train_data[1].reshape(-1, 1))
         industrial.fit(train_data)
         predict = industrial.predict(test_data)
 
