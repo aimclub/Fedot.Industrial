@@ -69,8 +69,8 @@ def generate_time_series(ts_length: int = 500,
         if dimension == 1:
             time_series[start_idx:end_idx] += anomaly
         else:
-            for i in range(time_series.shape[1]):
-                time_series[start_idx:end_idx, i] += anomaly
+            for j in range(time_series.shape[1]):
+                time_series[start_idx:end_idx, j] += anomaly
 
         if anomaly_class in anomaly_intervals:
             anomaly_intervals[anomaly_class].append([start_idx, end_idx])

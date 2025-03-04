@@ -101,7 +101,7 @@ def _are_stratification_allowed(
 
 
 def _are_cv_folds_allowed(
-        data: Union[InputData, MultiModalData], split_ratio: float, cv_folds: int) -> bool:
+        data: Union[InputData, MultiModalData], split_ratio: float, cv_folds: int):
     try:
         # fast way
         classes = np.unique(data.target, return_counts=True)
