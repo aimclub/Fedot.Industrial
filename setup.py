@@ -8,7 +8,7 @@ HERE = Path(__file__).parent.resolve()
 
 # The text of the README file
 NAME = 'fedot_ind'
-VERSION = '0.4.2'
+VERSION = '0.5.0'
 AUTHOR = 'NSS Lab'
 AUTHOR_EMAIL = 'itmo.nss.team@gmail.com'
 SHORT_DESCRIPTION = 'Automated machine learning framework for time series analysis'
@@ -16,7 +16,7 @@ LONG_DESC_TYPE = 'text/x-rst'
 README = Path(HERE, 'README_en.rst').read_text(encoding='utf-8')
 EXCLUDED_PACKAGES = ['test*', 'examples', 'benchmark']
 URL = 'https://github.com/aimclub/Fedot.Industrial'
-REQUIRES_PYTHON = '>=3.8'
+REQUIRES_PYTHON = '>=3.9'
 LICENSE = 'BSD 3-Clause'
 KEYWORDS = 'automated machine learning, time series analysis, anomaly detection, classification'
 
@@ -54,9 +54,9 @@ setuptools.setup(
     install_requires=_get_requirements('requirements.txt'),
     classifiers=[
         'License :: OSI Approved :: BSD License',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11'
     ],
     keywords=KEYWORDS
 )

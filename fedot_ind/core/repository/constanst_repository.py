@@ -1,4 +1,5 @@
 import math
+import pathlib
 from enum import Enum
 from multiprocessing import cpu_count
 
@@ -6,29 +7,46 @@ import numpy as np
 import pywt
 import spectrum
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
+from dask_ml.decomposition import TruncatedSVD as DaskSVD
+from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
+    FedotCatBoostRegressionImplementation, FedotCatBoostClassificationImplementation
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.metrics_repository import ClassificationMetricsEnum, RegressionMetricsEnum
 from fedot.core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from golem.core.tuning.optuna_tuner import OptunaTuner
+from golem.core.tuning.sequential import SequentialTuner
 from golem.core.tuning.simultaneous import SimultaneousTuner
+from lightgbm.sklearn import LGBMClassifier, LGBMRegressor
 from scipy.spatial.distance import euclidean, cosine, cityblock, correlation, chebyshev, \
     minkowski
+from sklearn.ensemble import ExtraTreesRegressor, GradientBoostingClassifier, \
+    RandomForestClassifier
+from sklearn.linear_model import (LinearRegression as linreg,
+                                  Lasso as SklearnLassoReg,
+                                  LogisticRegression as SklearnLogReg,
+                                  Ridge as SklearnRidgeReg,
+                                  SGDRegressor as SklearnSGD
+                                  )
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from torch import nn
+from xgboost import XGBRegressor
 
 from fedot_ind.core.metrics.metrics_implementation import calculate_classification_metric, calculate_regression_metric, \
     calculate_forecasting_metric, calculate_detection_metric
 from fedot_ind.core.models.nn.network_modules.losses import CenterLoss, CenterPlusLoss, ExpWeightedLoss, FocalLoss, \
     HuberLoss, LogCoshLoss, MaskedLossWrapper, RMSELoss, SMAPELoss, TweedieLoss
-from fedot_ind.core.models.quantile.stat_features import autocorrelation, ben_corr, crest_factor, energy, \
+from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot_ind.core.operation.transformation.representation.statistical.stat_features import autocorrelation, ben_corr, \
+    crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-from fedot_ind.core.models.topological.topofeatures import AverageHoleLifetimeFeature, \
+from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
     SimultaneousAliveHolesFeature, SumHoleLifetimeFeature
-from fedot_ind.core.models.ts_forecasting.eigen_autoreg import EigenAR
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,
@@ -56,7 +74,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                               "max_depth": 5,
                                               "learning_rate": 0.1,
                                               "min_data_in_leaf": 3,
-                                              "border_count": 32,
+                                              "max_bin": 32,
                                               "l2_leaf_reg": 1})
 
 
@@ -147,6 +165,22 @@ class DataTypeConstant(Enum):
     TRAJECTORY_MATRIX = HankelMatrix
 
 
+class PathConstant(Enum):
+    IND_DATA_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
+                                           'industrial_data_operation_repository.json')
+    DEFAULT_DATA_OPERATION_PATH = pathlib.Path('data_operation_repository.json')
+    IND_MODEL_OPERATION_PATH = pathlib.Path(PROJECT_PATH, 'fedot_ind', 'core', 'repository', 'data',
+                                            'industrial_model_repository.json')
+    DEFAULT_MODEL_OPERATION_PATH = pathlib.Path('model_repository.json')
+
+
+class SolverConstant(Enum):
+    SOLVER_MODELS = {'np_svd_solver': np.linalg.svd,
+                     'np_qr_solver': np.linalg.qr,
+                     'dask_svd_solver': DaskSVD
+                     }
+
+
 class FeatureConstant(Enum):
     STAT_METHODS = {
         'mean_': np.mean,
@@ -158,6 +192,13 @@ class FeatureConstant(Enum):
         'q25_': q25,
         'q75_': q75,
         'q95_': q95
+    }
+    BAGGING_METHOD = {
+        'mean': np.mean,
+        'median': np.median,
+        'max': np.max,
+        'min': np.min,
+        'weighted': linreg
     }
 
     STAT_METHODS_GLOBAL = {
@@ -275,7 +316,7 @@ class FedotOperationConstant(Enum):
                          }
     FEDOT_TUNING_METRICS = {
         'classification': ClassificationMetricsEnum.f1,
-        'ts_forecasting': RegressionMetricsEnum.MAPE,
+        'ts_forecasting': RegressionMetricsEnum.RMSE,  # RegressionMetricsEnum.MAPE,
         'regression': RegressionMetricsEnum.RMSE}
     FEDOT_DATA_TYPE = {
         'tensor': DataTypesEnum.image,
@@ -284,6 +325,7 @@ class FedotOperationConstant(Enum):
     FEDOT_TUNER_STRATEGY = {
         'optuna': OptunaTuner,
         'simultaneous': SimultaneousTuner,
+        'sequential': SequentialTuner,
     }
     FEDOT_HEAD_ENSEMBLE = {'regression': 'treg',
                            'classification': 'xgboost'}
@@ -317,33 +359,72 @@ class FedotOperationConstant(Enum):
     ]
 
     FEDOT_ASSUMPTIONS = {
-        'classification': PipelineBuilder().add_node('channel_filtration').
+        'classification': PipelineBuilder().
         add_node('quantile_extractor', params=stat_params).add_node('catboost', params=catboost_params),
         'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
         'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
         'regression_tabular': PipelineBuilder().add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
-        'ts_forecasting': PipelineBuilder().add_node('ar')}
+        'ts_forecasting': PipelineBuilder().add_node('ar')
+    }
 
     FEDOT_TS_FORECASTING_ASSUMPTIONS = {
-        'eigen_ar': EigenAR,
-        # 'fedot_forecast': PipelineBuilder().add_node('fedot_forecast'),
-        # 'nbeats': PipelineBuilder().add_node('nbeats_model'),
+        'nbeats': PipelineBuilder().add_node('nbeats_model'),
     }
+
+    FEDOT_INDUSTRIAL_STRATEGY = ['federated_automl',
+                                 'kernel_automl',
+                                 'forecasting_assumptions',
+                                 'forecasting_exogenous',
+                                 'lora_strategy',
+                                 'sampling_strategy']
 
     FEDOT_ENSEMBLE_ASSUMPTIONS = {
         'classification': PipelineBuilder().add_node('logit'),
         'regression': PipelineBuilder().add_node('treg')
     }
-
+    # mutation order - [param_change,model_change,add_preproc_model,drop_model,add_model]
     FEDOT_MUTATION_STRATEGY = {
-        'params_mutation_strategy': [0.4, 0.2, 0.2, 0.1, 0.1],
+        'params_mutation_strategy': [0.7, 0.3, 0.00, 0.00, 0.0],
         'growth_mutation_strategy': [0.15, 0.15, 0.3, 0.1, 0.3],
         'regularization_mutation_strategy': [0.2, 0.3, 0.1, 0.3, 0.1],
+        'initial_population_diversity_strategy': [0.0, 0.5, 0.5, 0.0, 0.0],
+        'unique_population_strategy': [0.0, 0.25, 0.5, 0.0, 0.25],
     }
 
     EXPLAINABLE_MODELS = ['recurrence_extractor',
                           ]
+    SKLEARN_CLF_MODELS = {
+        # boosting models (bid datasets)
+        'xgboost': GradientBoostingClassifier,
+        'catboost': FedotCatBoostClassificationImplementation,
+        # solo linear models
+        'logit': SklearnLogReg,
+        # solo tree models
+        'dt': DecisionTreeClassifier,
+        # ensemble tree models
+        'rf': RandomForestClassifier,
+        # solo nn models
+        'mlp': MLPClassifier,
+        # external models
+        'lgbm': LGBMClassifier,
+    }
+
+    SKLEARN_REG_MODELS = {
+        # boosting models (bid datasets)
+        'xgbreg': XGBRegressor,
+        'sgdr': SklearnSGD,
+        # ensemble tree models (big datasets)
+        'treg': ExtraTreesRegressor,
+        # solo linear models with regularization
+        'ridge': SklearnRidgeReg,
+        'lasso': SklearnLassoReg,
+        # solo tree models (small datasets)
+        'dtreg': DecisionTreeRegressor,
+        # external models
+        'lgbmreg': LGBMRegressor,
+        "catboostreg": FedotCatBoostRegressionImplementation
+    }
 
 
 class ModelCompressionConstant(Enum):
@@ -533,12 +614,175 @@ class BenchmarkDatasets(Enum):
                             'Y5735', 'Y5899', 'Y6057', 'Y6131', 'Y6269', 'Y62', 'Y6574', 'Y6695', 'Y6716', 'Y6752',
                             'Y7134', 'Y7490', 'Y7503',
                             'Y7642', 'Y7690', 'Y7692', 'Y7942', 'Y7943', 'Y7967']
+    M4_FORECASTING_BENCH_SMALL = [
+        'D1002',
+        'D1019',
+        'D1032',
+        'D1101',
+        'D1104',
+        'D1124',
+        'D1162',
+        'D1170',
+        'D1204',
+        'D1219',
+        'M10641',
+        'M1080',
+        'M11230',
+        'M11654',
+        'M11779',
+        'M11806',
+        'M12209',
+        'M12241',
+        'M12422',
+        'M12452',
+        'Q10070',
+        'Q10262',
+        'Q10292',
+        'Q10466',
+        'Q10598',
+        'Q10665',
+        'Q1069',
+        'Q10743',
+        'Q10800',
+        'Q10881',
+        'W103',
+        'W105',
+        'W106',
+        'W107',
+        'W109',
+        'W10',
+        'W110',
+        'W111',
+        'W113',
+        'W116',
+        'Y10907',
+        'Y10908',
+        'Y11041',
+        'Y1107',
+        'Y11106',
+        'Y11116',
+        'Y11430',
+        'Y13802',
+        'Y14055',
+        'Y14324']
+    M4_FORECASTING_BENCH_SMALL_DAILY = ['D1002', 'D1019', 'D1032',
+                                        'D1101', 'D1104', 'D1124', 'D1162', 'D1170', 'D1204', 'D1219']
+    M4_FORECASTING_BENCH_SMALL_MONTHLY = [
+        'M10641',
+        'M1080',
+        'M11230',
+        'M11654',
+        'M11779',
+        'M11806',
+        'M12209',
+        'M12241',
+        'M12422',
+        'M12452']
+    M4_FORECASTING_BENCH_SMALL_QUARTERLY = ['Q10070', 'Q10262', 'Q10292',
+                                            'Q10466', 'Q10598', 'Q10665', 'Q1069', 'Q10743', 'Q10800', 'Q10881']
+    M4_FORECASTING_BENCH_SMALL_WEEKLY = ['W103', 'W105', 'W106', 'W107', 'W109', 'W10', 'W110', 'W111', 'W113', 'W116']
+    M4_FORECASTING_BENCH_SMALL_YEARLY = [
+        'Y10907',
+        'Y10908',
+        'Y11041',
+        'Y1107',
+        'Y11106',
+        'Y11116',
+        'Y11430',
+        'Y13802',
+        'Y14055',
+        'Y14324']
     M4_FORECASTING_LENGTH = {'D': 14, 'W': 13, 'M': 18, 'Q': 8, 'Y': 6}
+    M4_SEASONALITY = {'D': 1, 'W': 1, 'M': 12, 'Q': 4, 'Y': 1}
     M4_PREFIX = {'D': 'Daily', 'W': 'Weekly',
                  'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly'}
+    MONASH_FORECASTING_BENCH = [
+        'australian_electricity_demand',
+        'bitcoin',
+        'car_parts',
+        'cif_2016',
+        'covid_deaths',
+        'dominick',
+        'electricity_hourly',
+        'electricity_weekly',
+        'fred_md',
+        'hospital',
+        'kaggle_web_traffic',
+        'kdd_cup',
+        'm1_monthly',
+        'm1_quarterly',
+        'm1_yearly',
+        'm3_monthly',
+        'm3_quarterly',
+        'm3_yearly',
+        'm4_daily',
+        'm4_hourly',
+        'm4_monthly',
+        'm4_quarterly',
+        'm4_weekly',
+        'm4_yearly',
+        'nn5_daily',
+        'nn5_weekly',
+        'pedestrian_counts',
+        'rideshare',
+        'saugeen_river_flow',
+        'solar_10_minutes',
+        'solar_weekly',
+        'sunspot',
+        'temperature_rain',
+        'tourism_monthly',
+        'tourism_quarterly',
+        'tourism_yearly',
+        'traffic_hourly',
+        'traffic_weekly',
+        'us_births',
+        'vehicle_trips',
+        'weather']
+    MONASH_FORECASTING_LENGTH = {
+        'australian_electricity_demand': 336,
+        'bitcoin': 30,
+        'car_parts': 12,
+        'cif_2016': 12,
+        'covid_deaths': 30,
+        'dominick': 8,
+        'electricity_hourly': 168,
+        'electricity_weekly': 8,
+        'fred_md': 12,
+        'hospital': 12,
+        'kaggle_web_traffic': 8,
+        'kdd_cup': 168,
+        'm1_monthly': 18,
+        'm1_quarterly': 8,
+        'm1_yearly': 6,
+        'm3_monthly': 18,
+        'm3_quarterly': 8,
+        'm3_yearly': 6,
+        'm4_daily': 14,
+        'm4_hourly': 48,
+        'm4_monthly': 18,
+        'm4_quarterly': 8,
+        'm4_weekly': 13,
+        'm4_yearly': 6,
+        'nn5_daily': 56,
+        'nn5_weekly': 8,
+        'pedestrian_counts': 24,
+        'rideshare': 168,
+        'saugeen_river_flow': 30,
+        'solar_10_minutes': 1008,
+        'solar_weekly': 5,
+        'sunspot': 30,
+        'temperature_rain': 30,
+        'tourism_monthly': 24,
+        'tourism_quarterly': 8,
+        'tourism_yearly': 4,
+        'traffic_hourly': 168,
+        'traffic_weekly': 8,
+        'us_births': 30,
+        'vehicle_trips': 30,
+        'weather': 30}
     UNI_CLF_BENCH = [
         "ACSF1",
-        "Adiac",
+        # "Adiac",  # TODO: fix Adiac dataset infinite composition loop
         "ArrowHead",
         "Beef",
         "BeetleFly",
@@ -683,6 +927,9 @@ class BenchmarkDatasets(Enum):
 
 class UnitTestConstant(Enum):
     VALID_LINEAR_CLF_PIPELINE = {
+        'frequency_domain_clf': ['industrial_freq_clf'],
+        'manifold_clf': ['industrial_manifold_clf'],
+        'stat_clf': ['industrial_stat_clf'],
         'eigen_statistical': ['eigen_basis', 'quantile_extractor', 'logit'],
         'channel_filtration_statistical': ['channel_filtration', 'quantile_extractor', 'logit'],
         'fourier_statistical': ['fourier_basis', 'quantile_extractor', 'logit'],
@@ -698,6 +945,9 @@ class UnitTestConstant(Enum):
         },
     }
     VALID_LINEAR_REG_PIPELINE = {
+        'stat_reg': ['industrial_stat_reg'],
+        'freq_reg': ['industrial_freq_reg'],
+        'manifold_reg': ['industrial_manifold_reg'],
         'resnet_reg': ['resnet_model'],
         'inception_reg': ['inception_model'],
         'eigen_statistical_reg': ['eigen_basis', 'quantile_extractor', 'treg'],
@@ -717,7 +967,8 @@ class UnitTestConstant(Enum):
         'stl_arima': ['stl_arima'],
         'topological_lgbm': ['topological_extractor', 'lgbmreg'],
         'ar': ['ar'],
-        'eigen_autoregression': ['eigen_basis', 'ar'],
+        'eigen_autoregression': ['eigen_forecaster'],
+        # 'eigen_autoregression': ['eigen_basis', 'ar'],
         'smoothed_ar': ['smoothing', 'ar'],
         'gaussian_ar': ['gaussian_filter', 'ar'],
         'glm': ['glm'],
@@ -737,6 +988,7 @@ class UnitTestConstant(Enum):
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
 STAT_METHODS_GLOBAL = FeatureConstant.STAT_METHODS_GLOBAL.value
+BAGGING_METHOD = FeatureConstant.BAGGING_METHOD.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
 PERSISTENCE_DIAGRAM_EXTRACTOR = FeatureConstant.PERSISTENCE_DIAGRAM_EXTRACTOR.value
 DISCRETE_WAVELETS = FeatureConstant.DISCRETE_WAVELETS.value
@@ -752,6 +1004,11 @@ KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GEN
 KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 KERNEL_DISTANCE_METRIC = KernelsConstant.KERNEL_DISTANCE_METRIC.value
 
+SOLVER_MODELS = SolverConstant.SOLVER_MODELS.value
+DEFAULT_SVD_SOLVER = SOLVER_MODELS['np_svd_solver']
+DEFAULT_QR_SOLVER = SOLVER_MODELS['np_qr_solver']
+DASK_SVD_SOLVER = SOLVER_MODELS['dask_svd_solver']
+
 AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMALY_DETECTION_OPERATIONS.value
 AVAILABLE_REG_OPERATIONS = FedotOperationConstant.AVAILABLE_REG_OPERATIONS.value
 AVAILABLE_CLS_OPERATIONS = FedotOperationConstant.AVAILABLE_CLS_OPERATIONS.value
@@ -765,10 +1022,13 @@ FEDOT_ASSUMPTIONS = FedotOperationConstant.FEDOT_ASSUMPTIONS.value
 FEDOT_API_PARAMS = FedotOperationConstant.FEDOT_API_PARAMS.value
 FEDOT_ENSEMBLE_ASSUMPTIONS = FedotOperationConstant.FEDOT_ENSEMBLE_ASSUMPTIONS.value
 FEDOT_TUNER_STRATEGY = FedotOperationConstant.FEDOT_TUNER_STRATEGY.value
+FEDOT_INDUSTRIAL_STRATEGY = FedotOperationConstant.FEDOT_INDUSTRIAL_STRATEGY.value
 FEDOT_TS_FORECASTING_ASSUMPTIONS = FedotOperationConstant.FEDOT_TS_FORECASTING_ASSUMPTIONS.value
 FEDOT_DATA_TYPE = FedotOperationConstant.FEDOT_DATA_TYPE.value
 FEDOT_MUTATION_STRATEGY = FedotOperationConstant.FEDOT_MUTATION_STRATEGY.value
 EXPLAINABLE_MODELS = FedotOperationConstant.EXPLAINABLE_MODELS.value
+SKLEARN_CLF_IMP = FedotOperationConstant.SKLEARN_CLF_MODELS.value
+SKLEARN_REG_IMP = FedotOperationConstant.SKLEARN_REG_MODELS.value
 
 CPU_NUMBERS = ComputationalConstant.CPU_NUMBERS.value
 BATCH_SIZE_FOR_FEDOT_WORKER = ComputationalConstant.BATCH_SIZE_FOR_FEDOT_WORKER.value
@@ -779,6 +1039,11 @@ PATIENCE_FOR_EARLY_STOP = ComputationalConstant.PATIENCE_FOR_EARLY_STOP.value
 MULTI_ARRAY = DataTypeConstant.MULTI_ARRAY.value
 MATRIX = DataTypeConstant.MATRIX.value
 TRAJECTORY_MATRIX = DataTypeConstant.TRAJECTORY_MATRIX.value
+
+IND_MODEL_OPERATION_PATH = PathConstant.IND_MODEL_OPERATION_PATH.value
+IND_DATA_OPERATION_PATH = PathConstant.IND_DATA_OPERATION_PATH.value
+DEFAULT_DATA_OPERATION_PATH = PathConstant.DEFAULT_DATA_OPERATION_PATH.value
+DEFAULT_MODEL_OPERATION_PATH = PathConstant.DEFAULT_MODEL_OPERATION_PATH.value
 
 ENERGY_THR = ModelCompressionConstant.ENERGY_THR.value
 DECOMPOSE_MODE = ModelCompressionConstant.DECOMPOSE_MODE.value
@@ -805,7 +1070,16 @@ MULTI_REG_BENCH = BenchmarkDatasets.MULTI_REG_BENCH.value
 UNI_CLF_BENCH = BenchmarkDatasets.UNI_CLF_BENCH.value
 MULTI_CLF_BENCH = BenchmarkDatasets.MULTI_CLF_BENCH.value
 M4_FORECASTING_BENCH = BenchmarkDatasets.M4_FORECASTING_BENCH.value
+M4_FORECASTING_BENCH_SMALL = BenchmarkDatasets.M4_FORECASTING_BENCH_SMALL.value
+M4_FORECASTING_BENCH_SMALL_DAILY = BenchmarkDatasets.M4_FORECASTING_BENCH_SMALL_DAILY.value
+M4_FORECASTING_BENCH_SMALL_MONTHLY = BenchmarkDatasets.M4_FORECASTING_BENCH_SMALL_MONTHLY.value
+M4_FORECASTING_BENCH_SMALL_QUARTERLY = BenchmarkDatasets.M4_FORECASTING_BENCH_SMALL_QUARTERLY.value
+M4_FORECASTING_BENCH_SMALL_WEEKLY = BenchmarkDatasets.M4_FORECASTING_BENCH_SMALL_WEEKLY.value
+M4_FORECASTING_BENCH_SMALL_YEARLY = BenchmarkDatasets.M4_FORECASTING_BENCH_SMALL_YEARLY.value
 M4_FORECASTING_LENGTH = BenchmarkDatasets.M4_FORECASTING_LENGTH.value
+M4_SEASONALITY = BenchmarkDatasets.M4_SEASONALITY.value
+MONASH_FORECASTING_BENCH = BenchmarkDatasets.MONASH_FORECASTING_BENCH.value
+MONASH_FORECASTING_LENGTH = BenchmarkDatasets.MONASH_FORECASTING_LENGTH.value
 M4_PREFIX = BenchmarkDatasets.M4_PREFIX.value
 
 VALID_LINEAR_CLF_PIPELINE = UnitTestConstant.VALID_LINEAR_CLF_PIPELINE.value
