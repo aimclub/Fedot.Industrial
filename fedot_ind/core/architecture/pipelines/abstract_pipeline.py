@@ -1,25 +1,25 @@
 import json
 import os
 import time
-from typing import Union
 from datetime import date as current_date
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from fedot.core.data.data import InputData
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from pymonad.either import Either
-from examples.example_utils import load_monash_dataset
 
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.checkers_collections import DataCheck
 from fedot_ind.core.metrics.metrics_implementation import RMSE, Accuracy, F1, R2
+from fedot_ind.core.repository.constanst_repository import MONASH_FORECASTING_BENCH, M4_SEASONALITY
 from fedot_ind.core.repository.industrial_implementations.abstract import build_tuner
 from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
 from fedot_ind.core.repository.model_repository import NEURAL_MODEL
+from fedot_ind.tools.example_utils import load_monash_dataset
 from fedot_ind.tools.loader import DataLoader
 from fedot_ind.tools.serialisation.path_lib import EXAMPLES_DATA_PATH, PATH_TO_DEFAULT_PARAMS
-from fedot_ind.core.repository.constanst_repository import MONASH_FORECASTING_BENCH, M4_SEASONALITY
 
 BENCHMARK = 'M4'
 
@@ -212,7 +212,7 @@ class ApiTemplate:
     def evaluate_benchmark(self, benchmark_name, benchmark_params: dict):
         for dataset in benchmark_params['datasets']:
             print(f'\nEvaluating {dataset} dataset')
-            result_dict = dict()
+
             if benchmark_name.__contains__('M4'):
                 dataset_for_eval = self._prepare_forecasting_data(dataset, benchmark_name, benchmark_params)
             elif benchmark_name.__contains__('SKAB'):

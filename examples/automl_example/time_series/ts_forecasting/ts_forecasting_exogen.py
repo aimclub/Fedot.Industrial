@@ -1,6 +1,6 @@
 import numpy as np
 
-from examples.example_utils import load_monash_dataset
+from fedot_ind.tools.example_utils import load_monash_dataset
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, DEFAULT_TSF_AUTOML_CONFIG
 

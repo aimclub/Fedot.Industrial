@@ -73,7 +73,10 @@ class PDCDataTransformer:
 
     def cast_uint(self, X: pd.DataFrame, y: pd.Series = None):
         numeric_cols = X.select_dtypes(include=['number']).columns
-        X.loc[:, numeric_cols] = X[numeric_cols].astype('float32')
+
+        for col in numeric_cols:
+            X[col] = X[col].astype('float32')
+
         if y is not None:
             y = y.astype('float32')
         return X, y

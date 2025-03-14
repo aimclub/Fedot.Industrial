@@ -1,13 +1,16 @@
 import golem
+import shutil
+import os
 import pytest
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.repository.config_repository import DEFAULT_CLF_AUTOML_CONFIG, \
     DEFAULT_COMPUTE_CONFIG, DEFAULT_CLF_LEARNING_CONFIG, DEFAULT_AUTOML_LEARNING_CONFIG
 
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 from tests.unit.api.fixtures import get_industrial_params, get_data_by_task
 
 STRATEGY = ['federated_automl', 'lora_strategy',
-            # 'kernel_automl',
+            'kernel_automl',
             'forecasting_assumptions', 'forecasting_exogenous']
 
 
@@ -58,6 +61,11 @@ def mock_message(self, msg: str, **kwargs):
 def test_custom_strategy(strategy, monkeypatch):
     monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
     if strategy in CONFIGS.keys():
+        # clear cache before execution
+        cache_folder = os.path.join(PROJECT_PATH, 'cache')
+        if os.path.exists(cache_folder):
+            shutil.rmtree(cache_folder)
+
         cnfg = CONFIGS[strategy]
         train_data, test_data = map(lambda x: (x[0].values, x[1]),
                                     get_data_by_task(cnfg['industrial_config']['problem']))
@@ -65,7 +73,7 @@ def test_custom_strategy(strategy, monkeypatch):
 
         industrial = FedotIndustrial(**cnfg)
         assert industrial.manager.industrial_config.strategy is not None
-
+        train_data = (train_data[0], train_data[1].reshape(-1, 1))
         industrial.fit(train_data)
         predict = industrial.predict(test_data)
 

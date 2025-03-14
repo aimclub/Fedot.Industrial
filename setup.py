@@ -16,7 +16,7 @@ LONG_DESC_TYPE = 'text/x-rst'
 README = Path(HERE, 'README_en.rst').read_text(encoding='utf-8')
 EXCLUDED_PACKAGES = ['test*', 'examples', 'benchmark']
 URL = 'https://github.com/aimclub/Fedot.Industrial'
-REQUIRES_PYTHON = '>=3.8'
+REQUIRES_PYTHON = '>=3.9'
 LICENSE = 'BSD 3-Clause'
 KEYWORDS = 'automated machine learning, time series analysis, anomaly detection, classification'
 

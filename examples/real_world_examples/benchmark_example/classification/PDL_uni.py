@@ -16,6 +16,7 @@ def filter_datasets(UNI_CLF_BENCH, max_classes: int = 10, max_samples: int = 100
     UNI_CLF_BENCH_METADATA = UNI_CLF_BENCH_METADATA[UNI_CLF_BENCH_METADATA['Name'].isin(filtered_by_samples)]
     return UNI_CLF_BENCH, UNI_CLF_BENCH_METADATA
 
+
 def get_pdl_model_to_compare():
     model_to_compare = [{0: ['quantile_extractor', 'rf']},
                         {0: ['quantile_extractor', 'pdl_clf']}]

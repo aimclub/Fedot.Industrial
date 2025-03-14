@@ -56,6 +56,7 @@ from fedot_ind.core.models.pdl.pairwise_model import PairwiseDifferenceClassifie
 from fedot_ind.core.models.regression.freq_domain_regressor import FrequencyRegressor
 from fedot_ind.core.models.regression.manifold_domain_regressor import ManifoldRegressor
 from fedot_ind.core.models.regression.stat_domain_regressor import StatRegressor
+from fedot_ind.core.models.ts_forecasting.glm import GLMIndustrial
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.eigen_forecaster import EigenAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster import LaggedAR
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
@@ -185,6 +186,7 @@ class AtomizedModel(Enum):
         # variational
         'deepar_model': DeepAR,
         'tcn_model': TCNModel,
+        'glm': GLMIndustrial
         # 'locf': RepeatLastValueImplementation
     }
 

@@ -153,7 +153,7 @@ def gwa_pool_head(n_in, output_dim, seq_len, batch_norm=True, fc_dropout=0.):
     return nn.Sequential(
         GlobalWeightedAveragePool1d(
             n_in, seq_len), Reshape(), LinBnDrop(
-            n_in, output_dim, p=fc_dropout, batch_norm=batch_norm))
+            n_in, output_dim, p=fc_dropout, bn=batch_norm))
 
 
 class AttentionalPool1d(Module):

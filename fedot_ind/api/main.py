@@ -325,7 +325,7 @@ class FedotIndustrial(Fedot):
                 model_to_tune: model to fine-tune
                 train_data: raw train data
                 tuning_params: dictionary with tuning parameters
-                mode: str, ``default='head'``. Defines the mode of fine-tuning. Could be 'full' or 'head'.
+                return_only_fitted: ``default=False``. Defines what to return.
 
             """
 

@@ -104,12 +104,12 @@ LINEAR_DETECTION_PIPELINE_CASES = [
 BANNED_LINEAR_PIPELINE_LABELS = [
     # 'topological_clf',
     # 'topological_reg',
+    # 'conv_ae_detector',
+    # 'glm'
     'composite_reg',
     'topological_lgbm',
     'composite_clf',
     'stat_detector',
-    'conv_ae_detector',
-    'glm'
 ]
 
 LINEAR_PIPELINE_CASES = [case for case in LINEAR_REG_PIPELINE_CASES + LINEAR_CLF_PIPELINE_CASES
@@ -127,6 +127,7 @@ def mock_message(self, msg: str, **kwargs):
 
 @pytest.mark.parametrize('pipeline_case', LINEAR_PIPELINE_CASES, ids=str)
 def test_valid_linear_pipelines(pipeline_case: LinearPipelineCase, monkeypatch):
+    np.random.seed(34)
     path = os.path.join(PROJECT_PATH, 'cache')
 
     # to be sure that test run well locally

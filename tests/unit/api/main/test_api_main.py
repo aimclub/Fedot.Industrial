@@ -1,4 +1,6 @@
+import os
 import warnings
+import shutil
 
 import numpy as np
 import pytest
@@ -8,8 +10,11 @@ from matplotlib import get_backend, pyplot as plt
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.core.repository.config_repository import DEFAULT_CLF_AUTOML_CONFIG, DEFAULT_COMPUTE_CONFIG, \
     DEFAULT_REG_AUTOML_CONFIG
+from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 from fedot_ind.tools.synthetic.synth_ts_data import SynthTimeSeriesData
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
+
+from fedot.core.pipelines.pipeline import Pipeline
 
 
 def univariate_clf_data():
@@ -92,6 +97,22 @@ def test_fit_predict_fedot_industrial(metric_names, data_func, fedot_func):
                                            predict_proba,
                                            target=data[1],
                                            metric_names=metric_names)
+
+    fedot_industrial.save()
+
+    for file in ['labels.csv', 'metrics.csv', 'optimization_history.json']:
+        filepath = os.path.join(PROJECT_PATH, 'results', file)
+        assert os.path.isfile(filepath)
+
+    # search for pipeline
+    for file in os.listdir(os.path.join(PROJECT_PATH, 'results')):
+        if 'pipeline_saved' in file:
+            ppl_path = os.path.join(PROJECT_PATH, 'results', file)
+            loaded_ppl = fedot_industrial.load(ppl_path)
+            break
+    assert isinstance(loaded_ppl, Pipeline)
+
+    shutil.rmtree(os.path.join(PROJECT_PATH, 'results'))
 
     assert predict.shape[0] == data[1].shape[0]
     assert predict_proba.shape[0] == data[1].shape[0]

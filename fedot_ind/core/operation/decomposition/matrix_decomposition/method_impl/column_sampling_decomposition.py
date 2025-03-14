@@ -43,7 +43,7 @@ class CURDecomposition:
         self.column_space = 'Full'
         self.fitted = True
 
-    def _convert_to_output(selfm,
+    def _convert_to_output(self,
                            prediction: np.ndarray,
                            predict_data: InputData,
                            output_data_type: DataTypesEnum = DataTypesEnum.table) -> OutputData:
