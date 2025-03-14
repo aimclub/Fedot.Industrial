@@ -108,6 +108,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method responsible for generation of features from time series.
         """
+        pass
 
     def generate_features_from_array(self, array: np.array) -> np.array:
         """
