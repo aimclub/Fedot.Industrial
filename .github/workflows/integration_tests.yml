@@ -1,8 +1,10 @@
 name: Integration Tests
 
 on:
-#  push:
-#    branches: [ main ]
+  schedule:
+    - cron: '0 12 * * *'
+  push:
+    branches: [ main ]
 #  pull_request:
 #    branches: [ main ]
   workflow_dispatch:
@@ -10,7 +12,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       matrix:
         python-version: [3.8, 3.9, '3.10']
@@ -23,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.local/share/poetry/virtualenvs/  # Cache Poetry virtualenvs
           key: ${{ runner.os }}-poetry-${{ hashFiles('pyproject.toml') }}  # Cache key based on project dependencies
@@ -39,10 +41,10 @@ jobs:
         run: poetry install
 
       - name: Run tests with pytest
-        run: poetry run pytest --cov=fedot_ind -s tests/integration
+        run: poetry run pytest -s --cov=fedot_ind tests/integration -vvv
 
       - name: Codecov-coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           flags: unittests
