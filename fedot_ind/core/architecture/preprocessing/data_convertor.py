@@ -380,8 +380,7 @@ class NumpyConverter:
 
         elif self.numpy_data.ndim > 3:
             return self.numpy_data.squeeze()
-        assert False, print(
-            f'Please, review input dimensions {self.numpy_data.ndim}')
+        assert False, f'Please, review input dimensions {self.numpy_data.ndim}'
 
     def convert_to_ts_format(self):
         if self.numpy_data.ndim > 1:
