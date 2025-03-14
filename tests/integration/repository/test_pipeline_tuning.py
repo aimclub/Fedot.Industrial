@@ -34,24 +34,24 @@ def initialize_multi_data():
 
 
 def test_industrial_uni_series():
-    with IndustrialModels():
-        train_data, test_data = initialize_uni_data()
+    train_data, test_data = DataLoader('Lightning7').load_data()
 
-        metrics = {}
-        for extractor_name in ['topological_extractor',
-                               'quantile_extractor',
-                               # 'signal_extractor',
-                               'recurrence_extractor']:
-            pipeline = PipelineBuilder() \
-                .add_node('eigen_basis') \
-                .add_node(extractor_name) \
-                .add_node('rf').build()
-            model = Fedot(problem='classification', timeout=1,
-                          initial_assumption=pipeline, n_jobs=1)
-            model.fit(train_data)
-            model.predict(test_data)
-            model.get_metrics()
-        print(metrics)
+    api_config = dict(task='classification',
+                      timeout=1,
+                      n_jobs=-1)
+    api_config = ApiConfigCheck().update_config_with_kwargs(DEFAULT_CLF_API_CONFIG,
+                                                            **api_config)
+    print(api_config)
+    model = FedotIndustrial(**api_config)
+    model.fit(train_data)
+    labels = model.predict(test_data)
+    probs = model.predict_proba(test_data)
+    metrics = model.get_metrics(labels=labels,
+                                probs=probs,
+                                target=test_data[1],
+                                rounding_order=3,
+                                metric_names=('accuracy', 'f1'))
+    assert isinstance(metrics, dict)
 
 
 def test_tuner_industrial_uni_series():
