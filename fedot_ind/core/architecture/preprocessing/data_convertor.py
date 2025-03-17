@@ -242,8 +242,10 @@ class TensorConverter:
                     np.array(data.values.tolist()).astype(float))
             else:
                 return torch.from_numpy(data.values)
-        elif isinstance(data, InputData):
+        elif isinstance(data, InputData) and isinstance(data.features, np.ndarray):
             return torch.from_numpy(data.features)
+        elif isinstance(data, InputData) and isinstance(data.features, pd.DataFrame):
+            return torch.from_numpy(data.features.values)
         else:
             print(f"Can't convert {type(data)} to torch.Tensor", Warning)
 
@@ -711,12 +713,13 @@ class DataConverter(TensorConverter, NumpyConverter):
     def convert_data_to_3d(self):
         if self.data.ndim == 3:
             return self.data
-        if isinstance(self.data, (np.ndarray, pd.self.dataFrame)):
+        if isinstance(self.data, (np.ndarray, pd.DataFrame)):
             return self.convert_to_3d_array()
         if isinstance(self.data, torch.Tensor):
             return self.convert_to_3d_tensor()
 
     def convert_to_monad_data(self):
+
         if self.input_data_is_fedot_data:
             features = np.array(ListMonad(*self.data.features.tolist()).value)
         else:
