@@ -26,26 +26,28 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential git  # Required for giotto-tda
+          sudo apt-get install -y cmake build-essential git
 
-      - name: Install uv package manager
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/poetry/virtualenvs/  # Cache Poetry virtualenvs
+          key: ${{ runner.os }}-poetry-${{ hashFiles('pyproject.toml') }}  # Cache key based on project dependencies
 
-      - name: Create and activate virtualenv
-        run: |
-          uv venv .venv
-          source .venv/bin/activate
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.2  # Specify your desired Poetry version (pin it for stability)
+          virtualenvs-create: true
+          virtualenvs-in-project: true  # Create venv within project directory
 
-      - name: Install dependencies with uv
+      - name: Install dependencies
         run: |
-          uv pip install --upgrade pip
-          uv pip install -e . --no-build-isolation
-          uv pip install pytest pytest-cov
+          poetry install --no-root
+          poetry install --no-root --extras "all"
 
       - name: Run tests
-        run: pytest --cov=fedot_ind tests/integration --cov-report=xml -vvv
+        run: poetry run pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
 
       - name: Codecov-coverage
         uses: codecov/codecov-action@v4
