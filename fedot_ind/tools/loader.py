@@ -91,15 +91,15 @@ class DataLoader:
             train_data, test_data = self.load_detection_data(self.dataset_name)
         elif specific_strategy in ['ts_forecasting', 'forecasting_assumptions']:
             train_data, test_data = self.load_forecast_data(self.folder)
+        elif specific_strategy is not None:
+            train_data, test_data = self.load_data(self.dataset_name)
         return train_data, test_data
 
     def load_custom_data(self, specific_strategy: Optional[str] = None):
         dict_dataset = isinstance(self.dataset_name, dict)
         if dict_dataset and 'train_data' in self.dataset_name.keys():
             return self.dataset_name['train_data'], self.dataset_name['test_data']
-        elif specific_strategy is not None:
-            return self._load_benchmark_data(specific_strategy)
-        return None, None
+        return self._load_benchmark_data(specific_strategy)
 
     def load_data(self, shuffle: bool = True) -> tuple:
         """Load data for classification experiment locally or externally from UCR archive.
