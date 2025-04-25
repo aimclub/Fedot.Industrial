@@ -55,6 +55,7 @@ jobs:
           pip3 install pytest
           pip3 install -e . --force-reinstall
           pip3 install pytest-cov
+          pip3 install --upgrade dask-ml
 
       - name: Run integration tests
         run: python -m pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
