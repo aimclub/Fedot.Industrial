@@ -45,7 +45,7 @@ jobs:
 #        run: |
 #          poetry install --no-root
 #          poetry install --no-root --extras "all"
-      - name: PIP venv
+      - name: Create and activate pip venv
         run: |
           python -m venv venv
           source venv/bin/activate
@@ -56,8 +56,9 @@ jobs:
           pip3 install -e . --force-reinstall
           pip3 install pytest-cov
 
-      - name: Run tests
-        run: poetry run pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
+      - name: Run integration tests
+        run: python -m pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
+        # run: poetry run pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
 
       - name: Codecov-coverage
         uses: codecov/codecov-action@v4
