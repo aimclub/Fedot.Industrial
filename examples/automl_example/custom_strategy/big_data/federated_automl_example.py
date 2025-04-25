@@ -1,7 +1,6 @@
-from fedot_ind.api.utils.checkers_collections import ApiConfigCheck
 from fedot_ind.core.architecture.pipelines.abstract_pipeline import ApiTemplate
 from fedot_ind.core.repository.config_repository import DEFAULT_COMPUTE_CONFIG, DEFAULT_AUTOML_LEARNING_CONFIG, \
-    DEFAULT_CLF_AUTOML_CONFIG, DEFAULT_CLF_API_CONFIG
+    DEFAULT_CLF_AUTOML_CONFIG
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
