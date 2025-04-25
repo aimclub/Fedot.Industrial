@@ -68,15 +68,8 @@ def industrial_evaluate_pipeline(self, graph: Pipeline) -> Fitness:
         if evaluated_fitness.valid:
             folds_metrics.append(evaluated_fitness.values)
         else:
-            try:
-                self._log.warning(f'Invalid fitness after objective evaluation. '
-                                  f'Skipping the graph: {graph_id}', raise_if_test=False)
-            except Exception:
-                self._log.warning(f'Invalid fitness after objective evaluation. '
-                                  f'Skipping the graph: {graph_id}')
-                evaluated_fitness = self._objective(prepared_pipeline,
-                                                    reference_data=test_data,
-                                                    validation_blocks=self._validation_blocks)
+            self._log.warning(f'Invalid fitness after objective evaluation. Skipping the graph: {graph_id}',
+                              raise_if_test=False)
         if self._do_unfit:
             graph.unfit()
     if folds_metrics:
