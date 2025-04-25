@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip3 install pytest
-          pip3 install -e .
+          pip3 install -e . --force-reinstall
           pip3 install pytest-cov
 
       - name: Run tests
