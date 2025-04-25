@@ -82,7 +82,7 @@ def generate_time_series(ts_length: int = 500,
     return time_series, anomaly_intervals
 
 
-@pytest.skip('Anomaly detection skipped due to invalid data generation')
+@pytest.mark.skip('Anomaly detection skipped due to invalid data generation')
 @pytest.mark.parametrize('dimension', [1, 3])
 def test_anomaly_detection(dimension):
     np.random.seed(42)
