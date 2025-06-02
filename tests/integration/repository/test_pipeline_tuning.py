@@ -1,3 +1,5 @@
+import golem.core.log
+
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
 from fedot.core.pipelines.tuning.tuner_builder import TunerBuilder
 from golem.core.tuning.sequential import SequentialTuner
@@ -24,7 +26,15 @@ def initialize_multi_data():
     return train_input_data, test_input_data
 
 
-def test_industrial_uni_series():
+def mock_message(self, msg: str, **kwargs):
+    level = 40
+    self.log(level, msg, **kwargs)
+
+
+def test_industrial_uni_series(monkeypatch):
+    # monkeypatch golem message function
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
+
     IndustrialModels().setup_repository()
     train_data, test_data = DataLoader('Lightning7').load_data()
 
@@ -44,7 +54,10 @@ def test_industrial_uni_series():
                       metric_names=('accuracy', 'f1'))
 
 
-def test_tuner_industrial_uni_series():
+def test_tuner_industrial_uni_series(monkeypatch):
+    # monkeypatch golem message function
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
+
     IndustrialModels().setup_repository()
     train_data, test_data = initialize_uni_data()
     # search_space = SearchSpace(get_industrial_search_space(1))

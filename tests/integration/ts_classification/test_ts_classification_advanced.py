@@ -1,10 +1,19 @@
+import golem.core.log
 from fedot_ind.api.main import FedotIndustrial
 from fedot_ind.api.utils.checkers_collections import ApiConfigCheck
 from fedot_ind.core.repository.config_repository import DEFAULT_CLF_API_CONFIG
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
-def test_federated_clf():
+def mock_message(self, msg: str, **kwargs):
+    level = 40
+    self.log(level, msg, **kwargs)
+
+
+def test_federated_clf(monkeypatch):
+    # monkeypatch golem message function
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
+
     config = dict(task='classification',
                   metric='f1',
                   timeout=5,
