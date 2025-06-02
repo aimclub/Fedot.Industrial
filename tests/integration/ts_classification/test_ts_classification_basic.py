@@ -16,7 +16,7 @@ def mock_message(self, msg: str, **kwargs):
 @pytest.mark.parametrize('dataset_name',
                          ['Lightning7', 'Epilepsy'],
                          ids=['univariate', 'multivariate'])
-def test_basic_tsc_test(dataset_name):
+def test_basic_tsc_test(dataset_name, monkeypatch):
     # monkeypatch golem message function
     monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
 
