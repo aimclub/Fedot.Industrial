@@ -7,7 +7,7 @@ license = "BSD 3-Clause"
 readme = "README_en.rst"
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.12"
+python = ">=3.9, <3.12"
 fedot = { git = "https://github.com/aimclub/FEDOT.git" }
 dask-ml = "^2024.4.4"
 spacy = ">=3.5,<3.6"
