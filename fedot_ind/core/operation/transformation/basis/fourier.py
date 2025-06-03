@@ -73,8 +73,14 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         return
 
     def _build_spectrum(self, input_data):
-        estimator = self.estimator(input_data, self.min_rank)
-        estimator.run()
+        try:
+            estimator = self.estimator(input_data, self.min_rank)
+            estimator.run()
+        except AssertionError:
+            old_min_rank, self.min_rank = self.min_rank, self.min_rank // 2
+            self.log.info(f'Value of min_rank changed from {old_min_rank} to {self.min_rank}')
+            estimator = self.estimator(input_data, self.min_rank)
+            estimator.run()
         return estimator
 
     def _decompose_signal(self, input_data):

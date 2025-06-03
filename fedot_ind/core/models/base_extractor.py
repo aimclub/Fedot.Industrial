@@ -31,6 +31,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.current_window = None
         self.relevant_features = None
         self.predict = None
+        self.add_global_features = params.get('add_global_features', True)
 
         self.stride = 3
         self.n_processes = math.ceil(cpu_count() * 0.7) if cpu_count() > 1 else 1
@@ -108,10 +109,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         Method responsible for generation of features from time series.
         """
 
-    def generate_features_from_array(self, ts_frame: np.array) -> np.array:
+    def generate_features_from_array(self, array: np.array) -> np.array:
         """
         Method responsible for generation of features from time series.
         """
+        statistical_representation = self.get_statistical_features(array,
+                                                                   add_global_features=self.add_global_features,
+                                                                   axis=2)
+        return [x for x in statistical_representation if x is not None]
 
     def get_statistical_features(self, time_series: np.ndarray,
                                  add_global_features: bool = False,

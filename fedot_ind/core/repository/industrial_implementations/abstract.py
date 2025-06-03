@@ -369,7 +369,9 @@ def predict_operation_industrial(
         data: InputData,
         params: Optional[OperationParameters] = None,
         output_mode: str = 'default',
-        is_fit_stage: bool = False):
+        is_fit_stage: bool = False,
+        *args,
+        **kwargs):
     is_main_target = data.supplementary_data.is_main_target
     data_flow_length = data.supplementary_data.data_flow_length
     self._init(data.task, output_mode=output_mode, params=params,
@@ -404,7 +406,9 @@ def predict_industrial(self,
                        data: InputData,
                        params: Optional[Union[OperationParameters,
                                               dict]] = None,
-                       output_mode: str = 'labels'):
+                       output_mode: str = 'labels',
+                       *args,
+                       **kwargs):
     """This method is used for defining and running of the evaluation strategy
     to predict with the data provided
 
@@ -428,7 +432,9 @@ def predict_for_fit_industrial(
         fitted_operation,
         data: InputData,
         params: Optional[OperationParameters] = None,
-        output_mode: str = 'default'):
+        output_mode: str = 'default',
+        *args,
+        **kwargs):
     """This method is used for defining and running of the evaluation strategy
     to predict with the data provided during fit stage
 

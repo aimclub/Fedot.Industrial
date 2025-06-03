@@ -1,5 +1,6 @@
-fedot==0.7.4
+fedot==0.7.5
 dask-ml==2024.4.4
+spacy>=3.5,<3.6
 fastai==2.7.18
 giotto-tda==0.6.0
 scikit-tda==1.1.1

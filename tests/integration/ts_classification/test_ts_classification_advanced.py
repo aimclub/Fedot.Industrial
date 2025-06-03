@@ -1,30 +1,28 @@
+import golem.core.log
 from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.tools.loader import DataLoader
+from fedot_ind.api.utils.checkers_collections import ApiConfigCheck
+from fedot_ind.core.repository.config_repository import DEFAULT_CLF_API_CONFIG
 from fedot_ind.tools.synthetic.ts_datasets_generator import TimeSeriesDatasetsGenerator
 
 
-def multi_data():
-    train_data, test_data = DataLoader(dataset_name='Epilepsy').load_data()
-    return train_data, test_data
+def mock_message(self, msg: str, **kwargs):
+    level = 40
+    self.log(level, msg, **kwargs)
 
 
-def uni_data():
-    train_data, test_data = DataLoader(dataset_name='Lightning7').load_data()
-    return train_data, test_data
+def test_federated_clf(monkeypatch):
+    # monkeypatch golem message function
+    monkeypatch.setattr(golem.core.log.LoggerAdapter, 'message', mock_message)
 
-
-def combinations(data, strategy):
-    return [[d, s] for d in data for s in strategy]
-
-
-def test_federated_clf():
-    api_config = dict(problem='classification',
-                      metric='f1',
-                      timeout=5,
-                      n_jobs=2,
-                      industrial_strategy='federated_automl',
-                      industrial_strategy_params={},
-                      logging_level=20)
+    config = dict(task='classification',
+                  metric='f1',
+                  timeout=5,
+                  n_jobs=2,
+                  industrial_strategy='federated_automl',
+                  industrial_strategy_params={},
+                  logging_level=20)
+    api_config = ApiConfigCheck().update_config_with_kwargs(DEFAULT_CLF_API_CONFIG,
+                                                            **config)
 
     # Huge synthetic dataset for experiment
     train_data, test_data = TimeSeriesDatasetsGenerator(num_samples=1800,
@@ -39,7 +37,3 @@ def test_federated_clf():
     predict = industrial.predict(test_data)
 
     assert predict is not None
-
-
-# ['federated_automl',
-#  'kernel_automl',]

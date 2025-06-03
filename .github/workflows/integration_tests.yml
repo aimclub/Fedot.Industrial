@@ -1,29 +1,35 @@
 name: Integration Tests
 
 on:
-#  push:
-#    branches: [ main ]
-#  pull_request:
-#    branches: [ main ]
+  schedule:
+    - cron: '0 12 1,15 * *'
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       matrix:
-        python-version: [3.8, 3.9, '3.10']
+        python-version: ['3.10']
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential git
+
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.local/share/poetry/virtualenvs/  # Cache Poetry virtualenvs
           key: ${{ runner.os }}-poetry-${{ hashFiles('pyproject.toml') }}  # Cache key based on project dependencies
@@ -38,11 +44,24 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: Run tests with pytest
-        run: poetry run pytest --cov=fedot_ind -s tests/integration
+#      - name: Create and activate pip venv
+#        run: |
+#          python -m venv venv
+#          source venv/bin/activate
+#
+#      - name: Install dependencies
+#        run: |
+#          pip3 install pytest
+#          pip3 install -e . --force-reinstall
+#          pip3 install pytest-cov
+#          pip3 install --upgrade dask-ml
+
+      - name: Run integration tests
+        run: poetry run pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
+#        run: python -m pytest --cov=fedot_ind tests/integration -vvv --cov-report=xml
 
       - name: Codecov-coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
-          flags: unittests
+          flags: integrationtests

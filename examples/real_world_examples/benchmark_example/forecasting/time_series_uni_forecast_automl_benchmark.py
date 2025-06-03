@@ -19,10 +19,10 @@ finutune_existed_model = [True, False, True, True]
 BENCHMARK = 'M4'
 EVALUATED = []
 DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
-BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
-                    'metadata': M4_FORECASTING_LENGTH,
-                    'datasets': DATASETS,
-                    'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
+# BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
+#                     'metadata': M4_FORECASTING_LENGTH,
+#                     'datasets': DATASETS,
+#                     'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
 EVAL_REGIME = True
 
 FORECASTING_BENCH = 'automl_univariate'
@@ -35,7 +35,7 @@ AUTOML_CONFIG = {'task': 'ts_forecasting',
                  'optimisation_strategy': {'optimisation_strategy': {'mutation_agent': 'random',
                                                                      'mutation_strategy': 'growth_mutation_strategy'},
                                            'optimisation_agent': 'Industrial'}}
-AUTOML_LEARNING_STRATEGY = dict(timeout=10,
+AUTOML_LEARNING_STRATEGY = dict(timeout=5,
                                 n_jobs=4,
                                 with_tuning=True,
                                 pop_size=10,
@@ -56,9 +56,9 @@ API_CONFIG = {'industrial_config': INDUSTRIAL_CONFIG,
 if __name__ == "__main__":
     api_agent = ApiTemplate(api_config=API_CONFIG, metric_list=('rmse', 'mae'))
     if EVAL_REGIME:
-        EVALUATED = os.listdir('./M4_23_01_25/ar')
-        DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
-        BENCHMARK_PARAMS = {'experiment_date': '23_01_25',
+        # EVALUATED = os.listdir('./M4_23_01_25/ar')
+        # DATASETS = [x for x in M4_FORECASTING_BENCH if x not in EVALUATED]
+        BENCHMARK_PARAMS = {'experiment_date': '10_05_25',
                             'metadata': M4_FORECASTING_LENGTH,
                             'datasets': DATASETS,
                             'model_to_compare': (model_to_compare, model_name, finutune_existed_model)}
