@@ -116,10 +116,10 @@ class LaggedAR(ModelImplementation):
         forecast_length = input_data.task.task_params.forecast_length
 
         # Calculate n_rows based on actual array size to ensure exact division
-        if prediction.predict.size % forecast_length != 0:
+        if prediction.predict.shape[0] % forecast_length != 0:
             # Trim the prediction array to make it divisible by forecast_length
-            trimmed_size = (prediction.predict.size // forecast_length) * forecast_length
-            prediction.predict = prediction.predict[:trimmed_size]
+            trimmed_size = (prediction.predict.shape[0] // forecast_length) * forecast_length
+            prediction.predict = prediction.predict[:trimmed_size, ...]
 
         n_rows = prediction.predict.size // forecast_length
         n_cols = forecast_length
