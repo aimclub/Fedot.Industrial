@@ -112,8 +112,21 @@ class LaggedAR(ModelImplementation):
     def _predict(self, input_data: InputData) -> OutputData:
         input_data = self._create_pcd(input_data, False)
         prediction = self.tuned_model.predict(input_data)
-        n_rows, n_cols = round(prediction.predict.shape[0] / input_data.task.task_params.forecast_length), \
-            input_data.task.task_params.forecast_length
+
+        forecast_length = input_data.task.task_params.forecast_length
+
+        # Calculate n_rows based on actual array size to ensure exact division
+        if prediction.predict.shape[0] % forecast_length != 0:
+            # Trim the prediction array to make it divisible by forecast_length
+            trimmed_size = (prediction.predict.shape[0] // forecast_length) * forecast_length
+            if trimmed_size == 0:
+                raise ValueError(
+                    "Forecast length is greater than the number of predictions, resulting in an invalid trimmed size.")
+            prediction.predict = prediction.predict[:trimmed_size, ...]
+
+        n_rows = prediction.predict.size // forecast_length
+        n_cols = forecast_length
+
         prediction.predict = prediction.predict.reshape(n_rows, n_cols)
         return prediction
 
