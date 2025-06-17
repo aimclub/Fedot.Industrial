@@ -119,6 +119,8 @@ class LaggedAR(ModelImplementation):
         if prediction.predict.shape[0] % forecast_length != 0:
             # Trim the prediction array to make it divisible by forecast_length
             trimmed_size = (prediction.predict.shape[0] // forecast_length) * forecast_length
+            if trimmed_size == 0:
+                raise ValueError("Forecast length is greater than the number of predictions, resulting in an invalid trimmed size.")
             prediction.predict = prediction.predict[:trimmed_size, ...]
 
         n_rows = prediction.predict.size // forecast_length
