@@ -5,8 +5,8 @@ from typing import Optional, Union, Callable
 
 import numpy as np
 from fedot.core.data.data import InputData, OutputData
-from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy, \
-    is_multi_output_task
+from fedot.core.operations.evaluation.evaluation_interfaces import convert_to_multivariate_model, EvaluationStrategy
+from fedot.core.utils import is_multi_output_target
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.repository.dataset_types import DataTypesEnum
 from fedot.core.repository.operation_types_repository import get_operation_type_from_id, OperationTypesRepository
@@ -161,7 +161,7 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
         is_model_not_support_multi = self.operation_type in OperationTypesRepository().suitable_operation(
             task_type=train_data.task.task_type, tags=['non_multi'])
         not_fedot_input_data = len(signature(self.operation_condition.operation_implementation.fit).parameters) > 1
-        is_multi_target = is_multi_output_task(train_data)
+        is_multi_target = is_multi_output_target(train_data)
         model_multi_adaptation = all([is_model_not_support_multi, is_multi_target])
 
         operation_implementation = Either(value=train_data,
