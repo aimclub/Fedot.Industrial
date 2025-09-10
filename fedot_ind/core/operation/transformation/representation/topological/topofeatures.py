@@ -2,6 +2,7 @@ from abc import ABC
 from multiprocessing.dummy import Pool as ThreadPool
 
 import pandas as pd
+import numpy as np
 from gtda.diagrams import BettiCurve, Filtering, PersistenceEntropy, PersistenceLandscape, Scaler
 from gtda.homology import VietorisRipsPersistence
 
@@ -62,7 +63,8 @@ class PersistenceDiagramsExtractor:
             metric='euclidean',
             homology_dimensions=self.homology_dimensions_,
             n_jobs=self.n_job)
-        diagram_scaler = Scaler(n_jobs=self.n_job)
+        # TODO: remove workaround (gtda expects `function` to be a plain function, not a NumPy dispatcher)
+        diagram_scaler = Scaler(function=lambda x: float(np.max(x)), n_jobs=self.n_job)
         persistence_diagrams = diagram_scaler.fit_transform(
             vr.fit_transform([embedding]))
         if self.filtering_:
