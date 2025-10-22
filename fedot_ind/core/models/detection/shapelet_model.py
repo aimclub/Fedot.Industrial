@@ -68,26 +68,25 @@ class ShapeletAnomalyDetector(AnomalyDetector):
             raise ValueError("Модель не обучена")
 
         distances = self._calculate_distances(input_data, self.shapelets)
-        return -self.model_impl.decision_function(distances)
+        scores = self.model_impl.decision_function(distances)
+        return scores
 
     def predict(self, input_data: InputData) -> np.ndarray:
         scores = self.decision_function(input_data)
-        threshold = np.quantile(scores, self.contamination)
-        return (scores >= threshold).astype(int)
+        # threshold = np.quantile(scores, self.contamination)
+        return (scores < 0).astype(int)
 
     def predict_proba(self, input_data: InputData) -> np.ndarray:
         return self.decision_function(input_data)
 
 
-class OptimizedShapeletAnomalyDetector(AnomalyDetector):
+class OptimizedShapeletAnomalyDetector(ShapeletAnomalyDetector):
     """
     Shapelet детектор с оптимизацией shapelet через градиентный спуск
     """
 
     def __init__(self, gradient_shapelet_params: dict = GRADIENT_SHAPELET_DEFAULT_PARAMS):
         super().__init__(gradient_shapelet_params)
-        self.model_params = gradient_shapelet_params
-        self.shapelets_ = None
 
     def _optimize_shapelet(self, X: np.ndarray) -> List[np.ndarray]:
         """Оптимизация shapelet через минимизацию расстояний"""
@@ -179,6 +178,3 @@ class OptimizedShapeletAnomalyDetector(AnomalyDetector):
 
         return np.array(distances)
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        scores = self.decision_function(X)
-        return (scores >= self.threshold_).astype(int)
