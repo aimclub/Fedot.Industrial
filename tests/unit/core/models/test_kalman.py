@@ -1,6 +1,9 @@
-import pytest
 import numpy as np
-from fedot_ind.core.models.detection.probalistic.kalman import AbstractKalmanFilter, UnscentedKalmanFilter, reshape_z
+import pytest
+
+from fedot_ind.core.models.detection.outdated.probalistic.kalman import AbstractKalmanFilter, UnscentedKalmanFilter, \
+    reshape_z
+
 
 # Fixture for creating an instance of AbstractKalmanFilter
 

@@ -1,6 +1,9 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from scipy.linalg import solve_triangular
 from sklearn.decomposition import PCA
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
+
+
 # from core.operation.transformation.regularization.lp_reg import compute_penalty_matrix
 
 

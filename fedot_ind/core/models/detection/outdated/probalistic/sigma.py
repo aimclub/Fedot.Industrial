@@ -1,6 +1,7 @@
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from numpy import array, eye, zeros
 from scipy.linalg import block_diag, cholesky
+
+from fedot_ind.core.architecture.settings.computational import backend_methods as np
 
 
 class MerweScaledSigmaPoints:

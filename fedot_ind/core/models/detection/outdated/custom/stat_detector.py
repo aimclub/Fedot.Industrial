@@ -4,7 +4,6 @@ import numpy as np
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-
 from fedot_ind.core.models.detection.anomaly_detector import AnomalyDetector
 
 
