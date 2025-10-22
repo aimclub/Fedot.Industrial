@@ -3,6 +3,9 @@ from typing import Union
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import pandas as pd
+from fedot.core.data.data import InputData
+from fedot.core.repository.dataset_types import DataTypesEnum
+from fedot.core.repository.tasks import Task, TaskTypesEnum
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.tools.synthetic.anomalies import AddNoise, DecreaseDispersion, Dip, IncreaseDispersion, Peak, \
@@ -248,3 +251,97 @@ if __name__ == '__main__':
     init_synth_ts, mod_synth_ts, synth_inters = generator.generate(
         time_series_data=synth_ts, plot=True, overlap=0.1)
     _ = 1
+
+
+def generate_univariate_anomaly_data(n_samples: int = 1000, n_anomalies: int = 50,
+                                     random_state: int = 42) -> tuple:
+    """Генерация одномерных временных рядов с аномалиями"""
+    np.random.seed(random_state)
+
+    # Нормальные данные: синус + шум
+    time = np.linspace(0, 4 * np.pi, n_samples)
+    normal_data = np.sin(time) + 0.1 * np.random.normal(size=n_samples)
+
+    # Создание аномалий
+    anomalies_indices = np.random.choice(n_samples, size=n_anomalies, replace=False)
+    anomalies_data = normal_data.copy()
+
+    for idx in anomalies_indices:
+        # Разные типы аномалий
+        anomaly_type = np.random.choice(['spike', 'level_shift', 'variance_change'])
+
+        if anomaly_type == 'spike':
+            anomalies_data[idx] += 3 * np.random.randn()
+        elif anomaly_type == 'level_shift':
+            anomalies_data[idx:min(idx + 5, n_samples)] += 2
+        else:  # variance_change
+            window = slice(max(0, idx - 3), min(n_samples, idx + 4))
+            anomalies_data[window] += 1.5 * np.random.randn(len(anomalies_data[window]))
+
+    # Метки аномалий
+    labels = np.zeros(n_samples)
+    labels[anomalies_indices] = 1
+    anomalies_data = anomalies_data.reshape(-1, 1)
+    input_data = InputData(idx=np.arange(len(anomalies_data)),
+                           features=anomalies_data,
+                           target=labels,
+                           task=Task(TaskTypesEnum.classification),
+                           data_type=DataTypesEnum.table)
+    return input_data
+
+
+def generate_multivariate_anomaly_data(n_samples: int = 1000, n_features: int = 3,
+                                       n_anomalies: int = 50, random_state: int = 42) -> tuple:
+    """Генерация многомерных временных рядов с аномалиями"""
+    np.random.seed(random_state)
+
+    # Базовые сигналы
+    time = np.linspace(0, 4 * np.pi, n_samples)
+    data = np.column_stack([
+        np.sin(time),
+        np.cos(0.5 * time),
+        np.sin(2 * time + 1)
+    ])
+
+    # Добавление коррелированного шума
+    covariance = np.array([[1.0, 0.7, 0.3],
+                           [0.7, 1.0, 0.5],
+                           [0.3, 0.5, 1.0]])
+
+    noise = np.random.multivariate_normal(
+        mean=np.zeros(n_features),
+        cov=covariance,
+        size=n_samples
+    )
+
+    data += 0.1 * noise
+
+    # Добавление аномалий
+    anomalies_indices = np.random.choice(n_samples, size=n_anomalies, replace=False)
+    labels = np.zeros(n_samples)
+
+    for idx in anomalies_indices:
+        labels[idx] = 1
+        # Аномалии в разных измерениях
+        feature_idx = np.random.randint(0, n_features)
+        anomaly_magnitude = 2 + np.random.randn()
+        data[idx, feature_idx] += anomaly_magnitude
+
+    return data, labels
+
+
+def generate_online_anomaly_data():
+    # Генерация данных с дрейфом
+    np.random.seed(42)
+    n_samples = 1000
+
+    # Первая часть данных
+    time1 = np.linspace(0, 2 * np.pi, n_samples // 2)
+    data1 = np.sin(time1).reshape(-1, 1) + 0.1 * np.random.normal(size=(n_samples // 2, 1))
+
+    # Вторая часть данных с дрейфом
+    time2 = np.linspace(2 * np.pi, 4 * np.pi, n_samples // 2)
+    data2 = 1.5 * np.sin(time2).reshape(-1, 1) + 0.2 * np.random.normal(size=(n_samples // 2, 1))
+
+    X_online = np.vstack([data1, data2])
+    return X_online
