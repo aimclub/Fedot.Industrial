@@ -111,6 +111,16 @@ class ComputationalConstant(Enum):
     PATIENCE_FOR_EARLY_STOP = 15
 
 
+class AnomalyDetectionConstant(Enum):
+    PREFIX_DEFAULT_PARAMS = {'contamination': 0.1, 'n_quantiles': 10, 'random_state': 42}
+    STATE_TRANSITION_DEFAULT_PARAMS = dict(contamination=0.1, states=5)
+    SHAPELET_DEFAULT_PARAMS = {'contamination': 0.1, 'shapelet_length': 10, 'batch_size': 10,
+                               'n_shapelets': 5, 'random_state': 42}
+    GRADIENT_SHAPELET_DEFAULT_PARAMS = dict(contamination=0.1, shapelet_length=10,
+                                            n_shapelets=3, learning_rate=0.01,
+                                            n_epochs=100, random_state=42)
+
+
 class KernelsConstant(Enum):
     KERNEL_ALGO = {
         'one_step_heur': FHeuristic,
@@ -998,6 +1008,11 @@ SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
 SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
+
+PREFIX_DEFAULT_PARAMS = AnomalyDetectionConstant.PREFIX_DEFAULT_PARAMS.value
+STATE_TRANSITION_DEFAULT_PARAMS = AnomalyDetectionConstant.STATE_TRANSITION_DEFAULT_PARAMS.value
+GRADIENT_SHAPELET_DEFAULT_PARAMS = AnomalyDetectionConstant.GRADIENT_SHAPELET_DEFAULT_PARAMS.value
+SHAPELET_DEFAULT_PARAMS = AnomalyDetectionConstant.SHAPELET_DEFAULT_PARAMS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value

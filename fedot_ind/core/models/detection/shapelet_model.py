@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 from fedot.core.data.data import InputData
@@ -7,10 +7,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.utils.validation import check_random_state
 
 from .base import AnomalyDetector
-
-SHAPELET_DEFAULT_PARAMS = {'contamination': 0.1, 'shapelet_length': 10, 'n_shapelets': 5, 'random_state': 42}
-GRADIENT_SHAPELET_DEFAULT_PARAMS = dict(contamination=0.1, shapelet_length=10, n_shapelets=3, learning_rate=0.01,
-                                        n_epochs=100)
+from ...repository.constanst_repository import SHAPELET_DEFAULT_PARAMS, GRADIENT_SHAPELET_DEFAULT_PARAMS
 
 
 class ShapeletAnomalyDetector(AnomalyDetector):
@@ -23,9 +20,7 @@ class ShapeletAnomalyDetector(AnomalyDetector):
         self.model_params = shapelet_params
         self.shapelets = []
 
-    def _get_detection_features(self, input_data: InputData) -> List[np.ndarray]:
-        """Извлечение shapelet из данных"""
-        X = input_data.features
+    def _init_random_shapelet(self, X: np.ndarray):
         rng = check_random_state(self.model_params['random_state'])
         series_length, n_series = X.shape
 
@@ -37,47 +32,37 @@ class ShapeletAnomalyDetector(AnomalyDetector):
             shapelet = X[start_idx:start_idx + self.model_params['shapelet_length'], series_idx]
             self.shapelets.append(shapelet)
 
-        return self._calculate_distances(input_data, self.shapelets)
+    def _get_detection_features(self, X: np.ndarray) -> List[np.ndarray]:
+        """Извлечение shapelet из данных"""
+        self._init_random_shapelet(X)
 
-    def _calculate_distances(self, input_data: InputData, shapelets: List[np.ndarray]) -> np.ndarray:
+        return self._calculate_distances(X, self.shapelets)
+
+    def _calculate_distances(self, X: np.ndarray, shapelets: List[np.ndarray]) -> np.ndarray:
         """Вычисление минимальных расстояний до shapelet"""
-        X = input_data.features
         series_length, n_series = X.shape
-        distances = np.zeros((series_length, len(shapelets)))
+        shapelet_list = []
 
         for i, series in enumerate(X.T):
             for j, shapelet in enumerate(shapelets):
-                min_dist = float('inf')
-
-                # Скользящее окно по ряду
-                for k in range(len(series) - len(shapelet) + 1):
-                    subsequence = series[k:k + len(shapelet)]
-                    dist = euclidean(subsequence, shapelet)
-                    min_dist = min(min_dist, dist)
-
-                    distances[k, j] = min_dist
+                idx = list(range(len(series) - len(shapelet) + 1))
+                subseq_list = [series[i:i + len(shapelet)] for i in idx]
+                shapelet_list.append([euclidean(subseq, shapelet) for subseq in subseq_list])
+            distances = np.array(shapelet_list).T
 
         return distances
 
-    def build_model(self):
+    def build_model(self, input_data: InputData):
         self.model_impl = IsolationForest(contamination=self.contamination,
                                           random_state=self.model_params['random_state'])
 
     def decision_function(self, input_data: InputData) -> np.ndarray:
         if not self.is_fitted:
             raise ValueError("Модель не обучена")
-
-        distances = self._calculate_distances(input_data, self.shapelets)
+        features = input_data.features if isinstance(input_data, InputData) else input_data
+        distances = self._calculate_distances(features, self.shapelets)
         scores = self.model_impl.decision_function(distances)
         return scores
-
-    def predict(self, input_data: InputData) -> np.ndarray:
-        scores = self.decision_function(input_data)
-        # threshold = np.quantile(scores, self.contamination)
-        return (scores < 0).astype(int)
-
-    def predict_proba(self, input_data: InputData) -> np.ndarray:
-        return self.decision_function(input_data)
 
 
 class OptimizedShapeletAnomalyDetector(ShapeletAnomalyDetector):
@@ -90,30 +75,18 @@ class OptimizedShapeletAnomalyDetector(ShapeletAnomalyDetector):
 
     def _optimize_shapelet(self, X: np.ndarray) -> List[np.ndarray]:
         """Оптимизация shapelet через минимизацию расстояний"""
-        n_series, series_length = X.shape
-        optimized_shapelets = []
-
-        # Инициализация случайных shapelet
-        initial_shapelets = []
-        for _ in range(self.n_shapelets):
-            random_series = X[np.random.randint(0, n_series)]
-            start = np.random.randint(0, series_length - self.shapelet_length)
-            initial_shapelets.append(random_series[start:start + self.shapelet_length])
-
-        for shapelet in initial_shapelets:
-            optimized = self._gradient_descent_optimization(X, shapelet)
-            optimized_shapelets.append(optimized)
-
+        self._init_random_shapelet(X)
+        optimized_shapelets = [self._gradient_descent_optimization(X, shapelet) for shapelet in self.shapelets]
         return optimized_shapelets
 
     def _gradient_descent_optimization(self, X: np.ndarray, initial_shapelet: np.ndarray) -> np.ndarray:
         """Градиентный спуск для оптимизации shapelet"""
         shapelet = initial_shapelet.copy()
 
-        for epoch in range(self.n_epochs):
+        for epoch in range(self.model_params['n_epochs']):
             total_gradient = np.zeros_like(shapelet)
 
-            for series in X:
+            for series in X.T:
                 # Находим наиболее близкую подпоследовательность
                 min_dist = float('inf')
                 best_start = 0
@@ -131,32 +104,26 @@ class OptimizedShapeletAnomalyDetector(ShapeletAnomalyDetector):
                 total_gradient += gradient
 
             # Обновление shapelet
-            shapelet -= self.learning_rate * total_gradient / len(X)
+            shapelet -= self.model_params['learning_rate'] * total_gradient / len(X)
 
         return shapelet
 
-    def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> 'OptimizedShapeletAnomalyDetector':
+    def fit(self, input_data: InputData) -> 'OptimizedShapeletAnomalyDetector':
+        X = input_data.features
         self.shapelets_ = self._optimize_shapelet(X)
 
         # Вычисление расстояний для нормальных рядов
         normal_distances = []
-        for series in X:
+        for series in X.T:
             series_distances = []
             for shapelet in self.shapelets_:
-                min_dist = float('inf')
-                for start in range(len(series) - len(shapelet) + 1):
-                    subsequence = series[start:start + len(shapelet)]
-                    dist = euclidean(subsequence, shapelet)
-                    min_dist = min(min_dist, dist)
-                series_distances.append(min_dist)
+                idx = list(range(len(series) - len(shapelet) + 1))
+                subsequence = [series[start:start + len(shapelet)] for start in idx]
+                series_distances.append([euclidean(subseq, shapelet) for subseq in subsequence])
             normal_distances.append(series_distances)
 
         self.normal_distances_ = np.array(normal_distances)
-        self.threshold_ = np.quantile(
-            np.mean(self.normal_distances_, axis=1),
-            1 - self.contamination
-        )
-
+        self.threshold_ = np.quantile(np.mean(self.normal_distances_, axis=1), 1 - self.contamination)
         self.is_fitted = True
         return self
 
@@ -177,4 +144,3 @@ class OptimizedShapeletAnomalyDetector(ShapeletAnomalyDetector):
             distances.append(np.mean(series_dists))
 
         return np.array(distances)
-

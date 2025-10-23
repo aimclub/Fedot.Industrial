@@ -24,15 +24,17 @@ class AnomalyDetector(ModelImplementation):
         super().__init__(params)
         self.length_of_detection_window = self.params.get('window_length', 10)
         self.contamination = self.params.get('contamination', 'auto')
+        self.batch_size = self.params.get('batch_size', 20)
         if isinstance(self.contamination, str):
             self.offset = -0.5
         self.is_fitted = False
+        self.model_impl = None
 
     @property
     def classes_(self) -> int:
         return 1
 
-    def build_model(self):
+    def build_model(self, input_data: InputData = None):
         raise AbstractMethodNotImplementError
 
     def _init_submodels(self):
@@ -42,6 +44,16 @@ class AnomalyDetector(ModelImplementation):
 
     def _get_detection_features(self, input_data: InputData):
         pass
+
+    def _predict_in_batches(self, input_data: InputData) -> np.ndarray:
+        """Предсказание по батчам"""
+        X = input_data.features
+        n_samples = X.shape[0]
+        batches = [X[start_idx:min(start_idx + self.batch_size, n_samples)]
+                   for start_idx in range(0, n_samples, self.batch_size)]
+        all_predictions = [self.decision_function(batch) for batch in batches]
+
+        return np.concatenate(all_predictions)
 
     def _predict(self, input_data: InputData, output_mode: str = 'default') -> np.ndarray:
         converted_input_data = self.transformation_pipeline.to_output(input_data, fit_stage=False)
@@ -54,16 +66,30 @@ class AnomalyDetector(ModelImplementation):
             return prediction
 
     def fit(self, input_data: InputData) -> None:
-        self.build_model()
+        self.build_model(input_data)
         self._init_submodels()
-        self.anomaly_features = self._get_detection_features(input_data)
+        features = input_data.features if isinstance(input_data, InputData) else input_data
+        self.anomaly_features = self._get_detection_features(features)
         self.window_size = round(input_data.features.shape[0] * (self.length_of_detection_window / 100))
         # input_data = self.transformation_pipeline.to_input(input_data)
         self.model_impl.fit(self.anomaly_features)
         self.is_fitted = True
 
+    def decision_function(self, input_data: InputData) -> np.ndarray:
+        if not self.is_fitted:
+            raise ValueError("Модель не обучена")
+        features = input_data.features if isinstance(input_data, InputData) else input_data
+        anomaly_features = self._get_detection_features(features)
+        scores = self.model_impl.decision_function(anomaly_features)
+        return scores
+
     def predict(self, input_data: InputData) -> np.ndarray:
-        return self._predict(input_data, 'labels')
+        # Если batch_size не указан, обрабатываем все данные сразу
+        if len(input_data.features) <= self.batch_size:
+            scores = self.decision_function(input_data)
+        else:
+            scores = self._predict_in_batches(input_data)
+        return (scores < 0).astype(int)
 
     def predict_for_fit(self, input_data: InputData):
         return self._predict(input_data)
