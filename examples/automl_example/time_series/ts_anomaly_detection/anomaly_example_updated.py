@@ -1,16 +1,18 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from fedot_ind.core.architecture.preprocessing.data_splitter import DataSplitter
 from fedot_ind.core.metrics.anomaly_detection.anomaly_metrics import AnomalyDetectionMetrics
-from fedot_ind.core.models.detection.shapelet_model import ShapeletAnomalyDetector
+from fedot_ind.core.models.detection.shapelet_model import OptimizedShapeletAnomalyDetector
 from fedot_ind.tools.synthetic.anomaly_generator import generate_univariate_anomaly_data, \
     generate_multivariate_anomaly_data, generate_online_anomaly_data
 
 # Тестирование разных детекторов
 DEFAULT_DETECTOR_FOR_UNI = {
-    # 'PrefixBased': PrefixLengthAnomalyDetector(contamination=0.05),
-    'ShapeletBased': ShapeletAnomalyDetector({'contamination': 0.1,
-                                              'shapelet_length': 10, 'n_shapelets': 5, 'random_state': 42}),
+    # 'PrefixBased': PrefixLengthAnomalyDetector(),
+    # 'StateTransition': StateTransitionAnomalyDetector(),
+    # 'ShapeletBased': ShapeletAnomalyDetector(),
+    'OptimizedShapelet': OptimizedShapeletAnomalyDetector(),
     # 'Autoencoder': AutoencoderAnomalyDetector(contamination=0.05, n_epochs=50),
     # 'LSTM': LSTMAnomalyDetector(contamination=0.05, n_epochs=50),
     # 'Hybrid': HybridStatisticalDLDetector(contamination=0.05, n_epochs=50),
@@ -43,6 +45,8 @@ class AnomalyDetectionDemo:
 
         # Генерация данных
         input_data = generate_univariate_anomaly_data(n_samples=500, n_anomalies=25)
+        splitter = DataSplitter(test_size=0.3, temporal_split=True)
+        input_data_train, input_data_test = splitter.split(input_data)
         print(f"Данные: {input_data.features.shape}, Аномалий: {np.sum(input_data.target)}")
 
         # Тестирование разных детекторов
@@ -52,9 +56,9 @@ class AnomalyDetectionDemo:
         for name, detector in detectors.items():
             try:
                 # Обучение и предсказание
-                detector.fit(input_data)
-                y_pred = detector.predict(input_data)
-                scores = detector.predict_proba(input_data)
+                detector.fit(input_data_train)
+                y_pred = detector.predict(input_data_test)
+                scores = detector.predict_proba(input_data_train)
 
                 # Вычисление метрик
                 metrics = AnomalyDetectionMetrics.compute_comprehensive_metrics(
@@ -76,7 +80,7 @@ class AnomalyDetectionDemo:
                 print(f"Ошибка в {name}: {e}")
 
         # Визуализация
-        AnomalyDetectionDemo._plot_univariate_results(X_univariate, y_true, results)
+        AnomalyDetectionDemo._plot_univariate_results(input_data, results)
 
         return results
 
@@ -163,8 +167,9 @@ class AnomalyDetectionDemo:
         return all_predictions, all_scores
 
     @staticmethod
-    def _plot_univariate_results(X, y_true, results):
+    def _plot_univariate_results(input_data, results):
         """Визуализация результатов для одномерных данных"""
+        X, y_true = input_data.features, input_data.target
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
         axes = axes.flatten()
 
