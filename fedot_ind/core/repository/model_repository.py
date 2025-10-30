@@ -39,9 +39,9 @@ from fedot_ind.core.models.detection.anomaly.algorithms.convolutional_autoencode
     ConvolutionalAutoEncoderDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.isolation_forest_detector import IsolationForestDetector
 from fedot_ind.core.models.detection.anomaly.algorithms.lstm_autoencoder_detector import LSTMAutoEncoderDetector
-from fedot_ind.core.models.detection.custom.stat_detector import StatisticalDetector
-from fedot_ind.core.models.detection.probalistic.kalman import UnscentedKalmanFilter
-from fedot_ind.core.models.detection.subspaces.sst import SingularSpectrumTransformation
+from fedot_ind.core.models.detection.outdated.custom.stat_detector import StatisticalDetector
+from fedot_ind.core.models.detection.outdated.probalistic.kalman import UnscentedKalmanFilter
+from fedot_ind.core.models.detection.outdated.subspaces import SingularSpectrumTransformation
 from fedot_ind.core.models.nn.network_impl.common_model.dummy_nn import DummyOverComplicatedNeuralNetwork
 from fedot_ind.core.models.nn.network_impl.common_model.inception import InceptionTimeModel
 from fedot_ind.core.models.nn.network_impl.common_model.resnet import ResNetModel
