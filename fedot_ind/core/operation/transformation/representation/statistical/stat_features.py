@@ -301,4 +301,4 @@ def pfd(X, axis=None):
             if D[i] * D[i - 1] < 0:
                 N_delta += 1
         n = len(X)
-        return np.log10(n) / (np.log10(n) + np.log10(n / n + 0.4 * N_delta))
+        return np.log10(n) / (np.log10(n) + np.log10(n / (n + 0.4 * N_delta)))
