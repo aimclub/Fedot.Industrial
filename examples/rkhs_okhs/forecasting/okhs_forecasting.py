@@ -4,7 +4,7 @@ import numpy as np
 from examples.rkhs_okhs.forecasting.vis_utils import OKHSForecasterWithVisualization
 from fedot_ind.core.models.kernel.okhs_forecasting_torch import OKHSForecasterTorch
 
-FORECASTING_PARAMS = dict(q=0.3, forecast_horizon=20, epochs=1000)
+FORECASTING_PARAMS = dict(q=0.3, forecast_horizon=20, epochs=3000)
 
 
 def run_test(window_size: int = 20):

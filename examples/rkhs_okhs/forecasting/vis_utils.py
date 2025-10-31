@@ -76,7 +76,7 @@ class OKHSForecasterWithVisualization:
 
     def test_forecaster_with_visualization(self,
                                            horizons: list = [10],
-                                           window_size: int = 30,
+                                           window_size: int = 40,
                                            model_params: dict = {}):
         """Тест с комплексной визуализацией прогнозов"""
 

@@ -22,7 +22,7 @@ class OKHSForecasterTorch(BaseNeuralModel):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         # learning params
-        self.learning_rate = self.params.get('learning_rate', 0.001)
+        self.learning_rate = self.params.get('learning_rate', 0.0001)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # forecasting params
         self.forecast_horizon = self.params.get('forecast_horizon', 10)

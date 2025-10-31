@@ -23,28 +23,28 @@ class DMDForecaster:
         где Y = X сдвинутый на 1 шаг вперед
         """
         X_list, Y_list = [], []
-        # for trajectory in trajectories:
-        #     # trajectory: [x₁, x₂, ..., x_window_size] ∈ ℝ^(window_size)
-        #     if len(trajectory) >= self.forecast_horizon + 1:
-        #         # Вход: текущее окно (весь window_size точек)
-        #         x_input = trajectory[:-self.forecast_horizon]
-        #
-        #         # Цель: следующие forecast_horizon точек (скалярных значений!)
-        #         y_target = trajectory[-self.forecast_horizon:]
-        #
-        #         X_list.append(x_input)
-        #         Y_list.append(y_target)
         for trajectory in trajectories:
-            # trajectory: [x₁, x₂, ..., x_T] ∈ ℝ^(T × dim)
-            if len(trajectory) > self.forecast_horizon + 1:
-                for i in range(len(trajectory) - self.forecast_horizon - 1):
-                    # Вход: текущее состояние
-                    x = trajectory[i:i + self.forecast_horizon]
-                    # Цель: следующие forecast_horizon состояний
-                    y = trajectory[i + 1:i + 1 + self.forecast_horizon]
+            # trajectory: [x₁, x₂, ..., x_window_size] ∈ ℝ^(window_size)
+            if len(trajectory) >= self.forecast_horizon + 1:
+                # Вход: текущее окно (весь window_size точек)
+                x_input = trajectory[:-self.forecast_horizon]
 
-                    X_list.append(x)
-                    Y_list.append(y)
+                # Цель: следующие forecast_horizon точек (скалярных значений!)
+                y_target = trajectory[-self.forecast_horizon:]
+
+                X_list.append(x_input)
+                Y_list.append(y_target)
+        # for trajectory in trajectories:
+        #     # trajectory: [x₁, x₂, ..., x_T] ∈ ℝ^(T × dim)
+        #     if len(trajectory) > self.forecast_horizon + 1:
+        #         for i in range(len(trajectory) - self.forecast_horizon - 1):
+        #             # Вход: текущее состояние
+        #             x = trajectory[i:i + self.forecast_horizon]
+        #             # Цель: следующие forecast_horizon состояний
+        #             y = trajectory[i + 1:i + 1 + self.forecast_horizon]
+        #
+        #             X_list.append(x)
+        #             Y_list.append(y)
 
         # X ∈ ℝ^(n_samples × input_dim)
         # Y ∈ ℝ^(n_samples × forecast_horizon × input_dim) для многомерного выхода
@@ -163,7 +163,8 @@ class DMDForecaster:
 
         X_list = [last_trajectory[i:i + self.forecast_horizon]
                   for i in range(len(last_trajectory) - self.forecast_horizon - 1)]
-        # X_list = last_trajectory
+
+        X_list = last_trajectory[-self.forecast_horizon:]
         last_trajectory_tensor = torch.tensor(np.array(X_list), dtype=torch.float32,
                                               device=self.device)  # batch_size x forecast_horizon
         if self.use_koopman:
@@ -197,5 +198,4 @@ class DMDForecaster:
         """Прогнозирование Koopman DMD"""
         with torch.no_grad():
             predictions = self._koopman_forward(last_trajectory_tensor, steps=self.forecast_horizon)
-        last_prediction = predictions[1, :]
-        return last_prediction.squeeze(0).cpu().numpy()
+        return predictions.squeeze(0).cpu().numpy()
