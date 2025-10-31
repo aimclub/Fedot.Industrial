@@ -75,7 +75,7 @@ class OKHSForecasterWithVisualization:
             print(f"  Horizon {horizon}: MAE = {mae:.4f}, MSE = {mse:.4f}")
 
     def test_forecaster_with_visualization(self,
-                                           horizons: list = [5, 10, 20],
+                                           horizons: list = [10],
                                            window_size: int = 30,
                                            model_params: dict = {}):
         """Тест с комплексной визуализацией прогнозов"""
@@ -97,10 +97,6 @@ class OKHSForecasterWithVisualization:
             split_idx = int(len(time_series) * 0.8)
             train_series = time_series[:split_idx]
             test_series = time_series[split_idx:]
-            # # Обучаем модель
-            # forecaster = OKHSForecasterTorch(model_params)
-            # # Обучение
-            # forecaster.fit(train_series, window_size=window_size)
 
             # Создаем субплотов для каждого ряда
             ax = plt.subplot(2, 2, idx + 1)

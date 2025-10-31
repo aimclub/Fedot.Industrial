@@ -93,29 +93,22 @@ class OccupationKernel(KernelBase):
         """
         super().__init__(q=q, **kernel_params)
         self.q = q
+        self.kernel_dict = {'rbf': RBFKernel,
+                            'linear': LinearKernel,
+                            'polynomial': PolynomialKernel,
+                            'matern': MaternKernel,
+                            'periodic': PeriodicKernel,
+                            'fractional': FractionalMittagLefflerKernel,
+                            'rational_quadratic': RationalQuadraticKernel,
+                            }
         # Выбор базового ядра
-        if base_kernel_type == 'rbf':
-            self.base_kernel = RBFKernel(**kernel_params)
-        elif base_kernel_type == 'matern':
-            self.base_kernel = MaternKernel(**kernel_params)
-        elif base_kernel_type == 'periodic':
-            self.base_kernel = PeriodicKernel(**kernel_params)
-        elif base_kernel_type == 'fractional':
-            self.base_kernel = FractionalMittagLefflerKernel(**kernel_params)
-        elif base_kernel_type == 'rational_quadratic':
-            self.base_kernel = RationalQuadraticKernel(**kernel_params)
-        elif base_kernel_type == 'linear':
-            self.base_kernel = LinearKernel(**kernel_params)
-        elif base_kernel_type == 'polynomial':
-            self.base_kernel = PolynomialKernel(**kernel_params)
-        else:
-            raise ValueError(f"Неизвестный тип ядра: {base_kernel_type}")
+        self.base_kernel = self.kernel_dict[base_kernel_type](**kernel_params)
+        self.q_selector = DataDrivenQSelector()
 
     def _compute_trajectory_kernel(self, traj1, traj2):
         """Вычисление ядра между двумя траекториями"""
         n1, n2 = len(traj1), len(traj2)
         total = 0.0
-
         for i in range(n1):
             for j in range(n2):
                 # Вес с учетом дробного порядка
@@ -133,7 +126,7 @@ class OccupationKernel(KernelBase):
         """Матрица Грама для набора траекторий"""
         n = len(trajectories)
         gram_matrix = np.zeros((n, n))
-
+        self.q = self.q if self.q is not None else self.q_selector.analyze_and_suggest_q(trajectories)
         for i in range(n):
             for j in range(i, n):
                 k_ij = self._compute_trajectory_kernel(trajectories[i], trajectories[j])
@@ -150,3 +143,83 @@ class OccupationKernel(KernelBase):
         else:
             # Иначе используем базовое ядро
             return self.base_kernel._compute_single_kernel(x, y)
+
+
+class DataDrivenQSelector:
+    """Выбор q на основе характеристик данных"""
+
+    def suggest_q_based_on_autocorrelation(self, time_series):
+        """Предложение q на основе автокорреляции"""
+        from statsmodels.tsa.stattools import acf
+
+        # Вычисляем автокорреляцию
+        autocorr = acf(time_series, nlags=min(len(time_series) - 1, 50), fft=True)
+
+        # Анализируем затухание автокорреляции
+        lags = np.arange(1, len(autocorr))
+        autocorr_vals = autocorr[1:]
+
+        # Логарифмическая регрессия для определения типа затухания
+        valid_mask = (autocorr_vals > 0) & (lags > 0)
+        if np.sum(valid_mask) > 2:
+            log_lags = np.log(lags[valid_mask])
+            log_autocorr = np.log(autocorr_vals[valid_mask])
+
+            slope, _ = np.polyfit(log_lags, log_autocorr, 1)
+
+            # Маппинг наклона на q
+            if slope > -0.3:  # Очень медленное затухание
+                return 0.9
+            elif slope > -0.7:  # Медленное затухание
+                return 0.7
+            elif slope > -1.2:  # Умеренное затухание
+                return 0.5
+            else:  # Быстрое затухание
+                return 0.3
+        else:
+            return 0.7  # Значение по умолчанию
+
+    def suggest_q_based_on_frequency(self, trajectories):
+        """Предложение q на основе частотных характеристик"""
+        from scipy import fftpack
+
+        all_dominant_freqs = []
+
+        for trajectory in trajectories:
+            # FFT анализ
+            fft_values = np.abs(fftpack.fft(trajectory))
+            freqs = fftpack.fftfreq(len(trajectory))
+
+            # Находим доминирующую частоту (исключая нулевую)
+            idx = np.argsort(fft_values)[-2]  # Вторая по величине (первая - DC компонента)
+            dominant_freq = np.abs(freqs[idx])
+            all_dominant_freqs.append(dominant_freq)
+
+        avg_frequency = np.mean(all_dominant_freqs)
+
+        # Маппинг частоты на q
+        if avg_frequency < 0.1:  # Низкочастотные данные
+            return 0.9  # Долгая память
+        elif avg_frequency < 0.3:  # Среднечастотные
+            return 0.7  # Умеренная память
+        else:  # Высокочастотные
+            return 0.3  # Короткая память
+
+    def analyze_and_suggest_q(self, trajectories, labels=None):
+        """Комплексный анализ и предложение q"""
+
+        # Анализ на одном примере
+        example_series = trajectories[0] if hasattr(trajectories[0], '__len__') else trajectories
+
+        q_autocorr = self.suggest_q_based_on_autocorrelation(example_series)
+        q_frequency = self.suggest_q_based_on_frequency(trajectories[:10])
+
+        # Усредняем рекомендации
+        suggested_q = np.mean([q_autocorr, q_frequency])
+
+        print(f"Рекомендации по q:")
+        print(f"На основе автокорреляции: {q_autocorr:.2f}")
+        print(f"На основе частотного анализа: {q_frequency:.2f}")
+        print(f"Итоговая рекомендация: {suggested_q:.2f}")
+
+        return suggested_q

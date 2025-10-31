@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 
-from ...operation.decomposition.matrix_decomposition.method_impl.dmd import FractionalDMD
+from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd import FractionalDMD
 from ...operation.transformation.representation.kernel.kernels import OccupationKernel
 
 
