@@ -112,10 +112,8 @@ class OKHSForecasterWithVisualization:
                 model_params['horizon'] = horizon
                 horizon_forecaster = OKHSForecasterTorch(model_params)
                 horizon_forecaster.fit(train_series, window_size=window_size)
-
                 # Получаем прогноз
                 forecast = horizon_forecaster.predict()
-
                 if len(forecast) > 0:
                     # Визуализация прогноза
                     forecast_start, forecast_end, ax = self._prepare_forecast_for_viz(forecast,
@@ -141,7 +139,10 @@ class OKHSForecasterWithVisualization:
         plt.tight_layout()
         plt.suptitle('Сравнение прогнозов OKHSForecaster для различных типов временных рядов',
                      fontsize=16, fontweight='bold', y=1.02)
-        plt.savefig('okhs_forecaster_comparison.png', dpi=300, bbox_inches='tight')
+        kernel_type = model_params['kernel_type']
+        method_type = model_params['method']
+        plt.savefig(f'Method - {method_type}.Kernel_type - {kernel_type}_okhs_forecaster_comparison.png',
+                    dpi=300, bbox_inches='tight')
         plt.show()
         _ = 1
 
