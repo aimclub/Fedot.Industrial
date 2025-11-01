@@ -34,20 +34,6 @@ class DMDForecaster:
 
                 X_list.append(x_input)
                 Y_list.append(y_target)
-        # for trajectory in trajectories:
-        #     # trajectory: [x₁, x₂, ..., x_T] ∈ ℝ^(T × dim)
-        #     if len(trajectory) > self.forecast_horizon + 1:
-        #         for i in range(len(trajectory) - self.forecast_horizon - 1):
-        #             # Вход: текущее состояние
-        #             x = trajectory[i:i + self.forecast_horizon]
-        #             # Цель: следующие forecast_horizon состояний
-        #             y = trajectory[i + 1:i + 1 + self.forecast_horizon]
-        #
-        #             X_list.append(x)
-        #             Y_list.append(y)
-
-        # X ∈ ℝ^(n_samples × input_dim)
-        # Y ∈ ℝ^(n_samples × forecast_horizon × input_dim) для многомерного выхода
         X_torch = torch.tensor(np.array(X_list), dtype=torch.float32, device=self.device)
         Y_torch = torch.tensor(np.array(Y_list), dtype=torch.float32, device=self.device)
         return X_torch, Y_torch
@@ -160,10 +146,6 @@ class DMDForecaster:
 
     def predict(self, last_trajectory):
         """Прогнозирование с правильной DMD"""
-
-        X_list = [last_trajectory[i:i + self.forecast_horizon]
-                  for i in range(len(last_trajectory) - self.forecast_horizon - 1)]
-
         X_list = last_trajectory[-self.forecast_horizon:]
         last_trajectory_tensor = torch.tensor(np.array(X_list), dtype=torch.float32,
                                               device=self.device)  # batch_size x forecast_horizon

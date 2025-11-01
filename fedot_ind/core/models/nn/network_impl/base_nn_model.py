@@ -53,6 +53,26 @@ class BaseNeuralModel:
         self.target = None
         self.task_type = None
 
+    def _from_trajectory_to_features(self, trajectories):
+        """
+        Создание матриц данных для DMD: X и Y
+        где Y = X сдвинутый на 1 шаг вперед
+        """
+        X_list, Y_list = [], []
+        for trajectory in trajectories:
+            # trajectory: [x₁, x₂, ..., x_window_size] ∈ ℝ^(window_size)
+            if len(trajectory) >= self.forecast_horizon + 1:
+                # Вход: текущее окно (весь window_size точек)
+                x_input = trajectory[:-self.forecast_horizon]
+
+                # Цель: следующие forecast_horizon точек (скалярных значений!)
+                y_target = trajectory[-self.forecast_horizon:]
+
+                X_list.append(x_input)
+                Y_list.append(y_target)
+        X_torch = torch.tensor(np.array(X_list), dtype=torch.float32, device=self.device)
+        Y_torch = torch.tensor(np.array(Y_list), dtype=torch.float32, device=self.device)
+        return X_torch, Y_torch
     def _get_loss_metric(self, ts: InputData):
         if ts.task.task_type.value == 'classification':
             loss_fn = CROSS_ENTROPY() if ts.num_classes == 2 else MULTI_CLASS_CROSS_ENTROPY()
