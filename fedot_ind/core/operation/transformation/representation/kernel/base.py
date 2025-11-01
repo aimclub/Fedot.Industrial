@@ -1,9 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from scipy.special import gamma, kv
-
-from fedot_ind.core.operation.transformation.representation.kernel.utils import mittag_leffler
+from scipy.special import gamma
 
 
 class KernelBase(nn.Module):
@@ -12,6 +10,12 @@ class KernelBase(nn.Module):
     def __init__(self, **kernel_params):
         super().__init__()
         self.kernel_params = kernel_params
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def _is_torch_tensor(self, x):
+        x = torch.tensor(x, dtype=torch.float32, device=self.device) if not isinstance(x, torch.Tensor) else x
+        x = x.unsqueeze(-1) if x.ndim == 1 else x
+        return x
 
     def forward(self, X, Y=None):
         """Основной метод для вычисления ядерной матрицы"""
@@ -45,10 +49,20 @@ class RBFKernel(KernelBase):
         self.length_scale = length_scale
 
     def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        distance = np.linalg.norm(x - y)
-        return self.sigma ** 2 * np.exp(-0.5 * (distance / self.length_scale) ** 2)
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        distance = torch.norm(x - y)
+        return (self.sigma ** 2 * torch.exp(-0.5 * (distance / self.length_scale) ** 2)).item()
+
+    def _compute_batch_kernel(self, x, y):
+        """
+        Векторизованное вычисление ядра для батчей
+        x: [..., dim], y: [..., dim]
+        returns: [...] (такая же форма без последней размерности)
+        """
+        # Вычисляем попарные расстояния
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        distances = torch.norm(x - y, dim=-1)
+        return self.sigma ** 2 * torch.exp(-0.5 * (distances / self.length_scale) ** 2)
 
 
 class MaternKernel(KernelBase):
@@ -60,65 +74,72 @@ class MaternKernel(KernelBase):
         self.length_scale = length_scale
         self.sigma = sigma
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        d = np.linalg.norm(x - y) / self.length_scale
+    def _compute_batch_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        distances = torch.norm(x - y, dim=-1) / self.length_scale
 
         if self.nu == 0.5:
-            # Matern 1/2 (экспоненциальное)
-            return self.sigma ** 2 * np.exp(-d)
+            # Matern 1/2
+            return self.sigma ** 2 * torch.exp(-distances)
         elif self.nu == 1.5:
             # Matern 3/2
-            return self.sigma ** 2 * (1 + np.sqrt(3) * d) * np.exp(-np.sqrt(3) * d)
+            sqrt3_d = torch.sqrt(torch.tensor(3.0)) * distances
+            return self.sigma ** 2 * (1 + sqrt3_d) * torch.exp(-sqrt3_d)
         elif self.nu == 2.5:
             # Matern 5/2
-            return self.sigma ** 2 * (1 + np.sqrt(5) * d + (5 / 3) * d ** 2) * np.exp(-np.sqrt(5) * d)
+            sqrt5_d = torch.sqrt(torch.tensor(5.0)) * distances
+            return self.sigma ** 2 * (1 + sqrt5_d + (5 / 3) * distances ** 2) * torch.exp(-sqrt5_d)
         else:
-            # Общий случай Матерна
-            if d == 0:
-                return self.sigma ** 2
-            else:
-                fraction = np.sqrt(2 * self.nu) * d
-                return self.sigma ** 2 * (2 ** (1 - self.nu) / gamma(self.nu)) * \
-                    (fraction ** self.nu) * kv(self.nu, fraction)
+            # Общий случай (аппроксимация)
+            return self.sigma ** 2 * torch.exp(-distances ** self.nu)
 
 
 class SpectralMixtureKernel(KernelBase):
-    """Спектральное смесевое ядро для периодических паттернов"""
+    """Спектральное смесевое ядро с PyTorch бэкендом"""
 
     def __init__(self, num_mixtures=3, max_frequency=1.0):
-        super().__init__(num_mixtures=num_mixtures, max_frequency=max_frequency)
         self.num_mixtures = num_mixtures
         self.max_frequency = max_frequency
 
-        # Инициализация параметров смеси
+        # Параметры как torch тензоры
         self.weights = nn.Parameter(torch.ones(num_mixtures) / num_mixtures)
         self.means = nn.Parameter(torch.linspace(0.1, max_frequency, num_mixtures))
         self.variances = nn.Parameter(torch.ones(num_mixtures) * 0.1)
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x).flatten()
-        y = np.array(y).flatten()
+    def _compute_batch_kernel(self, x, y):
+        """
+        Векторизованное вычисление спектрального ядра
+        x: [..., dim], y: [..., dim]
+        """
+        delta = x - y  # [..., dim]
 
-        if len(x) != len(y):
-            raise ValueError("Векторы должны иметь одинаковую размерность")
+        # Вычисляем squared norm для каждой пары
+        delta_sq = torch.sum(delta ** 2, dim=-1)  # [...]
 
-        kernel_value = 0.0
-        delta = x - y
+        total_kernel = torch.zeros_like(delta_sq)
 
         for i in range(self.num_mixtures):
-            weight = self.weights[i].item()
-            mean = self.means[i].item()
-            variance = self.variances[i].item()
+            weight = torch.sigmoid(self.weights[i])  # Ограничиваем (0,1)
+            mean = torch.sigmoid(self.means[i]) * self.max_frequency
+            variance = torch.nn.functional.softplus(self.variances[i])  # Положительная
 
-            # Спектральное ядро для каждой смеси
-            mixture_kernel = weight * np.exp(-2 * np.pi ** 2 * variance * np.dot(delta, delta)) * \
-                             np.cos(2 * np.pi * mean * np.linalg.norm(delta))
+            # Спектральное ядро для смеси
+            mixture_kernel = weight * torch.exp(-2 * torch.pi ** 2 * variance * delta_sq) * \
+                             torch.cos(2 * torch.pi * mean * torch.sqrt(delta_sq + 1e-8))
 
-            kernel_value += mixture_kernel
+            total_kernel += mixture_kernel
 
-        return kernel_value
+        return total_kernel
+
+    def _compute_single_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x, y)
+
+        # Используем batch метод с добавлением размерностей
+        x_expanded = x.unsqueeze(0) if x.ndim == 1 else x.unsqueeze(-2)
+        y_expanded = y.unsqueeze(0) if y.ndim == 1 else y.unsqueeze(-2)
+
+        kernel_val = self._compute_batch_kernel(x_expanded, y_expanded)
+        return kernel_val.squeeze().item()
 
 
 class FractionalMittagLefflerKernel(KernelBase):
@@ -131,16 +152,41 @@ class FractionalMittagLefflerKernel(KernelBase):
         self.beta = beta
         self.gamma = gamma
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        distance = np.linalg.norm(x - y)
+    def _mittag_leffler_torch(self, z, q, n_terms=50):
+        """
+        Функция Миттаг-Леффлера для PyTorch тензоров
+        """
+        result = torch.zeros_like(z)
 
-        # Используем функцию Миттаг-Леффлера как ядро
-        argument = -self.gamma * (distance ** self.alpha)
-        ml_value = mittag_leffler(argument, self.q)
+        for k in range(n_terms):
+            try:
+                # Вычисляем k-й член ряда
+                numerator = z ** k
+                denominator = gamma(q * k + 1)
 
-        return self.beta * ml_value
+                # Используем torch.where для избежания деления на 0
+                term = torch.where(denominator != 0, numerator / denominator, torch.zeros_like(z))
+
+                # Проверяем на NaN и Inf
+                term = torch.nan_to_num(term, nan=0.0, posinf=0.0, neginf=0.0)
+
+                result += term
+
+                # Критерий остановки: если член ряда стал очень маленьким
+                if torch.max(torch.abs(term)) < 1e-10:
+                    break
+
+            except:
+                break
+
+        return result
+
+    def _compute_batch_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        distances = torch.norm(x - y, dim=-1)
+        argument = -self.gamma * (distances ** self.alpha)
+        ml_values = self._mittag_leffler_torch(argument, self.q)
+        return self.beta * ml_values
 
 
 class GraphDiffusionKernel(KernelBase):
@@ -192,21 +238,16 @@ class PeriodicKernel(KernelBase):
         self.length_scale = length_scale
         self.sigma = sigma
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-
-        # Периодическое расстояние
-        if len(x) == 1 and len(y) == 1:
-            # Для одномерных данных
-            distance = np.abs(x[0] - y[0])
-            periodic_distance = np.sin(np.pi * distance / self.period) ** 2
+    def _compute_batch_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        # Для простоты считаем одномерные данные
+        if x.shape[-1] == 1 and y.shape[-1] == 1:
+            distances = torch.abs(x - y)
         else:
-            # Для многомерных данных используем норму
-            distance = np.linalg.norm(x - y)
-            periodic_distance = np.sin(np.pi * distance / self.period) ** 2
+            distances = torch.norm(x - y, dim=-1)
 
-        return self.sigma ** 2 * np.exp(-2 * periodic_distance / self.length_scale ** 2)
+        periodic_distance = torch.sin(torch.pi * distances / self.period) ** 2
+        return self.sigma ** 2 * torch.exp(-2 * periodic_distance / self.length_scale ** 2)
 
 
 class RationalQuadraticKernel(KernelBase):
@@ -218,12 +259,10 @@ class RationalQuadraticKernel(KernelBase):
         self.length_scale = length_scale
         self.sigma = sigma
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        squared_distance = np.sum((x - y) ** 2)
-
-        return self.sigma ** 2 * (1 + squared_distance / (2 * self.alpha * self.length_scale ** 2)) ** (-self.alpha)
+    def _compute_batch_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        squared_distances = torch.sum((x - y) ** 2, dim=-1)
+        return self.sigma ** 2 * (1 + squared_distances / (2 * self.alpha * self.length_scale ** 2)) ** (-self.alpha)
 
 
 class LinearKernel(KernelBase):
@@ -234,10 +273,10 @@ class LinearKernel(KernelBase):
         self.constant = constant
         self.sigma = sigma
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        return self.sigma ** 2 * (np.dot(x, y) + self.constant)
+    def _compute_batch_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        dot_products = torch.sum(x * y, dim=-1)
+        return self.sigma ** 2 * (dot_products + self.constant)
 
 
 class PolynomialKernel(KernelBase):
@@ -249,27 +288,54 @@ class PolynomialKernel(KernelBase):
         self.constant = constant
         self.sigma = sigma
 
-    def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        return self.sigma ** 2 * (np.dot(x, y) + self.constant) ** self.degree
+    def _compute_batch_kernel(self, x, y):
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
+        dot_products = torch.sum(x * y, dim=-1)
+        return self.sigma ** 2 * (dot_products + self.constant) ** self.degree
 
 
 class AdaptiveKernel(KernelBase):
-    """Адаптивное ядро, которое обучает параметры на данных"""
+    """Адаптивное ядро с обучаемыми параметрами через PyTorch"""
 
     def __init__(self, initial_length_scale=1.0, learn_parameters=True):
-        super().__init__(initial_length_scale=initial_length_scale, learn_parameters=learn_parameters)
-        self.length_scale = nn.Parameter(torch.tensor(initial_length_scale))
-        self.sigma = nn.Parameter(torch.tensor(1.0))
         self.learn_parameters = learn_parameters
 
+        if learn_parameters:
+            self.log_length_scale = nn.Parameter(torch.log(torch.tensor(initial_length_scale)))
+            self.log_sigma = nn.Parameter(torch.log(torch.tensor(1.0)))
+        else:
+            self.length_scale = initial_length_scale
+            self.sigma = 1.0
+
+    def _compute_batch_kernel(self, x, y):
+        if self.learn_parameters:
+            length_scale = torch.exp(self.log_length_scale)
+            sigma = torch.exp(self.log_sigma)
+        else:
+            length_scale = self.length_scale
+            sigma = self.sigma
+
+        distances = torch.norm(x - y, dim=-1)
+        return sigma ** 2 * torch.exp(-0.5 * (distances / length_scale) ** 2)
+
     def _compute_single_kernel(self, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        distance = np.linalg.norm(x - y)
+        x, y = self._is_torch_tensor(x), self._is_torch_tensor(y)
 
-        length_scale = self.length_scale.item() if self.learn_parameters else self.initial_length_scale
-        sigma = self.sigma.item() if self.learn_parameters else 1.0
+        x_expanded = x.unsqueeze(0) if x.ndim == 1 else x.unsqueeze(-2)
+        y_expanded = y.unsqueeze(0) if y.ndim == 1 else y.unsqueeze(-2)
 
-        return sigma ** 2 * np.exp(-0.5 * (distance / length_scale) ** 2)
+        kernel_val = self._compute_batch_kernel(x_expanded, y_expanded)
+        return kernel_val.squeeze().item()
+
+    def get_parameters(self):
+        """Получить текущие значения параметров"""
+        if self.learn_parameters:
+            return {
+                'length_scale': torch.exp(self.log_length_scale).item(),
+                'sigma': torch.exp(self.log_sigma).item()
+            }
+        else:
+            return {
+                'length_scale': self.length_scale,
+                'sigma': self.sigma
+            }

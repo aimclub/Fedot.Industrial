@@ -63,7 +63,7 @@ class MultiKernelEnsemble(KernelBase):
 class OccupationKernel(KernelBase):
     """Occupation Kernel с расширенным выбором базовых ядер"""
 
-    def __init__(self, q=0.7, base_kernel_type='rbf', **kernel_params):
+    def __init__(self, q=0.7, kernel_type='rbf', **kernel_params):
         """q -  дробный порядок интеграла ( по сути определяет как мы "взвешиваем историю" наблюдений)
         #####################################
         Режим "Короткой памяти"(0 < q < 0.5)
@@ -93,57 +93,198 @@ class OccupationKernel(KernelBase):
         """
         super().__init__(q=q, **kernel_params)
         self.q = q
-        self.kernel_dict = {'rbf': RBFKernel,
-                            'linear': LinearKernel,
-                            'polynomial': PolynomialKernel,
-                            'matern': MaternKernel,
-                            'periodic': PeriodicKernel,
-                            'fractional': FractionalMittagLefflerKernel,
-                            'rational_quadratic': RationalQuadraticKernel,
-                            }
+        kernel_map = {
+            'rbf': RBFKernel,
+            'matern': MaternKernel,
+            'periodic': PeriodicKernel,
+            'fractional': FractionalMittagLefflerKernel,
+            'rational_quadratic': RationalQuadraticKernel,
+            'linear': LinearKernel,
+            'polynomial': PolynomialKernel,
+            'spectral_mixture': SpectralMixtureKernel,
+            'graph_diffusion': GraphDiffusionKernel,
+            'adaptive': AdaptiveKernel
+        }
         # Выбор базового ядра
-        self.base_kernel = self.kernel_dict[base_kernel_type](**kernel_params)
+        self.base_kernel = kernel_map[kernel_type](**kernel_params)
         self.q_selector = DataDrivenQSelector()
+        self._weight_cache = {}
+
+    def _get_cached_weights(self, n):
+        """Кэширование весов для длины траектории"""
+        if n not in self._weight_cache:
+            weights = torch.tensor([(n - i) ** (self.q - 1) / gamma(self.q)
+                                    for i in range(n)], dtype=torch.float32)
+            self._weight_cache[n] = weights
+        return self._weight_cache[n]
 
     def _compute_trajectory_kernel(self, traj1, traj2):
         """Вычисление ядра между двумя траекториями"""
+        traj1, traj2 = self._is_torch_tensor(traj1), self._is_torch_tensor(traj2)
         n1, n2 = len(traj1), len(traj2)
-        total = 0.0
-        for i in range(n1):
-            for j in range(n2):
-                # Вес с учетом дробного порядка
-                weight_i = (n1 - i) ** (self.q - 1) / gamma(self.q)
-                weight_j = (n2 - j) ** (self.q - 1) / gamma(self.q)
+        weights1, weights2 = self._get_cached_weights(n1), self._get_cached_weights(n2)
+        return self._compute_vectorized_kernel_single(traj1, traj2, weights1, weights2, n1, n2)
 
-                # Базовое ядро между точками
-                base_kernel_val = self.base_kernel._compute_single_kernel(traj1[i], traj2[j])
+    def _compute_vectorized_kernel_single(self, traj1, traj2, weights1, weights2, len1, len2):
+        """Векторизованное вычисление для одной пары траекторий"""
+        # Расширяем для векторных операций
+        traj1_expanded = traj1[:len1].unsqueeze(1)  # [len1, 1, dim]
+        traj2_expanded = traj2[:len2].unsqueeze(0)  # [1, len2, dim]
 
-                total += weight_i * weight_j * base_kernel_val
+        weights1_expanded = weights1[:len1].unsqueeze(1).to(self.device)  # [len1, 1]
+        weights2_expanded = weights2[:len2].unsqueeze(0).to(self.device)  # [1, len2]
 
-        return total
+        # Вычисляем все попарные базовые ядра
+        base_kernels = self.base_kernel._compute_batch_kernel(traj1_expanded, traj2_expanded)
 
-    def compute_gram_matrix(self, trajectories):
-        """Матрица Грама для набора траекторий"""
+        # Взвешенная сумма
+        weighted_kernels = weights1_expanded * weights2_expanded * base_kernels
+        return torch.sum(weighted_kernels).item()
+
+    def compute_gram_matrix(self, trajectories, optimized=True):
+        """
+        Унифицированное вычисление матрицы Грама
+
+        Args:
+            trajectories: список траекторий
+            optimized: использовать ли оптимизированную версию
+        """
+        if optimized and len(trajectories) > 50:  # Порог для оптимизированной версии
+            return self._compute_gram_matrix_optimized(trajectories)
+        else:
+            return self._compute_gram_matrix_standard(trajectories)
+
+    def _compute_gram_matrix_standard(self, trajectories):
+        """Стандартное вычисление матрицы Грама"""
         n = len(trajectories)
-        gram_matrix = np.zeros((n, n))
-        self.q = self.q if self.q is not None else self.q_selector.analyze_and_suggest_q(trajectories)
+        gram_matrix = torch.zeros((n, n), dtype=torch.float32)
+
+        # Конвертируем все траектории
+        torch_trajectories = [self._ensure_tensor(traj) for traj in trajectories]
+        trajectory_lengths = [len(traj) for traj in torch_trajectories]
+
+        # Предварительно вычисляем веса
+        weight_matrices = self._precompute_weight_matrices(trajectory_lengths)
+
         for i in range(n):
-            for j in range(i, n):
-                k_ij = self._compute_trajectory_kernel(trajectories[i], trajectories[j])
+            traj_i = torch_trajectories[i]
+            weights_i = weight_matrices[i]
+            len_i = trajectory_lengths[i]
+
+            for j in range(i, n):  # Используем симметричность
+                traj_j = torch_trajectories[j]
+                weights_j = weight_matrices[j]
+                len_j = trajectory_lengths[j]
+
+                k_ij = self._compute_vectorized_kernel_single(
+                    traj_i, traj_j, weights_i, weights_j, len_i, len_j
+                )
                 gram_matrix[i, j] = k_ij
                 gram_matrix[j, i] = k_ij
 
-        return gram_matrix
+        return gram_matrix.numpy()
+
+    def _compute_gram_matrix_optimized(self, trajectories):
+        """Оптимизированная версия для больших наборов данных"""
+        n = len(trajectories)
+        trajectory_lengths = [len(traj) for traj in trajectories]
+        max_len = max(trajectory_lengths) if trajectory_lengths else 0
+        weights_padded = torch.zeros((n, max_len), dtype=torch.float32)
+
+        # Определяем размерность данных
+        sample_traj = self._is_torch_tensor(trajectories[0])
+        data_dim = sample_traj.shape[-1] if sample_traj.ndim > 1 else 1
+
+        # Создаем padded тензор
+        trajectories_padded = torch.zeros((n, max_len, data_dim), dtype=torch.float32)
+        mask = torch.zeros((n, max_len), dtype=torch.bool)
+
+        for i, traj in enumerate(trajectories):
+            traj = self._is_torch_tensor(traj)
+            actual_len = min(len(traj), max_len)
+            trajectories_padded[i, :actual_len] = traj[:actual_len]
+            mask[i, :actual_len] = True
+            weights = self._get_cached_weights(len(traj))
+            weights_padded[i, :actual_len] = weights[:actual_len]
+
+        # # Предварительно вычисляем веса
+        # for i, length in enumerate(trajectory_lengths):
+        #     weights = self._get_cached_weights(length)
+        #     actual_len = min(length, max_len)
+        #     weights_padded[i, :actual_len] = weights[:actual_len]
+
+        # Векторизованное вычисление
+        gram_matrix = torch.zeros((n, n), dtype=torch.float32)
+
+        for i in range(n):
+            traj_i = trajectories_padded[i]  # [max_len, dim]
+            weights_i = weights_padded[i]  # [max_len]
+            mask_i = mask[i]  # [max_len]
+
+            for j in range(i, n):
+                traj_j = trajectories_padded[j]
+                weights_j = weights_padded[j]
+                mask_j = mask[j]
+
+                # Вычисляем все попарные ядра
+                traj_i_expanded = traj_i.unsqueeze(1)  # [max_len, 1, dim]
+                traj_j_expanded = traj_j.unsqueeze(0)  # [1, max_len, dim]
+
+                base_kernels = self.base_kernel._compute_batch_kernel(
+                    traj_i_expanded, traj_j_expanded
+                )  # [max_len, max_len]
+
+                # Применяем веса и маски
+                weights_ij = weights_i.unsqueeze(1) * weights_j.unsqueeze(0)
+                mask_ij = mask_i.unsqueeze(1) & mask_j.unsqueeze(0)
+
+                weighted_kernels = weights_ij * base_kernels
+                weighted_kernels[~mask_ij] = 0
+
+                k_ij = torch.sum(weighted_kernels)
+                gram_matrix[i, j] = k_ij
+                gram_matrix[j, i] = k_ij
+
+        return gram_matrix.numpy()
+
+    def _precompute_weight_matrices(self, lengths):
+        """Предварительное вычисление матриц весов"""
+        weight_matrices = []
+        max_len = max(lengths) if lengths else 0
+
+        for length in lengths:
+            weights = torch.zeros(max_len, dtype=torch.float32)
+            valid_weights = self._get_cached_weights(length)
+            weights[:length] = valid_weights
+            weight_matrices.append(weights)
+
+        return weight_matrices
 
     def _compute_single_kernel(self, x, y):
         """Для совместимости с KernelBase"""
-        # Если переданы траектории, используем occupation kernel
-        if hasattr(x, '__len__') and hasattr(x[0], '__len__'):
-            return self._compute_trajectory_kernel(x, y)
-        else:
-            # Иначе используем базовое ядро
-            return self.base_kernel._compute_single_kernel(x, y)
-
+        return self._compute_trajectory_kernel(x, y)
+    # def compute_gram_matrix(self, trajectories):
+    #     """Матрица Грама для набора траекторий"""
+    #     n = len(trajectories)
+    #     gram_matrix = np.zeros((n, n))
+    #     self.q = self.q if self.q is not None else self.q_selector.analyze_and_suggest_q(trajectories)
+    #     for i in range(n):
+    #         for j in range(i, n):
+    #             k_ij = self._compute_trajectory_kernel(trajectories[i], trajectories[j])
+    #             gram_matrix[i, j] = k_ij
+    #             gram_matrix[j, i] = k_ij
+    #
+    #     return gram_matrix
+    #
+    # def _compute_single_kernel(self, x, y):
+    #     """Для совместимости с KernelBase"""
+    #     # Если переданы траектории, используем occupation kernel
+    #     if hasattr(x, '__len__') and hasattr(x[0], '__len__'):
+    #         return self._compute_trajectory_kernel(x, y)
+    #     else:
+    #         # Иначе используем базовое ядро
+    #         return self.base_kernel._compute_single_kernel(x, y)
+    #
 
 class DataDrivenQSelector:
     """Выбор q на основе характеристик данных"""
