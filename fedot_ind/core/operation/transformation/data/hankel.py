@@ -3,6 +3,7 @@ from typing import Union
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import pandas as pd
 from fedot_ind.core.architecture.settings.computational import backend_scipy
+import torch
 
 
 class HankelMatrix:
@@ -11,20 +12,29 @@ class HankelMatrix:
     """
 
     def __init__(self,
-                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list],
+                 time_series: Union[pd.DataFrame, pd.Series, np.ndarray, list, torch.Tensor],
                  window_size: int = None,
                  strides: int = 1):
         self.__time_series = time_series
 
-        self.__time_series = self.__time_series.squeeze()
-        self.__convert_ts_to_array()
+        self.__use_torch = isinstance(time_series, torch.Tensor)
+
+        if not self.__use_torch:
+            self.__time_series = np.squeeze(self.__time_series)
+            self.__convert_ts_to_array()
+
+            if len(self.__time_series.shape) > 1:
+                self.__ts_length = self.__time_series[0].size
+            else:
+                self.__ts_length = self.__time_series.size
+        else:
+            self.__time_series = self.__time_series.squeeze()
+            if self.__time_series.ndim > 1:
+                self.__ts_length = self.__time_series.shape[-1]
+            else:
+                self.__ts_length = self.__time_series.numel()
 
         self.__strides = strides
-        if len(self.__time_series.shape) > 1:
-            self.__ts_length = self.__time_series[0].size
-        else:
-            self.__ts_length = self.__time_series.size
-
         if window_size is None:
             self.__window_length = round(self.__ts_length * 0.35)
         else:
@@ -33,9 +43,17 @@ class HankelMatrix:
 
         self.__check_windows_length()
         if len(self.__time_series.shape) > 1:
-            self.__trajectory_matrix = self.__get_2d_trajectory_matrix()
+            self.__trajectory_matrix = (
+                self.__get_2d_trajectory_matrix_torch()
+                if self.__use_torch else
+                self.__get_2d_trajectory_matrix()
+            )
         else:
-            self.__trajectory_matrix = self.__get_1d_trajectory_matrix()
+            self.__trajectory_matrix = (
+                self.__get_1d_trajectory_matrix_torch()
+                if self.__use_torch else
+                self.__get_1d_trajectory_matrix()
+            )
 
     def __check_windows_length(self):
         if not 2 <= self.__window_length <= self.__ts_length / 2:
@@ -72,6 +90,19 @@ class HankelMatrix:
         rolled = np.lib.stride_tricks.as_strided(
             time_series, shape=shape, strides=strides)
         return rolled[np.arange(0, shape[0], self.__strides)].T
+
+    def __get_1d_trajectory_matrix_torch(self, ts=None):
+        ts = self.__time_series if ts is None else ts
+        indices = torch.arange(0, ts.shape[0] - self.__window_length, self.__strides, device=ts.device)
+        idx = indices.unsqueeze(1) + torch.arange(self.__window_length + 1, device=ts.device)
+        trajectory = ts[idx]
+        return trajectory.T 
+
+    def __get_2d_trajectory_matrix_torch(self):
+        matrices = []
+        for ts in self.__time_series:
+            matrices.append(self.__get_1d_trajectory_matrix_torch(ts))
+        return matrices
 
     @property
     def window_length(self):

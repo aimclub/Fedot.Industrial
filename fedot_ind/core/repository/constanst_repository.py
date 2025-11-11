@@ -42,6 +42,12 @@ from fedot_ind.core.operation.transformation.representation.statistical.stat_fea
     crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
+import torch
+from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import autocorrelation_torch, ben_corr_torch, \
+    crest_factor_torch, energy_torch, \
+    hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
+    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_plural_torch, zero_crossing_rate_torch
+
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
@@ -193,6 +199,18 @@ class FeatureConstant(Enum):
         'q75_': q75,
         'q95_': q95
     }
+    STAT_METHODS_TORCH = {
+        'mean_': torch.mean,
+        'median_': torch.median,
+        'std_': torch.std,
+        'max_': torch.max,
+        'min_': torch.min,
+        'q5_': q5_torch,
+        'q25_': q25_torch,
+        'q75_': q75_torch,
+        'q95_': q95_torch
+    }
+    
     BAGGING_METHOD = {
         'mean': np.mean,
         'median': np.median,
@@ -221,6 +239,28 @@ class FeatureConstant(Enum):
         'hjorth_complexity_': hjorth_complexity,
         'hurst_exponent_': hurst_exponent,
         'petrosian_fractal_dimension_': pfd
+    }
+
+    STAT_METHODS_GLOBAL_TORCH = {
+        'skewness_': skewness_torch,
+        'kurtosis_': kurtosis_torch,
+        'n_peaks_': n_peaks_torch,
+        'slope_': slope_plural_torch,
+        'ben_corr_': ben_corr_torch,
+        'interquartile_range_': interquantile_range_torch,
+        'energy_': energy_torch,
+        'cross_rate_': zero_crossing_rate_torch,
+        'autocorrelation_': autocorrelation_torch,
+        'shannon_entropy_': shannon_entropy_torch,
+        'ptp_amplitude_': ptp_amp_torch,
+        'mean_ptp_distance_': mean_ptp_distance_torch,
+        'crest_factor_': crest_factor_torch,
+        'mean_ema_': mean_ema_torch,
+        'mean_moving_median_': mean_moving_median_torch,
+        'hjorth_mobility_': hjorth_mobility_torch,
+        'hjorth_complexity_': hjorth_complexity_torch,
+        'hurst_exponent_': hurst_exponent_torch,
+        'petrosian_fractal_dimension_': pfd_torch
     }
 
     METRICS_DICT = {'euclidean': euclidean,
@@ -988,6 +1028,8 @@ class UnitTestConstant(Enum):
 
 STAT_METHODS = FeatureConstant.STAT_METHODS.value
 STAT_METHODS_GLOBAL = FeatureConstant.STAT_METHODS_GLOBAL.value
+STAT_METHODS_TORCH = FeatureConstant.STAT_METHODS_TORCH.value
+STAT_METHODS_GLOBAL_TORCH = FeatureConstant.STAT_METHODS_GLOBAL_TORCH.value
 BAGGING_METHOD = FeatureConstant.BAGGING_METHOD.value
 PERSISTENCE_DIAGRAM_FEATURES = FeatureConstant.PERSISTENCE_DIAGRAM_FEATURES.value
 PERSISTENCE_DIAGRAM_EXTRACTOR = FeatureConstant.PERSISTENCE_DIAGRAM_EXTRACTOR.value

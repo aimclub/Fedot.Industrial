@@ -8,34 +8,14 @@ from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
-# TODO: change stat constant methods for torch and create new class
-
-class QuantileExtractor(BaseExtractor):
+# TODO: check ndims and axis, fix this class
+class TorchQuantileExtractor(BaseExtractor):
     """Class responsible for statistical feature generator experiment.
 
     Attributes:
         window_size (int): size of window
         stride (int): stride for window
         var_threshold (float): threshold for variance
-
-    Example:
-        To use this class you need to import it and call needed methods::
-
-            from fedot.core.pipelines.pipeline_builder import PipelineBuilder
-            from examples.fedot.fedot_ex import init_input_data
-            from fedot_ind.tools.loader import DataLoader
-            from fedot_ind.core.repository.initializer_industrial_models import IndustrialModels
-
-            train_data, test_data = DataLoader(dataset_name='Ham').load_data()
-            with IndustrialModels():
-                pipeline = PipelineBuilder().add_node('quantile_extractor',
-                                                       params={'window_size': 20, 'window_mode': True})
-                                            .add_node('rf')
-                                            .build()
-                input_data = init_input_data(train_data[0], train_data[1])
-                pipeline.fit(input_data)
-                features = pipeline.predict(input_data)
-
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -49,35 +29,17 @@ class QuantileExtractor(BaseExtractor):
     def __repr__(self):
         return 'Statistical Class for TS representation'
 
-    def _concatenate_global_and_local_feature(
-            self,
-            global_features: np.ndarray,
-            window_stat_features: np.ndarray) -> np.ndarray:
-        if isinstance(window_stat_features[0], list):
-            window_stat_features = np.concatenate(window_stat_features, axis=0)
+    def _concatenate_global_and_local_feature(self,
+                                              global_features: torch.Tensor,
+                                              window_stat_features: torch.Tensor) -> torch.Tensor:
+        concatenated_features = torch.cat([global_features, window_stat_features], dim=0)
+        concatenated_features = torch.nan_to_num(concatenated_features)
+        return concatenated_features
 
-        window_stat_features = np.concatenate([global_features, window_stat_features], axis=0)
-        window_stat_features = np.nan_to_num(window_stat_features)
-        return window_stat_features
-
-    def extract_stats_features(self, ts: np.array, axis: int) -> InputData:
-        global_features = self.get_statistical_features(ts, add_global_features=self.add_global_features, axis=axis)
-        window_stat_features = self.get_statistical_features(ts, axis=axis) if self.window_size == 0 else \
-            self.apply_window_for_stat_feature(ts_data=ts, feature_generator=self.get_statistical_features,
+    def extract_stats_features(self, ts: torch.Tensor, axis: int) -> InputData:
+        global_features = self.get_statistical_features_torch(ts, add_global_features=self.add_global_features, axis=axis)
+        window_stat_features = self.get_statistical_features_torch(ts, axis=axis) if self.window_size == 0 else \
+            self.apply_window_for_stat_feature_torch(ts_data=ts, feature_generator=self.get_statistical_features_torch,
                                                window_size=self.window_size)
         return self._concatenate_global_and_local_feature(
             global_features, window_stat_features) if self.add_global_features else window_stat_features
-
-    @dask.delayed
-    def generate_features_from_ts(self,
-                                  ts: np.array, #torch vec
-                                  window_length: int = None) -> InputData:
-        ts = ts[None, :] if len(ts.shape) == 1 else ts  # sanity check for map method
-        statistical_representation = np.array(
-            list(map(lambda channel: self.extract_stats_features(channel, axis=0), ts)))
-        return statistical_representation
-
-    def generate_features_from_array(self, array: np.array) -> InputData:
-        statistical_representation = self.get_statistical_features(array,
-                                                                   add_global_features=self.add_global_features, axis=2)
-        return [x for x in statistical_representation if x is not None]

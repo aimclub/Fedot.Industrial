@@ -5,30 +5,50 @@ import torch
 warnings.filterwarnings("ignore")
 
 
+def q5_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    quant = torch.quantile(input=array, q=0.05, dim=axis)
+    return quant.item() if  quant.numel() == 1 else quant
+
+
+def q25_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    quant = torch.quantile(input=array, q=0.25, dim=axis)
+    return quant.item() if  quant.numel() == 1 else quant
+
+
+def q75_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    quant = torch.quantile(input=array, q=0.75, dim=axis)
+    return quant.item() if  quant.numel() == 1 else quant
+
+
+def q95_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    quant = torch.quantile(input=array, q=0.95, dim=axis)
+    return quant.item() if  quant.numel() == 1 else quant
+
+
 def lambda_less_zero(array: torch.Tensor, axis=None) -> int | torch.Tensor:
     mask = (array < 0.01).int()
     return torch.sum(mask).item() if mask.numel() == 1 else torch.sum(mask, dim=axis)
 
 
-def quantile(array: torch.Tensor, q: float, axis=-1) -> float | torch.Tensor:
+def quantile_torch(array: torch.Tensor, q: float, axis=-1) -> float | torch.Tensor:
     axis = axis % array.ndim
     quant = torch.quantile(input=array, q=q, dim=axis)
     return quant.item() if  quant.numel() == 1 else quant
 
 
-def diff(array: torch.Tensor) -> float:
+def diff(array: torch.Tensor, axis=None) -> float:
     return (array[-1] - array[0]).item()
 
 
-def skewness(array: torch.Tensor, axis=None) -> float | torch.Tensor:
+def skewness_torch(array: torch.Tensor, axis=None) -> float | torch.Tensor:
     return skw(a=array) if axis is None else torch.Tensor(skw(a=array, axis=axis))
 
 
-def kurtosis(array: torch.Tensor, axis=None) -> float:
+def kurtosis_torch(array: torch.Tensor, axis=None) -> float:
     return kurt(a=array) if axis is None else torch.Tensor(kurt(a=array, axis=axis))
 
 
-def n_peaks(array: torch.Tensor) -> int:
+def n_peaks_torch(array: torch.Tensor, axis=None) -> int:
     if array.ndim > 1:
         return None
     else:
@@ -36,7 +56,7 @@ def n_peaks(array: torch.Tensor) -> int:
         return int(torch.sum(peaks_mask).item())
 
 
-def mean_ptp_distance(array: torch.Tensor):
+def mean_ptp_distance_torch(array: torch.Tensor, axis=None):
     if array.ndim > 1:
         return None
     else:
@@ -49,9 +69,7 @@ def mean_ptp_distance(array: torch.Tensor):
             return torch.mean(diffs).item()
 
 
-def slope_plural(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
-    """
-    """
+def slope_plural_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     y = array.to(torch.float32)
     axis = axis % y.ndim
     n = y.shape[axis]
@@ -62,7 +80,7 @@ def slope_plural(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     return slope.item() if slope.numel() == 1 else slope
 
 
-def ben_corr(x: torch.Tensor) -> float | torch.Tensor:
+def ben_corr_torch(x: torch.Tensor, axis=None) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
@@ -92,17 +110,17 @@ def ben_corr(x: torch.Tensor) -> float | torch.Tensor:
     return corr.item() if corr.numel() == 1 else corr
 
 
-def interquantile_range(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
-    return quantile(array, 0.75, axis) - quantile(array, 0.25, axis)
+def interquantile_range_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    return quantile_torch(array, 0.75, axis) - quantile_torch(array, 0.25, axis)
 
 
-def energy(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+def energy_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     axis = axis%array.ndim
     energy = torch.sum(array ** 2, dim=axis) / array.shape[axis]
     return energy.item() if energy.numel() == 1 else energy
 
 
-def autocorrelation(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def autocorrelation_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     axis = axis%x.ndim
     lagged = torch.roll(x, shifts=1, dims=axis)
     x_centered = x - x.mean(dim=axis, keepdim=True)
@@ -113,7 +131,7 @@ def autocorrelation(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return corr.item() if corr.numel() == 1 else corr
 
 
-def zero_crossing_rate(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def zero_crossing_rate_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     axis = axis%x.ndim
@@ -128,7 +146,7 @@ def zero_crossing_rate(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return rate.item() if rate.numel() == 1 else rate
 
 
-def shannon_entropy(x: torch.Tensor) -> float | torch.Tensor:
+def shannon_entropy_torch(x: torch.Tensor, axis=None) -> float | torch.Tensor:
     """Returns the Shannon Entropy of the time series.
     """
     if x.ndim == 1:
@@ -151,7 +169,7 @@ def base_entropy(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return entropy.item() if entropy.numel() == 1 else entropy
 
 
-def ptp_amp(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def ptp_amp_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if axis < 0:
@@ -160,7 +178,7 @@ def ptp_amp(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return diff.item() if diff.numel() == 1 else diff
 
 
-def crest_factor(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def crest_factor_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if not torch.is_floating_point(x):
@@ -171,7 +189,7 @@ def crest_factor(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return res.item() if res.numel() == 1 else res
 
 
-def mean_ema(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def mean_ema_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     """Calculate weights before ema, not itteratively.
     """
     if axis != -1:
@@ -187,13 +205,14 @@ def mean_ema(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return ema.item() if ema.numel() == 1 else ema
 
 
-def mean_moving_median(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if axis != -1:
         x = x.transpose(axis, -1)
     T = x.shape[-1]
     span = max(int(T / 10), 2)
+    span = min(span, T)
     medians = []
     for i in range(T - span + 1):
         window = x[..., i:i + span]
@@ -202,7 +221,7 @@ def mean_moving_median(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return res.item() if res.numel() == 1 else res
 
 
-def hjorth_mobility(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def hjorth_mobility_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if not torch.is_floating_point(x):
@@ -214,7 +233,7 @@ def hjorth_mobility(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return mobility
 
 
-def hjorth_complexity(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def hjorth_complexity_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if not torch.is_floating_point(x):
@@ -227,7 +246,7 @@ def hjorth_complexity(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return complexity.item() if complexity.numel() == 1 else complexity
 
 
-def hurst_exponent(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def hurst_exponent_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
     B, T = x.shape[-2:]
@@ -237,7 +256,7 @@ def hurst_exponent(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     S_T = torch.zeros((B, T), device=x.device, dtype=x.dtype)
     R_T = torch.zeros((B, T), device=x.device, dtype=x.dtype)
     for i in range(T):
-        S_T[:, i] = torch.std(x[:, :i + 1], dim=axis, unbiased=False)
+        S_T[:, i] = x[:, :i + 1].std(dim=axis, unbiased=False)
         X_T = y - t * ave_t[:, i].unsqueeze(1)
         R_T[:, i] = X_T[:, :i + 1].max(dim=axis).values - X_T[:, :i + 1].min(dim=axis).values
     rs = R_T / (S_T + 1e-12)
@@ -252,7 +271,7 @@ def hurst_exponent(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     return H.item() if H.numel() == 1 else H
 
 
-def pfd(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+def pfd_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
 

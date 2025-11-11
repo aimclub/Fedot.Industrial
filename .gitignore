@@ -108,3 +108,5 @@ venv.bak/
 .devcontainer/
 
 .local/
+
+stat_features_extr_test.py
