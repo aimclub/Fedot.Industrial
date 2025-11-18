@@ -26,7 +26,6 @@ datasets = "^2.0.0"
 spectrum = "^0.8.1"
 optuna-integration = "^4.1.0"
 pytest-cov = "^6.0.0"
-ipykernel = "^7.1.0"
 
 [tool.coverage.report]
 exclude_also = [
@@ -45,9 +44,3 @@ exclude_also = [
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[dependency-groups]
-dev = [
-    "jupyter (>=1.1.1,<2.0.0)",
-    "ipykernel (>=7.1.0,<8.0.0)"
-]
