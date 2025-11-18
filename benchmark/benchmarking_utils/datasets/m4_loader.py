@@ -1,98 +1,101 @@
 # datasets/m4_loader.py
 import os
 from typing import Dict, List, Optional
-
 import numpy as np
+import pandas as pd
+
+from data_loader import BaseDataLoader
 
 
-class M4DatasetLoader:
+class M4DatasetLoader(BaseDataLoader):
     """Загрузчик данных M4 Competition"""
 
     def __init__(self, data_path: str = "data/m4"):
         self.data_path = data_path
-        self.frequency_map = {
-            'Yearly': 1, 'Quarterly': 4, 'Monthly': 12,
-            'Weekly': 52, 'Daily': 365, 'Hourly': 24
+        self._ensure_directories()
+        self.name_map = {
+            "yearly": "M4Yearly.csv",
+            "quarterly": "M4Quarterly.csv",
+            "monthly": "M4Monthly.csv",
+            "weekly": "M4Weekly.csv",
+            "daily": "M4Daily.csv",
         }
 
-    def load_data(self, series_ids: Optional[List[str]] = None,
-                  frequency: str = 'Monthly', max_series: int = 100) -> Dict[str, np.ndarray]:
-        """
-        Загрузка данных M4
+    def _ensure_directories(self):
+        """Создание необходимых директорий"""
+        os.makedirs(self.data_path, exist_ok=True)
 
-        Args:
-            series_ids: список ID рядов для загрузки (None = все)
-            frequency: частота данных
-            max_series: максимальное число рядов для загрузки
-        """
-        # В реальной реализации здесь будет загрузка из файлов M4
-        # Для демонстрации генерируем синтетические данные
+    def list_datasets(self) -> List[str]:
+        """Возвращает список коротких имён"""
+        return list(self.name_map.keys())
 
-        if not os.path.exists(self.data_path):
-            print("⚠️  Реальные данные M4 не найдены, используем синтетические данные")
-            return self._generate_synthetic_data(max_series, frequency)
+    def _get_dataset_name(self, name: str) -> str:
+        """Формирует корректное имя файла датасета M4"""
+        name = name.lower()
+        if name in self.name_map:
+            return self.name_map[name]
+        
+        if name.endswith(".csv"):
+            return name
 
-        return self._load_real_m4_data(series_ids, frequency, max_series)
+        raise ValueError(f"Неизвестное имя датасета: {name}")
 
-    def _generate_synthetic_data(self, n_series: int, frequency: str) -> Dict[str, np.ndarray]:
-        """Генерация синтетических данных для тестирования"""
-        series_dict = {}
+    def load_dataset(
+            self, 
+            dataset_name: str, 
+            series_labels: Optional[List[str]] = None, 
+            max_series: int = None
+        ) -> Dict[str, np.ndarray]:
+        """Загрузка одного датасета M4"""
+        dataset_name = self._get_dataset_name(dataset_name)
+        print(f"📥 Загрузка датасета {dataset_name}...")
 
-        for i in range(n_series):
-            series_id = f"M4_{frequency}_{i + 1:03d}"
+        filepath = os.path.join(self.data_path, dataset_name)
+        if not os.path.exists(filepath):
+            print(f"⚠️ Файл {filepath} не найден")
+            return {}
 
-            if frequency == 'Yearly':
-                length = np.random.randint(20, 50)
-                series = self._generate_yearly_series(length)
-            elif frequency == 'Quarterly':
-                length = np.random.randint(40, 100)
-                series = self._generate_quarterly_series(length)
-            elif frequency == 'Monthly':
-                length = np.random.randint(60, 200)
-                series = self._generate_monthly_series(length)
-            else:
-                length = np.random.randint(100, 500)
-                series = self._generate_generic_series(length)
+        df = pd.read_csv(filepath, skiprows=1, names=['datetime', 'value', 'label'])
+        df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+        df['label'] = df['label'].astype("string")
 
-            series_dict[series_id] = series
+        if series_labels is not None:
+            df = df[df["label"].isin(series_labels)]
 
-        print(f"📊 Сгенерировано {len(series_dict)} синтетических рядов ({frequency})")
+        grouped = df.groupby("label")
+        if max_series is None:
+            max_series = len(grouped)
+
+        series_dict = {
+            label: group.sort_values("datetime")["value"].to_numpy(dtype=float)
+            for i, (label, group) in enumerate(grouped)
+            if i < max_series
+        }
+
+        print(f"📊 Загружено {len(series_dict)} рядов из {dataset_name}")
         return series_dict
+    
+    def load_all(self) -> Dict[str, np.ndarray]:
+        """Загрузить все датасеты"""
+        all_series = {}
+        for short_name in self.list_datasets():
+            all_series.update(self.load_dataset(short_name))
+        return all_series
+    
 
-    def _generate_yearly_series(self, length: int) -> np.ndarray:
-        """Генерация годовых данных"""
-        t = np.arange(length)
-        trend = 0.05 * t
-        noise = 0.1 * np.random.normal(size=length)
-        return 10 + trend + noise
+    def load_series(
+            self, 
+            series_labels: Optional[List[str]] = None
+        ) -> Dict[str, np.ndarray]:
+        """
+        Загрузка конкретных рядов по меткам
+        """
+        all_series = {}
 
-    def _generate_quarterly_series(self, length: int) -> np.ndarray:
-        """Генерация квартальных данных"""
-        t = np.arange(length)
-        trend = 0.02 * t
-        seasonal = 2 * np.sin(2 * np.pi * t / 4)
-        noise = 0.1 * np.random.normal(size=length)
-        return 20 + trend + seasonal + noise
-
-    def _generate_monthly_series(self, length: int) -> np.ndarray:
-        """Генерация месячных данных"""
-        t = np.arange(length)
-        trend = 0.01 * t
-        seasonal = 3 * np.sin(2 * np.pi * t / 12)
-        noise = 0.1 * np.random.normal(size=length)
-        return 30 + trend + seasonal + noise
-
-    def _generate_generic_series(self, length: int) -> np.ndarray:
-        """Генерация общих временных рядов"""
-        t = np.arange(length)
-        trend = 0.005 * t
-        seasonal = 2 * np.sin(2 * np.pi * t / 7) + 1.5 * np.sin(2 * np.pi * t / 30)
-        noise = 0.15 * np.random.normal(size=length)
-        return 25 + trend + seasonal + noise
-
-    def _load_real_m4_data(self, series_ids: Optional[List[str]],
-                           frequency: str, max_series: int) -> Dict[str, np.ndarray]:
-        """Загрузка реальных данных M4 (заглушка)"""
-        # Здесь должна быть реализация загрузки из CSV файлов M4
-        print("📥 Загрузка реальных данных M4...")
-        return self._generate_synthetic_data(min(50, max_series), frequency)
+        for short_name in self.list_datasets():
+            dataset = self.load_dataset(short_name, series_labels=series_labels)
+            all_series.update(dataset)
+        
+        print(f"📊 Всего загружено {len(all_series)} рядов из M4 Competition")
+        return all_series
+    
