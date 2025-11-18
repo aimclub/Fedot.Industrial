@@ -109,4 +109,4 @@ venv.bak/
 
 .local/
 
-stat_features_extr_test.py
+test_tabular_extractor.py

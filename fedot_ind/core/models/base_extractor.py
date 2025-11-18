@@ -134,12 +134,20 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         time_series = time_series.flatten() if axis != 2 else time_series
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
+    
+    def get_statistical_features_torch(self, 
+                                       time_series: torch.Tensor,
+                                       add_global_features: bool = False,
+                                       axis=-1) -> torch.Tensor:
+        time_series = time_series.flatten() if axis != 2 else time_series
+        list_of_methods = [*STAT_METHODS_GLOBAL_TORCH.items()] if add_global_features else [*STAT_METHODS_TORCH.items()]
+        return list(map(lambda method: method[1](time_series, axis), list_of_methods))
+
 
     def apply_window_for_stat_feature(self,
                                       ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> np.ndarray:
-
         axis = ts_data.ndim - 1
         window_size = round(ts_data.shape[axis] /
                             10) if window_size is None else round(ts_data.shape[axis] *
@@ -175,58 +183,41 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                    for channel_feature in multi_channel_features], axis=0)
         return features
     
-    # TODO: check this methods in pipline
-    def get_statistical_features_torch(self, 
-                                       time_series: torch.Tensor,
-                                       add_global_features: bool = False,
-                                       axis=None) -> torch.Tensor:
-        """
-        Method for creating baseline statistical features for a given time series.
+    def _get_torch_feature_matrix(self, extraction_func: callable, ts: torch.Tensor) -> torch.Tensor:
+        multi_channel_features = [extraction_func(x) for x in ts]
+        features = torch.concat([channel_feature.unsqueeze(0)
+                                   for channel_feature in multi_channel_features])
+        return features
 
-        Args:
-            add_global_features: bool, if True, then global features are added to the feature set.
-            time_series: torch.Tensor, time series for which features are generated
-        """
-        time_series = time_series.unsqueeze(0) if time_series.ndim == 1 else time_series
-        list_of_methods = [*STAT_METHODS_GLOBAL_TORCH.items()] if add_global_features else [*STAT_METHODS_TORCH.items()]
-        # return torch.cat(map(lambda method: method[1](time_series, axis), list_of_methods))
-        features = [method[1](time_series, axis) for method in list_of_methods]
-        features = [f for f in features if f is not None]
-        features = [
-            f if isinstance(f, torch.Tensor) else torch.tensor([f])
-            for f in features
-        ]
-        features_tensor = torch.cat(features, dim=-1)
-        return features_tensor
 
     def apply_window_for_stat_feature_torch(self,
                                       ts_data: torch.Tensor,
                                       feature_generator: callable,
                                       window_size: int = None) -> torch.Tensor:
         axis = ts_data.ndim - 1 
-        T = ts_data.shape[0]
-        window_size = round(T / 10) if window_size is None else round(T * window_size / 100) 
+        window_size = round(ts_data.shape[axis] /
+                            10) if window_size is None else round(ts_data.shape[axis] *
+                                                                  (window_size /
+                                                                   100))
         window_size = max(window_size, 5) 
         if self.use_sliding_window: 
             if self.stride > 1: subseq_set = HankelMatrix(time_series=ts_data, 
                                                           window_size=window_size, 
                                                           strides=self.stride).trajectory_matrix
             else:
-                subseq_set = ts_data.unfold(dimension=axis, size=window_size, step=self.stride)
+                window_length = ts_data.shape[axis] - window_size
+                subseq_set = ts_data.unfold(
+                    dimension=axis,
+                    size=window_length,
+                    step=self.stride
+                )
         else:
             subseq_set = None
 
-        features = []
         if subseq_set is None:
-            ts_slices = torch.arange(0, ts_data.shape[0], window_size, device=ts_data.device)
-            for s in ts_slices:
-                segment = ts_data[s:s + window_size]
-                features.append(feature_generator(segment, axis=axis))
+            ts_slices = list(range(0, ts_data.shape[0], window_size))
+            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), ts_slices))
         else:
-            num_windows = subseq_set.shape[1]
-            for i in range(num_windows):
-                window = subseq_set[:, i, :]
-                features.append(feature_generator(window, axis=axis))
-        
-        features = torch.stack(features, dim=1 if subseq_set is not None else 0)
+            ts_slices = list(range(0, subseq_set.shape[1]))
+            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), ts_slices))
         return features

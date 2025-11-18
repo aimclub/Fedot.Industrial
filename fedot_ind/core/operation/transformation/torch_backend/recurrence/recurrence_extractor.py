@@ -36,38 +36,29 @@ class RecurrenceExtractor(BaseExtractor):
     def __repr__(self):
         return 'Reccurence Class for TS representation'
 
-    def _generate_features_from_ts(self, ts: torch.Tensor):
+    def _generate_features_from_ts(self, ts: torch.Tensor) -> torch.Tensor:
         if self.window_size != 0:
             trajectory_transformer = HankelMatrix(time_series=ts,
                                                   window_size=self.window_size,
                                                   strides=self.stride)
             ts = trajectory_transformer.trajectory_matrix
             self.ts_length = trajectory_transformer.ts_length
-
-        #TODO: make TSTransformer for torch (which metrics?)
         specter = self.transformer(time_series=ts,
                                    rec_metric=self.rec_metric)
-
+        
         if not self.image_mode:
             feature_df = specter.ts_to_recurrence_matrix()
             feature_df = self.extractor(
                 recurrence_matrix=feature_df).quantification_analysis()
-            features = np.nan_to_num(
-                np.array(list(feature_df.values())), posinf=0, neginf=0)
+            features = torch.tensor(list(feature_df.values()))
         else:
             features = specter.ts_to_3d_recurrence_matrix()
-
         return features
 
-    def generate_recurrence_features(self, ts: np.array) -> InputData:
-        if len(ts.shape) < 3:
+    def generate_recurrence_features(self, ts: torch.Tensor):
+        if ts.ndim < 3:
             aggregation_df = self._generate_features_from_ts(ts)
         else:
-            aggregation_df = self._get_feature_matrix(
+            aggregation_df = self._get_torch_feature_matrix(
                 self._generate_features_from_ts, ts)
         return aggregation_df
-
-    @dask.delayed
-    def generate_features_from_ts(self, ts_data: np.array,
-                                  dataset_name: str = None):
-        return self.generate_recurrence_features(ts=ts_data)

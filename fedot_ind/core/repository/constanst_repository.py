@@ -43,7 +43,8 @@ from fedot_ind.core.operation.transformation.representation.statistical.stat_fea
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
 import torch
-from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import autocorrelation_torch, ben_corr_torch, \
+from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, max_torch, min_torch, \
+    autocorrelation_torch, ben_corr_torch, std_torch, \
     crest_factor_torch, energy_torch, \
     hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
     mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_plural_torch, zero_crossing_rate_torch
@@ -200,11 +201,11 @@ class FeatureConstant(Enum):
         'q95_': q95
     }
     STAT_METHODS_TORCH = {
-        'mean_': torch.mean,
-        'median_': torch.median,
-        'std_': torch.std,
-        'max_': torch.max,
-        'min_': torch.min,
+        'mean_': mean_torch,
+        'median_': median_torch,
+        'std_': std_torch,
+        'max_': max_torch,
+        'min_': min_torch,
         'q5_': q5_torch,
         'q25_': q25_torch,
         'q75_': q75_torch,

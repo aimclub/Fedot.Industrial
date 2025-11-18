@@ -68,7 +68,6 @@ class HankelMatrix:
             self.__time_series = self.__time_series
 
     def __get_1d_trajectory_matrix(self):
-
         if self.__strides > 1:
             return self.__strided_trajectory_matrix(self.__time_series)
         else:
@@ -90,19 +89,35 @@ class HankelMatrix:
         rolled = np.lib.stride_tricks.as_strided(
             time_series, shape=shape, strides=strides)
         return rolled[np.arange(0, shape[0], self.__strides)].T
-
-    def __get_1d_trajectory_matrix_torch(self, ts=None):
+    
+    def __get_1d_trajectory_matrix_torch(self, ts: torch.Tensor = None):
         ts = self.__time_series if ts is None else ts
-        indices = torch.arange(0, ts.shape[0] - self.__window_length, self.__strides, device=ts.device)
-        idx = indices.unsqueeze(1) + torch.arange(self.__window_length + 1, device=ts.device)
-        trajectory = ts[idx]
-        return trajectory.T 
+        T = ts.shape[0]
+        W = self.__window_length
+        S = self.__strides
+        if S > 1:
+            num_windows = T - W + 1
+            trajectory = ts.as_strided(
+                size=(num_windows, W),
+                stride=(ts.stride(0), ts.stride(0))
+            )
+            idx = torch.arange(0, num_windows, S, device=ts.device)
+            trajectory = trajectory[idx]
+            return trajectory.T
+        else:
+            i = torch.arange(W + 1, device=ts.device).unsqueeze(1)
+            j = torch.arange(T - W, device=ts.device).unsqueeze(0)
+            idx = i + j
+            source = torch.cat([ts[:W + 1], ts[W:][1:]], dim=0)
+            hankel_matrix = source[idx]
+            return hankel_matrix
 
     def __get_2d_trajectory_matrix_torch(self):
         matrices = []
         for ts in self.__time_series:
             matrices.append(self.__get_1d_trajectory_matrix_torch(ts))
-        return matrices
+        tensor = [x.unsqueeze(0) for x in matrices]
+        return torch.concat(tensor)
 
     @property
     def window_length(self):

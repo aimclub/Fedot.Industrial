@@ -1,5 +1,5 @@
 from scipy.spatial.distance import pdist, squareform
-
+from fedot_ind.core.distance.pdist import torch_pdist
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
@@ -74,16 +74,15 @@ class TSTransformer:
 
 
 class TorchTSTransformer:
-    def __init__(self, time_series, rec_metric='cosine', device=None):
+    def __init__(self, time_series, rec_metric='cosine', p=3, device=None):
         """
         Transformer for recurrence matrix generation.
         Args:
             time_series: torch.Tensor of shape (features, timesteps)
             rec_metric: one of ['cosine', 'euclidean', 'canberra']
         """
-        self.time_series = time_series.float()
-        if self.time_series.ndim == 1:
-            self.time_series = self.time_series.unsqueeze(0)
+        self.time_series = DataConverter(
+            data=time_series).convert_to_2d_tensor()
         self.device = device or self.time_series.device
         self.time_series = self.time_series.to(self.device)
         self.recurrence_matrix = None
@@ -91,30 +90,13 @@ class TorchTSTransformer:
         self.min_signal_ratio = 0.6
         self.max_signal_ratio = 0.85
         self.rec_metric = rec_metric
+        self.p = p
 
     def ts_to_recurrence_matrix(self, threshold=None):
-        distance_matrix = self._pairwise_distance(self.time_series.T, metric=self.rec_metric)
+        distance_matrix = torch_pdist(self.time_series.T, metric=self.rec_metric, p=self.p)
         distance_matrix = 1 - (distance_matrix / distance_matrix.max())
         self.recurrence_matrix = self.binarization(distance_matrix, threshold)
         return self.recurrence_matrix
-    
-    def _pairwise_distance(self, X: torch.Tensor, metric='euclidean'):
-        """
-        torch-аналог scipy.spatial.distance.pdist + squareform
-        """
-        if metric == 'euclidean':
-            diff = X.unsqueeze(0) - X.unsqueeze(1)
-            return torch.sqrt(torch.sum(diff ** 2, dim=-1))
-        elif metric == 'cosine':
-            Xn = F.normalize(X, p=2, dim=1)
-            sim = torch.mm(Xn, Xn.T)
-            return 1 - sim
-        elif metric == 'canberra':
-            num = torch.abs(X.unsqueeze(0) - X.unsqueeze(1))
-            denom = torch.abs(X.unsqueeze(0)) + torch.abs(X.unsqueeze(1)) + 1e-8
-            return torch.sum(num / denom, dim=-1)
-        else:
-            raise ValueError(f"Unsupported metric: {metric}")
 
     def binarization(self, distance_matrix: torch.Tensor, threshold: float = None):
         best_threshold_flag = False
@@ -146,9 +128,9 @@ class TorchTSTransformer:
         return rounded.to(torch.uint8)
 
     def ts_to_3d_recurrence_matrix(self):
-        cos = self._pairwise_distance(self.time_series.T, 'cosine')
-        euc = self._pairwise_distance(self.time_series.T, 'euclidean')
-        can = self._pairwise_distance(self.time_series.T, 'canberra')
+        cos = torch_pdist(self.time_series.T, metric='cosine')
+        euc = torch_pdist(self.time_series.T, metric='euclidean')
+        can = torch_pdist(self.time_series.T, metric='canberra')
         colorised = [self._colorise_torch(m) for m in [cos, euc, can]]
         stacked = torch.stack(colorised, dim=0)
         return stacked

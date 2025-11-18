@@ -203,9 +203,9 @@ def hjorth_mobility(array, axis=None):
     # Compute the first-order differential sequence
     diff_sequence = np.diff(array, axis=axis)
     # Calculate the mean power of the first-order differential sequence
-    M2 = np.sum(np.power(diff_sequence, 2), axis=axis) / len(diff_sequence)
+    M2 = np.sum(np.power(diff_sequence, 2), axis=axis) / diff_sequence.shape[axis]
     # Calculate the total power of the time series
-    TP = np.sum(np.power(array, 2), axis=axis) / len(array)
+    TP = np.sum(np.power(array, 2), axis=axis) / array.shape[axis]
     # Calculate Hjorth mobility
     mobility = np.sqrt(M2 / TP)
     return mobility
@@ -218,15 +218,15 @@ def hjorth_complexity(array, axis=None):
         # Compute the first-order differential sequence
         diff_sequence = np.diff(a=array, axis=axis)
         # Calculate the mean power of the first-order differential sequence
-        M2 = np.sum(np.power(diff_sequence, 2), axis=axis) / len(diff_sequence)
+        M2 = np.sum(np.power(diff_sequence, 2), axis=axis) / diff_sequence.shape[axis]
         # Calculate the total power of the time series
-        TP = np.sum(np.power(array, 2), axis=axis) / len(array)
+        TP = np.sum(np.power(array, 2), axis=axis) / array.shape[axis]
         # Calculate the fourth central moment of the first-order differential
         # sequence
         try:
             steps = range(1, len(diff_sequence))
-            elements_squared_diff = [(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in steps]
-            M4 = sum(elements_squared_diff) / len(diff_sequence)
+            elements_squared_diff = np.array([(diff_sequence[i] - diff_sequence[i - 1]) ** 2 for i in steps])
+            M4 = sum(elements_squared_diff) / elements_squared_diff.shape[axis]
         except Exception:
             M4 = 1
         # Calculate Hjorth complexity

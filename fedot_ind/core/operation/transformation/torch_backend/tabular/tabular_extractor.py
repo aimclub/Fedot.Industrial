@@ -71,7 +71,7 @@ class TabularExtractorTorch(BaseExtractor):
         self.repo = IndustrialModels().setup_repository()
         self.custom_tabular_transformation = {'park_transformation': park_transform}
         self.pca_is_fitted = False
-        self.pca = PCA_transformation(explained_variance=self.explained_variance)
+        self.pca = PCA_transformation(explained_variance=self.explained_dispersion)
 
     def _reduce_dim(self, features: torch.Tensor):
         if self.pca_is_fitted:
