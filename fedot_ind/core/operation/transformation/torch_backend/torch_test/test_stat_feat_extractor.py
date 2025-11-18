@@ -47,14 +47,14 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
 
 
 def main():
-    test_shapes = [[1, 256], [6, 512], [8, 1024]]  #[[6, 512]]
+    test_shapes = [[1, 256], [6, 512], [8, 1024]]  # [[6, 512]]
     strides = [1, 2, 3]
     glob_feat = [True, False]
     params_combinations = itertools.product(test_shapes, strides, glob_feat)
     for shape, stride, global_feat in params_combinations:
         print(f"Test with shape = {shape}, stride = {stride}, global_feat = {global_feat}")
         test_stat_extractor(
-            shape_array=shape, 
+            shape_array=shape,
             stride=stride,
             add_global_features=global_feat
         )

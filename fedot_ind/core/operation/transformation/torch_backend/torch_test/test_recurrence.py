@@ -57,12 +57,12 @@ def compare_batch_recurrence(batch_np):
     print(f"\n Testing batch of {batch_np.shape[0]} series")
     batch_torch = torch.tensor(batch_np, dtype=torch.float32)
 
-    # NumPy 
+    # NumPy
     start = time.time()
     rec_np = RecurrenceNumpy(params={"rec_metric": "cosine", "window_size": 50})
     feat_np = rec_np.generate_recurrence_features(batch_np)
     t_np = time.time() - start
-    # Torch 
+    # Torch
     start = time.time()
     rec_t = RecurrenceTorch(params={"rec_metric": "cosine", "window_size": 50})
     feat_torch = rec_t.generate_recurrence_features(batch_torch)
@@ -89,7 +89,7 @@ def main():
         test_series = generate_series(n=5000)
         for name, data in test_series.items():
             res.append(compare_recurrence(name, data))
-    
+
     # for batch of ts
     B = 5
     T = 5000

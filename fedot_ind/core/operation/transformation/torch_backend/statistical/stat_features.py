@@ -38,22 +38,22 @@ def min_torch(x: torch.Tensor, axis=-1):
 
 def q5_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     quant = torch.quantile(input=array, q=0.05, dim=axis)
-    return quant.item() if  quant.numel() == 1 else quant
+    return quant.item() if quant.numel() == 1 else quant
 
 
 def q25_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     quant = torch.quantile(input=array, q=0.25, dim=axis)
-    return quant.item() if  quant.numel() == 1 else quant
+    return quant.item() if quant.numel() == 1 else quant
 
 
 def q75_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     quant = torch.quantile(input=array, q=0.75, dim=axis)
-    return quant.item() if  quant.numel() == 1 else quant
+    return quant.item() if quant.numel() == 1 else quant
 
 
 def q95_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     quant = torch.quantile(input=array, q=0.95, dim=axis)
-    return quant.item() if  quant.numel() == 1 else quant
+    return quant.item() if quant.numel() == 1 else quant
 
 
 def lambda_less_zero(array: torch.Tensor, axis=-1) -> int | torch.Tensor:
@@ -64,7 +64,7 @@ def lambda_less_zero(array: torch.Tensor, axis=-1) -> int | torch.Tensor:
 def quantile_torch(array: torch.Tensor, q: float, axis=-1) -> float | torch.Tensor:
     axis = axis % array.ndim
     quant = torch.quantile(input=array, q=q, dim=axis)
-    return quant.item() if  quant.numel() == 1 else quant
+    return quant.item() if quant.numel() == 1 else quant
 
 
 def diff(array: torch.Tensor, axis=-1) -> float:
@@ -175,13 +175,13 @@ def interquantile_range_torch(array: torch.Tensor, axis=-1) -> float | torch.Ten
 
 
 def energy_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
-    axis = axis%array.ndim
+    axis = axis % array.ndim
     energy = torch.sum(array ** 2, dim=axis) / array.shape[axis]
     return energy.item() if energy.numel() == 1 else energy
 
 
 def autocorrelation_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    axis = axis%x.ndim
+    axis = axis % x.ndim
     lagged = torch.roll(x, shifts=1, dims=axis)
     x_centered = x - x.mean(dim=axis, keepdim=True)
     lagged_centered = lagged - lagged.mean(dim=axis, keepdim=True)
@@ -224,7 +224,7 @@ def shannon_entropy_torch(x: torch.Tensor, axis=None) -> float | torch.Tensor:
 def base_entropy(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     if x.ndim == 1:
         x = x.unsqueeze(0)
-    axis = axis%x.ndim
+    axis = axis % x.ndim
     probs = x / (x.sum(dim=axis, keepdim=True) + 1e-12)
     entropy = -(probs * torch.log(probs + 1e-12)).sum(dim=axis)
     return entropy.item() if entropy.numel() == 1 else entropy
@@ -351,4 +351,4 @@ def pfd_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     num = torch.log10(n)
     den = torch.log10(n) + torch.log10(n / (n + 0.4 * N_delta))
     res = num / den
-    return  res.item() if res.numel() == 1 else res
+    return res.item() if res.numel() == 1 else res

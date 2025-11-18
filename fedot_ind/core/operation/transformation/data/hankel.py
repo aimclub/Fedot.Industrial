@@ -89,7 +89,7 @@ class HankelMatrix:
         rolled = np.lib.stride_tricks.as_strided(
             time_series, shape=shape, strides=strides)
         return rolled[np.arange(0, shape[0], self.__strides)].T
-    
+
     def __get_1d_trajectory_matrix_torch(self, ts: torch.Tensor = None):
         ts = self.__time_series if ts is None else ts
         T = ts.shape[0]

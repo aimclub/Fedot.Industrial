@@ -5,7 +5,6 @@ from sklearn.decomposition import PCA
 from fedot_ind.core.operation.transformation.torch_backend.tabular.tabular_extractor import PCA_transformation
 
 
-
 n_samples, n_features = 30000, 10000
 X_np = np.random.randn(n_samples, n_features).astype(np.float32)
 X_torch = torch.tensor(X_np)
@@ -21,7 +20,7 @@ dev = ['cpu', 'cuda']
 for d in dev:
     if d == 'cuda':
         if torch.cuda.is_available():
-            device = 'cuda'  
+            device = 'cuda'
         else:
             print('cuda error')
             break

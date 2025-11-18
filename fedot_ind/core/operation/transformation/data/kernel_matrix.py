@@ -3,7 +3,6 @@ from fedot_ind.core.distance.pdist import torch_pdist
 from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
-import torch.nn.functional as F
 
 
 def colorise(distance_matrix):
@@ -27,7 +26,7 @@ class TSTransformer:
         if rec_metric is not None:
             self.rec_metric = rec_metric
         else:
-            self.rec_metric='euclidean'
+            self.rec_metric = 'euclidean'
 
     def ts_to_recurrence_matrix(self,
                                 threshold=None):
@@ -37,7 +36,7 @@ class TSTransformer:
         self.recurrence_matrix = self.binarization(
             distance_matrix, threshold=threshold)
         return self.recurrence_matrix
-    
+
     def ts_to_3d_recurrence_matrix(self):
         cosine_matrix = pdist(metric='cosine', X=self.time_series.T)
         euclidean_matrix = pdist(metric='euclidean', X=self.time_series.T)
@@ -120,7 +119,7 @@ class TorchTSTransformer:
         return recurrence_matrix
 
     def _colorise_torch(self, matrix: torch.Tensor) -> torch.Tensor:
-        matrix = matrix.to(torch.float64)  
+        matrix = matrix.to(torch.float64)
         min_val = matrix.min()
         max_val = matrix.max()
         normalized = (matrix - min_val) / (max_val - min_val + 1e-8)

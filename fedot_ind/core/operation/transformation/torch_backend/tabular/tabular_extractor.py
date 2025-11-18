@@ -22,6 +22,7 @@ class PCA_transformation:
         self.components: tensor, matrix for PCA transformation.
         self.fitted: bool, if False, then required to be fitted.
     """
+
     def __init__(
             self,
             n_components=None,
@@ -45,7 +46,7 @@ class PCA_transformation:
         self.components = V[:k]
         self.fitted = True
         return self
-    
+
     def forward(self, X: torch.Tensor):
         assert self.fitted, "Not fitted"
         X = X - X.mean()
@@ -113,7 +114,7 @@ class TabularExtractorTorch(BaseExtractor):
     def create_feature_matrix(self, feature_list: list) -> torch.Tensor:
         [torch.from_numpy(x).reshape(x.shape[0], x.shape[1] * x.shape[2]) for x in feature_list]
         return torch.cat([torch.from_numpy(x).reshape(x.shape[0], x.shape[1] * x.shape[2])
-                               for x in feature_list], dim=1).squeeze()
+                          for x in feature_list], dim=1).squeeze()
 
     def _transform(self, input_data: InputData) -> torch.Tensor:
         """
