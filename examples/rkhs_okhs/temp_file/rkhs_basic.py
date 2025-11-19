@@ -38,12 +38,13 @@ def demo_occupation_kernel():
     print(gram_matrix)
 
     # Multi-Kernel Ensemble
-    ensemble = MultiKernelEnsemble()
-    combined_gram = ensemble.compute_combined_gram(trajectories)
+    # ensemble = MultiKernelEnsemble()
+    # combined_gram = ensemble.compute_gram_matrix(trajectories)
 
-    print("\nКомбинированная матрица Грама:")
-    print(combined_gram)
+    # print("\nКомбинированная матрица Грама:")
+    # print(combined_gram)
 
+    # NotImplementedError for MultiKernelEnsemble compute_gram_matrix
 
 def demo_fractional_forecasting():
     """Демонстрация дробного прогнозирования"""

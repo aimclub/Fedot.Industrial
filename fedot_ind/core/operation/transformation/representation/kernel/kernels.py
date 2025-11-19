@@ -159,8 +159,8 @@ class OccupationKernel(KernelBase):
         n = len(trajectories)
         gram_matrix = torch.zeros((n, n), dtype=torch.float32)
 
-        # Конвертируем все траектории
-        torch_trajectories = [self._ensure_tensor(traj) for traj in trajectories]
+        # Конвертируем все траектории (используем существующий метод для проверки/конверсии в torch.Tensor)
+        torch_trajectories = [self._is_torch_tensor(traj) for traj in trajectories]
         trajectory_lengths = [len(traj) for traj in torch_trajectories]
 
         # Предварительно вычисляем веса
@@ -263,6 +263,7 @@ class OccupationKernel(KernelBase):
     def _compute_single_kernel(self, x, y):
         """Для совместимости с KernelBase"""
         return self._compute_trajectory_kernel(x, y)
+    
     # def compute_gram_matrix(self, trajectories):
     #     """Матрица Грама для набора траекторий"""
     #     n = len(trajectories)
@@ -285,6 +286,7 @@ class OccupationKernel(KernelBase):
     #         # Иначе используем базовое ядро
     #         return self.base_kernel._compute_single_kernel(x, y)
     #
+
 
 class DataDrivenQSelector:
     """Выбор q на основе характеристик данных"""

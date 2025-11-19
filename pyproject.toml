@@ -27,6 +27,35 @@ spectrum = "^0.8.1"
 optuna-integration = "^4.1.0"
 pytest-cov = "^6.0.0"
 
+[project]
+name = "fedot-ind"
+version = "0.5.0"
+description = "Time series analysis framework"
+authors = [{name = "NSS Lab", email = "itmo.nss.team@gmail.com"}]
+license = {text = "BSD 3-Clause"}
+readme = "README_en.rst"
+requires-python = ">=3.10, <3.12"
+dependencies = [
+    "fedot @ git+https://github.com/aimclub/FEDOT.git",
+    "dask-ml >2025",
+    "spacy>=3.5,<3.6",
+    "fastai>=2.7.18",
+    "giotto-tda",
+    "scikit-tda>=1.1.1",
+    "chardet>=5.2.0",
+    "tensorly>=0.9.0",
+    "pymonad>=2.4.0",
+    "pywavelets>=1.5.0",
+    "mklpy>=0.6",
+    "librosa>=0.10.2.post1",
+    "pyriemann>=0.7",
+    "datasetsforecast>=0.0.8",
+    "datasets>=2.0.0",
+    "spectrum>=0.8.1",
+    "optuna-integration>=4.1.0",
+    "pytest-cov>=6.0.0",
+]
+
 [tool.coverage.report]
 exclude_also = [
     "def __repr__",
