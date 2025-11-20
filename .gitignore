@@ -6,6 +6,15 @@ __pycache__/
 # IntelliJ project files
 /.idea
 
+#cache
+/cache
+/results
+/some_files
+/time
+/torch_test
+./.tsv
+/fedot_ind/data
+
 # User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
@@ -96,5 +105,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.devcontainer/
 
 .local/
+
+test_tabular_extractor.py
