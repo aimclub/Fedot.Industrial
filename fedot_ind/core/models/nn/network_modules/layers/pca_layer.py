@@ -15,15 +15,16 @@ class PCA_learning_layer(Module):
         self.fitted: bool, if True, then the layer is fitted.
         self.W: Tensor, the layer's weights.
         self.epoch: int, current epoch.
-    
+
 
     article: https://arxiv.org/html/2501.19114v1#alg1
     """
+
     def __init__(
             self,
             input_dim: int,
-            explained_variance: float=0.975,
-            freeze_epochs: int=40):
+            explained_variance: float = 0.975,
+            freeze_epochs: int = 40):
         super().__init__()
         self.input_dim = input_dim
         self.explained_variance = explained_variance

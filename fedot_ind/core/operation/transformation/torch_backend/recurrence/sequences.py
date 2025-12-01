@@ -47,9 +47,9 @@ class RecurrenceFeatureExtractorTorch:
             'RDRR': (determinism / recurrence_rate) if recurrence_rate > 0 else 0.,
             'RLD': (laminarity / determinism) if determinism > 0 else 0.,
         }
-    
+
     def calculate_vertical_frequency(self, number_of_vectors, not_white: int):
-        vertical_frequency_distribution = torch.zeros(number_of_vectors + 1, 
+        vertical_frequency_distribution = torch.zeros(number_of_vectors + 1,
                                                       device=self.recurrence_matrix.device)
         m = (self.recurrence_matrix == not_white).float()
         for i in range(number_of_vectors):
@@ -83,15 +83,15 @@ class RecurrenceFeatureExtractorTorch:
             for l in lengths:
                 diag_freq[int(l)] += 1
         return diag_freq
-    
-    def entropy_lines(self, factor, number_of_vectors, distribution:torch.Tensor):
+
+    def entropy_lines(self, factor, number_of_vectors, distribution: torch.Tensor):
         sum_frequency_distribution = torch.sum(distribution[factor:])
         if sum_frequency_distribution == 0:
             return 0.
         probs = distribution[factor:number_of_vectors] / sum_frequency_distribution
         mask = probs > 0
         return -torch.sum(probs[mask] * torch.log(probs[mask]))
-    
+
     def laminarity_or_determinism(self, factor, number_of_vectors, distribution, lam: bool):
         if lam:
             number_of_vectors = number_of_vectors + 1

@@ -13,9 +13,9 @@ from tqdm.dask import TqdmCallback
 from fedot_ind.core.metrics.metrics_implementation import *
 from fedot_ind.core.operation.IndustrialCachableOperation import IndustrialCachableOperationImplementation
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
-from fedot_ind.core.repository.constanst_repository import (STAT_METHODS, 
-                                                            STAT_METHODS_GLOBAL, 
-                                                            STAT_METHODS_TORCH, 
+from fedot_ind.core.repository.constanst_repository import (STAT_METHODS,
+                                                            STAT_METHODS_GLOBAL,
+                                                            STAT_METHODS_TORCH,
                                                             STAT_METHODS_GLOBAL_TORCH)
 
 
@@ -134,8 +134,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         time_series = time_series.flatten() if axis != 2 else time_series
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
-    
-    def get_statistical_features_torch(self, 
+
+    def get_statistical_features_torch(self,
                                        time_series: torch.Tensor,
                                        add_global_features: bool = False,
                                        axis=-1) -> torch.Tensor:
@@ -156,7 +156,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         else:
             list_of_methods = [*STAT_METHODS_TORCH.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
-
 
     def apply_window_for_stat_feature(self,
                                       ts_data: np.array,
@@ -194,13 +193,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         features = np.concatenate([channel_feature.reshape(1, -1)
                                    for channel_feature in multi_channel_features], axis=0)
         return features
-    
+
     def _get_torch_feature_matrix(self, extraction_func: callable, ts: torch.Tensor) -> torch.Tensor:
         multi_channel_features = [extraction_func(x) for x in ts]
         features = torch.concat([channel_feature.unsqueeze(0)
-                                   for channel_feature in multi_channel_features])
+                                 for channel_feature in multi_channel_features])
         return features
-
 
     def apply_window_for_stat_feature_torch(self,
                                       ts_data: torch.Tensor,

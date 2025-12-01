@@ -34,4 +34,3 @@ def torch_pdist(X: torch.Tensor, metric: str = 'euclidean', p: float = 3) -> flo
         return diff.sum(dim=-1) ** (1.0 / p)
     else:
         return 0
-

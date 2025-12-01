@@ -78,7 +78,7 @@ class TorchQuantileExtractor(BaseExtractor):
         """Method for a tensor with one dimention.
         """
         statistical_representation = self.get_statistical_features_torch(tensor,
-                                                                   add_global_features=self.add_global_features,
-                                                                   axis=2)
+                                                                         add_global_features=self.add_global_features,
+                                                                         axis=2)
         l = [x for x in statistical_representation if x is not None]
         return l

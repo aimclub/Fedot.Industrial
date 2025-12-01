@@ -42,7 +42,6 @@ from fedot_ind.core.operation.transformation.representation.statistical.stat_fea
     crest_factor, energy, \
     hjorth_complexity, hjorth_mobility, hurst_exponent, interquartile_range, kurtosis, mean_ema, mean_moving_median, \
     mean_ptp_distance, n_peaks, pfd, ptp_amp, q25, q5, q75, q95, shannon_entropy, skewness, slope, zero_crossing_rate
-import torch
 from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_features import mean_torch, median_torch, max_torch, min_torch, \
     autocorrelation_torch, ben_corr_torch, std_torch, \
     crest_factor_torch, energy_torch, \
@@ -211,7 +210,7 @@ class FeatureConstant(Enum):
         'q75_': q75_torch,
         'q95_': q95_torch
     }
-    
+
     BAGGING_METHOD = {
         'mean': np.mean,
         'median': np.median,

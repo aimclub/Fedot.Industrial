@@ -1,10 +1,7 @@
 from typing import Optional
 
-import dask
-import numpy as np
 import torch
 
-from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from fedot_ind.core.models.base_extractor import BaseExtractor
 from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
@@ -45,7 +42,7 @@ class RecurrenceExtractor(BaseExtractor):
             self.ts_length = trajectory_transformer.ts_length
         specter = self.transformer(time_series=ts,
                                    rec_metric=self.rec_metric)
-        
+
         if not self.image_mode:
             feature_df = specter.ts_to_recurrence_matrix()
             feature_df = self.extractor(
