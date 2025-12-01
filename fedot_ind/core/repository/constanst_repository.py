@@ -47,7 +47,7 @@ from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_feat
     autocorrelation_torch, ben_corr_torch, std_torch, \
     crest_factor_torch, energy_torch, \
     hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
-    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_plural_torch, zero_crossing_rate_torch
+    mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
 
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
@@ -246,7 +246,7 @@ class FeatureConstant(Enum):
         'skewness_': skewness_torch,
         'kurtosis_': kurtosis_torch,
         'n_peaks_': n_peaks_torch,
-        'slope_': slope_plural_torch,
+        'slope_': slope_torch,
         'ben_corr_': ben_corr_torch,
         'interquartile_range_': interquantile_range_torch,
         'energy_': energy_torch,

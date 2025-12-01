@@ -110,3 +110,5 @@ venv.bak/
 .local/
 
 test_tabular_extractor.py
+
+*.lock

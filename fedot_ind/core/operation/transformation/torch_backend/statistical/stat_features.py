@@ -11,13 +11,14 @@ def mean_torch(x: torch.Tensor, axis=-1):
 
 
 def median_torch(x: torch.Tensor, axis=-1):
-    x_sorted, _ = torch.sort(x, dim=axis)
     n = x.size(axis)
+    k = n // 2
     if n % 2 == 1:
-        m = x_sorted.select(axis, n // 2)
+        m = x.kthvalue(k + 1, dim=axis).values
     else:
-        m = (x_sorted.select(axis, n // 2 - 1) +
-             x_sorted.select(axis, n // 2)) / 2
+        v1 = x.kthvalue(k, dim=axis).values
+        v2 = x.kthvalue(k + 1, dim=axis).values
+        m = (v1 + v2) / 2
     return m.item() if m.numel() == 1 else m
 
 
@@ -71,77 +72,125 @@ def diff(array: torch.Tensor, axis=-1) -> float:
     return (array[-1] - array[0]).item()
 
 
-def skewness_torch(array: torch.Tensor, axis=-1):
-    result = skw(a=array, axis=axis)
-    return result if array.ndim == 1 else torch.Tensor(skw(result))
+def skewness_torch(x: torch.Tensor, axis=-1):
+    mean = x.mean(dim=axis, keepdim=True)
+    std = x.std(dim=axis, unbiased=False, keepdim=True)
+    skew = ((x - mean) ** 3).mean(dim=axis) / (std.squeeze(axis) ** 3 + 1e-12)  
+    return skew
 
 
-def kurtosis_torch(array: torch.Tensor, axis=None) -> float:
-    result = kurt(a=array, axis=axis)
-    return result if array.ndim == 1 else torch.Tensor(skw(result))
+def kurtosis_torch(x: torch.Tensor, axis=-1, fisher=True):
+    mean = x.mean(dim=axis, keepdim=True)
+    std = x.std(dim=axis, unbiased=False, keepdim=True)
+    kurt = ((x - mean) ** 4).mean(dim=axis) / (std.squeeze(axis) ** 4 + 1e-12)
+    if fisher:
+        kurt = kurt - 3.0
+    return kurt
 
 
-def n_peaks_torch(X: torch.Tensor, axis=-1) -> int:
-    if (axis != -1) | (axis != len(X.shape)):
+def n_peaks_torch(X: torch.Tensor, axis=-1):
+    if axis != -1:
         x = X.transpose(axis, -1)
-    if X.ndim > 2:
-        x = X.reshape(-1, x.shape[-1])
     if X.ndim == 1:
         x = X.unsqueeze(0)
-    mid = x[:, 1:-1]
-    left = x[:, :-2]
-    right = x[:, 2:]
-    peaks_mask = ((mid > left) & (mid > right))
-    n_peaks = torch.sum(peaks_mask, dim=-1).to(torch.float32)
-    return n_peaks.reshape(X.shape[0], X.shape[1]) if n_peaks.numel() > 1 else n_peaks.item()
+    elif X.ndim > 2:
+        x = X.reshape(-1, x.shape[-1])  
+    else:
+        x = X
+    d = torch.diff(x, dim=-1)
+    s = torch.sign(d) 
+    s[s == 0] = 1
+    dd = torch.diff(s, axis=-1)
+    n_peaks = torch.count_nonzero(dd == -2, axis=-1)
+    if X.ndim > 2:
+        n_peaks.reshape(X.shape[0], X.shape[1])
+    else:
+        return n_peaks.item() if n_peaks.numel() == 1 else n_peaks
 
 
 def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
-    if (axis != -1) | (axis != len(X.shape)):
+    if axis != -1:
         x = X.transpose(axis, -1)
-    if X.ndim > 2:
-        x = X.reshape(-1, x.shape[-1])
     if X.ndim == 1:
         x = X.unsqueeze(0)
-    T = x.shape[0]
+    elif X.ndim > 2:
+        x = X.reshape(-1, x.shape[-1])  
+    else:
+        x = X
+    d = torch.diff(x, dim=-1)
+    s = torch.sign(d)
+    s[s == 0] = 1
+    dd = torch.diff(s, dim=-1)
+    indices = torch.where(dd == -2)
+    rows, cols = indices
 
-    mid = x[:, 1:-1]
-    left = x[:, :-2]
-    right = x[:, 2:]
-    peaks_mask = ((mid > left) & (mid > right))
+    max_count = torch.bincount(rows).max().item()
+    B = dd.shape[0]
+    count_peaks = torch.bincount(rows, minlength=B)
+    max_count = int(count_peaks.max().item())
+    offsets = torch.cumsum(torch.cat([count_peaks[:1] * 0, count_peaks[:-1]]), dim=0)
+    idx_global = torch.arange(len(rows), device=rows.device)
+    idx_in_row = idx_global - offsets[rows]
+    peak_indices = torch.zeros((B, max_count), device=X.device, dtype=torch.long)
+    peak_indices[rows, idx_in_row] = cols + 1
 
-    mean_ptp = torch.zeros(T)
-    for i in range(T):
-        peak_indices = torch.nonzero(peaks_mask[i]).squeeze() + 1
-        if peak_indices.numel() > 1:
-            diffs = torch.diff(peak_indices.to(torch.float32))
-            mean_ptp[i] = torch.mean(diffs).item()
-    return mean_ptp.reshape(X.shape[0], X.shape[1]) if mean_ptp.numel() > 1 else mean_ptp.item()
+    if peak_indices.numel() == 0:
+        return torch.zeros(X.shape[0], device=x.device)
+    count_peaks = torch.tensor(count_peaks).to(X.device) - 1.0
+    count_peaks[count_peaks == -1] = 1e-12
+    diff_peaks = torch.diff(peak_indices, dim=-1)
+    diff_peaks[diff_peaks < 0] = 0
+    mean_dist = diff_peaks.sum(dim=-1) / count_peaks.float()
+    if X.ndim > 2:
+        mean_dist.reshape(X.shape[0], X.shape[1])
+    else:
+        return mean_dist.item() if mean_dist.numel() == 1 else mean_dist
 
 
-def slope_plural_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+def slope_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
     y = array.to(torch.float32)
     axis = axis % y.ndim
     n = y.shape[axis]
     x = torch.arange(n, device=y.device, dtype=torch.float32)
     x_mean = x.mean()
     y_mean = y.mean(dim=axis, keepdim=True)
-    slope = torch.sum((x - x_mean) * (y - y_mean), dim=axis) / torch.sum((x - x_mean) ** 2)
+    slope = torch.sum((x - x_mean) * (y - y_mean), dim=axis) / (torch.sum((x - x_mean) ** 2 + 1e-12))
     return slope.item() if slope.numel() == 1 else slope
 
 
-def ben_corr_torch(x: torch.Tensor, axis: int = -1):
-    """
-    Vectorized Benford correlation for multi-dimensional tensors.
-    Correlation is computed along `axis` (default: last axis).
+def ben_corr_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """Useful for anomaly detection applications [1][2]. Returns the correlation from first digit distribution when
+     compared to the Newcomb-Benford's Law distribution [3][4].
 
-    Output shape = x.shape without the `axis` dimension.
+     Args:
+            x (torch.Tensor): time series or batch to calculate the feature of
+
+     Returns:
+            float | torch.Tensor: the value(s) of the feature
+
+
+     .. math::
+
+         P(d)=\\log_{10}\\left(1+\\frac{1}{d}\\right)
+
+     where :math:`P(d)` is the Newcomb-Benford distribution for :math:`d` that is the leading digit of the number
+     {1, 2, 3, 4, 5, 6, 7, 8, 9}.
+
+     .. rubric:: References
+
+     |  [1] A Statistical Derivation of the Significant-Digit Law, Theodore P. Hill, Statistical Science, 1995
+     |  [2] The significant-digit phenomenon, Theodore P. Hill, The American Mathematical Monthly, 1995
+     |  [3] The law of anomalous numbers, Frank Benford, Proceedings of the American philosophical society, 1938
+     |  [4] Note on the frequency of use of the different digits in natural numbers, Simon Newcomb, American Journal of
+     |  mathematics, 1881
+
     """
     if (axis != -1) | (axis != len(x.shape)):
         x = x.transpose(axis, -1)
     *batch_shape, T = x.shape
     B = int(torch.prod(torch.tensor(batch_shape))) if batch_shape else 1
     x_flat = x.reshape(B, T)
+
     # preprocess and get histogramm of first digits for each ts
     x_flat = torch.nan_to_num(x_flat, nan=0.0, posinf=0.0, neginf=0.0)
     x_flat = torch.abs(x_flat)
@@ -153,10 +202,12 @@ def ben_corr_torch(x: torch.Tensor, axis: int = -1):
     fd_flat = (first_digits + offsets.unsqueeze(1)).reshape(-1)
     counts = torch.bincount(fd_flat, minlength=B * 10)
     counts = counts.reshape(B, 10)[:, 1:10]
-    data_dist = counts / (counts.sum(dim=1, keepdim=True) + 1e-8)
+    data_dist = counts / (counts.sum(dim=1, keepdim=True) + 1e-12)
+
     # Benford's distribution
     digits = torch.arange(1, 10, device=x.device, dtype=torch.float32)
     benford = torch.log10(1 + 1 / digits).unsqueeze(0).expand(B, -1)
+
     # corr coef
     x_mean = benford.mean(dim=1, keepdim=True)
     y_mean = data_dist.mean(dim=1, keepdim=True)
@@ -175,23 +226,28 @@ def interquantile_range_torch(array: torch.Tensor, axis=-1) -> float | torch.Ten
 
 
 def energy_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
-    axis = axis%array.ndim
+    axis = axis % array.ndim
     energy = torch.sum(array ** 2, dim=axis) / array.shape[axis]
     return energy.item() if energy.numel() == 1 else energy
 
 
 def autocorrelation_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    axis = axis%x.ndim
+    """Autocorrelation of the time series with its lagged version.
+    """
+    axis = axis % x.ndim
     lagged = torch.roll(x, shifts=1, dims=axis)
     x_centered = x - x.mean(dim=axis, keepdim=True)
     lagged_centered = lagged - lagged.mean(dim=axis, keepdim=True)
     num = (x_centered * lagged_centered).sum(dim=axis)
-    denom = torch.sqrt((x_centered ** 2).sum(dim=axis) * (lagged_centered ** 2).sum(dim=axis))
+    denom = torch.sqrt((x_centered ** 2).sum(dim=axis) *
+                        (lagged_centered ** 2).sum(dim=axis))
     corr = num / denom.clamp(min=1e-12)
     return corr.item() if corr.numel() == 1 else corr
 
 
 def zero_crossing_rate_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """Returns the rate of sign-changes of the time series for a scaled version of it.
+    """
     if (axis != -1) | (axis != len(x.shape)):
         x = x.transpose(axis, -1)
     if x.ndim == 1:
@@ -207,17 +263,29 @@ def zero_crossing_rate_torch(x: torch.Tensor, axis: int = -1) -> float | torch.T
     return rate.item() if rate.numel() == 1 else rate
 
 
-def shannon_entropy_torch(x: torch.Tensor, axis=None) -> float | torch.Tensor:
+def shannon_entropy_torch(x: torch.Tensor, axis=None):
     """Returns the Shannon Entropy of the time series.
     """
     if x.ndim == 1:
         x = x.unsqueeze(0)
-    entropy = []
-    for arr in x:
-        _, counts = torch.unique(arr, return_counts=True)
-        p = counts.float() / counts.sum()
-        entropy.append(-(p * torch.log2(p + 1e-12)).sum())
-    entropy = torch.stack(entropy)
+    B, N = x.shape
+    x_sorted, _ = torch.sort(x, dim=axis)
+    new_group = torch.cat([
+        torch.ones(B, 1, device=x.device, dtype=torch.bool),
+        x_sorted[:, 1:] != x_sorted[:, :-1]
+    ], dim=axis)
+    group_starts_list = [row.nonzero(as_tuple=False).squeeze(1) for row in new_group]
+    group_sizes_list = []
+    for starts in group_starts_list:
+        ends = torch.cat([starts[1:], torch.tensor([N], device=x.device)])
+        group_sizes = (ends - starts)
+        group_sizes_list.append(group_sizes)
+    max_groups = max(gs.numel() for gs in group_sizes_list)
+    group_sizes = torch.zeros((B, max_groups), device=x.device)
+    for i, gs in enumerate(group_sizes_list):
+        group_sizes[i, : gs.numel()] = gs
+    probs = group_sizes / N
+    entropy = torch.sum(-probs * torch.log2(probs + 1e-12), dim=1)
     return entropy.item() if entropy.numel() == 1 else entropy
 
 
@@ -231,6 +299,8 @@ def base_entropy(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def ptp_amp_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """Returns the peak-to-peak amplitude of the time series.
+    """
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if axis < 0:
@@ -240,6 +310,8 @@ def ptp_amp_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def crest_factor_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """Returns the crest factor of the time series.
+    """
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if not torch.is_floating_point(x):
@@ -251,7 +323,7 @@ def crest_factor_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def mean_ema_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Calculate weights before ema, not itteratively.
+    """Returns the exponential moving average of the time series.
     """
     T = x.shape[axis]
     span = max(int(T / 10), 2)
@@ -261,20 +333,18 @@ def mean_ema_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     ema = torch.sum(x * weights, dim=axis)
     return ema.item() if ema.numel() == 1 else ema
 
-
 def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """Returns the average moving median of the time series.
+    """
+    if axis != -1:
+        x = x.transpose(axis, -1)
     if x.ndim == 1:
         x = x.unsqueeze(0)
-    T = x.shape[-1]
+    T = x.shape[axis]
     span = max(int(T / 10), 2)
-    medians = []
-    for i in range(T - span + 1):
-        window = x[..., i:i + span]
-        median = median_torch(window)
-        median = torch.Tensor([median]) if isinstance(median, float) else median
-        medians.append(median)
-        # medians.append(window.median(dim=-1).values)
-    res = torch.stack(medians, dim=-1).mean(dim=-1)
+    windows = x.unfold(dimension=axis, size=span, step=1)
+    medians = median_torch(windows)
+    res = medians.mean(dim=axis)
     return res.item() if res.numel() == 1 else res
 
 
@@ -298,12 +368,27 @@ def hjorth_complexity_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Te
     diff = torch.diff(x, dim=axis)
     M2 = (diff ** 2).mean(dim=axis)
     TP = (x ** 2).mean(dim=axis)
-    M4 = (torch.diff(diff, dim=axis) ** 2).mean()
+    M4 = (torch.diff(diff, dim=axis) ** 2).mean(dim=axis)
     complexity = torch.sqrt((M4 * TP) / (M2 * M2 + 1e-12))
     return complexity.item() if complexity.numel() == 1 else complexity
 
 
 def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
+    """ Compute the Hurst Exponent of the time series. The Hurst exponent is used as a measure of long-term memory of
+    time series. It relates to the autocorrelations of the time series, and the rate at which these decrease as the
+    lag between pairs of values increases. For a stationary time series, the Hurst exponent is equivalent to the
+    autocorrelation exponent.
+
+    Args:
+        X (torch.Tensor): time series or batch to calculate the feature of
+
+    Returns:
+        H: Hurst exponent of the time series
+
+    Notes:
+        Author of this function is Xin Liu
+
+    """
     if (axis != -1) | (axis != len(X.shape)):
         x = X.transpose(axis, -1)
     if X.ndim > 2:
@@ -325,7 +410,7 @@ def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
         S_T[:, i] = segment.std(dim=-1, unbiased=False)
         X_T = y - t * ave_t[:, i].unsqueeze(1)
         R_T[:, i] = X_T[:, :i + 1].amax(dim=-1) - X_T[:, :i + 1].amin(dim=-1)
-    RS = R_T / (S_T + 1e-8)
+    RS = R_T / (S_T + 1e-12)
     RS = torch.log(RS[:, 1:])
     n = torch.log(t[:, 1:]).squeeze(0)
 
@@ -341,6 +426,15 @@ def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
 
 
 def pfd_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """
+    The Petrosian fractal dimension (PFD) is a chaotic algorithm used to calculate EEG signal complexity
+    
+    Args:
+        x (torch.Tensor): time series or batch to calculate the feature of
+
+    Returns:
+        pfd: Petrosian fractal dimension of the time series
+    """
     if x.ndim == 1:
         x = x.unsqueeze(0)
 
@@ -350,5 +444,5 @@ def pfd_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     n = torch.tensor(float(n), device=x.device)
     num = torch.log10(n)
     den = torch.log10(n) + torch.log10(n / (n + 0.4 * N_delta))
-    res = num / den
-    return  res.item() if res.numel() == 1 else res
+    pfd = num / den
+    return  pfd.item() if pfd.numel() == 1 else pfd

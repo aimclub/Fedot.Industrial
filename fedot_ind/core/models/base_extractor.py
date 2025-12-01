@@ -139,8 +139,22 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                        time_series: torch.Tensor,
                                        add_global_features: bool = False,
                                        axis=-1) -> torch.Tensor:
-        time_series = time_series.flatten() if axis != 2 else time_series
-        list_of_methods = [*STAT_METHODS_GLOBAL_TORCH.items()] if add_global_features else [*STAT_METHODS_TORCH.items()]
+        """
+        Method for creating baseline statistical features for a given time series
+        or batch of time series.
+
+        Args:
+            add_global_features: if True, global features are added to the feature set
+            time_series: time series for which features are generated
+
+        Returns:
+            torch.Tensor: tensor with feeatures
+
+        """
+        if add_global_features:
+            list_of_methods = [*STAT_METHODS_GLOBAL_TORCH.items()]
+        else:
+            list_of_methods = [*STAT_METHODS_TORCH.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
 
 
@@ -156,7 +170,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         window_size = max(window_size, 5)
 
         if self.use_sliding_window:
-
             if self.stride > 1:
                 subseq_set = HankelMatrix(time_series=ts_data,
                                           window_size=window_size,
@@ -165,7 +178,6 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 subseq_set = stride_repr.sliding_window_view(ts_data,
                                                              ts_data.shape[axis] - window_size,
                                                              axis=axis)
-
         else:
             subseq_set = None
 
@@ -194,14 +206,20 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                       ts_data: torch.Tensor,
                                       feature_generator: callable,
                                       window_size: int = None) -> torch.Tensor:
+        """
+        Method for creating windows and extracting base statistical features
+        for a given time series or batch of time series.
+        """
         axis = ts_data.ndim - 1 
-        window_size = round(ts_data.shape[axis] /
-                            10) if window_size is None else round(ts_data.shape[axis] *
-                                                                  (window_size /
-                                                                   100))
-        window_size = max(window_size, 5) 
-        if self.use_sliding_window: 
-            if self.stride > 1: subseq_set = HankelMatrix(time_series=ts_data, 
+        if window_size is None:
+            window_size = round(ts_data.shape[axis] / 10)
+        else:
+            window_size = round(ts_data.shape[axis] * (window_size / 100))
+        window_size = max(window_size, 5)
+
+        if self.use_sliding_window:
+            if self.stride > 1:
+                subseq_set = HankelMatrix(time_series=ts_data, 
                                                           window_size=window_size, 
                                                           strides=self.stride).trajectory_matrix
             else:
@@ -211,13 +229,21 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                     size=window_length,
                     step=self.stride
                 )
+            if subseq_set.ndim > 2:
+                subseq_set = subseq_set.transpose(1, 2)
+            else:
+                subseq_set = subseq_set.T
         else:
-            subseq_set = None
+            T = ts_data.shape[1]
+            num_windows = T // window_size
+            T_eff = num_windows * window_size
+            ts_cut = ts_data[:, :T_eff]
+            subseq_set = ts_cut.reshape(2, num_windows, window_size)
 
-        if subseq_set is None:
-            ts_slices = list(range(0, ts_data.shape[0], window_size))
-            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), ts_slices))
+        features = feature_generator(subseq_set)
+        features = torch.stack(features, dim=0)
+        if features.ndim > 2:
+            features = features.permute(1, 2, 0)
         else:
-            ts_slices = list(range(0, subseq_set.shape[1]))
-            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), ts_slices))
+            features = features.T
         return features
