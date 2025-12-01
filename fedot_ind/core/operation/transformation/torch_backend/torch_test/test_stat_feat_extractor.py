@@ -70,7 +70,7 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
     else:
         torch_result_np = np.array(torch_result)
 
-    #torch GPU
+    # torch GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
     warm_up_cuda_computations(device=device)
     times_gpu = []
@@ -78,7 +78,7 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
         start_event.record()
-        torch_result_gpu = torch_extractor.generate_features_from_ts(x_torch)
+        torch_extractor.generate_features_from_ts(x_torch)
         end_event.record()
         torch.cuda.synchronize()
         t_torch_gpu = start_event.elapsed_time(end_event) / 1000
@@ -113,7 +113,7 @@ def main():
     for shape, stride, global_feat in params_combinations:
         print(f"Test with shape = {shape}, stride = {stride}, global_feat = {global_feat}")
         res = test_stat_extractor(
-            shape_array=shape, 
+            shape_array=shape,
             stride=stride,
             add_global_features=global_feat
         )
@@ -121,7 +121,7 @@ def main():
 
     df = pd.DataFrame(results)
     path = ""
-    df.to_csv(path+'stat_extractor.csv', index=False)
+    df.to_csv(path + 'stat_extractor.csv', index=False)
     print(tabulate(df, headers='keys', tablefmt='grid', showindex=True))
 
 

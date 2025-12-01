@@ -201,14 +201,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         return features
 
     def apply_window_for_stat_feature_torch(self,
-                                      ts_data: torch.Tensor,
-                                      feature_generator: callable,
-                                      window_size: int = None) -> torch.Tensor:
+                                            ts_data: torch.Tensor,
+                                            feature_generator: callable,
+                                            window_size: int = None) -> torch.Tensor:
         """
         Method for creating windows and extracting base statistical features
         for a given time series or batch of time series.
         """
-        axis = ts_data.ndim - 1 
+        axis = ts_data.ndim - 1
         if window_size is None:
             window_size = round(ts_data.shape[axis] / 10)
         else:
@@ -217,9 +217,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         if self.use_sliding_window:
             if self.stride > 1:
-                subseq_set = HankelMatrix(time_series=ts_data, 
-                                                          window_size=window_size, 
-                                                          strides=self.stride).trajectory_matrix
+                subseq_set = HankelMatrix(time_series=ts_data,
+                                          window_size=window_size,
+                                          strides=self.stride).trajectory_matrix
             else:
                 window_length = ts_data.shape[axis] - window_size
                 subseq_set = ts_data.unfold(
