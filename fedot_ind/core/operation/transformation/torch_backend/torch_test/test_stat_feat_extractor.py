@@ -65,8 +65,7 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
     torch_result = torch_extractor.generate_features_from_ts(x_torch)
     torch.cuda.synchronize() if torch.cuda.is_available() else None
     t_torch = time.perf_counter() - start_torch
-    torch_result_np = torch_result.detach().cpu().numpy()
-
+    torch_result.detach().cpu().numpy()
 
     # torch GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"

@@ -93,7 +93,7 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
-        x = X.reshape(-1, X.shape[-1])  
+        x = X.reshape(-1, X.shape[-1])
     else:
         x = X
     d = torch.diff(x, dim=-1)
@@ -113,7 +113,7 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
-        x = X.reshape(-1, X.shape[-1])  
+        x = X.reshape(-1, X.shape[-1])
     else:
         x = X
     d = torch.diff(x, dim=-1)

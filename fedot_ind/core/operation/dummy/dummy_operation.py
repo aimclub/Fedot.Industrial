@@ -116,16 +116,17 @@ def init_input_data_tensor(X: pd.DataFrame, y: Optional[np.ndarray], task: str =
 
     # Replace NaN and infinite values with 0 in features
     input_data.features = torch.where(
-        torch.isnan(input_data.features), 
-        torch.tensor(0.0, device=input_data.features.device, dtype=input_data.features.dtype), 
+        torch.isnan(input_data.features),
+        torch.tensor(0.0, device=input_data.features.device, dtype=input_data.features.dtype),
         input_data.features
     )
     input_data.features = torch.where(
-        torch.isinf(input_data.features), 
-        torch.tensor(0.0, device=input_data.features.device, dtype=input_data.features.dtype), 
+        torch.isinf(input_data.features),
+        torch.tensor(0.0, device=input_data.features.device, dtype=input_data.features.dtype),
         input_data.features
     )
     return input_data
+
 
 class DummyOperation(DataOperationImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
