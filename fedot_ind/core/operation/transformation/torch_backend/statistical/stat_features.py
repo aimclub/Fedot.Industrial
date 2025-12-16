@@ -1,5 +1,4 @@
 import warnings
-from scipy.stats import skew as skw, kurtosis as kurt
 import torch
 
 warnings.filterwarnings("ignore")
@@ -75,7 +74,7 @@ def diff(array: torch.Tensor, axis=-1) -> float:
 def skewness_torch(x: torch.Tensor, axis=-1):
     mean = x.mean(dim=axis, keepdim=True)
     std = x.std(dim=axis, unbiased=False, keepdim=True)
-    skew = ((x - mean) ** 3).mean(dim=axis) / (std.squeeze(axis) ** 3 + 1e-12)  
+    skew = ((x - mean) ** 3).mean(dim=axis) / (std.squeeze(axis) ** 3 + 1e-12)
     return skew
 
 
@@ -98,7 +97,7 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
     else:
         x = X
     d = torch.diff(x, dim=-1)
-    s = torch.sign(d) 
+    s = torch.sign(d)
     s[s == 0] = 1
     dd = torch.diff(s, axis=-1)
     n_peaks = torch.count_nonzero(dd == -2, axis=-1)
@@ -240,7 +239,7 @@ def autocorrelation_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tens
     lagged_centered = lagged - lagged.mean(dim=axis, keepdim=True)
     num = (x_centered * lagged_centered).sum(dim=axis)
     denom = torch.sqrt((x_centered ** 2).sum(dim=axis) *
-                        (lagged_centered ** 2).sum(dim=axis))
+                       (lagged_centered ** 2).sum(dim=axis))
     corr = num / denom.clamp(min=1e-12)
     return corr.item() if corr.numel() == 1 else corr
 
@@ -337,6 +336,7 @@ def mean_ema_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     ema = torch.sum(x * weights, dim=axis)
     return ema.item() if ema.numel() == 1 else ema
 
+
 def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     """Returns the average moving median of the time series.
     """
@@ -432,7 +432,7 @@ def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
 def pfd_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     """
     The Petrosian fractal dimension (PFD) is a chaotic algorithm used to calculate EEG signal complexity
-    
+
     Args:
         x (torch.Tensor): time series or batch to calculate the feature of
 
@@ -449,5 +449,4 @@ def pfd_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
     num = torch.log10(n)
     den = torch.log10(n) + torch.log10(n / (n + 0.4 * N_delta))
     pfd = num / den
-    return  pfd.item() if pfd.numel() == 1 else pfd
-
+    return pfd.item() if pfd.numel() == 1 else pfd

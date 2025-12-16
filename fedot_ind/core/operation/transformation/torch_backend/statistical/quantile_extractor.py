@@ -27,10 +27,11 @@ class TorchQuantileExtractor(BaseExtractor):
         return 'Statistical Class for TS representation'
 
     def extract_stats_features_torch(self, ts: torch.Tensor, axis: int) -> InputData:
-        """Method for extracting statistical features for data and its windows and 
+        """Method for extracting statistical features for data and its windows and
         concatenating results. It extracts only base features for windows.
         """
-        global_features = self.get_statistical_features_torch(ts, add_global_features=self.add_global_features, axis=axis)
+        global_features = self.get_statistical_features_torch(
+            ts, add_global_features=self.add_global_features, axis=axis)
         if ts.squeeze().ndim == 1:
             global_features = torch.Tensor(global_features).to(ts.device)
         else:
@@ -75,3 +76,4 @@ class TorchQuantileExtractor(BaseExtractor):
         features = self.extract_stats_features_torch(ts, axis=-1)
         features = features.cpu()
         return features.cpu()
+

@@ -68,7 +68,7 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
     torch_result_np = torch_result.detach().cpu().numpy()
 
 
-    #torch GPU
+    # torch GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Working on GPU")
     warm_up_cuda_computations(device=device)
@@ -110,7 +110,7 @@ def main():
     for shape, stride, global_feat, w in params_combinations:
         print(f"Test with shape = {shape}, stride = {stride}, global_feat = {global_feat} \n")
         res = test_stat_extractor(
-            shape_array=shape, 
+            shape_array=shape,
             stride=stride,
             add_global_features=global_feat,
             window_size=w
@@ -119,7 +119,7 @@ def main():
 
     df = pd.DataFrame(results)
     path = ""
-    df.to_csv(path+'stat_extractor.csv', index=False)
+    df.to_csv(path + 'stat_extractor.csv', index=False)
     print(tabulate(df, headers='keys', tablefmt='grid', showindex=True))
 
 
