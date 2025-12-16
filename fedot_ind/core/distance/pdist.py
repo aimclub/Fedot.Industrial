@@ -1,36 +1,46 @@
 import torch
-import torch.nn.functional as F
 
 
-def torch_pdist(X: torch.Tensor, metric: str = 'euclidean', p: float = 3) -> float:
-    """Pairwise distance
-    """
+def torch_pdist(X: torch.Tensor, metric: str = 'euclidean', p: float = 3):
     if metric == 'euclidean':
-        XX = torch.sum(X * X, dim=1, keepdim=True)
-        dist_sq = XX + XX.T - 2 * (X @ X.T)
-        dist_sq = torch.clamp(dist_sq, min=0.0)
-        return torch.sqrt(dist_sq)
-    elif metric == 'canberra':
-        num = (X.unsqueeze(0) - X.unsqueeze(1)).abs()
-        denom = X.abs().unsqueeze(0) + X.abs().unsqueeze(1) + 1e-8
-        return torch.sum(num / denom, dim=-1)
-    elif metric == 'cosine':
-        Xn = F.normalize(X, p=2, dim=1)
-        sim = torch.mm(Xn, Xn.T)
-        return 1 - sim
+        diff = X.unsqueeze(0) - X.unsqueeze(1)
+        dist = torch.sqrt((diff * diff).sum(dim=-1))
+
     elif metric == 'cityblock':
         diff = (X.unsqueeze(0) - X.unsqueeze(1)).abs()
-        return diff.sum(dim=-1)
-    elif metric == 'correlation':
-        Xc = X - X.mean(dim=1, keepdim=True)
-        Xc = F.normalize(Xc, p=2, dim=1)
-        sim = Xc @ Xc.T
-        return 1 - sim
+        dist = diff.sum(dim=-1)
+
     elif metric == 'chebyshev':
         diff = (X.unsqueeze(0) - X.unsqueeze(1)).abs()
-        return diff.max(dim=-1).values
+        dist = diff.max(dim=-1).values
+
     elif metric == 'minkowski':
         diff = (X.unsqueeze(0) - X.unsqueeze(1)).abs() ** p
-        return diff.sum(dim=-1) ** (1.0 / p)
+        dist = (diff.sum(dim=-1)) ** (1.0 / p)
+
+    elif metric == 'cosine':
+        Xn = X / (X.norm(p=2, dim=1, keepdim=True))
+        sim = Xn @ Xn.T
+        dist = 1.0 - sim
+
+    elif metric == 'correlation':
+        Xm = X - X.mean(dim=1, keepdim=True)
+        Xn = Xm / (Xm.norm(p=2, dim=1, keepdim=True))
+        sim = Xn @ Xn.T
+        dist = 1.0 - sim
+
+    elif metric == 'canberra':
+        A = X.unsqueeze(0)
+        B = X.unsqueeze(1)
+        num = (A - B).abs()
+        denom = A.abs() + B.abs()
+        zero_mask = denom == 0
+        denom = torch.where(zero_mask, torch.ones_like(denom), denom)
+        frac = num / denom
+        frac = torch.where(zero_mask, torch.zeros_like(frac), frac)
+        dist = frac.sum(dim=-1)
+
     else:
-        return 0
+        raise ValueError(f"Unsupported metric: {metric}")
+
+    return dist

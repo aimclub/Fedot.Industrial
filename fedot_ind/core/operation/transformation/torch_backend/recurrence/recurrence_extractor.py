@@ -48,6 +48,7 @@ class RecurrenceExtractor(BaseExtractor):
             feature_df = self.extractor(
                 recurrence_matrix=feature_df).quantification_analysis()
             features = torch.tensor(list(feature_df.values()))
+            features = torch.nan_to_num(features, nan=0.0)
         else:
             features = specter.ts_to_3d_recurrence_matrix()
         return features

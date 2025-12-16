@@ -1,10 +1,8 @@
 import torch
 from typing import Optional
-import dask
 
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
-
 from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
@@ -34,32 +32,33 @@ class TorchQuantileExtractor(BaseExtractor):
         """
         global_features = self.get_statistical_features_torch(ts, add_global_features=self.add_global_features, axis=axis)
         if ts.squeeze().ndim == 1:
-            global_features = torch.Tensor(global_features)
+            global_features = torch.Tensor(global_features).to(ts.device)
         else:
-            global_features = torch.stack(global_features, dim=0).T
-
+            global_features = torch.stack(global_features, dim=0).T.to(ts.device)
         if self.window_size == 0:
             window_stat_features = self.get_statistical_features_torch(ts, 
                                                                        axis=axis) 
+            if ts.squeeze().ndim == 1:
+                window_stat_features = torch.Tensor(window_stat_features).to(ts.device)
+            else:
+                window_stat_features = torch.stack(window_stat_features, dim=0).T.to(ts.device)
         else:
             window_stat_features = self.apply_window_for_stat_feature_torch(ts_data=ts, 
                                                      feature_generator=self.get_statistical_features_torch,
                                                      window_size=self.window_size)
-
         if self.add_global_features:
-            window_stat_features = window_stat_features
-            if window_stat_features.ndim > 2:
-                window_stat_features = window_stat_features.reshape(window_stat_features.shape[0],
-                                                                    window_stat_features.shape[-1] * 
-                                                            window_stat_features.shape[-2]).squeeze()
-            else:
-                window_stat_features = window_stat_features.reshape(window_stat_features.shape[-1] * 
-                                                            window_stat_features.shape[-2]).squeeze()
+            if self.window_size != 0:
+                if window_stat_features.ndim > 2:
+                    window_stat_features = window_stat_features.reshape(window_stat_features.shape[0],
+                                                                        window_stat_features.shape[-1] * 
+                                                                window_stat_features.shape[-2]).squeeze()
+                else:
+                    window_stat_features = window_stat_features.reshape(window_stat_features.shape[-1] * 
+                                                                window_stat_features.shape[-2]).squeeze()
             return torch.cat([global_features, window_stat_features], dim=-1)
         else:
             return window_stat_features
 
-    @dask.delayed 
     def generate_features_from_ts(self, ts: torch.Tensor) -> torch.Tensor:
         """
         Method for Tensor or batch of Tensors. Use only last axis.
@@ -71,14 +70,8 @@ class TorchQuantileExtractor(BaseExtractor):
         """
         if ts.ndim == 1:
             ts = ts.unsqueeze(0)
+        if ts.ndim > 2:
+            self.is_multichanel = True
         features = self.extract_stats_features_torch(ts, axis=-1)
-        return features
-    
-    def generate_features_from_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Method for a tensor with one dimention.
-        """
-        statistical_representation = self.get_statistical_features_torch(tensor,
-                                                                         add_global_features=self.add_global_features,
-                                                                         axis=2)
-        l = [x for x in statistical_representation if x is not None]
-        return l
+        features = features.cpu()
+        return features.cpu()

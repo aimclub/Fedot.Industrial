@@ -68,6 +68,7 @@ from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
 from fedot_ind.core.operation.transformation.representation.manifold.riemann_embeding import RiemannExtractor
 from fedot_ind.core.operation.transformation.representation.recurrence.recurrence_extractor import RecurrenceExtractor
 from fedot_ind.core.operation.transformation.representation.statistical.quantile_extractor import QuantileExtractor
+from fedot_ind.core.operation.transformation.torch_backend.statistical.quantile_extractor import TorchQuantileExtractor
 from fedot_ind.core.operation.transformation.representation.topological.topological_extractor import \
     TopologicalExtractor
 from fedot_ind.core.repository.dask_models import DaskLogisticRegression, DaskRidgeRegression
@@ -138,6 +139,7 @@ class AtomizedModel(Enum):
         # feature extraction algorithm
         'recurrence_extractor': RecurrenceExtractor,
         'quantile_extractor': QuantileExtractor,
+        'quantile_extractor_torch': TorchQuantileExtractor,
         'riemann_extractor': RiemannExtractor,
         # feature generation
         # 'topological_extractor': TopologicalFeaturesImplementation,

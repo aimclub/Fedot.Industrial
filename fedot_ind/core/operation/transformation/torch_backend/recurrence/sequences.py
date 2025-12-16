@@ -26,10 +26,12 @@ class RecurrenceFeatureExtractorTorch:
         longest_vertical_line_length = self.longest_line_length(vertical_frequency_dist, n_vectors)
         longest_white_vertical_line_length = self.longest_line_length(white_vertical_frequency_dist, n_vectors)
 
-        entropy_diagonal_lines = self.entropy_lines(MDL, n_vectors, diagonal_frequency_dist)
-        entropy_vertical_lines = self.entropy_lines(MVL, n_vectors, vertical_frequency_dist)
-        entropy_white_vertical_lines = self.entropy_lines(MWVL, n_vectors, white_vertical_frequency_dist)
-
+        entropy_diagonal_lines = self.entropy_lines(
+            MDL, n_vectors, diagonal_frequency_dist, diag=True)
+        entropy_vertical_lines = self.entropy_lines(
+            MVL, n_vectors, vertical_frequency_dist, diag=False)
+        entropy_white_vertical_lines = self.entropy_lines(
+            MWVL, n_vectors, white_vertical_frequency_dist, diag=False)
         return {
             'RR': recurrence_rate,
             'DET': determinism,
@@ -49,48 +51,55 @@ class RecurrenceFeatureExtractorTorch:
         }
 
     def calculate_vertical_frequency(self, number_of_vectors, not_white: int):
-        vertical_frequency_distribution = torch.zeros(number_of_vectors + 1,
-                                                      device=self.recurrence_matrix.device)
         m = (self.recurrence_matrix == not_white).float()
-        for i in range(number_of_vectors):
-            col = m[i]
-            diff = torch.cat([torch.tensor([0.], device=m.device), col, torch.tensor([0.], device=m.device)])
+        freq = torch.zeros(number_of_vectors + 1, device=m.device)
+        pad0 = torch.zeros(1, device=m.device)
+
+        for col in m:
+            diff = torch.cat([pad0, col, pad0])
             edges = diff[1:] - diff[:-1]
-            lengths = torch.where(edges == -1)[0] - torch.where(edges == 1)[0]
-            for l in lengths:
-                vertical_frequency_distribution[int(l)] += 1
-        return vertical_frequency_distribution
+            starts = torch.where(edges == 1)[0]
+            ends = torch.where(edges == -1)[0]
+            lengths = ends - starts
+            freq.index_add_(0, lengths, 
+                            torch.ones(lengths.numel(), 
+                                       device=m.device, dtype=freq.dtype))
+        return freq
 
     def calculate_diagonal_frequency(self, number_of_vectors):
-        diag_freq = torch.zeros(number_of_vectors + 1, device=self.recurrence_matrix.device)
         m = self.recurrence_matrix.float()
-        for i in range(number_of_vectors):
-            diag = torch.diagonal(m, offset=-i)
-            if len(diag) < 2:
-                continue
-            diff = torch.cat([torch.tensor([0.], device=m.device), diag, torch.tensor([0.], device=m.device)])
-            edges = diff[1:] - diff[:-1]
-            lengths = torch.where(edges == -1)[0] - torch.where(edges == 1)[0]
-            for l in lengths:
-                diag_freq[int(l)] += 1
-        for i in range(1, number_of_vectors):
-            diag = torch.diagonal(m, offset=i)
-            if len(diag) < 2:
-                continue
-            diff = torch.cat([torch.tensor([0.], device=m.device), diag, torch.tensor([0.], device=m.device)])
-            edges = diff[1:] - diff[:-1]
-            lengths = torch.where(edges == -1)[0] - torch.where(edges == 1)[0]
-            for l in lengths:
-                diag_freq[int(l)] += 1
-        return diag_freq
+        freq = torch.zeros(number_of_vectors + 1, device=m.device)
+        pad0 = torch.zeros(1, device=m.device)
 
-    def entropy_lines(self, factor, number_of_vectors, distribution: torch.Tensor):
-        sum_frequency_distribution = torch.sum(distribution[factor:])
-        if sum_frequency_distribution == 0:
-            return 0.
-        probs = distribution[factor:number_of_vectors] / sum_frequency_distribution
-        mask = probs > 0
-        return -torch.sum(probs[mask] * torch.log(probs[mask]))
+        for off in range(-(number_of_vectors-1), number_of_vectors):
+            diag = torch.diagonal(m, offset=off)
+            if diag.numel() < 2:
+                continue
+            diff = torch.cat([pad0, diag, pad0])
+            edges = diff[1:] - diff[:-1]
+            starts = torch.where(edges == 1)[0]
+            ends = torch.where(edges == -1)[0]
+            lengths = ends - starts
+            freq.index_add_(0, lengths, torch.ones(lengths.numel(),
+                                                   device=freq.device))
+        return freq
+
+
+    def entropy_lines(self, factor: int, number_of_vectors: int,
+                  distribution: torch.Tensor, diag: bool):
+        if diag:
+            sum_freq = torch.sum(distribution[factor:-1])
+            end = number_of_vectors - 1
+        else:
+            end = number_of_vectors + 1
+            sum_freq = torch.sum(distribution[factor:end])
+        if sum_freq == 0:
+            return 0.0
+        segment = distribution[factor:end]
+        probs = segment / sum_freq
+        mask = segment != 0
+        probs = probs[mask]
+        return -torch.sum(probs * torch.log(probs))
 
     def laminarity_or_determinism(self, factor, number_of_vectors, distribution, lam: bool):
         if lam:

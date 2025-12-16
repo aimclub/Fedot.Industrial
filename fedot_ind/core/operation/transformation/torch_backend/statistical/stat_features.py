@@ -94,7 +94,7 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
-        x = X.reshape(-1, x.shape[-1])  
+        x = X.reshape(-1, X.shape[-1])  
     else:
         x = X
     d = torch.diff(x, dim=-1)
@@ -114,7 +114,7 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
-        x = X.reshape(-1, x.shape[-1])  
+        x = X.reshape(-1, X.shape[-1])  
     else:
         x = X
     d = torch.diff(x, dim=-1)
@@ -263,11 +263,15 @@ def zero_crossing_rate_torch(x: torch.Tensor, axis: int = -1) -> float | torch.T
     return rate.item() if rate.numel() == 1 else rate
 
 
-def shannon_entropy_torch(x: torch.Tensor, axis=None):
+def shannon_entropy_torch(X: torch.Tensor, axis=None):
     """Returns the Shannon Entropy of the time series.
     """
-    if x.ndim == 1:
-        x = x.unsqueeze(0)
+    if X.ndim == 1:
+        x = X.unsqueeze(0)
+    elif X.ndim > 2:
+        x = X.reshape(-1, X.shape[-1])
+    else:
+        x = X.clone()
     B, N = x.shape
     x_sorted, _ = torch.sort(x, dim=axis)
     new_group = torch.cat([
@@ -392,7 +396,7 @@ def hurst_exponent_torch(X: torch.Tensor, axis: int = -1) -> torch.Tensor:
     if (axis != -1) | (axis != len(X.shape)):
         x = X.transpose(axis, -1)
     if X.ndim > 2:
-        x = X.reshape(-1, x.shape[-1])
+        x = X.reshape(-1, X.shape[-1])
     if X.ndim == 1:
         x = X.unsqueeze(0)
 

@@ -43,6 +43,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logging_params = {'jobs': self.n_processes}
 
+        self.is_multichanel = False
+
     def __repr__(self):
         return 'Abstract Class for TS representation'
 
@@ -79,17 +81,31 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         """
         Method for feature generation for all series
         """
-        evaluation_results = Either(value=input_data.features,
-                                    monoid=[input_data.features, self.channel_extraction]).either(
-            left_function=lambda ts_array: self.generate_features_from_array(ts_array),
-            right_function=lambda ts_array: list(map(lambda sample: self.generate_features_from_ts(sample), ts_array))
-        )
-        if self.channel_extraction:
+        is_tensor_input = isinstance(input_data.features, torch.Tensor)
+        if is_tensor_input:
+            evaluation_results = self.generate_features_from_ts(input_data.features)
+        else:
+            evaluation_results = Either(value=input_data.features,
+                                        monoid=[input_data.features, self.channel_extraction]).either(
+                left_function=lambda ts_array: self.generate_features_from_array(ts_array),
+                right_function=lambda ts_array: list(map(lambda sample: self.generate_features_from_ts(sample), ts_array))
+            )
+        if self.channel_extraction and not is_tensor_input:
             with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
                 feature_matrix = dask.compute(*evaluation_results)
         else:
             feature_matrix = evaluation_results
-
+        
+        if is_tensor_input:
+            if feature_matrix.ndim == 1:
+                feature_matrix = feature_matrix.unsqueeze(1)
+            multi_output = feature_matrix.ndim > 2
+            self.predict = self._clean_predict_torch(feature_matrix)
+            if not multi_output:
+                self.predict = self.predict.reshape(self.predict.shape[0], -1)
+            self.__check_filter_model()
+            return self.predict
+        
         multi_output = len(feature_matrix[0].shape) > 1
         self.predict = Either(value=feature_matrix,
                               monoid=[feature_matrix, multi_output]).either(
@@ -100,13 +116,13 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         self.__check_filter_model()
         return self.predict
 
-    def _clean_predict(self, predict: np.array):
-        """
-        Clean predict from nan, inf and reshape data for Fedot appropriate form
-        """
+    def _clean_predict(self, predict):
         predict = np.where(np.isnan(predict), 0, predict)
         predict = np.where(np.isinf(predict), 0, predict)
         return predict
+
+    def _clean_predict_torch(self, predict: torch.Tensor):
+        return torch.nan_to_num(predict, nan=0.0, posinf=0.0, neginf=0.0)
 
     def generate_features_from_array(self, array: np.array) -> np.array:
         """
@@ -135,37 +151,76 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
 
-    def get_statistical_features_torch(self,
-                                       time_series: torch.Tensor,
-                                       add_global_features: bool = False,
-                                       axis=-1) -> torch.Tensor:
+
+    def get_statistical_features_torch(
+        self,
+        time_series: torch.Tensor,
+        add_global_features: bool = False,
+        axis: int = -1,
+        max_elements: int = 50000000) -> tuple:
         """
-        Method for creating baseline statistical features for a given time series
-        or batch of time series.
+        Method for creating baseline statistical features for a given time series.
+        Creates batches, if number of values in time series is more than max_elements.
 
         Args:
             add_global_features: if True, global features are added to the feature set
             time_series: time series for which features are generated
+            max_elements: threshold for using batches
 
         Returns:
-            torch.Tensor: tensor with feeatures
+            tuple: features
 
         """
+        if self.is_multichanel:
+            if time_series.ndim == 3:
+                batch = time_series.shape[0]
+                time_series = time_series.reshape(batch, -1)
+            elif time_series.ndim > 3:
+                batch, b, *rest = time_series.shape
+                time_series = time_series.reshape(batch, b, -1)
+
         if add_global_features:
             list_of_methods = [*STAT_METHODS_GLOBAL_TORCH.items()]
         else:
             list_of_methods = [*STAT_METHODS_TORCH.items()]
-        return list(map(lambda method: method[1](time_series, axis), list_of_methods))
+
+        if time_series.numel() <= max_elements:
+            return list(map(lambda method: method[1](time_series, axis), 
+                            list_of_methods))
+        B = time_series.shape[0]
+        elems_per_sample = time_series[0].numel()
+        batch_size = max(1, max_elements // elems_per_sample)
+        accumulators = [[] for _ in list_of_methods]
+        for start in range(0, B, batch_size):
+            end = min(start + batch_size, B)
+            ts_batch = time_series[start:end]
+            batch_results = [
+                method(ts_batch, axis)
+                for _, method in list_of_methods
+            ]
+            for i, res in enumerate(batch_results):
+                accumulators[i].append(res)
+
+        merged = []
+        for parts in accumulators:
+            if isinstance(parts[0], (float, int)):
+                merged.append(
+                    torch.tensor(parts) if isinstance(parts[0], torch.Tensor) else parts
+                )
+            else:
+                merged.append(torch.cat(parts, dim=0))
+        return merged
+
 
     def apply_window_for_stat_feature(self,
                                       ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> np.ndarray:
         axis = ts_data.ndim - 1
-        window_size = round(ts_data.shape[axis] /
-                            10) if window_size is None else round(ts_data.shape[axis] *
-                                                                  (window_size /
-                                                                   100))
+        if window_size is None:
+            window_size = round(ts_data.shape[axis] / 10) 
+        else: 
+            window_size = round(ts_data.shape[axis] * (window_size / 100))
         window_size = max(window_size, 5)
 
         if self.use_sliding_window:
@@ -182,10 +237,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         if subseq_set is None:
             ts_slices = list(range(0, ts_data.shape[0], window_size))
-            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), ts_slices))
+            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), 
+                                ts_slices))
         else:
             ts_slices = list(range(0, subseq_set.shape[1]))
-            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), ts_slices))
+            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), 
+                                ts_slices))
         return features
 
     def _get_feature_matrix(self, extraction_func: callable, ts: np.array) -> np.ndarray:
@@ -194,6 +251,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                    for channel_feature in multi_channel_features], axis=0)
         return features
 
+    # TODO: refactor with func for ndim > 2
     def _get_torch_feature_matrix(self, extraction_func: callable, ts: torch.Tensor) -> torch.Tensor:
         multi_channel_features = [extraction_func(x) for x in ts]
         features = torch.concat([channel_feature.unsqueeze(0)
@@ -218,8 +276,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         if self.use_sliding_window:
             if self.stride > 1:
                 subseq_set = HankelMatrix(time_series=ts_data, 
-                                                          window_size=window_size, 
-                                                          strides=self.stride).trajectory_matrix
+                                          window_size=window_size, 
+                                          strides=self.stride).trajectory_matrix
             else:
                 window_length = ts_data.shape[axis] - window_size
                 subseq_set = ts_data.unfold(
@@ -237,9 +295,8 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             T_eff = num_windows * window_size
             ts_cut = ts_data[:, :T_eff]
             subseq_set = ts_cut.reshape(2, num_windows, window_size)
-
         features = feature_generator(subseq_set)
-        features = torch.stack(features, dim=0)
+        features = torch.stack(features, dim=0).to(ts_data.device)
         if features.ndim > 2:
             features = features.permute(1, 2, 0)
         else:

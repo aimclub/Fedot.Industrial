@@ -65,32 +65,28 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
     torch_result = torch_extractor.generate_features_from_ts(x_torch)
     torch.cuda.synchronize() if torch.cuda.is_available() else None
     t_torch = time.perf_counter() - start_torch
-    if isinstance(torch_result, torch.Tensor):
-        torch_result_np = torch_result.detach().cpu().numpy()
-    else:
-        torch_result_np = np.array(torch_result)
+    torch_result_np = torch_result.detach().cpu().numpy()
+
 
     #torch GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("Working on GPU")
     warm_up_cuda_computations(device=device)
     times_gpu = []
+    x_gpu = x_torch.clone().to(device)
     for i in range(10):
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
         start_event.record()
-        torch_result_gpu = torch_extractor.generate_features_from_ts(x_torch)
+        torch_result_gpu = torch_extractor.generate_features_from_ts(x_gpu)
         end_event.record()
         torch.cuda.synchronize()
         t_torch_gpu = start_event.elapsed_time(end_event) / 1000
         times_gpu.append(t_torch_gpu)
     avg_time_gpu = np.mean(np.array(times_gpu))
+    torch_result_gpu_np = torch_result_gpu.detach().cpu().numpy()
 
-    if isinstance(torch_result, torch.Tensor):
-        torch_result_np = torch_result.detach().cpu().numpy()
-        # torch_result_gpu_np = torch_result_gpu.detach().cpu().numpy()
-    else:
-        torch_result_np = np.array(torch_result)
-    rmse = np.power((np_result - torch_result_np), 2).mean() ** 0.5
+    rmse = np.power((np_result - torch_result_gpu_np), 2).mean() ** 0.5
     return {
         "shape of data": tuple(shape_array),
         "stride": stride,
@@ -106,16 +102,18 @@ def test_stat_extractor(shape_array, window_size=10, stride=2, add_global_featur
 
 def main():
     test_shapes = [[1, 1000], [6, 10000], [30, 10000]]
+    windows = [1, 10]
     strides = [1, 2]
     glob_feat = [True, False]
     results = []
-    params_combinations = itertools.product(test_shapes, strides, glob_feat)
-    for shape, stride, global_feat in params_combinations:
-        print(f"Test with shape = {shape}, stride = {stride}, global_feat = {global_feat}")
+    params_combinations = itertools.product(test_shapes, strides, glob_feat, windows)
+    for shape, stride, global_feat, w in params_combinations:
+        print(f"Test with shape = {shape}, stride = {stride}, global_feat = {global_feat} \n")
         res = test_stat_extractor(
             shape_array=shape, 
             stride=stride,
-            add_global_features=global_feat
+            add_global_features=global_feat,
+            window_size=w
         )
         results.append(res)
 

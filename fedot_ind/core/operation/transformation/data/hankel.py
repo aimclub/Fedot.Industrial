@@ -75,6 +75,7 @@ class HankelMatrix:
                                         self.__time_series[self.__window_length:])
 
     def __get_2d_trajectory_matrix(self):
+        # TODO: add case for apply_window_for_stat_feature, required array
         if self.__strides > 1:
             return [self.__strided_trajectory_matrix(
                 time_series) for time_series in self.__time_series]
@@ -113,6 +114,8 @@ class HankelMatrix:
             return hankel_matrix
 
     def __get_2d_trajectory_matrix_torch(self):
+        # TODO: add case for apply_window_for_stat_feature_torch, ё
+        # problem with negative tensor size
         matrices = []
         for ts in self.__time_series:
             matrices.append(self.__get_1d_trajectory_matrix_torch(ts))

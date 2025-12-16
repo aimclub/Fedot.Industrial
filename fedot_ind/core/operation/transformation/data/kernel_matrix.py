@@ -1,6 +1,6 @@
 from scipy.spatial.distance import pdist, squareform
 from fedot_ind.core.distance.pdist import torch_pdist
-from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter
+from fedot_ind.core.architecture.preprocessing.data_convertor import DataConverter, TensorConverter
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 import torch
 
@@ -80,7 +80,7 @@ class TorchTSTransformer:
             time_series: torch.Tensor of shape (features, timesteps)
             rec_metric: one of ['cosine', 'euclidean', 'canberra']
         """
-        self.time_series = DataConverter(
+        self.time_series = TensorConverter(
             data=time_series).convert_to_2d_tensor()
         self.device = device or self.time_series.device
         self.time_series = self.time_series.to(self.device)
@@ -98,25 +98,24 @@ class TorchTSTransformer:
         return self.recurrence_matrix
 
     def binarization(self, distance_matrix: torch.Tensor, threshold: float = None):
-        best_threshold_flag = False
-        recurrence_matrix = None
-        best_ratio = None
+        if threshold is not None:
+            return (distance_matrix >= threshold).float()
+        ths = torch.tensor(self.threshold_baseline, 
+                           device=distance_matrix.device, 
+                           dtype=distance_matrix.dtype)
+        tmp = (distance_matrix.unsqueeze(0) >= ths[:, None, None]).float()
+        signal_ratio = torch.mean((tmp == 0).float(), dim=(1, 2))
 
-        if threshold is None:
-            for threshold_baseline in self.threshold_baseline:
-                tmp = (distance_matrix >= threshold_baseline).float()
-                signal_ratio = torch.mean((tmp == 0).float()).item()
-                if self.min_signal_ratio < signal_ratio < self.max_signal_ratio:
-                    if not best_threshold_flag or signal_ratio > best_ratio:
-                        best_ratio = signal_ratio
-                        recurrence_matrix = tmp
-                        best_threshold_flag = True
-            if not best_threshold_flag:
-                threshold = self.threshold_baseline[0]
-                recurrence_matrix = (distance_matrix >= threshold).float()
+        mask = (signal_ratio > float(self.min_signal_ratio)) & (signal_ratio < float(self.max_signal_ratio))
+        if mask.any():
+            neg_one = torch.tensor(-1.0, 
+                                   device=distance_matrix.device, 
+                                   dtype=signal_ratio.dtype)
+            candidate_scores = torch.where(mask, signal_ratio, neg_one)
+            best_idx = torch.argmax(candidate_scores)
+            return tmp[best_idx].float()
         else:
-            recurrence_matrix = (distance_matrix >= threshold).float()
-        return recurrence_matrix
+            return tmp[0].float()
 
     def _colorise_torch(self, matrix: torch.Tensor) -> torch.Tensor:
         matrix = matrix.to(torch.float64)

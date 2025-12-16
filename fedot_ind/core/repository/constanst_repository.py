@@ -57,6 +57,9 @@ from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
 industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                         'stride': 1,
                                                         'add_global_features': True},
+                                    # quantile_extractor_torch={'window_size': 10,
+                                    #                     'stride': 1,
+                                    #                     'add_global_features': True},
                                     wavelet_basis={'n_components': 3,
                                                    'wavelet': 'mexh'},
                                     fourier_basis={'low_rank': 5,
@@ -93,7 +96,7 @@ def get_default_industrial_model_params(model_name):
     return industrial_model_params_dict[model_name]
 
 
-stat_params = get_default_industrial_model_params('quantile_extractor')
+stat_params = get_default_industrial_model_params('quantile_extractor_torch')
 wavelet_params = get_default_industrial_model_params('wavelet_basis')
 fourier_params = get_default_industrial_model_params('fourier_basis')
 eigen_params = get_default_industrial_model_params('eigen_basis')
@@ -400,9 +403,9 @@ class FedotOperationConstant(Enum):
 
     FEDOT_ASSUMPTIONS = {
         'classification': PipelineBuilder().
-        add_node('quantile_extractor', params=stat_params).add_node('catboost', params=catboost_params),
+        add_node('quantile_extractor_torch', params=stat_params).add_node('catboost', params=catboost_params),
         'classification_tabular': PipelineBuilder().add_node('rf', params=rf_params),
-        'regression': PipelineBuilder().add_node('quantile_extractor', params=stat_params).add_node('treg'),
+        'regression': PipelineBuilder().add_node('quantile_extractor_torch', params=stat_params).add_node('treg'),
         'regression_tabular': PipelineBuilder().add_node('treg'),
         'anomaly_detection': PipelineBuilder().add_node('iforest_detector'),
         'ts_forecasting': PipelineBuilder().add_node('ar')
