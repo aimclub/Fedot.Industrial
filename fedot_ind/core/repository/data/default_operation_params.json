@@ -380,6 +380,13 @@
     "add_global_features": true,
     "use_cache": true
   },
+  "quantile_extractor_torch": {
+    "window_size": 10,
+    "use_sliding_window": true,
+    "stride": 1,
+    "add_global_features": true,
+    "use_cache": true
+  },
   "riemann_extractor": {
     "n_filter": 4,
     "estimator": "scm",

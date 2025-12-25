@@ -210,7 +210,16 @@
         "basis","non_applicable_for_ts"
       ]
     },
-    "quantile_extractor": {
+	"quantile_extractor": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "extractor"
+      ]
+    },
+	"quantile_extractor_torch": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"
