@@ -109,8 +109,8 @@ class RecurrenceFeatureExtractorTorch:
             starts = torch.where(edges == 1)[0]
             ends = torch.where(edges == -1)[0]
             lengths = ends - starts
-            freq.index_add_(0, lengths, 
-                            torch.ones(lengths.numel(), 
+            freq.index_add_(0, lengths,
+                            torch.ones(lengths.numel(),
                                        device=m.device, dtype=freq.dtype))
         return freq
 
@@ -130,7 +130,7 @@ class RecurrenceFeatureExtractorTorch:
         freq = torch.zeros(number_of_vectors + 1, device=m.device)
         pad0 = torch.zeros(1, device=m.device)
 
-        for off in range(-(number_of_vectors-1), number_of_vectors):
+        for off in range(-(number_of_vectors - 1), number_of_vectors):
             diag = torch.diagonal(m, offset=off)
             if diag.numel() < 2:
                 continue
@@ -142,7 +142,6 @@ class RecurrenceFeatureExtractorTorch:
             freq.index_add_(0, lengths, torch.ones(lengths.numel(),
                                                    device=freq.device))
         return freq
-
 
     def entropy_lines(self, factor: int, number_of_vectors: int,
                   distribution: torch.Tensor, diag: bool):
@@ -158,6 +157,7 @@ class RecurrenceFeatureExtractorTorch:
         Returns:
             float: The entropy of the line length distribution.
         """
+
         if diag:
             sum_freq = torch.sum(distribution[factor:-1])
             end = number_of_vectors - 1

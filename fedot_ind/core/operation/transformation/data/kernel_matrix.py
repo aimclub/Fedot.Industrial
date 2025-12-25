@@ -100,16 +100,16 @@ class TorchTSTransformer:
     def binarization(self, distance_matrix: torch.Tensor, threshold: float = None):
         if threshold is not None:
             return (distance_matrix >= threshold).float()
-        ths = torch.tensor(self.threshold_baseline, 
-                           device=distance_matrix.device, 
+        ths = torch.tensor(self.threshold_baseline,
+                           device=distance_matrix.device,
                            dtype=distance_matrix.dtype)
         tmp = (distance_matrix.unsqueeze(0) >= ths[:, None, None]).float()
         signal_ratio = torch.mean((tmp == 0).float(), dim=(1, 2))
 
         mask = (signal_ratio > float(self.min_signal_ratio)) & (signal_ratio < float(self.max_signal_ratio))
         if mask.any():
-            neg_one = torch.tensor(-1.0, 
-                                   device=distance_matrix.device, 
+            neg_one = torch.tensor(-1.0,
+                                   device=distance_matrix.device,
                                    dtype=signal_ratio.dtype)
             candidate_scores = torch.where(mask, signal_ratio, neg_one)
             best_idx = torch.argmax(candidate_scores)

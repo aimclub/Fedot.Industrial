@@ -85,17 +85,18 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         if is_tensor_input:
             evaluation_results = self.generate_features_from_ts(input_data.features)
         else:
-            evaluation_results = Either(value=input_data.features,
-                                        monoid=[input_data.features, self.channel_extraction]).either(
+            evaluation_results = Either(
+                value=input_data.features, monoid=[input_data.features, self.channel_extraction]).either(
                 left_function=lambda ts_array: self.generate_features_from_array(ts_array),
-                right_function=lambda ts_array: list(map(lambda sample: self.generate_features_from_ts(sample), ts_array))
-            )
+                right_function=lambda
+                ts_array: list(map(lambda sample: self.generate_features_from_ts(sample),
+                                   ts_array)))
         if self.channel_extraction and not is_tensor_input:
             with TqdmCallback(desc=fr"compute_feature_extraction_with_{self.__repr__()}"):
                 feature_matrix = dask.compute(*evaluation_results)
         else:
             feature_matrix = evaluation_results
-        
+
         if is_tensor_input:
             if feature_matrix.ndim == 1:
                 feature_matrix = feature_matrix.unsqueeze(1)
@@ -105,7 +106,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 self.predict = self.predict.reshape(self.predict.shape[0], -1)
             self.__check_filter_model()
             return self.predict
-        
+
         multi_output = len(feature_matrix[0].shape) > 1
         self.predict = Either(value=feature_matrix,
                               monoid=[feature_matrix, multi_output]).either(
@@ -151,13 +152,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         list_of_methods = [*STAT_METHODS_GLOBAL.items()] if add_global_features else [*STAT_METHODS.items()]
         return list(map(lambda method: method[1](time_series, axis), list_of_methods))
 
-
     def get_statistical_features_torch(
-        self,
-        time_series: torch.Tensor,
-        add_global_features: bool = False,
-        axis: int = -1,
-        max_elements: int = 50000000) -> tuple:
+            self,
+            time_series: torch.Tensor,
+            add_global_features: bool = False,
+            axis: int = -1,
+            max_elements: int = 50000000) -> tuple:
         """
         Method for creating baseline statistical features for a given time series.
         Creates batches, if number of values in time series is more than max_elements.
@@ -185,7 +185,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             list_of_methods = [*STAT_METHODS_TORCH.items()]
 
         if time_series.numel() <= max_elements:
-            return list(map(lambda method: method[1](time_series, axis), 
+            return list(map(lambda method: method[1](time_series, axis),
                             list_of_methods))
         B = time_series.shape[0]
         elems_per_sample = time_series[0].numel()
@@ -211,15 +211,14 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                 merged.append(torch.cat(parts, dim=0))
         return merged
 
-
     def apply_window_for_stat_feature(self,
                                       ts_data: np.array,
                                       feature_generator: callable,
                                       window_size: int = None) -> np.ndarray:
         axis = ts_data.ndim - 1
         if window_size is None:
-            window_size = round(ts_data.shape[axis] / 10) 
-        else: 
+            window_size = round(ts_data.shape[axis] / 10)
+        else:
             window_size = round(ts_data.shape[axis] * (window_size / 100))
         window_size = max(window_size, 5)
 
@@ -237,11 +236,11 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         if subseq_set is None:
             ts_slices = list(range(0, ts_data.shape[0], window_size))
-            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]), 
+            features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]),
                                 ts_slices))
         else:
             ts_slices = list(range(0, subseq_set.shape[1]))
-            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]), 
+            features = list(map(lambda slice: feature_generator(subseq_set[:, slice]),
                                 ts_slices))
         return features
 
@@ -275,9 +274,9 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
 
         if self.use_sliding_window:
             if self.stride > 1:
-                subseq_set = HankelMatrix(time_series=ts_data, 
-                                                          window_size=window_size, 
-                                                          strides=self.stride).trajectory_matrix
+                subseq_set = HankelMatrix(time_series=ts_data,
+                                          window_size=window_size,
+                                          strides=self.stride).trajectory_matrix
             else:
                 window_length = ts_data.shape[axis] - window_size
                 subseq_set = ts_data.unfold(
