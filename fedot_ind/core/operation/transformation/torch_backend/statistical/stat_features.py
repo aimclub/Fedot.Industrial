@@ -10,8 +10,8 @@ def mean_torch(x: torch.Tensor, axis=-1):
     return mean.item() if mean.numel() == 1 else mean
 
 
-def median_torch(x: torch.Tensor, 
-                 axis: int = -1, 
+def median_torch(x: torch.Tensor,
+                 axis: int = -1,
                  max_elements: int = 10_000_000) -> torch.Tensor:
     """
     This function calculates the median using PyTorch's kthvalue operation, processing the input

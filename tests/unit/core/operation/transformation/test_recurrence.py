@@ -24,13 +24,13 @@ def compare_recurrence(ts_name, ts_data):
     # NumPy CPU
     rec_np = RecurrenceNumpy(params={"rec_metric": "cosine", "window_size": 50, 'stride': 2})
     start = time.perf_counter()
-    features_np = rec_np.generate_recurrence_features(ts_data)
+    rec_np.generate_recurrence_features(ts_data)
     t_np = time.perf_counter() - start
 
     # Torch CPU
     rec_torch = RecurrenceTorch(params={"rec_metric": "cosine", "window_size": 50, 'stride': 2})
     start = time.perf_counter()
-    features_torch = rec_torch.generate_recurrence_features(torch_data)
+    rec_torch.generate_recurrence_features(torch_data)
     t_torch = time.perf_counter() - start
 
     # Torch GPU
@@ -40,7 +40,7 @@ def compare_recurrence(ts_name, ts_data):
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
     start_event.record()
-    torch_result_gpu = rec_torch.generate_recurrence_features(torch_data.to(device))
+    rec_torch.generate_recurrence_features(torch_data.to(device))
     end_event.record()
     torch.cuda.synchronize()
     t_torch_gpu = start_event.elapsed_time(end_event) / 1000
@@ -58,7 +58,7 @@ def compare_recurrence(ts_name, ts_data):
 
 def test_recurrence_features():
     """
-    
+
     """
     length = 30000
 
@@ -66,12 +66,12 @@ def test_recurrence_features():
     sin_ts = SinWave({"length": length}).get_only_sin_ts()
     sin_noise_ts = SinWave({"length": length}).get_ts()
     time_series = {"sin": sin_ts,
-            "sin+noise": sin_noise_ts}
+                   "sin+noise": sin_noise_ts}
 
     train_multi_np, _ = TimeSeriesDatasetsGenerator(num_samples=2,
-                                           max_ts_len=length,
-                                           binary=False,
-                                           test_size=0.1).generate_data()
+                                                    max_ts_len=length,
+                                                    binary=False,
+                                                    test_size=0.1).generate_data()
     multi_np = np.array(train_multi_np[0].values)
 
     # batch of TS with one chanel
@@ -81,22 +81,22 @@ def test_recurrence_features():
         result = compare_recurrence(name, data)
         results.append(result)
         assert result["speedup"] > 1, \
-                f"CPU speedup is not positive for {name}"
+            f"CPU speedup is not positive for {name}"
         assert result["speedup_gpu"] > 1, \
-                f"GPU speedup is not positive for {name}"
+            f"GPU speedup is not positive for {name}"
         assert result["speedup_gpu"] > result["speedup"], \
-                f"GPU do not give more speedup than CPU for {name}"
+            f"GPU do not give more speedup than CPU for {name}"
         logger.info(f"Successful test for {name}.")
 
     # multi-channels
     result_batch = compare_recurrence("multichannel data", multi_np)
     results.append(result_batch)
     assert result_batch["speedup"] > 1, \
-            "No speedup on CPU for multichannel data"
+        "No speedup on CPU for multichannel data"
     assert result_batch["speedup_gpu"] > 1, \
-            "No speedup on GPU for multichannel data on GPU"
+        "No speedup on GPU for multichannel data on GPU"
     assert result_batch["speedup_gpu"] > result_batch["speedup"], \
-            f"GPU do not give more speedup than CPU for multichannel data"
+        f"GPU do not give more speedup than CPU for multichannel data"
     logger.info("Successful test for multichannel data.")
 
     return pd.DataFrame(results)

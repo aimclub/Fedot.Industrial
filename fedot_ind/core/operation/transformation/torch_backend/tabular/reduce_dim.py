@@ -1,6 +1,6 @@
 import torch
- 
-    
+
+
 class PCA_transformation:
     """Class for PCA transformation.
 

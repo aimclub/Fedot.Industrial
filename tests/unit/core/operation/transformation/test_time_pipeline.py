@@ -5,7 +5,7 @@ from fedot_ind.core.operation.dummy.dummy_operation import init_input_data_tenso
 from fedot_ind.core.architecture.preprocessing.data_convertor import TensorConverter
 from tests.unit.api.fixtures import warm_up_cuda_computations
 
-import torch 
+import torch
 import os
 import shutil
 import pandas as pd
@@ -47,8 +47,7 @@ def time_pipeline_test(DATASET_NAME="Beef"):
         pipeline_np.fit(input_data_np)
         t_np = time.perf_counter() - start_np
 
-
-    # Torch CPU 
+    # Torch CPU
     converter = TensorConverter(data=train_data[0])
     with IndustrialModels():
         pipeline_torch = (
@@ -64,7 +63,7 @@ def time_pipeline_test(DATASET_NAME="Beef"):
 
     remove_folder_completely(cache_path)
 
-    # Torch GPU 
+    # Torch GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
         warm_up_cuda_computations(device=device)
@@ -99,6 +98,7 @@ def time_pipeline_test(DATASET_NAME="Beef"):
         "torch GPU time (sec)": t_torch_gpu,
         "speedup GPU": round(t_np / t_torch_gpu, 2) if device == "cuda" else np.nan,
     }
+
 
 def run_pipeline_tests() -> pd.DataFrame:
     """Test to compare pipeline with Quantile Extractor"""

@@ -44,7 +44,7 @@ class RecurrenceFeatureExtractorTorch:
                 - 'RDRR': Ratio of determinism to recurrence rate.
                 - 'RLD': Ratio of laminarity to determinism.
         """
-    
+
         n_vectors = self.recurrence_matrix.shape[0]
         recurrence_rate = torch.sum(self.recurrence_matrix) / (n_vectors ** 2)
 
@@ -144,7 +144,7 @@ class RecurrenceFeatureExtractorTorch:
         return freq
 
     def entropy_lines(self, factor: int, number_of_vectors: int,
-                  distribution: torch.Tensor, diag: bool):
+                      distribution: torch.Tensor, diag: bool):
         """
         Calculate the entropy of diagonal or vertical lines in the recurrence matrix.
 

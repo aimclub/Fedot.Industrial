@@ -1,7 +1,6 @@
 import torch
 import pandas as pd
 import numpy as np
-from tabulate import tabulate
 import time
 import itertools
 import logging
@@ -42,9 +41,9 @@ def test_stat_extractor(length=10000, window_size=10, stride=2, add_global_featu
 
     # create synthetic data
     x_np, _ = TimeSeriesDatasetsGenerator(num_samples=2,
-                                           max_ts_len=length,
-                                           binary=False,
-                                           test_size=0.1).generate_data()
+                                          max_ts_len=length,
+                                          binary=False,
+                                          test_size=0.1).generate_data()
     x_np = np.array(x_np[0].values).astype(np.float32)
     x_torch = torch.tensor(x_np, dtype=torch.float32)
 
@@ -58,7 +57,7 @@ def test_stat_extractor(length=10000, window_size=10, stride=2, add_global_featu
     torch_result = torch_extractor.generate_features_from_ts(x_torch)
     torch.cuda.synchronize() if torch.cuda.is_available() else None
     t_torch = time.perf_counter() - start_torch
-    torch_result_np = torch_result.detach().cpu().numpy()
+    torch_result.detach().cpu().numpy()
 
     # torch GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"

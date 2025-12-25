@@ -98,13 +98,13 @@ class HankelMatrix:
             tensor = [x.unsqueeze(0) for x in matrices]
             return torch.concat(tensor)
         else:
-        # TODO: add case for apply_window_for_stat_feature, required array
+            # TODO: add case for apply_window_for_stat_feature, required array
             if self.__strides > 1:
                 return [self.__strided_trajectory_matrix(
                     time_series) for time_series in self.__time_series]
             else:
                 return [backend_scipy.hankel(time_series[:self.__window_length + 1],
-                                            time_series[self.__window_length:]) for time_series in self.__time_series]
+                                             time_series[self.__window_length:]) for time_series in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):
         shape = (time_series.shape[0] -

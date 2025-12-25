@@ -94,7 +94,7 @@ class SinWave(DefaultTimeSeries):
             np.sin(2 * np.pi / self.period * time_index)
         noise = np.random.normal(0, 1, self.ts_length)
         return np.array(sine_wave + noise)
-    
+
     def get_only_sin_ts(self):
         time_index = np.arange(0, self.ts_length)
         sine_wave = self.amplitude * \
