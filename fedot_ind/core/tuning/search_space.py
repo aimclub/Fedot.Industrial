@@ -731,10 +731,10 @@ default_fedot_operation_params = {
             'hyperopt-dist': partial(hp.qloguniform, q=1),
             'sampling-scope': [0, 6],
             'type': 'discrete'},
-        # 'border_count': {
-        #     'hyperopt-dist': hp.uniformint,
-        #     'sampling-scope': [2, 255],
-        #     'type': 'discrete'},
+        'border_count': {
+            'hyperopt-dist': hp.uniformint,
+            'sampling-scope': [2, 255],
+            'type': 'discrete'},
         'l2_leaf_reg': {
             'hyperopt-dist': hp.loguniform,
             'sampling-scope': [1e-8, 10],

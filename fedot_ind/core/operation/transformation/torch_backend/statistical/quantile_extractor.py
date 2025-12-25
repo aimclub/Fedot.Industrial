@@ -7,12 +7,17 @@ from fedot_ind.core.models.base_extractor import BaseExtractor
 
 
 class TorchQuantileExtractor(BaseExtractor):
-    """Class responsible for statistical feature generator experiment.
+    """
+    A PyTorch-based feature extractor for computing statistical features from time series data.
+
+    This class extracts statistical features (such as mean, variance, quantiles, etc.) from time series,
+    both globally and within sliding windows. It supports batch processing and GPU acceleration.
 
     Attributes:
-        window_size (int): size of window
-        stride (int): stride for window
-        var_threshold (float): threshold for variance
+        window_size (int): The size of the sliding window for local feature extraction. Defaults to 0.
+        stride (int): The stride for the sliding window. Defaults to 1.
+        add_global_features (bool): If True, global statistical features are concatenated with window-based features.
+                                    Defaults to True.
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
@@ -23,12 +28,19 @@ class TorchQuantileExtractor(BaseExtractor):
         self.logging_params.update({'Wsize': self.window_size,
                                     'Stride': self.stride})
 
-    def __repr__(self):
-        return 'Statistical Class for TS representation'
-
     def extract_stats_features_torch(self, ts: torch.Tensor, axis: int) -> InputData:
-        """Method for extracting statistical features for data and its windows and
-        concatenating results. It extracts only base features for windows.
+        """
+        This method computes global statistical features and window-based features,
+        then concatenates them if `add_global_features` is True.
+
+        Args:
+            ts (torch.Tensor): Input time series tensor.
+            axis (int): Axis along which to compute features.
+
+        Returns:
+            torch.Tensor: Concatenated statistical features.
+                If `add_global_features` is True, returns global + window features.
+                Otherwise, returns only window features.
         """
         global_features = self.get_statistical_features_torch(
             ts, add_global_features=self.add_global_features, axis=axis)
@@ -62,12 +74,13 @@ class TorchQuantileExtractor(BaseExtractor):
 
     def generate_features_from_ts(self, ts: torch.Tensor) -> torch.Tensor:
         """
-        Method for Tensor or batch of Tensors. Use only last axis.
+        Generate statistical features from a single time series or a batch of time series.
 
         Args:
-            ts: Tensor with dimension 1 or 2
+            ts (torch.Tensor): Input tensor with dimension 1, 2, or 3.
+
         Returns:
-            torch.Tensor: statistical features
+            torch.Tensor: Extracted statistical features as a CPU tensor.
         """
         if ts.ndim == 1:
             ts = ts.unsqueeze(0)
@@ -76,4 +89,3 @@ class TorchQuantileExtractor(BaseExtractor):
         features = self.extract_stats_features_torch(ts, axis=-1)
         features = features.cpu()
         return features.cpu()
-

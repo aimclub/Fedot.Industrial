@@ -6,14 +6,23 @@ __pycache__/
 # IntelliJ project files
 /.idea
 
-#cache
+# Cache
 /cache
 /results
 /some_files
 /time
 /torch_test
-./.tsv
 /fedot_ind/data
+
+# Extensions
+*.tsv
+*.ts
+*.csv
+*.xlsx
+*.parquet
+*.feather
+*.hdf5
+*.json
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -108,7 +117,5 @@ venv.bak/
 .devcontainer/
 
 .local/
-
-test_tabular_extractor.py
 
 *.lock

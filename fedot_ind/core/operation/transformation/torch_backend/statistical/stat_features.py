@@ -1,6 +1,7 @@
 import warnings
 import torch
 
+
 warnings.filterwarnings("ignore")
 
 
@@ -9,16 +10,44 @@ def mean_torch(x: torch.Tensor, axis=-1):
     return mean.item() if mean.numel() == 1 else mean
 
 
-def median_torch(x: torch.Tensor, axis=-1):
+def median_torch(x: torch.Tensor, 
+                 axis: int = -1, 
+                 max_elements: int = 10_000_000) -> torch.Tensor:
+    """
+    This function calculates the median using PyTorch's kthvalue operation, processing the input
+    in batches to avoid memory overflow for large tensors. It handles both even and odd lengths
+    of the input tensor, returning the median value(s) along the specified axis.
+
+    For even-length tensors, the median is the average of the two central values.
+    For odd-length tensors, the median is the central value.
+
+    Args:
+        x (torch.Tensor): Input tensor.
+        axis (int, optional): Axis along which to compute the median. Defaults to -1.
+        max_elements (int, optional): Maximum number of elements to process in a single batch.
+                                     Defaults to 10,000,000.
+
+    Returns:
+        torch.Tensor: The median value(s) along the specified axis.
+    """
     n = x.size(axis)
     k = n // 2
-    if n % 2 == 1:
-        m = x.kthvalue(k + 1, dim=axis).values
-    else:
-        v1 = x.kthvalue(k, dim=axis).values
-        v2 = x.kthvalue(k + 1, dim=axis).values
-        m = (v1 + v2) / 2
-    return m.item() if m.numel() == 1 else m
+
+    # Calculate the number of elements per slice
+    elems_per_slice = x.select(axis, 0).numel()
+    slice_size = max(1, max_elements // elems_per_slice)
+
+    outputs = []
+    for i in range(0, x.size(0), slice_size):
+        chunk = x[i:i + slice_size]
+        if n % 2 == 1:
+            median_chunk = chunk.kthvalue(k + 1, dim=axis).values
+        else:
+            v1 = chunk.kthvalue(k, dim=axis).values
+            v2 = chunk.kthvalue(k + 1, dim=axis).values
+            median_chunk = (v1 + v2) / 2
+        outputs.append(median_chunk)
+    return torch.cat(outputs, dim=0)
 
 
 def std_torch(x: torch.Tensor, axis=-1):
@@ -72,6 +101,18 @@ def diff(array: torch.Tensor, axis=-1) -> float:
 
 
 def skewness_torch(x: torch.Tensor, axis=-1):
+    """
+    Skewness measures the asymmetry of the data distribution around the mean.
+    Positive skewness indicates a longer right tail, while negative skewness indicates a longer left tail.
+
+    Args:
+        x (torch.Tensor): Input tensor.
+        axis (int, optional): Axis along which to compute skewness. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The skewness value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with skewness values along the specified axis.
+    """
     mean = x.mean(dim=axis, keepdim=True)
     std = x.std(dim=axis, unbiased=False, keepdim=True)
     skew = ((x - mean) ** 3).mean(dim=axis) / (std.squeeze(axis) ** 3 + 1e-12)
@@ -79,6 +120,21 @@ def skewness_torch(x: torch.Tensor, axis=-1):
 
 
 def kurtosis_torch(x: torch.Tensor, axis=-1, fisher=True):
+    """
+    Kurtosis measures the "tailedness" of the data distribution. If `fisher` is True,
+    the result is the excess kurtosis (kurtosis minus 3), which compares the distribution
+    to a normal distribution. Positive values indicate heavier tails, while negative values
+    indicate lighter tails.
+
+    Args:
+        x (torch.Tensor): Input tensor.
+        axis (int, optional): Axis along which to compute kurtosis. Defaults to -1.
+        fisher (bool, optional): If True, return excess kurtosis. Defaults to True.
+
+    Returns:
+        float | torch.Tensor: The kurtosis value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with kurtosis values along the specified axis.
+    """
     mean = x.mean(dim=axis, keepdim=True)
     std = x.std(dim=axis, unbiased=False, keepdim=True)
     kurt = ((x - mean) ** 4).mean(dim=axis) / (std.squeeze(axis) ** 4 + 1e-12)
@@ -88,6 +144,18 @@ def kurtosis_torch(x: torch.Tensor, axis=-1, fisher=True):
 
 
 def n_peaks_torch(X: torch.Tensor, axis=-1):
+    """
+    A peak is defined as a point where the signal transitions from increasing to decreasing.
+    The function identifies peaks by analyzing sign changes in the first differences of the signal.
+
+    Args:
+        X (torch.Tensor): Input tensor containing time series data.
+        axis (int, optional): Axis along which to count peaks. Defaults to -1.
+
+    Returns:
+        int | torch.Tensor: The number of peaks. Returns a scalar if input is 1D,
+                            otherwise a tensor with peak counts along the specified axis.
+    """
     if axis != -1:
         x = X.transpose(axis, -1)
     if X.ndim == 1:
@@ -108,6 +176,18 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
 
 
 def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
+    """
+    Peaks are identified as points where the signal transitions from increasing to decreasing.
+    The function calculates the average distance (in samples) between these peaks.
+
+    Args:
+        X (torch.Tensor): Input tensor containing time series data.
+        axis (int, optional): Axis along which to compute the mean peak-to-peak distance. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The mean peak-to-peak distance. Returns a scalar if input is 1D,
+                              otherwise a tensor with distances along the specified axis.
+    """
     if axis != -1:
         x = X.transpose(axis, -1)
     if X.ndim == 1:
@@ -147,6 +227,18 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
 
 
 def slope_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    """
+    The slope is calculated using the least squares method, representing the rate of change
+    of the data with respect to its index. This is useful for identifying trends in the data.
+
+    Args:
+        array (torch.Tensor): Input tensor containing time series data.
+        axis (int, optional): Axis along which to compute the slope. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The slope value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with slope values along the specified axis.
+    """
     y = array.to(torch.float32)
     axis = axis % y.ndim
     n = y.shape[axis]
@@ -167,7 +259,6 @@ def ben_corr_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
      Returns:
             float | torch.Tensor: the value(s) of the feature
 
-
      .. math::
 
          P(d)=\\log_{10}\\left(1+\\frac{1}{d}\\right)
@@ -177,12 +268,11 @@ def ben_corr_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
      .. rubric:: References
 
-     |  [1] A Statistical Derivation of the Significant-Digit Law, Theodore P. Hill, Statistical Science, 1995
-     |  [2] The significant-digit phenomenon, Theodore P. Hill, The American Mathematical Monthly, 1995
-     |  [3] The law of anomalous numbers, Frank Benford, Proceedings of the American philosophical society, 1938
-     |  [4] Note on the frequency of use of the different digits in natural numbers, Simon Newcomb, American Journal of
-     |  mathematics, 1881
-
+     [1] A Statistical Derivation of the Significant-Digit Law, Theodore P. Hill, Statistical Science, 1995
+     [2] The significant-digit phenomenon, Theodore P. Hill, The American Mathematical Monthly, 1995
+     [3] The law of anomalous numbers, Frank Benford, Proceedings of the American philosophical society, 1938
+     [4] Note on the frequency of use of the different digits in natural numbers, Simon Newcomb, American Journal of
+     mathematics, 1881
     """
     if (axis != -1) | (axis != len(x.shape)):
         x = x.transpose(axis, -1)
@@ -221,17 +311,51 @@ def ben_corr_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def interquantile_range_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    """
+    The IQR is the difference between the 75th and 25th percentiles, providing a measure of
+    statistical dispersion and robustness to outliers.
+
+    Args:
+        array (torch.Tensor): Input tensor.
+        axis (int, optional): Axis along which to compute the IQR. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The interquartile range value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with IQR values along the specified axis.
+    """
     return quantile_torch(array, 0.75, axis) - quantile_torch(array, 0.25, axis)
 
 
 def energy_torch(array: torch.Tensor, axis=-1) -> float | torch.Tensor:
+    """
+    Computes the sum of squared values divided by the length of the axis, representing
+    the average power or signal strength.
+
+    Args:
+        array (torch.Tensor): Input tensor.
+        axis (int, optional): Axis along which to compute energy. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The energy value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with energy values along the specified axis.
+    """
     axis = axis % array.ndim
     energy = torch.sum(array ** 2, dim=axis) / array.shape[axis]
     return energy.item() if energy.numel() == 1 else energy
 
 
 def autocorrelation_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Autocorrelation of the time series with its lagged version.
+    """
+    Measures the Pearson correlation between the time series and its lag-1 shifted version,
+    capturing linear dependencies in sequential data.
+
+    Args:
+        x (torch.Tensor): Input tensor containing time series data.
+        axis (int, optional): Axis along which to compute autocorrelation. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The autocorrelation value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with autocorrelation values along the specified axis.
     """
     axis = axis % x.ndim
     lagged = torch.roll(x, shifts=1, dims=axis)
@@ -245,7 +369,17 @@ def autocorrelation_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tens
 
 
 def zero_crossing_rate_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Returns the rate of sign-changes of the time series for a scaled version of it.
+    """
+    The zero-crossing rate is the frequency at which the signal changes sign, normalized by the
+    length of the signal. The input is scaled to the range [-1, 1] before computation.
+
+    Args:
+        x (torch.Tensor): Input tensor containing time series data.
+        axis (int, optional): Axis along which to compute the zero-crossing rate. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The zero-crossing rate value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with zero-crossing rates along the specified axis.
     """
     if (axis != -1) | (axis != len(x.shape)):
         x = x.transpose(axis, -1)
@@ -263,7 +397,18 @@ def zero_crossing_rate_torch(x: torch.Tensor, axis: int = -1) -> float | torch.T
 
 
 def shannon_entropy_torch(X: torch.Tensor, axis=None):
-    """Returns the Shannon Entropy of the time series.
+    """
+    The Shannon entropy is calculated by sorting the input, identifying unique value groups,
+    and computing the entropy of the resulting probability distribution. This provides
+    a measure of uncertainty or randomness in the data.
+
+    Args:
+        X (torch.Tensor): Input tensor.
+        axis (int, optional): Axis along which to compute entropy. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: The Shannon entropy value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with entropy values along the specified axis.
     """
     if X.ndim == 1:
         x = X.unsqueeze(0)
@@ -293,6 +438,20 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
 
 
 def base_entropy(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """
+    Estimate the Shannon entropy of a probability distribution along a specified axis.
+
+    Normalizes input values to form a probability distribution, then computes the entropy
+    using the formula: -sum(p * log(p)). Handles numerical stability with small epsilon values.
+
+    Args:
+        x (torch.Tensor): Input tensor representing a distribution or counts.
+        axis (int, optional): Axis along which to compute entropy. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: Computed entropy value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with entropy values along the specified axis.
+    """
     if x.ndim == 1:
         x = x.unsqueeze(0)
     axis = axis % x.ndim
@@ -302,7 +461,17 @@ def base_entropy(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def ptp_amp_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Returns the peak-to-peak amplitude of the time series.
+    """
+    Measures the difference between the maximum and minimum values, effectively capturing
+    the signal's dynamic range or amplitude variation.
+
+    Args:
+        x (torch.Tensor): Input tensor containing signal data.
+        axis (int, optional): Axis along which to compute peak-to-peak amplitude. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: Peak-to-peak amplitude value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with amplitude values along the specified axis.
     """
     if x.ndim == 1:
         x = x.unsqueeze(0)
@@ -313,7 +482,17 @@ def ptp_amp_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def crest_factor_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Returns the crest factor of the time series.
+    """
+    The crest factor is the ratio of the peak amplitude to the root mean square (RMS) value,
+    indicating the presence of peaks in the signal. Useful for detecting impulsive or transient events.
+
+    Args:
+        x (torch.Tensor): Input tensor containing signal data.
+        axis (int, optional): Axis along which to compute the crest factor. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: Crest factor value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with crest factor values along the specified axis.
     """
     if x.ndim == 1:
         x = x.unsqueeze(0)
@@ -326,7 +505,17 @@ def crest_factor_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def mean_ema_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Returns the exponential moving average of the time series.
+    """
+    Applies an exponential weighting to the signal values, where the span of the EMA
+    is dynamically set to 10% of the signal length. Useful for smoothing and trend analysis.
+
+    Args:
+        x (torch.Tensor): Input tensor containing signal data.
+        axis (int, optional): Axis along which to compute the EMA. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: EMA value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with EMA values along the specified axis.
     """
     T = x.shape[axis]
     span = max(int(T / 10), 2)
@@ -338,7 +527,17 @@ def mean_ema_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
 
 
 def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
-    """Returns the average moving median of the time series.
+    """
+    Applies a median filter over sliding windows of the signal, where the window size
+    is dynamically set to 10% of the signal length. Effective for robust smoothing and outlier suppression.
+
+    Args:
+        x (torch.Tensor): Input tensor containing signal data.
+        axis (int, optional): Axis along which to compute the moving median. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: Moving median value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with median values along the specified axis.
     """
     if axis != -1:
         x = x.transpose(axis, -1)
@@ -353,6 +552,18 @@ def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.T
 
 
 def hjorth_mobility_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """
+    Mobility measures the mean frequency or the rate of change in the signal.
+    It is computed as the square root of the variance of the first derivative divided by the variance of the signal.
+
+    Args:
+        x (torch.Tensor): Input tensor containing signal data.
+        axis (int, optional): Axis along which to compute mobility. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: Hjorth mobility value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with mobility values along the specified axis.
+    """
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if not torch.is_floating_point(x):
@@ -365,6 +576,19 @@ def hjorth_mobility_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tens
 
 
 def hjorth_complexity_torch(x: torch.Tensor, axis: int = -1) -> float | torch.Tensor:
+    """
+    Complexity measures the change in frequency or how similar the signal is to pure sine waves.
+    It is computed as the ratio of the mobility of the derivative to the mobility of the signal,
+    normalized by the variance of the signal.
+
+    Args:
+        x (torch.Tensor): Input tensor containing signal data.
+        axis (int, optional): Axis along which to compute complexity. Defaults to -1.
+
+    Returns:
+        float | torch.Tensor: Hjorth complexity value(s). Returns a scalar if input is 1D,
+                              otherwise a tensor with complexity values along the specified axis.
+    """
     if x.ndim == 1:
         x = x.unsqueeze(0)
     if not torch.is_floating_point(x):

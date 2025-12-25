@@ -43,17 +43,9 @@ class HankelMatrix:
 
         self.__check_windows_length()
         if len(self.__time_series.shape) > 1:
-            self.__trajectory_matrix = (
-                self.__get_2d_trajectory_matrix_torch()
-                if self.__use_torch else
-                self.__get_2d_trajectory_matrix()
-            )
+            self.__trajectory_matrix = self.__get_2d_trajectory_matrix()
         else:
-            self.__trajectory_matrix = (
-                self.__get_1d_trajectory_matrix_torch()
-                if self.__use_torch else
-                self.__get_1d_trajectory_matrix()
-            )
+            self.__trajectory_matrix = self.__get_1d_trajectory_matrix()
 
     def __check_windows_length(self):
         if not 2 <= self.__window_length <= self.__ts_length / 2:
@@ -67,21 +59,52 @@ class HankelMatrix:
         else:
             self.__time_series = self.__time_series
 
-    def __get_1d_trajectory_matrix(self):
-        if self.__strides > 1:
-            return self.__strided_trajectory_matrix(self.__time_series)
+    def __get_1d_trajectory_matrix(self, ts: torch.Tensor = None):
+        ts = self.__time_series if ts is None else ts
+        T = ts.shape[0]
+        W = self.__window_length
+        S = self.__strides
+        if self.__use_torch:
+            if S > 1:
+                num_windows = T - W + 1
+                trajectory = ts.as_strided(
+                    size=(num_windows, W),
+                    stride=(ts.stride(0), ts.stride(0))
+                )
+                idx = torch.arange(0, num_windows, S, device=ts.device)
+                trajectory = trajectory[idx]
+                return trajectory.T
+            else:
+                i = torch.arange(W + 1, device=ts.device).unsqueeze(1)
+                j = torch.arange(T - W, device=ts.device).unsqueeze(0)
+                idx = i + j
+                source = torch.cat([ts[:W + 1], ts[W:][1:]], dim=0)
+                hankel_matrix = source[idx]
+                return hankel_matrix
         else:
-            return backend_scipy.hankel(self.__time_series[:self.__window_length + 1],
-                                        self.__time_series[self.__window_length:])
+            if self.__strides > 1:
+                return self.__strided_trajectory_matrix(self.__time_series)
+            else:
+                return backend_scipy.hankel(self.__time_series[:self.__window_length + 1],
+                                            self.__time_series[self.__window_length:])
 
     def __get_2d_trajectory_matrix(self):
-        # TODO: add case for apply_window_for_stat_feature, required array
-        if self.__strides > 1:
-            return [self.__strided_trajectory_matrix(
-                time_series) for time_series in self.__time_series]
+        # TODO: add case for apply_window_for_stat_feature_torch,
+        # problem with negative tensor size
+        if self.__use_torch:
+            matrices = []
+            for ts in self.__time_series:
+                matrices.append(self.__get_1d_trajectory_matrix(ts))
+            tensor = [x.unsqueeze(0) for x in matrices]
+            return torch.concat(tensor)
         else:
-            return [backend_scipy.hankel(time_series[:self.__window_length + 1],
-                                         time_series[self.__window_length:]) for time_series in self.__time_series]
+        # TODO: add case for apply_window_for_stat_feature, required array
+            if self.__strides > 1:
+                return [self.__strided_trajectory_matrix(
+                    time_series) for time_series in self.__time_series]
+            else:
+                return [backend_scipy.hankel(time_series[:self.__window_length + 1],
+                                            time_series[self.__window_length:]) for time_series in self.__time_series]
 
     def __strided_trajectory_matrix(self, time_series):
         shape = (time_series.shape[0] -
@@ -90,37 +113,6 @@ class HankelMatrix:
         rolled = np.lib.stride_tricks.as_strided(
             time_series, shape=shape, strides=strides)
         return rolled[np.arange(0, shape[0], self.__strides)].T
-
-    def __get_1d_trajectory_matrix_torch(self, ts: torch.Tensor = None):
-        ts = self.__time_series if ts is None else ts
-        T = ts.shape[0]
-        W = self.__window_length
-        S = self.__strides
-        if S > 1:
-            num_windows = T - W + 1
-            trajectory = ts.as_strided(
-                size=(num_windows, W),
-                stride=(ts.stride(0), ts.stride(0))
-            )
-            idx = torch.arange(0, num_windows, S, device=ts.device)
-            trajectory = trajectory[idx]
-            return trajectory.T
-        else:
-            i = torch.arange(W + 1, device=ts.device).unsqueeze(1)
-            j = torch.arange(T - W, device=ts.device).unsqueeze(0)
-            idx = i + j
-            source = torch.cat([ts[:W + 1], ts[W:][1:]], dim=0)
-            hankel_matrix = source[idx]
-            return hankel_matrix
-
-    def __get_2d_trajectory_matrix_torch(self):
-        # TODO: add case for apply_window_for_stat_feature_torch, ё
-        # problem with negative tensor size
-        matrices = []
-        for ts in self.__time_series:
-            matrices.append(self.__get_1d_trajectory_matrix_torch(ts))
-        tensor = [x.unsqueeze(0) for x in matrices]
-        return torch.concat(tensor)
 
     @property
     def window_length(self):

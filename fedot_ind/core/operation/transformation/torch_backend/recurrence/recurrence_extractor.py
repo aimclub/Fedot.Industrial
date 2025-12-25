@@ -10,14 +10,21 @@ from fedot_ind.core.operation.transformation.torch_backend.recurrence.sequences 
 
 
 class RecurrenceExtractor(BaseExtractor):
-    """Class responsible for wavelet feature generator experiment.
+    """
+    A feature extractor for time series based on recurrence plots and recurrence quantification analysis (RQA).
+
+    This class transforms time series into recurrence matrices and extracts statistical features
+    such as recurrence rate, determinism, laminarity, and line-based metrics.
+    It supports both feature-based and image-based representations of recurrence plots.
 
     Attributes:
-        transformer: TorchTSTransformer object.
-        self.extractor: RecurrenceFeatureExtractorTorch object.
-        self.rec_metric: str, the metric for calculating the recurrence matrix.
-        self.window_size: int, the window size.
-        self.image_mode: bool, if True, then created 3D recurrence matrix.
+        window_size (int): The size of the sliding window for trajectory matrix construction.
+        stride (int): The stride for the sliding window.
+        rec_metric (str): The distance metric used for recurrence plot construction (e.g., 'cosine').
+        image_mode (bool): If True, returns the recurrence plot as a 3D tensor (image-like representation).
+                          If False, returns RQA features as a 1D tensor.
+        transformer: The transformer class used to convert time series to recurrence matrices.
+        extractor: The extractor class used to compute RQA features from recurrence matrices.
     """
 
     def __init__(self, params: Optional[OperationParameters] = None):
