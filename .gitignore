@@ -6,6 +6,24 @@ __pycache__/
 # IntelliJ project files
 /.idea
 
+# Cache
+/cache
+/results
+/some_files
+/time
+/torch_test
+/fedot_ind/data
+
+# Extensions
+*.tsv
+*.ts
+*.csv
+*.xlsx
+*.parquet
+*.feather
+*.hdf5
+*.json
+
 # User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
@@ -96,5 +114,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.devcontainer/
 
 .local/
+
+*.lock

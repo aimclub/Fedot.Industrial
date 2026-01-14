@@ -12,6 +12,16 @@ class ComputeConfigConstant(Enum):
                               'use_cache': None,
                               'automl_folder': {'optimisation_history': './results/opt_hist',
                                                 'composition_results': './results/comp_res'}}
+    DEFAULT_COMPUTE_CONFIG_GPU = {'backend': 'gpu',
+                                  'distributed': dict(processes=False,
+                                                      n_workers=1,
+                                                      threads_per_worker=1,
+                                                      memory_limit=0.3
+                                                      ),
+                                  'output_folder': './results',
+                                  'use_cache': None,
+                                  'automl_folder': {'optimisation_history': './results/opt_hist',
+                                                    'composition_results': './results/comp_res'}}
 
 
 class AutomlLearningConfigConstant(Enum):
@@ -78,6 +88,7 @@ class IndustrialConfigConstant(Enum):
 
 DEFAULT_AUTOML_LEARNING_CONFIG = AutomlLearningConfigConstant.DEFAULT_AUTOML_CONFIG.value
 DEFAULT_COMPUTE_CONFIG = ComputeConfigConstant.DEFAULT_COMPUTE_CONFIG.value
+DEFAULT_COMPUTE_CONFIG_GPU = ComputeConfigConstant.DEFAULT_COMPUTE_CONFIG_GPU.value
 DEFAULT_CLF_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_CLF_AUTOML_CONFIG.value
 DEFAULT_REG_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_REG_AUTOML_CONFIG.value
 DEFAULT_TSF_AUTOML_CONFIG = AutomlConfigConstant.DEFAULT_TSF_AUTOML_CONFIG.value
