@@ -723,7 +723,7 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_tensor()
 
     def convert_to_monad_data(self):
-
+        #TODO: change numpy to torch.tensor
         if self.input_data_is_fedot_data:
             features = np.array(ListMonad(*self.data.features.tolist()).value)
         else:

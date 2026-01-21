@@ -47,7 +47,8 @@ from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_feat
     crest_factor_torch, energy_torch, \
     hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
     mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
-
+from fedot_ind.core.operation.transformation.torch_specter.eigen import pev_torch
+from fedot_ind.core.operation.transformation.torch_specter.speriodogram import speriodogram_torch
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
@@ -285,6 +286,22 @@ class FeatureConstant(Enum):
                                minvar=spectrum.pminvar,
                                eigen=spectrum.pev,
                                )
+    
+    SPECTRUM_ESTIMATORS_TORCH = dict(non_parametric=speriodogram_torch,
+                                     eigen=pev_torch,
+                                    )
+    
+    DEFAULT_ESTIMATOR_PARAMETERS = dict(
+        non_parametric=dict(
+            window="hann",
+            detrend=False,
+            scale_by_freq=False,
+            NFFT=None,
+        ),
+        eigen=dict(IP=5, 
+                   NFFT=None,
+        ),
+    )
 
     PERSISTENCE_DIAGRAM_FEATURES = {
         'HolesNumberFeature': HolesNumberFeature(),
@@ -1043,6 +1060,8 @@ SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
 SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
+SPECTRUM_ESTIMATORS_TORCH = FeatureConstant.SPECTRUM_ESTIMATORS_TORCH.value
+DEFAULT_ESTIMATOR_PARAMETERS = FeatureConstant.DEFAULT_ESTIMATOR_PARAMETERS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
