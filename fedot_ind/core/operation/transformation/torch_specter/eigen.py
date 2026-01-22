@@ -150,8 +150,8 @@ def pev_torch(
     IP: int,
     NSIG=None,
     threshold=None,
-    NFFT=4096,
-    sampling=1.0,
+    NFFT=None,
+    sampling=4096,
     scale_by_freq=False,
 ):
     if NFFT is None:

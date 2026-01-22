@@ -2,6 +2,7 @@ from typing import Optional, Union
 
 import dask
 import pandas as pd
+import torch
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
@@ -33,7 +34,8 @@ class BasisDecompositionImplementation(
     def _get_basis(self, data):
 
         if isinstance(data, list) or all(
-                [isinstance(data, np.ndarray) and len(data.shape) > 1]):
+                [(isinstance(data, np.ndarray) | isinstance(data, torch.Tensor))
+                  and len(data.shape) > 1]):
             func = self._get_multidim_basis
         else:
             func = self._get_1d_basis

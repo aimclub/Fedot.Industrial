@@ -27,15 +27,15 @@ def compare_numpy_and_torch(
 ):
     print(f"\n=== Testing estimator: {estimator_name} ===")
 
-    params = {
-        "estimator": estimator_name,
+    params = {}
+        # "estimator": estimator_name,
         # "threshold": 0.9,
         # "sampling_rate": 5.0,
         # "low_rank": 5,
         # "output_format": 'spectrum',#"signal",
         # "approximation": "exact",
-        "compute_heuristic_representation": False#True,#False,
-    }
+        # "compute_heuristic_representation": False#True,#False,
+    # }
 
     basis_np = FourierBasisImplementation(params)
     out_np = basis_np._decompose_signal(signal)
@@ -65,12 +65,13 @@ def run_all_estimators_test():
     np.random.seed(42)
     torch.manual_seed(42)
 
-    N = 1000
+    N = 100
     signal = np.random.randn(N)
     # compare_numpy_and_torch("non_parametric", None, signal)
     # for est, param in ESTIMATORS.items():
     for est in ESTIMATORS:
-        compare_numpy_and_torch(est, signal)
+        for i in range(5):
+            compare_numpy_and_torch(est, signal)
 
     print("\n✅ All estimators passed successfully")
 

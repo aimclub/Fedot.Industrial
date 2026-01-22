@@ -81,7 +81,6 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         return estimator
 
     def _decompose_signal(self, input_data):
-
         estimator = self._build_spectrum(input_data)
         # self._visualise_spectrum(estimator)
         psd = estimator.psd
@@ -119,14 +118,15 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
     def __init__(self, params: Optional[OperationParameters] = None):
         super().__init__(params)
         self.threshold = params.get('threshold', 0.9)
-        self.sampling_rate = params.get('sampling_rate', 4096)
         self.output_format = params.get('output_format', 'signal')
         self.approximation = params.get('approximation', 'smooth')
         self.min_rank = params.get('low_rank', 5)
         self.estimator_name = params.get('estimator', 'eigen')
         self.estimator = SPECTRUM_ESTIMATORS_TORCH[self.estimator_name]
-        self.estimator_params = params.get('estimator_parameters', DEFAULT_ESTIMATOR_PARAMETERS[self.estimator_name])
-        self.return_feature_vector = params.get('compute_heuristic_representation', False)
+        self.estimator_params = params.get('estimator_parameters', 
+                            DEFAULT_ESTIMATOR_PARAMETERS[self.estimator_name])
+        self.return_feature_vector = params.get(
+            'compute_heuristic_representation', False)
         self.basis = None
         self.filtred_signal = None
 
@@ -162,28 +162,23 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
                  estimator, 
                  input_data: torch.Tensor, 
                  estimator_params: None | dict):
-        # print("HERE:", self.estimator_params)
         if estimator_params is None:
             estimator_params = {}
         try:
-            # print(self.sampling_rate)
-            psd = estimator(input_data, 
-                            sampling=self.sampling_rate,
-                            **estimator_params)
+            psd = estimator(input_data, **estimator_params)
         except AssertionError:
             old_min_rank = self.min_rank
             self.min_rank = max(1, self.min_rank // 2)
             self.log.info(
-                f'Value of min_rank changed from {old_min_rank} to {self.min_rank}'
+             f'Value of min_rank changed from {old_min_rank} to {self.min_rank}'
             )
-            estimator(input_data, 
-                      sampling=self.sampling_rate,
-                      **estimator_params)
+            if "IP" in list(estimator_params.keys()):
+                estimator_params["IP"] = self.min_rank
+            psd = estimator(input_data, **estimator_params)
         return psd
 
 
     def _decompose_signal(self, input_data: torch.Tensor):
-        print("HEER", type(input_data))
         if self.return_feature_vector:
             return self._compute_heuristic_features(input_data)
 

@@ -35,7 +35,7 @@ def speriodogram_torch(
     x,
     NFFT=None,
     detrend=None,
-    sampling=1.0,
+    sampling=4096,
     scale_by_freq=True,
     window='hamming',
     axis=0,

@@ -589,6 +589,8 @@ class DataConverter(TensorConverter, NumpyConverter):
         super().__init__(data)
         self.data = data
         self.numpy_data = self.convert_to_array(data)
+        self.is_torch = (isinstance(data.features, torch.Tensor) |
+                         isinstance(data, torch.Tensor))
 
     @property
     def is_nparray(self):
@@ -721,20 +723,28 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_array()
         if isinstance(self.data, torch.Tensor):
             return self.convert_to_3d_tensor()
-
+    
     def convert_to_monad_data(self):
-        #TODO: change numpy to torch.tensor
         if self.input_data_is_fedot_data:
-            features = np.array(ListMonad(*self.data.features.tolist()).value)
+            values = ListMonad(*self.data.features.tolist()).value
         else:
-            features = np.array(ListMonad(*self.data.tolist()).value)
+            values = ListMonad(*self.data.tolist()).value
 
-        if len(features.shape) == 2 and features.shape[1] == 1:
+        if self.is_torch:
+            features = torch.stack(
+                [v if isinstance(v, torch.Tensor) else torch.as_tensor(v)
+                for v in values]
+            )
+        else:
+            features = np.array(values)
+
+        if features.ndim == 2 and features.shape[1] == 1:
             features = features.reshape(1, -1)
-        elif len(features.shape) == 1:
+        elif features.ndim == 1:
             features = features.reshape(1, 1, -1)
-        elif len(features.shape) == 3 and features.shape[1] == 1:
-            features = features.squeeze()
+        elif features.ndim == 3 and features.shape[1] == 1:
+            features = features.squeeze(1)
+
         return features
 
     def convert_to_eigen_basis(self):
