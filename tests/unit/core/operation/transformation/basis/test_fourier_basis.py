@@ -20,7 +20,7 @@ def test_transform_one_sample_numpy_vs_torch(input_train_np,
                                              atol=1e-6,
                                              rtol=0.0) -> None:
     """
-    Compare single sample transformation results between NumPy and PyTorch 
+    Compare single sample transformation results between NumPy and PyTorch
     implementations.
 
     This test verifies that the Fourier basis transformation of a single sample

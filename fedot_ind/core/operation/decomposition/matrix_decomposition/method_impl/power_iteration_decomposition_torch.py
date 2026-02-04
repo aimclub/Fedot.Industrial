@@ -7,9 +7,9 @@ from fedot_ind.core.repository.constanst_repository import \
     DEFAULT_SVD_SOLVER_TORCH, DEFAULT_QR_SOLVER_TORCH
 
 
-def johnson_lindenstrauss_min_dim(n_samples: float, *, 
+def johnson_lindenstrauss_min_dim(n_samples: float, *,
                                   eps: torch.Tensor) -> torch.Tensor:
-    """Compute the minimum number of dimensions required for 
+    """Compute the minimum number of dimensions required for
     Johnson-Lindenstrauss lemma.
 
     Args:
@@ -26,7 +26,7 @@ def johnson_lindenstrauss_min_dim(n_samples: float, *,
 class RSVDDecompositionTorch:
     """Randomized SVD decomposition with power iteration method.
 
-    Implements the block Krylov subspace method for computing the SVD of a 
+    Implements the block Krylov subspace method for computing the SVD of a
     matrix with a low computational cost. The method is based on the power
     iteration procedure, which allows us to obtain a low-rank approximation of
     the matrix. The method is based on the following steps:
@@ -53,14 +53,14 @@ class RSVDDecompositionTorch:
         matrix as tall.
         is_matrix_big (bool): Flag indicating if the matrix is large.
         is_matrix_tall (bool): Flag indicating if the matrix is tall.
-        big_tall_matrix (bool): Flag indicating if the matrix is both big and 
+        big_tall_matrix (bool): Flag indicating if the matrix is both big and
         tall.
         projection_rank (int): Rank for random projection.
         random_projection (torch.Tensor): Random projection matrix.
         sampled_tensor_orto (torch.Tensor): Orthogonalized sampled tensor.
 
     Args:
-        params (Optional[OperationParameters]): Dictionary with parameters for 
+        params (Optional[OperationParameters]): Dictionary with parameters for
         the operation.
             Expected keys: 'rank', 'power_iter', 'sampling_share', 'tolerance'.
     """
@@ -74,10 +74,10 @@ class RSVDDecompositionTorch:
     def _init_sampling_params(self, tensor: torch.Tensor):
         self.lb_for_sampling_regime = 10000
         self.lb_ratio_for_tall_matrix = 50
-        self.projection_rank = math.ceil(min(tensor.shape) * 
+        self.projection_rank = math.ceil(min(tensor.shape) *
                                          self.sampling_share)
 
-        self.is_matrix_big = any(dim_len > self.lb_for_sampling_regime 
+        self.is_matrix_big = any(dim_len > self.lb_for_sampling_regime
                                  for dim_len in tensor.shape)
         min_dim = min(tensor.shape)
         max_dim = max(tensor.shape)
@@ -99,7 +99,7 @@ class RSVDDecompositionTorch:
         """
         n_samples = max(matrix.shape)
         min_num_samples = johnson_lindenstrauss_min_dim(torch.tensor(n_samples),
-                                                    eps=self.tolerance).tolist()
+                                                        eps=self.tolerance).tolist()
         return max([x if x < n_samples else n_samples for x in min_num_samples])
 
     def _init_random_params(self, tensor: torch.Tensor):
@@ -114,15 +114,15 @@ class RSVDDecompositionTorch:
         # Create random matrix for projection
         if self.is_matrix_big:
             self.projection_rank = self._get_stable_rank(tensor)
-        self.random_projection = torch.randn(tensor.shape[1], 
-                                             self.projection_rank, 
-                                             device=tensor.device, 
+        self.random_projection = torch.randn(tensor.shape[1],
+                                             self.projection_rank,
+                                             device=tensor.device,
                                              dtype=tensor.dtype)
         self.big_tall_matrix = all([self.is_matrix_big, self.is_matrix_tall])
 
-    def compute_approximation(self, original_tensor: torch.Tensor, 
+    def compute_approximation(self, original_tensor: torch.Tensor,
                               approx_params: dict) -> tuple:
-        """Compute the approximation of the original tensor using the given 
+        """Compute the approximation of the original tensor using the given
         approximation parameters.
 
         Args:
@@ -138,7 +138,7 @@ class RSVDDecompositionTorch:
         reconstr_m = tensor_approx @ tensor_approx.T @ original_tensor
         Ut, St, Vt = DEFAULT_SVD_SOLVER_TORCH(reconstr_m, full_matrices=False)
         return Ut, St, Vt
-    
+
     def decompose(self, tensor: torch.Tensor) -> tuple:
         """
         Block Krylov subspace method for computing the SVD of a matrix with low
@@ -166,16 +166,16 @@ class RSVDDecompositionTorch:
         if self.big_tall_matrix:
             tensor_row_sampled = self.random_projection @ tensor
             grammian = tensor_row_sampled @ tensor_row_sampled.T
-            grammian_with_good_spectrum = torch.linalg.matrix_power(grammian, 
-                                                                self.poly_deg)
+            grammian_with_good_spectrum = torch.linalg.matrix_power(grammian,
+                                                                    self.poly_deg)
             sampled_tensor = grammian_with_good_spectrum @ tensor_row_sampled
         else:
             grammian = tensor @ tensor.T
-            sampled_tensor = torch.linalg.matrix_power(grammian, 
-                                self.poly_deg) @ tensor @ self.random_projection
+            sampled_tensor = torch.linalg.matrix_power(grammian,
+                                                       self.poly_deg) @ tensor @ self.random_projection
 
         # Orthogonalization of the resulting "sampled" matrix.
-        self.sampled_tensor_orto, _ = DEFAULT_QR_SOLVER_TORCH(sampled_tensor, 
+        self.sampled_tensor_orto, _ = DEFAULT_QR_SOLVER_TORCH(sampled_tensor,
                                                               mode='reduced')
 
         # Project initial Gramm matrix on new basis.

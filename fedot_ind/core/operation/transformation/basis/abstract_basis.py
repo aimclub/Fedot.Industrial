@@ -35,7 +35,7 @@ class BasisDecompositionImplementation(
 
         if isinstance(data, list) or all(
                 [(isinstance(data, np.ndarray) | isinstance(data, torch.Tensor))
-                  and len(data.shape) > 1]):
+                 and len(data.shape) > 1]):
             func = self._get_multidim_basis
         else:
             func = self._get_1d_basis

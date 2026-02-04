@@ -21,7 +21,7 @@ def aic_eigen_torch(s: torch.Tensor, N: int) -> torch.Tensor:
     n = s.numel()
 
     for k in range(n - 1):
-        tail = s[k + 1 :]
+        tail = s[k + 1:]
         denom = n - k
 
         ak = torch.sum(tail) / denom
@@ -57,7 +57,7 @@ def mdl_eigen_torch(s: torch.Tensor, N: int) -> torch.Tensor:
     n = s.numel()
 
     for k in range(0, n - 1):
-        tail = s[k + 1 :]
+        tail = s[k + 1:]
         ak = torch.mean(tail)
         gk = torch.exp(torch.mean(torch.log(tail)))
         val = (
@@ -86,9 +86,9 @@ def get_signal_space_torch(
     Args:
         S (torch.Tensor): Tensor of eigenvalues.
         NP (int): Number of data points parameter.
-        NSIG (Optional[int]): Fixed number of signal components. If provided, 
+        NSIG (Optional[int]): Fixed number of signal components. If provided,
         this value is returned.
-        threshold (Optional[float]): Threshold for determining significant 
+        threshold (Optional[float]): Threshold for determining significant
         eigenvalues.
         criteria (str): Information criterion to use ('aic' or 'mdl') if neither
         NSIG nor threshold is provided.
@@ -131,7 +131,7 @@ def eigen_torch(
     """
     Perform eigenanalysis on a signal using forward-backward averaging.
 
-    This function constructs a forward-backward matrix from the input signal, 
+    This function constructs a forward-backward matrix from the input signal,
     performs singular value decomposition (SVD), and estimates the power
     spectral density (PSD) using either the MUSIC or EV method.
 
@@ -176,7 +176,7 @@ def eigen_torch(
     # Determine signal subspace
     NSIG = get_signal_space_torch(
         S,
-        2*NP,
+        2 * NP,
         NSIG=NSIG,
         threshold=threshold,
         criteria=criteria,
@@ -198,7 +198,7 @@ def eigen_torch(
     PSD = 1.0 / PSD
     nby2 = NFFT // 2
     part1 = torch.flip(PSD[1:nby2 + 1], dims=[0])
-    part2 = torch.flip(PSD[nby2:nby2*2], dims=[0])
+    part2 = torch.flip(PSD[nby2:nby2 * 2], dims=[0])
     newpsd = torch.cat([part1, part2])
 
     return newpsd, S
@@ -214,7 +214,7 @@ def pev_torch(
     scale_by_freq=False,
 ):
     """
-    Compute the Pisarenko Eigenvector (PEV) method for power spectral density 
+    Compute the Pisarenko Eigenvector (PEV) method for power spectral density
     estimation.
 
     This function estimates the PSD of a signal using the Pisarenko Eigenvector
@@ -223,14 +223,14 @@ def pev_torch(
     Args:
         x (torch.Tensor): Input signal tensor.
         IP (int): Order of the covariance matrix.
-        NSIG (Optional[int]): Number of signal components. If not provided, it 
+        NSIG (Optional[int]): Number of signal components. If not provided, it
         is estimated.
-        threshold (Optional[float]): Threshold for determining significant 
+        threshold (Optional[float]): Threshold for determining significant
         eigenvalues.
-        NFFT (Optional[int]): Number of FFT points for PSD estimation. If not 
+        NFFT (Optional[int]): Number of FFT points for PSD estimation. If not
         provided, it is set to the length of x.
         sampling (int): Sampling frequency of the signal. Defaults to 4096.
-        scale_by_freq (bool): If True, scale the PSD by frequency. Defaults to 
+        scale_by_freq (bool): If True, scale the PSD by frequency. Defaults to
         False.
 
     Returns:

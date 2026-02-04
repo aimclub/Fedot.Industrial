@@ -13,22 +13,22 @@ RANK_REPRESENTATION = Union[int, float]
 
 class CURDecompositionTorch:
     """
-    CUR decomposition is a low-rank matrix decomposition method that is based on 
+    CUR decomposition is a low-rank matrix decomposition method that is based on
     selecting a subset of columns and rows of the original matrix. The method is
-    based on the Johnson-Lindenstrauss lemma and is used to approximate the 
-    original matrix with a low-rank matrix. The CUR decomposition is defined as 
-    follows: A = C @ U @ R, where A is the original matrix, C is a subset of 
-    columns of A, U is a subset of rows of A, and R is a subset of rows of A. 
-    The selection of columns and rows is based on the probabilities p and q, 
-    which are computed based on the norms of the columns and rows of A. The 
-    selection of columns and rows is done in such a way that the approximation 
+    based on the Johnson-Lindenstrauss lemma and is used to approximate the
+    original matrix with a low-rank matrix. The CUR decomposition is defined as
+    follows: A = C @ U @ R, where A is the original matrix, C is a subset of
+    columns of A, U is a subset of rows of A, and R is a subset of rows of A.
+    The selection of columns and rows is based on the probabilities p and q,
+    which are computed based on the norms of the columns and rows of A. The
+    selection of columns and rows is done in such a way that the approximation
     error is minimized.
 
     Args:
         params: the parameters of the operation
             rank: the rank of the decomposition
             tolerance: the tolerance of the decomposition
-            return_samples: whether to return the samples or the decomposition 
+            return_samples: whether to return the samples or the decomposition
             matrices
     """
 
@@ -55,18 +55,18 @@ class CURDecompositionTorch:
             the stable rank
         """
         n_samples = max(matrix.shape)
-        min_num_samples = johnson_lindenstrauss_min_dim(n_samples, 
-                                                    eps=self.tolerance).tolist()
-        self.stable_rank = min([x if x < n_samples else n_samples 
+        min_num_samples = johnson_lindenstrauss_min_dim(n_samples,
+                                                        eps=self.tolerance).tolist()
+        self.stable_rank = min([x if x < n_samples else n_samples
                                 for x in min_num_samples])
 
     def decompose(self, tensor: torch.Tensor) -> Tuple:
         """
         Perform CUR decomposition on the input tensor.
 
-        CUR decomposition approximates the original matrix using a subset of its 
-        columns and rows. The method selects columns and rows based on their 
-        norms and constructs matrices C, U, and R, where C consists of selected 
+        CUR decomposition approximates the original matrix using a subset of its
+        columns and rows. The method selects columns and rows based on their
+        norms and constructs matrices C, U, and R, where C consists of selected
         columns, R consists of selected rows, and U is derived from the
         intersection of selected columns and rows.
 
@@ -76,9 +76,9 @@ class CURDecompositionTorch:
         Returns:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
                 A tuple containing three tensors:
-                - C: Matrix consisting of selected columns of the original 
+                - C: Matrix consisting of selected columns of the original
                 tensor.
-                - U: Matrix derived from the pseudoinverse of the intersection 
+                - U: Matrix derived from the pseudoinverse of the intersection
                 matrix W.
                 - R: Matrix consisting of selected rows of the original tensor.
         """
@@ -120,9 +120,9 @@ class CURDecompositionTorch:
 
         # Select top columns and rows based on probabilities
         self.column_indices = torch.sort(torch.argsort(col_probs,
-                                            descending=True)[:col_rank]).values
+                                                       descending=True)[:col_rank]).values
         self.row_indices = torch.sort(torch.argsort(row_probs,
-                                            descending=True)[:row_rank]).values
+                                                    descending=True)[:row_rank]).values
 
         if self.classes_idx is not None:
             row_indices_list = []
@@ -134,9 +134,9 @@ class CURDecompositionTorch:
             self.row_indices = torch.cat(row_indices_list)
 
         # Compute scale factors
-        row_scale_factors = 1 / torch.sqrt(self.stable_rank * 
+        row_scale_factors = 1 / torch.sqrt(self.stable_rank *
                                            row_probs[self.row_indices])
-        col_scale_factors = 1 / torch.sqrt(self.stable_rank * 
+        col_scale_factors = 1 / torch.sqrt(self.stable_rank *
                                            col_probs[self.column_indices])
 
         # Create C, R, and W matrices

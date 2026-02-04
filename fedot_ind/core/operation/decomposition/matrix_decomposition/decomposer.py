@@ -22,22 +22,23 @@ from fedot_ind.core.operation.transformation.regularization.spectrum import sing
 
 class MatrixDecomposerTorch:
     """
-    A PyTorch-based matrix decomposer for performing various matrix 
+    A PyTorch-based matrix decomposer for performing various matrix
     decomposition techniques.
 
-    This class supports multiple decomposition methods such as SVD, 
-    Randomized SVD, and CUR. It provides functionality for spectrum 
+    This class supports multiple decomposition methods such as SVD,
+    Randomized SVD, and CUR. It provides functionality for spectrum
     regularization, low-rank approximation, and tensor decomposition.
 
     Attributes:
         decomposition_type (str): Type of decomposition. Defaults to 'svd'.
         decomposition_params (dict): Parameters for the decomposition method.
-        min_components (int or None): Minimum number of components for 
+        min_components (int or None): Minimum number of components for
         decomposition.
         spectrum_reg (dict): Dictionary of spectrum regularization methods.
         decompose_method (dict): Dictionary of available decomposition methods.
         decomposition_strategy: Instance of the selected decomposition method.
     """
+
     def __init__(self, params: Optional[OperationParameters] = {}):
         self.decomposition_type = params.get('decomposition_type', 'svd')
         self.decomposition_params = params.get('decomposition_params', 3)
@@ -48,7 +49,7 @@ class MatrixDecomposerTorch:
             'knee_point': _detect_knee_point_torch}
         self.decompose_method = {'svd': SVDDecompositionTorch,
                                  'random_svd': RSVDDecompositionTorch,
-                                 'cur': CURDecompositionTorch,}
+                                 'cur': CURDecompositionTorch, }
         self.decomposition_strategy = (
             self.decompose_method[self.decomposition_type]()
         )
@@ -61,8 +62,8 @@ class MatrixDecomposerTorch:
 
         Args:
             spectrum (torch.Tensor): Singular values to be regularized.
-            reg_type (str): Type of regularization to apply. Defaults to 
-            'hard_thresholding'. Available options: 'explained_dispersion', 
+            reg_type (str): Type of regularization to apply. Defaults to
+            'hard_thresholding'. Available options: 'explained_dispersion',
             'hard_thresholding', 'knee_point'.
 
         Returns:
@@ -75,7 +76,7 @@ class MatrixDecomposerTorch:
 
     def get_low_rank(self, spectrum: list) -> int:
         """
-        Determine the low rank based on the singular values and minimum 
+        Determine the low rank based on the singular values and minimum
         components.
 
         Args:
@@ -91,7 +92,7 @@ class MatrixDecomposerTorch:
         Compute the tensor approximation using the decomposition strategy.
 
         Args:
-            tensor (Union[dict, torch.Tensor]): Input tensor or dictionary of 
+            tensor (Union[dict, torch.Tensor]): Input tensor or dictionary of
             tensors to approximate.
 
         Returns:
@@ -99,7 +100,7 @@ class MatrixDecomposerTorch:
         """
         if isinstance(tensor, dict):
             tensor_approx = (
-             self.decomposition_strategy.compute_approximation(*tensor.values())
+                self.decomposition_strategy.compute_approximation(*tensor.values())
             )
         else:
             tensor_approx = (
@@ -124,7 +125,7 @@ class MatrixDecomposerTorch:
             dict: Dictionary containing the decomposition results with keys:
             'left_eigenvectors', 'spectrum', 'right_eigenvectors', and 'rank'.
         """
-        # Get lower bound for rank estimation. By default - 10 % of all 
+        # Get lower bound for rank estimation. By default - 10 % of all
         # data, at least 2
         if self.min_components is None:
             self.min_components = max(int(min(tensor.shape) / 10), 2)
@@ -138,7 +139,7 @@ class MatrixDecomposerTorch:
         else:
             S_reg = (
                 self.spectrum_regularization(spectrum=S,
-                 reg_type=self.decomposition_params['spectrum_regularization'])
+                                             reg_type=self.decomposition_params['spectrum_regularization'])
             )
             stable_rank = self.get_low_rank(S_reg)
 
@@ -152,8 +153,8 @@ class MatrixDecomposerTorch:
         # to rotate original tensor in choosen basis.
         if self.decomposition_type.__contains__('random'):
             result_dict['left_eigenvectors'], result_dict['spectrum'], \
-            result_dict['right_eigenvectors'] \
-                = self.decomposition_strategy.compute_approximation(tensor, 
+                result_dict['right_eigenvectors'] \
+                = self.decomposition_strategy.compute_approximation(tensor,
                                                                     result_dict)
         return result_dict
 

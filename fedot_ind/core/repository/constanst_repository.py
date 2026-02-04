@@ -140,14 +140,14 @@ class KernelsConstant(Enum):
         add_node('quantile_extractor', params=stat_params),
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis', params=eigen_params).
         add_node('quantile_extractor', params=stat_params), }
-    
+
     KERNEL_BASELINE_FEATURE_GENERATORS_TORCH = {
         'quantile_extractor': PipelineBuilder().add_node('quantile_extractor_torch', params=stat_params),
         'fourier_extractor': PipelineBuilder().add_node('fourier_basis_torch', params=fourier_params).
         add_node('quantile_extractor_torch', params=stat_params),
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis_torch', params=eigen_params).
         add_node('quantile_extractor_torch', params=stat_params), }
-    
+
     KERNEL_BASELINE_NODE_LIST = {
         'quantile_extractor': (None, 'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
@@ -296,11 +296,11 @@ class FeatureConstant(Enum):
                                minvar=spectrum.pminvar,
                                eigen=spectrum.pev,
                                )
-    
+
     SPECTRUM_ESTIMATORS_TORCH = dict(non_parametric=speriodogram_torch,
                                      eigen=pev_torch,
-                                    )
-    
+                                     )
+
     DEFAULT_ESTIMATOR_PARAMETERS = dict(
         non_parametric=dict(
             window="hann",
@@ -308,9 +308,9 @@ class FeatureConstant(Enum):
             scale_by_freq=False,
             NFFT=None,
         ),
-        eigen=dict(IP=5, 
+        eigen=dict(IP=5,
                    NFFT=None,
-        ),
+                   ),
     )
 
     PERSISTENCE_DIAGRAM_FEATURES = {

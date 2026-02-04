@@ -10,7 +10,7 @@ class SVDDecompositionTorch:
     """
     Singular Value Decomposition (SVD) implementation using PyTorch.
 
-    This class provides methods for performing SVD on tensors and computing 
+    This class provides methods for performing SVD on tensors and computing
     low-rank approximations using column or row sampling techniques. It supports
     different sampling regimes for matrix approximation.
 
@@ -22,8 +22,8 @@ class SVDDecompositionTorch:
         their respective methods.
     """
 
-    def __init__(self, 
-            params: Optional[OperationParameters] = dict(full_matrices=False)):
+    def __init__(self,
+                 params: Optional[OperationParameters] = dict(full_matrices=False)):
         self.decomposition_params = params
         self.sampling_regime = params.get('sampling_regime', 'column_sampling')
         self.sampling_method_dict = dict(column_sampling=self._column_sampling,
@@ -46,11 +46,11 @@ class SVDDecompositionTorch:
 
     def compute_approximation(self, tensor, low_rank) -> torch.Tensor:
         """
-        Compute a low-rank approximation of the input tensor using SVD and 
+        Compute a low-rank approximation of the input tensor using SVD and
         sampling.
 
-        This method performs SVD on the input tensor and computes a low-rank 
-        approximation using the specified sampling regime: column or 
+        This method performs SVD on the input tensor and computes a low-rank
+        approximation using the specified sampling regime: column or
         row sampling.
 
         Args:
@@ -64,9 +64,9 @@ class SVDDecompositionTorch:
             U, S, VT = self.decompose(tensor)
             tensor_aprox = (
                 self.sampling_method_dict[self.sampling_regime](U,
-                                                                S, 
-                                                                VT, 
-                                                                tensor, 
+                                                                S,
+                                                                VT,
+                                                                tensor,
                                                                 low_rank)
             )
         return tensor_aprox
@@ -75,7 +75,7 @@ class SVDDecompositionTorch:
         """
         Select top columns based on column basis magnitude.
 
-        This method computes the column basis using the SVD results and selects 
+        This method computes the column basis using the SVD results and selects
         the top columns based on their magnitudes.
 
         Args:

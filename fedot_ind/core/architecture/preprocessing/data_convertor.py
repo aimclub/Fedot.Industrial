@@ -282,7 +282,7 @@ class TensorConverter:
 
 
 class NumpyConverter:
-    def __init__(self, data, to_numpy_array = True):
+    def __init__(self, data, to_numpy_array=True):
         if not to_numpy_array or isinstance(data, torch.Tensor):
             self.numpy_data = data
         else:
@@ -292,8 +292,7 @@ class NumpyConverter:
             self.numpy_data = np.where(
                 np.isinf(self.numpy_data), 0, self.numpy_data)
         if self.numpy_data.ndim > 3:
-                self.numpy_data = self.numpy_data.squeeze()
-
+            self.numpy_data = self.numpy_data.squeeze()
 
     def convert_to_array(self, data):
         if isinstance(data, tuple):
@@ -727,7 +726,7 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_array()
         if isinstance(self.data, torch.Tensor):
             return self.convert_to_3d_tensor()
-    
+
     def convert_to_monad_data(self):
         if not self.is_torch:
             if self.input_data_is_fedot_data:
@@ -742,11 +741,11 @@ class DataConverter(TensorConverter, NumpyConverter):
                 features = self.data.clone()
 
         if features.ndim == 2 and features.shape[1] == 1:
-            features = features.reshape(1, -1) # (N, 1) -> (1, N)
+            features = features.reshape(1, -1)  # (N, 1) -> (1, N)
         elif features.ndim == 1:
-            features = features.reshape(1, 1, -1) # (T,) -> (1, 1, T)
+            features = features.reshape(1, 1, -1)  # (T,) -> (1, 1, T)
         elif features.ndim == 3 and features.shape[1] == 1:
-            features = features.squeeze(1) # (N, 1, T) -> (N, T)
+            features = features.squeeze(1)  # (N, 1, T) -> (N, T)
 
         return features
 

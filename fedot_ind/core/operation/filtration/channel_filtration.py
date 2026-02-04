@@ -43,8 +43,8 @@ def _detect_knee_point(values, indices):
 
 
 def _detect_knee_point_torch(values: torch.Tensor, indices: list) -> list:
-    """Find elbow point. The elbow cut method is a method to determine a 
-    point in a curve where significant change can be observed, e.g., from a 
+    """Find elbow point. The elbow cut method is a method to determine a
+    point in a curve where significant change can be observed, e.g., from a
     steep slope to almost flat curve.
 
     Args:

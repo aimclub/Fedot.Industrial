@@ -8,12 +8,12 @@ def park_transform_torch(
     input_data: Union["InputData", torch.Tensor]
 ) -> torch.Tensor:
     """
-    Applies the Park transform to 3-phase electrical signals in a vectorized 
+    Applies the Park transform to 3-phase electrical signals in a vectorized
     manner.
 
-    The Park transform converts 3-phase current and voltage signals 
-    (i1, i2, i3, v1, v2, v3)into α-β components and computes instantaneous 
-    amplitude and phase for both current and voltage. This transformation is 
+    The Park transform converts 3-phase current and voltage signals
+    (i1, i2, i3, v1, v2, v3)into α-β components and computes instantaneous
+    amplitude and phase for both current and voltage. This transformation is
     useful for analyzing electrical signals in rotating reference frames.
 
     Args:
@@ -41,10 +41,10 @@ def park_transform_torch(
     sqrt3 = math.sqrt(3.0)
 
     i_alpha = (2.0 * i1 - i2 - i3) / 3.0
-    i_beta  = (i2 - i3) / sqrt3
+    i_beta = (i2 - i3) / sqrt3
 
     v_alpha = (2.0 * v1 - v2 - v3) / 3.0
-    v_beta  = (v2 - v3) / sqrt3
+    v_beta = (v2 - v3) / sqrt3
 
     instantaneous_i_amplitude = torch.sqrt(i_alpha**2 + i_beta**2)
     instantaneous_i_phase = torch.atan2(i_beta, i_alpha)

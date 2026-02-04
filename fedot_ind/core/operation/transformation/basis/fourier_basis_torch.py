@@ -1,6 +1,5 @@
 from typing import Optional
 from pymonad.either import Either
-import dask
 import torch
 
 from fedot.core.data.data import InputData, OutputData
@@ -16,33 +15,33 @@ from fedot_ind.core.architecture.preprocessing.data_convertor import \
 
 class FourierBasisImplementationTorch(BasisDecompositionImplementation):
     """
-    A PyTorch-based implementation for Fourier basis decomposition of time 
+    A PyTorch-based implementation for Fourier basis decomposition of time
     series data.
 
-    This class provides methods for decomposing time series data using Fourier 
-    analysis, including power spectral density (psd) estimation and feature 
+    This class provides methods for decomposing time series data using Fourier
+    analysis, including power spectral density (psd) estimation and feature
     extraction.
 
     Attributes:
-        threshold (float): Threshold for filtering dominant frequencies. 
+        threshold (float): Threshold for filtering dominant frequencies.
         Defaults to 0.9.
-        output_format (str): Format of the output ('signal' or 'spectrum'). 
+        output_format (str): Format of the output ('signal' or 'spectrum').
         Defaults to 'signal'.
-        approximation (str): Approximation method ('smooth' or 'exact'). 
+        approximation (str): Approximation method ('smooth' or 'exact').
         Defaults to 'smooth'.
         min_rank (int): Minimum rank for spectral estimation. Defaults to 5.
-        estimator_name (str): Name of the spectral estimator: 'eigen' or 
+        estimator_name (str): Name of the spectral estimator: 'eigen' or
         'non_parametric' (speriodogram). Defaults to 'eigen'.
         estimator: Function for spectral estimation.
         estimator_params (dict): Parameters for the spectral estimator.
-        return_feature_vector (bool): Flag to return heuristic feature vector. 
+        return_feature_vector (bool): Flag to return heuristic feature vector.
         Defaults to False.
-    
+
     Example:
         x_train = np.random.rand(100, 3, 100)
         y_train = np.random.rand(100).reshape(-1, 1)
         input_data = init_input_data(x_train, y_train)
-        input_data.features = torch.tensor(input_data.features, 
+        input_data.features = torch.tensor(input_data.features,
                                            dtype=torch.float64)
         basis = FourierBasisImplementationTorch({})._transform(input_data)
     """
@@ -58,8 +57,8 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
         self.min_rank = params.get('low_rank', 5)
         self.estimator_name = params.get('estimator', 'eigen')
         self.estimator = SPECTRUM_ESTIMATORS_TORCH[self.estimator_name]
-        self.estimator_params = params.get('estimator_parameters', 
-                            DEFAULT_ESTIMATOR_PARAMETERS[self.estimator_name])
+        self.estimator_params = params.get('estimator_parameters',
+                                           DEFAULT_ESTIMATOR_PARAMETERS[self.estimator_name])
         self.return_feature_vector = params.get(
             'compute_heuristic_representation', False)
 
@@ -71,16 +70,16 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
         data.
 
         Args:
-            input_data (torch.Tensor): Input tensor for which to compute 
+            input_data (torch.Tensor): Input tensor for which to compute
             heuristic features.
 
         Returns:
-            torch.Tensor: Tensor containing heuristic features (mean, variance, 
+            torch.Tensor: Tensor containing heuristic features (mean, variance,
             RMS, peak value, peak frequency, energy, crest factor).
         """
         periodogram_fn = SPECTRUM_ESTIMATORS_TORCH['non_parametric']
-        psd = self._get_psd(periodogram_fn, 
-                            input_data, 
+        psd = self._get_psd(periodogram_fn,
+                            input_data,
                             DEFAULT_ESTIMATOR_PARAMETERS['non_parametric'])
 
         fft_mean = psd.mean()
@@ -103,12 +102,12 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
 
         return torch.round(feature_vector, decimals=3)
 
-    def _get_psd(self, 
-                 estimator, 
-                 input_data: torch.Tensor, 
+    def _get_psd(self,
+                 estimator,
+                 input_data: torch.Tensor,
                  estimator_params: None | dict):
         """
-        Get the power spectral density (PSD) of the input data using the 
+        Get the power spectral density (PSD) of the input data using the
         specified estimator.
 
         Args:
@@ -127,7 +126,7 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
             old_min_rank = self.min_rank
             self.min_rank = max(1, self.min_rank // 2)
             self.log.info(
-             f'Value of min_rank changed from {old_min_rank} to {self.min_rank}'
+                f'Value of min_rank changed from {old_min_rank} to {self.min_rank}'
             )
             if "IP" in list(estimator_params.keys()):
                 estimator_params["IP"] = self.min_rank
@@ -139,11 +138,11 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
         Decompose the input tensors into their Fourier basis representations.
 
         Args:
-            features (torch.Tensor): Input series with shape of 
+            features (torch.Tensor): Input series with shape of
             (batch_series, chanels, series_length) to decompose.
 
         Returns:
-            torch.Tensor: Decomposed basises of tensors or their heuristic 
+            torch.Tensor: Decomposed basises of tensors or their heuristic
             features.
         """
         number_of_dim = list(range(features.shape[1]))
@@ -167,32 +166,32 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
                 [torch.stack(dim_feats) for dim_feats in basis]
             ).transpose(0, 1).squeeze(dim=2)
         return basis
-    
-    def _convert_basis_to_predict(self, 
-                                  basis: torch.Tensor, 
+
+    def _convert_basis_to_predict(self,
+                                  basis: torch.Tensor,
                                   input_data: InputData):
         """
         Convert the basis tensor into a prediction format suitable for the task.
 
         Args:
-            basis (torch.Tensor): Basis tensor to be converted into prediction 
+            basis (torch.Tensor): Basis tensor to be converted into prediction
             format.
-            input_data (InputData): Input data containing features, task 
+            input_data (InputData): Input data containing features, task
             parameters, and other metadata.
 
         Returns:
-            OutputData: An object containing the prediction, input features, 
+            OutputData: An object containing the prediction, input features,
             task parameters, and other metadata.
         """
         # TODO: make NumpyConverter method as general for whole basis methods
         if input_data.features.shape[0] == 1 and input_data.features.dim() == 3:
-            self.predict = basis.unsqueeze(0) 
+            self.predict = basis.unsqueeze(0)
         else:
             self.predict = basis
 
         if input_data.task.task_params is None:
             input_data.task.task_params = self.__repr__()
-        elif input_data.task.task_params not in [self.__repr__(), 
+        elif input_data.task.task_params not in [self.__repr__(),
                                                  'LargeFeatureSpace']:
             input_data.task.task_params.feature_filter = self.__repr__()
 
@@ -204,29 +203,29 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
                              data_type=DataTypesEnum.table,
                              supplementary_data=input_data.supplementary_data)
         return predict
-    
+
     def _transform(self,
                    input_data: InputData,) -> OutputData:
         """
         Transform input data into a Fourier basis representation.
 
-        This method converts the input data into a suitable format, applies 
-        tensor decomposition, and converts the resulting basis into a prediction 
+        This method converts the input data into a suitable format, applies
+        tensor decomposition, and converts the resulting basis into a prediction
         format.
 
         Args:
-            input_data (InputData): Input data containing features, task 
+            input_data (InputData): Input data containing features, task
         parameters, and other metadata.
 
         Returns:
-            OutputData: An object containing the prediction, input features, 
+            OutputData: An object containing the prediction, input features,
             task parameters, and other metadata.
         """
         features = DataConverter(data=input_data).convert_to_monad_data()
-        features = NumpyConverter(data=features, 
-                                to_numpy_array=False).convert_to_torch_format()
+        features = NumpyConverter(data=features,
+                                  to_numpy_array=False).convert_to_torch_format()
         basis = Either.insert(features).then(self._tensor_decompose).value
-        predict = self._convert_basis_to_predict(basis=basis, 
+        predict = self._convert_basis_to_predict(basis=basis,
                                                  input_data=input_data)
         return predict
 
@@ -234,10 +233,10 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
         """
         Transform a single time series into its filtered Fourier representation.
 
-        This method processes a single time series by first ensuring it is 
-        one-dimensional. It then computes the power spectral density (PSD) and 
+        This method processes a single time series by first ensuring it is
+        one-dimensional. It then computes the power spectral density (PSD) and
         applies a threshold to filter out non-dominant frequencies. Depending on
-        the configuration, it can return either the filtered spectrum or the 
+        the configuration, it can return either the filtered spectrum or the
         inverse Fourier transform of the filtered spectrum.
 
         Steps:
@@ -245,28 +244,28 @@ class FourierBasisImplementationTorch(BasisDecompositionImplementation):
         2. If configured, return heuristic features computed from the PSD.
         3. Compute the PSD of the series.
         4. Apply a threshold to identify dominant frequencies.
-        5. Filter the PSD based on the approximation method ('exact' or 
+        5. Filter the PSD based on the approximation method ('exact' or
         'smooth').
-        6. Return either the filtered spectrum or the inverse Fourier transform 
+        6. Return either the filtered spectrum or the inverse Fourier transform
         of the filtered spectrum.
 
         Args:
-            series (torch.Tensor): Input time series tensor of shape 
+            series (torch.Tensor): Input time series tensor of shape
             (sequence_length,) or (1, sequence_length).
 
         Returns:
             torch.Tensor: Filtered spectrum or time-domain signal.
-                - If `output_format` is 'spectrum', 
+                - If `output_format` is 'spectrum',
                 returns the filtered PSD of shape (sequence_length/2 + 1,).
-                - If `output_format` is 'signal', returns the inverse Fourier 
+                - If `output_format` is 'signal', returns the inverse Fourier
                 transform of the filtered PSD of shape (1, sequence_length).
-                - If `return_feature_vector` is True, returns heuristic features 
+                - If `return_feature_vector` is True, returns heuristic features
                 of shape (7,).
         """
         if series.dim() > 1:
             series = series.squeeze(dim=0)
         if self.return_feature_vector:
-                return self._compute_heuristic_features(series)
+            return self._compute_heuristic_features(series)
         psd = self._get_psd(self.estimator, series, self.estimator_params)
         threshold_value = torch.quantile(psd, self.threshold)
         dominant_freq = psd >= threshold_value

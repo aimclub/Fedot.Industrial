@@ -25,8 +25,8 @@ class TabularExtractorTorch(BaseExtractor):
         self.reduce_dimension = params.get('reduce_dimension', True)
 
         self.repo = IndustrialModels().setup_repository()
-        self.custom_tabular_transformation = {'park_transformation': 
-                                                park_transform_torch}
+        self.custom_tabular_transformation = {'park_transformation':
+                                              park_transform_torch}
         self.pca_is_fitted = False
         self.pca = PCA_transformation(self.explained_dispersion)
 
@@ -69,8 +69,8 @@ class TabularExtractorTorch(BaseExtractor):
                 pred = torch.from_numpy(pred)
             self.feature_list.append(model.fit(input_data).predict)
 
-    def create_feature_matrix(self, 
-        feature_list: list[torch.Tensor]) -> torch.Tensor:
+    def create_feature_matrix(self,
+                              feature_list: list[torch.Tensor]) -> torch.Tensor:
         """
         Concatenate list of feature tensors into 2D feature matrix.
 
@@ -84,7 +84,7 @@ class TabularExtractorTorch(BaseExtractor):
             torch.from_numpy(x).reshape(x.shape[0], -1)
             for x in feature_list
         ]
-        
+
         return torch.cat(flattened, dim=1).squeeze()
 
     def _transform(self, input_data: InputData) -> torch.Tensor:

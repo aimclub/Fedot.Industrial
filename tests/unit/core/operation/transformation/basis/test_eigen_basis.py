@@ -20,7 +20,7 @@ def test_eigen_transform_torch_output_type(input_train_np) -> None:
     """
     Test the output type of the EigenBasisImplementationTorch transformation.
 
-    This test verifies that the transformation method of 
+    This test verifies that the transformation method of
     EigenBasisImplementationTorch returns an object of the correct type
     (OutputData) when processing input data.
 

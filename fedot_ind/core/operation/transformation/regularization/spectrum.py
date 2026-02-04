@@ -23,7 +23,7 @@ def sv_to_explained_variance_ratio(singular_values):
 
 def sv_to_explained_variance_ratio_torch(singular_values: torch.Tensor) -> list:
     """Calculate the explained variance ratio of the singular values.
-    Filter values which is less than 3%. Return first two values, if there 
+    Filter values which is less than 3%. Return first two values, if there
     is empty tensor after filtering.
 
     Args:
@@ -162,9 +162,9 @@ def singular_value_hard_threshold_torch(
 
     Args:
         singular_values (torch.Tensor): Singular values.
-        rank (int, optional): Number of singular values to use. 
+        rank (int, optional): Number of singular values to use.
         Defaults to None.
-        beta (float, optional): Beta value for threshold calculation. 
+        beta (float, optional): Beta value for threshold calculation.
         Defaults to None.
         threshold (float, optional): Threshold value. Defaults to None.
 
@@ -195,7 +195,7 @@ def singular_value_hard_threshold_torch(
         # If the adjusted rank is 0, recalculate the threshold value
         if adjusted_rank == 0:
             sv_threshold = 2.31 * median_sv
-            adjusted_rank = max(torch.sum(singular_values >= 
+            adjusted_rank = max(torch.sum(singular_values >=
                                           sv_threshold).item(), 1)
 
         return singular_values[:adjusted_rank].tolist()
@@ -235,9 +235,9 @@ def reconstruct_basis(U, Sigma, VT, ts_length):
     return TS_comps
 
 
-def reconstruct_basis_torch(U: torch.Tensor, 
+def reconstruct_basis_torch(U: torch.Tensor,
                             Sigma: torch.Tensor,
-                            VT: torch.Tensor, 
+                            VT: torch.Tensor,
                             ts_length: int) -> torch.Tensor:
     """Reconstruct time-series basis components from SVD factors
     using diagonal averaging (SSA hankelization).
@@ -293,4 +293,3 @@ def reconstruct_basis_torch(U: torch.Tensor,
         TS_comps[:, i] = diag_sum / diag_cnt
 
     return TS_comps
-
