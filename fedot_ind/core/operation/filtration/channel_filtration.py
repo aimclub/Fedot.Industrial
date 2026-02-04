@@ -3,6 +3,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import torch
 from fedot.core.data.data import InputData
 from fedot.core.operations.operation_parameters import OperationParameters
 from pymonad.either import Either
@@ -38,7 +39,57 @@ def _detect_knee_point(values, indices):
     if len(best_dims) == 0:
         return [knee_idx], knee_idx
 
-    return best_dims,
+    return best_dims
+
+
+def _detect_knee_point_torch(values: torch.Tensor, indices: list) -> list:
+    """Find elbow point. The elbow cut method is a method to determine a 
+    point in a curve where significant change can be observed, e.g., from a 
+    steep slope to almost flat curve.
+
+    Args:
+        values (torch.Tensor): Values that form the curve.
+        indices (list): Indices of the values.
+
+    Returns:
+        list: Indices of values greater than the knee point.
+    """
+    device = values.device
+    n_points = values.numel()
+
+    x_coords = torch.arange(n_points, device=device, dtype=values.dtype)
+    all_coords = torch.stack((x_coords, values), dim=1)
+    first_point = all_coords[0]
+    last_point = all_coords[-1]
+    # direction vector of the line
+    line_vec = last_point - first_point
+    line_vec_norm = line_vec / torch.norm(line_vec)
+    # vectors from first point to all points
+    vec_from_first = all_coords - first_point
+    # projection length onto the line
+    scalar_prod = torch.sum(
+        vec_from_first * line_vec_norm, dim=1
+    )
+    # projection vectors and orthogonal vectors
+    vec_from_first_parallel = torch.outer(
+        scalar_prod, line_vec_norm
+    )
+    vec_to_line = vec_from_first - vec_from_first_parallel
+
+    # distance to line
+    dist_to_line = torch.norm(vec_to_line, dim=1)
+    # max distance to the point (knee)
+    knee_idx = torch.argmax(dist_to_line).item()
+    knee = values[knee_idx]
+    best_dims = [
+        idx for val, idx in zip(values.tolist(), indices)
+        if val > knee.item()
+    ]
+
+    if len(best_dims) == 0:
+        return [knee_idx], knee_idx
+
+    return best_dims
 
 
 class ChannelCentroidFilter(IndustrialCachableOperationImplementation):

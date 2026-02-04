@@ -2,13 +2,12 @@ from typing import Optional
 
 import dask
 import pandas as pd
-import torch
 from fedot.core.operations.operation_parameters import OperationParameters
 from matplotlib import pyplot as plt
 
 from fedot_ind.core.architecture.settings.computational import backend_methods as np
 from fedot_ind.core.operation.transformation.basis.abstract_basis import BasisDecompositionImplementation
-from fedot_ind.core.repository.constanst_repository import SPECTRUM_ESTIMATORS, SPECTRUM_ESTIMATORS_TORCH, DEFAULT_ESTIMATOR_PARAMETERS
+from fedot_ind.core.repository.constanst_repository import SPECTRUM_ESTIMATORS
 
 
 class FourierBasisImplementation(BasisDecompositionImplementation):
@@ -96,109 +95,4 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
 
     @dask.delayed
     def _transform_one_sample(self, series: np.array):
-        return self._get_basis(series)
-
-
-class FourierBasisImplementationTorch(BasisDecompositionImplementation):
-    """A class for decomposing data on the Fourier basis and evaluating the derivative of the resulting decomposition.
-
-    Example::
-        ts1 = np.random.rand(200)
-        ts2 = np.random.rand(200)
-        ts = [ts1, ts2]
-        bss = FourierBasisImplementation({'threshold': 20000'})
-        basis_multi = bss.transform(ts)
-        basis_1d = bss.transform(ts1)
-
-    """
-
-    def __repr__(self):
-        return 'FourierBasisImplementation'
-
-    def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
-        self.threshold = params.get('threshold', 0.9)
-        self.output_format = params.get('output_format', 'signal')
-        self.approximation = params.get('approximation', 'smooth')
-        self.min_rank = params.get('low_rank', 5)
-        self.estimator_name = params.get('estimator', 'eigen')
-        self.estimator = SPECTRUM_ESTIMATORS_TORCH[self.estimator_name]
-        self.estimator_params = params.get('estimator_parameters', 
-                            DEFAULT_ESTIMATOR_PARAMETERS[self.estimator_name])
-        self.return_feature_vector = params.get(
-            'compute_heuristic_representation', False)
-        self.basis = None
-        self.filtred_signal = None
-
-        self.logging_params.update({'threshold': self.threshold})
-
-    def _compute_heuristic_features(self, input_data: torch.Tensor):
-        periodogram_fn = SPECTRUM_ESTIMATORS_TORCH['non_parametric']
-        psd = self._get_psd(periodogram_fn, 
-                            input_data, 
-                            DEFAULT_ESTIMATOR_PARAMETERS['non_parametric'])
-
-        fft_mean = psd.mean()
-        fft_var = psd.var()
-        fft_rms = torch.sqrt(torch.mean(psd ** 2))
-        fft_peak_value = psd.max()
-        fft_peak_freq = psd[torch.argmax(psd)]
-        fft_energy = psd.sum()
-        fft_crest_factor = fft_peak_value / fft_rms
-
-        feature_vector = torch.stack([
-            fft_mean,
-            fft_var,
-            fft_rms,
-            fft_peak_value,
-            fft_peak_freq,
-            fft_energy,
-            fft_crest_factor,
-        ])
-
-        return torch.round(feature_vector, decimals=3)
-
-    def _get_psd(self, 
-                 estimator, 
-                 input_data: torch.Tensor, 
-                 estimator_params: None | dict):
-        if estimator_params is None:
-            estimator_params = {}
-        try:
-            psd = estimator(input_data, **estimator_params)
-        except AssertionError:
-            old_min_rank = self.min_rank
-            self.min_rank = max(1, self.min_rank // 2)
-            self.log.info(
-             f'Value of min_rank changed from {old_min_rank} to {self.min_rank}'
-            )
-            if "IP" in list(estimator_params.keys()):
-                estimator_params["IP"] = self.min_rank
-            psd = estimator(input_data, **estimator_params)
-        return psd
-
-
-    def _decompose_signal(self, input_data: torch.Tensor):
-        if self.return_feature_vector:
-            return self._compute_heuristic_features(input_data)
-
-        psd = self._get_psd(self.estimator, input_data, self.estimator_params)
-
-        threshold_value = torch.quantile(psd, self.threshold)
-        dominant_freq = psd >= threshold_value
-
-        if self.approximation == 'exact':
-            psd = psd * (~dominant_freq)
-        else:
-            psd = psd * dominant_freq
-
-        if self.output_format == 'spectrum':
-            self.filtered_signal = psd
-        else:
-            self.filtered_signal = torch.fft.irfft(psd).unsqueeze(0)
-
-        return self.filtered_signal
-
-    @dask.delayed
-    def _transform_one_sample(self, series: torch.Tensor):
         return self._get_basis(series)

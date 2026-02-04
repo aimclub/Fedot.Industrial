@@ -282,14 +282,18 @@ class TensorConverter:
 
 
 class NumpyConverter:
-    def __init__(self, data):
-        self.numpy_data = self.convert_to_array(data)
+    def __init__(self, data, to_numpy_array = True):
+        if not to_numpy_array or isinstance(data, torch.Tensor):
+            self.numpy_data = data
+        else:
+            self.numpy_data = self.convert_to_array(data)
+            self.numpy_data = np.where(
+                np.isnan(self.numpy_data), 0, self.numpy_data)
+            self.numpy_data = np.where(
+                np.isinf(self.numpy_data), 0, self.numpy_data)
         if self.numpy_data.ndim > 3:
-            self.numpy_data = self.numpy_data.squeeze()
-        self.numpy_data = np.where(
-            np.isnan(self.numpy_data), 0, self.numpy_data)
-        self.numpy_data = np.where(
-            np.isinf(self.numpy_data), 0, self.numpy_data)
+                self.numpy_data = self.numpy_data.squeeze()
+
 
     def convert_to_array(self, data):
         if isinstance(data, tuple):
@@ -589,8 +593,8 @@ class DataConverter(TensorConverter, NumpyConverter):
         super().__init__(data)
         self.data = data
         self.numpy_data = self.convert_to_array(data)
-        self.is_torch = (isinstance(data.features, torch.Tensor) |
-                         isinstance(data, torch.Tensor))
+        self.is_torch = (isinstance(data, torch.Tensor) or
+                         isinstance(data.features, torch.Tensor))
 
     @property
     def is_nparray(self):
@@ -725,25 +729,24 @@ class DataConverter(TensorConverter, NumpyConverter):
             return self.convert_to_3d_tensor()
     
     def convert_to_monad_data(self):
-        if self.input_data_is_fedot_data:
-            values = ListMonad(*self.data.features.tolist()).value
-        else:
-            values = ListMonad(*self.data.tolist()).value
-
-        if self.is_torch:
-            features = torch.stack(
-                [v if isinstance(v, torch.Tensor) else torch.as_tensor(v)
-                for v in values]
-            )
-        else:
+        if not self.is_torch:
+            if self.input_data_is_fedot_data:
+                values = ListMonad(*self.data.features.tolist()).value
+            else:
+                values = ListMonad(*self.data.tolist()).value
             features = np.array(values)
+        else:
+            if self.input_data_is_fedot_data:
+                features = self.data.features.clone()
+            else:
+                features = self.data.clone()
 
         if features.ndim == 2 and features.shape[1] == 1:
-            features = features.reshape(1, -1)
+            features = features.reshape(1, -1) # (N, 1) -> (1, N)
         elif features.ndim == 1:
-            features = features.reshape(1, 1, -1)
+            features = features.reshape(1, 1, -1) # (T,) -> (1, 1, T)
         elif features.ndim == 3 and features.shape[1] == 1:
-            features = features.squeeze(1)
+            features = features.squeeze(1) # (N, 1, T) -> (N, T)
 
         return features
 

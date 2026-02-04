@@ -6,6 +6,7 @@ from multiprocessing import cpu_count
 import numpy as np
 import pywt
 import spectrum
+import torch
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from dask_ml.decomposition import TruncatedSVD as DaskSVD
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
@@ -68,7 +69,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                    'approximation': 'exact',
                                                    'threshold': 0.9},
                                     eigen_basis={'window_size': 20,
-                                                 'rank_regularization': 'knee_point',
+                                                 'rank_regularization': 'explained_dispersion',
                                                  'low_rank_approximation': False,
                                                  'tensor_approximation': False},
                                     ar={'trend': 't',
@@ -139,7 +140,14 @@ class KernelsConstant(Enum):
         add_node('quantile_extractor', params=stat_params),
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis', params=eigen_params).
         add_node('quantile_extractor', params=stat_params), }
-
+    
+    KERNEL_BASELINE_FEATURE_GENERATORS_TORCH = {
+        'quantile_extractor': PipelineBuilder().add_node('quantile_extractor_torch', params=stat_params),
+        'fourier_extractor': PipelineBuilder().add_node('fourier_basis_torch', params=fourier_params).
+        add_node('quantile_extractor_torch', params=stat_params),
+        'eigen_extractor': PipelineBuilder().add_node('eigen_basis_torch', params=eigen_params).
+        add_node('quantile_extractor_torch', params=stat_params), }
+    
     KERNEL_BASELINE_NODE_LIST = {
         'quantile_extractor': (None, 'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
@@ -187,7 +195,9 @@ class PathConstant(Enum):
 class SolverConstant(Enum):
     SOLVER_MODELS = {'np_svd_solver': np.linalg.svd,
                      'np_qr_solver': np.linalg.qr,
-                     'dask_svd_solver': DaskSVD
+                     'dask_svd_solver': DaskSVD,
+                     'torch_svd_solver': torch.linalg.svd,
+                     'torch_qr_solver': torch.linalg.qr,
                      }
 
 
@@ -1064,13 +1074,16 @@ SPECTRUM_ESTIMATORS_TORCH = FeatureConstant.SPECTRUM_ESTIMATORS_TORCH.value
 DEFAULT_ESTIMATOR_PARAMETERS = FeatureConstant.DEFAULT_ESTIMATOR_PARAMETERS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
+KERNEL_BASELINE_FEATURE_GENERATORS_TORCH = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS_TORCH.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
 KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 KERNEL_DISTANCE_METRIC = KernelsConstant.KERNEL_DISTANCE_METRIC.value
 
 SOLVER_MODELS = SolverConstant.SOLVER_MODELS.value
 DEFAULT_SVD_SOLVER = SOLVER_MODELS['np_svd_solver']
+DEFAULT_SVD_SOLVER_TORCH = SOLVER_MODELS['torch_svd_solver']
 DEFAULT_QR_SOLVER = SOLVER_MODELS['np_qr_solver']
+DEFAULT_QR_SOLVER_TORCH = SOLVER_MODELS['torch_qr_solver']
 DASK_SVD_SOLVER = SOLVER_MODELS['dask_svd_solver']
 
 AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMALY_DETECTION_OPERATIONS.value
