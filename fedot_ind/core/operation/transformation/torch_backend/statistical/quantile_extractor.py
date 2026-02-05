@@ -44,7 +44,10 @@ class TorchQuantileExtractor(BaseExtractor):
         """
         global_features = self.get_statistical_features_torch(
             ts, add_global_features=self.add_global_features, axis=axis)
-        if ts.squeeze().ndim == 1:
+        global_features = [feature for feature in global_features if feature is not None]
+        if ts.ndim == 4:
+            global_features = torch.cat(global_features, dim=1).to(ts.device)
+        elif ts.squeeze().ndim == 1:
             global_features = torch.Tensor(global_features).to(ts.device)
         else:
             global_features = torch.stack(global_features, dim=0).T.to(ts.device)

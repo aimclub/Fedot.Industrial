@@ -42,12 +42,14 @@ class RSVDDecomposition:
         self.lb_for_sampling_regime = 10000
         self.lb_ratio_for_tall_matrix = 50
         self.is_matrix_big = False
-        self.is_matrix_tall = False
         self.projection_rank = math.ceil(min(tensor.shape) * self.sampling_share)
         for dim_len in tensor.shape:
             if dim_len > self.lb_for_sampling_regime:
                 self.is_matrix_big = True
                 break
+        min_dim = min(tensor.shape)
+        max_dim = max(tensor.shape)
+        self.is_matrix_tall = max_dim / min_dim > self.lb_ratio_for_tall_matrix if min_dim != 0 else False
         self.big_tall_matrix = all([self.is_matrix_big, self.is_matrix_tall])
 
     def _init_random_params(self, tensor):

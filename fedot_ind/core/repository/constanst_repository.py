@@ -6,6 +6,7 @@ from multiprocessing import cpu_count
 import numpy as np
 import pywt
 import spectrum
+import torch
 from MKLpy.algorithms import FHeuristic, RMKL, MEMO, CKA, PWMK
 from dask_ml.decomposition import TruncatedSVD as DaskSVD
 from fedot.core.operations.evaluation.operation_implementations.models.boostings_implementations import \
@@ -47,7 +48,8 @@ from fedot_ind.core.operation.transformation.torch_backend.statistical.stat_feat
     crest_factor_torch, energy_torch, \
     hjorth_complexity_torch, hjorth_mobility_torch, hurst_exponent_torch, interquantile_range_torch, kurtosis_torch, mean_ema_torch, mean_moving_median_torch, \
     mean_ptp_distance_torch, n_peaks_torch, pfd_torch, ptp_amp_torch, q5_torch, q25_torch, q75_torch, q95_torch, shannon_entropy_torch, skewness_torch, slope_torch, zero_crossing_rate_torch
-
+from fedot_ind.core.operation.transformation.torch_specter.eigen import pev_torch
+from fedot_ind.core.operation.transformation.torch_specter.speriodogram import speriodogram_torch
 from fedot_ind.core.operation.transformation.representation.topological.topofeatures import AverageHoleLifetimeFeature, \
     AveragePersistenceLandscapeFeature, BettiNumbersSumFeature, HolesNumberFeature, MaxHoleLifeTimeFeature, \
     PersistenceDiagramsExtractor, PersistenceEntropyFeature, RadiusAtMaxBNFeature, RelevantHolesNumber, \
@@ -67,7 +69,7 @@ industrial_model_params_dict = dict(quantile_extractor={'window_size': 10,
                                                    'approximation': 'exact',
                                                    'threshold': 0.9},
                                     eigen_basis={'window_size': 20,
-                                                 'rank_regularization': 'knee_point',
+                                                 'rank_regularization': 'explained_dispersion',
                                                  'low_rank_approximation': False,
                                                  'tensor_approximation': False},
                                     ar={'trend': 't',
@@ -139,6 +141,13 @@ class KernelsConstant(Enum):
         'eigen_extractor': PipelineBuilder().add_node('eigen_basis', params=eigen_params).
         add_node('quantile_extractor', params=stat_params), }
 
+    KERNEL_BASELINE_FEATURE_GENERATORS_TORCH = {
+        'quantile_extractor': PipelineBuilder().add_node('quantile_extractor_torch', params=stat_params),
+        'fourier_extractor': PipelineBuilder().add_node('fourier_basis_torch', params=fourier_params).
+        add_node('quantile_extractor_torch', params=stat_params),
+        'eigen_extractor': PipelineBuilder().add_node('eigen_basis_torch', params=eigen_params).
+        add_node('quantile_extractor_torch', params=stat_params), }
+
     KERNEL_BASELINE_NODE_LIST = {
         'quantile_extractor': (None, 'quantile_extractor'),
         'topological_extractor': (None, 'topological_extractor'),
@@ -186,7 +195,9 @@ class PathConstant(Enum):
 class SolverConstant(Enum):
     SOLVER_MODELS = {'np_svd_solver': np.linalg.svd,
                      'np_qr_solver': np.linalg.qr,
-                     'dask_svd_solver': DaskSVD
+                     'dask_svd_solver': DaskSVD,
+                     'torch_svd_solver': torch.linalg.svd,
+                     'torch_qr_solver': torch.linalg.qr,
                      }
 
 
@@ -285,6 +296,22 @@ class FeatureConstant(Enum):
                                minvar=spectrum.pminvar,
                                eigen=spectrum.pev,
                                )
+
+    SPECTRUM_ESTIMATORS_TORCH = dict(non_parametric=speriodogram_torch,
+                                     eigen=pev_torch,
+                                     )
+
+    DEFAULT_ESTIMATOR_PARAMETERS = dict(
+        non_parametric=dict(
+            window="hann",
+            detrend=False,
+            scale_by_freq=False,
+            NFFT=None,
+        ),
+        eigen=dict(IP=5,
+                   NFFT=None,
+                   ),
+    )
 
     PERSISTENCE_DIAGRAM_FEATURES = {
         'HolesNumberFeature': HolesNumberFeature(),
@@ -1043,15 +1070,20 @@ SINGULAR_VALUE_MEDIAN_THR = FeatureConstant.SINGULAR_VALUE_MEDIAN_THR.value
 SINGULAR_VALUE_BETA_THR = FeatureConstant.SINGULAR_VALUE_BETA_THR
 DISTANCE_METRICS = FeatureConstant.METRICS_DICT.value
 SPECTRUM_ESTIMATORS = FeatureConstant.SPECTRUM_ESTIMATORS.value
+SPECTRUM_ESTIMATORS_TORCH = FeatureConstant.SPECTRUM_ESTIMATORS_TORCH.value
+DEFAULT_ESTIMATOR_PARAMETERS = FeatureConstant.DEFAULT_ESTIMATOR_PARAMETERS.value
 
 KERNEL_ALGO = KernelsConstant.KERNEL_ALGO.value
+KERNEL_BASELINE_FEATURE_GENERATORS_TORCH = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS_TORCH.value
 KERNEL_BASELINE_FEATURE_GENERATORS = KernelsConstant.KERNEL_BASELINE_FEATURE_GENERATORS.value
 KERNEL_BASELINE_NODE_LIST = KernelsConstant.KERNEL_BASELINE_NODE_LIST.value
 KERNEL_DISTANCE_METRIC = KernelsConstant.KERNEL_DISTANCE_METRIC.value
 
 SOLVER_MODELS = SolverConstant.SOLVER_MODELS.value
 DEFAULT_SVD_SOLVER = SOLVER_MODELS['np_svd_solver']
+DEFAULT_SVD_SOLVER_TORCH = SOLVER_MODELS['torch_svd_solver']
 DEFAULT_QR_SOLVER = SOLVER_MODELS['np_qr_solver']
+DEFAULT_QR_SOLVER_TORCH = SOLVER_MODELS['torch_qr_solver']
 DASK_SVD_SOLVER = SOLVER_MODELS['dask_svd_solver']
 
 AVAILABLE_ANOMALY_DETECTION_OPERATIONS = FedotOperationConstant.AVAILABLE_ANOMALY_DETECTION_OPERATIONS.value

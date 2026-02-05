@@ -192,6 +192,17 @@
 		  "ts_to_ts"
       ]
     },
+	"eigen_basis_torch": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "basis",
+		  "non_lagged",
+		  "ts_to_ts"
+      ]
+    },
     "wavelet_basis": {
       "meta": "industrial_preprocessing",
       "presets": [
@@ -202,6 +213,15 @@
       ]
     },
     "fourier_basis": {
+      "meta": "industrial_preprocessing",
+      "presets": [
+        "fast_train"
+      ],
+      "tags": [
+        "basis","non_applicable_for_ts"
+      ]
+    },
+	"fourier_basis_torch": {
       "meta": "industrial_preprocessing",
       "presets": [
         "fast_train"

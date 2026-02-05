@@ -434,6 +434,8 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         group_sizes[i, : gs.numel()] = gs
     probs = group_sizes / N
     entropy = torch.sum(-probs * torch.log2(probs + 1e-12), dim=1)
+    if X.ndim > 2:
+        entropy = entropy.reshape([X.shape[0], X.shape[1]])
     return entropy.item() if entropy.numel() == 1 else entropy
 
 

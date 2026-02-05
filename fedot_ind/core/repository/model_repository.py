@@ -62,6 +62,8 @@ from fedot_ind.core.models.ts_forecasting.lagged_strategy.lagged_forecaster impo
 from fedot_ind.core.models.ts_forecasting.lagged_strategy.topo_forecaster import TopologicalAR
 from fedot_ind.core.operation.filtration.channel_filtration import ChannelCentroidFilter
 from fedot_ind.core.operation.transformation.basis.eigen_basis import EigenBasisImplementation
+from fedot_ind.core.operation.transformation.basis.eigen_basis_torch import EigenBasisImplementationTorch
+from fedot_ind.core.operation.transformation.basis.fourier_basis_torch import FourierBasisImplementationTorch
 from fedot_ind.core.operation.transformation.basis.fourier import FourierBasisImplementation
 from fedot_ind.core.operation.transformation.basis.wavelet import WaveletBasisImplementation
 from fedot_ind.core.operation.transformation.data.bagging import BaggingEnsemble
@@ -134,6 +136,8 @@ class AtomizedModel(Enum):
         'channel_filtration': ChannelCentroidFilter,
         # data projection onto different basis
         'eigen_basis': EigenBasisImplementation,
+        'eigen_basis_torch': EigenBasisImplementationTorch,
+        'fourier_basis_torch': FourierBasisImplementationTorch,
         'wavelet_basis': WaveletBasisImplementation,
         'fourier_basis': FourierBasisImplementation,
         # feature extraction algorithm

@@ -45,10 +45,6 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         periodogram_class = SPECTRUM_ESTIMATORS['non_parametric']
         estimator = periodogram_class(data=input_data, sampling=self.sampling_rate)
         fft = estimator.psd
-        # freq, fft = periodogram(input_data[None, :],
-        #                         fs=self.sampling_rate,
-        #                         window='hann',
-        #                         detrend=False, return_onesided=True, scaling='spectrum', axis=1)
         fft_mean = fft.mean()
         fft_var = fft.var()
         fft_rms = np.sqrt(np.mean(fft ** 2))
@@ -84,13 +80,12 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         return estimator
 
     def _decompose_signal(self, input_data):
-
         estimator = self._build_spectrum(input_data)
         # self._visualise_spectrum(estimator)
         psd = estimator.psd
         if self.return_feature_vector:
             return self._compute_heuristic_features(input_data)
-        dominant_freq = np.where(psd >= np.quantile(psd, q=self.threshold))[0]
+        dominant_freq = psd >= np.quantile(psd, q=self.threshold)
         if self.approximation == 'exact':
             psd[dominant_freq] = 0
         else:
