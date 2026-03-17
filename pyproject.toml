@@ -6,13 +6,14 @@ authors = ["NSS Lab <itmo.nss.team@gmail.com>"]
 license = "BSD 3-Clause"
 readme = "README_en.rst"
 
-[tool.poetry.dependencies]
 python = ">=3.10, <3.12"
-fedot = { git = "https://github.com/aimclub/FEDOT.git" }
-dask-ml = ">2025"
+fedot = "=0.7.5"
+dask = ">=2021.04.0,<=2024.12.1"
+aeon = "1.3.0"
+dask-ml = "^2024.4.4"
 spacy = ">=3.5,<3.6"
 fastai = "^2.7.18"
-giotto-tda = { version = "*", extras = [] }
+giotto-tda = { version = "0.6.2", extras = [] }
 scikit-tda = "^1.1.1"
 chardet = "^5.2.0"
 tensorly = "^0.9.0"
