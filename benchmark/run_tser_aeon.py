@@ -67,7 +67,7 @@ from fedot_ind.core.repository.config_repository import (
 # Configuration — tune to the server
 # N_PARALLEL × DASK_WORKERS × DASK_THREADS ≈ total CPU cores
 # ---------------------------------------------------------------------------
-N_PARALLEL = 1       # datasets evaluated in parallel (separate processes)
+N_PARALLEL = 2       # datasets evaluated in parallel (separate processes)
 DASK_WORKERS = 8     # Dask n_workers per dataset
 DASK_THREADS = 4     # Dask threads_per_worker per dataset
 AUTOML_TIMEOUT = 10  # AutoML timeout per dataset (minutes)
@@ -105,6 +105,28 @@ EXPERIMENT_CONFIG = {
 logger = logging.getLogger("TSER_benchmark")
 
 
+def _setup_logging():
+    """Configure root logger with both StreamHandler and FileHandler.
+
+    logging.basicConfig() is a no-op if the root logger already has handlers
+    (FEDOT/dask add them during import). This function explicitly replaces all
+    existing handlers so the FileHandler is always installed.
+    """
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(asctime)s %(message)s")
+    sh = logging.StreamHandler()
+    sh.setFormatter(fmt)
+    fh = logging.FileHandler(LOG_FILE)
+    fh.setFormatter(fmt)
+    root.addHandler(sh)
+    root.addHandler(fh)
+    for _name in ("dask", "distributed", "tornado", "asyncio",
+                  "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
+        logging.getLogger(_name).setLevel(logging.WARNING)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -135,14 +157,7 @@ def save_row(results: pd.DataFrame, row: dict) -> pd.DataFrame:
 def run_dataset(dataset_name: str) -> dict:
     """Run one dataset in a subprocess. Called by ProcessPoolExecutor."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
-    )
-    for _name in ("dask", "distributed", "tornado", "asyncio",
-                  "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
-        logging.getLogger(_name).setLevel(logging.WARNING)
+    _setup_logging()
 
     log = logging.getLogger(f"TSER.{dataset_name}")
 
@@ -193,15 +208,7 @@ def run_dataset(dataset_name: str) -> dict:
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
-    )
-    for _name in ("dask", "distributed", "tornado", "asyncio",
-                  "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
-        logging.getLogger(_name).setLevel(logging.WARNING)
+    _setup_logging()
 
     results = load_results()
     completed = set(results.index.tolist())
