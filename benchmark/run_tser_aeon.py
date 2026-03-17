@@ -7,11 +7,15 @@ Already-completed datasets are skipped on re-run.
 
 Usage:
     python benchmark/run_tser_aeon.py
+
+Parallelism tuning (adjust to match the server):
+    N_PARALLEL × DASK_WORKERS × DASK_THREADS ≈ total CPU cores
 """
 
 import logging
 import os
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from copy import deepcopy
 
 import numpy as np
@@ -34,19 +38,15 @@ except Exception:
         "FloodModeling2", "FloodModeling3", "HouseholdPowerConsumption1",
         "HouseholdPowerConsumption2", "IEEEPPG", "LiveFuelMoistureContent",
         "NewsHeadlineSentiment", "NewsTitleSentiment", "PPGDalia",
-        "PedestrianCounts", "PowerCons", "RacketSports",
-        "SelfRegulationSCP1", "SelfRegulationSCP2", "SpokenArabicDigits",
-        "StandWalkJump", "UWaveGestureLibrary", "EthanolConcentration",
-        "ERing", "BasicMotions", "AtrialFibrillation", "FingerMovements",
-        "HandMovementDirection", "Handwriting", "Heartbeat",
-        "JapaneseVowels", "Libras", "LSST", "MotorImagery",
-        "NATOPS", "PEMS-SF", "PhonemeSpectra", "RacketSports",
-        "InsectWingbeat", "DuckDuckGeese", "EigenWorms", "Epilepsy",
-        "EthanolConcentration", "FaceDetection", "FingerMovements",
-        "HandMovementDirection", "Handwriting", "Heartbeat",
-        "JapaneseVowels", "Libras", "LSST", "MotorImagery",
-        "NATOPS", "PEMS-SF", "PhonemeSpectra", "SelfRegulationSCP1",
+        "PedestrianCounts", "PowerCons", "SelfRegulationSCP1",
         "SelfRegulationSCP2", "SpokenArabicDigits", "StandWalkJump",
+        "UWaveGestureLibrary", "EthanolConcentration", "ERing",
+        "BasicMotions", "AtrialFibrillation", "FingerMovements",
+        "HandMovementDirection", "Handwriting", "Heartbeat",
+        "JapaneseVowels", "Libras", "LSST", "MotorImagery",
+        "NATOPS", "PEMS-SF", "PhonemeSpectra", "InsectWingbeat",
+        "DuckDuckGeese", "EigenWorms", "Epilepsy", "FaceDetection",
+        "RacketSports",
     ]
 
 # ---------------------------------------------------------------------------
@@ -62,21 +62,41 @@ from fedot_ind.core.repository.config_repository import (
 )
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration — tune to the server
+# N_PARALLEL × DASK_WORKERS × DASK_THREADS ≈ total CPU cores
 # ---------------------------------------------------------------------------
+N_PARALLEL = 4       # datasets evaluated in parallel (separate processes)
+DASK_WORKERS = 4     # Dask n_workers per dataset
+DASK_THREADS = 2     # Dask threads_per_worker per dataset
+AUTOML_TIMEOUT = 10  # AutoML timeout per dataset (minutes)
+
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "results", "tser_aeon")
 RESULTS_CSV = os.path.join(OUTPUT_DIR, "tser_results.csv")
 METRIC_NAMES = ("rmse", "r2", "mae")
+
+_LEARNING_PARAMS = {
+    **DEFAULT_AUTOML_LEARNING_CONFIG,
+    "timeout": AUTOML_TIMEOUT,
+    "n_jobs": DASK_WORKERS * DASK_THREADS,
+}
 
 EXPERIMENT_CONFIG = {
     "industrial_config": {"problem": "regression"},
     "automl_config": DEFAULT_REG_AUTOML_CONFIG,
     "learning_config": {
         "learning_strategy": "from_scratch",
-        "learning_strategy_params": DEFAULT_AUTOML_LEARNING_CONFIG,
+        "learning_strategy_params": _LEARNING_PARAMS,
         "optimisation_loss": {"quality_loss": "rmse"},
     },
-    "compute_config": deepcopy(DEFAULT_COMPUTE_CONFIG),
+    "compute_config": {
+        **deepcopy(DEFAULT_COMPUTE_CONFIG),
+        "distributed": dict(
+            processes=False,
+            n_workers=DASK_WORKERS,
+            threads_per_worker=DASK_THREADS,
+            memory_limit="auto",
+        ),
+    },
 }
 
 logging.basicConfig(
@@ -91,16 +111,14 @@ logger = logging.getLogger("TSER_benchmark")
 # ---------------------------------------------------------------------------
 
 def load_aeon_dataset(dataset_name: str):
-    """Load train/test split from aeon and return (X_train, y_train), (X_test, y_test).
+    """Load train/test split from aeon.
 
     aeon returns X as 3D numpy (n_samples, n_channels, n_timepoints).
-    FedotIndustrial expects (features, target) tuples; features can be 3D numpy.
+    FedotIndustrial accepts that format directly.
     """
     X_train, y_train = load_regression(dataset_name, split="train")
     X_test, y_test = load_regression(dataset_name, split="test")
-    y_train = y_train.astype(float)
-    y_test = y_test.astype(float)
-    return (X_train, y_train), (X_test, y_test)
+    return (X_train, y_train.astype(float)), (X_test, y_test.astype(float))
 
 
 def load_results() -> pd.DataFrame:
@@ -116,7 +134,14 @@ def save_row(results: pd.DataFrame, row: dict) -> pd.DataFrame:
 
 
 def run_dataset(dataset_name: str) -> dict:
-    logger.info(f"=== {dataset_name} ===")
+    """Run one dataset in a subprocess. Called by ProcessPoolExecutor."""
+    # Re-configure logging in subprocess (inherited handler may not work)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    log = logging.getLogger(f"TSER.{dataset_name}")
+    log.info(f"=== {dataset_name} started ===")
 
     train_data, test_data = load_aeon_dataset(dataset_name)
 
@@ -129,18 +154,18 @@ def run_dataset(dataset_name: str) -> dict:
     }
 
     model = FedotIndustrial(**cfg)
-    model.fit(train_data)
-    predictions = model.predict(test_data)
-
-    metrics = model.get_metrics(
-        labels=predictions,
-        probs=None,
-        target=test_data[1],
-        metric_names=METRIC_NAMES,
-    )
-
-    model.save_best_model()
-    model.shutdown()
+    try:
+        model.fit(train_data)
+        predictions = model.predict(test_data)
+        metrics = model.get_metrics(
+            labels=predictions,
+            probs=None,
+            target=test_data[1],
+            metric_names=METRIC_NAMES,
+        )
+        model.save(mode='all')
+    finally:
+        model.shutdown()
 
     row = {"dataset": dataset_name, "status": "ok"}
     for metric in METRIC_NAMES:
@@ -149,7 +174,7 @@ def run_dataset(dataset_name: str) -> dict:
         except Exception:
             row[metric] = np.nan
 
-    logger.info(f"{dataset_name}: {row}")
+    log.info(f"=== {dataset_name} done: {row} ===")
     return row
 
 
@@ -162,23 +187,28 @@ def main():
 
     results = load_results()
     completed = set(results.index.tolist())
-    datasets = list(dict.fromkeys(_AEON_DATASETS))  # deduplicate, preserve order
+    datasets = [d for d in list(dict.fromkeys(_AEON_DATASETS)) if d not in completed]
 
-    logger.info(f"Total datasets: {len(datasets)}, already done: {len(completed)}")
+    logger.info(
+        f"Total datasets: {len(list(dict.fromkeys(_AEON_DATASETS)))}, "
+        f"already done: {len(completed)}, remaining: {len(datasets)}, "
+        f"running {N_PARALLEL} in parallel"
+    )
 
-    for dataset_name in datasets:
-        if dataset_name in completed:
-            logger.info(f"Skipping {dataset_name} (already completed)")
-            continue
-
-        try:
-            row = run_dataset(dataset_name)
-        except Exception as exc:
-            logger.exception(f"{dataset_name} failed: {exc}")
-            row = {"dataset": dataset_name, "status": f"error: {exc}",
-                   **{m: np.nan for m in METRIC_NAMES}}
-
-        results = save_row(results, row)
+    with ProcessPoolExecutor(max_workers=N_PARALLEL) as executor:
+        futures = {executor.submit(run_dataset, name): name for name in datasets}
+        for future in as_completed(futures):
+            dataset_name = futures[future]
+            try:
+                row = future.result()
+            except Exception as exc:
+                logger.exception(f"{dataset_name} failed: {exc}")
+                row = {
+                    "dataset": dataset_name,
+                    "status": f"error: {exc}",
+                    **{m: np.nan for m in METRIC_NAMES},
+                }
+            results = save_row(results, row)
 
     logger.info(f"Done. Results saved to {RESULTS_CSV}")
     print(results.to_string())
