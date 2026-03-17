@@ -68,8 +68,8 @@ from fedot_ind.core.repository.config_repository import (
 # N_PARALLEL × DASK_WORKERS × DASK_THREADS ≈ total CPU cores
 # ---------------------------------------------------------------------------
 N_PARALLEL = 1       # datasets evaluated in parallel (separate processes)
-DASK_WORKERS = 20     # Dask n_workers per dataset
-DASK_THREADS = 20     # Dask threads_per_worker per dataset
+DASK_WORKERS = 8     # Dask n_workers per dataset
+DASK_THREADS = 4     # Dask threads_per_worker per dataset
 AUTOML_TIMEOUT = 10  # AutoML timeout per dataset (minutes)
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "results", "tser_aeon")
