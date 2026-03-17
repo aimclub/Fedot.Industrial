@@ -76,6 +76,10 @@ class DataCheck:
                          target=target,
                          multi_features=multi_features,
                          multi_target=multi_target)
+        self.logger.info(
+            f'Input data | features={features.shape} | target={target.shape} | '
+            f'channels={features.shape[1] if features.ndim == 3 else 1}'
+        )
         return data_dict
 
     def _encode_target(self, data_dict):

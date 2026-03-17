@@ -15,8 +15,10 @@ Parallelism tuning (adjust to match the server):
 import logging
 import os
 import sys
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from copy import deepcopy
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
@@ -65,7 +67,7 @@ from fedot_ind.core.repository.config_repository import (
 # Configuration — tune to the server
 # N_PARALLEL × DASK_WORKERS × DASK_THREADS ≈ total CPU cores
 # ---------------------------------------------------------------------------
-N_PARALLEL = 4       # datasets evaluated in parallel (separate processes)
+N_PARALLEL = 1       # datasets evaluated in parallel (separate processes)
 DASK_WORKERS = 4     # Dask n_workers per dataset
 DASK_THREADS = 2     # Dask threads_per_worker per dataset
 AUTOML_TIMEOUT = 10  # AutoML timeout per dataset (minutes)
@@ -73,6 +75,7 @@ AUTOML_TIMEOUT = 10  # AutoML timeout per dataset (minutes)
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "results", "tser_aeon")
 RESULTS_CSV = os.path.join(OUTPUT_DIR, "tser_results.csv")
 METRIC_NAMES = ("rmse", "r2", "mae")
+LOG_FILE = os.path.join(OUTPUT_DIR, "experiment.log")
 
 _LEARNING_PARAMS = {
     **DEFAULT_AUTOML_LEARNING_CONFIG,
@@ -99,10 +102,6 @@ EXPERIMENT_CONFIG = {
     },
 }
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger("TSER_benchmark")
 
 
@@ -124,7 +123,7 @@ def load_aeon_dataset(dataset_name: str):
 def load_results() -> pd.DataFrame:
     if os.path.exists(RESULTS_CSV):
         return pd.read_csv(RESULTS_CSV, index_col=0)
-    return pd.DataFrame(columns=["dataset"] + list(METRIC_NAMES) + ["status"])
+    return pd.DataFrame(columns=["dataset"] + list(METRIC_NAMES) + ["elapsed_sec", "status"])
 
 
 def save_row(results: pd.DataFrame, row: dict) -> pd.DataFrame:
@@ -135,15 +134,20 @@ def save_row(results: pd.DataFrame, row: dict) -> pd.DataFrame:
 
 def run_dataset(dataset_name: str) -> dict:
     """Run one dataset in a subprocess. Called by ProcessPoolExecutor."""
-    # Re-configure logging in subprocess (inherited handler may not work)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        format="%(asctime)s %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
     )
+    for _name in ("dask", "distributed", "tornado", "asyncio",
+                  "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
+        logging.getLogger(_name).setLevel(logging.WARNING)
+
     log = logging.getLogger(f"TSER.{dataset_name}")
-    log.info(f"=== {dataset_name} started ===")
 
     train_data, test_data = load_aeon_dataset(dataset_name)
+    log.info(f"[{dataset_name}] train={train_data[0].shape} test={test_data[0].shape}")
 
     cfg = deepcopy(EXPERIMENT_CONFIG)
     dataset_output = os.path.join(OUTPUT_DIR, dataset_name)
@@ -153,6 +157,7 @@ def run_dataset(dataset_name: str) -> dict:
         "composition_results": os.path.join(dataset_output, "comp_res"),
     }
 
+    t0 = time.time()
     model = FedotIndustrial(**cfg)
     try:
         model.fit(train_data)
@@ -166,15 +171,19 @@ def run_dataset(dataset_name: str) -> dict:
         model.save(mode='all')
     finally:
         model.shutdown()
+    elapsed = time.time() - t0
 
-    row = {"dataset": dataset_name, "status": "ok"}
+    row = {"dataset": dataset_name, "status": "ok", "elapsed_sec": round(elapsed, 1)}
     for metric in METRIC_NAMES:
         try:
             row[metric] = float(metrics[metric].iloc[0])
         except Exception:
             row[metric] = np.nan
 
-    log.info(f"=== {dataset_name} done: {row} ===")
+    log.info(
+        f"[{dataset_name}] DONE {elapsed:.0f}s | "
+        f"rmse={row.get('rmse', float('nan')):.4f} r2={row.get('r2', float('nan')):.4f}"
+    )
     return row
 
 
@@ -185,14 +194,24 @@ def run_dataset(dataset_name: str) -> dict:
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
+    )
+    for _name in ("dask", "distributed", "tornado", "asyncio",
+                  "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
+        logging.getLogger(_name).setLevel(logging.WARNING)
+
     results = load_results()
     completed = set(results.index.tolist())
-    datasets = [d for d in list(dict.fromkeys(_AEON_DATASETS)) if d not in completed]
+    all_datasets = list(dict.fromkeys(_AEON_DATASETS))
+    datasets = [d for d in all_datasets if d not in completed]
+    total = len(all_datasets)
 
     logger.info(
-        f"Total datasets: {len(list(dict.fromkeys(_AEON_DATASETS)))}, "
-        f"already done: {len(completed)}, remaining: {len(datasets)}, "
-        f"running {N_PARALLEL} in parallel"
+        f"Total: {total} datasets | done: {len(completed)} | "
+        f"remaining: {len(datasets)} | parallel: {N_PARALLEL}"
     )
 
     with ProcessPoolExecutor(max_workers=N_PARALLEL) as executor:
@@ -206,12 +225,30 @@ def main():
                 row = {
                     "dataset": dataset_name,
                     "status": f"error: {exc}",
+                    "elapsed_sec": np.nan,
                     **{m: np.nan for m in METRIC_NAMES},
                 }
             results = save_row(results, row)
 
-    logger.info(f"Done. Results saved to {RESULTS_CSV}")
-    print(results.to_string())
+            done = len(results)
+            avg = results["elapsed_sec"].dropna().mean() if "elapsed_sec" in results.columns else None
+            eta = (f" | ETA ~{timedelta(seconds=int(avg * (total - done)))}"
+                   if avg and total > done else "")
+            logger.info(f"{'='*55}\n  PROGRESS {done}/{total}{eta}\n{'='*55}")
+
+    ok = results[results["status"] == "ok"]
+    failed = results[results["status"] != "ok"]
+    avg_rmse = f"{ok['rmse'].mean():.4f}" if len(ok) else "n/a"
+    avg_r2 = f"{ok['r2'].mean():.4f}" if len(ok) else "n/a"
+    logger.info(
+        f"\nFINAL SUMMARY"
+        f"\n  Completed : {len(ok)}/{total}"
+        f"\n  Failed    : {len(failed)}"
+        f"\n  Avg RMSE  : {avg_rmse}"
+        f"\n  Avg R2    : {avg_r2}"
+        f"\n  Results   : {RESULTS_CSV}"
+        f"\n  Log       : {LOG_FILE}"
+    )
 
 
 if __name__ == "__main__":

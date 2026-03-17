@@ -88,10 +88,14 @@ class IndustrialStrategy:
         return selected_rows, sampled_tensor, sampled_target
 
     def fit(self, input_data):
+        self.logger.info(
+            f'Strategy fit | X_train={input_data.features.shape} | y_train={input_data.target.shape}'
+        )
         self.industrial_strategy_fit[self.industrial_strategy](input_data)
         return self.solver
 
     def predict(self, input_data, predict_mode):
+        self.logger.info(f'Strategy predict | X_test={input_data.features.shape}')
         return self.industrial_strategy_predict[self.industrial_strategy](
             input_data, predict_mode)
 

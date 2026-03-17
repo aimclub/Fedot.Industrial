@@ -125,6 +125,11 @@ class FedotIndustrial(Fedot):
         self.logger.info(f'Link Dask Server - {self.manager.dask_client.dashboard_link}')
         self.logger.info('-' * 50)
         self.logger.info('Initialising solver')
+        lp = self.manager.learning_config.config['learning_strategy_params']
+        self.logger.info(
+            f'Solver params | timeout={lp.get("timeout")}min | '
+            f'pop_size={lp.get("pop_size")} | n_jobs={lp.get("n_jobs")}'
+        )
         self.manager.solver = Fedot(
             **self.manager.learning_config.config['learning_strategy_params'],
             metric=self.manager.learning_config.config['optimisation_loss'],
@@ -248,6 +253,8 @@ class FedotIndustrial(Fedot):
 
         """
 
+        self.logger.info(f'Fit started | X={input_data[0].shape} | y={input_data[1].shape}')
+
         def fit_function(train_data): return \
             Either(value=train_data, monoid=[train_data,
 
@@ -278,6 +285,7 @@ class FedotIndustrial(Fedot):
         """
         predict_func = curry(2)(lambda predict_mode, predict_data: self.__abstract_predict(predict_data, predict_mode))
         self.repo = IndustrialModels().setup_repository(backend=self.manager.compute_config.backend)
+        self.logger.info(f'Predicting on {predict_data[0].shape[0]} samples')
         processed_input = self._process_input_data(predict_data)
         self.manager.predict_data = processed_input
         self.manager.predicted_labels = Either.insert(processed_input).then(predict_func(predict_mode)).value
