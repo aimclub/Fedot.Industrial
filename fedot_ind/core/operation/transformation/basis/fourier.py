@@ -73,13 +73,19 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         return
 
     def _build_spectrum(self, input_data):
+        # Guard: scalars (e.g. numpy.float64) have no len; wrap them in a 1-element array
+        if np.ndim(input_data) == 0:
+            input_data = np.atleast_1d(input_data)
+        # Clamp ar_order to a value safe for this signal length: 2*NP > P-1 → P < 2*NP+1
+        max_safe_rank = max(2, 2 * len(input_data) - 1)
+        min_rank = min(self.min_rank, max_safe_rank)
+        min_rank = max(2, min_rank)  # pev requires order >= 2
         try:
-            estimator = self.estimator(input_data, self.min_rank)
+            estimator = self.estimator(input_data, min_rank)
             estimator.run()
-        except AssertionError:
-            old_min_rank, self.min_rank = self.min_rank, self.min_rank // 2
-            self.log.info(f'Value of min_rank changed from {old_min_rank} to {self.min_rank}')
-            estimator = self.estimator(input_data, self.min_rank)
+        except (AssertionError, ValueError):
+            min_rank = max(2, min_rank // 2)
+            estimator = self.estimator(input_data, min_rank)
             estimator.run()
         return estimator
 

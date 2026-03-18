@@ -42,17 +42,31 @@ class TorchQuantileExtractor(BaseExtractor):
                 If `add_global_features` is True, returns global + window features.
                 Otherwise, returns only window features.
         """
+        # For global stats flatten all non-batch dims to 2D so every method gets
+        # a 2D input and returns a consistent (batch,) result.
+        ts_2d = ts.reshape(ts.shape[0], -1) if ts.ndim > 2 else ts
         global_features = self.get_statistical_features_torch(
-            ts, add_global_features=self.add_global_features, axis=axis)
-        if ts.squeeze().ndim == 1:
-            global_features = torch.Tensor(global_features).to(ts.device)
+            ts_2d, add_global_features=self.add_global_features, axis=axis)
+        _sample_f = global_features[0] if global_features else None
+        _is_scalar = _sample_f is None or (isinstance(_sample_f, torch.Tensor) and _sample_f.numel() == 1)
+        if _is_scalar:
+            global_features = torch.tensor(
+                [f.item() if isinstance(f, torch.Tensor) else float(f) for f in global_features],
+                dtype=torch.float32).to(ts.device)
         else:
             global_features = torch.stack(global_features, dim=0).T.to(ts.device)
         if self.window_size == 0:
-            window_stat_features = self.get_statistical_features_torch(ts,
+            # Use ts_2d (already flattened to 2D) to avoid threading race condition on
+            # self.is_multichanel: parallel Dask workers share instance state, so
+            # is_multichanel may be wrong by the time get_statistical_features_torch reads it.
+            window_stat_features = self.get_statistical_features_torch(ts_2d,
                                                                        axis=axis)
-            if ts.squeeze().ndim == 1:
-                window_stat_features = torch.Tensor(window_stat_features).to(ts.device)
+            _sample_w = window_stat_features[0] if window_stat_features else None
+            _is_scalar_w = _sample_w is None or (isinstance(_sample_w, torch.Tensor) and _sample_w.numel() == 1)
+            if _is_scalar_w:
+                window_stat_features = torch.tensor(
+                    [f.item() if isinstance(f, torch.Tensor) else float(f) for f in window_stat_features],
+                    dtype=torch.float32).to(ts.device)
             else:
                 window_stat_features = torch.stack(window_stat_features, dim=0).T.to(ts.device)
         else:
@@ -81,6 +95,10 @@ class TorchQuantileExtractor(BaseExtractor):
         Returns:
             torch.Tensor: Extracted statistical features as a CPU tensor.
         """
+        import numpy as np
+        if isinstance(ts, np.ndarray):
+            ts = torch.from_numpy(ts.astype(np.float32))
+        self.is_multichanel = False  # reset: state must reflect current input, not prior call
         if ts.ndim == 1:
             ts = ts.unsqueeze(0)
         if ts.ndim > 2:

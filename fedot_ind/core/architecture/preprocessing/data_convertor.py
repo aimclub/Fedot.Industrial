@@ -151,12 +151,18 @@ class FedotConverter:
                 data_type=output_data_type,
                 supplementary_data=predict_data.supplementary_data)
         else:
+            import numpy as _np
+            if isinstance(prediction, _np.ndarray) and prediction.ndim == 1:
+                prediction = prediction.reshape(-1, 1)
+            target = predict_data.target
+            if isinstance(target, _np.ndarray) and target.ndim == 1:
+                target = target.reshape(-1, 1)
             output_data = OutputData(
                 idx=predict_data.idx,
                 features=predict_data.features,
                 predict=prediction,
                 task=predict_data.task,
-                target=predict_data.target,
+                target=target,
                 data_type=output_data_type,
                 supplementary_data=predict_data.supplementary_data)
         return output_data
@@ -199,7 +205,7 @@ class FedotConverter:
             if is_original_flatten_row or is_3d_tensor_with_one_channel_and_one_element:  # ts preprocessing case
                 feats = feats.reshape(1, -1)  # add 1 channel using reshape
             elif is_3d_tensor_with_one_channel_and_some_element:
-                feats = feats.squeeze().swapaxes(1, 0)  # squeeze channel and swap axes for iteration
+                feats = feats.swapaxes(0, 1)  # (n_samples, 1, n_ts) → (1, n_samples, n_ts): iterate over channels
             elif not with_one_sample:
                 feats = feats.swapaxes(1, 0)
             input_data = [
@@ -386,6 +392,9 @@ class NumpyConverter:
 
         elif self.numpy_data.ndim > 3:
             return self.numpy_data.squeeze()
+        elif self.numpy_data.ndim == 2:
+            # (n, 1) — n samples each with 1 feature; not caught by matrix_type/add_1_sample/add_1_channel
+            return self.numpy_data.reshape(self.numpy_data.shape[0], 1, self.numpy_data.shape[1])
         assert False, f'Please, review input dimensions {self.numpy_data.ndim}'
 
     def convert_to_ts_format(self):

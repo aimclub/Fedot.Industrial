@@ -38,7 +38,22 @@ class IndustrialDispatcher(MultiprocessingDispatcher):
                                                                       uid_of_individual=ind.uid,
                                                                       logs_initializer=log),
                                       individuals_to_evaluate))
-        evaluation_results = dask.compute(*evaluation_results)
+        try:
+            evaluation_results = dask.compute(*evaluation_results)
+        except Exception as exc:
+            # One or more pipeline candidates raised an unhandled exception inside dask.
+            # Fall back to computing each task independently so that only the failing
+            # pipelines are discarded and the rest still contribute to the population.
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                f"Parallel dask evaluation failed ({exc}); retrying tasks individually.")
+            safe_results = []
+            for task in evaluation_results:
+                try:
+                    safe_results.append(dask.compute(task)[0])
+                except Exception:
+                    pass  # skip pipelines that raise; GOLEM will treat them as invalid
+            evaluation_results = tuple(safe_results)
         return evaluation_results
 
     def _eval_at_least_one(self, individuals):

@@ -188,6 +188,16 @@ class MultiDimPreprocessingStrategy(EvaluationStrategy):
     def _list_of_fitted_model(self, data, prev_state):
         for operation_example, data_sample in zip(prev_state, data):
             if self.operation_condition.have_fit_method:
+                # sklearn operations require 2D features; reshape 1D (n_samples,) → (n_samples, 1)
+                if (isinstance(data_sample, InputData) and
+                        isinstance(data_sample.features, np.ndarray) and
+                        data_sample.features.ndim == 1):
+                    data_sample = InputData(idx=data_sample.idx,
+                                            features=data_sample.features.reshape(-1, 1),
+                                            target=data_sample.target,
+                                            task=data_sample.task,
+                                            data_type=data_sample.data_type,
+                                            supplementary_data=data_sample.supplementary_data)
                 operation_example.fit(data_sample)
             else:
                 operation_example.transform(data_sample)

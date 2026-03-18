@@ -21,6 +21,8 @@ class HankelMatrix:
 
         if not self.__use_torch:
             self.__time_series = np.squeeze(self.__time_series)
+            if self.__time_series.ndim == 0:
+                self.__time_series = self.__time_series.reshape(1)
             self.__convert_ts_to_array()
 
             if len(self.__time_series.shape) > 1:

@@ -23,39 +23,76 @@ from datetime import timedelta
 import numpy as np
 import pandas as pd
 
-# ---------------------------------------------------------------------------
-# aeon imports
-# ---------------------------------------------------------------------------
+
 from aeon.datasets import load_regression
 
-try:
-    from aeon.datasets._data_loaders import list_available_datasets
-    _AEON_DATASETS = list_available_datasets(task='regression')
-except Exception:
-    # Fallback: tser_soton — full 63-dataset TSER benchmark (arxiv 2305.01429)
-    _AEON_DATASETS = [
-        "AcousticContaminationMadrid", "AluminiumConcentration", "AppliancesEnergy",
-        "AustraliaRainfall", "BarCrawl6min", "BeijingIntAirportPM25Quality",
-        "BeijingPM10Quality", "BeijingPM25Quality", "BenzeneConcentration",
-        "BIDMC32HR", "BIDMC32RR", "BIDMC32SpO2", "BinanceCoinSentiment",
-        "BitcoinSentiment", "BoronConcentration", "CalciumConcentration",
-        "CardanoSentiment", "ChilledWaterPredictor", "CopperConcentration",
-        "Covid19Andalusia", "Covid3Month", "DailyOilGasPrices",
-        "DailyTemperatureLatitude", "DhakaHourlyAirQuality", "ElectricityPredictor",
-        "ElectricMotorTemperature", "EthereumSentiment", "FloodModeling1",
-        "FloodModeling2", "FloodModeling3", "GasSensorArrayAcetone",
-        "GasSensorArrayEthanol", "HotwaterPredictor", "HouseholdPowerConsumption1",
-        "HouseholdPowerConsumption2", "IEEEPPG", "IronConcentration",
-        "LiveFuelMoistureContent", "LPGasMonitoringHomeActivity", "MadridPM10Quality",
-        "MagnesiumConcentration", "ManganeseConcentration", "MethaneMonitoringHomeActivity",
-        "MetroInterstateTrafficVolume", "NaturalGasPricesSentiment", "NewsHeadlineSentiment",
-        "NewsTitleSentiment", "OccupancyDetectionLight", "ParkingBirmingham",
-        "PhosphorusConcentration", "PotassiumConcentration", "PPGDalia",
-        "PrecipitationAndalusia", "SierraNevadaMountainsSnow", "SodiumConcentration",
-        "SolarRadiationAndalusia", "SteamPredictor", "SulphurConcentration",
-        "TetuanEnergyConsumption", "VentilatorPressure", "WaveDataTension",
-        "WindTurbinePower", "ZincConcentration",
-    ]
+SMALL = [
+    'AcousticContaminationMadrid', 'AluminiumConcentration', 'AppliancesEnergy',
+    'BarCrawl6min', 'BinanceCoinSentiment', 'BitcoinSentiment', 
+    'BoronConcentration', 'CalciumConcentration', 'CardanoSentiment',
+    'ChilledWaterPredictor', 'CopperConcentration', 'Covid19Andalusia',
+    'Covid3Month', 'DailyOilGasPrices', 'ElectricityPredictor', 
+    'EthereumSentiment', 'FloodModeling1', 'FloodModeling2', 'FloodModeling3',
+    'GasSensorArrayAcetone', 'GasSensorArrayEthanol', 'HotwaterPredictor',
+    'HouseholdPowerConsumption1', 'HouseholdPowerConsumption2', 'IronConcentration',
+    'ManganeseConcentration', 'MetroInterstateTrafficVolume',
+    'NaturalGasPricesSentiment', 'MetroInterstateTrafficVolume', 'NaturalGasPricesSentiment',
+    'OccupancyDetectionLight', 'WindTurbinePower', 'ZincConcentration',
+]
+
+MID = [
+    'BeijingIntAirportPM25Quality', 'BenzeneConcentration', 'BIDMC32HR', 'BIDMC32RR',
+    'BIDMC32SpO2', 'DhakaHourlyAirQuality', 'IEEEPPG',
+    'LiveFuelMoistureContent', 'LPGasMonitoringHomeActivity', 'MadridPM10Quality',
+    'MagnesiumConcentration', 'MethaneMonitoringHomeActivity', 'NewsHeadlineSentiment', 
+    'NewsTitleSentiment', 'ParkingBirmingham', 'PhosphorusConcentration',
+    'PotassiumConcentration', 'PrecipitationAndalusia', 'SierraNevadaMountainsSnow',
+    'SodiumConcentration', 'SolarRadiationAndalusia', 'SteamPredictor',
+    'SulphurConcentration', 'WaveDataTension', 
+]
+
+BIG = [
+    'BeijingPM10Quality', 'BeijingPM25Quality', 'ElectricMotorTemperature', 
+]
+
+HUGE = [
+    'AustraliaRainfall', 'DailyTemperatureLatitude', 'NewsHeadlineSentiment',
+    'NewsTitleSentiment', 'PPGDalia', 'VentilatorPressure'
+]
+
+ALL_DS = SMALL + MID + BIG + HUGE
+
+ds_map = {
+    'small': SMALL,
+    'mid': MID,
+    'big': BIG,
+    'huge': HUGE,
+    'all': ALL_DS
+}
+
+# _AEON_DATASETS = [
+#         "AcousticContaminationMadrid", "AluminiumConcentration", "AppliancesEnergy",
+#         "AustraliaRainfall", "BarCrawl6min", "BeijingIntAirportPM25Quality",
+#         "BeijingPM10Quality", "BeijingPM25Quality", "BenzeneConcentration",
+#         "BIDMC32HR", "BIDMC32RR", "BIDMC32SpO2", "BinanceCoinSentiment",
+#         "BitcoinSentiment", "BoronConcentration", "CalciumConcentration",
+#         "CardanoSentiment", "ChilledWaterPredictor", "CopperConcentration",
+#         "Covid19Andalusia", "Covid3Month", "DailyOilGasPrices",
+#         "DailyTemperatureLatitude", "DhakaHourlyAirQuality", "ElectricityPredictor",
+#         "ElectricMotorTemperature", "EthereumSentiment", "FloodModeling1",
+#         "FloodModeling2", "FloodModeling3", "GasSensorArrayAcetone",
+#         "GasSensorArrayEthanol", "HotwaterPredictor", "HouseholdPowerConsumption1",
+#         "HouseholdPowerConsumption2", "IEEEPPG", "IronConcentration",
+#         "LiveFuelMoistureContent", "LPGasMonitoringHomeActivity", "MadridPM10Quality",
+#         "MagnesiumConcentration", "ManganeseConcentration", "MethaneMonitoringHomeActivity",
+#         "MetroInterstateTrafficVolume", "NaturalGasPricesSentiment", "NewsHeadlineSentiment",
+#         "NewsTitleSentiment", "OccupancyDetectionLight", "ParkingBirmingham",
+#         "PhosphorusConcentration", "PotassiumConcentration", "PPGDalia",
+#         "PrecipitationAndalusia", "SierraNevadaMountainsSnow", "SodiumConcentration",
+#         "SolarRadiationAndalusia", "SteamPredictor", "SulphurConcentration",
+#         "TetuanEnergyConsumption", "VentilatorPressure", "WaveDataTension",
+#         "WindTurbinePower", "ZincConcentration",
+#     ]
 
 # ---------------------------------------------------------------------------
 # FedotIndustrial imports
@@ -105,6 +142,7 @@ EXPERIMENT_CONFIG = {
             threads_per_worker=DASK_THREADS,
             memory_limit="auto",
         ),
+        "use_cache": False,
     },
 }
 
@@ -128,9 +166,9 @@ def _setup_logging():
     fh.setFormatter(fmt)
     root.addHandler(sh)
     root.addHandler(fh)
-    for _name in ("dask", "distributed", "tornado", "asyncio",
-                  "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
-        logging.getLogger(_name).setLevel(logging.WARNING)
+    # for _name in ("dask", "distributed", "tornado", "asyncio",
+    #               "FEDOT logger", "ApiComposer", "AssumptionsHandler", "DataCacher"):
+    #     logging.getLogger(_name).setLevel(logging.WARNING)
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +251,21 @@ def run_dataset(dataset_name: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--datasets",
+        required=True,
+        default='all',
+        choices=['small', 'mid', 'big', 'huge', 'all'],
+        help="Datasets to run",
+    )
+    
+    args = parser.parse_args()
+    logger.info(f"Dataset selection: {args.datasets}")
+    _AEON_DATASETS = ds_map[args.datasets]
+
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     _setup_logging()
 

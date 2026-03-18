@@ -77,7 +77,7 @@ class IndustrialCachableOperationImplementation(DataOperationImplementation):
     def transform(
             self,
             input_data: InputData,
-            use_cache: bool = True) -> OutputData:
+            use_cache: bool = False) -> OutputData:
         """Method firstly tries to load result from cache. If unsuccessful, it starts to generate features
 
         Args:

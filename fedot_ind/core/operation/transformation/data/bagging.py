@@ -36,8 +36,8 @@ class BaggingEnsemble(DataOperationImplementation):
         if is_forecasting_task_with_lagged_target:
             # take last column from target (horizon)
             input_data.target = input_data.target[-1]
-        if self.is_clf_task_with_regression_ensemble:
-            # concatenate probs output from different models
+        if self.is_linreg_ensemble and input_data.features.ndim > 2:
+            # flatten (n_samples, channels, timesteps) → (n_samples, channels*timesteps)
             input_data.features = input_data.features.reshape(input_data.features.shape[0], -1)
 
         return input_data

@@ -100,9 +100,10 @@ class ConvolutionalAutoEncoder(Module):
         return train_loader, valid_loader
 
     def forward(self, x):
+        original_length = x.shape[-1]
         x = self.encoder(x)
         x = self.decoder(x)
-        return x
+        return x[..., :original_length]
 
     def fit(self,
             data,

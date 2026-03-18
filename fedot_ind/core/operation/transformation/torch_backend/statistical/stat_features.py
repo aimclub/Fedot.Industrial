@@ -170,7 +170,7 @@ def n_peaks_torch(X: torch.Tensor, axis=-1):
     dd = torch.diff(s, axis=-1)
     n_peaks = torch.count_nonzero(dd == -2, axis=-1)
     if X.ndim > 2:
-        n_peaks.reshape(X.shape[0], X.shape[1])
+        return n_peaks.reshape(X.shape[0], X.shape[1])
     else:
         return n_peaks.item() if n_peaks.numel() == 1 else n_peaks
 
@@ -203,10 +203,9 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     indices = torch.where(dd == -2)
     rows, cols = indices
 
-    max_count = torch.bincount(rows).max().item()
     B = dd.shape[0]
     count_peaks = torch.bincount(rows, minlength=B)
-    max_count = int(count_peaks.max().item())
+    max_count = int(count_peaks.max().item()) if count_peaks.numel() > 0 else 0
     offsets = torch.cumsum(torch.cat([count_peaks[:1] * 0, count_peaks[:-1]]), dim=0)
     idx_global = torch.arange(len(rows), device=rows.device)
     idx_in_row = idx_global - offsets[rows]
@@ -221,7 +220,7 @@ def mean_ptp_distance_torch(X: torch.Tensor, axis=-1):
     diff_peaks[diff_peaks < 0] = 0
     mean_dist = diff_peaks.sum(dim=-1) / count_peaks.float()
     if X.ndim > 2:
-        mean_dist.reshape(X.shape[0], X.shape[1])
+        return mean_dist.reshape(X.shape[0], X.shape[1])
     else:
         return mean_dist.item() if mean_dist.numel() == 1 else mean_dist
 
@@ -410,9 +409,11 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         float | torch.Tensor: The Shannon entropy value(s). Returns a scalar if input is 1D,
                               otherwise a tensor with entropy values along the specified axis.
     """
+    _original_shape = None
     if X.ndim == 1:
         x = X.unsqueeze(0)
     elif X.ndim > 2:
+        _original_shape = X.shape[:-1]
         x = X.reshape(-1, X.shape[-1])
     else:
         x = X.clone()
@@ -434,6 +435,8 @@ def shannon_entropy_torch(X: torch.Tensor, axis=None):
         group_sizes[i, : gs.numel()] = gs
     probs = group_sizes / N
     entropy = torch.sum(-probs * torch.log2(probs + 1e-12), dim=1)
+    if _original_shape is not None:
+        entropy = entropy.reshape(_original_shape)
     return entropy.item() if entropy.numel() == 1 else entropy
 
 
@@ -544,7 +547,9 @@ def mean_moving_median_torch(x: torch.Tensor, axis: int = -1) -> float | torch.T
     if x.ndim == 1:
         x = x.unsqueeze(0)
     T = x.shape[axis]
-    span = max(int(T / 10), 2)
+    span = min(max(int(T / 10), 2), T)  # span cannot exceed T
+    if span < 1:
+        return x.mean(dim=axis).item() if x.numel() == 1 else x.mean(dim=axis)
     windows = x.unfold(dimension=axis, size=span, step=1)
     medians = median_torch(windows)
     res = medians.mean(dim=axis)

@@ -3,6 +3,7 @@ import math
 from multiprocessing import cpu_count
 
 import dask
+import numpy as np
 import torch
 from fedot.core.data.data import InputData
 from fedot.core.repository.dataset_types import DataTypesEnum
@@ -184,11 +185,12 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
         else:
             list_of_methods = [*STAT_METHODS_TORCH.items()]
 
-        if time_series.numel() <= max_elements:
+        numel = time_series.numel() if hasattr(time_series, 'numel') else time_series.size
+        if numel <= max_elements:
             return list(map(lambda method: method[1](time_series, axis),
                             list_of_methods))
         B = time_series.shape[0]
-        elems_per_sample = time_series[0].numel()
+        elems_per_sample = time_series[0].numel() if hasattr(time_series[0], 'numel') else time_series[0].size
         batch_size = max(1, max_elements // elems_per_sample)
         accumulators = [[] for _ in list_of_methods]
         for start in range(0, B, batch_size):
@@ -239,6 +241,10 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
             features = list(map(lambda slice: feature_generator(ts_data[slice:slice + window_size]),
                                 ts_slices))
         else:
+            if isinstance(subseq_set, list):
+                # HankelMatrix returns a list of 2D arrays (one per channel) for multi-channel input.
+                # Horizontally stack them so subseq_set has shape (window_size, n_windows * n_channels).
+                subseq_set = np.hstack(subseq_set) if subseq_set else np.empty((0, 0))
             ts_slices = list(range(0, subseq_set.shape[1]))
             features = list(map(lambda slice: feature_generator(subseq_set[:, slice]),
                                 ts_slices))
