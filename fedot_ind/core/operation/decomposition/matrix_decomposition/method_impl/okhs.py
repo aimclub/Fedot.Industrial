@@ -117,18 +117,19 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         # Масштабирование узлов с [-1, 1] на [0, T]
         # t_k = T * (x_k + 1) / 2
         t_nodes = T * (nodes + 1) / 2
-        
-        vals_i = np.array([self._evaluate_trajectory_at_time(trajectory_i, t, T) for t in t_nodes])
-        vals_j = np.array([self._evaluate_trajectory_at_time(trajectory_j, t, T) for t in t_nodes])
-        
-        # Якобиан преобразования для одного интеграла: (T/2)^q
-        jacobian_pow_q = (T / 2.0) ** self.q
+
+        # Независимые сетки времени для каждой траектории
+        t_nodes_i = T_i * (nodes + 1) / 2
+        t_nodes_j = T_j * (nodes + 1) / 2
+
+        vals_i = np.array([self._evaluate_trajectory_at_time(trajectory_i, t, T_i) for t in t_nodes_i])
+        vals_j = np.array([self._evaluate_trajectory_at_time(trajectory_j, t, T_j) for t in t_nodes_j])
+
+        # Якобианы преобразования для каждого интеграла
+        jacobian_pow_q_i = (T_i / 2.0) ** self.q
+        jacobian_pow_q_j = (T_j / 2.0) ** self.q
         
         gram_entry = 0.0
-        
-        # Двойная сумма
-        # G ~ C_q^2 * J^2 * sum_k sum_m w_k w_m K(xi_j(t_m), xi_i(tau_k))
-        # Здесь J^2 = (T/2)^(2q), так как интеграл двойной
         
         for k in range(self.n_quad_points):
             w_tau = weights[k]
@@ -138,14 +139,13 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
                 w_t = weights[m]
                 xi_t = vals_j[m]
                 
-                # Ядро (без сингулярных весов - они учтены в w_tau, w_t)
                 K_val = self.kernel._compute_single_kernel(xi_t, xi_tau)
-                
                 gram_entry += w_tau * w_t * K_val
                 
-        # Полный множитель: C_q^2 * ((T/2)^q)^2
-        scale_factor = (self.C_q * jacobian_pow_q) ** 2
+        # Полный множитель с учетом двух независимых якобианов
+        scale_factor = (self.C_q ** 2) * jacobian_pow_q_i * jacobian_pow_q_j
         return gram_entry * scale_factor
+        
 
     def _compute_gram_matrix(self, trajectories):
         n = len(trajectories)
@@ -174,13 +174,15 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
         self.train_trajectories_ = train_trajectories
         self.gram_matrix_ = self._compute_gram_matrix(train_trajectories)
         
-        cond_number = np.linalg.cond(self.gram_matrix_)
+        # # cond_number = np.linalg.cond(self.gram_matrix_)
         
-        # Регуляризация
-        if cond_number > 1e10:
-            regularization = 1e-8 * np.eye(len(train_trajectories))
-            self.gram_matrix_ += regularization
-            
+        # # Регуляризация
+        # if cond_number > 1e10:
+        #     regularization = 1e-8 * np.eye(len(train_trajectories))
+        #     self.gram_matrix_ += regularization
+        
+        regularization = 1e-8 * np.eye(len(train_trajectories))
+        self.gram_matrix_ += regularization
         return self
 
     def transform(self, test_trajectories):
@@ -262,44 +264,35 @@ class FractionalLiouvilleOperator(BaseEstimator):
 
         T_i = self.okhs._get_trajectory_duration(traj_i)
         T_j = self.okhs._get_trajectory_duration(traj_j)
-        T = min(T_i, T_j)
-        
-        if T <= 1e-14:
+
+        if T_i <= 1e-14 or T_j <= 1e-14:
             return 0.0
 
         nodes, weights = self._get_jacobi_rule()
         
-        # Масштабируем узлы квадратуры с [-1, 1] на [0, T]
-        # tau = T * (x + 1) / 2
-        tau_nodes = T * (nodes + 1) / 2
+        # Интегрирование происходит только по tau (относится к traj_j)
+        tau_nodes = T_j * (nodes + 1) / 2
         
-
-        # Используем интерполяцию из трансформера для получения точных граничных значений
-        xi_i_T = self.okhs._evaluate_trajectory_at_time(traj_i, T, T_i)
+        # Оценка traj_i строго в ее физических границах
+        xi_i_T = self.okhs._evaluate_trajectory_at_time(traj_i, T_i, T_i)
         xi_i_0 = self.okhs._evaluate_trajectory_at_time(traj_i, 0.0, T_i)
         
-        # Предвычисляем значения j-й траектории (mu_j) во всех точках интегрирования
         xi_j_vals = [self.okhs._evaluate_trajectory_at_time(traj_j, tau, T_j) for tau in tau_nodes]
         
         kernel_func = self.okhs.kernel._compute_single_kernel
-        
         integral_sum = 0.0
         
         for k in range(self.n_quad_points):
             w_k = weights[k]
             xi_j_tau = xi_j_vals[k]
             
-            # Разность ядер: K(ξ_j(τ), ξ_i(T)) - K(ξ_j(τ), ξ_i(0))
             term_T = kernel_func(xi_j_tau, xi_i_T)
             term_0 = kernel_func(xi_j_tau, xi_i_0)
             
             integral_sum += w_k * (term_T - term_0)
             
-        # Якобиан преобразования: dt = (T/2) dx
-        # И множитель (T/2)^(q-1) от весовой функции
-        # Итоговый множитель: (T/2)^q
-        jacobian_factor = (T / 2.0) ** self.okhs.q
-        
+        # Якобиан зависит только от T_j
+        jacobian_factor = (T_j / 2.0) ** self.okhs.q
         result = self.okhs.C_q * jacobian_factor * integral_sum
         return result
 
@@ -442,10 +435,8 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         V = self.liouville_operator.eigenvectors_
         G = self.okhs.gram_matrix_
         
-        # Compute Y
         Y = self.compute_identity_projections(trajectories)
         
-        # Compute B = V^* Y
         B = self.compute_eigenfunction_projections(Y, V)
         
         # Compute W = V^* G V (Gram matrix in eigenbasis)
@@ -457,7 +448,7 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         return self
 
 
-    def fit_initial_coefficients(self, initial_trajectory):
+    def fit_initial_coefficients(self, initial_trajectory, eig=None, Xi=None):
         """
         Определяет коэффициенты c_j из решения системы уравнений:
         
@@ -478,9 +469,11 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         """
         initial_trajectory = np.asarray(initial_trajectory)
         K, n_features = initial_trajectory.shape
-        
-        eig = np.asarray(self.liouville_operator.eigenvalues_)
-        Xi = np.asarray(self.modes_)  # (n_modes, n_features)
+
+        if eig is None:
+            eig = np.asarray(self.liouville_operator.eigenvalues_)
+        if Xi is None:
+            Xi = np.asarray(self.modes_)  # (n_modes, n_features)
         n_modes = len(eig)
         
         # Проверка размерности
@@ -526,7 +519,7 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         return c
 
 
-    def predict(self, initial_trajectory, t_span):
+    def predict(self, initial_trajectory, t_span, stability_threshold=0.0):
         """
         Предсказание траектории на основе начального сегмента.
         
@@ -546,10 +539,15 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         initial_trajectory = np.asarray(initial_trajectory)
         t_span = np.asarray(t_span)
         
-        eig = np.asarray(self.liouville_operator.eigenvalues_)
-        Xi = np.asarray(self.modes_)  # (n_modes, n_features)
-        
-        c = self.fit_initial_coefficients(initial_trajectory)
+        eig_full = np.asarray(self.liouville_operator.eigenvalues_)
+        Xi_full = np.asarray(self.modes_)  # (n_modes, n_features)
+
+        # Отсеиваем моды с положительной вещественной частью (с небольшим запасом на численный шум)
+        stable_mask = np.real(eig_full) < stability_threshold
+        eig = eig_full[stable_mask]
+        Xi = Xi_full[stable_mask]
+
+        c = self.fit_initial_coefficients(initial_trajectory, Xi=Xi, eig=eig)
         
         # Вычисляем эволюцию Mittag-Leffler для всех t и всех λ
         t_q = (t_span.astype(np.complex128) ** self.okhs.q)[:, None]  # (n_pred, 1)
@@ -565,7 +563,7 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         return np.real(x_pred)
     
 
-    def plot_predict(self, initial_trajectory, t_span):
+    def plot_predict(self, initial_trajectory, t_span, stability_threshold=0.05):
         """
         Предсказание траектории и визуализация компонентов модели.
         Отображаются четыре графика:
@@ -591,20 +589,22 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         import matplotlib.pyplot as plt
         from matplotlib.cm import tab10, tab20
 
-        # ----------------------------------------------------------------------
-        # 1. Вычисления (без изменений, как в оригинале)
-        # ----------------------------------------------------------------------
         initial_trajectory = np.asarray(initial_trajectory)
         t_span = np.asarray(t_span)
         n_pred = len(t_span)
         n_features = initial_trajectory.shape[1]
 
-        eig = np.asarray(self.liouville_operator.eigenvalues_)
-        Xi = np.asarray(self.modes_)          # (n_modes, n_features)
+        eig_full = np.asarray(self.liouville_operator.eigenvalues_)
+        Xi_full = np.asarray(self.modes_)          # (n_modes, n_features)
+
+        # Отсеиваем моды с положительной вещественной частью (с небольшим запасом на численный шум)
+        stable_mask = np.real(eig_full) < stability_threshold
+        eig = eig_full[stable_mask]
+        Xi = Xi_full[stable_mask]
         n_modes = len(eig)
 
         # Коэффициенты c_j из начального сегмента
-        c = self.fit_initial_coefficients(initial_trajectory)
+        c = self.fit_initial_coefficients(initial_trajectory, Xi=Xi, eig=eig)
 
         # Mittag-Leffler для всех t и всех λ
         t_q = (t_span.astype(np.complex128) ** self.okhs.q)[:, None]   # (n_pred, 1)

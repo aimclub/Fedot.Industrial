@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -6,6 +7,7 @@ from pycaputo.derivatives import CaputoDerivative as D
 from pycaputo.fode import caputo
 from pycaputo.events import StepCompleted
 from pycaputo.stepping import evolve
+from pymittagleffler import mittag_leffler
 
 from fedot_ind.core.operation.transformation.representation.kernel.kernels import OccupationKernel
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
@@ -23,10 +25,22 @@ class RBFKernel:
         self.gamma = gamma
 
     def _compute_single_kernel(self, x, y):
-        # np.sum((x-y)**2) корректнее работает с массивами numpy любой формы
         dist_sq = np.sum((x - y) ** 2)
         return np.exp(-self.gamma * dist_sq)
 
+class MittagLefflerKernel:
+    """
+    Дробное ядро на основе функции Миттаг-Леффлера:
+    K(x, y) = E_q(-gamma * ||x - y||^2)
+    """
+    def __init__(self, gamma=1.0, q=0.5):
+        if not (0 < q <= 1):
+            raise ValueError("Для положительной определенности ядра параметр q должен быть в диапазоне (0, 1].")
+        self.q = q
+        self.gamma = gamma
+
+    def _compute_single_kernel(self, x, y):
+        return mittag_leffler(-self.gamma * np.sum((x - y) ** 2), alpha=self.q, beta=1.0)
 
 def generate_trajectories_pycaputo(
     f, *f_args,
@@ -71,16 +85,21 @@ def generate_trajectories_pycaputo(
             if isinstance(event, StepCompleted):
                 ys.append(event.y)
 
-        # Формируем массив (n_actual_steps, dim)
         traj = np.array(ys, dtype=float).reshape(-1, dim)
 
-        if len(traj) > n_steps:
+        # Убедимся, что все траектории имеют одинаковую длину: n_steps + 1
+        # (n_steps шагов = n_steps + 1 точек)
+        if len(traj) > n_steps + 1:
             traj = traj[:n_steps + 1]
+        elif len(traj) < n_steps + 1:
+            # непонятно, почему иногда генерируется на одну точку меньше. Просто заполним последними значениями.
+            print(f"Warning: Trajectory length {len(traj)} is less than expected {n_steps + 1}. Filling with last value.")
+            padding = np.tile(traj[-1], (n_steps + 1 - len(traj), 1))
+            traj = np.vstack((traj, padding))
             
         train_trajectories.append(traj)
 
-    # Генерируем идеальную временную сетку
-    time = np.linspace(0, T_max, n_steps)
+    time = np.linspace(0, T_max, n_steps + 1)
     return time, train_trajectories
 
 
@@ -108,7 +127,7 @@ def run_test(
     dim,
     kernel = RBFKernel(gamma=0.5),
     n_quad_points=100,
-    regularization=1e-8,
+    regularization=1e-3,
     initial_segment_length=10,  # Длина начального сегмента для подачи в predict
     plot_part = 1.0
 ):
@@ -212,13 +231,13 @@ if __name__ == "__main__":
             x0_test=np.array([0.5, -0.5]),
             kernel_gamma=1.5,
             q_true=0.8,
-            n_train_traj=20,
-            n_steps_train=100,
-            T_max_train=2.0,
-            initial_segment_length=21,
+            n_train_traj=100,
+            n_steps_train=500,
+            T_max_train=5.0,
+            initial_segment_length=105, # должно быть >= n_train_traj для решения системы
             n_quad_points=30,
             regularization=1e-7,
-            plot_part=0.5,
+            plot_part=1.0,
             seed=42
         ),
         dict(
@@ -231,13 +250,13 @@ if __name__ == "__main__":
             x0_test=np.array([0.2]),
             kernel_gamma=2.0,
             q_true=0.8,
-            n_train_traj=20,
-            n_steps_train=100,
-            T_max_train=2.0,
-            initial_segment_length=21,
+            n_train_traj=150,
+            n_steps_train=500,
+            T_max_train=3.0,
+            initial_segment_length=155, # должно быть >= n_train_traj для решения системы
             n_quad_points=30,
             regularization=1e-7,
-            plot_part=0.5,
+            plot_part=1.0,
             seed=42
         ),
         dict(
@@ -246,38 +265,38 @@ if __name__ == "__main__":
             args=(2.0, 1.0),
             dim=1,
             ic_low=0.1,
-            ic_high=0.9,
+            ic_high=2,
             x0_test=np.array([0.4]),
             kernel_gamma=3.0,
             q_true=0.8,
-            n_train_traj=20,
-            n_steps_train=100,
-            T_max_train=2.0,
-            initial_segment_length=21,
+            n_train_traj=250,
+            n_steps_train=700,
+            T_max_train=5.0,
+            initial_segment_length=255, # должно быть >= n_train_traj для решения системы
             n_quad_points=30,
             regularization=1e-7,
-            plot_part=0.5,
+            plot_part=1.0,
             seed=42
         ),
-        dict(
-            name="Van der Pol-like",
-            f=rhs_mu_cubic,
-            args=(3.0,),
-            dim=1,
-            ic_low=-0.5,
-            ic_high=0.5,
-            x0_test=np.array([0.4]),
-            kernel_gamma=5.0,
-            q_true=0.8,
-            n_train_traj=20,
-            n_steps_train=100,
-            T_max_train=2.0,
-            initial_segment_length=21,
-            n_quad_points=30,
-            regularization=1e-7,
-            plot_part=0.5,
-            seed=42
-        ),
+        # dict(
+        #     name="Van der Pol-like",
+        #     f=rhs_mu_cubic,
+        #     args=(3.0,),
+        #     dim=1,
+        #     ic_low=-1,
+        #     ic_high=1,
+        #     x0_test=np.array([0.4]),
+        #     kernel_gamma=5.0,
+        #     q_true=0.8,
+        #     n_train_traj=150,
+        #     n_steps_train=500,
+        #     T_max_train=5.0,
+        #     initial_segment_length=155,
+        #     n_quad_points=30,
+        #     regularization=1e-7,
+        #     plot_part=1.0,
+        #     seed=42
+        # ),
     ]
 
     for cfg in cases:
@@ -295,7 +314,7 @@ if __name__ == "__main__":
         print(f"len of time: {len(time)}, shape of traj: {np.array(trajectories).shape}")
         
         # последняя траектория тестовая
-        test_traj = trajectories[cfg["n_train_traj"]]
+        test_traj = trajectories[cfg["n_train_traj"] - 2] # посмотрим, что получим на траекториях, которые участвовали в обучении
         train_trajectories = trajectories[:cfg["n_train_traj"]]
 
         run_test(
@@ -306,7 +325,7 @@ if __name__ == "__main__":
             q_true=cfg["q_true"],
             dim=cfg["dim"],
             # kernel=OccupationKernel(q=cfg["q_true"], kernel_type='fractional'),
-            kernel=RBFKernel(gamma=cfg['kernel_gamma']),
+            kernel=RBFKernel(gamma=cfg['kernel_gamma']), #Можно использовать MittagLefflerKernel, но визуально Rbf и экспонента заметно быстрее считается
             n_quad_points=cfg["n_quad_points"],
             regularization=cfg["regularization"],
             initial_segment_length=cfg["initial_segment_length"],
