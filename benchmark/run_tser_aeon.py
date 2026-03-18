@@ -32,23 +32,29 @@ try:
     from aeon.datasets._data_loaders import list_available_datasets
     _AEON_DATASETS = list_available_datasets(task='regression')
 except Exception:
-    # Fallback: full list from the TSER benchmark paper (Tan et al., 2021)
+    # Fallback: tser_soton — full 63-dataset TSER benchmark (arxiv 2305.01429)
     _AEON_DATASETS = [
-        "AppliancesEnergy", "AustraliaRainfall", "BeijingPM10Quality",
-        "BeijingPM25Quality", "BenzeneConcentration", "BIDMC32HR",
-        "BIDMC32RR", "BIDMC32SpO2", "Covid3Month", "FloodModeling1",
-        "FloodModeling2", "FloodModeling3", "HouseholdPowerConsumption1",
-        "HouseholdPowerConsumption2", "IEEEPPG", "LiveFuelMoistureContent",
-        "NewsHeadlineSentiment", "NewsTitleSentiment", "PPGDalia",
-        "PedestrianCounts", "PowerCons", "SelfRegulationSCP1",
-        "SelfRegulationSCP2", "SpokenArabicDigits", "StandWalkJump",
-        "UWaveGestureLibrary", "EthanolConcentration", "ERing",
-        "BasicMotions", "AtrialFibrillation", "FingerMovements",
-        "HandMovementDirection", "Handwriting", "Heartbeat",
-        "JapaneseVowels", "Libras", "LSST", "MotorImagery",
-        "NATOPS", "PEMS-SF", "PhonemeSpectra", "InsectWingbeat",
-        "DuckDuckGeese", "EigenWorms", "Epilepsy", "FaceDetection",
-        "RacketSports",
+        "AcousticContaminationMadrid", "AluminiumConcentration", "AppliancesEnergy",
+        "AustraliaRainfall", "BarCrawl6min", "BeijingIntAirportPM25Quality",
+        "BeijingPM10Quality", "BeijingPM25Quality", "BenzeneConcentration",
+        "BIDMC32HR", "BIDMC32RR", "BIDMC32SpO2", "BinanceCoinSentiment",
+        "BitcoinSentiment", "BoronConcentration", "CalciumConcentration",
+        "CardanoSentiment", "ChilledWaterPredictor", "CopperConcentration",
+        "Covid19Andalusia", "Covid3Month", "DailyOilGasPrices",
+        "DailyTemperatureLatitude", "DhakaHourlyAirQuality", "ElectricityPredictor",
+        "ElectricMotorTemperature", "EthereumSentiment", "FloodModeling1",
+        "FloodModeling2", "FloodModeling3", "GasSensorArrayAcetone",
+        "GasSensorArrayEthanol", "HotwaterPredictor", "HouseholdPowerConsumption1",
+        "HouseholdPowerConsumption2", "IEEEPPG", "IronConcentration",
+        "LiveFuelMoistureContent", "LPGasMonitoringHomeActivity", "MadridPM10Quality",
+        "MagnesiumConcentration", "ManganeseConcentration", "MethaneMonitoringHomeActivity",
+        "MetroInterstateTrafficVolume", "NaturalGasPricesSentiment", "NewsHeadlineSentiment",
+        "NewsTitleSentiment", "OccupancyDetectionLight", "ParkingBirmingham",
+        "PhosphorusConcentration", "PotassiumConcentration", "PPGDalia",
+        "PrecipitationAndalusia", "SierraNevadaMountainsSnow", "SodiumConcentration",
+        "SolarRadiationAndalusia", "SteamPredictor", "SulphurConcentration",
+        "TetuanEnergyConsumption", "VentilatorPressure", "WaveDataTension",
+        "WindTurbinePower", "ZincConcentration",
     ]
 
 # ---------------------------------------------------------------------------
