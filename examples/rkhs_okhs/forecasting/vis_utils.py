@@ -3,8 +3,11 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
-from torch import nn
 
+from examples.rkhs_okhs.forecasting.okhs_forecasting_utils import (
+    build_forecaster_params,
+    extract_training_history,
+)
 from fedot_ind.core.models.kernel.okhs_forecasting_torch import OKHSForecasterTorch
 
 
@@ -109,8 +112,11 @@ class OKHSForecasterWithVisualization:
             # Прогнозы для разных горизонтов
             for horizon, color in zip(horizons, colors):
                 # Создаем прогнозирующую модель с конкретным горизонтом
-                model_params['horizon'] = horizon
-                horizon_forecaster = OKHSForecasterTorch(model_params)
+                horizon_model_params = build_forecaster_params(
+                    model_params,
+                    forecast_horizon=horizon,
+                )
+                horizon_forecaster = OKHSForecasterTorch(horizon_model_params)
                 horizon_forecaster.fit(train_series, window_size=window_size)
                 # Получаем прогноз
                 forecast = horizon_forecaster.predict()
@@ -172,11 +178,13 @@ class OKHSForecasterWithVisualization:
             print(f"\nТестирование с q={q}")
 
             forecaster = OKHSForecasterTorch(
-                q=q,
-                forecast_horizon=20,
-                max_epochs=100,
-                device='cpu',
-                method='dmd'
+                build_forecaster_params(
+                    q=q,
+                    forecast_horizon=20,
+                    max_epochs=100,
+                    device='cpu',
+                    method='dmd',
+                )
             )
 
             forecaster.fit(train_series, window_size=30)
@@ -270,11 +278,13 @@ class OKHSForecasterWithVisualization:
 
             for horizon, h_color in zip(horizons, horizon_colors):
                 forecaster = OKHSForecasterTorch(
-                    q=0.7,
-                    forecast_horizon=horizon,
-                    max_epochs=100,
-                    device='cpu',
-                    method=method
+                    build_forecaster_params(
+                        q=0.7,
+                        forecast_horizon=horizon,
+                        max_epochs=100,
+                        device='cpu',
+                        method=method,
+                    )
                 )
 
                 forecaster.fit(train_series, window_size=30)
@@ -340,45 +350,18 @@ class OKHSForecasterWithVisualization:
             print(f"\nАнализ сходимости: lr={lr}, max_epochs={max_epochs}")
 
             forecaster = OKHSForecasterTorch(
-                q=0.7,
-                forecast_horizon=10,
-                max_epochs=max_epochs,
-                learning_rate=lr,
-                device='cpu',
-                method='dmd'
+                build_forecaster_params(
+                    q=0.7,
+                    forecast_horizon=10,
+                    max_epochs=max_epochs,
+                    learning_rate=lr,
+                    device='cpu',
+                    method='dmd',
+                )
             )
 
-            # Модифицируем для сбора loss во время обучения
-            losses = []
-            original_fit = forecaster._fit_dmd_torch
-
-            def monitored_fit():
-                nonlocal losses
-                trajectories_tensor = torch.tensor(
-                    forecaster.trajectories_, dtype=torch.float32, device=forecaster.device_
-                )
-
-                optimizer = torch.optim.Adam([forecaster.A, forecaster.eigenvectors], lr=lr)
-
-                for epoch in range(max_epochs):
-                    optimizer.zero_grad()
-                    predictions = forecaster._simulate_dynamics(trajectories_tensor)
-                    loss = nn.MSELoss()(predictions[:, 1:], trajectories_tensor[:, 1:])
-                    reg_loss = torch.norm(forecaster.A, p='fro') * 0.01
-                    total_loss = loss + reg_loss
-
-                    total_loss.backward()
-                    optimizer.step()
-
-                    losses.append(total_loss.item())
-
-                return self
-
-            forecaster._fit_dmd_torch = monitored_fit
             forecaster.fit(train_series, window_size=20)
-
-            # Восстанавливаем оригинальный метод
-            forecaster._fit_dmd_torch = original_fit
+            losses = extract_training_history(forecaster)
 
             # Визуализация сходимости
             ax.plot(range(len(losses)), losses, 'b-', linewidth=2, alpha=0.8)

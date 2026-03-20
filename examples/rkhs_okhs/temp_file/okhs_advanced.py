@@ -1,123 +1,70 @@
-import math
 import numpy as np
-import matplotlib.pyplot as plt
 
-from pycaputo.controller import make_fixed_controller
-from pycaputo.derivatives import CaputoDerivative as D
-from pycaputo.fode import caputo
-from pycaputo.events import StepCompleted
-from pycaputo.stepping import evolve
-from pymittagleffler import mittag_leffler
-
-from fedot_ind.core.operation.transformation.representation.kernel.kernels import OccupationKernel
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
-    OKHSTransformer,
-    FractionalLiouvilleOperator,
-    FractionalDMD,
+from examples.rkhs_okhs.example_common import (
+    MittagLefflerKernel,
+    RBFKernel,
+    generate_trajectories_pycaputo,
+)
+from examples.rkhs_okhs.temp_file.okhs_experiment_utils import (
+    ExperimentConfig,
+    ExperimentResult,
+    ensure_valid_config,
+    run_experiment_from_artifacts,
+    split_trajectories,
 )
 
-class RBFKernel:
-    """
-    Радиально-базисное ядро (Gaussian Kernel):
-    K(x, y) = exp(-gamma * ||x - y||^2)
-    """
-    def __init__(self, gamma=1.0):
-        self.gamma = gamma
 
-    def _compute_single_kernel(self, x, y):
-        dist_sq = np.sum((x - y) ** 2)
-        return np.exp(-self.gamma * dist_sq)
-
-class MittagLefflerKernel:
-    """
-    Дробное ядро на основе функции Миттаг-Леффлера:
-    K(x, y) = E_q(-gamma * ||x - y||^2)
-    """
-    def __init__(self, gamma=1.0, q=0.5):
-        if not (0 < q <= 1):
-            raise ValueError("Для положительной определенности ядра параметр q должен быть в диапазоне (0, 1].")
-        self.q = q
-        self.gamma = gamma
-
-    def _compute_single_kernel(self, x, y):
-        return mittag_leffler(-self.gamma * np.sum((x - y) ** 2), alpha=self.q, beta=1.0)
-
-def generate_trajectories_pycaputo(
-    f, *f_args,
-    q_true,
-    n_train_traj,
-    n_steps,
-    T_max,
-    dim=2,
-    seed=42,
-    ic_low=-1.0,
-    ic_high=1.0,
-):
-    """
-    Генерация набора траекторий для системы D^{q_true} y(t) = f(t, y, *f_args).
-    """
-    t0 = 0.0
-    dt = T_max / (n_steps - 1)
-
-    rng = np.random.default_rng(seed)
-    initial_conditions = rng.uniform(ic_low, ic_high, size=(n_train_traj, dim))
-
-    train_trajectories = []
-    
-    # Обертка для функции правой части
-    def source_func(t, y):
-        # pycaputo ожидает array
-        return np.array(f(t, y, *f_args))
-
-    for x0 in initial_conditions:
-        ds = tuple(D(q_true) for _ in range(dim))
-        stepper = caputo.PECE(
-            ds=ds,
-            control=make_fixed_controller(dt, tstart=t0, tfinal=T_max),
-            source=source_func,
-            y0=(x0,),
-            corrector_iterations=1,
-        )
-
-        ys = [x0]
-        # evolve возвращает генератор событий
-        for event in evolve(stepper):
-            if isinstance(event, StepCompleted):
-                ys.append(event.y)
-
-        traj = np.array(ys, dtype=float).reshape(-1, dim)
-
-        # Убедимся, что все траектории имеют одинаковую длину: n_steps + 1
-        # (n_steps шагов = n_steps + 1 точек)
-        if len(traj) > n_steps + 1:
-            traj = traj[:n_steps + 1]
-        elif len(traj) < n_steps + 1:
-            # непонятно, почему иногда генерируется на одну точку меньше. Просто заполним последними значениями.
-            print(f"Warning: Trajectory length {len(traj)} is less than expected {n_steps + 1}. Filling with last value.")
-            padding = np.tile(traj[-1], (n_steps + 1 - len(traj), 1))
-            traj = np.vstack((traj, padding))
-            
-        train_trajectories.append(traj)
-
-    time = np.linspace(0, T_max, n_steps + 1)
-    return time, train_trajectories
-
-
-# Правые части уравнений для генерации тестовых систем
 def rhs_linear(t, y, lambda_param):
     return lambda_param * np.array(y)
+
 
 def rhs_logistic(t, y, r):
     return r * y * (1.0 - y)
 
+
 def rhs_quadratic(t, y, a, b):
     return a * y - b * y**2
+
 
 def rhs_mu_cubic(t, y, mu):
     return mu * (1.0 - y**2) * y - y
 
 
-# Тестовая функция для запуска всего пайплайна
+def run_experiment(config: ExperimentConfig, dynamics_func, dynamics_args, kernel,
+                   should_plot: bool = True) -> ExperimentResult:
+    config = ensure_valid_config(config)
+    time, trajectories = generate_trajectories_pycaputo(
+        dynamics_func,
+        *dynamics_args,
+        q_true=config.q_true,
+        n_trajectories=config.n_train_traj + config.holdout_size,
+        n_steps=config.n_steps_train,
+        T_max=config.T_max_train,
+        dim=config.dim,
+        seed=config.seed,
+        ic_low=config.ic_low,
+        ic_high=config.ic_high,
+    )
+    split = split_trajectories(trajectories, holdout_size=config.holdout_size)
+    if split.is_left():
+        raise ValueError(split.either(lambda value: value, lambda value: value))
+    split_value = split.value
+    return run_experiment_from_artifacts(
+        system_name=config.name,
+        time=time,
+        train_trajectories=split_value.train_trajectories,
+        test_traj=split_value.test_trajectories[0],
+        q_true=config.q_true,
+        dim=config.dim,
+        kernel=kernel,
+        n_quad_points=config.n_quad_points,
+        regularization=config.regularization,
+        initial_segment_length=config.initial_segment_length,
+        plot_part=config.plot_part,
+        should_plot=should_plot,
+    )
+
+
 def run_test(
     system_name,
     time,
@@ -125,209 +72,101 @@ def run_test(
     test_traj,
     q_true,
     dim,
-    kernel = RBFKernel(gamma=0.5),
+        kernel=RBFKernel(gamma=0.5),
     n_quad_points=100,
     regularization=1e-3,
-    initial_segment_length=10,  # Длина начального сегмента для подачи в predict
-    plot_part = 1.0
+        initial_segment_length=10,
+        plot_part=1.0,
 ):
-    print(f"\n=== Fractional DMD Test: {system_name} ===")
-    print(f"Training trajectories: {len(train_trajectories)}")
-
-    dt = time[1] - time[0]
-    print(f"Detected dt={dt:.5f} from training data.")
-
-    print("Fitting OKHS Transformer...")
-    okhs = OKHSTransformer(
+    """
+    Backward-compatible thin wrapper around the refactored experiment utilities.
+    """
+    return run_experiment_from_artifacts(
+        system_name=system_name,
+        time=time,
+        train_trajectories=train_trajectories,
+        test_traj=test_traj,
+        q_true=q_true,
+        dim=dim,
         kernel=kernel,
-        q=q_true,
         n_quad_points=n_quad_points,
-        dt=dt
+        regularization=regularization,
+        initial_segment_length=initial_segment_length,
+        plot_part=plot_part,
+        should_plot=True,
     )
-    okhs.fit(train_trajectories)
-
-
-    print("Fitting Fractional Liouville Operator...")
-    liouville_op = FractionalLiouvilleOperator(
-        okhs_transformer=okhs, 
-        n_quad_points=n_quad_points
-    )
-    liouville_op.fit()
-
-
-    print("Fitting Fractional DMD...")
-    fdmd = FractionalDMD(
-        liouville_operator=liouville_op,
-        n_quad_points=n_quad_points,
-        regularization=regularization
-    )
-    fdmd.fit()
-
-    
-    initial_segment = test_traj[:initial_segment_length]
-    
-
-    pred_traj = fdmd.plot_predict(initial_segment, time)
-    print(f"initial coefficients: {fdmd.initial_coefficients_}")
-    print(f"Length of test_traj: {len(test_traj)}, pred_traj: {len(pred_traj)}, length of time: {len(time)}")
-
-    # Метрики считаем только на прогнозной части (от L до конца)
-    forecast_true = test_traj[initial_segment_length:]
-    forecast_pred = pred_traj[initial_segment_length:]
-
-    mse = float(np.mean((forecast_true - forecast_pred) ** 2))
-    print(f"Forecast MSE (t > {time[initial_segment_length-1]:.2f}): {mse:.6e}")
-
-    # Визуализация только части временного ряда (отбрасываем конец с большой ошибкой)
-    plot_end = int(len(time) * plot_part)
-
-    if dim == 1:
-        plt.figure(figsize=(6, 4))
-        plt.plot(time[:plot_end], test_traj[:plot_end, 0], "k--", label="Ground Truth", linewidth=2)
-        # Отрисовка начального сегмента
-        plt.plot(time[:initial_segment_length], initial_segment[:, 0], "bo-", label="Initial Segment", markersize=4, alpha=0.6)
-        # Отрисовка прогноза
-        plt.plot(time[:plot_end], pred_traj[:plot_end, 0], "r-", label="Forecast", alpha=0.8)
-        
-        plt.axvline(x=time[initial_segment_length-1], color='gray', linestyle=':', label='Start Forecast')
-        plt.title(f"{system_name} (q={q_true})")
-        plt.xlabel("Time")
-        plt.ylabel("State")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        plt.show()
-    else:
-        plt.figure(figsize=(12, 5))
-        for j in range(min(dim, 2)):
-            plt.subplot(1, 2, j + 1)
-            plt.plot(time[:plot_end], test_traj[:plot_end, j], "k--", label="Ground Truth", linewidth=2)
-            plt.plot(time[:initial_segment_length], initial_segment[:, j], "bo-", label="Init", markersize=4, alpha=0.6)
-            plt.plot(time[:plot_end], pred_traj[:plot_end, j], "r-", label="Forecast", alpha=0.8)
-            plt.axvline(x=time[initial_segment_length-1], color='gray', linestyle=':')
-            
-            plt.title(f"{system_name}: x_{j+1}")
-            plt.xlabel("Time")
-            plt.grid(True, alpha=0.3)
-            if j == 0:
-                plt.ylabel("State")
-                plt.legend()
-        plt.tight_layout()
-        plt.show()
-
-    return mse
 
 
 if __name__ == "__main__":
-
     cases = [
         dict(
-            name="Linear: D^α y = λ*y",
-            f=rhs_linear,
-            args=(-2.0,),
-            dim=2,
-            ic_low=-1.0,
-            ic_high=1.0,
-            x0_test=np.array([0.5, -0.5]),
-            kernel_gamma=1.5,
-            q_true=0.8,
-            n_train_traj=100,
-            n_steps_train=500,
-            T_max_train=5.0,
-            initial_segment_length=105, # должно быть >= n_train_traj для решения системы
-            n_quad_points=30,
-            regularization=1e-7,
-            plot_part=1.0,
-            seed=42
+            config=ExperimentConfig(
+                name="Linear: D^О± y = О»*y",
+                q_true=0.8,
+                dim=2,
+                n_train_traj=100,
+                n_steps_train=500,
+                T_max_train=5.0,
+                initial_segment_length=105,
+                n_quad_points=30,
+                regularization=1e-7,
+                plot_part=1.0,
+                seed=42,
+                ic_low=-1.0,
+                ic_high=1.0,
+            ),
+            dynamics_func=rhs_linear,
+            dynamics_args=(-2.0,),
+            kernel=RBFKernel(gamma=1.5),
         ),
         dict(
-            name="Logistic: D^α y = r*y*(1-y)",
-            f=rhs_logistic,
-            args=(1.5,),
-            dim=1,
-            ic_low=0.1,
-            ic_high=0.9,
-            x0_test=np.array([0.2]),
-            kernel_gamma=2.0,
-            q_true=0.8,
-            n_train_traj=150,
-            n_steps_train=500,
-            T_max_train=3.0,
-            initial_segment_length=155, # должно быть >= n_train_traj для решения системы
-            n_quad_points=30,
-            regularization=1e-7,
-            plot_part=1.0,
-            seed=42
+            config=ExperimentConfig(
+                name="Logistic: D^О± y = r*y*(1-y)",
+                q_true=0.8,
+                dim=1,
+                n_train_traj=150,
+                n_steps_train=500,
+                T_max_train=3.0,
+                initial_segment_length=155,
+                n_quad_points=30,
+                regularization=1e-7,
+                plot_part=1.0,
+                seed=42,
+                ic_low=0.1,
+                ic_high=0.9,
+            ),
+            dynamics_func=rhs_logistic,
+            dynamics_args=(1.5,),
+            kernel=RBFKernel(gamma=2.0),
         ),
         dict(
-            name="Quadratic: D^α y = a*y - b*y²",
-            f=rhs_quadratic,
-            args=(2.0, 1.0),
-            dim=1,
-            ic_low=0.1,
-            ic_high=2,
-            x0_test=np.array([0.4]),
-            kernel_gamma=3.0,
-            q_true=0.8,
-            n_train_traj=250,
-            n_steps_train=700,
-            T_max_train=5.0,
-            initial_segment_length=255, # должно быть >= n_train_traj для решения системы
-            n_quad_points=30,
-            regularization=1e-7,
-            plot_part=1.0,
-            seed=42
+            config=ExperimentConfig(
+                name="Quadratic: D^О± y = a*y - b*yВІ",
+                q_true=0.8,
+                dim=1,
+                n_train_traj=250,
+                n_steps_train=700,
+                T_max_train=5.0,
+                initial_segment_length=255,
+                n_quad_points=30,
+                regularization=1e-7,
+                plot_part=1.0,
+                seed=42,
+                ic_low=0.1,
+                ic_high=2.0,
+            ),
+            dynamics_func=rhs_quadratic,
+            dynamics_args=(2.0, 1.0),
+            kernel=RBFKernel(gamma=3.0),
         ),
-        # dict(
-        #     name="Van der Pol-like",
-        #     f=rhs_mu_cubic,
-        #     args=(3.0,),
-        #     dim=1,
-        #     ic_low=-1,
-        #     ic_high=1,
-        #     x0_test=np.array([0.4]),
-        #     kernel_gamma=5.0,
-        #     q_true=0.8,
-        #     n_train_traj=150,
-        #     n_steps_train=500,
-        #     T_max_train=5.0,
-        #     initial_segment_length=155,
-        #     n_quad_points=30,
-        #     regularization=1e-7,
-        #     plot_part=1.0,
-        #     seed=42
-        # ),
     ]
 
-    for cfg in cases:
-        time, trajectories = generate_trajectories_pycaputo(
-            cfg["f"], *cfg["args"],
-            q_true=cfg["q_true"],
-            n_train_traj=cfg["n_train_traj"] + 1,  # +1 для тестовой траектории
-            n_steps=cfg["n_steps_train"],
-            T_max=cfg["T_max_train"],
-            dim=cfg["dim"],
-            seed=cfg["seed"],
-            ic_low=cfg["ic_low"],
-            ic_high=cfg["ic_high"],
+    for case in cases:
+        result = run_experiment(
+            config=case["config"],
+            dynamics_func=case["dynamics_func"],
+            dynamics_args=case["dynamics_args"],
+            kernel=case["kernel"],
+            should_plot=True,
         )
-        print(f"len of time: {len(time)}, shape of traj: {np.array(trajectories).shape}")
-        
-        # последняя траектория тестовая
-        test_traj = trajectories[cfg["n_train_traj"] - 2] # посмотрим, что получим на траекториях, которые участвовали в обучении
-        train_trajectories = trajectories[:cfg["n_train_traj"]]
-
-        run_test(
-            system_name=cfg["name"],
-            time=time,
-            train_trajectories=train_trajectories,
-            test_traj=test_traj,
-            q_true=cfg["q_true"],
-            dim=cfg["dim"],
-            # kernel=OccupationKernel(q=cfg["q_true"], kernel_type='fractional'),
-            kernel=RBFKernel(gamma=cfg['kernel_gamma']), #Можно использовать MittagLefflerKernel, но визуально Rbf и экспонента заметно быстрее считается
-            n_quad_points=cfg["n_quad_points"],
-            regularization=cfg["regularization"],
-            initial_segment_length=cfg["initial_segment_length"],
-            plot_part=cfg["plot_part"]
-        )
+        print(result)

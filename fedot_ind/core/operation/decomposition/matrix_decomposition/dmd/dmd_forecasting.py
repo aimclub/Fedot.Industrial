@@ -16,6 +16,7 @@ class DMDForecaster:
         self.learning_rate = learning_rate
         self.max_epochs = epochs
         self.device = device
+        self.training_history_ = []
 
     def _create_dmd_data_matrix(self, trajectories):
         """
@@ -110,6 +111,7 @@ class DMDForecaster:
 
     def _fit_classical_dmd(self, X, Y):
         """Обучение классического DMD"""
+        self.training_history_ = []
         self.A, self.U, self.S, self.Vt = self._compute_classical_dmd(X, Y)
 
         print(f"Classical DMD: A {self.A.shape}")
@@ -118,6 +120,7 @@ class DMDForecaster:
     def _fit_koopman_dmd(self, X, Y):
         """Обучение Koopman DMD через оптимизацию"""
         self._setup_koopman_model(self.input_dim_)
+        self.training_history_ = []
 
         # Y имеет форму (n_samples, forecast_horizon, input_dim)
         # Нам нужно предсказать все шаги сразу
@@ -138,6 +141,7 @@ class DMDForecaster:
 
             total_loss.backward()
             optimizer.step()
+            self.training_history_.append(float(total_loss.item()))
 
             if epoch % 10 == 0:
                 print(f'Epoch {epoch}: Loss = {total_loss.item():.4f}')

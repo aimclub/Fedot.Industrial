@@ -348,7 +348,7 @@ class DataDrivenQSelector:
         else:  # Высокочастотные
             return 0.3  # Короткая память
 
-    def analyze_and_suggest_q(self, trajectories, labels=None):
+    def analyze_and_suggest_q(self, trajectories, labels=None, verbose=True):
         """Комплексный анализ и предложение q"""
 
         # Анализ на одном примере
@@ -359,6 +359,8 @@ class DataDrivenQSelector:
 
         # Усредняем рекомендации
         suggested_q = np.mean([q_autocorr, q_frequency])
+        if not verbose:
+            return suggested_q
 
         print(f"Рекомендации по q:")
         print(f"На основе автокорреляции: {q_autocorr:.2f}")

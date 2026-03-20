@@ -3,6 +3,13 @@ from sklearn.base import BaseEstimator, RegressorMixin
 
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd import FractionalDMD
 from ...operation.transformation.representation.kernel.kernels import OccupationKernel
+from .okhs_common import (
+    analyze_okhs_window_size,
+    canonical_method_name,
+    normalize_okhs_method,
+    resolve_okhs_q,
+    uses_dmd,
+)
 
 
 class OKHSForecaster(BaseEstimator, RegressorMixin):
@@ -11,16 +18,30 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
     и дробных операторов Лиувилля
     """
 
-    def __init__(self, q=0.7, forecast_horizon=10, n_modes=5, method='dmd'):
+    def __init__(
+            self,
+            q=0.7,
+            forecast_horizon=10,
+            n_modes=5,
+            method='dmd',
+            forecasting_strategy='recursive',
+            q_policy='fixed',
+            q_selector=None,
+            window_policy='adaptive_cycle_aware',
+    ):
         self.q = q
         self.forecast_horizon = forecast_horizon
         self.n_modes = n_modes
-        self.method = method
-
-        if method == 'dmd':
-            self.model = FractionalDMD(q=q, n_modes=n_modes)
-        else:
-            self.model = None
+        self.method = normalize_okhs_method(method)
+        self.forecasting_strategy = forecasting_strategy
+        self.q_policy = q_policy
+        self.q_selector = q_selector
+        self.window_policy = window_policy
+        self.model = None
+        self.resolved_q_ = q
+        self.resolved_window_size_ = None
+        self.window_diagnostics_ = None
+        self.method_name_ = canonical_method_name(self.method)
 
     def _create_trajectories(self, time_series, window_size):
         """Создание траекторий из временного ряда"""
@@ -32,19 +53,33 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
 
     def fit(self, time_series, window_size=20):
         """Обучение модели на временном ряде"""
-        self.window_size_ = window_size
-        self.trajectories_ = self._create_trajectories(time_series, window_size)
+        self.window_diagnostics_ = analyze_okhs_window_size(
+            window_size=window_size,
+            window_policy=self.window_policy,
+            time_series=time_series,
+            forecast_horizon=self.forecast_horizon,
+        )
+        self.resolved_window_size_ = self.window_diagnostics_["resolved_window_size"]
+        self.window_size_ = self.resolved_window_size_
+        self.trajectories_ = self._create_trajectories(time_series, self.window_size_)
+        self.resolved_q_ = resolve_okhs_q(
+            q=self.q,
+            q_policy=self.q_policy,
+            trajectories=self.trajectories_,
+            q_selector=self.q_selector,
+        )
 
-        if self.method == 'dmd':
+        if uses_dmd(self.method):
+            self.model = FractionalDMD(q=self.resolved_q_, n_modes=self.n_modes)
             self.model.fit(self.trajectories_)
-        elif self.method == 'direct':
+        else:
             self._fit_direct_okhs(time_series)
 
         return self
 
     def _fit_direct_okhs(self, time_series):
         """Прямое обучение в OKHS без DMD"""
-        self.kernel_ = OccupationKernel(q=self.q)
+        self.kernel_ = OccupationKernel(q=self.resolved_q_)
 
         # Создаем пары (вход, цель) для регрессии
         X_trajectories = self.trajectories_[:-1]
@@ -67,7 +102,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
             # Прогноз для нового ряда
             last_trajectory = time_series[-self.window_size_:]
 
-        if self.method == 'dmd':
+        if uses_dmd(self.method):
             future_times = np.arange(1, self.forecast_horizon + 1)
             predictions = self.model.predict(last_trajectory, future_times)
             return predictions.flatten()

@@ -2,14 +2,14 @@ import numpy as np
 from scipy.special import gamma
 
 
-def mittag_leffler(z, q, n_terms=100):
+def mittag_leffler(z, q, beta=1.0, n_terms=100):
     """Вычисление функции Миттаг-Леффлера E_q(z)"""
     result = 0.0
 
     for k in range(n_terms):
         try:
-            term = z ** k / gamma(q * k + 1)
-            if np.isnan(term) or np.isinf(term):
+            term = z ** k / gamma(q * k + beta)
+            if np.any(np.isnan(term)) or np.any(np.isinf(term)):
                 break
             result += term
         except:

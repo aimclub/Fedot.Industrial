@@ -1,24 +1,65 @@
 import gc
 import logging
 import os
+import warnings
 from abc import ABC
 from copy import deepcopy
 from typing import Union
 
-import matplotlib
 import pandas as pd
-from fedot.core.repository.tasks import TsForecastingParams
-from matplotlib import pyplot as plt
 
-from benchmark.abstract_bench import AbstractBenchmark
-from benchmark.feature_utils import DatasetFormatting
-from fedot_ind.api.main import FedotIndustrial
-from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
-from fedot_ind.core.architecture.settings.computational import backend_methods as np
-from fedot_ind.core.metrics.metrics_implementation import RMSE, SMAPE
-from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, MULTI_CLF_BENCH, UNI_CLF_BENCH
-from fedot_ind.tools.loader import DataLoader
-from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+from benchmark.v2.api import run_forecasting_benchmark_from_legacy_config
+
+LEGACY_IMPORT_ERROR = None
+
+try:
+    import matplotlib
+    from fedot.core.repository.tasks import TsForecastingParams
+    from matplotlib import pyplot as plt
+
+    from benchmark.abstract_bench import AbstractBenchmark
+    from benchmark.feature_utils import DatasetFormatting
+    from fedot_ind.api.main import FedotIndustrial
+    from fedot_ind.core.architecture.postprocessing.results_picker import ResultsPicker
+    from fedot_ind.core.architecture.settings.computational import backend_methods as np
+    from fedot_ind.core.metrics.metrics_implementation import RMSE, SMAPE
+    from fedot_ind.core.repository.constanst_repository import M4_FORECASTING_LENGTH, MULTI_CLF_BENCH, UNI_CLF_BENCH
+    from fedot_ind.tools.loader import DataLoader
+    from fedot_ind.tools.serialisation.path_lib import PROJECT_PATH
+except Exception as exc:  # pragma: no cover - legacy-only fallback for lightweight envs
+    LEGACY_IMPORT_ERROR = exc
+
+
+    class AbstractBenchmark:
+        def __init__(self, output_dir=None):
+            self.output_dir = output_dir
+
+
+    class DatasetFormatting:
+        def format_univariate_forecasting_data(self, *args, **kwargs):
+            raise ImportError('Legacy forecasting dependencies are unavailable.') from LEGACY_IMPORT_ERROR
+
+        def format_global_forecasting_data(self, *args, **kwargs):
+            raise ImportError('Legacy forecasting dependencies are unavailable.') from LEGACY_IMPORT_ERROR
+
+
+    class ResultsPicker:
+        def __init__(self, path=None):
+            self.path = path
+
+
+    TsForecastingParams = None
+    FedotIndustrial = None
+    np = None
+    RMSE = None
+    SMAPE = None
+    M4_FORECASTING_LENGTH = {'D': 14, 'W': 13, 'M': 18, 'Q': 8, 'Y': 6}
+    MULTI_CLF_BENCH = []
+    UNI_CLF_BENCH = []
+    DataLoader = None
+    PROJECT_PATH = os.getcwd()
+    matplotlib = None
+    plt = None
 
 
 class BenchmarkTSF(AbstractBenchmark, ABC):
@@ -59,7 +100,16 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
             path=os.path.abspath(self.output_dir))
         self.automl_loader = DatasetFormatting()
 
+    @staticmethod
+    def _ensure_legacy_dependencies():
+        if LEGACY_IMPORT_ERROR is not None:
+            raise ImportError(
+                'Legacy BenchmarkTSF dependencies are unavailable in this environment. '
+                'Use `use_benchmark_v2=True` or install the legacy stack.'
+            ) from LEGACY_IMPORT_ERROR
+
     def evaluate_loop(self, dataset, experiment_setup: dict = None):
+        self._ensure_legacy_dependencies()
         matplotlib.use('TkAgg')
         if self.automl_TSC:
             train_data = dataset[1]
@@ -98,6 +148,16 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         gc.collect()
 
     def run(self, path: str = None):
+        if self.experiment_setup.get('use_benchmark_v2'):
+            warnings.warn(
+                'BenchmarkTSF.run is delegating to benchmark.v2. '
+                'Use benchmark.v2.run_forecasting_benchmark_suite directly for new code.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return run_forecasting_benchmark_from_legacy_config(self.experiment_setup)
+
+        self._ensure_legacy_dependencies()
         self.logger.info('Benchmark test started')
         metric_dict = {}
         if self.automl_TSC and path is not None:
@@ -130,6 +190,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         self.logger.info("Benchmark test finished")
 
     def finetune(self):
+        self._ensure_legacy_dependencies()
         self.logger.info('Benchmark finetune started')
         for dataset_name in self.custom_datasets:
             composed_model_path = PROJECT_PATH + self.path_to_save + \
@@ -156,6 +217,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         self.logger.info("Benchmark finetune finished")
 
     def load_local_basic_results(self, path: str = None):
+        self._ensure_legacy_dependencies()
         path = PROJECT_PATH + self.path_to_result
         results = pd.read_csv(path, sep=',', index_col=0).T
         results = results.dropna(axis=1, how='all')
@@ -165,6 +227,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         return results
 
     def create_report(self):
+        self._ensure_legacy_dependencies()
         _ = []
         names = []
         for dataset_name in self.custom_datasets:
@@ -188,6 +251,7 @@ class BenchmarkTSF(AbstractBenchmark, ABC):
         return df
 
     def load_automl_benchmark(self, path):
+        self._ensure_legacy_dependencies()
         load_method_dict = dict(automl_univariate=self.automl_loader.format_univariate_forecasting_data,
                                 automl_global=self.automl_loader.format_global_forecasting_data)
         self.automl_TSC_metadata, data_dict = load_method_dict[self.custom_datasets](path, True)

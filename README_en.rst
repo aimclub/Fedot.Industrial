@@ -156,6 +156,12 @@ The comprehensive documentation is available on `wikipage`_.
 
 Useful tutorials and examples can be found in the `examples`_ folder.
 
+Benchmark V2 local documentation:
+
+- `Overview <docs/benchmark_v2/benchmark_v2_overview.md>`__
+- `Quickstart <docs/benchmark_v2/quickstart.md>`__
+- `Migration Guide <docs/benchmark_v2/migration_guide.md>`__
+
 
 .. list-table::
    :widths: 100 70

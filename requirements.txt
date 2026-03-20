@@ -18,3 +18,4 @@ optuna-integration==4.1.0
 pytest-cov==6.0.0
 
 pycaputo >= 0.10.1
+pymittagleffler>=0.1.3

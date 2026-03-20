@@ -1,15 +1,38 @@
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
-from fedot.core.data.data import InputData
-from fedot.core.operations.operation_parameters import OperationParameters
-
-from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
 from fedot_ind.core.operation.decomposition.matrix_decomposition.dmd.dmd_forecasting import DMDForecaster
-from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
 from fedot_ind.core.operation.transformation.representation.kernel.kernels import OccupationKernel
+from .okhs_common import analyze_okhs_window_size, canonical_method_name, normalize_okhs_method, resolve_okhs_q, \
+    uses_dmd
+
+try:
+    from fedot_ind.core.operation.transformation.data.hankel import HankelMatrix
+except ImportError:  # pragma: no cover - lightweight fallback for local tests without extra deps
+    class HankelMatrix:
+        def __init__(self, time_series, window_size):
+            series = np.asarray(time_series)
+            self.window_length = window_size
+            self.trajectory_matrix = np.array(
+                [series[index:index + window_size] for index in range(len(series) - window_size + 1)]
+            )
+
+try:
+    from fedot.core.data.data import InputData
+    from fedot.core.operations.operation_parameters import OperationParameters
+    from fedot_ind.core.models.nn.network_impl.base_nn_model import BaseNeuralModel
+except ImportError:  # pragma: no cover - lightweight fallback for local tests without fedot
+    InputData = Any
+    OperationParameters = dict
+
+
+    class BaseNeuralModel:
+        def __init__(self, params: Optional[OperationParameters] = None):
+            self.params = params or {}
+            self.epochs = self.params.get('epochs', 100)
+            self.learning_rate = self.params.get('learning_rate', 0.001)
 
 
 class OKHSForecasterTorch(BaseNeuralModel):
@@ -18,31 +41,50 @@ class OKHSForecasterTorch(BaseNeuralModel):
     и дробных операторов Лиувилля с оптимизацией через PyTorch
     """
 
-    def __init__(self, params: Optional[OperationParameters] = None):
-        super().__init__(params)
+    def __init__(self, params: Optional[OperationParameters] = None, **legacy_kwargs):
+        merged_params = self._merge_legacy_kwargs(params, legacy_kwargs)
+        super().__init__(merged_params)
         # learning params
         self.learning_rate = self.params.get('learning_rate', 0.0001)
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        requested_device = self.params.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(requested_device)
         # forecasting params
         self.forecast_horizon = self.params.get('forecast_horizon', 10)
         self.forecasting_strategy = self.params.get('forecasting_strategy', 'multioutput')
         # dmd params
         self.n_modes = self.params.get('n_modes', None)
-        self.method = self.params.get('method', 'occupation')
+        self.method = normalize_okhs_method(self.params.get('method', 'occupation'))
         self.use_koopman = self.params.get('use_koopman', True)
         # kernel params
         self.q = self.params.get('q', 0.7)
+        self.q_policy = self.params.get('q_policy', 'fixed')
+        self.q_selector = self.params.get('q_selector', None)
+        self.window_policy = self.params.get('window_policy', 'fixed')
         self.kernel_type = self.params.get('kernel_type', 'rbf')
         self.kernel_ = None
+        self.resolved_q_ = self.q
+        self.resolved_window_size_ = None
+        self.window_diagnostics_ = None
+        self.method_name_ = canonical_method_name(self.method)
+
+    @staticmethod
+    def _merge_legacy_kwargs(params, legacy_kwargs):
+        merged = dict(params or {})
+        merged.update(legacy_kwargs)
+        if 'horizon' in merged and 'forecast_horizon' not in merged:
+            merged['forecast_horizon'] = merged.pop('horizon')
+        if 'max_epochs' in merged and 'epochs' not in merged:
+            merged['epochs'] = merged.pop('max_epochs')
+        return merged
 
     def _init_decomposition_strategy(self):
-        if self.method == 'dmd':
+        if uses_dmd(self.method):
             self.dmd_model = DMDForecaster(forecast_horizon=self.forecast_horizon,
                                            n_modes=self.n_modes, use_koopman=self.use_koopman,
                                            learning_rate=self.learning_rate, epochs=self.epochs,
                                            device=self.device)
         else:
-            self.kernel_ = OccupationKernel(q=self.q, kernel_type=self.kernel_type)
+            self.kernel_ = OccupationKernel(q=self.resolved_q_, kernel_type=self.kernel_type)
 
     def _hankelize(self, time_series, window_size):
         """Создание траекторий из временного ряда"""
@@ -50,10 +92,24 @@ class OKHSForecasterTorch(BaseNeuralModel):
 
     def fit(self, time_series, window_size=20):
         """Обучение модели на временном ряде"""
-        self._hankelize(time_series, window_size)
+        self.window_diagnostics_ = analyze_okhs_window_size(
+            window_size=window_size,
+            window_policy=self.window_policy,
+            time_series=time_series,
+            forecast_horizon=self.forecast_horizon,
+        )
+        self.resolved_window_size_ = self.window_diagnostics_["resolved_window_size"]
+        self._hankelize(time_series, self.resolved_window_size_)
+        self.resolved_q_ = resolve_okhs_q(
+            q=self.q,
+            q_policy=self.q_policy,
+            trajectories=self.hankel_matrix.trajectory_matrix.T,
+            q_selector=self.q_selector,
+        )
         self._init_decomposition_strategy()
         return self.dmd_model.fit(self.hankel_matrix.trajectory_matrix.T,
-                                  window_size) if self.method == 'dmd' else self._fit_direct_okhs_torch()
+                                  self.resolved_window_size_) if uses_dmd(
+            self.method) else self._fit_direct_okhs_torch()
 
     def _train_loop(self, val_loader, loss_fn, optimizer, train_loader=None):
         optimizer.zero_grad()
@@ -98,7 +154,7 @@ class OKHSForecasterTorch(BaseNeuralModel):
         last_trajectory = input_data.features[-self.hankel_matrix.window_length:] if input_data is not None \
             else self.hankel_matrix.trajectory_matrix.T[-1]
 
-        return self.dmd_model.predict(last_trajectory) if self.method == 'dmd' \
+        return self.dmd_model.predict(last_trajectory) if uses_dmd(self.method) \
             else self._predict_direct_torch(last_trajectory)
 
     def _predict_direct_torch(self, last_trajectory):
@@ -132,8 +188,12 @@ class OKHSForecasterTorch(BaseNeuralModel):
 
     def get_optimization_info(self):
         """Информация об оптимизации"""
-        info = {'method': self.method, 'device': str(self.device), 'q': self.q,
-                'forecast_horizon': self.forecast_horizon}
+        info = {'method': self.method_name_, 'device': str(self.device), 'q': self.resolved_q_,
+                'q_policy': self.q_policy,
+                'forecast_horizon': self.forecast_horizon,
+                'window_policy': self.window_policy,
+                'resolved_window_size': self.resolved_window_size_,
+                'window_diagnostics': self.window_diagnostics_}
         if hasattr(self, 'eigenvalues_'):
             info['eigenvalues'] = self.eigenvalues_
         if hasattr(self, 'weights_'):
