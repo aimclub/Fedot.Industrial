@@ -48,7 +48,7 @@ class TorchQuantileExtractor(BaseExtractor):
         global_features = self.get_statistical_features_torch(
             ts_2d, add_global_features=self.add_global_features, axis=axis)
         _sample_f = global_features[0] if global_features else None
-        _is_scalar = _sample_f is None or (isinstance(_sample_f, torch.Tensor) and _sample_f.numel() == 1)
+        _is_scalar = _sample_f is None or not isinstance(_sample_f, torch.Tensor) or _sample_f.numel() == 1
         if _is_scalar:
             global_features = torch.tensor(
                 [f.item() if isinstance(f, torch.Tensor) else float(f) for f in global_features],
@@ -62,7 +62,7 @@ class TorchQuantileExtractor(BaseExtractor):
             window_stat_features = self.get_statistical_features_torch(ts_2d,
                                                                        axis=axis)
             _sample_w = window_stat_features[0] if window_stat_features else None
-            _is_scalar_w = _sample_w is None or (isinstance(_sample_w, torch.Tensor) and _sample_w.numel() == 1)
+            _is_scalar_w = _sample_w is None or not isinstance(_sample_w, torch.Tensor) or _sample_w.numel() == 1
             if _is_scalar_w:
                 window_stat_features = torch.tensor(
                     [f.item() if isinstance(f, torch.Tensor) else float(f) for f in window_stat_features],

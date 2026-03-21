@@ -80,14 +80,18 @@ class FourierBasisImplementation(BasisDecompositionImplementation):
         max_safe_rank = max(2, 2 * len(input_data) - 1)
         min_rank = min(self.min_rank, max_safe_rank)
         min_rank = max(2, min_rank)  # pev requires order >= 2
-        try:
-            estimator = self.estimator(input_data, min_rank)
-            estimator.run()
-        except (AssertionError, ValueError):
-            min_rank = max(2, min_rank // 2)
-            estimator = self.estimator(input_data, min_rank)
-            estimator.run()
-        return estimator
+        for rank in (min_rank, max(2, min_rank // 2), 2):
+            try:
+                estimator = self.estimator(input_data, rank)
+                estimator.run()
+                return estimator
+            except (AssertionError, ValueError):
+                continue
+        # Last resort: non-parametric periodogram always works
+        fallback = SPECTRUM_ESTIMATORS['non_parametric'](
+            data=input_data, sampling=self.sampling_rate)
+        fallback.run()
+        return fallback
 
     def _decompose_signal(self, input_data):
 

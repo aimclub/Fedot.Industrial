@@ -231,7 +231,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                           strides=self.stride).trajectory_matrix
             else:
                 subseq_set = stride_repr.sliding_window_view(ts_data,
-                                                             ts_data.shape[axis] - window_size,
+                                                             max(1, ts_data.shape[axis] - window_size),
                                                              axis=axis)
         else:
             subseq_set = None
@@ -284,7 +284,7 @@ class BaseExtractor(IndustrialCachableOperationImplementation):
                                           window_size=window_size,
                                           strides=self.stride).trajectory_matrix
             else:
-                window_length = ts_data.shape[axis] - window_size
+                window_length = max(1, ts_data.shape[axis] - window_size)
                 subseq_set = ts_data.unfold(
                     dimension=axis,
                     size=window_length,

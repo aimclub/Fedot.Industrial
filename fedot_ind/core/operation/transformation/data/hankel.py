@@ -34,7 +34,7 @@ class HankelMatrix:
             if self.__time_series.ndim > 1:
                 self.__ts_length = self.__time_series.shape[-1]
             else:
-                self.__ts_length = self.__time_series.numel()
+                self.__ts_length = len(self.__time_series)
 
         self.__strides = strides
         if window_size is None:
