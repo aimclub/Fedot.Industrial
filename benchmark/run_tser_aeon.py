@@ -110,7 +110,7 @@ from fedot_ind.core.repository.config_repository import (
 # Configuration — tune to the server
 # N_PARALLEL × DASK_WORKERS × DASK_THREADS ≈ total CPU cores
 # ---------------------------------------------------------------------------
-N_PARALLEL = 2       # datasets evaluated in parallel (separate processes)
+N_PARALLEL = 1       # datasets evaluated in parallel (separate processes)
 DASK_WORKERS = 8     # Dask n_workers per dataset
 DASK_THREADS = 4     # Dask threads_per_worker per dataset
 AUTOML_TIMEOUT = 10  # AutoML timeout per dataset (minutes)
@@ -188,13 +188,23 @@ def load_aeon_dataset(dataset_name: str):
 
 def load_results() -> pd.DataFrame:
     if os.path.exists(RESULTS_CSV):
+        df = pd.read_csv(RESULTS_CSV)
+        if "dataset" in df.columns:
+            return df.set_index("dataset")
         return pd.read_csv(RESULTS_CSV, index_col=0)
     return pd.DataFrame(columns=["dataset"] + list(METRIC_NAMES) + ["elapsed_sec", "status"])
 
 
 def save_row(results: pd.DataFrame, row: dict) -> pd.DataFrame:
     results.loc[row["dataset"]] = row
-    results.to_csv(RESULTS_CSV)
+    import csv
+    fieldnames = ["dataset"] + list(METRIC_NAMES) + ["elapsed_sec", "status"]
+    write_header = not os.path.exists(RESULTS_CSV) or os.path.getsize(RESULTS_CSV) == 0
+    with open(RESULTS_CSV, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
     return results
 
 
