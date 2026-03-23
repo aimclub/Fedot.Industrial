@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from .core import (
@@ -16,6 +17,7 @@ from .core import (
     to_plain_data,
     write_json,
 )
+from .markdown import dataframe_to_markdown
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,14 @@ class SeriesComparisonResult:
     metrics_table: pd.DataFrame
     prediction_table: pd.DataFrame
     artifact_manifest: tuple[ArtifactRecord, ...] = ()
+
+
+def _series_record_lookup(result: ForecastingBenchmarkResult) -> dict[str, Any]:
+    return {record.series_id: record for record in result.series_records}
+
+
+def _slugify_model_name(name: str) -> str:
+    return ''.join(character.lower() if character.isalnum() else '_' for character in name).strip('_')
 
 
 def predictions_to_frame(records: tuple[PredictionRecord, ...]) -> pd.DataFrame:
@@ -109,6 +119,8 @@ def compare_models_on_series(
         raise ValueError(f'No prediction records found for series_id={series_id}.')
 
     dataset_name = str(series_predictions['dataset_name'].iloc[0])
+    series_lookup = _series_record_lookup(result)
+    series_record = series_lookup.get(series_id)
     series_metrics = metrics[(metrics['series_id'] == series_id) & (metrics['horizon_index'].isna())].copy()
     series_metrics = series_metrics.sort_values(['metric_name', 'metric_value', 'model_name'])
     series_predictions = series_predictions.sort_values(['model_name', 'horizon_index'])
@@ -128,27 +140,79 @@ def compare_models_on_series(
             .sort_values('horizon_index')
             .set_index('horizon_index')
         )
+        train_values = np.asarray(series_record.train_values, dtype=float) if series_record is not None else np.array(
+            [])
+        actual_test = np.asarray(series_record.test_values, dtype=float) if series_record is not None else truth[
+            'y_true'].to_numpy()
+        forecast_index = np.arange(len(train_values), len(train_values) + len(actual_test))
+        history_index = np.arange(len(train_values))
+        zoom_width = max(len(actual_test) * 3, min(len(train_values), 48))
+        zoom_start = max(0, len(train_values) - zoom_width)
 
-        overlay_figure, overlay_axis = plt.subplots(figsize=(9, 5))
-        overlay_axis.plot(truth.index, truth['y_true'], label='truth', linewidth=2.5, color='black')
+        overlay_figure, overlay_axis = plt.subplots(figsize=(12, 6))
+        if len(train_values):
+            overlay_axis.plot(history_index, train_values, label='train', linewidth=2.0, color='0.45')
+        overlay_axis.plot(forecast_index, actual_test, label='actual', linewidth=2.5, color='black')
         for model_name in pivot.columns:
-            overlay_axis.plot(pivot.index, pivot[model_name], label=model_name, linewidth=1.8)
-        overlay_axis.set_title(f'Forecast Comparison for {series_id}')
-        overlay_axis.set_xlabel('Horizon')
+            overlay_axis.plot(forecast_index, pivot[model_name].to_numpy(), label=model_name, linewidth=1.8)
+        overlay_axis.axvline(len(train_values) - 1, color='red', linestyle='--', linewidth=1.2, alpha=0.8)
+        overlay_axis.set_title(f'History and Forecast Comparison for {series_id}')
+        overlay_axis.set_xlabel('Time Index')
         overlay_axis.set_ylabel('Value')
         overlay_axis.legend(frameon=False)
         overlay_axis.grid(alpha=0.2)
         for extension in ('png', 'svg'):
-            path = target_dir / f'{series_id}_overlay.{extension}'
+            path = target_dir / f'{series_id}_history_forecast_overlay.{extension}'
             overlay_figure.savefig(path, dpi=200, bbox_inches='tight')
             artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
         plt.close(overlay_figure)
 
+        boundary_figure, boundary_axis = plt.subplots(figsize=(12, 6))
+        if len(train_values):
+            boundary_axis.plot(
+                np.arange(zoom_start, len(train_values)),
+                train_values[zoom_start:],
+                label='train',
+                linewidth=2.0,
+                color='0.45',
+            )
+        boundary_axis.plot(forecast_index, actual_test, label='actual', linewidth=2.5, color='black')
+        for model_name in pivot.columns:
+            boundary_axis.plot(forecast_index, pivot[model_name].to_numpy(), label=model_name, linewidth=1.8)
+        boundary_axis.axvline(len(train_values) - 1, color='red', linestyle='--', linewidth=1.2, alpha=0.8)
+        boundary_axis.set_title(f'Boundary Zoom for {series_id}')
+        boundary_axis.set_xlabel('Time Index')
+        boundary_axis.set_ylabel('Value')
+        boundary_axis.legend(frameon=False, ncol=2)
+        boundary_axis.grid(alpha=0.2)
+        for extension in ('png', 'svg'):
+            path = target_dir / f'{series_id}_boundary_zoom.{extension}'
+            boundary_figure.savefig(path, dpi=200, bbox_inches='tight')
+            artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+        plt.close(boundary_figure)
+
+        delta_figure, delta_axis = plt.subplots(figsize=(10, 5))
+        last_train_value = float(train_values[-1]) if len(train_values) else 0.0
+        labels = ['actual'] + list(pivot.columns)
+        deltas = [float(actual_test[0] - last_train_value)] if len(actual_test) else [0.0]
+        deltas.extend(float(pivot[model_name].iloc[0] - last_train_value) for model_name in pivot.columns)
+        delta_axis.bar(labels, deltas, color=['black'] + [f'C{index % 10}' for index in range(len(pivot.columns))])
+        delta_axis.axhline(0.0, color='0.4', linestyle='--', linewidth=1.0)
+        delta_axis.set_title(f'First-Step Forecast Delta for {series_id}')
+        delta_axis.set_xlabel('Series / Model')
+        delta_axis.set_ylabel('Delta from Last Train Value')
+        delta_axis.grid(alpha=0.2, axis='y')
+        for extension in ('png', 'svg'):
+            path = target_dir / f'{series_id}_forecast_delta.{extension}'
+            delta_figure.savefig(path, dpi=200, bbox_inches='tight')
+            artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+        plt.close(delta_figure)
+
         residual_figure, residual_axis = plt.subplots(figsize=(9, 5))
         for model_name in pivot.columns:
             residual_axis.plot(
-                pivot.index,
-                truth['y_true'].to_numpy() - pivot[model_name].to_numpy(),
+                forecast_index,
+                actual_test - pivot[model_name].to_numpy(),
                 label=model_name,
                 linewidth=1.6,
             )
@@ -183,6 +247,55 @@ def compare_models_on_series(
                 horizon_figure.savefig(path, dpi=200, bbox_inches='tight')
                 artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
             plt.close(horizon_figure)
+
+        okhs_records = [
+            record for record in result.run_records
+            if record.series_id == series_id and record.status is RunStatus.SUCCESS
+               and 'okhs' in record.model_name.lower()
+        ]
+        if okhs_records:
+            diagnostics_payload = {
+                record.model_name: record.metadata for record in okhs_records
+            }
+            diagnostics_path = target_dir / f'{series_id}_okhs_diagnostics.json'
+            write_json(diagnostics_path, diagnostics_payload)
+            artifact_manifest.append(ArtifactRecord(kind='structured', path=str(diagnostics_path), format='json'))
+
+            for record in okhs_records:
+                fit_diagnostics = record.metadata.get('fdmd_fit_diagnostics', {})
+                if not fit_diagnostics:
+                    continue
+                eigen_real = np.asarray(fit_diagnostics.get('eigenvalues_real', []), dtype=float)
+                eigen_imag = np.asarray(fit_diagnostics.get('eigenvalues_imag', []), dtype=float)
+                mode_norms = np.asarray(fit_diagnostics.get('mode_norms', []), dtype=float)
+                prediction_diagnostics = record.metadata.get('fdmd_prediction_diagnostics', {})
+                model_slug = _slugify_model_name(record.model_name)
+
+                mode_figure, mode_axes = plt.subplots(1, 2, figsize=(12, 5))
+                if len(eigen_real):
+                    mode_axes[0].scatter(eigen_real, eigen_imag, alpha=0.85)
+                mode_axes[0].axvline(0.0, color='0.5', linestyle='--', linewidth=1.0)
+                mode_axes[0].set_title(f'Eigenvalues: {record.model_name}')
+                mode_axes[0].set_xlabel('Re(lambda)')
+                mode_axes[0].set_ylabel('Im(lambda)')
+                mode_axes[0].grid(alpha=0.2)
+
+                if len(mode_norms):
+                    mode_axes[1].bar(np.arange(len(mode_norms)), mode_norms)
+                discontinuity = prediction_diagnostics.get('boundary_discontinuity_abs_mean')
+                resolved_modes = fit_diagnostics.get('resolved_n_modes')
+                mode_axes[1].set_title(
+                    f'Mode Norms (resolved={resolved_modes}, jump={discontinuity})'
+                )
+                mode_axes[1].set_xlabel('Mode Index')
+                mode_axes[1].set_ylabel('Norm')
+                mode_axes[1].grid(alpha=0.2, axis='y')
+
+                for extension in ('png', 'svg'):
+                    path = target_dir / f'{series_id}_{model_slug}_okhs_modes.{extension}'
+                    mode_figure.savefig(path, dpi=200, bbox_inches='tight')
+                    artifact_manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+                plt.close(mode_figure)
 
     return SeriesComparisonResult(
         series_id=series_id,
@@ -244,7 +357,7 @@ def render_publication_pack(
     if leaderboard.empty:
         summary_lines.append('No successful benchmark runs were recorded.')
     else:
-        summary_lines.append(leaderboard.to_markdown(index=False))
+        summary_lines.append(dataframe_to_markdown(leaderboard, index=False))
     summary_path.write_text('\n'.join(summary_lines), encoding='utf-8')
     manifest.append(ArtifactRecord(kind='summary', path=str(summary_path), format='md'))
 
@@ -291,6 +404,81 @@ def render_publication_pack(
                 horizon_figure.savefig(path, dpi=200, bbox_inches='tight')
                 manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
             plt.close(horizon_figure)
+
+        dataset_dir = ensure_directory(aggregate_dir / 'datasets')
+        aggregate_metrics = metrics_frame[metrics_frame['horizon_index'].isna()].copy()
+        for dataset_name in sorted(aggregate_metrics['dataset_name'].dropna().unique()):
+            dataset_metrics = aggregate_metrics[aggregate_metrics['dataset_name'] == dataset_name].copy()
+            if dataset_metrics.empty:
+                continue
+            dataset_slug = _slugify_model_name(str(dataset_name))
+
+            for metric_name in sorted(dataset_metrics['metric_name'].dropna().unique()):
+                metric_frame = dataset_metrics[dataset_metrics['metric_name'] == metric_name].copy()
+                if metric_frame.empty or metric_frame['model_name'].nunique() == 0:
+                    continue
+
+                distribution_figure, distribution_axis = plt.subplots(figsize=(10, 5))
+                metric_frame.boxplot(column='metric_value', by='model_name', ax=distribution_axis)
+                distribution_axis.set_title(f'{dataset_name}: {metric_name.upper()} Distribution')
+                distribution_axis.set_xlabel('Model')
+                distribution_axis.set_ylabel(metric_name.upper())
+                distribution_axis.figure.suptitle('')
+                distribution_axis.grid(alpha=0.2)
+                for extension in ('png', 'svg'):
+                    path = dataset_dir / f'{dataset_slug}_metric_distribution_{metric_name}.{extension}'
+                    distribution_figure.savefig(path, dpi=200, bbox_inches='tight')
+                    manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+                plt.close(distribution_figure)
+
+                ranking_frame = (
+                    metric_frame.groupby('model_name')['metric_value']
+                    .mean()
+                    .sort_values()
+                    .reset_index()
+                )
+                ranking_figure, ranking_axis = plt.subplots(figsize=(10, 5))
+                ranking_axis.bar(ranking_frame['model_name'], ranking_frame['metric_value'])
+                ranking_axis.set_title(f'{dataset_name}: Mean {metric_name.upper()} by Model')
+                ranking_axis.set_xlabel('Model')
+                ranking_axis.set_ylabel(metric_name.upper())
+                ranking_axis.tick_params(axis='x', rotation=25)
+                ranking_axis.grid(alpha=0.2, axis='y')
+                for extension in ('png', 'svg'):
+                    path = dataset_dir / f'{dataset_slug}_model_ranking_{metric_name}.{extension}'
+                    ranking_figure.savefig(path, dpi=200, bbox_inches='tight')
+                    manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+                plt.close(ranking_figure)
+
+                horizon_frame = metrics_frame[
+                    (metrics_frame['dataset_name'] == dataset_name)
+                    & (metrics_frame['metric_name'] == metric_name)
+                    & (metrics_frame['horizon_index'].notna())
+                    ].copy()
+                if not horizon_frame.empty:
+                    horizon_summary = (
+                        horizon_frame.groupby(['model_name', 'horizon_index'])['metric_value']
+                        .mean()
+                        .reset_index()
+                    )
+                    dataset_horizon_figure, dataset_horizon_axis = plt.subplots(figsize=(10, 5))
+                    for model_name, group in horizon_summary.groupby('model_name'):
+                        dataset_horizon_axis.plot(
+                            group['horizon_index'],
+                            group['metric_value'],
+                            label=model_name,
+                            linewidth=1.8,
+                        )
+                    dataset_horizon_axis.set_title(f'{dataset_name}: Horizon-wise {metric_name.upper()}')
+                    dataset_horizon_axis.set_xlabel('Horizon')
+                    dataset_horizon_axis.set_ylabel(metric_name.upper())
+                    dataset_horizon_axis.legend(frameon=False)
+                    dataset_horizon_axis.grid(alpha=0.2)
+                    for extension in ('png', 'svg'):
+                        path = dataset_dir / f'{dataset_slug}_horizon_distribution_{metric_name}.{extension}'
+                        dataset_horizon_figure.savefig(path, dpi=200, bbox_inches='tight')
+                        manifest.append(ArtifactRecord(kind='plot', path=str(path), format=extension))
+                    plt.close(dataset_horizon_figure)
 
         okhs_rows = successful_runs[successful_runs['model_name'].str.contains('okhs', case=False, regex=False)]
         if not okhs_rows.empty:

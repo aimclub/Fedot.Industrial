@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from .core import ArtifactRecord, ensure_directory
+from .markdown import dataframe_to_markdown
 
 
 @dataclass(frozen=True)
@@ -100,10 +101,10 @@ def render_registered_run_comparison_pack(
         '',
         '## Run Overview',
         '',
-        registry_frame.to_markdown(index=False),
+        dataframe_to_markdown(registry_frame, index=False),
     ]
     if not best_models_frame.empty:
-        summary_lines.extend(['', '## Best Models Per Run', '', best_models_frame.to_markdown(index=False)])
+        summary_lines.extend(['', '## Best Models Per Run', '', dataframe_to_markdown(best_models_frame, index=False)])
     summary_path.write_text('\n'.join(summary_lines), encoding='utf-8')
     manifest.append(ArtifactRecord(kind='summary', path=str(summary_path), format='md'))
 

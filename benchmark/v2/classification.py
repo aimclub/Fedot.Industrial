@@ -26,6 +26,7 @@ from .core import (
     write_json,
 )
 from .local_io import LocalDatasetParseError, load_local_supervised_split
+from .markdown import dataframe_to_markdown
 from .progress import BenchmarkProgressMonitor
 
 SUPPORTED_CLASSIFICATION_METRICS = ('accuracy', 'balanced_accuracy', 'f1_macro')
@@ -504,7 +505,7 @@ def render_tsc_publication_pack(
                 f'- Primary metric: `{result.aggregate_report.primary_metric}`',
                 f'- Successful runs: `{result.aggregate_report.status_counts.get("success", 0)}`',
                 '',
-                leaderboard.to_markdown(index=False) if not leaderboard.empty else 'No successful runs.',
+                dataframe_to_markdown(leaderboard, index=False) if not leaderboard.empty else 'No successful runs.',
             ]
         ),
         encoding='utf-8',

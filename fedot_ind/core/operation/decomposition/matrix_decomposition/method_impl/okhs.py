@@ -1,12 +1,12 @@
-from dataclasses import dataclass
 import time
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
-from sklearn.base import TransformerMixin
+from scipy.linalg import eig
 from scipy.special import gamma, roots_jacobi
 from sklearn.base import BaseEstimator, RegressorMixin
-from scipy.linalg import eig
+from sklearn.base import TransformerMixin
 
 try:  # pragma: no cover - dependency is expected, but keep a safe fallback
     from tqdm.auto import tqdm
@@ -659,7 +659,7 @@ class FractionalLiouvilleOperator(BaseEstimator):
             print(f"Computing Liouville matrix ({n_traj}x{n_traj}) using Jacobi quadratures...")
         block_size = n_traj if not self.pairwise_block_size else max(1, min(int(self.pairwise_block_size), n_traj))
         progress = MatrixComputationProgress(
-            enabled=self.show_progress,
+            enabled=True,
             matrix_name="liouville",
             total_blocks=int(np.ceil(n_traj / block_size)) ** 2,
             n_items=n_traj,
@@ -741,6 +741,334 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         
         self.modes_ = None
         self._quad_cache = None
+
+    @staticmethod
+    def _normalize_state_trajectory(trajectory):
+        normalized = np.asarray(trajectory)
+        if normalized.ndim == 1:
+            return normalized.reshape(-1, 1)
+        return normalized
+
+    @staticmethod
+    def _build_mode_groups(eigenvalues, tolerance=1e-8):
+        groups = []
+        used = set()
+        for index, eigenvalue in enumerate(eigenvalues):
+            if index in used:
+                continue
+            if abs(np.imag(eigenvalue)) <= tolerance:
+                groups.append((index,))
+                used.add(index)
+                continue
+            conjugate_index = None
+            for candidate_index in range(index + 1, len(eigenvalues)):
+                if candidate_index in used:
+                    continue
+                candidate_value = eigenvalues[candidate_index]
+                if np.isclose(candidate_value, np.conj(eigenvalue), atol=tolerance, rtol=1e-6):
+                    conjugate_index = candidate_index
+                    break
+            if conjugate_index is None:
+                groups.append((index,))
+                used.add(index)
+            else:
+                groups.append((index, conjugate_index))
+                used.add(index)
+                used.add(conjugate_index)
+        return groups
+
+    @staticmethod
+    def _resolve_prediction_mode_budget(available_equations, horizon, max_prediction_modes=None,
+                                        min_prediction_modes=4):
+        if max_prediction_modes is not None:
+            requested_budget = int(max_prediction_modes)
+        else:
+            requested_budget = max(
+                int(min_prediction_modes),
+                int(np.ceil(np.sqrt(max(available_equations, 1)))),
+                int(np.ceil(max(horizon, 1) / 2.0)),
+            )
+            requested_budget = min(requested_budget, 12)
+        return max(1, min(int(requested_budget), int(available_equations)))
+
+    def _select_prediction_modes(
+            self,
+            initial_trajectory,
+            t_span,
+            eig,
+            xi,
+            stable_indices,
+            available_equations,
+            prediction_mode_selection_policy="all_stable",
+            max_prediction_modes=None,
+            min_prediction_modes=4,
+    ):
+        policy = str(prediction_mode_selection_policy or "all_stable").lower()
+        horizon = len(t_span)
+        all_indices = np.arange(len(eig))
+        default_budget = min(len(eig), max(1, available_equations))
+
+        if policy in {"all_stable", "none"}:
+            selected = all_indices[:default_budget]
+            return {
+                "eig": eig[selected],
+                "xi": xi[selected],
+                "selected_local_indices": selected,
+                "selected_global_indices": stable_indices[selected],
+                "policy": policy,
+                "prediction_mode_budget": default_budget,
+                "preselection_count": len(selected),
+                "group_count": len(selected),
+                "score_table": [],
+            }
+
+        budget = self._resolve_prediction_mode_budget(
+            available_equations=available_equations,
+            horizon=horizon,
+            max_prediction_modes=max_prediction_modes,
+            min_prediction_modes=min_prediction_modes,
+        )
+        if len(eig) <= budget:
+            selected = all_indices
+            return {
+                "eig": eig[selected],
+                "xi": xi[selected],
+                "selected_local_indices": selected,
+                "selected_global_indices": stable_indices[selected],
+                "policy": policy,
+                "prediction_mode_budget": budget,
+                "preselection_count": len(selected),
+                "group_count": len(selected),
+                "score_table": [],
+            }
+
+        groups = self._build_mode_groups(eig)
+        group_descriptors = []
+        for group in groups:
+            group_array = np.asarray(group, dtype=int)
+            group_eig = eig[group_array]
+            group_xi = xi[group_array]
+            descriptor = {
+                "indices": tuple(int(item) for item in group),
+                "size": int(len(group)),
+                "preliminary_score": float(
+                    np.sum(np.linalg.norm(group_xi, axis=1))
+                    * (1.0 + 0.5 * np.sum(np.abs(np.imag(group_eig))) + 0.25 * np.sum(
+                        np.maximum(np.real(group_eig), 0.0)))
+                ),
+            }
+            group_descriptors.append(descriptor)
+
+        preselection_budget = min(len(eig), max(budget, min(int(available_equations), int(max(budget * 3, budget)))))
+        preliminary_sorted = sorted(group_descriptors, key=lambda item: item["preliminary_score"], reverse=True)
+        preselected_local_indices = []
+        preselected_groups = []
+        for descriptor in preliminary_sorted:
+            if len(preselected_local_indices) + descriptor["size"] > preselection_budget and preselected_groups:
+                continue
+            preselected_groups.append(descriptor)
+            preselected_local_indices.extend(descriptor["indices"])
+            if len(preselected_local_indices) >= preselection_budget:
+                break
+
+        preselected_local_indices = np.asarray(sorted(set(preselected_local_indices)), dtype=int)
+        preselected_eig = eig[preselected_local_indices]
+        preselected_xi = xi[preselected_local_indices]
+
+        coefficients = self.fit_initial_coefficients(initial_trajectory, eig=preselected_eig, Xi=preselected_xi)
+        q_value = self.okhs.q
+        tail_points = min(max(4, horizon // 2), len(initial_trajectory))
+        tail_start = len(initial_trajectory) - tail_points
+        tail_grid = np.arange(tail_start, len(initial_trajectory), dtype=float) * self.okhs.dt
+        future_grid = np.asarray(t_span, dtype=float)
+        tail_ml = mittag_leffler(preselected_eig[None, :] * (tail_grid.astype(np.complex128) ** q_value)[:, None],
+                                 q_value, 1)
+        future_ml = mittag_leffler(preselected_eig[None, :] * (future_grid.astype(np.complex128) ** q_value)[:, None],
+                                   q_value, 1)
+
+        local_index_map = {int(global_index): position for position, global_index in
+                           enumerate(preselected_local_indices)}
+        scored_groups = []
+        for descriptor in preselected_groups:
+            local_positions = np.asarray([local_index_map[index] for index in descriptor["indices"]], dtype=int)
+            tail_component = np.real(
+                tail_ml[:, local_positions][:, :, None]
+                * coefficients[local_positions][None, :, None]
+                * preselected_xi[local_positions][None, :, :]
+            )
+            future_component = np.real(
+                future_ml[:, local_positions][:, :, None]
+                * coefficients[local_positions][None, :, None]
+                * preselected_xi[local_positions][None, :, :]
+            )
+            tail_energy = float(np.mean(np.abs(tail_component)))
+            future_energy = float(np.mean(np.abs(future_component)))
+            future_variability = float(np.mean(np.std(future_component, axis=0)))
+            oscillation_score = float(np.sum(np.abs(np.imag(preselected_eig[local_positions]))))
+            refined_score = 0.6 * tail_energy + 0.4 * future_variability + 0.2 * future_energy + 0.1 * oscillation_score
+            scored_groups.append(
+                {
+                    "indices": descriptor["indices"],
+                    "size": descriptor["size"],
+                    "tail_energy": tail_energy,
+                    "future_energy": future_energy,
+                    "future_variability": future_variability,
+                    "oscillation_score": oscillation_score,
+                    "refined_score": refined_score,
+                }
+            )
+
+        scored_groups.sort(key=lambda item: item["refined_score"], reverse=True)
+        selected_local_indices = []
+        for descriptor in scored_groups:
+            if len(selected_local_indices) + descriptor["size"] > budget and selected_local_indices:
+                continue
+            selected_local_indices.extend(descriptor["indices"])
+            if len(selected_local_indices) >= budget:
+                break
+
+        if len(selected_local_indices) < min(int(min_prediction_modes), len(preselected_local_indices)):
+            for descriptor in scored_groups:
+                for index in descriptor["indices"]:
+                    if index not in selected_local_indices:
+                        selected_local_indices.append(index)
+                if len(selected_local_indices) >= min(int(min_prediction_modes), len(preselected_local_indices)):
+                    break
+
+        selected_local_indices = np.asarray(sorted(set(selected_local_indices)), dtype=int)
+        return {
+            "eig": eig[selected_local_indices],
+            "xi": xi[selected_local_indices],
+            "selected_local_indices": selected_local_indices,
+            "selected_global_indices": stable_indices[selected_local_indices],
+            "policy": policy,
+            "prediction_mode_budget": budget,
+            "preselection_count": int(len(preselected_local_indices)),
+            "group_count": int(len(groups)),
+            "score_table": [
+                {
+                    "indices": list(item["indices"]),
+                    "refined_score": float(item["refined_score"]),
+                    "tail_energy": float(item["tail_energy"]),
+                    "future_energy": float(item["future_energy"]),
+                    "future_variability": float(item["future_variability"]),
+                    "oscillation_score": float(item["oscillation_score"]),
+                }
+                for item in scored_groups[:10]
+            ],
+        }
+
+    def _prepare_prediction_state(
+            self,
+            initial_trajectory,
+            t_span,
+            stability_threshold=None,
+            prediction_mode_selection_policy="all_stable",
+            max_prediction_modes=None,
+            min_prediction_modes=4,
+    ):
+        initial_trajectory = self._normalize_state_trajectory(initial_trajectory)
+        t_span = np.asarray(t_span, dtype=float).reshape(-1)
+
+        eig_full = np.asarray(self.liouville_operator.eigenvalues_)
+        xi_full = np.asarray(self.modes_)
+
+        stable_mask = select_stable_modes(
+            eig_full,
+            stability_policy=self.stability_policy,
+            stability_threshold=stability_threshold,
+        )
+        eig = eig_full[stable_mask]
+        xi = xi_full[stable_mask]
+        if eig.size == 0:
+            raise ValueError("No stable modes remain after applying the stability policy.")
+
+        available_equations = int(initial_trajectory.shape[0] * initial_trajectory.shape[1])
+        selected_mode_indices = np.where(stable_mask)[0]
+        selection = self._select_prediction_modes(
+            initial_trajectory=initial_trajectory,
+            t_span=t_span,
+            eig=eig,
+            xi=xi,
+            stable_indices=selected_mode_indices,
+            available_equations=available_equations,
+            prediction_mode_selection_policy=prediction_mode_selection_policy,
+            max_prediction_modes=max_prediction_modes,
+            min_prediction_modes=min_prediction_modes,
+        )
+        eig = selection["eig"]
+        xi = selection["xi"]
+        selected_mode_indices = selection["selected_global_indices"]
+        prediction_mode_cap = int(selection["prediction_mode_budget"])
+        prediction_mode_cap_applied = bool(len(np.where(stable_mask)[0]) > len(selected_mode_indices))
+
+        coefficients = self.fit_initial_coefficients(initial_trajectory, Xi=xi, eig=eig)
+        t_q = (t_span.astype(np.complex128) ** self.okhs.q)[:, None]
+        lam = eig[None, :]
+        mittag = mittag_leffler(lam * t_q, self.okhs.q, 1)
+        predicted = np.real(mittag @ (coefficients[:, None] * xi))
+        return {
+            "initial_trajectory": initial_trajectory,
+            "t_span": t_span,
+            "eig_full": eig_full,
+            "stable_mask": stable_mask,
+            "eig": eig,
+            "xi": xi,
+            "selected_mode_indices": selected_mode_indices,
+            "available_equations": available_equations,
+            "prediction_mode_cap": prediction_mode_cap,
+            "prediction_mode_cap_applied": prediction_mode_cap_applied,
+            "prediction_mode_selection_policy": selection["policy"],
+            "prediction_preselection_count": selection["preselection_count"],
+            "prediction_group_count": selection["group_count"],
+            "prediction_mode_scores": selection["score_table"],
+            "coefficients": coefficients,
+            "predicted": predicted,
+        }
+
+    def _build_prediction_diagnostics(self, state):
+        initial_trajectory = state["initial_trajectory"]
+        eig = state["eig"]
+        xi = state["xi"]
+        coefficients = state["coefficients"]
+        predicted = state["predicted"]
+        stable_mask = state["stable_mask"]
+        selected_mode_indices = state["selected_mode_indices"]
+
+        initial_grid = np.arange(initial_trajectory.shape[0], dtype=float) * self.okhs.dt
+        initial_t_q = (initial_grid.astype(np.complex128) ** self.okhs.q)[:, None]
+        initial_mittag = mittag_leffler(eig[None, :] * initial_t_q, self.okhs.q, 1)
+        reconstruction = np.real(initial_mittag @ (coefficients[:, None] * xi))
+
+        last_observed = np.asarray(initial_trajectory[-1], dtype=float).reshape(-1)
+        first_prediction = np.asarray(predicted[0], dtype=float).reshape(-1) if len(predicted) else last_observed
+        discontinuity = first_prediction - last_observed
+
+        return {
+            "n_total_modes": int(len(state["eig_full"])),
+            "n_stable_modes": int(np.sum(stable_mask)),
+            "stable_mode_indices": np.where(stable_mask)[0].tolist(),
+            "n_selected_prediction_modes": int(len(eig)),
+            "selected_prediction_mode_indices": selected_mode_indices.tolist(),
+            "available_equations": int(state["available_equations"]),
+            "prediction_mode_cap": int(state["prediction_mode_cap"]),
+            "prediction_mode_cap_applied": bool(state["prediction_mode_cap_applied"]),
+            "prediction_mode_selection_policy": state["prediction_mode_selection_policy"],
+            "prediction_preselection_count": int(state["prediction_preselection_count"]),
+            "prediction_group_count": int(state["prediction_group_count"]),
+            "prediction_mode_scores": state["prediction_mode_scores"],
+            "stable_eigenvalues_real": np.real(eig).tolist(),
+            "stable_eigenvalues_imag": np.imag(eig).tolist(),
+            "mode_norms": np.linalg.norm(xi, axis=1).astype(float).tolist() if len(xi) else [],
+            "initial_coefficients_real": np.real(coefficients).tolist(),
+            "initial_coefficients_imag": np.imag(coefficients).tolist(),
+            "initial_reconstruction_rmse": float(np.sqrt(np.mean((reconstruction - initial_trajectory) ** 2))),
+            "initial_reconstruction_mae": float(np.mean(np.abs(reconstruction - initial_trajectory))),
+            "last_observed_value": last_observed.tolist(),
+            "first_prediction_value": first_prediction.tolist(),
+            "boundary_discontinuity": discontinuity.tolist(),
+            "boundary_discontinuity_abs_mean": float(np.mean(np.abs(discontinuity))),
+        }
 
 
     def _get_jacobi_rule(self):
@@ -946,6 +1274,25 @@ class FractionalDMD(BaseEstimator, RegressorMixin):
         x_pred = ML @ X      # (n_pred, n_features)
         
         return np.real(x_pred)
+
+    def predict_with_diagnostics(
+            self,
+            initial_trajectory,
+            t_span,
+            stability_threshold=None,
+            prediction_mode_selection_policy="all_stable",
+            max_prediction_modes=None,
+            min_prediction_modes=4,
+    ):
+        state = self._prepare_prediction_state(
+            initial_trajectory=initial_trajectory,
+            t_span=t_span,
+            stability_threshold=stability_threshold,
+            prediction_mode_selection_policy=prediction_mode_selection_policy,
+            max_prediction_modes=max_prediction_modes,
+            min_prediction_modes=min_prediction_modes,
+        )
+        return state["predicted"], self._build_prediction_diagnostics(state)
     
 
     def plot_predict(self, initial_trajectory, t_span, stability_threshold=0.05):

@@ -5,183 +5,130 @@ import torch.nn as nn
 
 class DMDForecaster:
     """
-    Правильная реализация DMD для многомерного прогнозирования
+    DMD forecaster for univariate and multivariate trajectory windows.
     """
 
     def __init__(self, forecast_horizon=10, n_modes=None, use_koopman=True,
                  learning_rate=0.01, epochs=1000, device='auto'):
         self.forecast_horizon = forecast_horizon
         self.n_modes = n_modes
-        self.use_koopman = use_koopman  # True для Koopman, False для классического DMD
+        self.use_koopman = use_koopman
         self.learning_rate = learning_rate
         self.max_epochs = epochs
         self.device = device
         self.training_history_ = []
+        self.input_shape_ = None
+        self.output_shape_ = None
+        self.output_dim_ = None
 
     def _create_dmd_data_matrix(self, trajectories):
-        """
-        Создание матриц данных для DMD: X и Y
-        где Y = X сдвинутый на 1 шаг вперед
-        """
-        X_list, Y_list = [], []
+        x_list, y_list = [], []
         for trajectory in trajectories:
-            # trajectory: [x₁, x₂, ..., x_window_size] ∈ ℝ^(window_size)
             if len(trajectory) >= self.forecast_horizon + 1:
-                # Вход: текущее окно (весь window_size точек)
                 x_input = trajectory[:-self.forecast_horizon]
-
-                # Цель: следующие forecast_horizon точек (скалярных значений!)
                 y_target = trajectory[-self.forecast_horizon:]
+                x_list.append(x_input)
+                y_list.append(y_target)
 
-                X_list.append(x_input)
-                Y_list.append(y_target)
-        X_torch = torch.tensor(np.array(X_list), dtype=torch.float32, device=self.device)
-        Y_torch = torch.tensor(np.array(Y_list), dtype=torch.float32, device=self.device)
-        return X_torch, Y_torch
+        x_np = np.asarray(x_list, dtype=float)
+        y_np = np.asarray(y_list, dtype=float)
+        self.input_shape_ = tuple(int(value) for value in x_np.shape[1:]) if x_np.ndim > 1 else ()
+        self.output_shape_ = tuple(int(value) for value in y_np.shape[1:]) if y_np.ndim > 1 else ()
 
-    def _compute_classical_dmd(self, X, Y):
-        """
-        Классический DMD через SVD разложение
-        A = Y X⁺, где X⁺ - псевдообратная матрица
-        """
+        x_flat = x_np.reshape(x_np.shape[0], -1)
+        y_flat = y_np.reshape(y_np.shape[0], -1)
+        x_torch = torch.tensor(x_flat, dtype=torch.float32, device=self.device)
+        y_torch = torch.tensor(y_flat, dtype=torch.float32, device=self.device)
+        return x_torch, y_torch
 
-        # Вычисляем псевдообратную через SVD
-        U, S, Vt = torch.svd(X)
+    def _compute_classical_dmd(self, x_matrix, y_matrix):
+        u, singular_values, vt = torch.svd(x_matrix)
 
-        # Обрезаем по числу мод если задано
         if self.n_modes is not None:
-            U = U[:, :self.n_modes]
-            S = S[:self.n_modes]
-            Vt = Vt[:self.n_modes, :]
+            u = u[:, :self.n_modes]
+            singular_values = singular_values[:self.n_modes]
+            vt = vt[:self.n_modes, :]
 
-        # Псевдообратная: X⁺ = V Σ⁺ Uᵀ
-        S_inv = torch.diag(1.0 / S)
-        X_pinv = Vt.T @ S_inv @ U.T
-
-        # Оператор эволюции: A = Y X⁺
-        A = Y @ X_pinv
-
-        return A, U, S, Vt
+        singular_values_inv = torch.diag(1.0 / singular_values)
+        x_pinv = vt.T @ singular_values_inv @ u.T
+        operator = y_matrix @ x_pinv
+        return operator, u, singular_values, vt
 
     def _setup_koopman_model(self, input_dim):
-        """
-        Настройка модели на основе оператора Копмана
-        В Koopman DMD мы ищем оператор в пространстве наблюдаемых
-        """
         if self.n_modes is None:
-            self.n_modes = min(64, input_dim * 2)  # Эвристика
+            self.n_modes = min(64, input_dim * 2)
 
-        # Оператор Копмана: K ∈ ℝ^(n_modes × n_modes)
+        output_dim = self.output_dim_ or self.forecast_horizon
         self.K = nn.Parameter(torch.randn(self.n_modes, self.n_modes, device=self.device) * 0.01).to(self.device)
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 512),
+            nn.Tanh(),
+            nn.Linear(512, self.n_modes),
+        ).to(self.device)
+        self.decoder = nn.Sequential(
+            nn.Linear(self.n_modes, 256),
+            nn.Tanh(),
+            nn.Linear(256, output_dim),
+        ).to(self.device)
 
-        # Энкодер: ℝ^(input_dim) → ℝ^(n_modes)
-        self.encoder = nn.Sequential(nn.Linear(input_dim, 512), nn.Tanh(),
-                                     nn.Linear(512, self.n_modes)).to(self.device)
-
-        # Декодер: ℝ^(n_modes) → ℝ^(input_dim)
-        self.decoder = nn.Sequential(nn.Linear(self.n_modes, 256),
-                                     nn.Tanh(), nn.Linear(256, self.forecast_horizon)).to(self.device)
-
-    def _koopman_forward(self, x, steps=1):
-        """
-        Пропуск через Koopman модель
-        x: ℝ^(batch_size × input_dim)
-        returns: ℝ^(batch_size × steps × input_dim)
-        """
-
-        # Кодируем в пространство Купмана
-        z = self.encoder(x)  # ℝ^(batch_size × n_modes)
-
-        # Применяем оператор Копмана ОДИН раз
-        z_evolved = z @ self.K.T  # ℝ^(batch_size × n_modes)
-
-        # Декодируем в прогноз на forecast_horizon точек
-        predictions = self.decoder(z_evolved)  # ℝ^(batch_size × forecast_horizon)
-
-        return predictions
+    def _koopman_forward(self, x_matrix):
+        z_matrix = self.encoder(x_matrix)
+        z_evolved = z_matrix @ self.K.T
+        return self.decoder(z_evolved)
 
     def fit(self, trajectory_matrix, window_size=20):
-        """Обучение DMD модели"""
         self.window_size_ = window_size
+        x_matrix, y_matrix = self._create_dmd_data_matrix(trajectory_matrix)
+        self.input_dim_ = x_matrix.shape[1] if x_matrix.ndim > 1 else 1
+        self.output_dim_ = y_matrix.shape[1] if y_matrix.ndim > 1 else 1
+        return self._fit_koopman_dmd(x_matrix, y_matrix) if self.use_koopman else self._fit_classical_dmd(
+            x_matrix, y_matrix
+        )
 
-        # Создаем матрицы данных для DMD
-        X, Y = self._create_dmd_data_matrix(trajectory_matrix)
-        self.input_dim_ = X.shape[1] if X.ndim > 1 else 1
-        return self._fit_koopman_dmd(X, Y) if self.use_koopman else self._fit_classical_dmd(X, Y)
-
-    def _fit_classical_dmd(self, X, Y):
-        """Обучение классического DMD"""
+    def _fit_classical_dmd(self, x_matrix, y_matrix):
         self.training_history_ = []
-        self.A, self.U, self.S, self.Vt = self._compute_classical_dmd(X, Y)
-
-        print(f"Classical DMD: A {self.A.shape}")
+        self.A, self.U, self.S, self.Vt = self._compute_classical_dmd(x_matrix, y_matrix)
         return self
 
-    def _fit_koopman_dmd(self, X, Y):
-        """Обучение Koopman DMD через оптимизацию"""
+    def _fit_koopman_dmd(self, x_matrix, y_matrix):
         self._setup_koopman_model(self.input_dim_)
         self.training_history_ = []
+        parameters = list(self.encoder.parameters()) + list(self.decoder.parameters()) + [self.K]
+        optimizer = torch.optim.Adam(parameters, lr=self.learning_rate)
 
-        # Y имеет форму (n_samples, forecast_horizon, input_dim)
-        # Нам нужно предсказать все шаги сразу
-        dmd_params = list(self.encoder.parameters()) + list(self.decoder.parameters()) + [self.K]
-        optimizer = torch.optim.Adam(dmd_params, lr=self.learning_rate)
-
-        for epoch in range(self.max_epochs):
+        for _ in range(self.max_epochs):
             optimizer.zero_grad()
-
-            # Предсказание на все шаги
-            predictions = self._koopman_forward(X, steps=self.forecast_horizon)
-            # Сравниваем со всеми целевыми шагами
-            loss = nn.MSELoss()(predictions, Y)
-
-            # Регуляризация для стабильности оператора Копмана
+            predictions = self._koopman_forward(x_matrix)
+            loss = nn.MSELoss()(predictions, y_matrix)
             reg_loss = torch.norm(self.K, p='fro') * 0.001
             total_loss = loss + reg_loss
-
             total_loss.backward()
             optimizer.step()
             self.training_history_.append(float(total_loss.item()))
 
-            if epoch % 10 == 0:
-                print(f'Epoch {epoch}: Loss = {total_loss.item():.4f}')
-
         return self
 
     def predict(self, last_trajectory):
-        """Прогнозирование с правильной DMD"""
-        X_list = last_trajectory[-self.forecast_horizon:]
-        last_trajectory_tensor = torch.tensor(np.array(X_list), dtype=torch.float32,
-                                              device=self.device)  # batch_size x forecast_horizon
+        last_trajectory_array = np.asarray(last_trajectory, dtype=float)
+        last_trajectory_tensor = torch.tensor(last_trajectory_array.reshape(1, -1), dtype=torch.float32,
+                                              device=self.device)
         if self.use_koopman:
             return self._predict_koopman(last_trajectory_tensor)
-        else:
-            return self._predict_classical(last_trajectory)
+        return self._predict_classical(last_trajectory_array)
 
     def _predict_classical(self, last_window):
-        """Прогнозирование классическим DMD"""
-        # last_window: [x_{t-k}, ..., x_t]
-        current_state = last_window[-1]  # Берем последнее состояние
-
-        if current_state.ndim == 0:
-            current_state = np.array([current_state])
-
+        current_state = np.asarray(last_window, dtype=float).reshape(-1)
         current_torch = torch.tensor(current_state, dtype=torch.float32, device=self.device)
-
-        predictions = []
-
-        for step in range(self.forecast_horizon):
-            # Применяем оператор эволюции: x_{t+1} = A x_t
-            next_state = self.A @ current_torch
-            predictions.append(next_state.detach().cpu().numpy())
-
-            # Для рекурсивного прогноза обновляем состояние
-            current_torch = next_state
-
-        return np.array(predictions)
+        next_state = self.A @ current_torch
+        prediction = next_state.detach().cpu().numpy()
+        if self.output_shape_:
+            return prediction.reshape(self.output_shape_)
+        return prediction
 
     def _predict_koopman(self, last_trajectory_tensor):
-        """Прогнозирование Koopman DMD"""
         with torch.no_grad():
-            predictions = self._koopman_forward(last_trajectory_tensor, steps=self.forecast_horizon)
-        return predictions.squeeze(0).cpu().numpy()
+            predictions = self._koopman_forward(last_trajectory_tensor)
+        prediction = predictions.squeeze(0).cpu().numpy()
+        if self.output_shape_:
+            return prediction.reshape(self.output_shape_)
+        return prediction

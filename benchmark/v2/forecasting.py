@@ -593,6 +593,18 @@ class OKHSModel(ForecastingModelAdapter):
     q_policy: str | QPolicy = QPolicy.FIXED
     n_modes: int = 5
     window_size: int = 20
+    window_policy: str = 'adaptive_cycle_aware'
+    trajectory_representation_policy: str = 'projected'
+    latent_trajectory_stride_policy: str = 'adaptive'
+    latent_trajectory_stride: int | None = None
+    mode_selection_policy: str = "energy"
+    mode_energy_threshold: float = 0.95
+    prediction_mode_selection_policy: str = "adaptive_tail_energy"
+    max_prediction_modes: int | None = None
+    min_prediction_modes: int = 4
+    boundary_alignment_policy: str = "tapered_offset"
+    boundary_alignment_decay: float = 4.0
+    prediction_stability_threshold: float | None = 0.03
     name: str = 'OKHS'
     tags: tuple[str, ...] = ('okhs', 'forecasting')
     optional: bool = False
@@ -612,14 +624,36 @@ class OKHSModel(ForecastingModelAdapter):
             n_modes=self.n_modes,
             method=method,
             q_policy=self.q_policy,
+            window_policy=self.window_policy,
+            trajectory_representation_policy=self.trajectory_representation_policy,
+            latent_trajectory_stride_policy=self.latent_trajectory_stride_policy,
+            latent_trajectory_stride=self.latent_trajectory_stride,
+            mode_selection_policy=self.mode_selection_policy,
+            mode_energy_threshold=self.mode_energy_threshold,
+            prediction_mode_selection_policy=self.prediction_mode_selection_policy,
+            max_prediction_modes=self.max_prediction_modes,
+            min_prediction_modes=self.min_prediction_modes,
+            boundary_alignment_policy=self.boundary_alignment_policy,
+            boundary_alignment_decay=self.boundary_alignment_decay,
+            prediction_stability_threshold=self.prediction_stability_threshold,
         )
         model.fit(train, window_size=window_size)
         prediction = np.asarray(model.predict(train), dtype=float).reshape(-1)
-        return prediction[:series_record.forecast_horizon], {
+        forecast = prediction[:series_record.forecast_horizon]
+        metadata = {
+            **model.get_optimization_info(),
             'selected_q': float(getattr(model, 'resolved_q_', self.q)),
             'method': str(method),
             'window_size': window_size,
+            'last_train_value': float(train[-1]),
+            'first_prediction_value': float(forecast[0]) if len(forecast) else None,
+            'first_actual_value': float(series_record.test_values[0]) if series_record.test_values else None,
         }
+        if metadata['first_prediction_value'] is not None:
+            metadata['first_step_delta'] = float(metadata['first_prediction_value'] - metadata['last_train_value'])
+        if metadata['first_actual_value'] is not None:
+            metadata['first_actual_delta'] = float(metadata['first_actual_value'] - metadata['last_train_value'])
+        return forecast, metadata
 
 
 @dataclass

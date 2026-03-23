@@ -22,7 +22,8 @@ from .core import (
     to_plain_data,
     write_json,
 )
-from .manifests import load_manifest, render_resolved_manifest, run_manifest, run_manifest_path
+from .manifests import load_manifest, render_resolved_manifest, run_manifest
+from .markdown import dataframe_to_markdown
 from .presets import run_local_benchmark_preset
 
 BenchmarkResult = any([ForecastingBenchmarkResult, ClassificationBenchmarkResult, RegressionBenchmarkResult])
@@ -218,4 +219,4 @@ def _write_registry_table(registry_dir: Path) -> None:
     csv_path = registry_dir / 'run_registry.csv'
     frame.to_csv(csv_path, index=False)
     markdown_path = registry_dir / 'run_registry.md'
-    markdown_path.write_text(frame.to_markdown(index=False), encoding='utf-8')
+    markdown_path.write_text(dataframe_to_markdown(frame, index=False), encoding='utf-8')
