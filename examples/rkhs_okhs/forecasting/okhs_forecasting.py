@@ -1,5 +1,5 @@
-from examples.rkhs_okhs.forecasting.okhs_forecasting_utils import build_forecaster_params
-from examples.rkhs_okhs.forecasting.vis_utils import OKHSForecasterWithVisualization
+from okhs_forecasting_utils import build_forecaster_params
+from vis_utils import OKHSForecasterWithVisualization
 
 # BAD KERNELS - 'rational_quadratic', 'graph_diffusion','spectral_mixture','adaptive'
 

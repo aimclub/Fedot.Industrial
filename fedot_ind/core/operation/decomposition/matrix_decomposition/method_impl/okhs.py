@@ -48,6 +48,10 @@ class MatrixComputationProgress:
     completed_blocks: int = 0
 
     def __post_init__(self):
+        """
+        Инициализирует панель прогресса при создании экземпляра.
+        Засекает время начала вычисления матрицы и выводит сообщение о начале процесса, если прогресс включен.
+        """
         self.started_at = time.perf_counter()
         if self.enabled:
             self.bar = TQDM_FACTORY(
@@ -62,6 +66,9 @@ class MatrixComputationProgress:
             )
 
     def update(self, left_start, left_stop, right_start, right_stop):
+        """
+        Обновляет состояние панели прогресса, отображая текущие блоки и расчетное время завершения.
+        """
         self.completed_blocks += 1
         if not self.enabled or self.bar is None:
             return
@@ -84,6 +91,9 @@ class MatrixComputationProgress:
             self.bar.update(1)
 
     def close(self):
+        """
+        Закрывает панель прогресса и выводит итоговое сообщение о завершении вычисления матрицы.
+        """
         elapsed_seconds = max(time.perf_counter() - self.started_at, 0.0)
         blocks_per_second = self.completed_blocks / max(elapsed_seconds, 1e-9) if self.completed_blocks else 0.0
         if self.enabled:
@@ -96,12 +106,18 @@ class MatrixComputationProgress:
 
 
 def validate_square_matrix_shape(matrix, label):
+    """
+    Проверяет, является ли входная матрица квадратной. Если нет, вызывает ValueError.
+    """
     rows, cols = matrix.shape
     if rows != cols:
         raise ValueError(f"{label} must be square, got shape {matrix.shape}.")
 
 
 def validate_liouville_shapes(gram_matrix, liouville_matrix):
+    """
+    Проверяет, что матрица Грама и матрица Лиувилля являются квадратными и имеют одинаковые размеры.
+    """
     validate_square_matrix_shape(gram_matrix, "Gram matrix")
     validate_square_matrix_shape(liouville_matrix, "Liouville matrix")
     if gram_matrix.shape != liouville_matrix.shape:
@@ -112,6 +128,9 @@ def validate_liouville_shapes(gram_matrix, liouville_matrix):
 
 
 def validate_initial_coefficient_feasibility(initial_trajectory, n_modes):
+    """
+    Проверяет, достаточно ли данных в начальной траектории для определения заданного числа мод.
+    """
     initial_trajectory = np.asarray(initial_trajectory)
     if initial_trajectory.ndim != 2:
         raise ValueError("initial_trajectory must have shape (K, n_features).")
@@ -125,6 +144,9 @@ def validate_initial_coefficient_feasibility(initial_trajectory, n_modes):
 
 
 def select_stable_modes(eigenvalues, stability_policy, stability_threshold=None):
+    """
+    Выбирает "стабильные" моды на основе политики стабильности.
+    """
     if not stability_policy.drop_positive_real_modes:
         return np.ones(len(eigenvalues), dtype=bool)
 
@@ -137,11 +159,15 @@ def select_stable_modes(eigenvalues, stability_policy, stability_threshold=None)
 
 
 def sort_eigendecomposition(eigenvalues, eigenvectors, sorting_strategy):
+    """
+    Сортирует собственные значения и собственные векторы согласно заданной стратегии.
+    """
     if sorting_strategy == "real_desc":
         order = np.argsort(np.real(eigenvalues))[::-1]
     else:
         order = np.argsort(np.abs(eigenvalues))[::-1]
     return eigenvalues[order], eigenvectors[:, order]
+
 
 class OKHSTransformer(TransformerMixin, BaseEstimator):
     """
@@ -244,6 +270,20 @@ class OKHSTransformer(TransformerMixin, BaseEstimator):
 
     @staticmethod
     def _normalize_trajectory(trajectory):
+        """
+        Нормализует входную траекторию, преобразуя ее в двумерный массив.
+        Если траектория одномерна, добавляет ось для признаков.
+        
+        Parameters
+        ----------
+        trajectory : array-like
+            Входная траектория.
+            
+        Returns
+        -------
+        np.ndarray
+            Нормализованная траектория.
+        """
         normalized = np.asarray(trajectory, dtype=float)
         if normalized.ndim == 1:
             return normalized.reshape(-1, 1)

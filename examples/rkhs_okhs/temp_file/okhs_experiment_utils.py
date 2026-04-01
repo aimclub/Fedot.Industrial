@@ -7,12 +7,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pymonad.either import Either, Left, Right
 
-from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
-    FractionalDMD,
-    FractionalLiouvilleOperator,
-    OKHSTransformer,
-)
-
+# from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.okhs import (
+#     FractionalDMD,
+#     FractionalLiouvilleOperator,
+#     OKHSTransformer,
+# )
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_dmd import FractionalDMD
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.gram_transform import OKHSTransformer
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_liouville import FractionalLiouvilleOperator
 
 @dataclass(frozen=True)
 class ExperimentConfig:
@@ -113,6 +115,7 @@ def fit_okhs_fdmd_pipeline(
         kernel: Any,
         n_quad_points: int,
         regularization: float,
+        device: str = 'cpu',
 ) -> PipelineArtifacts:
     dt = float(time[1] - time[0])
 
@@ -121,6 +124,7 @@ def fit_okhs_fdmd_pipeline(
         q=q_true,
         n_quad_points=n_quad_points,
         dt=dt,
+        device=device,
     )
     okhs.fit(list(train_trajectories))
 
@@ -134,6 +138,7 @@ def fit_okhs_fdmd_pipeline(
         liouville_operator=liouville_operator,
         n_quad_points=n_quad_points,
         regularization=regularization,
+        device=device,
     )
     fdmd.fit()
 
@@ -214,6 +219,7 @@ def run_experiment_from_artifacts(
         initial_segment_length: int,
         plot_part: float,
         should_plot: bool = True,
+        device: str = 'cpu',
 ) -> ExperimentResult:
     artifacts = fit_okhs_fdmd_pipeline(
         time=time,
@@ -222,6 +228,7 @@ def run_experiment_from_artifacts(
         kernel=kernel,
         n_quad_points=n_quad_points,
         regularization=regularization,
+        device=device,
     )
     initial_segment = test_traj[:initial_segment_length]
     pred_traj = artifacts.fdmd.predict(initial_segment, time)

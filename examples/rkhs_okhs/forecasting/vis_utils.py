@@ -4,7 +4,7 @@ import pandas as pd
 import seaborn as sns
 import torch
 
-from examples.rkhs_okhs.forecasting.okhs_forecasting_utils import (
+from okhs_forecasting_utils import (
     build_forecaster_params,
     extract_training_history,
 )
@@ -39,7 +39,7 @@ class OKHSForecasterWithVisualization:
         # 4. Нестационарный ряд с изменяющейся волатильностью
         self.volatile_series = np.sin(self.time_points) * (
                 1 + 0.3 * np.sin(0.3 * self.time_points)) + 0.1 * np.random.normal(size=len(self.time_points))
-        ts_monash = pd.read_csv('./MonashBitcoin_30.csv')
+        ts_monash = pd.read_csv('examples/rkhs_okhs/forecasting/MonashBitcoin_30.csv')
         self.monash_series = ts_monash[ts_monash['label'] == 'price']['value'].values
         self.series_dict = {
             'Синусоидальный': self.sine_series,

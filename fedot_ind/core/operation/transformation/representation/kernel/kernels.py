@@ -52,7 +52,7 @@ class MultiKernelEnsemble(KernelBase):
 
     def get_kernel_weights(self):
         """Получить текущие веса ядер"""
-        return self.weights.detach().numpy()
+        return self.weights.detach().cpu().numpy()
 
     def set_kernel_weights(self, weights):
         """Установить веса ядер"""
@@ -182,7 +182,7 @@ class OccupationKernel(KernelBase):
                 gram_matrix[i, j] = k_ij
                 gram_matrix[j, i] = k_ij
 
-        return gram_matrix.numpy()
+        return gram_matrix.cpu().numpy()
 
     def _compute_gram_matrix_optimized(self, trajectories):
         """Оптимизированная версия для больших наборов данных"""
@@ -245,7 +245,7 @@ class OccupationKernel(KernelBase):
                 gram_matrix[i, j] = k_ij
                 gram_matrix[j, i] = k_ij
 
-        return gram_matrix.numpy()
+        return gram_matrix.cpu().numpy()
 
     def _precompute_weight_matrices(self, lengths):
         """Предварительное вычисление матриц весов"""
