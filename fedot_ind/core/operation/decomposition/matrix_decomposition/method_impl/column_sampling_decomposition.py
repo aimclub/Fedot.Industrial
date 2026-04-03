@@ -96,6 +96,9 @@ class CURDecomposition:
         return np.linalg.norm(original_tensor - C @ U @ R)
 
     def _balance_target(self, target):
+        if target is None:
+            self.classes_idx = None
+            return
         classes = np.unique(target)
         self.classes_idx = [np.where(target == cls)[0] for cls in classes]
 

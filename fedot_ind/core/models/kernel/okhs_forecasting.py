@@ -20,7 +20,7 @@ class OKHSForecaster(BaseEstimator, RegressorMixin):
     """
 
     def __init__(
-            self,
+            self, 
             q=0.7,
             forecast_horizon=10,
             n_modes=5,

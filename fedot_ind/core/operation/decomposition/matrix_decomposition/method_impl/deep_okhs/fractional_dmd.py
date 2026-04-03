@@ -588,11 +588,11 @@ def plot_forecast_diagnostics(fdmd, initial_trajectory, t_span, stability_thresh
     
     # Перенос данных в NumPy для Matplotlib
     t_span = t_span_tensor.cpu().numpy()
-    eig = eig.cpu().numpy()
-    xi = xi.cpu().numpy()
-    coefficients = coefficients.cpu().numpy()
-    mittag = mittag_tensor.cpu().numpy()
-    predicted = predicted_tensor.cpu().numpy()
+    eig = eig.cpu().detach().numpy()
+    xi = xi.cpu().detach().numpy()
+    coefficients = coefficients.cpu().detach().numpy()
+    mittag = mittag_tensor.cpu().detach().numpy()
+    predicted = predicted_tensor.cpu().detach().numpy()
 
     abs_c = np.abs(coefficients)
     top_k = min(15, n_modes)

@@ -6,17 +6,14 @@ import torch.nn as nn
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 
-# Предполагается, что эти импорты у тебя уже настроены на обновленные классы
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_dmd import FractionalDMD
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.gram_transform import OKHSTransformer
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_liouville import FractionalLiouvilleOperator
 from okhs_experiment_utils import ExperimentConfig, fit_okhs_fdmd_pipeline
 from example_common import generate_trajectories_pycaputo
-
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.column_sampling_decomposition import CURDecomposition
 from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.kernels import DeepKernel
-# ==========================================
-# 1. Архитектура нейросети и Deep Kernel
-# ==========================================
+from fedot_ind.core.operation.decomposition.matrix_decomposition.method_impl.deep_okhs.fractional_dmd import plot_forecast_diagnostics
 
 class DeepFeatureExtractor(nn.Module):
     def __init__(self, input_dim, hidden_dim=16, output_dim=None, dtype=torch.float64):
@@ -54,10 +51,10 @@ class DeepFeatureExtractor(nn.Module):
                 device=x.device, dtype=x.dtype
             )
             x_padded = torch.cat([x, padding], dim=-1)
-            return x_padded + residual
+            return torch.nn.functional.normalize(x_padded + residual, p=2, dim=-1)
             
         # Защита от случая output_dim < input_dim (сжатие). 
-        return x[..., :self.out_dim] + residual
+        return torch.nn.functional.normalize(x[..., :self.out_dim] + residual, p=2, dim=-1)
 
 
 def plot_training_loss(loss_history, save_path=None):
@@ -153,35 +150,35 @@ def compare_models_and_visualize(
 
 
 def train_deep_fdmd(
-    config: ExperimentConfig, 
+    config, 
     trajectories: list[np.ndarray], 
     time: np.ndarray, 
     epochs: int = 50, 
     lr: float = 1e-3,
-    device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+    cur_tolerance: list = [0.1]  # Добавлен параметр толерантности для CUR (список, как ожидает класс)
 ):
     print(f"--- Начинаем обучение Deep fDMD на {device.upper()} ---")
-    
-    # 1. Разделение данных
     n_total = len(trajectories)
     n_basis = int(n_total * 0.6)
     n_val = int(n_total * 0.3)
     
-    basis_trajectories = trajectories[:n_basis]
+    raw_basis_trajectories = trajectories[:n_basis]
     val_trajectories = trajectories[n_basis:n_basis + n_val]
     test_trajectories = trajectories[n_basis + n_val:]
+
+    flattened_basis = np.array([traj.flatten() for traj in raw_basis_trajectories])
+    cur_decomposer = CURDecomposition(params={'tolerance': cur_tolerance, "rank": 10})
+
+    cur_decomposer.fit_transform(flattened_basis)
+    selected_indices = np.sort(cur_decomposer.row_indices)
+    basis_trajectories = [raw_basis_trajectories[i] for i in selected_indices]
     
-    # 2. Инициализация нейросети и пайплайна
+    print(f"[CUR Препроцессинг] Исходный размер базиса: {n_basis}")
+    print(f"[CUR Препроцессинг] Отобрано линейно независимых траекторий: {len(basis_trajectories)}")
+
     feature_extractor = DeepFeatureExtractor(input_dim=config.dim, dtype=torch.float64).to(device)
     kernel = DeepKernel(feature_extractor).to(device)
-
-    # Sanity Check
-    x_sample = torch.randn(1, config.dim, dtype=torch.float64).to(device)
-    y_sample = torch.randn(1, config.dim, dtype=torch.float64).to(device)
-    with torch.no_grad():
-        deep_k_val = kernel._compute_single_kernel(x_sample, y_sample)
-        rbf_k_val = torch.sum(x_sample * y_sample).item()
-        print(f"Sanity Check | Deep Kernel: {deep_k_val:.4f}, Baseline (Dot): {rbf_k_val:.4f}")
 
     optimizer = torch.optim.Adam(kernel.parameters(), lr=lr, weight_decay=1e-5)
     
@@ -197,8 +194,14 @@ def train_deep_fdmd(
         regularization=config.regularization,
         device=device
     )
+    # Sanity check для ядра на случайной паре точек из базиса
+    with torch.no_grad():
+        x_sample = torch.tensor(basis_trajectories[0][0], dtype=torch.float64, device=device)
+        y_sample = torch.tensor(basis_trajectories[1][0], dtype=torch.float64, device=device)
+        deep_k_val = kernel._compute_single_kernel(x_sample, y_sample)
+        rbf_k_val = torch.sum(x_sample * y_sample).item()
+        print(f"Sanity Check | Deep Kernel: {deep_k_val:.4f}, Baseline (Dot): {rbf_k_val:.4f}")
 
-    # Словарик для хранения всей истории метрик
     history = {
         "loss": [],
         "max_real_eig": [],
@@ -211,13 +214,10 @@ def train_deep_fdmd(
     
     for epoch in pbar:
         optimizer.zero_grad()
-        
-        # Шаг A: Собираем матрицы Лиувилля и Грама
         okhs.fit(basis_trajectories)
         liouville.fit()
         fdmd.fit()
-        
-        # Шаг B: Оценка на валидации
+
         epoch_loss = 0.0
         for val_traj in val_trajectories:
             initial_segment = val_traj[:config.initial_segment_length]
@@ -236,59 +236,49 @@ def train_deep_fdmd(
             epoch_loss += loss
             
         epoch_loss = epoch_loss / len(val_trajectories)
-        G = okhs.gram_matrix_
         
-        # Создаем маску, обнуляющую диагональ
+        # Diversity Loss вычисляется на матрице Грама размера (r x r), где r - размер отфильтрованного базиса
+        G = okhs.gram_matrix_
         I = torch.eye(G.shape[0], dtype=G.dtype, device=device)
         off_diagonal_mask = 1.0 - I
-        
-        # Считаем штраф: сумма квадратов всех элементов вне диагонали
         diversity_loss = torch.sum((G * off_diagonal_mask) ** 2) / (G.shape[0] * (G.shape[0] - 1))
         
-        # Добавляем к основному лоссу с коэффициентом (например, 1e-2 или 1e-3)
-        alpha_div = 1e-2
+        alpha_div = 150
+        print(f"Epoch {epoch+1}/{epochs} - Val MSE: {epoch_loss.item():.4e}, Diversity Loss: {diversity_loss.item():.4e}")
         total_loss = epoch_loss + alpha_div * diversity_loss
         
-        # Шаг C: Backpropagation от суммарного лосса
+        # Шаг C: Backpropagation
         total_loss.backward()
-
         torch.nn.utils.clip_grad_norm_(kernel.parameters(), max_norm=1.0)
         optimizer.step()
         
-        # --- БЛОК ТРЕКИНГА МЕТРИК ---
         with torch.no_grad():
-            # 1. Спектр (Максимальная действительная часть лямбды)
             eig_vals = liouville.eigenvalues_
             max_real_eig = torch.max(eig_vals.real).item()
-            
-            # 2. Обусловленность Грама
             cond_G = okhs.gram_condition_number_
             
-            # 3. Латентный дрейф (на примере первой валидационной траектории)
-            # Берем норму "остатка" (residual) сети, который и есть отклонение от тождественного отображения
             val_sample = torch.tensor(val_trajectories[0], dtype=torch.float64, device=device)
             residual = kernel.feature_extractor.net(val_sample)
             latent_drift = torch.mean(torch.norm(residual, dim=-1)).item()
-            
-            # 4. Норма мод
             max_mode_norm = torch.max(torch.norm(fdmd.modes_, dim=-1)).item()
             
-            # Сохраняем в историю
             history["loss"].append(epoch_loss.item())
             history["max_real_eig"].append(max_real_eig)
             history["cond_g"].append(cond_G)
             history["drift"].append(latent_drift)
             history["max_mode_norm"].append(max_mode_norm)
 
-            # Обновляем прогресс-бар и выводим лог
-            pbar.set_postfix({"Val MSE": f"{epoch_loss.item():.2e}", "Drift": f"{latent_drift:.4f}"})
+            pbar.set_postfix({"Val MSE": f"{epoch_loss.item():.2e}", "Cond(G)": f"{cond_G:.1e}"})
             
-            # Раскомментируй эту строку, если хочешь видеть подробный принт на каждой эпохе
-            # print(f"Ep {epoch+1:02d} | MSE: {epoch_loss.item():.2e} | Max Re(λ): {max_real_eig:+.2f} | Cond(G): {cond_G:.1e} | Drift: {latent_drift:.4f} | ||ξ||: {max_mode_norm:.1e}")
-        # ----------------------------
-
     print("Обучение завершено!")
-    
+    sample_idx = 0
+    init_seg = test_trajectories[sample_idx][:config.initial_segment_length]
+    predicted_traj = plot_forecast_diagnostics(
+        fdmd=fdmd,
+        initial_trajectory=init_seg,
+        t_span=time,
+        stability_threshold=0  # Порог отсечения нестабильных мод (Re(lambda) > threshold)
+    )
     return fdmd, test_trajectories, history
 
 
@@ -373,7 +363,7 @@ if __name__ == "__main__":
         name="Logistic: D^α y = r*y*(1-y)",
         q_true=0.8,
         dim=1,
-        n_train_traj=150, # Увеличим для нормального разделения (Basis/Val/Test)
+        n_train_traj=60, 
         n_steps_train=300,
         T_max_train=3.0,
         initial_segment_length=100,
@@ -385,7 +375,7 @@ if __name__ == "__main__":
         ic_high=0.9,
     )
     
-    # 1. Генерируем данные
+
     time, trajectories = generate_trajectories_pycaputo(
         rhs_logistic,
         (1.5,),
@@ -398,17 +388,14 @@ if __name__ == "__main__":
         ic_low=config.ic_low,
         ic_high=config.ic_high,
     )
-    
-    # 2. Запускаем обучение
     trained_deep_fdmd, test_traj, history = train_deep_fdmd(
         config=config, 
         trajectories=trajectories, 
         time=time, 
         epochs=10, 
-        lr=1e-5,
+        lr=1e-10,
     )
 
-    # 3. Построение графика Loss
     plot_training_loss(history["loss"])
     
     deep_kernel_module = trained_deep_fdmd.okhs.kernel
@@ -422,15 +409,14 @@ if __name__ == "__main__":
     print("\nОбучение Baseline (обычный RBF Kernel)...")
     n_basis = int(len(trajectories) * 0.6)
     basis_trajectories = trajectories[:n_basis]
-    
-    # Используем твою существующую функцию для сборки стандартного пайплайна
+
     from example_common import RBFKernel
 
     baseline_artifacts = fit_okhs_fdmd_pipeline(
         time=time,
         train_trajectories=basis_trajectories,
         q_true=config.q_true,
-        kernel=RBFKernel(gamma=1.0), # Фиксированное ядро без нейросети
+        kernel=RBFKernel(gamma=1.0), 
         n_quad_points=config.n_quad_points,
         regularization=config.regularization,
         device=torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
@@ -449,3 +435,7 @@ if __name__ == "__main__":
 
     # 3. Вывод дашборда
     plot_training_diagnostics(history)
+
+    print("Gram matrix:")
+    print(trained_deep_fdmd.okhs.gram_matrix_)
+    print(f"Condition Number of Gram Matrix: {trained_deep_fdmd.okhs.gram_condition_number_:.2e}")
